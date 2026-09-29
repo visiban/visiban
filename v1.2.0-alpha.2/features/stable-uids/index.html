@@ -3684,7 +3684,7 @@
 
 
 <h1 id="stable-uids">Stable UIDs<a class="headerlink" href="#stable-uids" title="Permanent link">&para;</a></h1>
-<p>Every board object — boards, columns, swimlanes, labels, and cards — carries a stable, globally unique identifier called a <strong>UID</strong>.</p>
+<p>Every board object — boards, columns, swimlanes, labels, cards, and custom field definitions — carries a stable, globally unique identifier called a <strong>UID</strong>. <strong>Why it matters:</strong> names change and numeric IDs go null on delete; a UID never does, so it's the safe key for external systems.</p>
 <h2 id="what-is-a-uid">What is a UID?<a class="headerlink" href="#what-is-a-uid" title="Permanent link">&para;</a></h2>
 <p>A UID is a 16-character lowercase hex string (64 bits of randomness), generated once when the object is created and never changed again. Example: <code>3a9f1c2d7e4b8a05</code>.</p>
 <p>UIDs are:</p>
@@ -3696,7 +3696,7 @@
 <li><strong>Permanent</strong> — once assigned, a UID is never reused, even after the object is deleted.</li>
 </ul>
 <h2 id="where-uids-appear">Where UIDs appear<a class="headerlink" href="#where-uids-appear" title="Permanent link">&para;</a></h2>
-<p>UIDs are included in all API responses that return the relevant object type.</p>
+<p>UIDs appear in every API response that returns the object type.</p>
 <table>
 <thead>
 <tr>
@@ -3731,6 +3731,11 @@
 <td><code>uid</code></td>
 <td>All card endpoints</td>
 </tr>
+<tr>
+<td>Custom field definition</td>
+<td><code>uid</code></td>
+<td><code>GET /api/v1/boards/{id}/custom-fields/</code>, <code>GET /api/v1/boards/{id}/swimlane-custom-fields/</code> — see <a href="../custom-fields/">Custom Fields</a></td>
+</tr>
 </tbody>
 </table>
 <h2 id="uids-in-movement-history">UIDs in movement history<a class="headerlink" href="#uids-in-movement-history" title="Permanent link">&para;</a></h2>
@@ -3761,10 +3766,10 @@
 </tr>
 </tbody>
 </table>
-<p>These values survive the deletion or renaming of the referenced column or swimlane. After a column is deleted, its <code>id</code> FK becomes <code>null</code> in the movement record, but the <code>_uid</code> field retains the original value. This makes UIDs the correct identifier to use when reconciling movement history against an external system.</p>
+<p>These values survive the deletion or renaming of the referenced column or swimlane. After a column is deleted, its <code>id</code> FK becomes <code>null</code> in the movement record, but the <code>_uid</code> field keeps the original value — the right identifier for reconciling movement history against an external system.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>If you are building an integration that tracks where cards have been, use the <code>*_uid</code> fields — not the <code>*_id</code> or <code>*_name</code> fields. Names change. IDs become null after deletion. UIDs are permanent.</p>
+<p>Building an integration that tracks where cards have been? Use the <code>*_uid</code> fields, not <code>*_id</code> or <code>*_name</code>. Names change. IDs go null after deletion. UIDs are permanent.</p>
 </div>
 <h2 id="using-uids-in-integrations">Using UIDs in integrations<a class="headerlink" href="#using-uids-in-integrations" title="Permanent link">&para;</a></h2>
 <h3 id="example-correlating-a-card-across-two-api-calls">Example: correlating a card across two API calls<a class="headerlink" href="#example-correlating-a-card-across-two-api-calls" title="Permanent link">&para;</a></h3>
@@ -3780,26 +3785,26 @@
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">to_col</span> <span class="o">=</span> <span class="n">col_by_uid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">mv</span><span class="p">[</span><span class="s2">"to_column_uid"</span><span class="p">],</span> <span class="sa">f</span><span class="s2">"&lt;deleted: </span><span class="si">{</span><span class="n">mv</span><span class="p">[</span><span class="s1">'to_column_uid'</span><span class="p">]</span><span class="si">}</span><span class="s2">&gt;"</span><span class="p">)</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Card moved to: </span><span class="si">{</span><span class="n">to_col</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">mv</span><span class="p">[</span><span class="s1">'moved_at'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
-<p>Because <code>to_column_uid</code> is stable, this lookup works correctly even if the column was renamed after the move.</p>
+<p>This lookup works even if the column was renamed after the move, because <code>to_column_uid</code> never changes.</p>
 <h3 id="example-webhook-deduplication">Example: webhook deduplication<a class="headerlink" href="#example-webhook-deduplication" title="Permanent link">&para;</a></h3>
-<p>If your webhook processor receives board update events, use the <code>uid</code> to deduplicate or update records without relying on the numeric <code>id</code>:</p>
+<p>Use <code>uid</code>, not the numeric <code>id</code>, to deduplicate or update records from webhook events:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">handle_card_event</span><span class="p">(</span><span class="n">payload</span><span class="p">):</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">uid</span> <span class="o">=</span> <span class="n">payload</span><span class="p">[</span><span class="s2">"card"</span><span class="p">][</span><span class="s2">"uid"</span><span class="p">]</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">record</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">upsert</span><span class="p">(</span><span class="s2">"cards"</span><span class="p">,</span> <span class="n">uid</span><span class="o">=</span><span class="n">uid</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">payload</span><span class="p">[</span><span class="s2">"card"</span><span class="p">][</span><span class="s2">"title"</span><span class="p">])</span>
 </code></pre></div>
-<p>Numeric <code>id</code> values are local to each Visiban installation. UIDs are the correct key to use when storing Visiban objects in an external system.</p>
+<p>Numeric <code>id</code> values are local to each installation. UIDs are the right key for storing Visiban objects in an external system.</p>
 <h2 id="uids-in-export-files">UIDs in export files<a class="headerlink" href="#uids-in-export-files" title="Permanent link">&para;</a></h2>
-<p>The JSON and CSV exports (<code>GET /api/v1/boards/{id}/export/</code>) serialize objects <strong>by name, not by UID</strong>. UIDs are not included in export files. This is intentional: the export format is designed for portability — columns and swimlanes are referenced by name so the file can be imported into a different board or a different Visiban installation without carrying over identifiers that are meaningless in the new context.</p>
+<p>The JSON and CSV exports (<code>GET /api/v1/boards/{id}/export/</code>) serialize objects <strong>by name, not by UID</strong> — UIDs aren't included at all. This is intentional: the export format is built for portability, so columns and swimlanes are referenced by name and the file can be imported into a different board or installation without carrying over identifiers meaningless in the new context.</p>
 <h2 id="uids-on-import">UIDs on import<a class="headerlink" href="#uids-on-import" title="Permanent link">&para;</a></h2>
-<p>When a board is imported via <code>POST /api/v1/boards/import/</code>, <strong>every object receives a brand new UID</strong> regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.</p>
+<p>Importing a board via <code>POST /api/v1/boards/import/</code> assigns <strong>every object a brand new UID</strong>, regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.</p>
 <ul>
 <li>If the source file was produced by the Visiban export endpoint, the original UIDs are not preserved — the imported board is a new entity with new identities.</li>
 <li>If the source file was hand-crafted (e.g. for automation testing or to match the import template spec), any <code>uid</code> field present in the JSON is silently ignored.</li>
 </ul>
-<p>This means you cannot use UIDs to correlate an imported board with its export source. If you need to track which records came from a specific import, use the board name or a naming convention, then delete those boards explicitly after use.</p>
+<p>You can't use UIDs to correlate an imported board with its export source. To track which records came from a specific import, use the board name or a naming convention, then delete those boards explicitly after use.</p>
 <div class="admonition warning">
 <p class="admonition-title">Imported test data is indistinguishable from real data</p>
-<p>Records created via import carry no provenance marker. An imported test card looks identical to a real card — same UID format, same <code>archived_at</code> behavior, same appearance in movement history. Clean up test imports explicitly; there is no automated way to find and remove them after the fact. See <a href="../../administration/demo-data/">Demo Data</a> for cleanup guidance.</p>
+<p>Records created via import carry no provenance marker. An imported test card looks identical to a real card — same UID format, same <code>archived_at</code> behavior, same appearance in movement history. Clean up test imports explicitly; there's no automated way to find and remove them after the fact. See <a href="../../administration/demo-data/">Demo Data</a> for cleanup guidance.</p>
 </div>
 <h2 id="api-response-examples">API response examples<a class="headerlink" href="#api-response-examples" title="Permanent link">&para;</a></h2>
 <h3 id="card-excerpt">Card (excerpt)<a class="headerlink" href="#card-excerpt" title="Permanent link">&para;</a></h3>

@@ -3737,11 +3737,12 @@
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
 <p>Groups organize boards and users into a hierarchy. A board can belong to one group; a group can have one parent group (unlimited nesting, traversal capped at 6 levels).</p>
+<p><strong>Why it matters:</strong> membership and shared settings inherit down the tree, so a manager can onboard a whole team by adding one group instead of every board.</p>
 <h2 id="group-description">Group description<a class="headerlink" href="#group-description" title="Permanent link">&para;</a></h2>
-<p>Each group has an optional <strong>description</strong> field — a short free-text summary of the group's purpose. The description appears on the group detail page and is inline-editable: click it to enter edit mode, then press <strong>Enter</strong> (or click outside) to save, or press <strong>Escape</strong> to cancel.</p>
+<p>Each group has an optional <strong>description</strong> field — a short free-text summary of the group's purpose. It appears on the group detail page and is inline-editable: click it to enter edit mode, then press <strong>Enter</strong> (or click outside) to save, or <strong>Escape</strong> to cancel.</p>
 <p>The description is returned as <code>description</code> in <code>GET /api/v1/groups/{id}/</code> and is writable via <code>PUT /api/v1/groups/{id}/</code> (group admin required).</p>
 <h2 id="ancestor-breadcrumb-chain">Ancestor breadcrumb chain<a class="headerlink" href="#ancestor-breadcrumb-chain" title="Permanent link">&para;</a></h2>
-<p>When viewing a group that has a parent, the group detail page shows a breadcrumb chain above the group name listing all ancestor groups from the root down to the immediate parent. Each ancestor is a clickable link. This makes it easy to orient yourself and navigate back up deep hierarchies.</p>
+<p>When viewing a group with a parent, the group detail page shows a breadcrumb chain above the group name, listing every ancestor from the root down to the immediate parent as a clickable link — useful for orienting yourself and navigating back up deep hierarchies.</p>
 <p>The full ancestor list is also available in the API: <code>GET /api/v1/groups/{id}/</code> returns an <code>ancestors</code> array (see <a href="../../api/groups/">Groups API</a>).</p>
 <h2 id="structure">Structure<a class="headerlink" href="#structure" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Acme Corp  (top-level group)
@@ -3778,7 +3779,7 @@
 </tr>
 </tbody>
 </table>
-<p>Membership is <strong>inherited</strong> — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants. You don't need to add users to each subgroup individually. See <a href="../rbac/inheritance/">Group Inheritance</a> for full details.</p>
+<p>Membership is <strong>inherited</strong> — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants, with no need to add users to each subgroup individually. See <a href="../rbac/inheritance/">Group Inheritance</a> for full details.</p>
 <h2 id="board-roles-vs-group-roles">Board roles vs group roles<a class="headerlink" href="#board-roles-vs-group-roles" title="Permanent link">&para;</a></h2>
 <p>All four roles — <code>admin</code>, <code>member</code>, <code>collaborator</code>, and <code>viewer</code> — are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can override a user's role on a specific board from the <strong>Members</strong> button in the board toolbar. See <a href="../rbac/roles/">Roles &amp; Permissions</a>.</p>
 <h2 id="boards-inside-groups">Boards inside groups<a class="headerlink" href="#boards-inside-groups" title="Permanent link">&para;</a></h2>
@@ -3789,7 +3790,7 @@
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Group admins can generate up to <strong>5 active invite links</strong> per group from the group detail page. Each link can be configured independently:</p>
+<p>Group admins can generate up to <strong>5 active invite links</strong> per group from the group detail page. Each link is configured independently:</p>
 <table>
 <thead>
 <tr>
@@ -3819,23 +3820,27 @@
 <blockquote>
 <p><strong>Added in 1.1</strong> — single-use invite links (#689)</p>
 </blockquote>
-<p>Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and cannot be used to join. Single-use links display a status badge and consumed-at timestamp in the invite links list after they have been used. Each link can be revoked independently — existing members are not affected.</p>
-<p>Unauthenticated visitors who open an invite link are shown a full authentication interface: a <strong>Create an account</strong> button (primary), a <strong>Sign in</strong> option, and social login buttons (Google / GitHub / GitLab) if those providers are configured. After authenticating, the invite is accepted automatically and the user is redirected to the group page with a confirmation banner.</p>
-<p>Authenticated users who open an invite link see a single <strong>Join &lt;group name&gt;</strong> button and are redirected to the group page immediately after joining. If the user is already a member they are silently redirected without re-joining.</p>
-<p>If the link is invalid or expired, a countdown timer is shown and the user is automatically redirected to the dashboard after 5 seconds — no manual action required.</p>
+<p>Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and can't be used to join. Used single-use links display a status badge and consumed-at timestamp in the invite links list. Each link can be revoked independently — existing members are not affected.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li><strong>Unauthenticated visitors</strong> see a full authentication interface: a <strong>Create an account</strong> button (primary), a <strong>Sign in</strong> option, and social login buttons (Google / GitHub / GitLab) where configured. After authenticating, the invite is accepted automatically and they land on the group page with a confirmation banner.</li>
+<li><strong>Authenticated users</strong> see a single <strong>Join &lt;group name&gt;</strong> button and are redirected to the group page right after joining. If already a member, they're silently redirected without re-joining.</li>
+<li><strong>Invalid or expired links</strong> show a countdown timer and auto-redirect to the dashboard after 5 seconds — no manual action needed.</li>
+</ul>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one <code>member</code> link for the team and one <code>viewer</code> link for stakeholders).</p>
 </div>
 <h2 id="moving-boards-between-groups">Moving boards between groups<a class="headerlink" href="#moving-boards-between-groups" title="Permanent link">&para;</a></h2>
-<p>Any board can be moved to a different group or back to personal boards. Use the <strong>Move to group</strong> option in the board settings (gear icon in the toolbar). Only board admins and site admins can move a board.</p>
+<p>Any board can move to a different group or back to personal boards, via <strong>Move to group</strong> in board settings (gear icon in the toolbar). Only board admins and site admins can move a board.</p>
 <p><strong>API:</strong> <code>POST /api/v1/boards/{id}/move-group/</code> with <code>{ "group_id": 5 }</code> or <code>{ "group_id": null }</code> for personal.</p>
 <h2 id="group-shared-labels">Group shared labels<a class="headerlink" href="#group-shared-labels" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Group admins can define a shared label library for the group. New boards created inside the group automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.</p>
-<p>Labels are managed from the <strong>Settings</strong> tab on the group detail page. Changes to a group label (rename, recolor) propagate to all boards that inherited it; deletions only remove the label from the group library — boards that already have the label keep it.</p>
+<p>Group admins can define a shared label library for the group. New boards created inside it automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.</p>
+<p>Manage labels from the <strong>Settings</strong> tab on the group detail page.</p>
+<p><strong>Watch out:</strong> inheritance is a one-time copy at board-creation time, not a live link. Renaming, recoloring, or deleting a group label only changes the group's shared library and future boards — boards that already inherited the label keep their own independent copy, unaffected by later edits or deletion.</p>
 <p><strong>API:</strong> <code>GET/POST /api/v1/groups/{id}/labels/</code>, <code>PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/</code></p>
 <h2 id="group-board-defaults">Group board defaults<a class="headerlink" href="#group-board-defaults" title="Permanent link">&para;</a></h2>
 <p>Group admins can configure defaults that apply to every new board created in the group:</p>
@@ -3853,15 +3858,15 @@
 </tr>
 <tr>
 <td><strong>Allowed priorities</strong></td>
-<td>Restricts which priority values are available on new boards. <code>null</code> (default) allows all priorities.</td>
+<td>Restricts which priority values are available on new boards. An empty list <code>[]</code> (default) allows all priorities.</td>
 </tr>
 </tbody>
 </table>
 <p>Board defaults are configured from the <strong>Settings</strong> tab on the group detail page.</p>
 <p><strong>API:</strong> <code>PATCH /api/v1/groups/{id}/board-defaults/</code></p>
 <h2 id="transferring-group-ownership">Transferring group ownership<a class="headerlink" href="#transferring-group-ownership" title="Permanent link">&para;</a></h2>
-<p>Only the <strong>current owner</strong> of a group can transfer ownership to another user. The recipient must already be a group <strong>admin</strong>. To confirm the transfer, type the group name exactly as shown.</p>
-<p>After transfer, the previous owner becomes a regular admin — they are not removed from the group.</p>
+<p>Only the <strong>current owner</strong> of a group can transfer ownership, and only to an existing group <strong>admin</strong>. Confirm the transfer by typing the group name exactly as shown.</p>
+<p>After transfer, the previous owner becomes a regular admin — not removed from the group.</p>
 <p><strong>API:</strong> <code>POST /api/v1/groups/{id}/transfer-ownership/</code> with <code>{ "new_owner_id": 42, "confirmation": "Group Name" }</code></p>
 <h2 id="starring-groups">Starring groups<a class="headerlink" href="#starring-groups" title="Permanent link">&para;</a></h2>
 <p>The star button (☆/★) in the group detail page header lets you mark frequently-visited groups as favorites. Starred groups appear in a <strong>Favorite Groups</strong> section at the top of the sidebar for quick access. The star updates optimistically and rolls back on failure.</p>
@@ -3869,7 +3874,7 @@
 <blockquote>
 <p><strong>Added in 1.1</strong></p>
 </blockquote>
-<p>The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time without a page refresh.</p>
+<p>The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time — no page refresh needed.</p>
 <p>The group page subscribes to a per-group WebSocket channel (<code>ws/groups/&lt;group_id&gt;/</code>) that emits the following events:</p>
 <table>
 <thead>
@@ -3895,7 +3900,7 @@
 </table>
 <p>A <strong>Live / Reconnecting… / Failed</strong> connection status indicator in the group page header mirrors the board-view indicator — it reflects the same five states and uses the same <code>ConnectionStatus</code> component. The "Refresh board" button in the popover re-fetches the board list from the API.</p>
 <h2 id="dashboard">Dashboard<a class="headerlink" href="#dashboard" title="Permanent link">&para;</a></h2>
-<p>The primary way to navigate between groups and boards is the persistent collapsible left sidebar, which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions.</p>
+<p>The persistent, collapsible left sidebar is the primary way to navigate between groups and boards — it shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.</p>
 <p>The <strong>+ New board</strong> and <strong>+ New group</strong> buttons in the sidebar footer open their respective creation dialogs immediately — no navigation required.</p>
 <h3 id="create-group-modal">Create Group modal<a class="headerlink" href="#create-group-modal" title="Permanent link">&para;</a></h3>
 <p>The <strong>Create Group</strong> modal has two fields:</p>
@@ -3917,8 +3922,8 @@
 </tr>
 </tbody>
 </table>
-<p>After creating a group or subgroup, the modal transitions to a <strong>post-creation state</strong> where you can immediately add subgroups without navigating away. Type a subgroup name, click <strong>+ Add</strong> (or press Enter), and repeat as needed. Each subgroup is created instantly. Click <strong>Done</strong> when finished.</p>
-<p>This flow works at every level of the hierarchy — you can create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.</p>
+<p>After creating a group or subgroup, the modal switches to a <strong>post-creation state</strong> where you can add subgroups immediately, without navigating away: type a name, click <strong>+ Add</strong> (or press Enter), and repeat. Each subgroup is created instantly. Click <strong>Done</strong> when finished.</p>
+<p>This flow works at every level of the hierarchy — create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.</p>
 
 
 

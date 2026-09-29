@@ -3830,6 +3830,7 @@
 
 
 <h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
+<p>Get Visiban running locally with Docker Compose, or follow the production steps below for a self-hosted deployment with TLS, environment configuration, and backups.</p>
 <h2 id="hardware-requirements">Hardware requirements<a class="headerlink" href="#hardware-requirements" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4138,7 +4139,7 @@
 <tr>
 <td><code>DJANGO_ADMIN_ALLOWED_IPS</code></td>
 <td style="text-align: center;">No</td>
-<td>Comma-separated list of IP addresses (or CIDR blocks) allowed to access <code>/admin/</code>. In production the default is loopback only (<code>127.0.0.1</code>, <code>::1</code>). Set this to your management network range if you need non-loopback access. Also documented in <a href="../../administration/secret-rotation/">Secret Rotation</a>.</td>
+<td>Comma-separated list of exact IP addresses allowed to access <code>/admin/</code> (CIDR ranges are not matched). In production the default is loopback only (<code>127.0.0.1</code>, <code>::1</code>); setting this <strong>replaces</strong> that default, so include <code>127.0.0.1,::1</code> if you still need loopback access. Also documented in <a href="../../administration/secret-rotation/">Secret Rotation</a>.</td>
 </tr>
 <tr>
 <td><code>OIDC_CLIENT_ID</code></td>
@@ -4205,7 +4206,7 @@
 <p>A Helm chart is included for Kubernetes deployments. See <a href="../../architecture/deployment/#kubernetes-helm">Deployment — Kubernetes / Helm</a> for install instructions, configuration values, and upgrade steps.</p>
 <h2 id="production-deployment">Production Deployment<a class="headerlink" href="#production-deployment" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p><strong>Tested:</strong> The production Docker Compose stack has been verified end-to-end. If you encounter issues, please open an issue.</p>
+<p><strong>Tested:</strong> The production Docker Compose stack has been verified end-to-end. If you encounter issues, open an issue.</p>
 </blockquote>
 <h3 id="tls-modes">TLS modes<a class="headerlink" href="#tls-modes" title="Permanent link">&para;</a></h3>
 <p>The production stack supports three TLS modes, controlled by the <code>TLS_MODE</code> environment variable:</p>
@@ -4309,7 +4310,7 @@ does not notice that the bind-mounted config file changed.</p>
 </tr>
 <tr>
 <td><strong>Frontend build</strong></td>
-<td><code>npm run build</code> runs once at startup and outputs static files to a shared volume</td>
+<td>The release image's pre-built SPA (compiled at image-build time) is copied into a shared volume at startup</td>
 </tr>
 <tr>
 <td><strong>Certbot</strong></td>

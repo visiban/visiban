@@ -3642,13 +3642,14 @@
 
 
 <h1 id="nightly-load-test">Nightly load test<a class="headerlink" href="#nightly-load-test" title="Permanent link">&para;</a></h1>
-<p>A query-count guard is not a latency guard. <code>perf-check</code> (static N+1 review) and <code>perf-bench</code>
-(query counts on demand) both measure query <em>count</em> — a regression from a missing index, a
-data-volume change, or a query-plan flip can leave the query count and query text identical
-while making the same queries slower. Neither of those gates can see that class of regression.
-This page describes the job that can: a nightly, schedule-only CI job (<code>nightly-load-test</code> in
-<code>.gitlab-ci.yml</code>) that measures real wall-clock p50/p95/p99 latency against a large seeded
-fixture and fails the pipeline if any covered endpoint exceeds its committed budget.</p>
+<p><code>nightly-load-test</code> is a nightly, schedule-only CI job (<code>.gitlab-ci.yml</code>) that measures real
+wall-clock p50/p95/p99 latency against a large seeded fixture and fails the pipeline if any
+covered endpoint exceeds its committed budget.</p>
+<p><strong>Why it matters:</strong> a query-count guard is not a latency guard. <code>perf-check</code> (static N+1
+review) and <code>perf-bench</code> (query counts on demand) both measure query <em>count</em> — a regression
+from a missing index, a data-volume change, or a query-plan flip can leave the query count
+and query text identical while making the same queries slower. Neither of those gates can
+see that class of regression; this job can.</p>
 <div class="admonition info">
 <p class="admonition-title">Where this came from</p>
 <p>Filed as #1082 from a TruePPM audit finding: a real p95 regression (<code>GET /tasks/</code> at
@@ -3728,13 +3729,15 @@ a scoped, non-admin Personal Access Token for <code>demo2</code> and writes it t
 in the job or the script — this follows the same "no hardcoded credentials" rule as every other
 backend job in <code>.gitlab-ci.yml</code>.</p>
 <h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>scripts/nightly_load_test.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python3<span class="w"> </span>scripts/nightly_load_test.py<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span>--base-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>--token-file<span class="w"> </span>/tmp/visiban_load_test_token<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span>--budget-file<span class="w"> </span>backend/nightly-load-test-baseline.json<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>--iterations<span class="w"> </span><span class="m">40</span><span class="w"> </span>--warmup<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span>--output<span class="w"> </span>nightly-load-test-results.json
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span>--board-name<span class="w"> </span><span class="s2">"Visiban Load Test Board"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>--budget-file<span class="w"> </span>backend/nightly-load-test-baseline.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span>--iterations<span class="w"> </span><span class="m">40</span><span class="w"> </span>--warmup<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span>--output<span class="w"> </span>nightly-load-test-results.json
 </code></pre></div>
+<p>Every flag shown is also the script's default — this is what the CI job effectively runs.</p>
 <p>For each endpoint: 5 warmup requests (discarded), then 40 timed requests. Percentiles use
 nearest-rank (no interpolation), so every reported number was an actually-observed latency, not
 a synthetic average of two samples. The job fails (<code>sys.exit(1)</code>) if any endpoint's measured p95

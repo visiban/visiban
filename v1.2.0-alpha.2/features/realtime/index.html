@@ -1276,89 +1276,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Event types">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#board-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Board events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#member-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Member events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#card-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Card events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#card-archive-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Card archive events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#column-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Column events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#swimlane-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Swimlane events
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#label-events" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Label events
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -1455,6 +1372,17 @@
     <span class="md-ellipsis">
       
         Tab-focus reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resuming-after-a-dropped-connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resuming after a dropped connection
       
     </span>
   </a>
@@ -3793,10 +3721,11 @@
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <ol>
 <li>When a user opens a board, the frontend opens a WebSocket connection to <code>ws://{host}/ws/boards/{board_id}/</code></li>
-<li>The server authenticates the connection using the session cookie; unauthenticated connections are closed with code <code>4001</code></li>
+<li>The browser SPA authenticates with the session cookie; unauthenticated connections are closed with code <code>4001</code>, and connections from a non-member are closed with <code>4003</code></li>
 <li>Any mutation — card, column, swimlane, label, member, or board setting change — broadcasts an event to all clients subscribed to that board's channel group</li>
 <li>The frontend applies the event to local state, keeping all open tabs in sync without a page refresh</li>
 </ol>
+<p>Native, CLI, and agent clients have no cookie jar to send, so they authenticate with a short-lived <strong>ticket</strong> (since 1.2) obtained over the REST API instead — see <a href="../../api/websockets/#ticket-authentication-since-12">WebSocket API → Ticket authentication</a> for the full flow.</p>
 <h2 id="connection-status">Connection status<a class="headerlink" href="#connection-status" title="Permanent link">&para;</a></h2>
 <p>The top-right corner of the board toolbar shows the connection state via the <strong>ConnectionStatus</strong> component. When healthy the indicator is intentionally quiet; it becomes prominent only when there is a problem:</p>
 <ul>
@@ -3804,219 +3733,49 @@
 <li>🟡 <strong>Reconnecting…</strong> — connection dropped; client is retrying automatically; amber pill with label always shown</li>
 <li>🟡 <strong>Stale</strong> — connected but no event has arrived in over 60 seconds; amber pill indicates the feed may be lagging</li>
 <li>🟡 <strong>Connecting…</strong> — initial connection attempt in progress; amber pill</li>
-<li>🔴 <strong>Failed</strong> — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect</li>
+<li>🔴 <strong>Offline</strong> — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect</li>
 </ul>
-<p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Failed</strong>.</p>
+<p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Offline</strong>.</p>
 <h2 id="event-types">Event types<a class="headerlink" href="#event-types" title="Permanent link">&para;</a></h2>
-<h3 id="board-events">Board events<a class="headerlink" href="#board-events" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Trigger</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>board.updated</code></td>
-<td>Board settings changed, share token toggled, or board moved between groups</td>
-</tr>
-<tr>
-<td><code>board.deleted</code></td>
-<td>Board deleted</td>
-</tr>
-<tr>
-<td><code>board.star_changed</code></td>
-<td>Board starred or unstarred by any member (added in 1.1)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="member-events">Member events<a class="headerlink" href="#member-events" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Trigger</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>member.added</code></td>
-<td>User added to the board</td>
-</tr>
-<tr>
-<td><code>member.updated</code></td>
-<td>Member's role changed</td>
-</tr>
-<tr>
-<td><code>member.removed</code></td>
-<td>Member removed from the board</td>
-</tr>
-</tbody>
-</table>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>When a <code>member.removed</code> event targets the current user, the server automatically closes that user's WebSocket connection. The client does not need to handle this explicitly — the connection indicator will switch to <strong>Offline</strong> and the user will no longer receive events for the board.</p>
-</div>
-<h3 id="card-events">Card events<a class="headerlink" href="#card-events" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Trigger</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>card.created</code></td>
-<td>Card added to the board</td>
-</tr>
-<tr>
-<td><code>card.updated</code></td>
-<td>Card field changed (title, priority, assignee, etc.)</td>
-</tr>
-<tr>
-<td><code>card.moved</code></td>
-<td>Card dragged to a new column or swimlane</td>
-</tr>
-<tr>
-<td><code>card.deleted</code></td>
-<td>Card deleted</td>
-</tr>
-</tbody>
-</table>
-<h3 id="card-archive-events">Card archive events<a class="headerlink" href="#card-archive-events" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Trigger</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>card.archived</code></td>
-<td>Card archived via the Archive action</td>
-</tr>
-<tr>
-<td><code>card.unarchived</code></td>
-<td>Card restored from the archived panel</td>
-</tr>
-</tbody>
-</table>
-<p><code>card.archived</code> payload — contains only the card UID (not the full card object):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.archived"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"card_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
-</code></pre></div>
-<p><code>card.unarchived</code> payload — contains the full serialized card so the frontend can restore it to the board without an additional API call:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.unarchived"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"archived_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
-</code></pre></div>
-<h3 id="column-events">Column events<a class="headerlink" href="#column-events" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Trigger</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>column.created</code></td>
-<td>Column added to the board</td>
-</tr>
-<tr>
-<td><code>column.updated</code></td>
-<td>Column renamed, recolored, or limits changed</td>
-</tr>
-<tr>
-<td><code>column.deleted</code></td>
-<td>Column deleted</td>
-</tr>
-<tr>
-<td><code>column.reordered</code></td>
-<td>Columns reordered by an admin (since 1.1)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="swimlane-events">Swimlane events<a class="headerlink" href="#swimlane-events" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Trigger</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>swimlane.created</code></td>
-<td>Swimlane added to the board</td>
-</tr>
-<tr>
-<td><code>swimlane.updated</code></td>
-<td>Swimlane renamed, recolored, or collapsed state changed</td>
-</tr>
-<tr>
-<td><code>swimlane.deleted</code></td>
-<td>Swimlane deleted</td>
-</tr>
-<tr>
-<td><code>swimlane.reordered</code></td>
-<td>Swimlanes reordered by an admin (since 1.1)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="label-events">Label events<a class="headerlink" href="#label-events" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Trigger</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>label.created</code></td>
-<td>Label added to the board</td>
-</tr>
-<tr>
-<td><code>label.updated</code></td>
-<td>Label renamed or recolored</td>
-</tr>
-<tr>
-<td><code>label.deleted</code></td>
-<td>Label deleted</td>
-</tr>
-</tbody>
-</table>
+<p>Board-channel events fall into a few categories:</p>
+<ul>
+<li><strong>Board</strong> — settings changes, deletion, and per-user star toggles</li>
+<li><strong>Members</strong> — added, role changed, or removed (removing the current user also closes their connection)</li>
+<li><strong>Cards</strong> — created, field changes, moves between columns/swimlanes, deletion, archive, and restore</li>
+<li><strong>Columns, swimlanes, and labels</strong> — created, updated, deleted, and (for columns and swimlanes) reordered</li>
+<li><strong>Feature-specific families</strong> riding the same board channel: saved-filter events (see <a href="../saved-filters/">Saved Filters</a>), custom field and swimlane field events (see <a href="../custom-fields/#api-and-real-time-events">Custom Fields</a>), and — when <a href="../issue-board-lens/">Issue Board Lens</a> is enabled — Git Lens connection events</li>
+</ul>
+<p>For the complete, canonical event list, trigger conditions, and <code>data</code> shape for every event, see <strong><a href="../../api/websockets/#event-reference">WebSocket API — Event reference</a></strong> — that table is CI-enforced against the backend event registry and frontend handlers, so it cannot drift the way a second hand-maintained copy would.</p>
 <h2 id="event-payload-structure">Event payload structure<a class="headerlink" href="#event-payload-structure" title="Permanent link">&para;</a></h2>
 <p>Every WebSocket message has this envelope:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">}</span>
 </code></pre></div>
 <ul>
 <li><strong><code>event</code></strong> — the event type string (e.g. <code>card.created</code>, <code>card.moved</code>)</li>
 <li><strong><code>data</code></strong> — the serialized payload; contents depend on the event type</li>
 </ul>
 <p>For most events, <code>data</code> is the full serialized object. Deletion and archive-removal events include only the ID:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"card_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"card_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"column.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c1d2e3f4a5b67890"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"column.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c1d2e3f4a5b67890"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"swimlane.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"swimlane_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s9f8e7d6c5b4a321"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"swimlane.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"swimlane_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s9f8e7d6c5b4a321"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"label.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"label_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"l1a2b3c4d5e6f780"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"label.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"label_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"l1a2b3c4d5e6f780"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"board.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"board_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bd_1a2b3c4d5e6f7890"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"board.deleted"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"board_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bd_1a2b3c4d5e6f7890"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><code>board_uid</code> (added in 1.1, #696) is the stable identifier for a deleted board, matching every other terminal <code>*.deleted</code> event. A plain board deletion carries <code>board_uid</code> only. The single exception is a board <strong>moved out of a group</strong>: the <code>board.deleted</code> emitted on the <em>old</em> group's channel additionally carries <code>"board_id": &lt;int&gt;</code> so clients keyed by integer id can drop the row without a re-fetch.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member.removed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"user_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member.removed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"user_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <h3 id="reorder-payloads">Reorder payloads<a class="headerlink" href="#reorder-payloads" title="Permanent link">&para;</a></h3>
 <p>The reorder events include the full list of objects in their new order. The server emits the singular, canonical event names:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"column.reordered"</span><span class="p">,</span><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"column.reordered"</span><span class="p">,</span><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"swimlane.reordered"</span><span class="p">,</span><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"swimlane.reordered"</span><span class="p">,</span><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -4024,20 +3783,20 @@
 </div>
 <h3 id="cardmoved-payload"><code>card.moved</code> payload<a class="headerlink" href="#cardmoved-payload" title="Permanent link">&para;</a></h3>
 <p>The <code>card.moved</code> event includes both the updated card and the movement record — the same shape returned by <code>POST /api/v1/boards/{id}/cards/{id}/move/</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="p">,</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">"movement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">      </span><span class="nt">"from_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"from_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"To Do"</span><span class="p">,</span><span class="w"> </span><span class="nt">"from_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60718"</span><span class="p">,</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">      </span><span class="nt">"to_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">   </span><span class="nt">"to_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w">  </span><span class="nt">"to_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9f8e7d6c5b4a3210"</span><span class="p">,</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">      </span><span class="nt">"moved_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">      </span><span class="nt">"moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-15T09:41:22Z"</span><span class="p">,</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">      </span><span class="nt">"notes"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">"movement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="nt">"from_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"from_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"To Do"</span><span class="p">,</span><span class="w"> </span><span class="nt">"from_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60718"</span><span class="p">,</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="nt">"to_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">   </span><span class="nt">"to_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w">  </span><span class="nt">"to_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9f8e7d6c5b4a3210"</span><span class="p">,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="nt">"moved_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">      </span><span class="nt">"moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-15T09:41:22Z"</span><span class="p">,</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">      </span><span class="nt">"notes"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="p">}</span>
 </code></pre></div>
 <p><code>movement</code> is <code>null</code> if only the position changed within the same column/swimlane cell (pure reorder — no column or swimlane change occurred).</p>
 <h2 id="group-real-time-events">Group real-time events<a class="headerlink" href="#group-real-time-events" title="Permanent link">&para;</a></h2>
@@ -4047,31 +3806,8 @@
 <p>In addition to the per-board channel, Visiban exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).</p>
 <p><strong>Connection URL:</strong> <code>ws://{host}/ws/groups/{group_id}/</code></p>
 <p><strong>Authentication:</strong> same as the board channel — session cookie required. Unauthenticated connections are closed with code <code>4001</code>; connections from users without group membership are closed with code <code>4003</code>. No retry is attempted for either code.</p>
-<p><strong>Events emitted on this channel:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Trigger</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>board.created</code></td>
-<td>A new board is created inside this group</td>
-</tr>
-<tr>
-<td><code>board.updated</code></td>
-<td>A board in this group has its name, settings, or group changed</td>
-</tr>
-<tr>
-<td><code>board.deleted</code></td>
-<td>A board in this group is deleted</td>
-</tr>
-</tbody>
-</table>
-<p>Each event payload follows the standard <code>{"event": "...", "data": {...}}</code> envelope. <code>board.deleted</code> carries <code>{"board_uid": "..."}</code>; when the board was <strong>moved out</strong> of this group (rather than deleted outright) the payload additionally carries <code>"board_id": N</code> so clients keyed by integer id can drop the row without a re-fetch. <code>board.created</code> and <code>board.updated</code> include the full board summary object.</p>
-<p>The group channel does not emit card-level events — those remain on the per-board channel.</p>
+<p><strong>What it streams:</strong> board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes, and invite link revocations. Each payload follows the standard <code>{"event": "...", "data": {...}}</code> envelope. The group channel does not emit card-level events — those remain on the per-board channel.</p>
+<p>For the complete, canonical event list and <code>data</code> shape for every event, see <strong><a href="../../api/websockets/#group-channel-since-11">WebSocket API — Group channel</a></strong>.</p>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <p>Real-time updates require a Valkey instance (the Redis-compatible, BSD-licensed fork). Visiban uses two separate connections:</p>
 <table>
@@ -4104,14 +3840,14 @@
 <p>Valkey is included in the default <code>docker-compose.yml</code> — no extra setup needed.</p>
 <h3 id="production-helm">Production / Helm<a class="headerlink" href="#production-helm" title="Permanent link">&para;</a></h3>
 <p>Set <code>REDIS_URL</code> to your Valkey DSN, or use the bundled Valkey: the chart's own StatefulSet on the official, pinned <code>valkey/valkey:8-alpine</code> image (see <a href="../../getting-started/kubernetes/#bundled-valkey">Bundled Valkey</a>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">valkey</span><span class="p">:</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">valkey</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
 <p>To use an external Valkey (or Redis-compatible) instance:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">valkey</span><span class="p">:</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nt">externalRedis</span><span class="p">:</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://my-valkey-host:6379/0"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">valkey</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nt">externalRedis</span><span class="p">:</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://my-valkey-host:6379/0"</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -4120,6 +3856,17 @@
 <h2 id="tab-focus-reconciliation">Tab-focus reconciliation<a class="headerlink" href="#tab-focus-reconciliation" title="Permanent link">&para;</a></h2>
 <p>When a browser tab is backgrounded, the operating system may throttle or suspend JavaScript timers and WebSocket connections. Events broadcast while the tab is inactive can be lost, causing the board state to drift.</p>
 <p>To guard against this, Visiban automatically re-fetches the full board state when a tab returns to the foreground (<code>visibilitychange</code> event). A 30-second throttle prevents redundant fetches when the user rapidly switches between tabs. The reload is "silent" — it does not flash a loading skeleton.</p>
+<h2 id="resuming-after-a-dropped-connection">Resuming after a dropped connection<a class="headerlink" href="#resuming-after-a-dropped-connection" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer that lives outside the browser — a second front end, a sync job, the MCP server's REST client — can instead replay exactly what it missed:</p>
+<ul>
+<li>Every event the board channel broadcasts is durably persisted in the same transaction as the mutation it describes, and each WebSocket frame carries the matching <code>event_id</code>.</li>
+<li><code>GET /api/v1/boards/{id}/events/?after=&lt;event_id&gt;</code> returns the missed events in order, so a consumer can catch up without re-fetching the whole board.</li>
+<li>Events are retained for <code>BOARD_EVENT_RETENTION_DAYS</code> days (default 30); a cursor older than that gets <code>410 Gone</code> with a re-sync hint instead of silently skipping events.</li>
+</ul>
+<p>See <a href="../../api/events/">Board Change Feed API</a> for the full reference.</p>
 <h2 id="optimistic-concurrency-control">Optimistic concurrency control<a class="headerlink" href="#optimistic-concurrency-control" title="Permanent link">&para;</a></h2>
 <p>Card moves use optimistic concurrency control (OCC) to prevent lost updates. Every card carries a <code>version</code> number that increments on every mutation (move, field update). When the frontend sends a move request, it includes the card's current <code>version</code>. If another user modified the card in the meantime, the server returns <code>409 Conflict</code> with a <code>version_conflict</code> error code, and the frontend refreshes the board automatically.</p>
 <p>The version check is backward-compatible: clients that omit the <code>version</code> field bypass the OCC check entirely.</p>

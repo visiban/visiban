@@ -3731,11 +3731,12 @@
 
 
 <h1 id="issue-board-lens-api">Issue Board Lens API<a class="headerlink" href="#issue-board-lens-api" title="Permanent link">&para;</a></h1>
+<p>Issue Board Lens surfaces GitHub or GitLab issues directly inside a Visiban board, pivoted by column and swimlane dimensions.</p>
 <div class="admonition warning">
 <p class="admonition-title">Experimental feature</p>
-<p>Issue Board Lens is an <strong>experimental</strong> feature. It is read-only, supports <strong>public repositories only</strong>, and is subject to change without a deprecation notice until it leaves experimental status.</p>
+<p>Read-only, <strong>public repositories only</strong>, and subject to change without a deprecation notice until it leaves experimental status.</p>
 </div>
-<p>Issue Board Lens surfaces GitHub or GitLab issues directly inside a Visiban board, pivoted by column and swimlane dimensions. The feature is flag-gated: all endpoints below return <code>404 Not Found</code> unless the server is started with <code>GIT_LENS_ENABLED=true</code>.</p>
+<p>The feature is flag-gated: all endpoints below return <code>404 Not Found</code> unless the server is started with <code>GIT_LENS_ENABLED=true</code>.</p>
 <p>All endpoints require authentication (<code>Authorization: Token &lt;value&gt;</code>). Unauthenticated requests receive <code>403 Forbidden</code>.</p>
 <hr />
 <h2 id="object-reference">Object reference<a class="headerlink" href="#object-reference" title="Permanent link">&para;</a></h2>

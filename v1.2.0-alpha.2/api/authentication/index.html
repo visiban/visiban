@@ -4416,7 +4416,7 @@
 </tr>
 <tr>
 <td><code>429 Too Many Requests</code></td>
-<td>Per-user rate limit exceeded — back off rather than retrying immediately</td>
+<td>Per-user rate limit exceeded (60/minute in production) — back off rather than retrying immediately</td>
 </tr>
 </tbody>
 </table>
@@ -4540,7 +4540,7 @@
 <hr />
 <h2 id="user-search">User search<a class="headerlink" href="#user-search" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1userssearchquery"><code>GET /api/v1/users/?search=&lt;query&gt;</code><a class="headerlink" href="#get-apiv1userssearchquery" title="Permanent link">&para;</a></h3>
-<p>Search users by display name, username, or first name. Requires authentication. Used internally for @mention autocomplete and the member invite typeahead.</p>
+<p>Search users by display name, username, or first name. Requires authentication. Excludes the requesting user from results. Used internally for @mention autocomplete and the member invite typeahead.</p>
 <blockquote>
 <p><strong>Note:</strong> Email is intentionally excluded from the search criteria. Filtering on email without returning it would allow any authenticated caller to silently confirm whether a given email address exists on the instance. Search is limited to username, display name, and first name only.</p>
 </blockquote>
@@ -4763,6 +4763,10 @@ account during the uniqueness enforcement migration.</p>
 <li>On success, <code>must_change_username</code> is cleared</li>
 </ul>
 <p><strong>Response</strong> <code>200 OK</code> with the updated user object on success; <code>400 Bad Request</code> with <code>detail</code> on failure.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This endpoint's response uses the base user serializer, not <code>CurrentUserSerializer</code> — it omits <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, and the other instance-config fields documented under <a href="#user-profile">User profile</a> below. Re-fetch <code>GET /api/v1/auth/me/</code> if you need those.</p>
+</div>
 <p><strong>Error codes</strong> — the <code>403</code> response when <code>must_change_username</code> blocks a
 normal endpoint includes <code>"code": "must_change_username"</code> so API/PAT clients
 can detect the condition and call this endpoint programmatically.</p>
@@ -5106,23 +5110,15 @@ actually bootstraps from) returns the identical shape — both are served by
 <tbody>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td><code>invite_token</code> is missing when the instance is in <code>invite_only</code> mode</td>
+<td><code>invite_token</code> is missing when the instance is in <code>invite_only</code> mode (<code>code: "invite_missing"</code>)</td>
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td><code>invite_token</code> does not match any known link</td>
+<td><code>invite_token</code> does not match any known link, has been revoked, or has already been used (single-use links) — all three return the identical <code>code: "invite_invalid"</code>, <code>"Invalid or expired invite link."</code>, by design, so a caller cannot use the error to distinguish a wrong token from a spent one</td>
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td>The invite link has expired</td>
-</tr>
-<tr>
-<td><code>400 Bad Request</code></td>
-<td>The invite link has been revoked</td>
-</tr>
-<tr>
-<td><code>400 Bad Request</code></td>
-<td>The invite link has already been used (single-use links)</td>
+<td>The invite link has expired (<code>code: "invite_expired"</code>, <code>"This invite link has expired."</code>) — the only invite-token failure with its own distinct code</td>
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>

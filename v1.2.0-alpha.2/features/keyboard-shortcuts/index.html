@@ -3620,10 +3620,11 @@
 <blockquote>
 <p><strong>Added in 1.1</strong></p>
 </blockquote>
-<p>Visiban ships with a keyboard-first control scheme so power users can drive the board without moving their hands from the home row. Shortcuts are platform-aware: on macOS they render as glyphs (⌘, ⇧, ⌥) and on Linux / Windows they render as named chords (<code>Ctrl</code>, <code>Shift</code>, <code>Alt</code>).</p>
-<p>You can open the shortcuts overlay from any board at any time by pressing <code>?</code>, or from the avatar menu → <strong>Keyboard shortcuts</strong>.</p>
+<p>Visiban ships with a keyboard-first control scheme so power users can drive the board without moving their hands from the home row. <strong>Why it matters:</strong> for someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.</p>
+<p>Shortcuts are platform-aware: macOS renders them as glyphs (⌘, ⇧, ⌥); Linux / Windows renders them as named chords (<code>Ctrl</code>, <code>Shift</code>, <code>Alt</code>).</p>
+<p>Open the shortcuts overlay from any board by pressing <code>?</code>, or from the avatar menu → <strong>Keyboard shortcuts</strong>.</p>
 <h2 id="safety-rule-shortcuts-never-fire-while-typing">Safety rule — shortcuts never fire while typing<a class="headerlink" href="#safety-rule-shortcuts-never-fire-while-typing" title="Permanent link">&para;</a></h2>
-<p>Single-letter shortcuts are suppressed whenever the focused element is an input, textarea, select, or rich-text editor. You can type <code>b</code> in the search box without switching to the Board view, and <code>y</code> in a card description without toggling the archived panel. Modifier chords (⌘K, ⌘\) fire everywhere because the modifier makes the intent unambiguous.</p>
+<p>Single-letter shortcuts are suppressed whenever the focused element is an input, textarea, select, or rich-text editor. Type <code>b</code> in the search box without switching to the Board view, or <code>y</code> in a card description without toggling the archived panel. Modifier chords (⌘K, ⌘\) fire everywhere, because the modifier makes the intent unambiguous.</p>
 <h2 id="navigation-works-on-every-authenticated-page">Navigation — works on every authenticated page<a class="headerlink" href="#navigation-works-on-every-authenticated-page" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3645,10 +3646,15 @@
 <td><kbd>⌘,</kbd> / <kbd>Ctrl+,</kbd></td>
 <td>Open board settings (admins only)</td>
 </tr>
+<tr>
+<td><kbd>G</kbd> then <kbd>U</kbd></td>
+<td>Open the user menu</td>
+</tr>
 </tbody>
 </table>
 <p>The command palette is the single cross-route entry point: type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the current surface — on a board it searches cards; on the Dashboard it jumps to a board; on Settings / Admin it lists navigation targets.</p>
-<p>When you open the palette with an empty query, the default board list starts with your starred boards (alphabetical) and is rounded out by your most recent visits, so a blank <code>⌘K</code> → <code>Enter</code> jumps straight into the workspace you care about most.</p>
+<p>Open the palette with an empty query and the default board list starts with your starred boards (alphabetical), rounded out by your most recent visits — a blank <code>⌘K</code> → <code>Enter</code> jumps straight into the workspace you care about most.</p>
+<p><code>G</code> then <code>U</code> is a chord, not a combo: press and release <code>G</code>, then press <code>U</code> within one second, to open the <a href="../navigation/">user menu</a> from anywhere in the authenticated app.</p>
 <h2 id="board-view-switch-the-active-sub-tab">Board view — switch the active sub-tab<a class="headerlink" href="#board-view-switch-the-active-sub-tab" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3673,6 +3679,10 @@
 <tr>
 <td><kbd>A</kbd></td>
 <td>Switch to <strong>Analytics</strong> view</td>
+</tr>
+<tr>
+<td><kbd>L</kbd></td>
+<td>Switch to the <a href="../issue-board-lens/">Issue Board Lens</a> view (only when a lens is configured on the board)</td>
 </tr>
 </tbody>
 </table>
@@ -3712,7 +3722,7 @@
 </tr>
 <tr>
 <td><kbd>⌘⇧E</kbd> / <kbd>Ctrl+Shift+E</kbd></td>
-<td>Export the board (members and above)</td>
+<td>Export the board (if your role meets the board's <a href="../permissions/#permission-matrix">export threshold</a>)</td>
 </tr>
 <tr>
 <td><kbd>.</kbd></td>
@@ -3728,8 +3738,8 @@
 </tr>
 </tbody>
 </table>
-<p><code>E</code> mirrors the toolbar's split-button primary action: if anything is expanded it collapses everything, otherwise it expands everything. The menu on the split button still offers granular "Hide all swimlanes / columns" options.</p>
-<p><code>F</code> and <code>⌘⇧L</code> / <code>Ctrl+Shift+L</code> also work on the <a href="../issue-board-lens/">Issue Board Lens</a> tab — the lens shares the board's toolbar, and picks up the filter-row and card-layout shortcuts along with it.</p>
+<p><code>E</code> mirrors the toolbar's split-button primary action: if anything is expanded, it collapses everything; otherwise it expands everything. The split button's menu still offers granular "Hide all swimlanes / columns" options.</p>
+<p><code>F</code> and <code>⌘⇧L</code> / <code>Ctrl+Shift+L</code> also work on the <a href="../issue-board-lens/">Issue Board Lens</a> tab, since the lens shares the board's toolbar and its filter-row and card-layout shortcuts.</p>
 <h2 id="help">Help<a class="headerlink" href="#help" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3750,7 +3760,7 @@
 </tbody>
 </table>
 <h2 id="accessibility">Accessibility<a class="headerlink" href="#accessibility" title="Permanent link">&para;</a></h2>
-<p>Every toolbar affordance that responds to a single-key or single-modifier shortcut carries an <code>aria-keyshortcuts</code> attribute so screen readers announce the binding when the control gains focus. Two-modifier chords (like <kbd>⌘⇧L</kbd>) stay in this overlay and the tooltip only — exposing every chord via ARIA would overwhelm assistive technology without adding value.</p>
+<p>Every toolbar affordance with a single-key or single-modifier shortcut carries an <code>aria-keyshortcuts</code> attribute, so screen readers announce the binding when the control gains focus. Two-modifier chords (like <kbd>⌘⇧L</kbd>) stay in this overlay and the tooltip only — exposing every chord via ARIA would overwhelm assistive technology without adding value.</p>
 
 
 

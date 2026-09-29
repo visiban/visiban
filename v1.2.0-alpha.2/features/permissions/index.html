@@ -3606,7 +3606,8 @@
 
 
 <h1 id="board-role-permissions">Board Role Permissions<a class="headerlink" href="#board-role-permissions" title="Permanent link">&para;</a></h1>
-<p>Visiban uses four board-level roles to control what each member can do on a board. Site admins are a separate designation covered at the end of this page.</p>
+<p>Visiban uses four board-level roles to control what each member can do on a board. Site admins are a separate designation, covered at the end of this page. <strong>Why it matters:</strong> getting a role wrong either blocks a contributor from doing their job or gives a reviewer write access they shouldn't have.</p>
+<p>This page is the detailed board-action reference. For how the same roles work at the group level, how group membership cascades down to boards, and how to assign roles, see <a href="../rbac/">Roles &amp; Access Control</a>.</p>
 <h2 id="the-four-board-roles">The four board roles<a class="headerlink" href="#the-four-board-roles" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3682,6 +3683,13 @@
 <td style="text-align: center;">✓</td>
 </tr>
 <tr>
+<td>Export analytics CSV</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
 <td><strong>Cards</strong></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
@@ -3731,6 +3739,13 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
+<td>Link / unlink related cards</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
 <td><strong>Collaboration</strong></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
@@ -3773,17 +3788,17 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Check / uncheck checklist items</td>
+<td>Edit / check / uncheck checklist items‡</td>
 <td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
+<td style="text-align: center;">Own†</td>
+<td style="text-align: center;">Own</td>
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Delete checklist items</td>
+<td>Delete checklist items‡</td>
 <td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">Own‡</td>
+<td style="text-align: center;">Own†</td>
+<td style="text-align: center;">Own</td>
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
@@ -3872,33 +3887,34 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Own†</strong> Members can only perform this action on content they created (cards they own, comments/attachments they uploaded). Members with the <strong>moderator</strong> entitlement — and admins — can perform it on any content.</p>
-<p><strong>Own‡</strong> Collaborators can only delete checklist items they created. Admins and members (with moderator entitlement) may delete any item. Added in 1.1.</p>
-<p><strong>Mod†</strong> This action requires the <strong>moderator</strong> entitlement or Admin role. Plain members who did not create the card cannot perform it, even on cards assigned to them. See <a href="#moderator-entitlement">Moderator entitlement</a> below.</p>
-<p><strong>Move†</strong> Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card that is assigned to another member and that the moving user did not create requires the <strong>moderator</strong> entitlement or Admin role. When blocked, the card snaps back to its original position and an amber toast displays: "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."</p>
+<p><strong>Own†</strong> Members can perform this action only on content they created (cards they own, comments/attachments/checklist items they added). Members with the <strong>moderator</strong> entitlement — and admins — can perform it on any content.</p>
+<p><strong>Own</strong> (no dagger) Collaborators can perform this action only on content they created. Collaborators can't hold the moderator entitlement, so this restriction is unconditional for them.</p>
+<p><strong>‡</strong> The ownership gate on editing, checking/unchecking, and deleting checklist items was added in 1.1 (<a href="https://gitlab.com/visiban/visiban/-/issues/692">#692</a>) — before that release, any member or collaborator could act on any item.</p>
+<p><strong>Mod†</strong> Requires the <strong>moderator</strong> entitlement or Admin role. Plain members who didn't create the card can't perform it, even on cards assigned to them. See <a href="#moderator-entitlement">Moderator entitlement</a> below.</p>
+<p><strong>Move†</strong> Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member, that the moving user didn't create, requires the <strong>moderator</strong> entitlement or Admin role. When blocked, the card snaps back to its original position and an amber toast displays: "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."</p>
 <div class="admonition note">
 <p class="admonition-title">Card move permission rule</p>
-<p>A Member can always move a card if it is unassigned, assigned to themselves, or if they created the card. The restriction applies only when moving a card that is assigned to a different user and that the member did not create. In that case, Moderator or Admin access is required.</p>
+<p>A Member can always move a card if it's unassigned, assigned to themselves, or if they created it. The restriction applies only when moving a card assigned to a different user that the member didn't create — that requires Moderator or Admin access.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Viewer boundary enforced since 1.0</p>
-<p>Prior to the 1.0 release, the Viewer role was not fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. This was corrected in <a href="https://gitlab.com/visiban/visiban/-/issues/248">#248</a>: all write operations now return <code>403 Forbidden</code> for Viewers.</p>
+<p>Before 1.0, the Viewer role wasn't fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. Corrected in <a href="https://gitlab.com/visiban/visiban/-/issues/248">#248</a>: all write operations now return <code>403 Forbidden</code> for Viewers.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Board export default and per-board threshold</p>
-<p>By default, any board member (including Viewers and Collaborators) can export the full CSV or JSON dump. A role that can read every card via the paginated API can already reconstruct the board, so an unrestricted default is consistent. This policy was re-affirmed in <a href="https://gitlab.com/visiban/visiban/-/issues/800">#800</a>. Board admins can restrict exports to a higher minimum role using the <code>export_min_role</code> board setting (added in 1.1, <a href="https://gitlab.com/visiban/visiban/-/issues/807">#807</a>) — set it to <code>member</code>, <code>collaborator</code>, or any other level; Owners and site admins always bypass the threshold. Every successful export is recorded in the board's export history (added in 1.1, <a href="https://gitlab.com/visiban/visiban/-/issues/806">#806</a>) and is visible to board admins under <strong>Board Settings → Export History</strong>.</p>
+<p>By default, any board member (including Viewers and Collaborators) can export the full CSV or JSON dump — a role that can already read every card via the paginated API can reconstruct the board, so an unrestricted default is consistent. Re-affirmed in <a href="https://gitlab.com/visiban/visiban/-/issues/800">#800</a>. Board admins can restrict exports to a higher minimum role using the <code>export_min_role</code> board setting (added in 1.1, <a href="https://gitlab.com/visiban/visiban/-/issues/807">#807</a>) — set it to <code>member</code>, <code>collaborator</code>, or any other level; Owners and site admins always bypass the threshold. Every successful export is recorded in the board's export history (added in 1.1, <a href="https://gitlab.com/visiban/visiban/-/issues/806">#806</a>), visible to board admins under <strong>Board Settings → Export History</strong>.</p>
 </div>
 <h2 id="how-to-set-roles">How to set roles<a class="headerlink" href="#how-to-set-roles" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Open the board and click the <strong>Settings</strong> button (gear icon) in the toolbar.</li>
 <li>Go to the <strong>Members</strong> tab.</li>
-<li>To add a new member: type their username or email in the invite field, choose a role from the dropdown, and click <strong>Invite</strong>.</li>
-<li>To change an existing member's role: click the role badge next to their name and select a new role.</li>
+<li>To add a member: type their username or email in the invite field, choose a role, and click <strong>Invite</strong>.</li>
+<li>To change a member's role: click the role badge next to their name and select a new one.</li>
 <li>To remove a member: click the trash icon next to their name.</li>
 </ol>
-<p>Only board Admins (and site admins) can perform these actions.</p>
+<p>Only board Admins (and site admins) can do this.</p>
 <h2 id="moderator-entitlement">Moderator entitlement<a class="headerlink" href="#moderator-entitlement" title="Permanent link">&para;</a></h2>
-<p>The <strong>moderator</strong> entitlement lets an admin delegate content-moderation rights to a specific member without granting them full admin access. A moderator can:</p>
+<p>The <strong>moderator</strong> entitlement lets an admin delegate content-moderation rights to a specific member without granting full admin access. A moderator can:</p>
 <ul>
 <li><strong>Assign</strong> cards created by other users to any board member</li>
 <li><strong>Edit</strong> cards created by other users</li>
@@ -3909,12 +3925,12 @@
 <p>Without the moderator flag, members can only assign and edit cards they created, delete/archive cards they created, and delete comments they authored.</p>
 <div class="admonition note">
 <p class="admonition-title">Assignee dropdown gating</p>
-<p>The assignee field in the card detail panel is disabled for members who do not have moderator (or admin) access and did not create the card. A tooltip explains why the field is locked. If a non-moderator member reaches the assignment API endpoint directly, the server returns <code>403 Forbidden</code> with the message: "Assigning cards requires Moderator or Admin access — ask a board admin."</p>
+<p>The assignee field in the card detail panel is disabled for members without moderator (or admin) access who didn't create the card. A tooltip explains why it's locked. If a non-moderator member reaches the assignment API endpoint directly, the server returns <code>403 Forbidden</code> with the message: "Assigning cards requires Moderator or Admin access — ask a board admin."</p>
 </div>
-<p>To grant moderator rights, open Board Settings → Members and check the <strong>Moderator</strong> checkbox next to the member's name. Only admins can toggle this setting. The moderator checkbox is only available for members and admins — collaborators and viewers cannot be designated as moderators.</p>
+<p>To grant moderator rights, open Board Settings → Members and check the <strong>Moderator</strong> checkbox next to the member's name. Only admins can toggle this. The checkbox is only available for members and admins — collaborators and viewers can't be designated as moderators.</p>
 <div class="admonition note">
 <p class="admonition-title">Moderator is an entitlement, not a role</p>
-<p>Moderator is a boolean flag on the membership, not a fifth role. A member with moderator rights still appears as "Member" in the role dropdown. Demoting a moderator to collaborator or viewer automatically revokes the moderator flag.</p>
+<p>Moderator is a boolean flag on the membership, not a fifth role. A member with moderator rights still appears as "Member" in the role dropdown. Demoting a moderator to collaborator or viewer automatically revokes the flag.</p>
 </div>
 <h2 id="site-admin-and-content-access">Site admin and content access<a class="headerlink" href="#site-admin-and-content-access" title="Permanent link">&para;</a></h2>
 <p>Visiban tracks two independent flags on the User model:</p>
@@ -3937,11 +3953,12 @@
 </tbody>
 </table>
 <p>When a user with <code>can_access_all_content</code> accesses a board, the permission system treats them as a site-level admin role — they can view and modify any board without an explicit membership.</p>
-<p>A user who is <code>is_site_admin=True</code> but <code>can_access_all_content=False</code> can manage the admin panel (users, settings, instance configuration) but <strong>cannot</strong> see boards they are not a member of. This separation lets operators grant admin panel access without granting board omniscience.</p>
+<p>A user who is <code>is_site_admin=True</code> but <code>can_access_all_content=False</code> can manage the admin panel (users, settings, instance configuration) but <strong>cannot</strong> see boards they aren't a member of. This separation lets operators grant admin panel access without granting board omniscience.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>The <code>set_site_admin</code> management command sets <strong>both</strong> flags together for convenience. To manage them independently, use the admin panel. See <a href="../../administration/site-admins/">Site Admins</a> for details.</p>
 </div>
+<p>A board admin cannot change the role of, or remove, a member with <code>is_site_admin=True</code> unless the admin is also a site admin — see <a href="../rbac/roles/#site-admin-protection">Roles &amp; Permissions — Site admin protection</a>.</p>
 
 
 

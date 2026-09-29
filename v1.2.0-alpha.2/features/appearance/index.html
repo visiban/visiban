@@ -3637,7 +3637,7 @@
 <blockquote>
 <p><strong>Added in 1.1</strong></p>
 </blockquote>
-<p>Visiban supports a per-user appearance preference with three options:</p>
+<p>Visiban offers a per-user appearance preference with three options.</p>
 <table>
 <thead>
 <tr>
@@ -3668,9 +3668,9 @@
 <li>Under <strong>Theme</strong>, choose one of the three options.</li>
 <li>The change takes effect immediately — no page reload.</li>
 </ol>
-<p>Your choice is remembered across logins. It syncs instantly to any other tab open in the same browser, and to your other browsers and devices the next time each one loads or reloads Visiban — there is no live push between already-open sessions on different devices.</p>
+<p>Your choice is remembered across logins and syncs instantly to any other tab in the same browser. It reaches your other browsers and devices the next time each one loads or reloads Visiban — there's no live push between already-open sessions on different devices.</p>
 <h2 id="system-auto-option">System (auto) option<a class="headerlink" href="#system-auto-option" title="Permanent link">&para;</a></h2>
-<p>The <strong>System</strong> option follows your operating system's appearance preference via the standard <code>prefers-color-scheme</code> signal. When your OS switches modes (e.g. a scheduled night-shift on macOS), Visiban picks it up without a page reload.</p>
+<p><strong>System</strong> follows your operating system's appearance preference via the standard <code>prefers-color-scheme</code> signal. When your OS switches modes (e.g. a scheduled night-shift on macOS), Visiban picks it up without a page reload.</p>
 <h3 id="macos">macOS<a class="headerlink" href="#macos" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Open <strong>System Settings → Appearance</strong>.</li>
@@ -3690,8 +3690,8 @@
 </ol>
 <p>Other desktop environments (KDE Plasma, XFCE, Cinnamon) expose the same <code>prefers-color-scheme</code> signal through their respective appearance settings; check your desktop's documentation for details.</p>
 <h2 id="light-palette-availability">Light palette availability<a class="headerlink" href="#light-palette-availability" title="Permanent link">&para;</a></h2>
-<p>The <strong>Light</strong> option is available by default in every Visiban installation.</p>
-<p>Administrators who wish to hide the Light option — for example, on an install-specific fork that has not adopted the light palette — can set the build-time environment variable <code>VITE_THEME_LIGHT_ENABLED=false</code> when building the frontend image. The <strong>System</strong> and <strong>Dark</strong> options are always available regardless.</p>
+<p><strong>Light</strong> is available by default in every Visiban installation.</p>
+<p>Administrators who want to hide it — for example, on an install-specific fork that hasn't adopted the light palette — can set the build-time environment variable <code>VITE_THEME_LIGHT_ENABLED=false</code> when building the frontend image. <strong>System</strong> and <strong>Dark</strong> are always available regardless.</p>
 <h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
 <p>A custom color scheme option is under discussion in <a href="https://gitlab.com/visiban/visiban/-/issues/251">#251</a>, with no committed timing.</p>
 

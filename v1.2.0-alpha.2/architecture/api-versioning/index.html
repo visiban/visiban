@@ -3603,6 +3603,7 @@
 
 
 <h1 id="api-versioning">API Versioning<a class="headerlink" href="#api-versioning" title="Permanent link">&para;</a></h1>
+<p>Visiban's REST API is a public contract from 1.0 onward: this page is the backward-compatibility policy that binds every change to it.</p>
 <h2 id="url-path-versioning-apiv1">URL path versioning — <code>/api/v1/</code><a class="headerlink" href="#url-path-versioning-apiv1" title="Permanent link">&para;</a></h2>
 <p>All Visiban API endpoints are served under the <code>/api/v1/</code> prefix (e.g. <code>/api/v1/boards/</code>, <code>/api/v1/auth/login/</code>). This is implemented using DRF's <code>URLPathVersioning</code> with <code>DEFAULT_VERSION = "v1"</code> and <code>ALLOWED_VERSIONS = ["v1"]</code>.</p>
 <p>Requests to an unsupported version (e.g. <code>/api/v2/</code>) receive <code>406 Not Acceptable</code>.</p>

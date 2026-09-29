@@ -3798,7 +3798,9 @@
 
 
 <h1 id="admin-api">Admin API<a class="headerlink" href="#admin-api" title="Permanent link">&para;</a></h1>
-<p>All endpoints in this section require <strong>site admin</strong> authentication. Non-admin users receive <code>403 Forbidden</code>.</p>
+<p>Site-wide settings, the action log, email configuration, maintenance mode, users, and invite
+links — administrative endpoints, restricted to site admins.</p>
+<p>All endpoints below require <strong>site admin</strong> authentication; non-admin users receive <code>403 Forbidden</code>.</p>
 <p>See <a href="../../administration/admin-panel/">Admin Panel</a> for the equivalent UI and <a href="../../administration/site-admins/">Site Admins</a> for first-boot setup.</p>
 <p>The Issue Board Lens has its own admin-only usage endpoint, documented separately: see
 <a href="../git-lens/#admin-usage">Issue Board Lens API → Admin usage</a>.</p>
@@ -4549,10 +4551,12 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
 <a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="nt">"is_active"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="nt">"is_site_admin"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">"must_change_password"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">"date_joined"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-11-02T08:00:00Z"</span><span class="p">,</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">"owned_boards"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="p">}</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">"can_access_all_content"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">"has_completed_tour"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">"must_change_password"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">  </span><span class="nt">"date_joined"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-11-02T08:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">  </span><span class="nt">"owned_boards"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="p">}</span>
 </code></pre></div>
 <p>After a successful deactivation with transfers, <code>owned_boards</code> will be <code>[]</code> — all boards have been transferred to their new owners.</p>
 <p><strong>Errors</strong></p>

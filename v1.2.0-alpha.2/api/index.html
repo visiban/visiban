@@ -3536,12 +3536,28 @@
 <td>Site settings, the instance-admin action log, users, and invite links — site admin only</td>
 </tr>
 <tr>
+<td><a href="git-lens/">Issue Board Lens API</a></td>
+<td>Read-only mirror of GitLab/GitHub issues and MRs onto a board, plus derived-pipeline columns — experimental</td>
+</tr>
+<tr>
+<td><a href="mcp/">MCP Server</a></td>
+<td>Model Context Protocol tools for AI agents to read and write boards</td>
+</tr>
+<tr>
+<td><a href="websockets/">WebSockets</a></td>
+<td>Full event reference and the ticket-authentication flow for the <a href="#websocket-api">WebSocket API</a> below</td>
+</tr>
+<tr>
 <td><a href="events/">Change Feed</a></td>
 <td>Durable, resumable feed of board mutations — replay what you missed with a cursor instead of re-fetching (since 1.2)</td>
 </tr>
 <tr>
 <td><a href="health/">Health Checks</a></td>
 <td>Liveness and readiness probes for K8s / uptime monitoring</td>
+</tr>
+<tr>
+<td><a href="version/">Version API</a></td>
+<td>Running server version string</td>
 </tr>
 <tr>
 <td><a href="openapi/">OpenAPI Spec</a></td>
@@ -3645,6 +3661,13 @@ MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_
 <tbody>
 <tr>
 <td><code>GET /boards/</code></td>
+<td><code>group</code></td>
+<td><code>?expand=group</code></td>
+<td><code>group_detail: null</code></td>
+<td><code>group_detail: { id, name, parent, parent_name, ancestors }</code></td>
+</tr>
+<tr>
+<td><code>GET /boards/&lt;id&gt;/</code></td>
 <td><code>group</code></td>
 <td><code>?expand=group</code></td>
 <td><code>group_detail: null</code></td>

@@ -3325,10 +3325,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-2-watch-the-migrate-job" class="md-nav__link">
+  <a href="#step-2-watch-the-rollouts-migrate-init-containers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2 — Watch the migrate Job
+        Step 2 — Watch the rollout's migrate init containers
       
     </span>
   </a>
@@ -3386,10 +3386,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-migrate-job-failed-2-step-1" class="md-nav__link">
+  <a href="#a-new-pods-migrate-init-container-failed-2-step-12" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The migrate Job failed (§2 Step 1)
+        A new pod's migrate init container failed (§2 Step 1–2)
       
     </span>
   </a>
@@ -3689,9 +3689,9 @@ replica. If you run Visiban with Docker Compose on a single host, follow the
 instead — that path already applies while the old container keeps serving traffic
 during migration, but there is no second replica to roll traffic across.</p>
 </div>
-<p>This page walks through a <strong>1.x → 1.(x+1) minor or patch</strong> upgrade of a multi-replica Helm
-deployment with no downtime window: pre-flight checks, the rolling deploy itself, and how to
-roll back if something goes wrong mid-rollout. It assumes the install path in
+<p>Roll a <strong>1.x → 1.(x+1) minor or patch</strong> upgrade across a multi-replica Helm deployment with no
+downtime window: pre-flight checks, the rolling deploy itself, and how to roll back if
+something goes wrong mid-rollout. It assumes the install path in
 <a href="../../getting-started/kubernetes/">Kubernetes (Helm)</a> and a <code>backendReplicaCount</code> of 2 or
 more (the <code>values-prod.yaml</code> overlay default).</p>
 <p><strong>Out of scope:</strong> major version upgrades (<code>1.x → 2.0</code>) — those are covered per-release in the
@@ -3777,27 +3777,43 @@ name throughout.</p>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>v1.2.0<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.2.0
 </code></pre></div>
-<p>Two things happen automatically, in order, before any backend pod is touched:</p>
-<ol>
-<li>The <strong>migrate Job</strong> runs as a Helm <code>pre-upgrade</code> hook
-   (<code>helm/visiban/templates/migrate-job.yaml</code>) and must complete before Helm proceeds. Only
-   this one Job runs <code>manage.py migrate</code> — the backend Deployment's own init containers only
-   run <code>collectstatic</code> and <code>ensure_site_admin</code>, so replicas never race each other to apply
-   migrations. If the Job fails, Helm aborts the release and <strong>no backend or frontend pod is
-   touched</strong> — the previous version keeps serving traffic untouched. See §4 if this happens.</li>
-<li>Once the migrate Job succeeds, Helm applies the updated <code>Deployment</code> manifests for
-   <code>backend</code> and <code>frontend</code>, which starts a standard Kubernetes rolling update.</li>
-</ol>
-<p>Because the schema after step 1 is safe for both the old and new backend code to read (that's
-the whole point of the <a href="../upgrade/#zero-downtime-migration-rules">zero-downtime migration rules</a>),
-old pods keep serving correctly for as long as step 2 takes to finish.</p>
-<h3 id="step-2-watch-the-migrate-job">Step 2 — Watch the migrate Job<a class="headerlink" href="#step-2-watch-the-migrate-job" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>migrate
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>job/visiban-migrate
+<p>Migrations run as a <strong><code>migrate</code> init container on the backend <code>Deployment</code> itself</strong> — not a
+separate Helm hook Job. (An earlier chart version used a <code>pre-install</code>/<code>pre-upgrade</code> hook Job;
+that broke a fresh <code>helm install</code>, where the hook ran before the bundled PostgreSQL Service
+existed. See <a href="../upgrade/#upgrading-to-12x">Upgrading to 1.2.x</a> if you're coming from a chart
+version old enough to have used it.) Each new pod the rolling update creates — one per replica,
+in sequence — runs three init containers in order before its <code>backend</code> container starts:
+<code>migrate</code>, <code>collectstatic</code>, then <code>bootstrap</code>.</p>
+<p>Because <code>backendReplicaCount</code> can be more than 1, more than one new pod's <code>migrate</code> init
+container can start around the same time. <code>manage.py migrate_with_lock</code> (not a plain
+<code>manage.py migrate</code>) is what keeps that safe: it takes a session-scoped PostgreSQL advisory
+lock before migrating. The first replica to acquire it runs the real migration; every other
+replica blocks on the lock and, once it acquires it, runs <code>migrate</code> again — a no-op, since
+<code>django_migrations</code> already records what the winner applied. No pod's <code>backend</code> container ever
+starts against a schema that's still being changed.</p>
+<p>Two tunables, both in seconds: <code>backend.migrate.connectTimeout</code> (default <code>300</code>) bounds how
+long a pod waits for the database to accept a connection at all — generous, since on a fresh
+install PostgreSQL may still be starting. <code>backend.migrate.lockTimeout</code> (default <code>900</code>) bounds
+how long a replica waits for another replica's in-flight migration to finish before giving up.
+Raise <code>lockTimeout</code> if your largest migration (an index build on <code>cards</code>, for example) can
+plausibly run longer than 15 minutes.</p>
+<p>Because the schema each <code>migrate</code> run leaves behind is safe for both the old and new backend
+code to read (that's the whole point of the
+<a href="../upgrade/#zero-downtime-migration-rules">zero-downtime migration rules</a>), old pods keep
+serving correctly the entire time new pods are migrating and starting.</p>
+<h3 id="step-2-watch-the-rollouts-migrate-init-containers">Step 2 — Watch the rollout's migrate init containers<a class="headerlink" href="#step-2-watch-the-rollouts-migrate-init-containers" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>&lt;new-pod-name&gt;<span class="w"> </span>-c<span class="w"> </span>migrate
 </code></pre></div>
-<p>Confirm it exited <code>0</code> before assuming the rollout is progressing — <code>helm upgrade</code> returns as
-soon as the hook Job and the Deployment update are both <em>applied</em>, not once pods are actually
-<code>Ready</code>, so a slow terminal doesn't mean anything is wrong yet.</p>
+<p>A pod stuck at <code>Init:0/3</code> (or showing the <code>migrate</code> container as <code>Running</code> well past the time a
+normal migration takes) is either still waiting out <code>connectTimeout</code> for the database, or
+waiting on <code>lockTimeout</code> for another replica's migration — the log line tells you which
+(<code>migrate_with_lock: another replica is migrating — waiting for it to finish</code> vs. still
+retrying the database connection).</p>
+<p><strong>Watch out:</strong> unlike a hook Job, there is no separate "migration step" Helm blocks on before
+touching the Deployment. <code>helm upgrade</code> returns once the updated <code>Deployment</code> manifest is
+<em>applied</em>, not once any pod — let alone the migration inside it — is actually <code>Ready</code>. The
+terminal returning promptly is not itself a signal that migrations finished.</p>
 <h3 id="step-3-verify-a-partial-rollout-before-letting-it-finish">Step 3 — Verify a partial rollout before letting it finish<a class="headerlink" href="#step-3-verify-a-partial-rollout-before-letting-it-finish" title="Permanent link">&para;</a></h3>
 <p>The backend <code>Deployment</code> has no custom <code>strategy:</code>, so it uses Kubernetes' default
 <code>RollingUpdate</code> (<code>maxUnavailable: 25%</code>, <code>maxSurge: 25%</code>) — at <code>backendReplicaCount: 2</code> that
@@ -3868,13 +3884,19 @@ where the concern is the schema change itself rather than concurrent writes.</p>
 </div>
 <hr />
 <h2 id="4-rollback">4. Rollback<a class="headerlink" href="#4-rollback" title="Permanent link">&para;</a></h2>
-<h3 id="the-migrate-job-failed-2-step-1">The migrate Job failed (§2 Step 1)<a class="headerlink" href="#the-migrate-job-failed-2-step-1" title="Permanent link">&para;</a></h3>
-<p>Nothing was touched — the previous <code>Deployment</code> revision is still running and still serving
-traffic, since the hook Job runs and must succeed before Helm applies the new Deployment spec.
-Read the Job's logs (<code>kubectl logs -n visiban job/visiban-migrate</code>), fix the underlying cause,
-and re-run <code>helm upgrade</code> — the Job is recreated fresh on every attempt
-(<code>hook-delete-policy: before-hook-creation</code>), so a failed previous attempt doesn't block a
-retry.</p>
+<h3 id="a-new-pods-migrate-init-container-failed-2-step-12">A new pod's <code>migrate</code> init container failed (§2 Step 1–2)<a class="headerlink" href="#a-new-pods-migrate-init-container-failed-2-step-12" title="Permanent link">&para;</a></h3>
+<p>Traffic is unaffected — old pods are untouched by a new pod's init container failing, since
+Kubernetes never routes Service traffic to a pod whose init containers haven't all succeeded.
+The rollout stalls with the new pod stuck in <code>Init:Error</code> or <code>CrashLoopBackOff</code>, and
+<code>kubectl rollout status</code> will not return until you intervene — there's no separate hook Job for
+Helm to report as failed, so <code>helm upgrade</code> itself will have already returned successfully.</p>
+<p>Read the failed container's logs and fix the underlying cause:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>&lt;new-pod-name&gt;<span class="w"> </span>-c<span class="w"> </span>migrate
+</code></pre></div>
+<p>Then either delete the stuck pod (the Deployment recreates it, and it retries <code>migrate</code> from
+scratch) or roll back per below. A <code>CommandError</code> naming a lock or connection timeout, rather
+than a Django migration error, means it never got to your schema change at all — see
+<code>backend/boards/management/commands/migrate_with_lock.py</code> for what each message means.</p>
 <p>If the migration itself was mid-way through an irreversible operation when it failed (rare,
 since Visiban's rules keep every 1.x migration additive), see
 <a href="../upgrade/#rollback-guidance">Rollback guidance</a> in the main upgrade page for which
@@ -3884,19 +3906,21 @@ require restoring the backup taken in checklist step 4.</p>
 <p>The schema is already forward-compatible with the old code — that's what made the rolling
 upgrade safe to start — so reverting the <em>Deployment</em> is enough; there is no matching
 migration rollback to perform.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>undo<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>undo<span class="w"> </span>deployment/visiban-frontend<span class="w"> </span>-n<span class="w"> </span>visiban
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>undo<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>undo<span class="w"> </span>deployment/visiban-frontend<span class="w"> </span>-n<span class="w"> </span>visiban
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
 </code></pre></div>
 <p>If you paused the rollout (§2 Step 3) and are aborting rather than resuming, undo first —
 <code>rollout undo</code> works on a paused rollout and un-pauses it as part of reverting.</p>
 <p>For a full return to the previous release, including Helm's own record of values used:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>helm<span class="w"> </span><span class="nb">history</span><span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>helm<span class="w"> </span>rollback<span class="w"> </span>visiban<span class="w"> </span>&lt;previous-revision&gt;<span class="w"> </span>--namespace<span class="w"> </span>visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>helm<span class="w"> </span><span class="nb">history</span><span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>helm<span class="w"> </span>rollback<span class="w"> </span>visiban<span class="w"> </span>&lt;previous-revision&gt;<span class="w"> </span>--namespace<span class="w"> </span>visiban
 </code></pre></div>
-<p><code>helm rollback</code> does <strong>not</strong> re-run the migrate Job — the schema stays at whatever the failed
-upgrade left it at, which is safe precisely because that schema was built to be readable by
-both versions. It only reverts the Deployment/ConfigMap/Secret objects to their prior values.</p>
+<p><code>helm rollback</code> recreates backend pods on the previous image, so their <code>migrate</code> init
+containers run <code>manage.py migrate_with_lock</code> again — a no-op, since the schema is already at
+whatever the failed upgrade left it at. That's safe precisely because that schema was built to
+be readable by both versions; <code>helm rollback</code> does not and cannot revert a schema change
+itself, only the Deployment/ConfigMap/Secret objects.</p>
 <hr />
 <h2 id="related-pages">Related pages<a class="headerlink" href="#related-pages" title="Permanent link">&para;</a></h2>
 <ul>

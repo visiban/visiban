@@ -3598,14 +3598,14 @@
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Site admins can enable or disable specific features across the entire instance from the admin panel. Toggling a feature does not delete or alter any existing data — it only gates access to that functionality going forward.</p>
+<p>Site admins can enable or disable specific features across the entire instance from the admin panel. Toggling a feature never deletes or alters existing data — it only gates access to that functionality going forward.</p>
 <h2 id="managing-toggles">Managing toggles<a class="headerlink" href="#managing-toggles" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Go to <code>/admin</code> (accessible via the <strong>Site Admin</strong> link in the sidebar).</li>
 <li>Click the <strong>Settings</strong> tab.</li>
 <li>Find the feature under the <strong>Features</strong> section and flip the toggle.</li>
 </ol>
-<p>Changes take effect within approximately 60 seconds due to server-side caching. No restart is required.</p>
+<p>Changes take effect within about 60 seconds due to server-side caching. No restart needed.</p>
 <h2 id="available-toggles">Available toggles<a class="headerlink" href="#available-toggles" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3627,7 +3627,7 @@
 <h2 id="who-can-change-toggles">Who can change toggles<a class="headerlink" href="#who-can-change-toggles" title="Permanent link">&para;</a></h2>
 <p>Only users with site admin status (<code>is_site_admin</code>) can access the admin panel Settings tab. Board admins and members have no visibility into instance-level feature toggles.</p>
 <h2 id="effect-on-existing-data">Effect on existing data<a class="headerlink" href="#effect-on-existing-data" title="Permanent link">&para;</a></h2>
-<p>Disabling a feature never removes data created while the feature was active. Re-enabling it restores full access to that data. For example, disabling file uploads does not delete existing card attachments — it prevents new uploads until re-enabled.</p>
+<p>Disabling a feature never removes data created while it was active. Re-enabling it restores full access to that data. For example, disabling file uploads doesn't delete existing card attachments — it just blocks new uploads until re-enabled.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Use feature toggles to roll out new functionality gradually, to disable a feature during an incident, or to restrict capabilities on instances with specific compliance requirements.</p>

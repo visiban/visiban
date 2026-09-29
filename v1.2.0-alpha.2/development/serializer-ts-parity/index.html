@@ -3511,12 +3511,12 @@
 
 
 <h1 id="serializer-typescript-parity">Serializer ↔ TypeScript parity<a class="headerlink" href="#serializer-typescript-parity" title="Permanent link">&para;</a></h1>
-<p><code>CLAUDE.md</code> states the rule plainly:</p>
+<p>Two CI checks enforce the parity rule <code>CLAUDE.md</code> states plainly:</p>
 <blockquote>
 <p><code>Board</code>, <code>Card</code>, <code>User</code>, and related interfaces must match the backend serializer fields exactly — when a new serializer field is added, update the corresponding TypeScript interface in the same MR.</p>
 </blockquote>
-<p>Two checks enforce it, and they cover different things. <strong>Read this section before assuming
-either one covers your change.</strong></p>
+<p>They cover different things. <strong>Read this section before assuming either one covers your
+change.</strong></p>
 <table>
 <thead>
 <tr>
@@ -3530,7 +3530,7 @@ either one covers your change.</strong></p>
 <tr>
 <td><code>backend/boards/tests/test_ts_serializer_drift.py</code> (#821, since 1.1)</td>
 <td>The serializer classes (<code>instance.fields</code>)</td>
-<td><strong>14</strong> pairs, incl. <code>BoardFull</code>, <code>CardActivity</code>, <code>CardAttachment</code></td>
+<td><strong>15</strong> pairs, incl. <code>BoardFull</code>, <code>CardActivity</code>, <code>CardAttachment</code></td>
 <td>Field <strong>names</strong>, both directions</td>
 </tr>
 <tr>
@@ -3709,7 +3709,7 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <tr>
 <td><code>CurrentUser</code></td>
 <td><code>User</code></td>
-<td>yes</td>
+<td>no</td>
 </tr>
 <tr>
 <td><code>CustomFieldDefinition</code></td>

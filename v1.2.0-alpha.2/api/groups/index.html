@@ -1976,10 +1976,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#put-apiv1groupsid" class="md-nav__link">
+  <a href="#put-apiv1groupsid-patch-apiv1groupsid" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PUT /api/v1/groups/{id}/
+        PUT /api/v1/groups/{id}/ / PATCH /api/v1/groups/{id}/
       
     </span>
   </a>
@@ -4004,6 +4004,7 @@
 
 
 <h1 id="groups-api">Groups API<a class="headerlink" href="#groups-api" title="Permanent link">&para;</a></h1>
+<p>Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults that new boards in the group inherit.</p>
 <h2 id="groups">Groups<a class="headerlink" href="#groups" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groups"><code>GET /api/v1/groups/</code><a class="headerlink" href="#get-apiv1groups" title="Permanent link">&para;</a></h3>
 <p>List all groups accessible to the current user.</p>
@@ -4131,9 +4132,9 @@
 </tr>
 </tbody>
 </table>
-<h3 id="put-apiv1groupsid"><code>PUT /api/v1/groups/{id}/</code><a class="headerlink" href="#put-apiv1groupsid" title="Permanent link">&para;</a></h3>
-<p>Update group name, description, or parent. Requires group admin.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>parent</code>.</p>
+<h3 id="put-apiv1groupsid-patch-apiv1groupsid"><code>PUT /api/v1/groups/{id}/</code> / <code>PATCH /api/v1/groups/{id}/</code><a class="headerlink" href="#put-apiv1groupsid-patch-apiv1groupsid" title="Permanent link">&para;</a></h3>
+<p>Update group fields. Both <code>PUT</code> and <code>PATCH</code> are accepted. Requires group admin.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>parent</code>, <code>default_board_member_role</code>, <code>allowed_priorities</code>. The latter two duplicate what <a href="#board-defaults"><code>PATCH /groups/{id}/board-defaults/</code></a> does — either endpoint can set them.</p>
 <h3 id="delete-apiv1groupsid"><code>DELETE /api/v1/groups/{id}/</code><a class="headerlink" href="#delete-apiv1groupsid" title="Permanent link">&para;</a></h3>
 <p>Delete a group. Requires group owner or site admin.</p>
 <hr />
@@ -4153,7 +4154,7 @@
 <tr>
 <td><code>id</code></td>
 <td>integer / null</td>
-<td>Membership record ID. <code>null</code> for inherited members (access via ancestor group), for the group owner who has no explicit direct membership record, and for site admins. Callers must not assume this field is always an integer.</td>
+<td>Membership record ID. <code>null</code> for inherited members — access via an ancestor group's membership rather than a direct row on this group. A group's owner always holds a direct <code>admin</code> <code>GroupMembership</code> row (created with the group, or transferred via <a href="#transfer-ownership">Transfer ownership</a>, which requires the new owner to already be a direct admin), so the owner's <code>id</code> here is never <code>null</code>. A site admin with no membership of their own does not appear in this list at all. Callers must not assume this field is always an integer.</td>
 </tr>
 <tr>
 <td><code>user</code></td>
@@ -4227,7 +4228,7 @@
 <tr>
 <td><code>swimlane_name</code></td>
 <td>No</td>
-<td>Label for the swimlane axis (e.g. <code>"Customer"</code>, <code>"Team"</code>). Defaults to <code>"General"</code></td>
+<td>Label for the swimlane axis (e.g. <code>"Customer"</code>, <code>"Team"</code>). Defaults to <code>"General"</code>; truncated to 255 characters</td>
 </tr>
 </tbody>
 </table>
@@ -4356,14 +4357,37 @@
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>revoked</code> is a real status value, but <code>GET /invite-links/</code> cannot return a link in that state — a revoked link's <code>is_active</code> is cleared and it is filtered out of the list. Once a link is revoked, it is gone from this endpoint entirely rather than kept around showing <code>status: "revoked"</code>.</p>
+</div>
 <h3 id="delete-apiv1groupsidinvite-linkslink_id"><code>DELETE /api/v1/groups/{id}/invite-links/{link_id}/</code><a class="headerlink" href="#delete-apiv1groupsidinvite-linkslink_id" title="Permanent link">&para;</a></h3>
 <p>Revoke a single invite link. Requires group admin.</p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>Link does not exist, or is already revoked</td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>The link is a single-use link that has already been consumed — <code>{"detail": "This link has already been consumed and cannot be revoked."}</code></td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="favorites">Favorites<a class="headerlink" href="#favorites" title="Permanent link">&para;</a></h2>
 <h3 id="post-apiv1groupsidstar"><code>POST /api/v1/groups/{id}/star/</code><a class="headerlink" href="#post-apiv1groupsidstar" title="Permanent link">&para;</a></h3>
-<p>Star (favorite) a group. Requires authentication.</p>
+<p>Star (favorite) a group. Requires group membership (any role) — not just authentication.</p>
 <h3 id="delete-apiv1groupsidstar"><code>DELETE /api/v1/groups/{id}/star/</code><a class="headerlink" href="#delete-apiv1groupsidstar" title="Permanent link">&para;</a></h3>
-<p>Unstar a group. Requires authentication.</p>
+<p>Unstar a group. Requires group membership (any role) — not just authentication.</p>
 <h3 id="get-apiv1groupsstarredtrue"><code>GET /api/v1/groups/?starred=true</code><a class="headerlink" href="#get-apiv1groupsstarredtrue" title="Permanent link">&para;</a></h3>
 <p>List only starred groups for the current user.</p>
 <hr />
@@ -4380,7 +4404,10 @@
 <p>The previous owner becomes a regular admin after transfer. Returns the updated group object.</p>
 <p><strong>Error responses</strong>
 - <code>403 Forbidden</code> — you are not the current owner
-- <code>400 Bad Request</code> — confirmation does not match group name, or new owner is not an admin member</p>
+- <code>400 Bad Request</code> — request body is not a JSON object
+- <code>400 Bad Request</code> — confirmation does not match group name
+- <code>400 Bad Request</code> — <code>new_owner_id</code> is not a member of this group
+- <code>400 Bad Request</code> — <code>new_owner_id</code> is a member but not an admin</p>
 <hr />
 <h2 id="group-shared-labels">Group shared labels<a class="headerlink" href="#group-shared-labels" title="Permanent link">&para;</a></h2>
 <p>Group labels are a shared label library. When a new board is created inside the group, it inherits the group's labels automatically.</p>

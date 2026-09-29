@@ -3504,7 +3504,7 @@
 
 
 <h1 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h1>
-<p>Visiban is built around a core idea: every card's journey through your pipeline should be visible, measurable, and actionable. The features below work together to make that happen.</p>
+<p>Every card's journey through your pipeline should be visible, measurable, and actionable. This page is a map of the features that make that true.</p>
 <hr />
 <h2 id="the-board">The board<a class="headerlink" href="#the-board" title="Permanent link">&para;</a></h2>
 <p>The kanban grid is the heart of Visiban. Columns represent pipeline stages; swimlanes represent the entities moving through them — customers, projects, epics, or anything else.</p>
@@ -3518,10 +3518,11 @@
 </code></pre></div>
 <p>Cards are dragged between cells. Every move that changes column or swimlane is logged automatically to an immutable audit trail.</p>
 <p>Keyboard shortcuts make common actions instant: <code>f</code> toggles the filter bar, <code>/</code> focuses search, and <code>?</code> shows the full shortcut reference.</p>
-<p>→ <a href="board/">Board &amp; Cards</a></p>
+<p><strong>Grid overlays</strong> shade each cell by a single number — card count, WIP usage, or weight — without hiding or resizing anything, so you can spot hot spots at a glance.</p>
+<p>→ <a href="board/">Board &amp; Cards</a> · <a href="board/#grid-overlays">Grid overlays</a></p>
 <hr />
 <h2 id="board-creation-templates">Board creation &amp; templates<a class="headerlink" href="#board-creation-templates" title="Permanent link">&para;</a></h2>
-<p>When creating a new board you choose from eleven purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring &amp; Recruiting, Legal &amp; Compliance, Infrastructure &amp; DevOps, or Blank Board — each pre-seeded with the right columns and a swimlane placeholder.</p>
+<p>When creating a new board you choose from ten purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring &amp; Recruiting, Legal &amp; Compliance, or Infrastructure &amp; DevOps — each pre-seeded with the right columns and a swimlane placeholder. Or start from <strong>Blank Board</strong>, which creates no columns at all so you can build the layout yourself.</p>
 <p>After choosing a template you're prompted to name the first swimlane using the template's label (e.g. "Account" for Sales Pipeline). You can also mark any newly created board as your <strong>default board</strong> so it opens automatically after login.</p>
 <p>→ <a href="board/">Board &amp; Cards</a></p>
 <hr />
@@ -3536,11 +3537,12 @@
 <li><strong>Checklist</strong> — sub-tasks with progress tracking</li>
 <li><strong>Attachments</strong> — upload files directly to a card (up to 10 MB each)</li>
 <li><strong>Description</strong> — rich text editor with bold, italic, code, lists, headings, blockquote, and text color; type <code>@username</code> to mention a board member and send them a notification</li>
+<li><strong>Relations</strong> — link cards as Blocked by / Blocks / Relates to, with a red indicator for unfinished blockers</li>
 <li><strong>Pull / merge request</strong> — link a GitHub or GitLab PR/MR to the card</li>
 <li><strong>Comments</strong> — threaded discussion visible to collaborators and above</li>
-<li><strong>History tab</strong> — full movement timeline and activity log</li>
+<li><strong>Activity tab</strong> — full movement timeline and activity log</li>
 </ul>
-<p>→ <a href="card-history/">Card History</a> · <a href="card-descriptions/">Card Descriptions</a> · <a href="card-links/">Pull &amp; Merge Request Links</a></p>
+<p>→ <a href="card-history/">Card History</a> · <a href="card-descriptions/">Card Descriptions</a> · <a href="card-relations/">Card Relations</a> · <a href="card-links/">Pull &amp; Merge Request Links</a></p>
 <hr />
 <h2 id="bulk-operations-data-portability">Bulk operations &amp; data portability<a class="headerlink" href="#bulk-operations-data-portability" title="Permanent link">&para;</a></h2>
 <p>Select multiple cards at once and apply bulk actions — move to a column, assign, set priority, archive, or delete — all from a toolbar that appears at the bottom of the board.</p>
@@ -3587,7 +3589,8 @@
 <li><strong>Staleness</strong> — cards that haven't moved in N days (configurable per board) appear with an amber indicator and trigger a daily digest</li>
 </ul>
 <p>Stale cards show an amber tint overlay with reduced opacity on the board so they're impossible to miss at a glance.</p>
-<p>→ <a href="notifications/">Notifications</a></p>
+<p>Four of these events — assigned to me, @mentioned, due date approaching, and a watched card moved — can also be <strong>delivered by email</strong>, off by default, once an administrator configures outgoing SMTP and you turn the per-event toggle on in Settings → Notifications.</p>
+<p>→ <a href="notifications/">Notifications</a> · <a href="notifications/#email-notifications">Email notifications</a></p>
 <hr />
 <h2 id="real-time-collaboration">Real-time collaboration<a class="headerlink" href="#real-time-collaboration" title="Permanent link">&para;</a></h2>
 <p>When multiple people are working on a board simultaneously, changes appear instantly without a page refresh. The connection status indicator in the toolbar stays quiet when healthy — a small <strong>Live</strong> dot at wider viewports — and becomes a prominent amber or red pill when the connection is reconnecting, stale, or failed, so a degraded connection is obvious at a glance.</p>
@@ -3636,11 +3639,13 @@
 </tbody>
 </table>
 <p>Assigning a user <strong>Group Admin</strong> automatically grants them board-admin rights on every board in that group — the recommended role for team leads.</p>
+<p>The <a href="rbac/">RBAC guide</a> covers this in depth: <a href="rbac/roles/">role definitions</a>, <a href="rbac/inheritance/">how access inherits down the group hierarchy</a>, and <a href="rbac/managing/">how to assign or revoke it</a>.</p>
 <p>→ <a href="groups/">Groups</a> · <a href="rbac/roles/">Roles &amp; Permissions</a></p>
 <hr />
 <h2 id="personal-access-tokens">Personal Access Tokens<a class="headerlink" href="#personal-access-tokens" title="Permanent link">&para;</a></h2>
 <p>Create named, revocable tokens to authenticate scripts, CI pipelines, and integrations without sharing your password. Tokens use the <code>vbn_</code> prefix, are shown once at creation, and are automatically revoked when your password changes.</p>
-<p>→ <a href="personal-access-tokens/">Personal Access Tokens</a></p>
+<p>Tokens created from 1.2 onward carry explicit <strong>scopes</strong> (<code>read</code>, <code>write</code>, <code>admin</code>, <code>mcp:read</code>, <code>mcp:write</code>) that cap what the token can do — non-hierarchical, so a token must list every scope its requests need. Tokens created before 1.2 keep working unscoped.</p>
+<p>→ <a href="personal-access-tokens/">Personal Access Tokens</a> · <a href="personal-access-tokens/#scopes">Scopes</a></p>
 <hr />
 <h2 id="mcp-server">MCP Server<a class="headerlink" href="#mcp-server" title="Permanent link">&para;</a></h2>
 <blockquote>
@@ -3657,7 +3662,7 @@
 <blockquote>
 <p><strong>Added in 1.1</strong></p>
 </blockquote>
-<p>Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd>) from any authenticated page to open the global command palette. Behaviour adapts to the current surface:</p>
+<p>Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd>) from any authenticated page to open the global command palette. Behavior adapts to the current surface:</p>
 <ul>
 <li><strong>Board</strong> — searches cards on the current board by title, plus board-scoped actions (open card history, toggle filters, switch view).</li>
 <li><strong>Dashboard / Group</strong> — jumps to a board across the user's full board set; starred boards lead the unfiltered list (alphabetical), then recent visits.</li>
@@ -3678,8 +3683,10 @@
 <li><strong>Registration mode</strong> — open (anyone can sign up), invite-only (registration disabled; admin creates accounts), or closed</li>
 <li><strong>User management</strong> — create accounts, toggle active/site-admin status, and force a password reset on next login</li>
 <li><strong>Maintenance mode</strong> — puts the instance into read-only mode for the duration of an upgrade or migration; non-admin writes are rejected while reads keep working</li>
+<li><strong>Email (SMTP) configuration</strong> — set up the outgoing mail server for password resets, verification, and notification email straight from the admin UI, no environment variables or restart required</li>
+<li><strong>Action log</strong> — every settings-tab toggle change is recorded with the admin who made it and when, readable via the API (added in 1.2)</li>
 </ul>
-<p>→ <a href="../administration/">Administration</a> · <a href="../administration/maintenance-mode/">Maintenance Mode</a></p>
+<p>→ <a href="../administration/">Administration</a> · <a href="../administration/maintenance-mode/">Maintenance Mode</a> · <a href="../administration/admin-panel/">Admin Panel</a></p>
 <hr />
 <h2 id="user-settings">User settings<a class="headerlink" href="#user-settings" title="Permanent link">&para;</a></h2>
 <p>Settings are accessed from the avatar menu in the top-right navbar.</p>
@@ -3734,7 +3741,8 @@
 <h2 id="wip-limits-and-hard-enforcement">WIP limits and hard enforcement<a class="headerlink" href="#wip-limits-and-hard-enforcement" title="Permanent link">&para;</a></h2>
 <p>WIP limits can now be configured in two modes: <strong>soft</strong> (advisory, admins can override) or <strong>hard</strong> (strict, no override for any role). When hard enforcement is enabled in <strong>Board Settings → Rules → Enforce WIP hard</strong>, moves into a full column are blocked for everyone — including board admins and site admins. The move API returns <code>409</code> with code <code>wip_hard_blocked</code>, and the board shows a <code>⛔</code> toast rather than the <code>⚠</code> used for soft blocks.</p>
 <p>Weight limits work the same way: the corresponding <strong>Enforce weight limits</strong> setting blocks moves that would push a column's total weight over its budget.</p>
-<p>→ <a href="board/#hard-wip-enforcement">Board &amp; Cards — Hard WIP enforcement</a></p>
+<p>A column sitting exactly <em>at</em> its WIP limit normally reads as an ordinary count — the optional <strong>Show at-limit WIP indicator</strong> board setting (off by default) adds ambient visibility for that at-limit case too, not just over-limit.</p>
+<p>→ <a href="board/#hard-wip-enforcement">Board &amp; Cards — Hard WIP enforcement</a> · <a href="board/#at-limit-wip-indicator">At-limit WIP indicator</a></p>
 <hr />
 <h2 id="saved-filters">Saved filters<a class="headerlink" href="#saved-filters" title="Permanent link">&para;</a></h2>
 <blockquote>
@@ -3757,7 +3765,8 @@
 </blockquote>
 <p>Each board has an admin-controlled <strong>Card density</strong> setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in <strong>Board Settings → Display</strong>.</p>
 <p>The previous per-user per-field hide toggles (Labels / Due date / Assignee / Priority badge / Last moved) are removed in 1.1. Card density is the single layout knob, and <code>localStorage</code> values for the old keys are silently ignored.</p>
-<p>→ <a href="board/#card-density">Board &amp; Cards — Card density</a></p>
+<p>Any member can override the board's density for their own view without changing it for anyone else — turn on <strong>Use my own density</strong> in Board Settings → Display (added in 1.2, browser-local, board-scoped).</p>
+<p>→ <a href="board/#card-density">Board &amp; Cards — Card density</a> · <a href="board/#personal-density-override">Personal density override</a></p>
 <hr />
 <h2 id="card-information-at-a-glance">Card information at a glance<a class="headerlink" href="#card-information-at-a-glance" title="Permanent link">&para;</a></h2>
 <p>Two new fields are visible directly on the card face without opening the detail panel:</p>
@@ -3773,7 +3782,7 @@
 <hr />
 <h2 id="url-addressable-board-tabs-and-card-history-preference">URL-addressable board tabs and card history preference<a class="headerlink" href="#url-addressable-board-tabs-and-card-history-preference" title="Permanent link">&para;</a></h2>
 <p>The board sub-navigation tabs (Board, Summary, Analytics, History) now reflect in the URL via a <code>?view=</code> search parameter. Tab views can be bookmarked and shared, and the browser Back button skips tab transitions.</p>
-<p>Within the card detail History tab, the <strong>Show full history</strong> toggle now persists across card opens, page refreshes, and sessions via <code>localStorage</code>. Users who prefer the expanded view no longer need to re-enable it each time.</p>
+<p>Within the card detail Activity tab, the <strong>Show full history</strong> toggle now persists across card opens, page refreshes, and sessions via <code>localStorage</code>. Users who prefer the expanded view no longer need to re-enable it each time.</p>
 <p>→ <a href="board/">Board &amp; Cards</a> · <a href="card-history/">Card History</a></p>
 <hr />
 <h2 id="analytics-heatmap-absolute-threshold-coloring">Analytics heatmap — absolute threshold coloring<a class="headerlink" href="#analytics-heatmap-absolute-threshold-coloring" title="Permanent link">&para;</a></h2>
@@ -3812,7 +3821,7 @@
 <p class="admonition-title">Validated against Keycloak; community feedback welcome for other providers</p>
 <p>The end-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end — report findings on <a href="https://gitlab.com/visiban/visiban/-/issues/349">issue #349</a>.</p>
 </div>
-<p>→ <a href="../administration/authentication/#generic-oidc-beta">Authentication</a></p>
+<p>→ <a href="../administration/authentication/#generic-oidc">Authentication</a></p>
 <hr />
 <h2 id="feature-toggles">Feature toggles<a class="headerlink" href="#feature-toggles" title="Permanent link">&para;</a></h2>
 <p>Site admins can enable or disable specific features instance-wide from the admin panel Settings tab. Toggling a feature takes effect within approximately 60 seconds and never deletes existing data. The current toggles control file uploads; additional toggles will be added as new gated features are introduced.</p>

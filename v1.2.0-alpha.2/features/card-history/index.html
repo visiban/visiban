@@ -3673,9 +3673,9 @@
 
 
 <h1 id="card-history">Card History<a class="headerlink" href="#card-history" title="Permanent link">&para;</a></h1>
-<p>Every card maintains a full audit trail of movements and field changes.</p>
+<p>Every card keeps a full audit trail of movements and field changes. <strong>Why it matters:</strong> you can see who moved a card and when — the record incident retros and audits need.</p>
 <h2 id="movement-history">Movement history<a class="headerlink" href="#movement-history" title="Permanent link">&para;</a></h2>
-<p>A <code>CardMovement</code> record is created whenever a card changes column or swimlane. Each record captures:</p>
+<p>A <code>CardMovement</code> record captures every column or swimlane change. Each record includes:</p>
 <ul>
 <li>From column / to column (FK, nullable after deletion)</li>
 <li>From swimlane / to swimlane (FK, nullable after deletion)</li>
@@ -3687,11 +3687,11 @@
 <li>Optional notes</li>
 <li><strong>Movement type</strong> (<code>movement_type</code>) — one of <code>move</code> (standard drag-and-drop or API move), <code>archived</code> (card was archived), or <code>unarchived</code> (card was unarchived from the Archived panel)</li>
 </ul>
-<p>Pure position reorders within the same cell do <strong>not</strong> create a movement record.</p>
-<p><code>archived</code> and <code>unarchived</code> events appear in the individual card timeline but are excluded from the board-level History view by default.</p>
-<p>The movement timeline is visible in the card detail panel under the <strong>History</strong> tab.</p>
+<p>Pure position reorders within the same cell don't create a movement record.</p>
+<p><code>archived</code> and <code>unarchived</code> events appear in the card's own timeline and in the board-level History view.</p>
+<p>Find the movement timeline in the card detail panel's <strong>Activity</strong> tab.</p>
 <h2 id="activity-log">Activity log<a class="headerlink" href="#activity-log" title="Permanent link">&para;</a></h2>
-<p>In addition to movements, the activity log tracks:</p>
+<p>The activity log also tracks field changes:</p>
 <table>
 <thead>
 <tr>
@@ -3744,36 +3744,36 @@
 </table>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Due date change tracking was added in 1.0.0.</p>
+<p>Due date change tracking was added in 1.0.</p>
 </div>
 <h2 id="viewing-history">Viewing history<a class="headerlink" href="#viewing-history" title="Permanent link">&para;</a></h2>
-<p>Open a card and click the <strong>History</strong> tab in the side panel. The timeline shows movements and field changes in reverse chronological order. Each entry shows:</p>
+<p>Open a card and click <strong>Activity</strong> in the side panel. The timeline shows movements and field changes in reverse chronological order. Each entry shows:</p>
 <ul>
 <li>What changed (from → to)</li>
 <li>Who made the change</li>
 <li>When it happened (relative time, e.g. "3 days ago")</li>
 </ul>
-<p>Movement entries display the full column and swimlane names, preserved even if those columns or swimlanes have since been renamed or deleted. If a referenced column has been deleted since the move occurred, its name is shown in italic red with a <strong>Deleted —</strong> prefix and a hover tooltip, so you can distinguish live columns from removed ones at a glance.</p>
+<p>Movement entries keep the full column and swimlane names, even after those columns or swimlanes are renamed or deleted. A deleted column's name shows in italic red with a <strong>Deleted —</strong> prefix and a hover tooltip, so you can tell live columns from removed ones at a glance.</p>
 <h3 id="duration-between-entries">Duration between entries<a class="headerlink" href="#duration-between-entries" title="Permanent link">&para;</a></h3>
-<p>Each movement entry shows how long the card stayed in that column before the next move. The label appears as "Spent 3h here" or "Spent 2d here" on the right side of the entry. Durations are calculated from the gap between consecutive movement timestamps and displayed in the most readable unit (minutes, hours, or days). The last movement entry has no duration label because the card is still in that column.</p>
+<p>Each movement entry shows how long the card stayed in that column before the next move — "Spent 3h here" or "Spent 2d here" on the right side of the entry. Durations come from the gap between consecutive movement timestamps, shown in the most readable unit (minutes, hours, or days). The last entry has no duration label, because the card is still there.</p>
 <h3 id="checklist-event-grouping">Checklist event grouping<a class="headerlink" href="#checklist-event-grouping" title="Permanent link">&para;</a></h3>
-<p>When multiple checklist events of the same type occur in sequence (for example, adding several checklist items at once), the timeline collapses them into a single grouped entry instead of showing one row per item. A grouped entry reads like "Added checklist items: "item a", "item b", "item c"". This keeps the timeline compact when bulk checklist edits would otherwise dominate the view.</p>
-<p>The UID fields on each movement record (<code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>) are also preserved permanently — these are the correct identifiers to use when correlating movement history in an external system. See <a href="../stable-uids/">Stable UIDs</a>.</p>
+<p>Sequential checklist events of the same type collapse into one grouped entry instead of one row per item — for example, "Added checklist items: "item a", "item b", "item c"". This keeps the timeline compact when bulk checklist edits would otherwise dominate it.</p>
+<p>The UID fields on each movement record (<code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>) are also preserved permanently. Use them, not the name or ID fields, to correlate movement history in an external system. See <a href="../stable-uids/">Stable UIDs</a>.</p>
 <h2 id="how-dwell-time-is-calculated">How dwell time is calculated<a class="headerlink" href="#how-dwell-time-is-calculated" title="Permanent link">&para;</a></h2>
-<p>The time a card spends in a column is the gap between two consecutive <code>CardMovement</code> records. The Analytics view uses these gaps to compute median dwell time per stage and flag outliers. See <a href="../analytics/">Analytics</a>.</p>
+<p>Dwell time is the gap between two consecutive <code>CardMovement</code> records. The Analytics view uses these gaps to compute median dwell time per stage and flag outliers. See <a href="../analytics/">Analytics</a>.</p>
 <h2 id="stale-card-detection">Stale card detection<a class="headerlink" href="#stale-card-detection" title="Permanent link">&para;</a></h2>
-<p>If a card's most recent <code>CardMovement</code> is older than the board's <code>staleness_threshold_days</code> (default: 7 days), the card is considered stale and an amber tint overlay with reduced opacity appears on the card in the board view. See <a href="../notifications/">Notifications</a>.</p>
+<p>A card is stale if its most recent <code>CardMovement</code> is older than the board's <code>staleness_threshold_days</code> (default: 7 days) — it gets an amber tint overlay with reduced opacity in the board view. See <a href="../notifications/">Notifications</a>.</p>
 <h2 id="api-access">API access<a class="headerlink" href="#api-access" title="Permanent link">&para;</a></h2>
 <p>Movement history and the activity log are accessible via the API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>GET /api/v1/boards/{board_id}/cards/{card_id}/movements/
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>GET /api/v1/boards/{board_id}/cards/{card_id}/activities/
 </code></pre></div>
-<p>Movement records include <code>from_column_name</code>, <code>to_column_name</code>, <code>from_swimlane_name</code>, <code>to_swimlane_name</code>, <code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>, <code>moved_by</code>, <code>moved_at</code>, and <code>movement_type</code>. The name and UID fields are denormalized — they are captured at write time and remain accurate regardless of future renames or deletions. See <a href="../stable-uids/">Stable UIDs</a> for full field reference and integration examples.</p>
+<p>Movement records include <code>from_column_name</code>, <code>to_column_name</code>, <code>from_swimlane_name</code>, <code>to_swimlane_name</code>, <code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>, <code>moved_by</code>, <code>moved_at</code>, and <code>movement_type</code>. The name and UID fields are denormalized — captured at write time, accurate regardless of future renames or deletions. See <a href="../stable-uids/">Stable UIDs</a> for the full field reference and integration examples.</p>
 <h2 id="board-level-movement-history">Board-level movement history<a class="headerlink" href="#board-level-movement-history" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>In addition to the per-card timeline, the <strong>History</strong> tab in the board toolbar shows movements across all cards on the board. See <a href="../board/#history-view">Board &amp; Cards — History view</a> for the UI description.</p>
+<p>The board toolbar's <strong>History</strong> tab shows movements across every card on the board, alongside the per-card timeline. See <a href="../board/#history-view">Board &amp; Cards — History view</a> for the UI description.</p>
 <h3 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GET /api/v1/boards/{id}/movements/
 </code></pre></div>
@@ -3823,7 +3823,7 @@
 </tr>
 </tbody>
 </table>
-<p>Page size is fixed at 50. When no date range is supplied, the endpoint returns the full movement history. Archive and unarchive events are excluded by default by the History view UI (via <code>exclude_type=archived,unarchived</code>), but the API returns all types unless the parameter is provided.</p>
+<p>Page size is fixed at 50. With no date range, the endpoint returns the full movement history. The API returns all movement types, including archive/unarchive, unless you pass <code>exclude_type=archived,unarchived</code>. The History view UI doesn't send that parameter, so it shows everything.</p>
 
 
 

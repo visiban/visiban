@@ -3692,15 +3692,15 @@
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Personal Access Tokens (PATs) let you authenticate API requests from scripts, CI pipelines, and integrations without sharing your password or relying on a browser session cookie. Each token acts on your behalf with your full access rights.</p>
-<p>When to use a PAT:</p>
+<p>Personal Access Tokens (PATs) authenticate API requests from scripts, CI pipelines, and integrations without sharing your password or relying on a browser session cookie. Each token acts on your behalf, limited to your own access rights and further narrowed by its <a href="#scopes">scopes</a>.</p>
+<p><strong>When to use a PAT:</strong></p>
 <ul>
 <li><strong>Scripts</strong> — automate card creation, moves, or exports from a shell script or cron job</li>
 <li><strong>CI/CD pipelines</strong> — trigger board updates from your deployment pipeline</li>
 <li><strong>Integrations</strong> — connect external tools that call the Visiban API directly</li>
 <li><strong>Local development</strong> — test API calls quickly without maintaining a session</li>
 </ul>
-<p>For interactive use in a browser, the session-based login is used automatically and no token is needed.</p>
+<p>In a browser, session-based login is used automatically — no token needed.</p>
 <hr />
 <h2 id="create-a-token">Create a token<a class="headerlink" href="#create-a-token" title="Permanent link">&para;</a></h2>
 <ol>
@@ -3715,17 +3715,17 @@
 <p class="admonition-title">Copy your token now</p>
 <p>The full token value is shown <strong>only once</strong> — immediately after creation. Once you navigate away, Visiban stores only a secure hash and cannot show the token again. Copy it to a password manager or secret store before leaving the page.</p>
 </div>
-<p>Tokens are prefixed with <code>vbn_</code> so they are easy to identify in logs and configuration files. The full format is <code>vbn_</code> followed by 40 hex characters (44 characters total), generated with <code>secrets.token_hex</code>. Integrators can validate this with the regex <code>^vbn_[0-9a-f]{40}$</code>.</p>
+<p>Tokens are prefixed with <code>vbn_</code> so they're easy to spot in logs and configuration files. The full format is <code>vbn_</code> followed by 40 hex characters (44 characters total), generated with <code>secrets.token_hex</code>. Validate it with the regex <code>^vbn_[0-9a-f]{40}$</code>.</p>
 <hr />
 <h2 id="identifying-tokens-after-creation">Identifying tokens after creation<a class="headerlink" href="#identifying-tokens-after-creation" title="Permanent link">&para;</a></h2>
-<p>Because the full token value is shown only once, the Access Tokens list identifies each token by its <strong>prefix</strong> — the first 8 characters of the raw value (e.g. <code>vbn_a3f1...</code>). Combined with the name you gave the token and the <strong>last used</strong> timestamp, this is usually enough to tell tokens apart.</p>
-<p>The <strong>Last used</strong> column shows when the token was last used to authenticate an API request. Tokens that have never been used show "Never".</p>
+<p>Since the full value is shown only once, the Access Tokens list identifies each token by its <strong>prefix</strong> — the first 8 characters (e.g. <code>vbn_a3f1...</code>). Combined with the token's name and its <strong>last used</strong> timestamp, that's usually enough to tell tokens apart.</p>
+<p><strong>Last used</strong> shows when the token last authenticated a request; tokens never used show "Never".</p>
 <hr />
 <h2 id="scopes">Scopes<a class="headerlink" href="#scopes" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>Every token created from version 1.2 onward carries an explicit list of <strong>scopes</strong> — the operations it is allowed to perform. This is what lets you give a script, a CI pipeline, or an AI agent a credential that is less powerful than your own account.</p>
+<p>Every token created from version 1.2 onward carries an explicit list of <strong>scopes</strong> — the operations it's allowed to perform. This is what lets you give a script, a CI pipeline, or an AI agent a credential less powerful than your own account.</p>
 <table>
 <thead>
 <tr>
@@ -3761,25 +3761,25 @@
 <div class="admonition warning">
 <p class="admonition-title">No scope implies any other</p>
 <p><code>admin</code> does <strong>not</strong> grant <code>read</code> or <code>write</code>. <code>write</code> does <strong>not</strong> grant <code>read</code>. Neither <code>read</code> nor <code>write</code> grants <code>mcp:read</code>, and <code>mcp:read</code> does not grant <code>mcp:write</code>.</p>
-<p>A token must carry <strong>every</strong> scope its request needs. A token that reads the admin API needs both <code>admin</code> <strong>and</strong> <code>read</code>. A token that writes a card needs <code>write</code>. An agent that reads boards over MCP needs <code>mcp:read</code> — being able to read them over REST is not enough.</p>
+<p>A token must carry <strong>every</strong> scope its request needs. A token that reads the admin API needs both <code>admin</code> <strong>and</strong> <code>read</code>. A token that writes a card needs <code>write</code>. An agent that reads boards over MCP needs <code>mcp:read</code> — being able to read them over REST isn't enough.</p>
 </div>
-<p>The reason is that a hierarchy quietly turns a narrow credential back into a broad one. If <code>admin</code> implied <code>write</code>, then a token issued only to read the settings page could modify every board on the instance. Listing each grant explicitly means the token's authority is exactly what you can see on the token list, with nothing inherited.</p>
+<p><strong>Why it's non-hierarchical:</strong> a hierarchy would quietly turn a narrow credential back into a broad one. If <code>admin</code> implied <code>write</code>, a token issued only to read the settings page could modify every board on the instance. Listing each grant explicitly keeps the token's authority exactly what you see on the token list, with nothing inherited.</p>
 <h3 id="default-scopes">Default scopes<a class="headerlink" href="#default-scopes" title="Permanent link">&para;</a></h3>
-<p>Creating a token without asking for specific scopes gives it <code>read</code> and <code>write</code> — enough for the scripting and CI use cases PATs were built for, and nothing more. <code>admin</code> and the <code>mcp:*</code> scopes must always be requested explicitly.</p>
+<p>A token created without specific scopes gets <code>read</code> and <code>write</code> — enough for the scripting and CI use cases PATs were built for, and nothing more. <code>admin</code> and the <code>mcp:*</code> scopes must always be requested explicitly.</p>
 <h3 id="tokens-created-before-12">Tokens created before 1.2<a class="headerlink" href="#tokens-created-before-12" title="Permanent link">&para;</a></h3>
-<p>Tokens that already existed when your instance upgraded to 1.2 have <strong>no scopes recorded</strong>. They keep working exactly as before across the whole REST API, including the admin endpoints if you are a site administrator — upgrading does not break a running integration.</p>
-<p>They are, however, refused by the MCP server. An agent credential has to be issued deliberately, so a token created before MCP scopes existed cannot be used as one. To connect an MCP client, create a new token with <code>mcp:read</code>.</p>
-<p>We recommend replacing pre-1.2 tokens with scoped ones as you rotate them.</p>
+<p>Tokens that already existed when your instance upgraded to 1.2 have <strong>no scopes recorded</strong>. They keep working exactly as before across the whole REST API, including the admin endpoints if you're a site administrator — upgrading doesn't break a running integration.</p>
+<p>They are, however, refused by the MCP server: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with <code>mcp:read</code>.</p>
+<p>Replace pre-1.2 tokens with scoped ones as you rotate them.</p>
 <h3 id="what-a-scope-cannot-do">What a scope cannot do<a class="headerlink" href="#what-a-scope-cannot-do" title="Permanent link">&para;</a></h3>
-<p>Scopes are a ceiling, never a floor. They narrow a token's authority and never widen it — every request is still subject to the same board membership and role checks as a browser session. A token scoped <code>admin</code> on a non-administrator account reaches nothing new.</p>
+<p>Scopes are a ceiling, never a floor — they narrow a token's authority and never widen it. Every request is still subject to the same board membership and role checks as a browser session. A token scoped <code>admin</code> on a non-administrator account reaches nothing new.</p>
 <hr />
 <h2 id="expiry">Expiry<a class="headerlink" href="#expiry" title="Permanent link">&para;</a></h2>
 <p>The expiry date is optional:</p>
 <ul>
-<li><strong>Leave blank</strong> — the token never expires and remains valid until revoked manually or your password changes.</li>
-<li><strong>Set a date</strong> — the maximum allowed expiry is <strong>one year from today</strong>. After the expiry date the token is rejected with <code>401 Unauthorized</code>.</li>
+<li><strong>Leave blank</strong> — the token never expires, and stays valid until revoked manually or your password changes.</li>
+<li><strong>Set a date</strong> — the maximum expiry is <strong>one year from today</strong>. Past that date the token is rejected with <code>401 Unauthorized</code>.</li>
 </ul>
-<p>Expired tokens remain visible in the Access Tokens list and can be revoked there.</p>
+<p>Expired tokens stay visible in the Access Tokens list and can be revoked there.</p>
 <hr />
 <h2 id="use-a-token-in-api-requests">Use a token in API requests<a class="headerlink" href="#use-a-token-in-api-requests" title="Permanent link">&para;</a></h2>
 <p>Pass the token in the <code>Authorization</code> header using the <code>Token</code> scheme:</p>
@@ -3790,7 +3790,7 @@
 <p class="admonition-title">Note</p>
 <p>Visiban uses DRF's built-in token auth, which requires the <code>Token</code> prefix — not <code>Bearer</code>.</p>
 </div>
-<p>The token works for every API endpoint its <a href="#scopes">scopes</a> allow. A request the token is not scoped for is rejected with <code>403 Forbidden</code> and a message naming the scope it needs — not <code>401</code>, because the credential itself is valid.</p>
+<p>The token works for every API endpoint its <a href="#scopes">scopes</a> allow. A request it isn't scoped for is rejected with <code>403 Forbidden</code> and a message naming the scope it needs — not <code>401</code>, because the credential itself is valid.</p>
 <p>The same header format applies regardless of the HTTP method:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Create a card</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>https://your-instance.example.com/api/v1/boards/1/cards/<span class="w"> </span><span class="se">\</span>
@@ -3812,16 +3812,16 @@
 <li>Find the token you want to remove.</li>
 <li>Click <strong>Revoke</strong> next to it.</li>
 </ol>
-<p>Revoked tokens are deleted immediately. Any request using the revoked token will receive <code>401 Unauthorized</code>.</p>
+<p>Revoked tokens are deleted immediately. Requests using them get <code>401 Unauthorized</code>.</p>
 <hr />
 <h2 id="security-notes">Security notes<a class="headerlink" href="#security-notes" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Password change revokes all tokens</strong> — when you change your password, every PAT associated with your account is revoked automatically. You will need to create new tokens and update any scripts or integrations that use them.</li>
-<li><strong>Maximum 10 tokens per user</strong> — if you reach the limit, revoke tokens you no longer use before creating new ones. The <strong>New token</strong> button is disabled when the limit is reached.</li>
+<li><strong>Password change revokes all tokens</strong> — every PAT on your account is revoked automatically when you change your password. Create new tokens and update any scripts or integrations that used the old ones.</li>
+<li><strong>Maximum 10 tokens per user</strong> — revoke tokens you no longer use before creating new ones. The <strong>New token</strong> button is disabled at the limit.</li>
 <li><strong>Treat tokens like passwords</strong> — store them in a secrets manager or CI secrets vault, never in plain text in source code or config files committed to a repository.</li>
-<li><strong>Scopes limit a token, they never extend it</strong> — a scope can only narrow what the token may do. It never grants access your own account does not already have. An <code>admin</code>-scoped token held by a non-admin still cannot reach the admin API.</li>
+<li><strong>Scopes limit a token, they never extend it</strong> — a scope can only narrow what the token may do, never grant access your account doesn't already have. An <code>admin</code>-scoped token held by a non-admin still can't reach the admin API.</li>
 <li><strong>The same token authenticates AI agents</strong> — if your operator has enabled the <a href="../../api/mcp/">MCP server</a>, a PAT is also the credential an MCP client uses to read your boards. Revoking the token, or changing your password, cuts off that access too.</li>
-<li><strong>Scopes do not limit instance-wide access</strong> — if your account has the "access all content" privilege, a <code>write</code>-scoped token still reaches every board on the instance. Scopes constrain <em>what kind of operation</em> a token may perform, not <em>which boards</em> it can see.</li>
+<li><strong>Scopes don't limit instance-wide access</strong> — if your account has the "access all content" privilege, a <code>write</code>-scoped token still reaches every board on the instance. Scopes constrain <em>what kind of operation</em> a token may perform, not <em>which boards</em> it can see.</li>
 </ul>
 <hr />
 <h2 id="full-api-reference">Full API reference<a class="headerlink" href="#full-api-reference" title="Permanent link">&para;</a></h2>

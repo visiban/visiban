@@ -3648,14 +3648,13 @@
 
 
 <h1 id="board-change-feed-api">Board Change Feed API<a class="headerlink" href="#board-change-feed-api" title="Permanent link">&para;</a></h1>
+<p>Every board mutation is appended to a durable, ordered feed that a consumer outside the
+Django process — a second front end, a CRM sync job, the MCP REST client — can read with a
+cursor instead of holding a WebSocket open and hoping it never drops.</p>
 <div class="admonition info">
 <p class="admonition-title">Since 1.2</p>
 <p>The change feed is new in Visiban 1.2.</p>
 </div>
-<p>Every board mutation is appended to a durable, ordered feed. A consumer that is
-not inside the Django process — a second front end, a CRM sync job, the MCP REST
-client — can read that feed with a cursor instead of holding a WebSocket open and
-hoping it never drops.</p>
 <p>The feed does not replace the <a href="../websockets/">WebSocket API</a>; it completes it.
 The socket is how you learn about a change <em>now</em>; the feed is how you find out
 what happened while you were not listening. Both carry the same payloads, so one

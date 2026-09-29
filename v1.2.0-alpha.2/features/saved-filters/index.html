@@ -1122,6 +1122,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#real-time-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-time sync
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3635,6 +3646,8 @@
 <h2 id="scope-and-privacy">Scope and privacy<a class="headerlink" href="#scope-and-privacy" title="Permanent link">&para;</a></h2>
 <p>Saved filters are private to each user. Other board members cannot see, load, or delete your presets.</p>
 <p>Any board role — including Viewer — can create, load, and delete their own saved filters.</p>
+<h2 id="real-time-sync">Real-time sync<a class="headerlink" href="#real-time-sync" title="Permanent link">&para;</a></h2>
+<p>Saving or deleting a filter syncs your other open tabs on the same board immediately over WebSocket — the broadcast carries only the filter's ID and your user ID, never its contents, so other board members never see that you saved anything. See <a href="../realtime/">Real-time Updates</a>.</p>
 <h2 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3668,7 +3681,8 @@
 <p><strong>Added in 1.1</strong></p>
 </blockquote>
 <p>Each saved filter carries a <code>state_version</code> field. The version identifies the shape of the stored <code>state_json</code> so a future non-additive change to the filter state (for example, splitting one field into two) can be migrated forward without losing presets saved under the old shape.</p>
-<p>Today only version <code>1</code> exists. The server accepts higher <code>state_version</code> values from newer clients unchanged — a mixed-version deploy where a newer frontend writes <code>state_version: 2</code> against an older backend will not lose the user's save. On read, older clients fall back to a defensive v1 reader for any shared fields; unknown v2-only fields are ignored.</p>
+<p>Today only version <code>1</code> exists. The server accepts any <code>state_version</code> number ≥ 1, including one higher than it recognizes — so a mixed-version deploy where a newer frontend tags its write <code>state_version: 2</code> isn't rejected on the version number alone.</p>
+<p>That check is separate from the <code>state_json</code> key allow-list: the server still only accepts the v1 key set (<code>search</code>, <code>assigneeIds</code>, <code>labelIds</code>, <code>priorities</code>, <code>dueDate</code>) regardless of the declared version, so a genuinely new v2-only key is rejected with <code>400</code> until the backend's allow-list is updated to match. On read, older clients fall back to a defensive v1 reader for any shared fields.</p>
 <p>Additive changes (adding a new optional key to <code>state_json</code>) do <strong>not</strong> require a version bump — update the key allow-list in the serializer's <code>validate_state_json</code> validator and the frontend <code>FilterState</code> type in the same release.</p>
 
 

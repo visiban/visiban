@@ -3608,7 +3608,8 @@
 
 
 <h1 id="group-inheritance">Group Inheritance<a class="headerlink" href="#group-inheritance" title="Permanent link">&para;</a></h1>
-<p>Group roles are inherited through the group ancestry chain. A user with a role in a parent group automatically has that same role on all sub-groups and boards within it. All four non-admin roles — <code>admin</code>, <code>member</code>, <code>collaborator</code>, and <code>viewer</code> — are valid at both the group and board level. An explicit <code>BoardMembership</code> record can override the inherited role for a specific board.</p>
+<p>Group roles are inherited through the group ancestry chain. A user with a role in a parent group automatically has that same role on all sub-groups and boards within it. <strong>Why it matters:</strong> add someone to a parent group once, and they get the right access everywhere below it — no per-board setup.</p>
+<p>All four non-admin roles — <code>admin</code>, <code>member</code>, <code>collaborator</code>, and <code>viewer</code> — are valid at both the group and board level. An explicit <code>BoardMembership</code> record can override the inherited role for a specific board.</p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <p>When resolving a user's effective role on a board, Visiban checks in this order:</p>
 <ol>
@@ -3627,9 +3628,9 @@
 </code></pre></div>
 <p>Alice is an <code>admin</code> on "Sprint 12" because she is an admin of "Acme Corp" and no more specific membership overrides it.</p>
 <h2 id="overrides">Overrides<a class="headerlink" href="#overrides" title="Permanent link">&para;</a></h2>
-<p>An explicit <code>BoardMembership</code> always takes precedence over inherited group membership. This lets you grant a user a narrower role on a specific board — for example, a group <code>admin</code> can be explicitly set as a <code>viewer</code> on one sensitive board.</p>
+<p>An explicit <code>BoardMembership</code> always takes precedence over inherited group membership. This lets you grant a user a narrower role on a specific board — for example, a group <code>admin</code> explicitly set as a <code>viewer</code> on one sensitive board.</p>
 <h2 id="collaborator-and-viewer">Collaborator and viewer<a class="headerlink" href="#collaborator-and-viewer" title="Permanent link">&para;</a></h2>
-<p><code>collaborator</code> and <code>viewer</code> are valid at both the group and board level. When assigned as a group membership role they are inherited by all boards within the group exactly like <code>admin</code> and <code>member</code>. An explicit <code>BoardMembership</code> always overrides the inherited value for that specific board.</p>
+<p><code>collaborator</code> and <code>viewer</code> are valid at both the group and board level. As a group membership role, they're inherited by all boards within the group exactly like <code>admin</code> and <code>member</code>. An explicit <code>BoardMembership</code> always overrides the inherited value for that specific board.</p>
 <h2 id="visibility-of-descendant-groups">Visibility of descendant groups<a class="headerlink" href="#visibility-of-descendant-groups" title="Permanent link">&para;</a></h2>
 <p>Parent-group membership implies visibility into all descendant sub-groups and their boards. A user added to a parent group can:</p>
 <ul>
@@ -3637,7 +3638,7 @@
 <li>See and navigate to boards inside those sub-groups</li>
 <li>Have their effective role on those boards resolved by the inheritance rules above</li>
 </ul>
-<p>There is no way to grant membership on a parent group while hiding a specific sub-group from that member. If a sub-group holds content that should not be visible to parent-group members, move it to a separate top-level group instead. This visibility model is applied consistently across the sidebar, the Group detail page, and the <code>/api/groups/{id}/subgroups/</code> and <code>/api/groups/{id}/descendant-boards/</code> endpoints.</p>
+<p><strong>Watch out:</strong> there's no way to grant membership on a parent group while hiding a specific sub-group from that member. If a sub-group holds content that shouldn't be visible to parent-group members, move it to a separate top-level group instead. This visibility model applies consistently across the sidebar, the Group detail page, and the <code>/api/groups/{id}/subgroups/</code> and <code>/api/groups/{id}/descendant-boards/</code> endpoints.</p>
 
 
 

@@ -3870,7 +3870,11 @@ Pass one with <code>-f</code> rather than assembling a dozen <code>--set</code> 
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">useTls</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
 <p>Since 1.2, <code>backend.email.backend</code> defaults to <code>""</code> (unset) rather than <code>"smtp"</code>, so you can leave <code>backend.email.*</code> blank and install first — a site admin can then configure SMTP afterward from <strong>Admin → Settings → Email</strong>, without a redeploy. The chart's render-time check for a placeholder <code>fromAddress</code> (e.g. <code>noreply@example.com</code>) only fires when <code>backend.email.host</code> is set, so an install with the whole block blank passes.</p>
-<p>Set <code>backend.email.*</code> explicitly only if you want env-only email configuration — doing so pins the backend and <strong>disables</strong> the Admin → Settings → Email UI. To send mail via SMTP from values instead of the admin UI, fill in <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, and <code>fromAddress</code>, and set <code>backend.email.backend: "smtp"</code>. <code>backend.email.useSsl</code> is also available for implicit TLS (port 465), as an alternative to <code>useTls</code>. To skip SMTP entirely (logs emails to stdout), set <code>backend.email.backend=console</code> and leave the other fields blank.</p>
+<p>Set <code>backend.email.*</code> explicitly only if you want env-only email configuration — doing so pins the backend and <strong>disables</strong> the Admin → Settings → Email UI.</p>
+<ul>
+<li><strong>SMTP:</strong> fill in <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, and <code>fromAddress</code>, and set <code>backend.email.backend: "smtp"</code>. Use <code>backend.email.useSsl</code> instead of <code>useTls</code> for implicit TLS (port 465).</li>
+<li><strong>Console (no SMTP):</strong> set <code>backend.email.backend=console</code> and leave the other fields blank — emails log to stdout.</li>
+</ul>
 <div class="admonition warning">
 <p class="admonition-title">Never commit <code>values.secret.yaml</code></p>
 <p>This file is gitignored. Keep secrets out of shell history — always use <code>-f values.secret.yaml</code> instead of <code>--set secret.djangoSecretKey=...</code>. The <code>--set</code> flag leaks values to shell history (<code>~/.bash_history</code>), <code>/proc/*/cmdline</code>, and process listings visible to other users on the host.</p>
@@ -4269,11 +4273,11 @@ labels and check that it cannot reach the database.</p>
 </code></pre></div>
 <p>This must <strong>fail</strong>. If it succeeds, your policies are not being enforced.</p>
 </div>
-<p>The policies name their allowed clients by <code>app.kubernetes.io/component</code>. If you
-add a workload that opens a PostgreSQL or Valkey connection, add its component to
-the allow-lists at the top of <code>templates/networkpolicy.yaml</code> — otherwise it is
-denied, and that usually presents as an install that hangs rather than as an
-error.</p>
+<p><strong>Watch out:</strong> the policies name allowed clients by <code>app.kubernetes.io/component</code>.
+If you add a workload that opens a PostgreSQL or Valkey connection, add its
+component to the allow-lists at the top of <code>templates/networkpolicy.yaml</code> —
+otherwise it is denied, and that usually shows up as an install that hangs, not
+as an explicit error.</p>
 <h2 id="media-persistence">Media persistence<a class="headerlink" href="#media-persistence" title="Permanent link">&para;</a></h2>
 <p>User-uploaded attachments are stored on a PersistentVolumeClaim (5 Gi by default):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">backend</span><span class="p">:</span>
@@ -4354,11 +4358,12 @@ to check and trigger runs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="c1"># Then open http://localhost:8000/admin/</span>
 </code></pre></div>
-<p><strong>IP allowlist</strong> — for persistent access from a bastion or VPN range, set <code>backend.settings.adminAllowedIPs</code> to a comma-separated list of CIDRs:</p>
+<p><strong>IP allowlist</strong> — for persistent access from a bastion or VPN host, set <code>backend.settings.adminAllowedIPs</code> to a comma-separated list of IPs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">"10.0.0.0/8,192.168.42.0/24"</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">"10.0.1.20,192.168.42.7"</span>
 </code></pre></div>
-<p>The allowlist is enforced by both the frontend Nginx config and the Django <code>AdminAllowedIPsMiddleware</code> for defense in depth.</p>
+<p>The allowlist is enforced by both the frontend Nginx config and the Django <code>AdminIPRestrictionMiddleware</code> for defense in depth.</p>
+<p><strong>Watch out:</strong> Nginx accepts CIDR ranges, but the Django middleware matches exact IPs only — a CIDR entry passes Nginx and is then rejected by Django with a 403. See <a href="../../administration/secret-rotation/#helm">Secret Rotation</a>.</p>
 <h2 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
 </code></pre></div>

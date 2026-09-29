@@ -3796,17 +3796,19 @@
 </tbody>
 </table>
 <h2 id="backend-tests">Backend tests<a class="headerlink" href="#backend-tests" title="Permanent link">&para;</a></h2>
+<p>CI and local runs both go through <code>pytest</code> (<code>backend/setup.cfg</code>'s <code>[tool:pytest]</code> config),
+not <code>manage.py test</code> — <code>pytest-django</code> reads the same <code>TestCase</code> classes.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span><span class="nb">test</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or a single app/class/method</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>manage.py<span class="w"> </span><span class="nb">test</span><span class="w"> </span>boards.tests.test_views.BoardViewSetTest.test_list_boards
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pytest<span class="w">                 </span><span class="c1"># whole suite</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pytest<span class="w"> </span>-q<span class="w"> </span>boards/tests/test_views_extra.py<span class="w">                                   </span><span class="c1"># one file</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>pytest<span class="w"> </span>-q<span class="w"> </span>boards/tests/test_views_extra.py::CardAttachmentTests::test_list_attachments_empty<span class="w">  </span><span class="c1"># one test</span>
 </code></pre></div>
 <p>Use Django's <code>TestCase</code> for anything that touches the database. If a test spawns threads that hit the ORM, close per-thread connections before the thread exits — see <a href="https://gitlab.com/visiban/visiban/-/blob/main/CLAUDE.md#threaded-tests--always-close-db-connections"><code>CLAUDE.md</code></a> for the pattern.</p>
 <h2 id="frontend-unit-tests">Frontend unit tests<a class="headerlink" href="#frontend-unit-tests" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>npm<span class="w"> </span><span class="nb">test</span><span class="w">               </span><span class="c1"># watch mode</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>npm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--<span class="w"> </span>--run<span class="w">      </span><span class="c1"># single run (CI mode)</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>npm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--<span class="w"> </span>--coverage<span class="w"> </span><span class="c1"># with coverage report</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>npx<span class="w"> </span>vitest<span class="w">              </span><span class="c1"># watch mode</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>npm<span class="w"> </span><span class="nb">test</span><span class="w">                </span><span class="c1"># single run with coverage off (CI mode; runs `vitest run`)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>npm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--<span class="w"> </span>--coverage<span class="w">  </span><span class="c1"># single run with a coverage report</span>
 </code></pre></div>
 <p>Prefer <code>@testing-library/react</code> queries in the order:</p>
 <ol>
@@ -3822,11 +3824,12 @@
 <h3 id="running-locally">Running locally<a class="headerlink" href="#running-locally" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>npx<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>chromium<span class="w">   </span><span class="c1"># one-time</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>npm<span class="w"> </span>run<span class="w"> </span>test:e2e<span class="w">                  </span><span class="c1"># all specs, headless</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>npm<span class="w"> </span>run<span class="w"> </span>test:e2e<span class="w"> </span>--<span class="w"> </span>--ui<span class="w">          </span><span class="c1"># Playwright UI mode (interactive)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>npm<span class="w"> </span>run<span class="w"> </span>test:e2e<span class="w"> </span>--<span class="w"> </span>filter-bar<span class="w">    </span><span class="c1"># match by filename</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>npm<span class="w"> </span>run<span class="w"> </span>test:e2e<span class="w"> </span>--<span class="w"> </span>--headed<span class="w">      </span><span class="c1"># watch Chromium as it runs</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w">               </span><span class="c1"># all specs, headless</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--ui<span class="w">          </span><span class="c1"># Playwright UI mode (interactive)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w"> </span>filter-bar<span class="w">    </span><span class="c1"># match by filename</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--headed<span class="w">      </span><span class="c1"># watch Chromium as it runs</span>
 </code></pre></div>
+<p><code>npm run test:e2e</code> is the same command (<code>playwright test</code>) via a package.json alias — either form works.</p>
 <p>Playwright auto-starts the Vite dev server on port 5173 (<code>playwright.config.ts</code> → <code>webServer</code>). If you already have <code>npm run dev</code> running, Playwright reuses it.</p>
 <h3 id="directory-layout">Directory layout<a class="headerlink" href="#directory-layout" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>frontend/e2e/
@@ -3844,7 +3847,9 @@
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>├── command-palette.spec.ts  # Cmd+K search
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>├── theme.spec.ts         # Light/dark toggle + persistence
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>├── export.spec.ts        # Export button visibility + JSON trigger
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>└── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>├── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>├── rich-text-editor.spec.ts  # Card description editor + markdown round-trip
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>└── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
 </code></pre></div>
 <h3 id="fixture-pattern">Fixture pattern<a class="headerlink" href="#fixture-pattern" title="Permanent link">&para;</a></h3>
 <p>All fixtures live in <code>frontend/e2e/fixtures/board.ts</code>. Every test imports the shared <code>USER</code>, <code>BOARD_FULL</code>, <code>CARD</code>, <code>SITE_CONFIG</code>, etc. — never inline a bespoke payload unless the test is specifically exercising a variant shape.</p>
@@ -3950,9 +3955,9 @@
 </ul>
 <h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Backend tests run in the <code>test-backend</code> job on every MR</li>
-<li>Frontend unit tests run in <code>test-frontend</code></li>
-<li>Playwright E2E runs in <code>e2e-test</code> — requires the Vite dev server build to succeed first</li>
+<li>Backend tests run in the <code>backend-test</code> job (3 parallel shards) on every MR that touches <code>backend/**/*</code> or <code>requirements*.txt</code></li>
+<li>Frontend unit tests run in <code>frontend-test</code></li>
+<li>Playwright E2E runs in <code>playwright-e2e</code> — starts its own Vite dev server, no separate build step needed. It's <code>allow_failure: true</code> during rollout; promotion to blocking is tracked separately.</li>
 <li><code>backend-schema-validate</code> checks the generated OpenAPI document is well-formed;
   <code>backend-schema-fuzz</code> goes further and fuzzes a real, running instance with
   <a href="https://schemathesis.readthedocs.io/">schemathesis</a> to catch a response that doesn't match
@@ -4052,7 +4057,9 @@ hand-written lint hook) for either <code>pre-push</code> or <code>pre-commit</co
 manually so the two can be chained instead. Run <code>scripts/check-issue-collision.sh
 --self-test</code> to exercise the issue-collision check offline against stubbed forge
 responses.</p>
-<p>All four jobs must be green before a merge request can be merged.</p>
+<p>Both hooks are local, best-effort checks — <code>gitleaks-scan</code> is the CI job that actually
+blocks a merge; <code>check-issue-collision.sh</code> has no CI counterpart (see
+<a href="../ci-gates/#known-gaps-and-deferred-work">CI gate self-tests</a>).</p>
 
 
 

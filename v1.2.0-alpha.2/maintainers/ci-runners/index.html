@@ -3633,6 +3633,9 @@
 <h1 id="ci-runners">CI Runners<a class="headerlink" href="#ci-runners" title="Permanent link">&para;</a></h1>
 <p>Inventory and behavior of the GitLab Runners that execute Visiban's pipelines, and the traps
 that follow from how they're configured.</p>
+<p><strong>Why it matters:</strong> no job in <code>.gitlab-ci.yml</code> uses <code>tags:</code>, so a job that needs a specific
+runner's resources can silently land on the wrong one and fail with a confusing error instead
+of "no runner available."</p>
 <h2 id="inventory">Inventory<a class="headerlink" href="#inventory" title="Permanent link">&para;</a></h2>
 <p>As of 2026-09-14, three GitLab group runners are registered against <code>visiban/visiban</code>
 (<code>glab api "projects/visiban%2Fvisiban/runners?type=group_type"</code>):</p>
@@ -3692,14 +3695,12 @@ here (the <code>gitlab-runner</code> binary itself runs under Rosetta) and <code
 <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code> do.</p>
 <div class="admonition warning">
 <p class="admonition-title">No job in <code>.gitlab-ci.yml</code> uses <code>tags:</code></p>
-<p>Every job — including ones that need a specific runner's local resources — queues for
-<em>any</em> available runner, self-hosted or GitLab SaaS. When a self-hosted runner goes
-offline, jobs that depended on something only it provides don't fail loudly with "no
-runner available" — they get scheduled onto a SaaS runner instead and fail with a
-confusing error from deep inside the job script. This has already happened once (see
-"Docker push" below). If a job needs the self-hosted runner specifically, add a <code>tags:</code>
-selector to make the dependency explicit rather than relying on the untagged runners
-happening to be healthy.</p>
+<p>Every job queues for <em>any</em> available runner, self-hosted or GitLab SaaS. A self-hosted
+runner going offline doesn't fail its jobs loudly with "no runner available" — they get
+scheduled onto a SaaS runner instead and fail with a confusing error deep inside the job
+script. This has already happened once (see "Docker push" below). If a job needs the
+self-hosted runner specifically, add a <code>tags:</code> selector rather than relying on the
+untagged runners staying healthy.</p>
 </div>
 <h2 id="docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner">Docker image push — amd64 via kaniko, arm64 via a dedicated runner<a class="headerlink" href="#docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner" title="Permanent link">&para;</a></h2>
 <p><code>backend-docker-push</code> / <code>frontend-docker-push</code> (<code>.kaniko-push-common</code> in <code>.gitlab-ci.yml</code>)

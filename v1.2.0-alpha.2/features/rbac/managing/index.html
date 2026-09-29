@@ -3586,6 +3586,7 @@
 
 
 <h1 id="managing-roles">Managing Roles<a class="headerlink" href="#managing-roles" title="Permanent link">&para;</a></h1>
+<p>How to assign, change, and revoke group, board, and site admin roles via the UI or API.</p>
 <h2 id="board-membership">Board membership<a class="headerlink" href="#board-membership" title="Permanent link">&para;</a></h2>
 <p>Board admins can add, change, or remove members via the board settings panel or the API.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="err">POST /api/v1/boards/{board_id}/members/</span>
@@ -3602,6 +3603,7 @@
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="err">DELETE /api/v1/groups/{group_id}/members/42/</span>
 </code></pre></div>
 <p>Valid group roles: <code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code></p>
+<p>Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership, and set the default role new members get on boards created in the group. See <a href="../../groups/#invite-links">Groups</a>, <a href="../../groups/#transferring-group-ownership">Groups — Transferring group ownership</a>, and <a href="../../groups/#group-board-defaults">Groups — Group board defaults</a>.</p>
 <h2 id="granting-site-admin">Granting site admin<a class="headerlink" href="#granting-site-admin" title="Permanent link">&para;</a></h2>
 <p>Site admin status is a field on the <code>User</code> model (<code>is_site_admin</code>). It can be set via:</p>
 <p><strong>Management command (recommended)</strong></p>
@@ -3622,8 +3624,8 @@
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>The <code>is_site_admin</code> flag protects the user from demotion: any role-change or remove-member API call targeting a user with <code>is_site_admin=True</code> returns <code>403 Forbidden</code> unless the caller is also a site admin. This protection is based on <code>is_site_admin</code> specifically, not <code>can_access_all_content</code>.</p>
-<p>Only grant site admin to trusted operators.</p>
+<p>The <code>is_site_admin</code> flag protects the user from demotion: any group or board role-change or remove-member API call targeting a user with <code>is_site_admin=True</code> returns <code>403 Forbidden</code> unless the caller is also a site admin. The same protection applies to board membership — see <a href="../roles/#site-admin-protection">Site admin protection</a>.</p>
+<p>Grant site admin only to trusted operators.</p>
 </div>
 
 

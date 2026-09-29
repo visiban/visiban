@@ -3752,6 +3752,7 @@
 
 
 <h1 id="deployment">Deployment<a class="headerlink" href="#deployment" title="Permanent link">&para;</a></h1>
+<p>Two supported paths: Docker Compose for a single server, Helm for Kubernetes. Both run the same images and the same daphne/ASGI backend.</p>
 <h2 id="docker-compose-recommended-for-self-hosting">Docker Compose (recommended for self-hosting)<a class="headerlink" href="#docker-compose-recommended-for-self-hosting" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Tested:</strong> The Docker Compose development stack has been verified end-to-end.</p>
@@ -3764,7 +3765,8 @@
 <blockquote>
 <p><strong>Note:</strong> The backend uses <strong>daphne</strong> (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.</p>
 </blockquote>
-<p>The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does <strong>not</strong> proxy <code>/api/</code> requests. Access the <a href="../../api/openapi/">OpenAPI schema</a> at <code>http://localhost:8000/api/schema/swagger-ui/</code>.</p>
+<p>The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does <strong>not</strong> proxy <code>/api/</code> requests. Access the <a href="../../api/openapi/">OpenAPI schema</a> at <code>http://localhost:8000/api/schema/swagger-ui/</code> — the schema endpoints require an authenticated session or PAT, to avoid exposing the full API surface to anonymous callers.</p>
+<p>For a production-oriented Docker Compose stack (nginx, TLS via certbot, a <code>scheduler</code> service for daily notification jobs, no bind-mounted source), see <code>docker-compose.prod.yml</code> and <a href="../../getting-started/installation/">Installation</a>.</p>
 <h2 id="production-docker-images">Production Docker images<a class="headerlink" href="#production-docker-images" title="Permanent link">&para;</a></h2>
 <p>Pre-built images are published to the GitLab container registry automatically by CI on every merge to <code>main</code>:</p>
 <table>
@@ -4042,13 +4044,13 @@
 </tr>
 <tr>
 <td><code>backend.image.tag</code></td>
-<td><code>v1.0.0</code></td>
-<td>Backend image tag</td>
+<td>current release tag (e.g. <code>vX.Y.Z</code>)</td>
+<td>Backend image tag — bumped by <code>scripts/release.sh</code> on every release</td>
 </tr>
 <tr>
 <td><code>frontend.image.tag</code></td>
-<td><code>v1.0.0</code></td>
-<td>Frontend image tag</td>
+<td>current release tag (e.g. <code>vX.Y.Z</code>)</td>
+<td>Frontend image tag — bumped by <code>scripts/release.sh</code> on every release</td>
 </tr>
 <tr>
 <td><code>postgresql.enabled</code></td>
@@ -4153,7 +4155,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>--set<span class="w"> </span>backend.mediaPersistence.enabled<span class="o">=</span><span class="nb">false</span>
 </code></pre></div>
 <h3 id="openapi-schema">OpenAPI schema<a class="headerlink" href="#openapi-schema" title="Permanent link">&para;</a></h3>
-<p>The nginx ingress proxies <code>/api/</code> to the backend, so the schema endpoints are accessible at your ingress host with no additional configuration:</p>
+<p>The nginx ingress proxies <code>/api/</code> to the backend, so the schema endpoints are accessible at your ingress host with no additional configuration — sign in first, since these endpoints require an authenticated session or PAT:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>https://&lt;ingress-host&gt;/api/schema/swagger-ui/
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>https://&lt;ingress-host&gt;/api/schema/redoc/
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>https://&lt;ingress-host&gt;/api/schema/
@@ -4224,7 +4226,7 @@ used the Bitnami Valkey subchart, also needs
 <tr>
 <td>Authenticated users</td>
 <td>5000 / hour</td>
-<td>Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user easily uses 500+ per hour</td>
+<td>Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user can reach 500+ per hour</td>
 </tr>
 <tr>
 <td>Login (<code>/api/v1/auth/login/</code>) (1.1+)</td>

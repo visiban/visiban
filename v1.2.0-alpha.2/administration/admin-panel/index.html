@@ -3946,6 +3946,12 @@ walkthrough.</p>
 <h4 id="deactivate-reactivate">Deactivate / Reactivate<a class="headerlink" href="#deactivate-reactivate" title="Permanent link">&para;</a></h4>
 <p>Deactivated accounts cannot log in. No data is deleted. Can be reversed at any time by clicking <strong>Reactivate</strong>.</p>
 <p>You cannot deactivate your own account from this panel.</p>
+<p><strong>If the user owns any boards</strong>, deactivation opens a <strong>Transfer boards &amp; deactivate</strong>
+dialog first — you cannot deactivate a board owner without reassigning ownership.
+Search for a new owner per board (any existing member — a direct board member or one who
+has access through group membership both count) and confirm; deactivation and the ownership
+transfers happen together, atomically. Deactivating the account also revokes any invite links
+the departing user created.</p>
 <h4 id="make-admin-remove-admin">Make admin / Remove admin<a class="headerlink" href="#make-admin-remove-admin" title="Permanent link">&para;</a></h4>
 <p>Grants or revokes site admin status. You cannot change your own admin status — ask another site admin.</p>
 <p>The last active site admin on the instance cannot be demoted.</p>
@@ -3961,7 +3967,7 @@ walkthrough.</p>
 <p>These two flags — <code>is_site_admin</code> (admin panel access) and <code>can_access_all_content</code> (board/group omniscience) — are fully independent. See <a href="../site-admins/">Site Admins</a> for a detailed explanation of the two-flag model and examples of common configurations.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>The <code>set_site_admin</code> management command sets <strong>both</strong> flags together for convenience. To manage them independently, use the admin panel toggles described here, or edit the user directly in the Django admin at <code>/django-admin/accounts/user/</code>.</p>
+<p>The <code>set_site_admin</code> management command sets <strong>both</strong> flags together for convenience. To manage them independently, use the admin panel toggles described here, or edit the user directly in the <a href="../django-admin/">Django admin</a> at <code>/admin/accounts/user/</code>.</p>
 </div>
 <h4 id="force-password-reset">Force password reset<a class="headerlink" href="#force-password-reset" title="Permanent link">&para;</a></h4>
 <p>Sets <code>must_change_password = true</code> on the user. The next time they log in, they are presented with a password-change dialog before accessing the application. Useful after a suspected credential compromise.</p>

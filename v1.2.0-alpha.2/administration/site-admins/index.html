@@ -3614,8 +3614,9 @@
 
 
 <h1 id="site-admins">Site Admins<a class="headerlink" href="#site-admins" title="Permanent link">&para;</a></h1>
+<p>Two independent flags control what a "site admin" can do on your instance: who can manage it, and who can see every board and group on it.</p>
 <h2 id="what-is-a-site-admin">What is a site admin?<a class="headerlink" href="#what-is-a-site-admin" title="Permanent link">&para;</a></h2>
-<p>The term "site admin" covers two distinct privileges that are now tracked by separate flags:</p>
+<p>"Site admin" covers two distinct privileges, tracked by separate flags:</p>
 <table>
 <thead>
 <tr>
@@ -3668,7 +3669,7 @@
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
 </code></pre></div>
 <p><strong>Django admin panel (advanced)</strong></p>
-<p>Go to <code>/django-admin/accounts/user/</code>, open the user, and enable the <code>Is site admin</code> checkbox.</p>
+<p>Go to <code>/admin/accounts/user/</code> (the Django admin — see <a href="../django-admin/">Django Admin</a> for why this differs from the <code>/admin</code> site-admin panel above), open the user, and enable the <code>Is site admin</code> checkbox.</p>
 <h2 id="revoking-site-admin">Revoking site admin<a class="headerlink" href="#revoking-site-admin" title="Permanent link">&para;</a></h2>
 <p><strong>Admin panel (recommended)</strong></p>
 <p>Go to <strong>Site Admin → Users</strong> (<code>/admin</code>), find the user, and click <strong>Remove admin</strong> in their row.</p>

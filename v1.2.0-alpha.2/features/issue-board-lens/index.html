@@ -3763,8 +3763,8 @@
 <p class="admonition-title">Experimental feature</p>
 <p>The Issue Board Lens is experimental. Its configuration options and behavior may change in future releases.</p>
 </div>
-<p>The Issue Board Lens connects a public GitHub or GitLab repository to a Visiban board and renders its issues as a read-only kanban view. It gives you a configurable two-dimensional pivot — columns on one axis, swimlanes on the other — that native GitHub and GitLab boards do not offer.</p>
-<p>The lens is a live view of the source repository. The repository remains the single source of truth. There is no sync, no webhooks, and no write-back to the provider — Visiban only reads.</p>
+<p>The Issue Board Lens connects a public GitHub or GitLab repository to a Visiban board and renders its issues as a read-only kanban view. <strong>Why it matters:</strong> it gives you a configurable two-dimensional pivot — columns on one axis, swimlanes on the other — that native GitHub and GitLab boards don't offer.</p>
+<p>The lens is a live view of the source repository, which stays the single source of truth. There's no sync, no webhooks, and no write-back to the provider — Visiban only reads.</p>
 <hr />
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
@@ -3786,7 +3786,7 @@
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GIT_LENS_ENABLED</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
 </code></pre></div>
-<p>When the variable is not set or is set to <code>false</code>, the feature is completely absent from the UI and API. No restart of the frontend is required — the UI reads a capability flag from the backend on load.</p>
+<p>When the variable isn't set, or is set to <code>false</code>, the feature is completely absent from the UI and API. No frontend restart needed — the UI reads a capability flag from the backend on load.</p>
 <p>To monitor how many GitHub/GitLab API calls the lens makes on your instance, see <a href="../../administration/issue-board-lens-usage/">Issue Board Lens Usage</a>.</p>
 <hr />
 <h2 id="configuring-the-lens-on-a-board">Configuring the lens on a board<a class="headerlink" href="#configuring-the-lens-on-a-board" title="Permanent link">&para;</a></h2>
@@ -3798,9 +3798,9 @@
 <li>Enter the repository in <code>owner/repo</code> format, for example <code>acme/backend</code> or <code>torvalds/linux</code>.</li>
 <li>Click <strong>Save</strong>.</li>
 </ol>
-<p>A <strong>Lens</strong> tab appears in the board sub-navigation. It remains visible to all board members regardless of their role.</p>
-<p>When a lens is configured, opening the board (with no <code>?view=</code> in the URL, and no <code>?card=</code> or <code>?focus=</code> deep link) lands on the <strong>Lens</strong> tab instead of the native Board. If the board also has <strong>no native swimlanes</strong>, the <strong>Board</strong> tab is shown in a muted (italic, lower-contrast) style with the tooltip "This board mirrors a repo — no native cards", so a lens-only board does not look like it has two competing boards. The Board tab is never disabled or hidden: it stays one click (or the <code>B</code> key) away, and it returns to normal styling as soon as the board has one native swimlane. This is automatic — there is no per-board setting.</p>
-<p>To disconnect the lens, return to <strong>Settings → Lens</strong> and click <strong>Remove lens</strong>. The Lens tab disappears immediately.</p>
+<p>A <strong>Lens</strong> tab appears in the board sub-navigation, visible to all board members regardless of role.</p>
+<p>When a lens is configured, opening the board (with no <code>?view=</code>, <code>?card=</code>, or <code>?focus=</code> in the URL) lands on the <strong>Lens</strong> tab instead of the native Board. If the board also has <strong>no native swimlanes</strong>, the <strong>Board</strong> tab shows in a muted (italic, lower-contrast) style with the tooltip "This board mirrors a repo — no native cards", so a lens-only board doesn't look like it has two competing boards. The Board tab is never disabled or hidden — it stays one click (or the <code>B</code> key) away, and returns to normal styling as soon as the board has one native swimlane. This is automatic; there's no per-board setting.</p>
+<p>To disconnect the lens, go to <strong>Settings → Lens</strong> and click <strong>Remove lens</strong>. The Lens tab disappears immediately.</p>
 <hr />
 <h2 id="using-the-lens">Using the lens<a class="headerlink" href="#using-the-lens" title="Permanent link">&para;</a></h2>
 <h3 id="the-board-view">The board view<a class="headerlink" href="#the-board-view" title="Permanent link">&para;</a></h3>
@@ -3810,13 +3810,13 @@
 <ul>
 <li>Columns resize between roughly 160px and 640px; the swimlane label panel resizes between roughly 120px and 480px.</li>
 <li>Each column edge doubles as a keyboard control: focus it with Tab and press the left/right arrow keys to resize in small steps (hold Shift for larger steps).</li>
-<li>Sizes are remembered per board, on the device and browser you resized them in. They do not travel with a shared lens link and are not synced across devices.</li>
+<li>Sizes are remembered per board, on the device and browser you resized them in. They don't travel with a shared lens link and aren't synced across devices.</li>
 </ul>
 <h3 id="columns-the-horizontal-dimension">Columns — the horizontal dimension<a class="headerlink" href="#columns-the-horizontal-dimension" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Changed in 1.2</strong> — a newly configured lens now defaults to the <strong>Pipeline</strong> column view. Existing lenses keep whatever view they were saved with.</p>
 </blockquote>
-<p>A newly configured lens defaults to the <strong>Pipeline</strong> view: it derives a Backlog → To Do → Doing → Review → Done workflow from repository state, rather than from status labels. Pipeline is the opinionated, most useful view — Status labels degrades to a plain open/closed split for repositories that have no <code>status::</code>-style labels.</p>
+<p>A newly configured lens defaults to <strong>Pipeline</strong>: it derives a Backlog → To Do → Doing → Review → Done workflow from repository state, rather than from status labels. Pipeline is the opinionated, most useful view — Status labels degrades to a plain open/closed split for repositories with no <code>status::</code>-style labels.</p>
 <p>You can change the column dimension in <strong>Settings → Lens → Columns</strong> and choose from:</p>
 <table>
 <thead>
@@ -3837,10 +3837,6 @@
 <tr>
 <td>Open / Closed</td>
 <td>A simple two-column split based on issue state</td>
-</tr>
-<tr>
-<td>Any label</td>
-<td>Every distinct label in the repository becomes a column</td>
 </tr>
 </tbody>
 </table>
@@ -3876,7 +3872,7 @@
 </tr>
 </tbody>
 </table>
-<p>Each card in the pipeline view shows the branch name or MR that placed it there, so you can see the evidence at a glance without opening the issue. Branch and open-MR detection requires the repository to be on <strong>github.com</strong> or <strong>gitlab.com</strong>; GitLab reads are anonymous. Fetching this evidence only happens for the Pipeline view, bounded by the lens's shared cache — see <a href="../../api/git-lens/#pipeline-column-dimension">Pipeline column dimension</a> in the API reference for the full precedence rules and payload shape.</p>
+<p>Each card in the pipeline view shows the branch name or MR that placed it there, so you can see the evidence at a glance without opening the issue. Branch and open-MR detection requires the repository to be on <strong>github.com</strong> or <strong>gitlab.com</strong>; GitLab reads are anonymous. This evidence is only fetched for the Pipeline view, bounded by the lens's shared cache — see <a href="../../api/git-lens/#pipeline-column-dimension">Pipeline column dimension</a> in the API reference for the full precedence rules and payload shape.</p>
 <h3 id="swimlanes-the-vertical-dimension">Swimlanes — the vertical dimension<a class="headerlink" href="#swimlanes-the-vertical-dimension" title="Permanent link">&para;</a></h3>
 <p>By default, swimlanes group issues by <strong>milestone</strong>. Issues with no milestone appear in an <strong>Ungrouped</strong> swimlane at the bottom.</p>
 <p>You can change the swimlane dimension in <strong>Settings → Lens → Swimlanes</strong>:</p>
@@ -3902,10 +3898,10 @@
 </tr>
 </tbody>
 </table>
-<p>Issues that match multiple swimlane values (for example, an issue with two labels when swimlanes are by label) appear once in each matching swimlane.</p>
+<p>Issues matching multiple swimlane values (for example, an issue with two labels when swimlanes are by label) appear once in each matching swimlane.</p>
 <h4 id="the-current-milestone-is-promoted">The current milestone is promoted<a class="headerlink" href="#the-current-milestone-is-promoted" title="Permanent link">&para;</a></h4>
-<p>When swimlanes are grouped by milestone, the milestone you are actively working on sorts to the <strong>top</strong> of the board and is marked with a <strong>Current</strong> badge, so it is not buried among every other milestone. Every other milestone stays visible below it — nothing is hidden or filtered away.</p>
-<p>Visiban works out which milestone is current on its own; there is nothing to configure:</p>
+<p>When swimlanes are grouped by milestone, the milestone you're actively working on sorts to the <strong>top</strong> of the board with a <strong>Current</strong> badge, so it isn't buried among every other milestone. Every other milestone stays visible below it — nothing is hidden or filtered away.</p>
+<p>Visiban works out which milestone is current on its own; there's nothing to configure:</p>
 <ul>
 <li>The open milestone whose due date is nearest wins. If every open milestone is already past due, the most recently due one is used — an overdue milestone is still the one in progress.</li>
 <li>If none of your milestones have due dates, and you are using the <strong>Pipeline</strong> column view, the milestone with the most issues in <em>Doing</em> and <em>Review</em> wins instead.</li>
@@ -3944,23 +3940,15 @@
 </tr>
 </tbody>
 </table>
-<p>State, milestone, label and assignee are applied <strong>at the provider</strong>, before issues are
-fetched. That matters on a large repository: filtering to a milestone or label reaches
-issues that fall outside the 300-issue cap, so a filtered board can show work an
-unfiltered one cannot. The title/number box, by contrast, only narrows the issues
-already loaded.</p>
-<p>All filters are stored in the page URL, so a filtered board can be copied and shared
-as a link. The <strong>Filters</strong> button shows how many are active; <strong>Clear</strong> removes them all.</p>
+<p>State, milestone, label, and assignee are applied <strong>at the provider</strong>, before issues are fetched. That matters on a large repository: filtering to a milestone or label reaches issues beyond the 300-issue cap, so a filtered board can show work an unfiltered one can't. The title/number box, by contrast, only narrows the issues already loaded.</p>
+<p>All filters are stored in the page URL, so a filtered board can be copied and shared as a link. The <strong>Filters</strong> button shows how many are active; <strong>Clear</strong> removes them all.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Label and assignee suggestions are gathered from the issues that have been loaded
-so far, so a label used only by issues beyond the cap may not be offered. You can
-still type a milestone or assignee that is not in the list — the filter is sent to
-the provider either way.</p>
+<p>Label and assignee suggestions are gathered from the issues loaded so far, so a label used only by issues beyond the cap may not be offered. You can still type a milestone or assignee not in the list — the filter is sent to the provider either way.</p>
 </div>
 <h3 id="refreshing-data">Refreshing data<a class="headerlink" href="#refreshing-data" title="Permanent link">&para;</a></h3>
-<p>The lens does not poll automatically. Click <strong>Refresh</strong> in the Lens toolbar to fetch the latest issues from the provider. A <strong>Synced X ago</strong> indicator below the toolbar shows when data was last fetched so you always know how fresh the view is.</p>
-<p>To protect your provider's API rate limit — which everyone viewing the same repository shares — Refresh is capped at once every 30 seconds per person, per repository, and there is a wider cap of 12 fetches per five minutes covering pivots and filter changes as well, plus an overall ceiling of 48 fetches per five minutes across every repository you are viewing. Clicking Refresh inside the cooldown simply keeps showing the data you already have; the <strong>Synced X ago</strong> indicator will not advance. Refresh is available to every board role, including viewers.</p>
+<p>The lens doesn't poll automatically. Click <strong>Refresh</strong> in the Lens toolbar to fetch the latest issues from the provider. A <strong>Synced X ago</strong> indicator below the toolbar shows when data was last fetched, so you always know how fresh the view is.</p>
+<p><strong>Watch out:</strong> to protect your provider's API rate limit — shared by everyone viewing the same repository — Refresh is capped at once every 30 seconds per person, per repository. A wider cap of 12 fetches per five minutes covers pivots and filter changes too, plus an overall ceiling of 48 fetches per five minutes across every repository you're viewing. Clicking Refresh inside the cooldown just keeps showing the data you already have; the <strong>Synced X ago</strong> indicator won't advance. Refresh is available to every board role, including viewers.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Refresh after closing a sprint or milestone to update the board before your retrospective.</p>
@@ -3970,21 +3958,21 @@ the provider either way.</p>
 <blockquote>
 <p><strong>Changed in 1.2</strong></p>
 </blockquote>
-<p>The lens shares the board's toolbar row instead of rendering its own — the pivot dropdowns, a board-style <strong>Filters</strong> toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between the <strong>Board</strong> and <strong>Lens</strong> tabs no longer shifts the layout. <strong>Compact</strong> card layout matches the board too: cards flow two-per-row rather than just shrinking, and the lens reuses your existing per-board card-layout preference.</p>
-<p>On narrow screens, the lens toolbar folds like the board's: below the large breakpoint, the card-layout toggle moves into a <strong>Lens actions</strong> menu instead of pushing the row into a sideways scroll. The lens also picks up the same keyboard shortcuts as the board — <kbd>F</kbd> toggles the filter row and <kbd>⌘⇧L</kbd> / <kbd>Ctrl+Shift+L</kbd> switches card layout (see <a href="../keyboard-shortcuts/">Keyboard shortcuts</a>).</p>
-<p>On the lens, the same <strong>Compact</strong> toggle goes a step further than it does on the native board: it also strips cards down to the essentials — the issue number, state, multi-lane indicator, and title — for an at-a-glance scan. This is separate from the board's admin-set <a href="../board/#card-density">Card density</a>; the lens has no admin-controlled density, only this one per-user toggle.</p>
+<p>The lens shares the board's toolbar row instead of rendering its own — the pivot dropdowns, a board-style <strong>Filters</strong> toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between <strong>Board</strong> and <strong>Lens</strong> no longer shifts the layout. <strong>Compact</strong> card layout matches the board too: cards flow two-per-row rather than shrinking, and the lens reuses your existing per-board card-layout preference.</p>
+<p>On narrow screens, the lens toolbar folds like the board's: below the large breakpoint, the card-layout toggle moves into a <strong>Lens actions</strong> menu instead of pushing the row into a sideways scroll. The lens also picks up the board's keyboard shortcuts — <kbd>F</kbd> toggles the filter row, <kbd>⌘⇧L</kbd> / <kbd>Ctrl+Shift+L</kbd> switches card layout (see <a href="../keyboard-shortcuts/">Keyboard shortcuts</a>).</p>
+<p>On the lens, <strong>Compact</strong> goes a step further than on the native board: it also strips cards down to the essentials — issue number, state, multi-lane indicator, title — for an at-a-glance scan. This is separate from the board's admin-set <a href="../board/#card-density">Card density</a>; the lens has no admin-controlled density, only this one per-user toggle.</p>
 <p>The lens also gained the native board's other view comforts, both shareable via the URL:</p>
 <ul>
 <li><strong>Collapse</strong> individual swimlanes, or <strong>focus</strong> a single lane (<code>?lens_collapsed=</code> and <code>?lens_focus=</code>).</li>
 </ul>
 <hr />
 <h2 id="github-authentication">GitHub authentication<a class="headerlink" href="#github-authentication" title="Permanent link">&para;</a></h2>
-<p>GitHub reads use the OAuth account linked to the signed-in Visiban user. If your Visiban account is not connected to GitHub, the lens displays a prompt to link your account in <strong>Settings → Connected accounts</strong>.</p>
-<p>If your GitHub token expires or is revoked, the lens shows an authentication error with a link to re-authorize. Other board members with a linked GitHub account will not be affected — reads are per-user.</p>
-<p>GitLab public repositories are read anonymously and do not require a linked account.</p>
+<p>GitHub reads use the OAuth account linked to the signed-in Visiban user. If your account isn't connected to GitHub, the lens prompts you to link one in <strong>Settings → Connected accounts</strong>.</p>
+<p>If your GitHub token expires or is revoked, the lens shows an authentication error with a link to re-authorize. Other board members with a linked GitHub account aren't affected — reads are per-user.</p>
+<p>GitLab public repositories are read anonymously and need no linked account.</p>
 <hr />
 <h2 id="large-repositories">Large repositories<a class="headerlink" href="#large-repositories" title="Permanent link">&para;</a></h2>
-<p>Repositories with more than <strong>300 open issues</strong> are capped. The lens displays the first 300 issues and shows a notice:</p>
+<p>Repositories with more than <strong>300 open issues</strong> are capped. The lens shows the first 300 issues and a notice:</p>
 <blockquote>
 <p>Showing the first 300 issues. This repository has more — consider filtering by milestone or label.</p>
 </blockquote>
@@ -4027,18 +4015,18 @@ the provider either way.</p>
 </table>
 <hr />
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<p><strong>The Lens tab does not appear.</strong>
-The operator has not set <code>GIT_LENS_ENABLED=true</code>, or you are not a board member. Confirm the environment variable is set and restart the backend.</p>
+<p><strong>The Lens tab doesn't appear.</strong>
+The operator hasn't set <code>GIT_LENS_ENABLED=true</code>, or you're not a board member. Confirm the environment variable is set and restart the backend.</p>
 <p><strong>"Repository not found" error after saving settings.</strong>
-The repository is private or does not exist. The Issue Board Lens only supports public repositories.</p>
+The repository is private or doesn't exist. The Issue Board Lens only supports public repositories.</p>
 <p><strong>"GitHub account not linked" prompt.</strong>
-Link your GitHub account in <strong>Settings → Connected accounts</strong> and then reload the Lens tab.</p>
+Link your GitHub account in <strong>Settings → Connected accounts</strong> and reload the Lens tab.</p>
 <p><strong>Issues are missing or stale.</strong>
 Click <strong>Refresh</strong> in the Lens toolbar to pull the latest data from the provider.</p>
 <p><strong>The 300-issue cap notice appears.</strong>
-Filter the view by milestone, label or assignee to focus on a subset of work — those filters are applied at the provider, so they reach issues beyond the cap. The cap itself cannot be removed in this release.</p>
+Filter the view by milestone, label, or assignee to focus on a subset of work — those filters are applied at the provider, so they reach issues beyond the cap. The cap itself can't be removed in this release.</p>
 <p><strong>A GitHub milestone filter returns an empty board.</strong>
-No milestone with that exact title exists in the repository. Milestone titles are matched exactly, including capitalization. Pick one from the suggestions to be sure.</p>
+No milestone with that exact title exists in the repository. Milestone titles are matched exactly, including capitalization — pick one from the suggestions to be sure.</p>
 
 
 

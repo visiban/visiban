@@ -788,6 +788,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#testing-oidc-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing OIDC locally
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3614,7 +3625,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>GOOGLE_CLIENT_ID=your-client-id
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>GOOGLE_CLIENT_SECRET=your-client-secret
 </code></pre></div>
-<p>Scopes required: <code>openid</code>, <code>email</code>, <code>profile</code></p>
+<p>Scopes requested: <code>profile</code>, <code>email</code></p>
 <h2 id="github">GitHub<a class="headerlink" href="#github" title="Permanent link">&para;</a></h2>
 <ol>
 <li>GitHub → Settings → Developer settings → OAuth Apps → New OAuth App</li>
@@ -3639,14 +3650,14 @@
 <p>Replace <code>http://localhost:8000</code> with your public domain in all callback URLs.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>OAuth callbacks are routed through <code>/_allauth/</code> paths handled by the backend. Ensure your production nginx config proxies <code>/_allauth/</code> to the backend — both <code>nginx/app.conf.template</code> (HTTPS) and <code>nginx/app-http.conf.template</code> (HTTP) already include this block.</p>
+<p>OAuth callbacks are handled at <code>/accounts/...</code> paths (as shown above), not <code>/_allauth/</code>. Ensure your production nginx config proxies <code>/accounts/</code> to the backend — both <code>nginx/app.conf.template</code> (HTTPS) and <code>nginx/app-http.conf.template</code> (HTTP) already include this block.</p>
 </div>
 <h2 id="generic-oidc-openid-connect">Generic OIDC (OpenID Connect)<a class="headerlink" href="#generic-oidc-openid-connect" title="Permanent link">&para;</a></h2>
 <p>Visiban supports any standards-compliant OpenID Connect provider (Keycloak, Authentik, Dex, Azure AD, Okta, etc.) via the generic OIDC backend.</p>
 <ol>
 <li>Create a confidential client in your identity provider with:</li>
 <li>Grant type: <strong>Authorization Code</strong></li>
-<li>Redirect URI: <code>https://yourdomain.com/_allauth/browser/v1/auth/provider/callback</code> (replace with your domain; use <code>http://localhost:8000</code> for local dev)</li>
+<li>Redirect URI: <code>https://yourdomain.com/accounts/oidc/oidc/login/callback/</code> (replace with your domain; use <code>http://localhost:8000</code> for local dev)</li>
 <li>Add to <code>.env</code>:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>OIDC_CLIENT_ID=your-client-id
@@ -3657,6 +3668,15 @@
 <p>All three of <code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, and <code>OIDC_SERVER_URL</code> must be set for OIDC to be enabled; setting only one or two has no effect.</p>
 <p><code>OIDC_SERVER_URL</code> must be the issuer root URL. Visiban appends <code>/.well-known/openid-configuration</code> to discover token and userinfo endpoints automatically.</p>
 <p>Scopes requested: <code>openid</code>, <code>email</code>, <code>profile</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">The doubled <code>oidc</code> segment in the callback URL is not a typo</p>
+<p>The first <code>oidc</code> is allauth's <code>OPENID_CONNECT_URL_PREFIX</code> (its default); the second is Visiban's fixed <code>provider_id</code> for the generic OIDC provider. <code>OIDC_PROVIDER_NAME</code> only changes the button label, not this path.</p>
+</div>
+<h2 id="testing-oidc-locally">Testing OIDC locally<a class="headerlink" href="#testing-oidc-locally" title="Permanent link">&para;</a></h2>
+<p><code>docker-compose.oidc.yml</code> starts a pre-seeded Keycloak alongside the main stack, so you can exercise the full OIDC login flow without a real identity provider:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>-f<span class="w"> </span>docker-compose.oidc.yml<span class="w"> </span>up
+</code></pre></div>
+<p>Log in at http://localhost:5173 with the <strong>Keycloak</strong> SSO button using <code>testuser</code> / <code>testpassword</code>. The Keycloak admin console is at http://localhost:8080 (<code>admin</code> / <code>admin</code>).</p>
 
 
 

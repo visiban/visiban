@@ -3816,9 +3816,9 @@
 <h1 id="upgrading-visiban">Upgrading Visiban<a class="headerlink" href="#upgrading-visiban" title="Permanent link">&para;</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Available from 1.0</p>
-<p>This guide covers upgrades from Visiban 1.0 onward. If you are migrating from a pre-1.0 release, follow the <a href="#upgrading-to-100">1.0 release notes</a> below first.</p>
+<p>Covers upgrades from Visiban 1.0 onward. Migrating from a pre-1.0 release? Follow the <a href="#upgrading-to-100">1.0 release notes</a> below first.</p>
 </div>
-<p>This page explains how to safely upgrade a self-hosted Visiban instance between releases.</p>
+<p>Upgrade a self-hosted Visiban instance between releases with zero downtime, using the standard steps below.</p>
 <h2 id="version-compatibility-quick-reference">Version compatibility quick-reference<a class="headerlink" href="#version-compatibility-quick-reference" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3847,6 +3847,12 @@
 <td>1.1.x (minor)</td>
 <td>Yes — zero-downtime</td>
 <td>Follow the <a href="#standard-upgrade-steps">standard upgrade steps</a>. Check the <a href="#release-specific-upgrade-notes">release-specific notes</a> for any migration-window exceptions.</td>
+</tr>
+<tr>
+<td>1.1.x</td>
+<td>1.2.x (minor)</td>
+<td>Yes — zero-downtime</td>
+<td>Follow the <a href="#standard-upgrade-steps">standard upgrade steps</a>. See <a href="#upgrading-to-12x">Upgrading to 1.2.x</a> — most changes are additive and need no operator action, but read the <code>!!!</code> callouts (Compose <code>ALLOWED_HOSTS</code>/<code>DOMAIN</code>, Helm values-schema validation, PAT scopes and the MCP server).</td>
 </tr>
 </tbody>
 </table>
@@ -3884,8 +3890,8 @@ version — without it, <code>pull</code> fetches the version you already run.</
 </code></pre></div>
 <p>This recreates every service whose image changed with <code>APP_VERSION</code> — <code>backend-init</code> (which
 re-checks migrations), <code>backend</code>, <code>frontend-build</code> (which copies the new SPA into place) and, if
-enabled, <code>scheduler</code>. Recreating only <code>backend</code> would leave the old frontend and scheduler
-running against the new API. Nginx and the database are unaffected.</p>
+enabled, <code>scheduler</code>. <strong>Watch out:</strong> recreating only <code>backend</code> leaves the old frontend and
+scheduler running against the new API. Nginx and the database are unaffected.</p>
 <h3 id="5-verify">5. Verify<a class="headerlink" href="#5-verify" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span>--tail<span class="w"> </span><span class="m">40</span>
 </code></pre></div>
@@ -3953,8 +3959,8 @@ procedure are in
 <p class="admonition-title">Rolling a Helm deployment with zero downtime</p>
 <p>This section explains why running migrations separately from replica startup matters. For
 a full step-by-step rolling-upgrade procedure on Helm/Kubernetes — pre-upgrade checklist,
-watching the migrate hook Job, verifying a partial rollout, and rolling back mid-upgrade —
-see the <a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>.</p>
+watching each new pod's <code>migrate</code> init container, verifying a partial rollout, and rolling
+back mid-upgrade — see the <a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -3966,7 +3972,9 @@ after it exits successfully. The backend container itself runs only the idempote
 <code>ensure_site_admin</code> bootstrap before <code>daphne</code>. The risk below applies if you replace that
 layout with a startup command that migrates — for example on Docker Swarm, a second Compose
 host, or a hand-written Kubernetes manifest — because then every replica races to apply the
-same migrations on startup. Django's migration executor is not safe to run concurrently: two containers applying the same migration at the same time will conflict at the database level and may leave the schema in an inconsistent state.</p>
+same migrations on startup. <strong>Watch out:</strong> Django's migration executor is not safe to run
+concurrently — two containers applying the same migration at the same time will conflict at the
+database level and may leave the schema in an inconsistent state.</p>
 <p><strong>Recommended approach for multi-replica deployments:</strong></p>
 <p>Run migrations as a dedicated pre-deploy step before scaling up any application replicas.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Docker Compose</label><label for="__tabbed_1_2">Kubernetes</label></div>
@@ -4227,6 +4235,22 @@ of the upgrade, run the schema check without deploying anything:</p>
 0.6.0, #1210).</p>
 </div>
 <div class="admonition note">
+<p class="admonition-title">Helm: migrations now run in an init container, not a hook Job</p>
+<p>Database migrations moved from a <code>pre-install</code>/<code>pre-upgrade</code> hook Job to a <code>migrate</code> init
+container on the backend <code>Deployment</code>, serialized across replicas by a PostgreSQL advisory
+lock (<code>manage.py migrate_with_lock</code>). This fixes a fresh <code>helm install</code> on the chart's
+default values, which the hook Job broke — Helm runs pre-install hooks before creating any
+release resource, so the hook tried to reach the bundled PostgreSQL Service before it
+existed.</p>
+<p>No values change is required — <code>helm upgrade</code> on an existing release picks this up
+automatically. What changes is how you <strong>watch</strong> an upgrade in progress: there is no
+longer a separate <code>visiban-migrate</code> Job to <code>kubectl logs</code>. See the
+<a href="../zero-downtime-upgrade/#2-the-rolling-upgrade">Zero-Downtime Upgrade Playbook</a> for the
+new commands. Two new tunables, <code>backend.migrate.connectTimeout</code> (default 300s) and
+<code>backend.migrate.lockTimeout</code> (default 900s), replace anything you may have set for the
+old Job's <code>activeDeadlineSeconds</code>.</p>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Upload limits are now derived from one value</p>
 <p><code>backend.settings.maxUploadSizeBytes</code> (default 10 MB) now drives the
 application cap, the frontend nginx <code>client_max_body_size</code>, and the ingress
@@ -4305,7 +4329,7 @@ least 35 MB for Trello imports to work — see
 <li><code>externalRedis</code> Helm values key — unchanged for backward compatibility</li>
 <li><code>/api/health/readiness/</code> response field <code>"redis"</code> — unchanged (it is a published API contract)</li>
 </ul>
-<p><strong>No data migration required</strong> — Valkey holds only ephemeral channel-layer and cache data (WebSocket group subscriptions and short-lived rate-limit keys). All of this is rebuilt automatically on startup. Simply redeploy:</p>
+<p><strong>No data migration required</strong> — Valkey holds only ephemeral channel-layer and cache data (WebSocket group subscriptions and short-lived rate-limit keys). All of this is rebuilt automatically on startup. Redeploy:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Docker Compose</label><label for="__tabbed_2_2">Kubernetes / Helm</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">

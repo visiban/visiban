@@ -1257,17 +1257,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#capped-dwell-display" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Capped dwell display
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -3717,7 +3706,7 @@
 
 
 <h1 id="analytics-summary-beta">Analytics &amp; Summary <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span><a class="headerlink" href="#analytics-summary-beta" title="Permanent link">&para;</a></h1>
-<p>Switch between board views using the toggle in the toolbar: <strong>Board</strong>, <strong>Summary</strong>, <strong>Analytics</strong>.</p>
+<p>Two extra views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving individual cards. Switch to them with the toolbar toggle: <strong>Board</strong>, <strong>Summary</strong>, <strong>Analytics</strong>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Done columns must be marked before analytics data is accurate</p>
 <p>The dwell-time heatmap excludes columns that are marked as done. If your "Done" or "Released" column is not marked, closed work continues to accumulate dwell cycles and distorts the heatmap.</p>
@@ -3779,16 +3768,15 @@
 <p class="admonition-title">Tip</p>
 <p>Both <code>staleness_threshold_days</code> and <code>stale_warning_pct</code> are configurable per board in the board settings modal. Adjusting them changes the heatmap coloring immediately on the next analytics load.</p>
 </div>
-<h4 id="capped-dwell-display">Capped dwell display<a class="headerlink" href="#capped-dwell-display" title="Permanent link">&para;</a></h4>
-<p>When the average dwell time for a cell is equal to or greater than the selected period (the <code>days</code> value), the cell displays a <code>&gt;=Nd</code> prefix (for example, <code>&gt;=30d</code> on a 30-day period). This signals that the true average may be higher than the displayed value because some dwell intervals extend beyond the analysis window.</p>
 <h3 id="period-toggle">Period toggle<a class="headerlink" href="#period-toggle" title="Permanent link">&para;</a></h3>
-<p>Switch between <strong>7 days</strong>, <strong>30 days</strong>, and <strong>90 days</strong> to control which card movements are included in the calculation.</p>
+<p>Switch between <strong>7 days</strong>, <strong>30 days</strong>, and <strong>90 days</strong> to control which card movements are included in the calculation. The period toggle only appears in <strong>Throughput</strong> mode (see <a href="#view-mode-age-vs-throughput">View mode: Age vs Throughput</a> below) — <strong>Age</strong> mode always reflects the current moment, so there's no period to pick.</p>
 <h3 id="dwell-time-and-archived-cards">Dwell time and archived cards<a class="headerlink" href="#dwell-time-and-archived-cards" title="Permanent link">&para;</a></h3>
 <p>Analytics includes archived cards as part of the historical record. When a card is archived, its dwell time in the most recent stage is calculated using the <strong>archive timestamp</strong> as the exit time — not the current date. This means archived cards accurately reflect how long they were actively worked on, and dwell times stop accumulating at the moment of archiving.</p>
 <p>Active cards continue to accumulate dwell time in their current stage until they move again.</p>
 <p>Dwell-time calculations use only <code>movement_type = move</code> events. Archive and restore events are excluded so that archiving a card does not distort the time-in-stage figures for surrounding cards.</p>
 <h3 id="stalled-cards">Stalled cards<a class="headerlink" href="#stalled-cards" title="Permanent link">&para;</a></h3>
-<p>Below the heatmap, cards that have not moved in more than the effective stalled-days threshold are displayed in a paginated table. The table shows <strong>Swimlane</strong>, <strong>Card</strong> (title), and <strong>Days Stalled</strong> columns, paginated at 25 rows per page with next/previous navigation. A count badge on the section header (for example, "3 cards stalled") shows the total. Click any row to open the card detail panel directly — no need to navigate back to the board view first.</p>
+<p>Below the heatmap, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold — <strong>Swimlane</strong>, <strong>Card</strong> (title), and <strong>Days Stalled</strong>. A count badge on the section header (e.g. "3 cards stalled") shows the total.</p>
+<p>Click any row to open the card detail panel directly — no need to go back to the board view first.</p>
 <p>The default threshold is the board's <code>staleness_threshold_days</code> setting. You can override it for a single request by passing the <code>stalled_days</code> query parameter — this affects only the stalled cards list and does not change the heatmap coloring.</p>
 <p>Archived cards and cards in done columns are excluded from stalled card detection — they are no longer in-flight and flagging them as stalled would be misleading.</p>
 <h3 id="empty-period">Empty period<a class="headerlink" href="#empty-period" title="Permanent link">&para;</a></h3>
@@ -3834,13 +3822,13 @@
 <td><code>days</code></td>
 <td>integer</td>
 <td><code>30</code></td>
-<td>Must be a positive integer (<code>&gt;= 1</code>). Returns <code>400</code> if non-integer or <code>&lt;= 0</code>.</td>
+<td><code>1</code>–<code>365</code>. Returns <code>400</code> if non-integer or out of range.</td>
 </tr>
 <tr>
 <td><code>stalled_days</code></td>
 <td>integer</td>
 <td>Board's <code>staleness_threshold_days</code></td>
-<td>Optional override. Must be a positive integer (<code>&gt;= 1</code>). Returns <code>400</code> if non-integer or <code>&lt;= 0</code>. When omitted, the board setting is used.</td>
+<td>Optional override, <code>1</code>–<code>90</code>. Returns <code>400</code> if non-integer or out of range. When omitted, the board setting is used.</td>
 </tr>
 </tbody>
 </table>

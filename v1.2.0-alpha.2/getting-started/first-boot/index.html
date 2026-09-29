@@ -756,10 +756,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#customising-the-bootstrap-account" class="md-nav__link">
+  <a href="#customizing-the-bootstrap-account" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Customising the bootstrap account
+        Customizing the bootstrap account
       
     </span>
   </a>
@@ -3659,6 +3659,7 @@
 
 
 <h1 id="first-boot">First Boot<a class="headerlink" href="#first-boot" title="Permanent link">&para;</a></h1>
+<p>The first time Visiban starts, it creates a one-time admin password — retrieve it, log in, and set your own password before inviting anyone else.</p>
 <h2 id="automatic-admin-bootstrap">Automatic admin bootstrap<a class="headerlink" href="#automatic-admin-bootstrap" title="Permanent link">&para;</a></h2>
 <p>On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (<code>/tmp/visiban_admin_password</code> by default). The password is <strong>not</strong> printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.</p>
 <p>The stdout output looks like this:</p>
@@ -3712,13 +3713,13 @@
 <h2 id="changing-the-password">Changing the password<a class="headerlink" href="#changing-the-password" title="Permanent link">&para;</a></h2>
 <p>On first login you will be shown a password change screen. You cannot access the application until a new password (minimum 12 characters) is set. The temporary password cannot be reused.</p>
 <p>Once SMTP is configured, regular users (not just admins) can reset their own passwords via <strong>Forgot password?</strong> on the login page — no administrator intervention required. See <a href="../../administration/authentication/#forgot-password-self-service-password-reset">Authentication — Forgot password</a> for SMTP setup notes.</p>
-<h2 id="customising-the-bootstrap-account">Customising the bootstrap account<a class="headerlink" href="#customising-the-bootstrap-account" title="Permanent link">&para;</a></h2>
+<h2 id="customizing-the-bootstrap-account">Customizing the bootstrap account<a class="headerlink" href="#customizing-the-bootstrap-account" title="Permanent link">&para;</a></h2>
 <p>Set these environment variables <strong>before</strong> the first boot:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">DJANGO_SUPERUSER_USERNAME</span><span class="o">=</span>admin
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">DJANGO_SUPERUSER_EMAIL</span><span class="o">=</span>admin@example.com
 </code></pre></div>
 <h2 id="subsequent-boots">Subsequent boots<a class="headerlink" href="#subsequent-boots" title="Permanent link">&para;</a></h2>
-<p><code>ensure_site_admin</code> is a no-op once a site admin exists. Credentials are never printed again.</p>
+<p><code>ensure_site_admin</code> runs on every boot. Admin bootstrap is a no-op once a site admin exists — credentials are never printed again — but the command also re-syncs the Sites framework's domain from <code>SITE_DOMAIN</code> every time it runs, so changing <code>SITE_DOMAIN</code> and restarting the backend takes effect immediately, with no extra step.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>If you lose the temporary password before changing it, reset it via the Django shell:

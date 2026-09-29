@@ -3740,8 +3740,9 @@ superuser/site-admin/<code>can_access_all_content</code> account), and drives
 <a href="https://schemathesis.readthedocs.io/">schemathesis</a> against every operation the schema
 describes, checking <code>response_schema_conformance</code>, <code>status_code_conformance</code>, and
 <code>content_type_conformance</code>.</p>
-<p>Runs on any MR touching <code>backend/**/views/**</code>, <code>**/serializers.py</code>, or <code>**/urls.py</code>, and
-always on <code>main</code>.</p>
+<p>Runs on any MR or <code>main</code>-branch push that touches <code>backend/**/views/**</code>, <code>**/serializers.py</code>,
+or <code>**/urls.py</code> — no unconditional fallback on <code>main</code>, since nothing downstream depends on
+this job (#1266).</p>
 <p><strong>Error envelope.</strong> Visiban has no custom DRF <code>EXCEPTION_HANDLER</code>, so authentication,
 permission, lookup, and throttling failures all render as DRF's default <code>{"detail": "&lt;message&gt;"}</code>.
 <code>visiban/schema_hooks.py</code> (a drf-spectacular <code>POSTPROCESSING_HOOKS</code> entry) documents that

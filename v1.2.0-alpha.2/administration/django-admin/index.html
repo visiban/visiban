@@ -3581,7 +3581,14 @@
 
 
 <h1 id="django-admin-panel">Django Admin Panel<a class="headerlink" href="#django-admin-panel" title="Permanent link">&para;</a></h1>
-<p>The Django admin panel is available at <code>/admin/</code> on the backend server (port 8000 in development).</p>
+<p>Django's built-in admin — for direct database record editing, not day-to-day
+administration — lives at <code>/admin/</code> (<strong>with</strong> a trailing slash) on the backend
+server (port 8000 in development).</p>
+<p>Why it matters: this is a different page from the React <strong>site-admin panel</strong>
+at <code>/admin</code> (<strong>no</strong> trailing slash — see <a href="../admin-panel/">Admin Panel</a>), which
+is what most day-to-day tasks (users, registration mode, maintenance mode)
+should go through. The two share a URL prefix by coincidence of routing, not
+by design — Nginx and the SPA router tell them apart by the trailing slash.</p>
 <h2 id="access">Access<a class="headerlink" href="#access" title="Permanent link">&para;</a></h2>
 <p>Log in with any user that has <code>is_staff = True</code> or <code>is_superuser = True</code>. The site admin account created by <code>ensure_site_admin</code> does <strong>not</strong> automatically have <code>is_staff</code> — set it manually if you need Django admin access:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
@@ -3600,7 +3607,11 @@
 <li><strong>Social accounts</strong> — inspect OAuth-linked accounts</li>
 </ul>
 <h2 id="production-note">Production note<a class="headerlink" href="#production-note" title="Permanent link">&para;</a></h2>
-<p>Restrict access to the Django admin in production via network policy or Nginx — it should not be publicly accessible.</p>
+<p><strong>Restricted to loopback by default</strong> — both the bundled Nginx config and
+<code>AdminIPRestrictionMiddleware</code> block any client IP that isn't <code>127.0.0.1</code> or
+<code>::1</code>, unless you widen the allowlist. See <a href="../secret-rotation/#admin-interface-access">Secret Rotation → Admin interface
+access</a> for the Compose and Helm
+steps, and why they differ.</p>
 
 
 

@@ -3664,10 +3664,11 @@
 
 
 <h1 id="hosted-demo-tryvisibancom">Hosted Demo (try.visiban.com)<a class="headerlink" href="#hosted-demo-tryvisibancom" title="Permanent link">&para;</a></h1>
-<p>How the public demo is deployed and what an operator must verify by hand. The chart side
-(values, guards, seed and reset, egress policy, <code>helm test</code>) is documented for everyone in
-<a href="../../administration/demo-data/#public-demo-mode-helm">Public demo mode</a>. This page covers
-the one real deployment, including the preconditions no CI job can check.</p>
+<p>How the public demo is deployed, and what an operator must verify by hand — the preconditions
+no CI job can check. The chart side (values, guards, seed and reset, egress policy,
+<code>helm test</code>) is documented for everyone in
+<a href="../../administration/demo-data/#public-demo-mode-helm">Public demo mode</a>; what follows is
+the one real deployment.</p>
 <div class="admonition warning">
 <p class="admonition-title">Nothing below is verified by CI</p>
 <p>CI proves the chart on kind: it installs <code>values-demo.yaml</code>, runs <code>helm test</code>, runs a

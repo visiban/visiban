@@ -3650,8 +3650,8 @@
 <h1 id="ci-gate-self-tests">CI gate self-tests<a class="headerlink" href="#ci-gate-self-tests" title="Permanent link">&para;</a></h1>
 <p>A bespoke CI gate that stops detecting anything does not fail — it goes <strong>green</strong>,
 permanently, and looks exactly like a codebase with no violations. There is no signal
-distinguishing "the check passed" from "the check is broken." This page is the house rule
-that closes that gap, and the record of which scripts follow it.</p>
+distinguishing "the check passed" from "the check is broken." This is the house rule that
+closes that gap, and the record of which scripts follow it.</p>
 <h2 id="the-rule">The rule<a class="headerlink" href="#the-rule" title="Permanent link">&para;</a></h2>
 <p><strong>Every bespoke gate script under <code>scripts/</code> ships a <code>--self-test</code> mode</strong> that constructs a
 known-bad input, runs its own detection logic against it, and asserts the detection fires.

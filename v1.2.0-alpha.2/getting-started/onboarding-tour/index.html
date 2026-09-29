@@ -3638,7 +3638,8 @@
 </table>
 <h2 id="behavior">Behavior<a class="headerlink" href="#behavior" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The tour triggers only when the user's <code>has_completed_tour</code> flag is <code>false</code> <strong>and</strong> the board has at least one swimlane and one card (so every tour step has a visible target element).</li>
+<li>The tour triggers whenever the user's <code>has_completed_tour</code> flag is <code>false</code>, on any board they open — there's no minimum swimlane or card count.</li>
+<li>Each step targets a specific element (swimlane, card, and so on). If a board doesn't have that element yet, the tour skips straight to the next step, or completes immediately if no later step has a visible target either.</li>
 <li>Clicking <strong>Next</strong> advances to the next step. Clicking <strong>Done</strong> on the last step completes the tour.</li>
 <li>Clicking <strong>Skip tour</strong> at any step immediately dismisses the tour.</li>
 <li>Pressing <strong>Escape</strong> dismisses the tour.</li>
@@ -3649,13 +3650,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>PATCH /api/v1/auth/me/
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>{ "has_completed_tour": false }
 </code></pre></div>
-<p><strong>Admin reset (site admins only):</strong> reset any user's tour flag from the admin panel:</p>
-<ol>
-<li>Go to <code>/admin</code> → <strong>Users</strong> tab.</li>
-<li>Find the user and open their detail view.</li>
-<li>Click <strong>Reset onboarding tour</strong>.</li>
-</ol>
-<p>You can also reset it via the Admin API:</p>
+<p><strong>Admin reset (site admins only):</strong> the Admin panel has no button for this yet — reset another user's tour flag via the Admin API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>PATCH /api/v1/admin/users/{id}/
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>{ "has_completed_tour": false }
 </code></pre></div>

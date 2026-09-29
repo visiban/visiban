@@ -3631,9 +3631,7 @@
 <p>Maintenance mode puts a Visiban instance into <strong>read-only mode</strong> for the duration of an
 upgrade or a migration. It exists so an operator can stop concurrent writes without stopping
 the instance — reads, and the operator's own access, keep working throughout.</p>
-<p>This page covers when to use it, how to turn it on and off, what everyone else sees while
-it's active, and how to recover if something goes wrong mid-window. For the API shape, see
-<a href="../../api/admin/#maintenance-mode">Maintenance mode</a> in the API reference.</p>
+<p>For the API shape, see <a href="../../api/admin/#maintenance-mode">Maintenance mode</a> in the API reference.</p>
 <h2 id="when-to-use-it">When to use it<a class="headerlink" href="#when-to-use-it" title="Permanent link">&para;</a></h2>
 <p>Reach for maintenance mode when the thing you want to prevent is <strong>concurrent writes</strong>, not
 the upgrade itself — for example, running a data-integrity script, or a migration that is

@@ -3597,7 +3597,7 @@
 
 
 <h1 id="roles-permissions">Roles &amp; Permissions<a class="headerlink" href="#roles-permissions" title="Permanent link">&para;</a></h1>
-<p>Visiban has five roles that control access at both the group and board level.</p>
+<p>Visiban has five roles that control access at both the group and board level. <strong>Why it matters:</strong> this table is the source of truth for what each role can and can't touch — check it before granting or denying access.</p>
 <h2 id="role-hierarchy">Role hierarchy<a class="headerlink" href="#role-hierarchy" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3611,7 +3611,7 @@
 <tr>
 <td><code>site_admin</code></td>
 <td>Site-wide</td>
-<td>Full access to everything. Granted when the user has <code>can_access_all_content</code> enabled. Cannot be removed or demoted by any other admin.</td>
+<td>Computed board/group role — full access to everything, granted when the user has <code>can_access_all_content</code> enabled. The separate <code>is_site_admin</code> flag protects the <em>user account</em> from demotion by anyone but another site admin.</td>
 </tr>
 <tr>
 <td><code>admin</code></td>
@@ -3833,6 +3833,14 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
+<td>Link / unlink related cards</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
 <td>Comment on cards</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
@@ -3881,11 +3889,43 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Add / edit / delete checklist items</td>
+<td>Add checklist items</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Edit / check / uncheck own checklist item</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Edit / check / uncheck any checklist item</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">mod†</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Delete own checklist item</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Delete any checklist item</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">mod†</td>
+<td style="text-align: center;">—</td>
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
@@ -3897,22 +3937,6 @@
 <td style="text-align: center;">✓</td>
 </tr>
 <tr>
-<td>Bulk card operations (move, priority, delete own)</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Bulk assign cards</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">mod†</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
 <td><strong>Export &amp; Import</strong></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
@@ -3921,12 +3945,12 @@
 <td style="text-align: center;"></td>
 </tr>
 <tr>
-<td>Export board (CSV / JSON)</td>
+<td>Export board (CSV / JSON)‡</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
 </tr>
 <tr>
 <td>Import board from file</td>
@@ -3964,21 +3988,19 @@
 </table>
 <p><strong>†</strong> <code>mod</code> = only members with the moderator entitlement. Regular members can only perform these actions on their own content.</p>
 <p><strong>†</strong> <code>move</code> = Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member that the moving user did not create requires the moderator entitlement or Admin role.</p>
+<p><strong>‡</strong> Every role can export by default — a board admin can raise the minimum required role with the <code>export_min_role</code> setting. See <a href="../../permissions/">Board Permissions</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Personal boards</p>
-<p>Any authenticated user can create a personal board regardless of their group-level role. The "Create personal board" row above reflects this — personal boards are not scoped to a group, so group-level permissions do not apply. The permission table above reflects group-level permissions for all other rows.</p>
+<p>Any authenticated user can create a personal board regardless of their group-level role. The "Create personal board" row above reflects this — personal boards aren't scoped to a group, so group-level permissions don't apply. The permission table above reflects group-level permissions for all other rows.</p>
 </div>
 <h2 id="moderator-entitlement">Moderator entitlement<a class="headerlink" href="#moderator-entitlement" title="Permanent link">&para;</a></h2>
-<p>Board admins can grant the <strong>moderator</strong> entitlement to any member or admin via the Members tab in Board Settings. A moderator can assign, edit, delete, and archive cards created by other users, and delete comments created by other users — normally a member can only perform these actions on their own content.</p>
+<p>Board admins can grant the <strong>moderator</strong> entitlement to any member or admin via the Members tab in Board Settings. A moderator can assign, edit, delete, and archive cards created by other users, and delete comments created by other users — normally a member can only do this on their own content.</p>
 <p>Moderator is a boolean flag (<code>is_moderator</code>) on the board membership, not a separate role. It appears as a checkbox next to the role dropdown. Demoting a moderator to collaborator or viewer automatically clears the flag.</p>
 <p>See <a href="../../permissions/#moderator-entitlement">Board Permissions</a> for the full description.</p>
 <h2 id="site-admin-protection">Site admin protection<a class="headerlink" href="#site-admin-protection" title="Permanent link">&para;</a></h2>
-<p>Site admins are protected at the API level:</p>
-<ul>
-<li>A board or group admin calling any role-change or remove-member endpoint <strong>targeting a user with <code>is_site_admin</code></strong> receives a <code>403 Forbidden</code>. This check uses the <code>is_site_admin</code> flag specifically, not <code>can_access_all_content</code>.</li>
-<li>Only another site admin can modify a site admin's membership.</li>
-<li>Users with <code>can_access_all_content</code> see all boards and groups regardless of explicit membership. This is the flag that controls board-level omniscience — <code>is_site_admin</code> alone does not grant it.</li>
-</ul>
+<p>Site admins can't be demoted or removed by anyone but another site admin. A role-change or remove-member call on a group or board that <strong>targets a user with <code>is_site_admin=True</code></strong> returns <code>403 Forbidden</code> unless the caller is also a site admin.</p>
+<p><strong>Watch out:</strong> manage <code>is_site_admin</code> and <code>can_access_all_content</code> together (the <code>set_site_admin</code> command does this for you). Separate them only when you have a specific reason — see the tip below.</p>
+<p>Users with <code>can_access_all_content</code> see all boards and groups regardless of explicit membership — this is the flag that controls board-level omniscience. <code>is_site_admin</code> alone doesn't grant it.</p>
 <div class="admonition note">
 <p class="admonition-title">Two flags, two purposes</p>
 <p><code>is_site_admin</code> gates admin panel access and protection from demotion. <code>can_access_all_content</code> gates implicit board/group access. The <code>set_site_admin</code> management command sets both together, but they can be managed independently via the admin panel. See <a href="../../../administration/site-admins/">Site Admins</a> for details.</p>

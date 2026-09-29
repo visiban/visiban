@@ -3781,6 +3781,7 @@
 
 
 <h1 id="demo-data">Demo Data<a class="headerlink" href="#demo-data" title="Permanent link">&para;</a></h1>
+<p><code>seed_demo_data</code> populates a board with realistic fake data for local development, staging demos, and CI. <strong>Why it matters:</strong> never point it at a database with real data — see the guard below.</p>
 <blockquote>
 <p><strong>Warning: development and staging only.</strong> The command is guarded against running when <code>DEBUG=False</code> without <code>--force</code>, but <code>--force</code> must never be used on a live database. Demo boards, demo users, and dummy cards are indistinguishable from real data at the database level — there is no <code>is_demo</code> flag and no automated cleanup. See <a href="#cleaning-up-accidental-seeding">Cleaning up accidental seeding</a> if this happens.</p>
 </blockquote>
@@ -3788,7 +3789,7 @@
 <blockquote>
 <p><strong>Changed in 1.2</strong> — the board also belongs to a demo Group, and a custom field value, a file attachment, a <code>SavedFilter</code>, a group invite link, and a group label are now seeded alongside the board and cards.</p>
 </blockquote>
-<p>The <code>seed_demo_data</code> management command creates a "Visiban Demo Board" populated with realistic-looking data: five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group, and one card carries a custom field value and a file attachment; one <code>SavedFilter</code>, one group invite link, and one group label are seeded as well, so every board- and group-scoped resource family has at least one real row. It is intended for:</p>
+<p>It creates a "Visiban Demo Board": five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group, and one card carries a custom field value and a file attachment; one <code>SavedFilter</code>, one group invite link, and one group label are seeded as well, so every board- and group-scoped resource family has at least one real row. Use it for:</p>
 <ul>
 <li>Local development to have a board ready without manual setup</li>
 <li>Staging environments used for product demos or sales calls</li>
@@ -3808,6 +3809,9 @@
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># After seeding, write canonical JSON and CSV snapshots to scripts/seed/</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Run this and commit the result whenever the board structure changes</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--export
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Use a specific random seed instead of the command's built-in default</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe<span class="w"> </span>--force<span class="w"> </span>--seed<span class="w"> </span><span class="m">42</span>
 </code></pre></div>
 <div class="admonition info">
 <p class="admonition-title">Large fixture for load testing</p>
