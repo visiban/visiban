@@ -367,6 +367,8 @@ def fetch(path):
         return resp.status, resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8", "replace")
+    except urllib.error.URLError:
+        return 0, ""
 
 status, body = fetch("/admin/login/")
 print("ADMIN_STATUS=" + str(status))
@@ -378,10 +380,10 @@ if href:
     print("STATIC_STATUS=" + str(static_status))
 else:
     print("STATIC_STATUS=")
-')"
-ADMIN_STATUS="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^ADMIN_STATUS=' | cut -d= -f2)"
-STATIC_HREF="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^STATIC_HREF=' | cut -d= -f2-)"
-STATIC_STATUS="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^STATIC_STATUS=' | cut -d= -f2)"
+' || true)"
+ADMIN_STATUS="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^ADMIN_STATUS=' | cut -d= -f2 || true)"
+STATIC_HREF="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^STATIC_HREF=' | cut -d= -f2- || true)"
+STATIC_STATUS="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^STATIC_STATUS=' | cut -d= -f2 || true)"
 [ "$ADMIN_STATUS" = "200" ] \
   || die "/admin/login/ returned $ADMIN_STATUS, not 200 — Django admin is not serving (#1228: likely 'Missing staticfiles manifest entry' if STATIC_ROOT is not shared with the backend container)"
 [ -n "$STATIC_HREF" ] \
