@@ -12,8 +12,12 @@ Visiban exposes a REST JSON API. All endpoints require an authenticated session 
 | [Groups API](groups.md) | Groups, subgroups, group members, and invite links |
 | [Notifications API](notifications.md) | List unread notifications, mark as read, and get unread count |
 | [Admin API](admin.md) | Site settings, the instance-admin action log, users, and invite links — site admin only |
+| [Issue Board Lens API](git-lens.md) | Read-only mirror of GitLab/GitHub issues and MRs onto a board, plus derived-pipeline columns — experimental |
+| [MCP Server](mcp.md) | Model Context Protocol tools for AI agents to read and write boards |
+| [WebSockets](websockets.md) | Full event reference and the ticket-authentication flow for the [WebSocket API](#websocket-api) below |
 | [Change Feed](events.md) | Durable, resumable feed of board mutations — replay what you missed with a cursor instead of re-fetching (since 1.2) |
 | [Health Checks](health.md) | Liveness and readiness probes for K8s / uptime monitoring |
+| [Version API](version.md) | Running server version string |
 | [OpenAPI Spec](openapi.md) | Machine-readable OpenAPI 3.0 spec, Swagger UI, and ReDoc |
 
 ## WebSocket API
@@ -109,6 +113,7 @@ Endpoints that return a foreign key as an integer id may also support a nested c
 | Endpoint | Expandable field | Query | Default shape | Expanded shape |
 |---|---|---|---|---|
 | `GET /boards/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name, ancestors }` |
+| `GET /boards/<id>/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name, ancestors }` |
 | `GET /boards/<id>/full/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name, ancestors }` |
 
 Multiple expansions may be combined with a comma, e.g. `?expand=group,members`. Unknown values are silently ignored. The original FK id fields (`group`, `group_name`) always remain in the response for backward compatibility.

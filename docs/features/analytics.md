@@ -1,6 +1,6 @@
 # Analytics & Summary <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
 
-Switch between board views using the toggle in the toolbar: **Board**, **Summary**, **Analytics**.
+Two extra views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving individual cards. Switch to them with the toolbar toggle: **Board**, **Summary**, **Analytics**.
 
 !!! warning "Done columns must be marked before analytics data is accurate"
     The dwell-time heatmap excludes columns that are marked as done. If your "Done" or "Released" column is not marked, closed work continues to accumulate dwell cycles and distorts the heatmap.
@@ -59,13 +59,9 @@ Cells are color-coded based on the board's `staleness_threshold_days` setting an
 !!! tip
     Both `staleness_threshold_days` and `stale_warning_pct` are configurable per board in the board settings modal. Adjusting them changes the heatmap coloring immediately on the next analytics load.
 
-#### Capped dwell display
-
-When the average dwell time for a cell is equal to or greater than the selected period (the `days` value), the cell displays a `>=Nd` prefix (for example, `>=30d` on a 30-day period). This signals that the true average may be higher than the displayed value because some dwell intervals extend beyond the analysis window.
-
 ### Period toggle
 
-Switch between **7 days**, **30 days**, and **90 days** to control which card movements are included in the calculation.
+Switch between **7 days**, **30 days**, and **90 days** to control which card movements are included in the calculation. The period toggle only appears in **Throughput** mode (see [View mode: Age vs Throughput](#view-mode-age-vs-throughput) below) — **Age** mode always reflects the current moment, so there's no period to pick.
 
 ### Dwell time and archived cards
 
@@ -77,7 +73,9 @@ Dwell-time calculations use only `movement_type = move` events. Archive and rest
 
 ### Stalled cards
 
-Below the heatmap, cards that have not moved in more than the effective stalled-days threshold are displayed in a paginated table. The table shows **Swimlane**, **Card** (title), and **Days Stalled** columns, paginated at 25 rows per page with next/previous navigation. A count badge on the section header (for example, "3 cards stalled") shows the total. Click any row to open the card detail panel directly — no need to navigate back to the board view first.
+Below the heatmap, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold — **Swimlane**, **Card** (title), and **Days Stalled**. A count badge on the section header (e.g. "3 cards stalled") shows the total.
+
+Click any row to open the card detail panel directly — no need to go back to the board view first.
 
 The default threshold is the board's `staleness_threshold_days` setting. You can override it for a single request by passing the `stalled_days` query parameter — this affects only the stalled cards list and does not change the heatmap coloring.
 
@@ -112,8 +110,8 @@ Click **Export CSV** to download the heatmap data as a comma-separated file for 
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|
-| `days` | integer | `30` | Must be a positive integer (`>= 1`). Returns `400` if non-integer or `<= 0`. |
-| `stalled_days` | integer | Board's `staleness_threshold_days` | Optional override. Must be a positive integer (`>= 1`). Returns `400` if non-integer or `<= 0`. When omitted, the board setting is used. |
+| `days` | integer | `30` | `1`–`365`. Returns `400` if non-integer or out of range. |
+| `stalled_days` | integer | Board's `staleness_threshold_days` | Optional override, `1`–`90`. Returns `400` if non-integer or out of range. When omitted, the board setting is used. |
 
 The response includes two threshold fields:
 

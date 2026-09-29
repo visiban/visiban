@@ -1,5 +1,7 @@
 # Boards API
 
+Boards, columns, swimlanes, labels, custom fields, membership, sharing, and export/import — everything you do with a board short of the cards inside it (see [Cards API](cards.md)).
+
 ## Boards
 
 ### `GET /api/v1/boards/`
@@ -25,7 +27,7 @@ Create a board.
 | `name` | ✓ | Board name |
 | `description` | | Board description (default: `""`) |
 | `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/v1/boards/templates/` for available slugs. Omitting the field (or sending `""`/`null`) uses the default; sending a non-blank slug that doesn't match an active template returns `400` — see **Errors** below. |
-| `swimlane_name` | | Name for the first swimlane (default: `"General"`) |
+| `swimlane_name` | | Name for the first swimlane. Omitting it (or sending blank) creates the board with **no** swimlane at all — no template currently supplies a non-empty default. Contrast with [`POST /groups/{id}/boards/`](groups.md#boards), which defaults an omitted value to `"General"`. |
 | `group` | | Integer group ID — assigns the board to this group at creation time. The caller must be a group member. |
 
 **Errors**
@@ -61,7 +63,7 @@ Get board summary. Response includes:
 ### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
 Update board fields. Both `PUT` and `PATCH` are accepted — all fields are optional in either case. Requires board admin.
 
-**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`. Board admins may also set `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, and `show_wip_at_limit`; non-admins sending these fields receive `403 Forbidden`.
+**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, `show_wip_at_limit`. The entire request requires board admin (or site admin) — there is no tier of fields a non-admin member can edit; a non-admin PATCHing even a single field like `description` receives `403 Forbidden`.
 
 ### `DELETE /api/v1/boards/{id}/`
 Delete board. Requires board owner or site admin.
@@ -87,6 +89,14 @@ Board change feed — committed board mutations in ascending `id` order, so an o
 **Permissions:** any board role, the same gate as `/full/` and the WebSocket handshake — the feed replays events the caller could already have streamed. `is_moderator` is stripped from `member.*` payloads for roles below `admin`, exactly as the WebSocket consumer strips it — except on the row belonging to the reader themselves, which always carries the field (#1191).
 
 **`410 Gone`:** the cursor has aged out of the retention window (`BOARD_EVENT_RETENTION_DAYS`, default 30 days) and newer events exist. Re-sync via `/full/` and resume from the newest `event_id` seen after that.
+
+```json
+{
+  "detail": "Event cursor is no longer available — it fell outside the retention window. Re-sync the board state and resume from the newest event id you see after that.",
+  "code": "cursor_expired",
+  "resync_url": "https://your-instance.example.com/api/v1/boards/1/full/"
+}
+```
 
 See [Change Feed](events.md) for the full contract, retention, and the reconnect flow.
 
@@ -130,14 +140,23 @@ This endpoint and board creation (`POST /api/v1/boards/`, `POST /api/v1/groups/{
 ```json
 [
   {
-    "id": 1,
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "name": "Sales Pipeline",
-    "slug": "sales-pipeline",
+    "slug": "sales_pipeline",
     "description": "Track deals through your sales stages.",
-    "icon": "💼",
+    "icon": "chart-up",
     "lane_label": "Account",
-    "lane_placeholder": "Acme Corp",
-    "columns_json": "[\"Prospect\", \"Qualified\", \"Proposal\", \"Negotiation\", \"Closed Won\"]",
+    "lane_placeholder": "e.g. Acme Corp",
+    "columns_json": [
+      { "name": "Prospect", "color": "#6B7280", "position": 0 },
+      { "name": "Qualified", "color": "#3B82F6", "position": 1 },
+      { "name": "Discovery", "color": "#8B5CF6", "position": 2 },
+      { "name": "Demo", "color": "#F59E0B", "position": 3 },
+      { "name": "Proposal Sent", "color": "#F97316", "position": 4 },
+      { "name": "Negotiation", "color": "#EF4444", "position": 5 },
+      { "name": "Closed Won", "color": "#10B981", "position": 6, "is_done": true },
+      { "name": "Closed Lost", "color": "#9CA3AF", "position": 7, "is_done": true }
+    ],
     "sort_order": 1
   },
   ...
@@ -146,17 +165,18 @@ This endpoint and board creation (`POST /api/v1/boards/`, `POST /api/v1/groups/{
 
 | Field | Description |
 |---|---|
-| `slug` | Stable identifier (used by integrations) |
+| `id` | UUID — not an integer |
+| `slug` | Stable identifier (used by integrations) — snake_case, e.g. `sales_pipeline`, `simple_kanban` |
 | `lane_label` | Label for the "first swimlane" step in board creation (e.g. "Account", "Project") |
 | `lane_placeholder` | Placeholder text shown in the swimlane name input |
-| `columns_json` | JSON array of column objects that will be created: `{name, color, position}`, plus `is_done: true` on a template's terminal column(s) (e.g. "Done", "Closed Won") — omitted (not `false`) on every other column. |
+| `columns_json` | Native JSON array of column objects that will be created: `{name, color, position}`, plus `is_done: true` on a template's terminal column(s) (e.g. "Done", "Closed Won") — omitted (not `false`) on every other column. |
 
 Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Content Production**, **Hiring & Recruiting**, **Legal & Compliance**, **Infrastructure & DevOps**, **Blank Board**.
 
 **Registering additional templates.** An installed package (not just enterprise) can register more templates without an OSS code change or migration via `boards.hooks.TEMPLATE_PROVIDERS` — see that module for the callable signature and conflict policy (new slugs only; an existing row, built-in or provider-registered, is never overwritten by the sync). See [`docs/architecture/open-core-boundary.md`](../architecture/open-core-boundary.md) for how this fits the OSS extension-point conventions.
 
 ### `GET /api/v1/boards/{id}/summary/`
-Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses three aggregate queries regardless of board size.
+Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses 1–4 aggregate queries regardless of board size (1 unconditionally, plus up to 3 more only when the board has at least one done column).
 
 **Response shape:**
 
@@ -440,6 +460,8 @@ Export the board as JSON. Returns `application/json`. Same permission rules as t
 
 The top-level `schema_version` field is always `2` in 1.1+ exports. The importer understands versions 0 (pre-1.0, no field present), 1, and 2. Version 2 adds `archived_at` per card, `movement_type`, movement `notes`, and comment `created_at`.
 
+Each card also carries its own `movements` (`{from_column, to_column, from_swimlane, to_swimlane, moved_by, moved_at, notes, movement_type}`, one per `CardMovement`) and `activities` (`{event_type, from_value, to_value, actor, created_at}`, one per `CardActivity`) arrays, mirroring the [movements](cards.md#history) and [activities](cards.md#history) endpoints. As with the rest of this export, `moved_by`/`actor` are usernames rather than user objects, and `null` when the acting user has since been deleted.
+
 Since 1.2 the payload also carries the board's `custom_fields` schema and each card's
 `custom_field_values`, keyed by field name. Both are **additive**, so `schema_version`
 stays at `2` and an existing consumer is unaffected. Re-importing custom field data is not
@@ -494,17 +516,24 @@ caller below `admin` — the same role gate this export already applies to a swi
       "position": 0,
       "created_at": "2026-03-01T10:00:00Z",
       "created_by": "alice",
+      "archived_at": null,
       "custom_field_values": { "Array Type": "raid10" },
       "external_ref": { "provider": "gitlab", "ref": "acme/webapp!45", "url": "https://gitlab.com/acme/webapp/-/merge_requests/45" },
       "comments": [{ "author": "bob", "body": "On it.", "created_at": "2026-03-02T09:00:00Z" }],
-      "checklist": [{ "text": "Write tests", "is_checked": false }]
+      "checklist": [{ "text": "Write tests", "is_checked": false }],
+      "movements": [
+        { "from_column": null, "to_column": "Backlog", "from_swimlane": null, "to_swimlane": "Acme Corp", "moved_by": "alice", "moved_at": "2026-03-01T10:00:00Z", "notes": "", "movement_type": "move" }
+      ],
+      "activities": [
+        { "event_type": "priority_change", "from_value": "medium", "to_value": "high", "actor": "alice", "created_at": "2026-03-01T11:00:00Z" }
+      ]
     }
   ]
 }
 ```
 
 ### `GET /api/v1/boards/{id}/export-history/`
-Return recent successful board exports for audit purposes (#842). Requires board `admin` or `site_admin` role — other roles (including board owners who are not also admins) receive `403 Forbidden` with body `{"detail": "Export history is restricted to board admins."}`. Failed exports (permission denied, rate limited) are not logged.
+Return recent successful board exports for audit purposes (#842). Requires board `admin` or `site_admin` role — the board owner always resolves to `admin` even with no explicit membership row, so only `member`, `collaborator`, and `viewer` roles are actually turned away, with `403 Forbidden` and body `{"detail": "Export history is restricted to board admins."}`. Failed exports (permission denied, rate limited) are not logged.
 
 **Response** (paginated — standard DRF envelope with `count`, `next`, `previous`, `results`; ordered newest-first)
 
@@ -571,7 +600,7 @@ Returns the newly created board object, using the same shape as `GET /api/v1/boa
 
 | Status | Body | When |
 |---|---|---|
-| `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, exceeds the upload size limit, is not valid JSON/CSV, or references columns/swimlanes that fail validation. |
+| `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, exceeds the upload size limit (`MAX_UPLOAD_SIZE_BYTES`, default 10 MB — the same env var and default as [card attachment uploads](cards.md#attachments), and distinct from the Trello importer's own `VISIBAN_IMPORT_MAX_SIZE`), is not valid JSON/CSV, or references columns/swimlanes that fail validation. |
 | `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
 | `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied but the caller is not a member of that group. |
 
@@ -628,7 +657,7 @@ Sending neither, or both, returns `400 Bad Request` (`"Specify exactly one of ?d
 
 A Trello member matches a Visiban user when the Trello **username** equals the Visiban username exactly, ignoring case. Display and full names are never used.
 
-Matching only considers users the caller can already see: co-members of the caller's boards, co-members of the caller's groups, and members and owner of the target group. Site admins can match any active user. This keeps a crafted file from being used to check whether an arbitrary username exists. The response reports only a **count** of matches, never which accounts matched.
+Matching only considers users the caller can already see: co-members of the caller's boards, co-members of the caller's groups, members of any group the caller owns, and members and owner of the target group. Site admins can match any active user. This keeps a crafted file from being used to check whether an arbitrary username exists. The response reports only a **count** of matches, never which accounts matched.
 
 - `add_matched_members: false` (default): matched users are not added to the board, cards are left unassigned, and every comment is authored by the importer, starting with the plain-text line `Full Name (imported from Trello):`.
 - `add_matched_members: true`: matched users are added to the board with the `member` role and assigned to their cards (the first matched Trello member on each card). Their comments are authored by them but always start with the plain-text line `(imported from Trello)`, so an imported comment is never indistinguishable from one posted in Visiban. Comments by unmatched people keep the `Full Name (imported from Trello):` form. Adding members sends no notification.
@@ -828,7 +857,7 @@ Creating the board broadcasts `board.created` on the same channels as the native
 ## Members
 
 ### `POST /api/v1/boards/{id}/members/`
-Add or update a board member. Requires board admin.
+Add or update a board member. Requires board admin. Cannot modify a site admin's board membership (same restriction as `DELETE` below).
 
 **Request** `{ "user_id": 42, "role": "member", "is_moderator": true }`
 
@@ -1239,7 +1268,7 @@ Returns a read-only board payload identified by its UUID share token. No authent
 
 **Authentication:** none required (public endpoint).
 
-**Rate limiting:** 120 requests/hour per IP. Exceeding the limit returns `429 Too Many Requests`.
+**Rate limiting:** 120 requests/hour per IP, plus a 240 requests/hour per-token limit as defense in depth against CGNAT/proxy-pool abuse of a single link. Exceeding either returns `429 Too Many Requests`.
 
 **Errors:**
 - `404 Not Found` if the token is invalid, has been revoked, or does not exist.
@@ -1264,7 +1293,7 @@ Returns a read-only board payload identified by its UUID share token. No authent
     }
   ],
   "swimlanes": [
-    { "id": 1, "uid": "sw1mabcdef123401", "name": "Acme Corp", "position": 0, "color": "#3B82F6" }
+    { "id": 1, "uid": "sw1mabcdef123401", "name": "Acme Corp", "position": 0, "color": "#3B82F6", "is_collapsed": false, "created_at": "2026-03-01T10:00:00Z" }
   ],
   "cards": [
     {

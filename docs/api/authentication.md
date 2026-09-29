@@ -293,7 +293,7 @@ A ticket cannot be revoked once issued: logging out, or deleting the PAT it was 
 | `401 Unauthorized` | Request is not authenticated |
 | `403 Forbidden` | The request was authenticated with a scoped PAT that does not hold `write` |
 | `405 Method Not Allowed` | Any method other than `POST` |
-| `429 Too Many Requests` | Per-user rate limit exceeded — back off rather than retrying immediately |
+| `429 Too Many Requests` | Per-user rate limit exceeded (60/minute in production) — back off rather than retrying immediately |
 
 ---
 
@@ -403,7 +403,7 @@ This method is not recommended for scripts. Use token auth for all non-browser c
 ## User search
 
 ### `GET /api/v1/users/?search=<query>`
-Search users by display name, username, or first name. Requires authentication. Used internally for @mention autocomplete and the member invite typeahead.
+Search users by display name, username, or first name. Requires authentication. Excludes the requesting user from results. Used internally for @mention autocomplete and the member invite typeahead.
 
 > **Note:** Email is intentionally excluded from the search criteria. Filtering on email without returning it would allow any authenticated caller to silently confirm whether a given email address exists on the instance. Search is limited to username, display name, and first name only.
 
@@ -595,6 +595,9 @@ account during the uniqueness enforcement migration.
 
 **Response** `200 OK` with the updated user object on success; `400 Bad Request` with `detail` on failure.
 
+!!! note
+    This endpoint's response uses the base user serializer, not `CurrentUserSerializer` — it omits `uploads_enabled`, `git_lens_enabled`, `maintenance_mode`, and the other instance-config fields documented under [User profile](#user-profile) below. Re-fetch `GET /api/v1/auth/me/` if you need those.
+
 **Error codes** — the `403` response when `must_change_username` blocks a
 normal endpoint includes `"code": "must_change_username"` so API/PAT clients
 can detect the condition and call this endpoint programmatically.
@@ -781,11 +784,9 @@ When `registration_mode` is `"invite_only"`, an additional `invite_token` field 
 
 | Status | Reason |
 |---|---|
-| `400 Bad Request` | `invite_token` is missing when the instance is in `invite_only` mode |
-| `400 Bad Request` | `invite_token` does not match any known link |
-| `400 Bad Request` | The invite link has expired |
-| `400 Bad Request` | The invite link has been revoked |
-| `400 Bad Request` | The invite link has already been used (single-use links) |
+| `400 Bad Request` | `invite_token` is missing when the instance is in `invite_only` mode (`code: "invite_missing"`) |
+| `400 Bad Request` | `invite_token` does not match any known link, has been revoked, or has already been used (single-use links) — all three return the identical `code: "invite_invalid"`, `"Invalid or expired invite link."`, by design, so a caller cannot use the error to distinguish a wrong token from a spent one |
+| `400 Bad Request` | The invite link has expired (`code: "invite_expired"`, `"This invite link has expired."`) — the only invite-token failure with its own distinct code |
 | `400 Bad Request` | Email already registered, passwords do not match, or password too short |
 | `403 Forbidden` | Registration is `"closed"` — no new accounts can be created |
 | `409 Conflict` (`invite_already_redeemed`, 1.1+) | The same email previously redeemed this multi-use invite link | Use a different invite link or contact the link's creator |

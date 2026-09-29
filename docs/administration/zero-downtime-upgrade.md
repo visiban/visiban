@@ -7,9 +7,9 @@
     instead — that path already applies while the old container keeps serving traffic
     during migration, but there is no second replica to roll traffic across.
 
-This page walks through a **1.x → 1.(x+1) minor or patch** upgrade of a multi-replica Helm
-deployment with no downtime window: pre-flight checks, the rolling deploy itself, and how to
-roll back if something goes wrong mid-rollout. It assumes the install path in
+Roll a **1.x → 1.(x+1) minor or patch** upgrade across a multi-replica Helm deployment with no
+downtime window: pre-flight checks, the rolling deploy itself, and how to roll back if
+something goes wrong mid-rollout. It assumes the install path in
 [Kubernetes (Helm)](../getting-started/kubernetes.md) and a `backendReplicaCount` of 2 or
 more (the `values-prod.yaml` overlay default).
 
@@ -111,31 +111,51 @@ helm upgrade visiban helm/visiban \
   --set frontend.image.tag=v1.2.0
 ```
 
-Two things happen automatically, in order, before any backend pod is touched:
+Migrations run as a **`migrate` init container on the backend `Deployment` itself** — not a
+separate Helm hook Job. (An earlier chart version used a `pre-install`/`pre-upgrade` hook Job;
+that broke a fresh `helm install`, where the hook ran before the bundled PostgreSQL Service
+existed. See [Upgrading to 1.2.x](upgrade.md#upgrading-to-12x) if you're coming from a chart
+version old enough to have used it.) Each new pod the rolling update creates — one per replica,
+in sequence — runs three init containers in order before its `backend` container starts:
+`migrate`, `collectstatic`, then `bootstrap`.
 
-1. The **migrate Job** runs as a Helm `pre-upgrade` hook
-   (`helm/visiban/templates/migrate-job.yaml`) and must complete before Helm proceeds. Only
-   this one Job runs `manage.py migrate` — the backend Deployment's own init containers only
-   run `collectstatic` and `ensure_site_admin`, so replicas never race each other to apply
-   migrations. If the Job fails, Helm aborts the release and **no backend or frontend pod is
-   touched** — the previous version keeps serving traffic untouched. See §4 if this happens.
-2. Once the migrate Job succeeds, Helm applies the updated `Deployment` manifests for
-   `backend` and `frontend`, which starts a standard Kubernetes rolling update.
+Because `backendReplicaCount` can be more than 1, more than one new pod's `migrate` init
+container can start around the same time. `manage.py migrate_with_lock` (not a plain
+`manage.py migrate`) is what keeps that safe: it takes a session-scoped PostgreSQL advisory
+lock before migrating. The first replica to acquire it runs the real migration; every other
+replica blocks on the lock and, once it acquires it, runs `migrate` again — a no-op, since
+`django_migrations` already records what the winner applied. No pod's `backend` container ever
+starts against a schema that's still being changed.
 
-Because the schema after step 1 is safe for both the old and new backend code to read (that's
-the whole point of the [zero-downtime migration rules](upgrade.md#zero-downtime-migration-rules)),
-old pods keep serving correctly for as long as step 2 takes to finish.
+Two tunables, both in seconds: `backend.migrate.connectTimeout` (default `300`) bounds how
+long a pod waits for the database to accept a connection at all — generous, since on a fresh
+install PostgreSQL may still be starting. `backend.migrate.lockTimeout` (default `900`) bounds
+how long a replica waits for another replica's in-flight migration to finish before giving up.
+Raise `lockTimeout` if your largest migration (an index build on `cards`, for example) can
+plausibly run longer than 15 minutes.
 
-### Step 2 — Watch the migrate Job
+Because the schema each `migrate` run leaves behind is safe for both the old and new backend
+code to read (that's the whole point of the
+[zero-downtime migration rules](upgrade.md#zero-downtime-migration-rules)), old pods keep
+serving correctly the entire time new pods are migrating and starting.
+
+### Step 2 — Watch the rollout's migrate init containers
 
 ```bash
-kubectl get jobs -n visiban -l app.kubernetes.io/component=migrate
-kubectl logs -n visiban job/visiban-migrate
+kubectl get pods -n visiban -l app.kubernetes.io/component=backend
+kubectl logs -n visiban <new-pod-name> -c migrate
 ```
 
-Confirm it exited `0` before assuming the rollout is progressing — `helm upgrade` returns as
-soon as the hook Job and the Deployment update are both *applied*, not once pods are actually
-`Ready`, so a slow terminal doesn't mean anything is wrong yet.
+A pod stuck at `Init:0/3` (or showing the `migrate` container as `Running` well past the time a
+normal migration takes) is either still waiting out `connectTimeout` for the database, or
+waiting on `lockTimeout` for another replica's migration — the log line tells you which
+(`migrate_with_lock: another replica is migrating — waiting for it to finish` vs. still
+retrying the database connection).
+
+**Watch out:** unlike a hook Job, there is no separate "migration step" Helm blocks on before
+touching the Deployment. `helm upgrade` returns once the updated `Deployment` manifest is
+*applied*, not once any pod — let alone the migration inside it — is actually `Ready`. The
+terminal returning promptly is not itself a signal that migrations finished.
 
 ### Step 3 — Verify a partial rollout before letting it finish
 
@@ -222,14 +242,24 @@ values that stop traffic (or put the ingress in maintenance mode), run `helm upg
 
 ## 4. Rollback
 
-### The migrate Job failed (§2 Step 1)
+### A new pod's `migrate` init container failed (§2 Step 1–2)
 
-Nothing was touched — the previous `Deployment` revision is still running and still serving
-traffic, since the hook Job runs and must succeed before Helm applies the new Deployment spec.
-Read the Job's logs (`kubectl logs -n visiban job/visiban-migrate`), fix the underlying cause,
-and re-run `helm upgrade` — the Job is recreated fresh on every attempt
-(`hook-delete-policy: before-hook-creation`), so a failed previous attempt doesn't block a
-retry.
+Traffic is unaffected — old pods are untouched by a new pod's init container failing, since
+Kubernetes never routes Service traffic to a pod whose init containers haven't all succeeded.
+The rollout stalls with the new pod stuck in `Init:Error` or `CrashLoopBackOff`, and
+`kubectl rollout status` will not return until you intervene — there's no separate hook Job for
+Helm to report as failed, so `helm upgrade` itself will have already returned successfully.
+
+Read the failed container's logs and fix the underlying cause:
+
+```bash
+kubectl logs -n visiban <new-pod-name> -c migrate
+```
+
+Then either delete the stuck pod (the Deployment recreates it, and it retries `migrate` from
+scratch) or roll back per below. A `CommandError` naming a lock or connection timeout, rather
+than a Django migration error, means it never got to your schema change at all — see
+`backend/boards/management/commands/migrate_with_lock.py` for what each message means.
 
 If the migration itself was mid-way through an irreversible operation when it failed (rare,
 since Visiban's rules keep every 1.x migration additive), see
@@ -259,9 +289,11 @@ helm history visiban --namespace visiban
 helm rollback visiban <previous-revision> --namespace visiban
 ```
 
-`helm rollback` does **not** re-run the migrate Job — the schema stays at whatever the failed
-upgrade left it at, which is safe precisely because that schema was built to be readable by
-both versions. It only reverts the Deployment/ConfigMap/Secret objects to their prior values.
+`helm rollback` recreates backend pods on the previous image, so their `migrate` init
+containers run `manage.py migrate_with_lock` again — a no-op, since the schema is already at
+whatever the failed upgrade left it at. That's safe precisely because that schema was built to
+be readable by both versions; `helm rollback` does not and cannot revert a schema change
+itself, only the Deployment/ConfigMap/Secret objects.
 
 ---
 

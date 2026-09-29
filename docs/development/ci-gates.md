@@ -2,8 +2,8 @@
 
 A bespoke CI gate that stops detecting anything does not fail — it goes **green**,
 permanently, and looks exactly like a codebase with no violations. There is no signal
-distinguishing "the check passed" from "the check is broken." This page is the house rule
-that closes that gap, and the record of which scripts follow it.
+distinguishing "the check passed" from "the check is broken." This is the house rule that
+closes that gap, and the record of which scripts follow it.
 
 ## The rule
 

@@ -72,8 +72,9 @@ superuser/site-admin/`can_access_all_content` account), and drives
 describes, checking `response_schema_conformance`, `status_code_conformance`, and
 `content_type_conformance`.
 
-Runs on any MR touching `backend/**/views/**`, `**/serializers.py`, or `**/urls.py`, and
-always on `main`.
+Runs on any MR or `main`-branch push that touches `backend/**/views/**`, `**/serializers.py`,
+or `**/urls.py` — no unconditional fallback on `main`, since nothing downstream depends on
+this job (#1266).
 
 **Error envelope.** Visiban has no custom DRF `EXCEPTION_HANDLER`, so authentication,
 permission, lookup, and throttling failures all render as DRF's default `{"detail": "<message>"}`.

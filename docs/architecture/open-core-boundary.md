@@ -1,6 +1,6 @@
 # Open-Core Boundary
 
-This document records the OSS vs enterprise classification for every feature area where the boundary has been formally decided. It is the canonical reference — when a feature appears here, the ruling supersedes any informal discussion in issue comments.
+The OSS vs enterprise classification for every feature area where the boundary has been formally decided. This is the canonical reference — when a feature appears here, the ruling supersedes any informal discussion in issue comments.
 
 **Guiding principle:** "Can a small team work together effectively without this?" If no → OSS core. If yes → enterprise candidate.
 

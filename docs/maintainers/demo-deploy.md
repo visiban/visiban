@@ -1,9 +1,10 @@
 # Hosted Demo (try.visiban.com)
 
-How the public demo is deployed and what an operator must verify by hand. The chart side
-(values, guards, seed and reset, egress policy, `helm test`) is documented for everyone in
-[Public demo mode](../administration/demo-data.md#public-demo-mode-helm). This page covers
-the one real deployment, including the preconditions no CI job can check.
+How the public demo is deployed, and what an operator must verify by hand — the preconditions
+no CI job can check. The chart side (values, guards, seed and reset, egress policy,
+`helm test`) is documented for everyone in
+[Public demo mode](../administration/demo-data.md#public-demo-mode-helm); what follows is
+the one real deployment.
 
 !!! warning "Nothing below is verified by CI"
     CI proves the chart on kind: it installs `values-demo.yaml`, runs `helm test`, runs a

@@ -1,12 +1,14 @@
 # Nightly load test
 
-A query-count guard is not a latency guard. `perf-check` (static N+1 review) and `perf-bench`
-(query counts on demand) both measure query *count* — a regression from a missing index, a
-data-volume change, or a query-plan flip can leave the query count and query text identical
-while making the same queries slower. Neither of those gates can see that class of regression.
-This page describes the job that can: a nightly, schedule-only CI job (`nightly-load-test` in
-`.gitlab-ci.yml`) that measures real wall-clock p50/p95/p99 latency against a large seeded
-fixture and fails the pipeline if any covered endpoint exceeds its committed budget.
+`nightly-load-test` is a nightly, schedule-only CI job (`.gitlab-ci.yml`) that measures real
+wall-clock p50/p95/p99 latency against a large seeded fixture and fails the pipeline if any
+covered endpoint exceeds its committed budget.
+
+**Why it matters:** a query-count guard is not a latency guard. `perf-check` (static N+1
+review) and `perf-bench` (query counts on demand) both measure query *count* — a regression
+from a missing index, a data-volume change, or a query-plan flip can leave the query count
+and query text identical while making the same queries slower. Neither of those gates can
+see that class of regression; this job can.
 
 !!! info "Where this came from"
     Filed as #1082 from a TruePPM audit finding: a real p95 regression (`GET /tasks/` at
@@ -68,13 +70,16 @@ backend job in `.gitlab-ci.yml`.
 ## Running it
 
 ```bash
-python scripts/nightly_load_test.py \
+python3 scripts/nightly_load_test.py \
     --base-url http://localhost:8000 \
     --token-file /tmp/visiban_load_test_token \
+    --board-name "Visiban Load Test Board" \
     --budget-file backend/nightly-load-test-baseline.json \
     --iterations 40 --warmup 5 \
     --output nightly-load-test-results.json
 ```
+
+Every flag shown is also the script's default — this is what the CI job effectively runs.
 
 For each endpoint: 5 warmup requests (discarded), then 40 timed requests. Percentiles use
 nearest-rank (no interpolation), so every reported number was an actually-observed latency, not

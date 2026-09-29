@@ -1,12 +1,11 @@
 # Board Change Feed API
 
+Every board mutation is appended to a durable, ordered feed that a consumer outside the
+Django process — a second front end, a CRM sync job, the MCP REST client — can read with a
+cursor instead of holding a WebSocket open and hoping it never drops.
+
 !!! info "Since 1.2"
     The change feed is new in Visiban 1.2.
-
-Every board mutation is appended to a durable, ordered feed. A consumer that is
-not inside the Django process — a second front end, a CRM sync job, the MCP REST
-client — can read that feed with a cursor instead of holding a WebSocket open and
-hoping it never drops.
 
 The feed does not replace the [WebSocket API](websockets.md); it completes it.
 The socket is how you learn about a change *now*; the feed is how you find out

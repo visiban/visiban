@@ -6,9 +6,7 @@ Maintenance mode puts a Visiban instance into **read-only mode** for the duratio
 upgrade or a migration. It exists so an operator can stop concurrent writes without stopping
 the instance — reads, and the operator's own access, keep working throughout.
 
-This page covers when to use it, how to turn it on and off, what everyone else sees while
-it's active, and how to recover if something goes wrong mid-window. For the API shape, see
-[Maintenance mode](../api/admin.md#maintenance-mode) in the API reference.
+For the API shape, see [Maintenance mode](../api/admin.md#maintenance-mode) in the API reference.
 
 ## When to use it
 

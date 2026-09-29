@@ -5,7 +5,7 @@
 !!! warning "Experimental feature"
     The [Issue Board Lens](../features/issue-board-lens.md) is experimental. The usage report's fields may change while the feature is experimental.
 
-The Issue Board Lens reads GitHub and GitLab on behalf of the people viewing a lens board. GitLab reads are anonymous, so they count against your **instance's** IP address and the rate limit gitlab.com applies to it. GitHub reads use each viewer's own token. This page explains how to see how much upstream traffic the lens actually generates, and why that traffic has a hard upper bound.
+The Issue Board Lens reads GitHub and GitLab on behalf of the people viewing a lens board. GitLab reads are anonymous, so they count against your **instance's** IP address and the rate limit gitlab.com applies to it. GitHub reads use each viewer's own token. Below: how to see how much upstream traffic the lens actually generates, and why that traffic has a hard upper bound.
 
 Two surfaces are available only while `GIT_LENS_ENABLED=true`:
 

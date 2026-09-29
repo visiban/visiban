@@ -1,8 +1,10 @@
 # Site Admins
 
+Two independent flags control what a "site admin" can do on your instance: who can manage it, and who can see every board and group on it.
+
 ## What is a site admin?
 
-The term "site admin" covers two distinct privileges that are now tracked by separate flags:
+"Site admin" covers two distinct privileges, tracked by separate flags:
 
 | Flag | What it controls |
 |---|---|
@@ -62,7 +64,7 @@ docker compose run --rm backend python manage.py set_site_admin <username>
 
 **Django admin panel (advanced)**
 
-Go to `/django-admin/accounts/user/`, open the user, and enable the `Is site admin` checkbox.
+Go to `/admin/accounts/user/` (the Django admin — see [Django Admin](django-admin.md) for why this differs from the `/admin` site-admin panel above), open the user, and enable the `Is site admin` checkbox.
 
 ## Revoking site admin
 

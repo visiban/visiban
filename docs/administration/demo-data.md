@@ -1,12 +1,14 @@
 # Demo Data
 
+`seed_demo_data` populates a board with realistic fake data for local development, staging demos, and CI. **Why it matters:** never point it at a database with real data — see the guard below.
+
 > **Warning: development and staging only.** The command is guarded against running when `DEBUG=False` without `--force`, but `--force` must never be used on a live database. Demo boards, demo users, and dummy cards are indistinguishable from real data at the database level — there is no `is_demo` flag and no automated cleanup. See [Cleaning up accidental seeding](#cleaning-up-accidental-seeding) if this happens.
 
 ## Overview
 
 > **Changed in 1.2** — the board also belongs to a demo Group, and a custom field value, a file attachment, a `SavedFilter`, a group invite link, and a group label are now seeded alongside the board and cards.
 
-The `seed_demo_data` management command creates a "Visiban Demo Board" populated with realistic-looking data: five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group, and one card carries a custom field value and a file attachment; one `SavedFilter`, one group invite link, and one group label are seeded as well, so every board- and group-scoped resource family has at least one real row. It is intended for:
+It creates a "Visiban Demo Board": five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group, and one card carries a custom field value and a file attachment; one `SavedFilter`, one group invite link, and one group label are seeded as well, so every board- and group-scoped resource family has at least one real row. Use it for:
 
 - Local development to have a board ready without manual setup
 - Staging environments used for product demos or sales calls
@@ -28,6 +30,9 @@ python manage.py seed_demo_data --wipe --force
 # After seeding, write canonical JSON and CSV snapshots to scripts/seed/
 # Run this and commit the result whenever the board structure changes
 python manage.py seed_demo_data --export
+
+# Use a specific random seed instead of the command's built-in default
+python manage.py seed_demo_data --wipe --force --seed 42
 ```
 
 !!! info "Large fixture for load testing"

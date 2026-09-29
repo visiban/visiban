@@ -1,15 +1,15 @@
 # Serializer ↔ TypeScript parity
 
-`CLAUDE.md` states the rule plainly:
+Two CI checks enforce the parity rule `CLAUDE.md` states plainly:
 
 > `Board`, `Card`, `User`, and related interfaces must match the backend serializer fields exactly — when a new serializer field is added, update the corresponding TypeScript interface in the same MR.
 
-Two checks enforce it, and they cover different things. **Read this section before assuming
-either one covers your change.**
+They cover different things. **Read this section before assuming either one covers your
+change.**
 
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
-| `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **14** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
+| `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **15** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
 | `serializer-ts-parity` CI job (#1079 + #1139 + #1209, this page) | The **generated OpenAPI document** | **24** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
 
 Neither supersedes the other, and a green run of one says nothing about the other. Through
@@ -93,7 +93,7 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `CardMovement` | `CardMovement` | yes |
 | `CardRelation` | `CardRelation` | no |
 | `Column` | `Column` | yes |
-| `CurrentUser` | `User` | yes |
+| `CurrentUser` | `User` | no |
 | `CustomFieldDefinition` | `CustomFieldDefinition` | no |
 | `CustomFieldValue` | `CustomFieldValue` | no |
 | `EffectiveBoardMember` | `EffectiveBoardMember` | no |

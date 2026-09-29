@@ -13,7 +13,7 @@ with trigram indexes is minutes, not milliseconds.
 PostgreSQL offers a way out, and Visiban requires it.
 
 !!! info "Related rules"
-    This page covers **index and constraint** safety. The adjacent column rules — every new
+    This covers **index and constraint** safety only. The adjacent column rules — every new
     column nullable or defaulted, never drop a column in the migration that removes the ORM
     reference, rename = add + copy + drop across three releases — live in
     [Upgrading Visiban](../administration/upgrade.md#zero-downtime-migration-rules). They

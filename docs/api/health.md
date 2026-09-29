@@ -1,6 +1,6 @@
 # Health Check API
 
-Two unauthenticated endpoints are available for liveness and readiness probes. Both are suitable for use with Kubernetes, Docker Compose `healthcheck` directives, or any uptime monitoring tool.
+Two unauthenticated endpoints for liveness and readiness probes — usable with Kubernetes, Docker Compose `healthcheck` directives, or any uptime monitoring tool.
 
 ## `GET /api/health/liveness/`
 

@@ -1,6 +1,6 @@
 # Required credentials reference
 
-This page lists every secret and credential needed to run Visiban across its three environments: local development, the GitLab CI pipeline, and production.
+Every secret and credential Visiban needs, across its three environments: local development, the GitLab CI pipeline, and production.
 
 ---
 

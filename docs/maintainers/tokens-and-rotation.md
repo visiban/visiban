@@ -1,9 +1,9 @@
 # Tokens and Rotation
 
-Every credential this project depends on operationally: what it's for, its scope, who owns
-it, where it's stored, and its expiry. **Names and metadata only** — this page must never
-contain an actual token, key, or secret value. If you're updating this page and about to
-paste a credential, stop and describe where it lives instead.
+Every credential this project depends on operationally: scope, owner, storage location, and
+expiry. **Why it matters:** an expired credential fails silently until it breaks a release.
+**Names and metadata only** — never paste an actual token, key, or secret value here;
+describe where it lives instead.
 
 ## Inventory
 

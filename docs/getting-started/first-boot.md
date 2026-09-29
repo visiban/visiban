@@ -1,5 +1,7 @@
 # First Boot
 
+The first time Visiban starts, it creates a one-time admin password — retrieve it, log in, and set your own password before inviting anyone else.
+
 ## Automatic admin bootstrap
 
 On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (`/tmp/visiban_admin_password` by default). The password is **not** printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.
@@ -88,7 +90,7 @@ On first login you will be shown a password change screen. You cannot access the
 
 Once SMTP is configured, regular users (not just admins) can reset their own passwords via **Forgot password?** on the login page — no administrator intervention required. See [Authentication — Forgot password](../administration/authentication.md#forgot-password-self-service-password-reset) for SMTP setup notes.
 
-## Customising the bootstrap account
+## Customizing the bootstrap account
 
 Set these environment variables **before** the first boot:
 
@@ -99,7 +101,7 @@ DJANGO_SUPERUSER_EMAIL=admin@example.com
 
 ## Subsequent boots
 
-`ensure_site_admin` is a no-op once a site admin exists. Credentials are never printed again.
+`ensure_site_admin` runs on every boot. Admin bootstrap is a no-op once a site admin exists — credentials are never printed again — but the command also re-syncs the Sites framework's domain from `SITE_DOMAIN` every time it runs, so changing `SITE_DOMAIN` and restarting the backend takes effect immediately, with no extra step.
 
 !!! warning
     If you lose the temporary password before changing it, reset it via the Django shell:

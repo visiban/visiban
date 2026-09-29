@@ -95,6 +95,13 @@ Deactivated accounts cannot log in. No data is deleted. Can be reversed at any t
 
 You cannot deactivate your own account from this panel.
 
+**If the user owns any boards**, deactivation opens a **Transfer boards & deactivate**
+dialog first — you cannot deactivate a board owner without reassigning ownership.
+Search for a new owner per board (any existing member — a direct board member or one who
+has access through group membership both count) and confirm; deactivation and the ownership
+transfers happen together, atomically. Deactivating the account also revokes any invite links
+the departing user created.
+
 #### Make admin / Remove admin
 
 Grants or revokes site admin status. You cannot change your own admin status — ask another site admin.
@@ -113,7 +120,7 @@ Controls the `can_access_all_content` flag independently of admin status. When e
 These two flags — `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) — are fully independent. See [Site Admins](site-admins.md) for a detailed explanation of the two-flag model and examples of common configurations.
 
 !!! tip
-    The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently, use the admin panel toggles described here, or edit the user directly in the Django admin at `/django-admin/accounts/user/`.
+    The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently, use the admin panel toggles described here, or edit the user directly in the [Django admin](django-admin.md) at `/admin/accounts/user/`.
 
 #### Force password reset
 

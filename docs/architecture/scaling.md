@@ -1,9 +1,9 @@
 # Scaling
 
-This page describes how each component of the Visiban stack scales, what the practical ceilings are on a single server, and what to change — and when — as load grows.
+Visiban runs comfortably on one server for most teams. Below: the practical ceilings on a single server, and what to change — and when — as load grows.
 
 !!! note "Managed hosting"
-    Managed Visiban hosting (multi-tenant, globally distributed) is an enterprise feature. This page covers self-hosted deployments: a single team or organisation running their own instance. The architecture is the same; the operational responsibility is yours.
+    Managed Visiban hosting (multi-tenant, globally distributed) is an enterprise feature. What follows is for self-hosted deployments: a single team or organization running their own instance. Same architecture — the operational responsibility is yours.
 
 ---
 
@@ -157,10 +157,10 @@ The default configuration stores uploaded files on the container's local filesys
 **Before adding a second backend replica, migrate attachments to S3 (or any S3-compatible store — MinIO, Cloudflare R2, Backblaze B2):**
 
 ```python
-# settings.py — add django-storages
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default=None)  # For MinIO / R2
+# settings.py — add django-storages (Django 5 uses STORAGES, not DEFAULT_FILE_STORAGE)
+STORAGES["default"]["BACKEND"] = "storages.backends.s3boto3.S3Boto3Storage"
+AWS_STORAGE_BUCKET_NAME = os.environ["AWS_STORAGE_BUCKET_NAME"]
+AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL")  # For MinIO / R2
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None  # Private by default
 ```

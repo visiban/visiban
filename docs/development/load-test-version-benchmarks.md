@@ -4,8 +4,8 @@ A point-in-time comparison of API read-path latency across Visiban 1.0, 1.1, and
 `main` (pre-alpha, tracked here as "1.2-dev"), plus a search for the card/swimlane count at
 which the board stops feeling responsive. This is a one-off benchmarking pass, not a CI gate —
 for the gate that gets its numbers from a controlled fixture on every scheduled pipeline run,
-see [Nightly Load Test](nightly-load-test.md). This page's numbers should not be substituted
-for that job's committed budget file.
+see [Nightly Load Test](nightly-load-test.md). Don't substitute these numbers for that job's
+committed budget file.
 
 !!! warning "Read the caveats before quoting a number from this page"
     Every measurement here was taken on a shared development machine with other active Claude

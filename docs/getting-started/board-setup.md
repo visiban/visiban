@@ -1,10 +1,10 @@
 # Board Setup
 
-This guide covers the initial configuration steps that make analytics accurate from the start. Complete these steps after [First Boot](first-boot.md) and before inviting your team.
+Complete these steps after [First Boot](first-boot.md) and before inviting your team — they're what make analytics accurate from day one.
 
 ## Create your first board
 
-When you click **+ New board**, the Create Board modal offers 11 pre-built templates (Sales Pipeline, Customer Support, Product Roadmap, and more). Each template sets up columns and a first swimlane tailored to that workflow, so you can start adding cards immediately. If none of the templates fit, choose **Blank board** for the default layout (Backlog, To Do, Doing, Done).
+When you click **+ New board**, the Create Board modal offers 11 templates: 10 pre-built pipelines (Sales Pipeline, Customer Support, Product Roadmap, and more), each with columns and a first swimlane tailored to that workflow, plus **Blank Board** for the 11th. Blank Board starts with no columns or swimlanes at all — add your own from scratch.
 
 Templates are applied once at creation time — you can freely rename, reorder, add, or remove columns afterward. For the full list of available templates, see [Board & Cards — Board creation](../features/board.md#board-creation).
 
