@@ -45,6 +45,20 @@ class AdminIPRestrictionMiddleware:
     range behave identically (`ip_network("10.0.0.1", strict=False)` is a
     single-address /32 or /128 network), so this is a strict superset of the
     old exact-match behaviour.
+
+    ``strict=False`` is kept even though it silently normalizes a mistyped
+    entry with host bits set (`10.0.0.5/24` becomes `10.0.0.0/24`) — Nginx's
+    `geo` directive accepts the same host-bits-set entries, so rejecting them
+    here would break the parity the whole CIDR fix exists for. Both that case
+    and an unusually broad prefix (which could open `/admin/` to far more of
+    the internet than an operator intended, `/0` most of all) are instead
+    logged once at startup — see `_parse_allowed_networks`.
+
+    An IPv4-mapped IPv6 client address (`::ffff:10.0.0.1`, which a
+    dual-stack proxy can produce) is also tested against IPv4 entries: Python's
+    `IPv4Network.__contains__` returns False for such an address even though
+    it denotes the same host, so without this an IPv4 CIDR entry would never
+    match a client that arrived over the IPv6 socket. See `_is_allowed`.
     """
 
     def __init__(self, get_response):
@@ -65,7 +79,7 @@ class AdminIPRestrictionMiddleware:
         networks = []
         for entry in entries:
             try:
-                networks.append(ipaddress.ip_network(entry, strict=False))
+                network = ipaddress.ip_network(entry, strict=False)
             except ValueError:
                 # Logged once at startup, and deliberately WITHOUT any
                 # per-request client IP — this is the operator-supplied
@@ -74,6 +88,48 @@ class AdminIPRestrictionMiddleware:
                 logger.warning(
                     "Ignoring invalid DJANGO_ADMIN_ALLOWED_IPS entry: %r", entry
                 )
+                continue
+
+            # strict=True raises exactly when the entry has host bits set
+            # (e.g. "10.0.0.5/24"), which strict=False above silently
+            # normalized to the network address ("10.0.0.0/24"). That
+            # normalization is intentional — see the class docstring — but a
+            # mistyped mask should not be silently different from what the
+            # operator typed, so it is logged once here.
+            try:
+                ipaddress.ip_network(entry, strict=True)
+            except ValueError:
+                logger.warning(
+                    "DJANGO_ADMIN_ALLOWED_IPS entry %r has host bits set; "
+                    "normalized to network %s",
+                    entry,
+                    network,
+                )
+
+            # A prefix broader than this is large enough that it is more
+            # likely a typo than an intentional allowlist — most of all a
+            # /0, which is every address on the internet.
+            broad = (network.version == 4 and network.prefixlen < 8) or (
+                network.version == 6 and network.prefixlen < 32
+            )
+            if broad:
+                if network.prefixlen == 0:
+                    logger.warning(
+                        "DJANGO_ADMIN_ALLOWED_IPS entry %r is /0 — this "
+                        "allows every IPv%s address to reach /admin/.",
+                        entry,
+                        network.version,
+                    )
+                else:
+                    logger.warning(
+                        "DJANGO_ADMIN_ALLOWED_IPS entry %r resolves to the "
+                        "unusually broad network %s; double-check this is "
+                        "intentional.",
+                        entry,
+                        network,
+                    )
+
+            networks.append(network)
         return networks
 
     def __call__(self, request):
@@ -95,7 +151,19 @@ class AdminIPRestrictionMiddleware:
             # fallback, or a malformed X-Forwarded-For entry) fails closed
             # rather than being compared against the allowlist as a string.
             return False
-        return any(address in network for network in self._allowed_networks)
+
+        # An IPv4-mapped IPv6 address is the same host as its IPv4 form, so
+        # it must also be checked against IPv4 allowlist entries.
+        candidates = [address]
+        ipv4_mapped = getattr(address, "ipv4_mapped", None)
+        if ipv4_mapped is not None:
+            candidates.append(ipv4_mapped)
+
+        return any(
+            candidate in network
+            for candidate in candidates
+            for network in self._allowed_networks
+        )
 
 
 # ---------------------------------------------------------------------------

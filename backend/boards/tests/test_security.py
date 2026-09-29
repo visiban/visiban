@@ -205,6 +205,104 @@ class AdminIPRestrictionMiddlewareTests(TestCase):
             response = middleware(request)
         self.assertEqual(response.status_code, 403)
 
+    @override_settings(DEBUG=False)
+    def test_whitespace_around_entries_is_stripped(self):
+        """Pins the existing strip() behavior for entries with surrounding whitespace."""
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "10.5.0.1"
+        with patch.dict(
+            os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": " 10.0.0.1 , 10.0.0.0/8 "}
+        ):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+
+    # ------------------------------------------------------------------
+    # Follow-up findings (#1274): strict=False widening and IPv4-mapped IPv6
+    # ------------------------------------------------------------------
+
+    @override_settings(DEBUG=False)
+    def test_host_bits_set_entry_logs_warning_and_still_matches_normalized_network(self):
+        """An entry with host bits set is normalized (parity with Nginx's `geo`
+        directive, which also accepts it) but logs a warning naming the
+        normalized network that was actually applied.
+        """
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "10.0.0.42"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.0.0.5/24"}):
+            with self.assertLogs("visiban.middleware", level="WARNING") as logs:
+                middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            any(
+                "10.0.0.5/24" in message and "10.0.0.0/24" in message
+                for message in logs.output
+            ),
+            logs.output,
+        )
+
+    @override_settings(DEBUG=False)
+    def test_broad_prefix_entry_logs_warning(self):
+        """A prefix broader than /8 (IPv4) logs a warning."""
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.0.0.1/4"}):
+            with self.assertLogs("visiban.middleware", level="WARNING") as logs:
+                AdminIPRestrictionMiddleware(_make_response)
+        self.assertTrue(
+            any("10.0.0.1/4" in message for message in logs.output), logs.output
+        )
+
+    @override_settings(DEBUG=False)
+    def test_slash_zero_entry_logs_explicit_every_address_warning_and_still_matches(self):
+        """`/0` still parses and matches (parity with Nginx), but is logged
+        explicitly as allowing every address.
+        """
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "203.0.113.99"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.0.0.1/0"}):
+            with self.assertLogs("visiban.middleware", level="WARNING") as logs:
+                middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            any(
+                "10.0.0.1/0" in message and "every" in message.lower()
+                for message in logs.output
+            ),
+            logs.output,
+        )
+
+    @override_settings(DEBUG=False)
+    def test_ipv6_broad_prefix_entry_logs_warning(self):
+        """A prefix broader than /32 (IPv6) logs a warning."""
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "2001:db8::/16"}):
+            with self.assertLogs("visiban.middleware", level="WARNING") as logs:
+                AdminIPRestrictionMiddleware(_make_response)
+        self.assertTrue(
+            any("2001:db8::/16" in message for message in logs.output), logs.output
+        )
+
+    @override_settings(DEBUG=False)
+    def test_ipv4_mapped_ipv6_client_matches_ipv4_cidr_entry(self):
+        """An IPv4-mapped IPv6 client address (from a dual-stack proxy) must
+        match an IPv4 CIDR entry for the same underlying host.
+        """
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "::ffff:10.0.0.42"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.0.0.0/8"}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(DEBUG=False)
+    def test_ipv4_mapped_ipv6_client_still_blocked_outside_range(self):
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "::ffff:203.0.113.99"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.0.0.0/8"}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 403)
+
     # ------------------------------------------------------------------
     # Debug mode (DEBUG=True) — all IPs allowed for local development
     # ------------------------------------------------------------------
