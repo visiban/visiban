@@ -204,8 +204,38 @@ EXIT_USAGE = 2
 # from the class name); the TypeScript interface is `CardExternalRef` because
 # the frontend names it after the field's role on `Card`, not after the
 # serializer. Diffing the two once mapped found no drift.
+#
+# #1282's follow-up completeness-check found the same hole in four more
+# places, none of them among #821's fifteen (that test only reaches
+# `ModelSerializer`/`Serializer` subclasses imported into its own
+# `_DRIFT_PAIRS`, so a component this gate can see but #821 cannot is not on
+# its own evidence that nothing is missing):
+#
+#   - `PublicAssignee` (`PublicAssigneeSerializer`, the minimal
+#     display-name-only user on a public share-link card) had the identical
+#     name on both sides and was still unmapped — the same class of miss as
+#     `ExternalRef` above, just without even a name change to explain it.
+#   - `LinkedCard` (`LinkedCardSerializer`, the compact card reference on a
+#     `CardRelation`, #449) maps to `RelatedCardRef` — a renamed pair the same
+#     shape as `CardChecklist`/`CardChecklistItem` and `CurrentUser`/`User`
+#     above.
+#   - `BoardExportLog` (`BoardExportLogSerializer`, the export-history audit
+#     row, #842/#980) maps to `BoardExportLogEntry` — another renamed pair of
+#     the same shape, found only by widening the audit past #821's own list.
+#   - `ShareBoardResponse` (an `inline_serializer` in
+#     `boards/views/boards.py`, backing `POST .../share/`) maps to
+#     `ShareActionResponse`, the interface `enableBoardSharing()` actually
+#     imports and reads in `frontend/src/api/boards.ts`. Its sibling
+#     `UnshareBoardResponse` component is intentionally NOT mapped here even
+#     though it is structurally identical — see "What is not covered, and
+#     why" in `docs/development/serializer-ts-parity.md`, because
+#     `disableBoardSharing()` never reads a typed response body, so there is
+#     no TypeScript interface on the other end to diff against.
+#
+# Diffing all four once mapped found no real drift.
 COMPONENT_MAP = {
     "Board": "Board",
+    "BoardExportLog": "BoardExportLogEntry",
     "BoardFull": "BoardFull",
     "BoardMembership": "BoardMembership",
     "BoardUser": "BoardUser",
@@ -226,8 +256,11 @@ COMPONENT_MAP = {
     "GroupBrief": "GroupBrief",
     "GroupLabel": "GroupLabel",
     "Label": "Label",
+    "LinkedCard": "RelatedCardRef",
     "Notification": "Notification",
+    "PublicAssignee": "PublicAssignee",
     "PublicCard": "PublicCard",
+    "ShareBoardResponse": "ShareActionResponse",
     "Swimlane": "Swimlane",
     "SwimlaneCustomFieldDefinition": "SwimlaneCustomFieldDefinition",
 }
