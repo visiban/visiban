@@ -409,6 +409,27 @@ class SwimlaneSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uid"]
 
+    def validate(self, attrs):
+        board = self.context.get("board") or (self.instance.board if self.instance else None)
+        if board is not None:
+            instance = self.instance
+            # unique_together(board, name) is not reachable by DRF's automatic
+            # UniqueTogetherValidator — `board` is not a serializer field (it is
+            # supplied by the viewset from the URL), so without this check a
+            # duplicate name reaches the database and surfaces as a 500 rather
+            # than a 400 naming the field. Mirrors ColumnSerializer/LabelSerializer
+            # (#1166) — #1276 was the same gap, left open for swimlanes.
+            name = attrs.get("name", instance.name if instance else None)
+            if name is not None:
+                clash = Swimlane.objects.filter(board=board, name=name)
+                if instance is not None:
+                    clash = clash.exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "name": "A swimlane with this name already exists on this board."
+                    })
+        return attrs
+
 
 class SwimlaneAdminSerializer(SwimlaneSerializer):
     """Full swimlane representation including contact_email and notes.

@@ -196,6 +196,30 @@ class SwimlaneCRUDTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("order", r.json())
 
+    def test_create_swimlane_duplicate_name_returns_400_not_500(self):
+        # Reproduces #1276 (#1166 missed swimlanes): IntegrityError on
+        # unique_together(board, name) at perform_create previously reached the
+        # database unguarded.
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/swimlanes/",
+            {"name": self.swim.name, "color": "#123456"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.json())
+
+    @patch(PATCH_BROADCAST)
+    def test_update_swimlane_duplicate_name_returns_400_not_500(self, _):
+        # Reproduces #1276 (#1166 missed swimlanes): IntegrityError on
+        # unique_together(board, name) at perform_update previously reached the
+        # database unguarded.
+        swim2 = Swimlane.objects.create(board=self.board, name="Swim2", position=1)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/swimlanes/{swim2.id}/",
+            {"name": self.swim.name},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.json())
+
 
 # ---------------------------------------------------------------------------
 # Labels
