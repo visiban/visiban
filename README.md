@@ -38,7 +38,7 @@ cp .env.example .env   # set DJANGO_SECRET_KEY at minimum
 docker compose up --build
 ```
 
-Open **http://localhost:5173**. The first-boot admin password is printed to the container logs.
+Open **http://localhost:5173**. Retrieve the first-boot admin password with `docker compose exec backend cat /tmp/visiban_admin_password` — see [First boot](https://docs.visiban.com/next/getting-started/first-boot/) for details.
 
 > **Running in production?** See the [installation guide](https://docs.visiban.com/next/getting-started/installation/) for HTTPS setup, environment variables, and database configuration.
 
@@ -62,7 +62,7 @@ All connected users see changes in **real time** over a WebSocket connection. Dr
 | **Movement audit trail** | Every card move is timestamped and attributed. View per-card history or search the board-level History tab. [→ Card history](https://docs.visiban.com/next/features/card-history/) |
 | **Analytics** | Dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
 | **Real-time sync** | WebSocket-powered — card moves, edits, and structural changes appear instantly for all connected users. [→ Real-time](https://docs.visiban.com/next/features/realtime/) |
-| **Groups & RBAC** | Boards live inside groups (unlimited nesting). Five roles — admin, member, collaborator, viewer, plus moderator entitlement — with automatic group inheritance. [→ Groups](https://docs.visiban.com/next/features/groups/) |
+| **Groups & RBAC** | Boards live inside groups (unlimited nesting). Four roles — admin, member, collaborator, viewer — plus a moderator entitlement, with automatic group inheritance. [→ Groups](https://docs.visiban.com/next/features/groups/) |
 | **Card detail** | Rich-text description, priority, assignee, labels, due date, weight, checklist, file attachments, and threaded comments with @mentions. [→ Board guide](https://docs.visiban.com/next/features/board/#cards) |
 | **Board sharing** | Generate a read-only public link. Anyone with the URL can view the board — no account needed. Revoke it any time. [→ Sharing](https://docs.visiban.com/next/features/board/#board-sharing) |
 | **Import & export** | JSON round-trip with full movement history, or CSV for spreadsheets. Import from the dashboard; export from the board toolbar. [→ Export & import](https://docs.visiban.com/next/features/board/#export--import) |
@@ -89,7 +89,7 @@ Full documentation is at **[docs.visiban.com](https://docs.visiban.com/next/)**.
 | Board & cards | [Board guide](https://docs.visiban.com/next/features/board/) |
 | Analytics & summary | [Analytics](https://docs.visiban.com/next/features/analytics/) |
 | Groups | [Groups](https://docs.visiban.com/next/features/groups/) |
-| Roles & permissions | [RBAC](https://docs.visiban.com/next/rbac/roles/) |
+| Roles & permissions | [RBAC](https://docs.visiban.com/next/features/rbac/roles/) |
 | API reference | [API](https://docs.visiban.com/next/api/boards/) |
 | Site administration | [Administration](https://docs.visiban.com/next/administration/site-admins/) |
 
