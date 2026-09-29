@@ -43,6 +43,14 @@ spec:
       labels:
         {{- include "visiban.backend.selectorLabels" . | nindent 8 }}
     spec:
+      # Hardening to match the bundled Valkey StatefulSet (templates/valkey.yaml,
+      # #1200) and the demo seed pod spec (_helpers.tpl's demoSeedPodSpec,
+      # #1180) — see #1210. Overridable: an operator on a base image that
+      # cannot run as this numeric UID, or needs a writable root filesystem,
+      # sets backend.securityContext.pod / .container in their values.
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "visiban.backend.securityContext.pod" (.Values.backend.securityContext | default dict) | nindent 8 }}
       {{- if gt (int .Values.backendReplicaCount) 1 }}
       affinity:
         podAntiAffinity:
@@ -58,6 +66,25 @@ spec:
         # Shared between the bootstrap init container and the backend container so
         # the one-time admin password file survives from bootstrap into the running pod.
         - name: admin-password
+          emptyDir: {}
+        # Scratch space for every container on this pod now that the root
+        # filesystem is read-only (Python bytecode caching, DRF's temp upload
+        # spool for uploads over FILE_UPLOAD_MAX_MEMORY_SIZE, etc.) — same
+        # pattern as _helpers.tpl's demoSeedPodSpec.
+        - name: tmp
+          emptyDir: {}
+        # `collectstatic` writes STATIC_ROOT (/app/staticfiles, settings.py)
+        # inside its OWN init-container filesystem, not a filesystem shared
+        # with the `backend` container — Kubernetes containers never share a
+        # root filesystem without an explicit volume. That write already had
+        # no effect on the running backend container before this change; this
+        # volume only gives the command somewhere writable to point at now
+        # that the root filesystem is read-only, and does not change that
+        # pre-existing behavior. The pre-existing gap itself (Django admin's
+        # static assets likely broken on Helm installs, since the backend
+        # container never receives collectstatic's manifest) is tracked in
+        # #1228, out of scope for #1210.
+        - name: static
           emptyDir: {}
         {{- if .Values.backend.mediaPersistence.enabled }}
         - name: media
@@ -99,6 +126,11 @@ spec:
               value: {{ .Values.backend.migrate.connectTimeout | int | quote }}
             - name: VISIBAN_MIGRATE_LOCK_TIMEOUT
               value: {{ .Values.backend.migrate.lockTimeout | int | quote }}
+          securityContext:
+            {{- include "visiban.backend.securityContext.container" (.Values.backend.securityContext | default dict) | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
         - name: collectstatic
@@ -107,6 +139,15 @@ spec:
           command: ["python", "manage.py", "collectstatic", "--noinput"]
           env:
             {{- include "visiban.backendEnv" . | nindent 12 }}
+          securityContext:
+            {{- include "visiban.backend.securityContext.container" (.Values.backend.securityContext | default dict) | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # See the `static` volume's note above: STATIC_ROOT needs to be
+            # writable in THIS container only.
+            - name: static
+              mountPath: /app/staticfiles
         - name: bootstrap
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
@@ -115,9 +156,13 @@ spec:
             {{- include "visiban.backendEnv" . | nindent 12 }}
             - name: VISIBAN_ADMIN_PASSWORD_FILE
               value: /run/visiban/admin_password
+          securityContext:
+            {{- include "visiban.backend.securityContext.container" (.Values.backend.securityContext | default dict) | nindent 12 }}
           volumeMounts:
             - name: admin-password
               mountPath: /run/visiban
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: backend
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
@@ -131,11 +176,15 @@ spec:
             {{- include "visiban.backendEnv" . | nindent 12 }}
             - name: VISIBAN_ADMIN_PASSWORD_FILE
               value: /run/visiban/admin_password
+          securityContext:
+            {{- include "visiban.backend.securityContext.container" (.Values.backend.securityContext | default dict) | nindent 12 }}
           volumeMounts:
             - name: admin-password
               mountPath: /run/visiban
             - name: media
               mountPath: /app/media
+            - name: tmp
+              mountPath: /tmp
           livenessProbe:
             httpGet:
               path: /api/health/liveness/

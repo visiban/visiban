@@ -29,10 +29,10 @@
 # and asserts the corresponding section rejects it.
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
-# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10 and 11.
-# Section 5 (probe paths) is asserted against the real chart only, and section 7
-# (NetworkPolicy client coverage) is fixture-covered only through the demo
-# render in section 9 — see the notes on those sections.
+# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11
+# and 12. Section 5 (probe paths) is asserted against the real chart only, and
+# section 7 (NetworkPolicy client coverage) is fixture-covered only through the
+# demo render in section 9 — see the notes on those sections.
 
 set -euo pipefail
 
@@ -1028,6 +1028,81 @@ check_image_pins() {
   [ "$gbad" -eq 0 ] && pass "all ${#VALKEY_GUARD_CASES[@]} bundled-Valkey guards refuse their render, each with its own message, and the printed fix clears them"
 }
 
+# ---------------------------------------------------------------------------
+# 12. Every pod hardens like the bundled Valkey (#1210).
+# ---------------------------------------------------------------------------
+# #1200 hardened the bundled Valkey StatefulSet (runAsNonRoot, a read-only root
+# filesystem, no Linux capabilities). #1210 brought the bundled PostgreSQL
+# StatefulSet and the backend Deployment — its migrate/collectstatic/bootstrap
+# init containers included — up to the same bar. This asserts the bar holds on
+# every OTHER long-running or scheduled workload the chart renders too
+# (the scheduledJobs CronJobs, and the demo seed Job / reset CronJob), so the
+# next new template does not quietly regress below it.
+#
+# SCOPE: the frontend (nginx) Deployment is deliberately EXCLUDED. It was
+# already below the bar before #1210 and stays there — bringing it up is
+# tracked separately in #1224, not something to sweep silently into this
+# section.
+#
+# Checked on the main render (every optional workload on, including the
+# scheduledJobs CronJobs) AND the demo render (the demo seed Job and reset
+# CronJob) — the same two renders section 11 already produces.
+#
+# Two assertions per pod: pod-level securityContext.runAsNonRoot is true, and
+# EVERY container (containers and initContainers) drops the ALL capability.
+# Not asserted here: readOnlyRootFilesystem and the numeric runAsUser/Group —
+# backend.securityContext and postgresql.securityContext are deliberately
+# overridable so an operator on an unusual image can relax them, so a chart
+# default is not a contract this script can enforce without also failing a
+# legitimate override.
+check_pod_hardening() {
+  section "12. Every pod hardens like the bundled Valkey (#1210)"
+
+  local query
+  query='
+    select((.kind == "Deployment" or .kind == "StatefulSet" or .kind == "Job" or .kind == "CronJob"))
+    | select((.metadata.labels."app.kubernetes.io/component" // "") != "frontend")
+    | .kind as $k | .metadata.name as $n
+    | (.spec.template // .spec.jobTemplate.spec.template) as $t
+    | ($t.spec.securityContext.runAsNonRoot // false) as $podNonRoot
+    | ($t.spec.containers + ($t.spec.initContainers // [])) as $cs
+    | $cs[]
+    | [$k, $n, .name, $podNonRoot, ((.securityContext.capabilities.drop // []) | contains(["ALL"]))] | @tsv
+  '
+
+  local demo_out
+  demo_out="$(mktemp)"
+  if ! render_demo "$demo_out"; then
+    fail "values-demo.yaml does not render: $(cat /tmp/helm-demo-render-err.txt)"
+    rm -f "$demo_out"
+    return
+  fi
+
+  local label file k n cname nonroot dropall bad=0 checked=0
+  for pair in "main:$RENDERED" "demo:$demo_out"; do
+    label="${pair%%:*}"; file="${pair#*:}"
+    while IFS=$'\t' read -r k n cname nonroot dropall; do
+      [ -z "$k" ] && continue
+      checked=$((checked + 1))
+      if [ "$nonroot" != "true" ]; then
+        fail "$label render: $k/$n's pod securityContext does not set runAsNonRoot: true (container $cname)"
+        bad=1
+      fi
+      if [ "$dropall" != "true" ]; then
+        fail "$label render: $k/$n container '$cname' does not drop the ALL capability"
+        bad=1
+      fi
+    done < <(yq "$query" "$file" | grep -vE '^(---)?$')
+  done
+  rm -f "$demo_out"
+
+  if [ "$checked" -eq 0 ]; then
+    fail "the hardening check scanned zero containers — the query matched nothing"
+    return
+  fi
+  [ "$bad" -eq 0 ] && pass "every non-frontend pod in the main and demo renders sets runAsNonRoot and drops ALL capabilities ($checked containers checked)"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -1040,6 +1115,7 @@ run_all_checks() {
   check_demo_mode
   check_demo_guards
   check_image_pins
+  check_pod_hardening
 }
 
 # ---------------------------------------------------------------------------
@@ -1111,6 +1187,9 @@ self_test() {
     # password would silently get an unauthenticated Valkey.
     "11 valkey auth guard removed|templates/_validate.tpl|s/{{- if (dig \"auth\" \"enabled\" false \$v) -}}/{{- if false -}}/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
+    # 12 (#1210): both hardened workloads (backend, postgresql) lose their
+    # capability drop through their shared values.yaml default at once.
+    "12 capabilities.drop ALL removed from values|values.yaml|s/drop: \[\"ALL\"\]/drop: []/"
   )
 
   for fixture in "${fixtures[@]}"; do

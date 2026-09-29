@@ -2664,7 +2664,10 @@ arm64-runner-preflight:
 # since both run against the one physical host's Docker Desktop daemon.
 # `after_script` always logs out and removes the tags this job pushed, so the
 # arch-suffixed images and registry credentials don't linger on the shared
-# host daemon between releases.
+# host daemon between releases. This now includes the GitLab Dependency Proxy
+# login taken in before_script below (#1204, follow-up to #1198's
+# DOCKERHUB_MIRROR rollout) — the arm64 Dockerfile builds pull their base
+# images through the same proxy the amd64 kaniko legs use.
 .arm64-docker-push-base:
   stage: deploy
   tags: [arm64]
@@ -2684,6 +2687,27 @@ arm64-runner-preflight:
       # argv is readable via `ps` by anything else running there (#1205).
       printf '%s' "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
       printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+      # Base images now resolve through DOCKERHUB_MIRROR (#1198) via
+      # --build-arg BASE_REGISTRY in each job's script below — the GitLab
+      # Dependency Proxy on a project where it's enabled — so this persistent
+      # shell runner needs its own proxy login too, same convention as the
+      # kaniko jobs' /kaniko/.docker/config.json and .helm-drill-base (see
+      # docs/maintainers/ci-runners.md#dependency-proxy), just via `docker
+      # login` since this is a real Docker daemon rather than kaniko's
+      # credential file. Guarded on CI_DEPENDENCY_PROXY_SERVER being
+      # non-empty: it's empty on a project with no working group Dependency
+      # Proxy (e.g. a personal-namespace fork), where DOCKERHUB_MIRROR's shell
+      # fallback below already sends the build straight to docker.io/library
+      # and needs no login. This fails loud rather than degrading silently: if
+      # the proxy variable IS set but the login itself fails (expired/bad
+      # credential), that's a real misconfiguration on a project that expects
+      # the proxy to work — better to stop the release here than let this leg
+      # quietly fall through to an anonymous docker.io pull mid-build and risk
+      # the #1198 rate limit, or worse, push a base image the amd64 kaniko leg
+      # never used.
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        printf '%s' "${CI_DEPENDENCY_PROXY_PASSWORD}" | docker login "${CI_DEPENDENCY_PROXY_SERVER}" -u "${CI_DEPENDENCY_PROXY_USER}" --password-stdin
+      fi
 
 backend-docker-push-arm64:
   extends: .arm64-docker-push-base
@@ -2701,6 +2725,7 @@ backend-docker-push-arm64:
         --provenance=false \
         --sbom=false \
         --file backend/Dockerfile \
+        --build-arg BASE_REGISTRY="${DOCKERHUB_MIRROR:-docker.io/library}" \
         --tag "${GL_REF}" \
         backend
       ARCH="$(docker image inspect "${GL_REF}" --format '{{.Architecture}}')"
@@ -2716,6 +2741,11 @@ backend-docker-push-arm64:
     - docker rmi "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}-arm64" "ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}-arm64" 2>/dev/null || true
     - docker logout "${CI_REGISTRY}" || true
     - docker logout ghcr.io || true
+    # Tolerates never having logged in (e.g. a fork with no group Dependency
+    # Proxy, where the before_script login above was skipped) — `|| true`
+    # covers both "not logged in" and any other logout failure, so a proxy
+    # credential never lingers on this persistent shared host (#1204).
+    - '[ -z "${CI_DEPENDENCY_PROXY_SERVER:-}" ] || docker logout "${CI_DEPENDENCY_PROXY_SERVER}" || true'
 
 frontend-docker-push-arm64:
   extends: .arm64-docker-push-base
@@ -2734,6 +2764,7 @@ frontend-docker-push-arm64:
         --sbom=false \
         --file frontend/Dockerfile \
         --build-arg NODE_OPTIONS=--max-old-space-size=512 \
+        --build-arg BASE_REGISTRY="${DOCKERHUB_MIRROR:-docker.io/library}" \
         --tag "${GL_REF}" \
         frontend
       ARCH="$(docker image inspect "${GL_REF}" --format '{{.Architecture}}')"
@@ -2749,6 +2780,8 @@ frontend-docker-push-arm64:
     - docker rmi "${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG}-arm64" "ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}-arm64" 2>/dev/null || true
     - docker logout "${CI_REGISTRY}" || true
     - docker logout ghcr.io || true
+    # See backend-docker-push-arm64's after_script above.
+    - '[ -z "${CI_DEPENDENCY_PROXY_SERVER:-}" ] || docker logout "${CI_DEPENDENCY_PROXY_SERVER}" || true'
 
 # ─── Docker push — manifest assembly (#1084) ───────────────────────────────────
 #

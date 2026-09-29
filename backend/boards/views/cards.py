@@ -703,6 +703,10 @@ class CardViewSet(viewsets.ModelViewSet):
         )
         return Response(CardMovementSerializer(movements, many=True, context={"request": request}).data)
 
+    @extend_schema(
+        summary="List field-change activity for a card",
+        responses=CardActivitySerializer(many=True),
+    )
     @action(detail=True, methods=["get"])
     def activities(self, request, board_pk=None, pk=None):
         """Return the field-change activity log for a card."""
@@ -1004,6 +1008,31 @@ class CardViewSet(viewsets.ModelViewSet):
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        summary="List attachments on a card",
+        methods=["GET"],
+        responses=CardAttachmentSerializer(many=True),
+    )
+    @extend_schema(
+        summary="Upload an attachment to a card",
+        description="Multipart upload, max 10 MB, validated by MIME type and magic bytes against an allowlist.",
+        methods=["POST"],
+        request={"multipart/form-data": inline_serializer(name="CardAttachmentUpload", fields={"file": serializers.FileField()})},
+        responses={
+            201: CardAttachmentSerializer,
+            400: OpenApiResponse(
+                description="No file provided, file too large, or file type not allowed.",
+                response=inline_serializer(name="CardAttachmentUploadError", fields={"detail": serializers.CharField()}),
+            ),
+            403: OpenApiResponse(
+                description="Viewers cannot upload attachments, or uploads are disabled site-wide.",
+                response=inline_serializer(
+                    name="CardAttachmentUploadDenied",
+                    fields={"code": serializers.CharField(required=False), "detail": serializers.CharField()},
+                ),
+            ),
+        },
+    )
     @action(detail=True, methods=["get", "post"], url_path="attachments")
     def attachments(self, request, board_pk=None, pk=None):
         """List attachments on a card or upload a new one (max 10 MB)."""

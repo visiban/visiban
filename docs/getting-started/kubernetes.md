@@ -290,7 +290,9 @@ With `valkey.enabled: true` (the default) the chart runs Valkey itself: a
 single-replica StatefulSet on the official `valkey/valkey:8-alpine` image, the
 same major as `docker-compose.prod.yml`, as a non-root user with a read-only
 root filesystem and no Linux capabilities. The backend reaches it at
-`<release>-valkey-primary:6379`.
+`<release>-valkey-primary:6379`. See [Pod security](#pod-security) below —
+the bundled PostgreSQL and the backend Deployment run with this same
+hardening.
 
 Valkey holds only the real-time (Channels) layer and the Django cache, so it
 runs without persistence by default. The values it reads:
@@ -313,6 +315,67 @@ use an [external Valkey](#external-database-and-valkey) with the password in
     `bitnami/valkey:latest`. See the
     [upgrade note](../administration/upgrade.md#upgrading-to-12x) for what
     `helm upgrade` does to an existing install.
+
+## Pod security
+
+Every long-running or scheduled workload the chart renders — the backend
+Deployment (its `migrate`, `collectstatic` and `bootstrap` init containers
+included), the bundled PostgreSQL and Valkey StatefulSets, the
+[scheduled jobs](#scheduled-jobs) CronJobs, and the demo seed Job/CronJob —
+runs:
+
+- as a non-root user (`runAsNonRoot: true`, a numeric `runAsUser`/`runAsGroup`)
+- with `seccompProfile: RuntimeDefault`
+- with `allowPrivilegeEscalation: false`
+- with a read-only root filesystem
+- with every Linux capability dropped (`capabilities.drop: [ALL]`)
+- with no mounted ServiceAccount token (`automountServiceAccountToken: false`)
+
+Scratch space each image still needs to write — `/tmp` on the backend's four
+containers and on PostgreSQL, PostgreSQL's `/var/run/postgresql` socket
+directory, and the backend's `collectstatic` output (`STATIC_ROOT`) — is an
+`emptyDir` volume, never the read-only root filesystem itself. (The bundled
+Valkey needs no `/tmp` mount — it only ever writes to `/data` and
+`/etc/valkey`, both already `emptyDir`/`ConfigMap` mounts from #1200.)
+
+The bundled Valkey's hardening (chart 0.5.0, #1200) is fixed. The backend
+Deployment's and the bundled PostgreSQL StatefulSet's (chart 0.6.0, #1210) are
+overridable:
+
+| Key | Default | Purpose |
+|---|---|---|
+| `backend.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup: 1001`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the backend Deployment. |
+| `backend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext`, applied to every backend container (init and app). |
+| `postgresql.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup`/`fsGroup: 999`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the bundled PostgreSQL StatefulSet. Not read when `postgresql.subchartEnabled` is true. |
+| `postgresql.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `postgresql` container. |
+
+Both blocks are passed through with `toYaml`, like `backend.resources` — the
+chart does not validate their contents, so an operator running a base image
+that cannot run as the chart's numeric UID, or that needs a writable root
+filesystem, can override either block wholesale. For example, to run the
+bundled PostgreSQL with a writable root filesystem on an image that writes
+somewhere this chart does not mount an `emptyDir` for:
+
+```yaml
+# values.override.yaml
+postgresql:
+  securityContext:
+    container:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      capabilities:
+        drop: ["ALL"]
+```
+
+`scripts/helm-structure-check.sh` asserts `runAsNonRoot` and a full capability
+drop on every rendered pod except the frontend (nginx) Deployment.
+
+!!! note "The frontend (nginx) Deployment is not hardened yet"
+    Unlike the other workloads above, the frontend Deployment carries no
+    pod- or container-level `securityContext`. Its base image's default user
+    and the paths nginx writes to at runtime have not been audited for a
+    read-only root filesystem, so bringing it up to the same bar is tracked
+    separately in #1224 rather than folded into #1210.
 
 ## Network policies
 
