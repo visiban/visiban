@@ -15,61 +15,14 @@ This page is the detailed board-action reference. For how the same roles work at
 
 ## Permission matrix
 
-| Action | Admin | Member | Collaborator | Viewer |
-|---|:---:|:---:|:---:|:---:|
-| **Board** | | | | |
-| View board and cards | ✓ | ✓ | ✓ | ✓ |
-| View card movement history | ✓ | ✓ | ✓ | ✓ |
-| View archived cards | ✓ | ✓ | ✓ | ✓ |
-| Export board (CSV / JSON) | ✓ | ✓ | ✓ | ✓ |
-| Export analytics CSV | ✓ | — | — | — |
-| **Cards** | | | | |
-| Create cards | ✓ | ✓ | — | — |
-| Edit cards (title, description, priority, due date, weight, labels) | ✓ | ✓ | — | — |
-| Assign a card to a board member | ✓ | Mod† | — | — |
-| Move cards (drag-and-drop, column / swimlane change) | ✓ | Move† | — | — |
-| Archive / restore cards | ✓ | Own† | — | — |
-| Delete cards | ✓ | Own† | — | — |
-| Link / unlink related cards | ✓ | ✓ | — | — |
-| **Collaboration** | | | | |
-| Add comments | ✓ | ✓ | ✓ | — |
-| Delete comments | ✓ | Own† | Own | — |
-| Add attachments | ✓ | ✓ | ✓ | — |
-| Delete attachments | ✓ | Own† | Own | — |
-| Add checklist items | ✓ | ✓ | ✓ | — |
-| Edit / check / uncheck checklist items‡ | ✓ | Own† | Own | — |
-| Delete checklist items‡ | ✓ | Own† | Own | — |
-| **Board structure** | | | | |
-| Create / edit / delete columns | ✓ | — | — | — |
-| Reorder columns | ✓ | — | — | — |
-| Create / edit / delete swimlanes | ✓ | — | — | — |
-| Reorder swimlanes | ✓ | — | — | — |
-| Create / edit / delete labels | ✓ | — | — | — |
-| **Membership** | | | | |
-| Invite members | ✓ | — | — | — |
-| Change member roles | ✓ | — | — | — |
-| Grant / revoke moderator | ✓ | — | — | — |
-| Remove members | ✓ | — | — | — |
-| Delete board | ✓ (owner only) | — | — | — |
+The full board action matrix — including the group and site scopes the same four roles carry — now lives in one place: [Roles & Permissions — Permission table](rbac/roles.md#permission-table). This page used to keep its own copy; the two drifted apart more than once, so this page links to the single source instead of maintaining a second copy.
 
-**Own†** Members can perform this action only on content they created (cards they own, comments/attachments/checklist items they added). Members with the **moderator** entitlement — and admins — can perform it on any content.
+Quick pointers into that table:
 
-**Own** (no dagger) Collaborators can perform this action only on content they created. Collaborators can't hold the moderator entitlement, so this restriction is unconditional for them.
-
-**‡** The ownership gate on editing, checking/unchecking, and deleting checklist items was added in 1.1 ([#692](https://gitlab.com/visiban/visiban/-/issues/692)) — before that release, any member or collaborator could act on any item.
-
-**Mod†** Requires the **moderator** entitlement or Admin role. Plain members who didn't create the card can't perform it, even on cards assigned to them. See [Moderator entitlement](#moderator-entitlement) below.
-
-**Move†** Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member, that the moving user didn't create, requires the **moderator** entitlement or Admin role. When blocked, the card snaps back to its original position and an amber toast displays: "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."
-
-!!! note "Card move permission rule"
-    A Member can always move a card if it's unassigned, assigned to themselves, or if they created it. The restriction applies only when moving a card assigned to a different user that the member didn't create — that requires Moderator or Admin access.
-
-!!! note "Viewer boundary enforced since 1.0"
-    Before 1.0, the Viewer role wasn't fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. Corrected in [#248](https://gitlab.com/visiban/visiban/-/issues/248): all write operations now return `403 Forbidden` for Viewers.
-
-!!! note "Board export default and per-board threshold"
-    By default, any board member (including Viewers and Collaborators) can export the full CSV or JSON dump — a role that can already read every card via the paginated API can reconstruct the board, so an unrestricted default is consistent. Re-affirmed in [#800](https://gitlab.com/visiban/visiban/-/issues/800). Board admins can restrict exports to a higher minimum role using the `export_min_role` board setting (added in 1.1, [#807](https://gitlab.com/visiban/visiban/-/issues/807)) — set it to `member`, `collaborator`, or any other level; Owners and site admins always bypass the threshold. Every successful export is recorded in the board's export history (added in 1.1, [#806](https://gitlab.com/visiban/visiban/-/issues/806)), visible to board admins under **Board Settings → Export History**.
+- **Own vs. any** — most card/comment/attachment/checklist actions split into an "own" row (any Member or Collaborator who created the content) and an "any" row (requires the **moderator** entitlement or Admin role). See [Moderator entitlement](#moderator-entitlement) below for what that entitlement grants and how to assign it.
+- **Card move** — see the **move†** footnote on the permission table for the unassigned/self-assigned/self-created exception.
+- **Export defaults and thresholds** — see the "Board export default and per-board threshold" note on the permission table for the `export_min_role` setting and export history.
+- **Viewer enforcement history** — see the "Viewer boundary enforced since 1.0" note on the permission table.
 
 ## How to set roles
 
