@@ -103,6 +103,23 @@ class GroupCRUDTests(TestCase):
         self.group.refresh_from_db()
         self.assertEqual(self.group.description, "Our engineering hub")
 
+    def test_patch_response_includes_parent_name_for_root_group(self):
+        """#1225: `PATCH /api/v1/groups/{id}/` on a top-level group silently
+        dropped `parent_name` from the response body. `GroupViewSet.partial_update()`
+        binds `GroupSerializer(partial=True)`; DRF's `Field.get_default()` raises
+        `SkipField()` unconditionally whenever the root serializer is bound
+        `partial=True`, regardless of whether `default` is set — so the old
+        dotted-source `CharField(source="parent.name", default=None)` vanished
+        from the body instead of serializing as `null` for `self.group`, which
+        has no parent. Same mechanism as #1166 / #1189 for `BoardSerializer` /
+        `BoardFullSerializer.group_name`.
+        """
+        r = self.client.patch(f"/api/v1/groups/{self.group.id}/", {"name": "Renamed"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        body = r.json()
+        self.assertIn("parent_name", body)
+        self.assertIsNone(body["parent_name"])
+
     def test_retrieve_returns_ancestors_field(self):
         """GET /api/groups/<id>/ returns an ancestors array (may be empty for root groups)."""
         r = self.client.get(f"/api/v1/groups/{self.group.id}/")

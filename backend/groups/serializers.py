@@ -65,6 +65,32 @@ def _truncate_for_error(value, limit=_ECHO_TRUNCATE_LENGTH):
     return repr(text)
 
 
+def _parent_name_for_group(group) -> str | None:
+    """Shared by GroupSerializer.get_parent_name (and GroupDetailSerializer, which
+    inherits it).
+
+    A SerializerMethodField, not a dotted-source ``CharField(source="parent.name",
+    default=None)`` — DRF's ``Field.get_default()`` raises ``SkipField()``
+    unconditionally whenever the root serializer is bound ``partial=True``,
+    regardless of whether ``default`` is set. A dotted source through a nullable
+    ``parent`` FK falls back to ``get_default()`` to resolve the ``None``
+    traversal, so on every ``PATCH`` (``GroupViewSet.partial_update`` and
+    ``board_defaults``, both of which bind ``GroupSerializer(..., partial=True)``)
+    the field silently vanished from the response instead of serializing as
+    ``null`` for a top-level group (#1225 — same mechanism as #1166's
+    ``BoardSerializer.group_name`` and #1189's ``BoardFullSerializer.group_name``;
+    see ``boards.serializers._group_name_for_board``). A
+    ``SerializerMethodField`` calls the method directly and never consults
+    ``get_default()``, so it is immune to it.
+
+    ``group.parent_id`` reads the already-loaded FK column (no query); when it
+    is set, ``group.parent`` resolves from the ``select_related("parent", ...)``
+    chain every caller of ``GroupSerializer`` already loads
+    (``GroupViewSet.get_queryset``), so this never issues an extra query.
+    """
+    return group.parent.name if group.parent_id else None
+
+
 @extend_schema_field({
     "type": "array",
     "items": {"type": "string", "enum": _ALLOWED_PRIORITY_SLUGS},
@@ -163,12 +189,13 @@ class GroupBriefSerializer(serializers.ModelSerializer):
 
 class GroupSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
-    # allow_null=True: a root group has no parent, so `source="parent.name"` resolves to
-    # the field-level `default=None` — declaring the field non-nullable made every
-    # top-level group's response fail schema conformance (#1119).
-    parent_name = serializers.CharField(
-        source="parent.name", default=None, allow_null=True, read_only=True
-    )
+    # A SerializerMethodField, not `CharField(source="parent.name", default=None)`
+    # — see _parent_name_for_group() above for why the dotted-source form
+    # silently drops the field from PATCH responses for a top-level group
+    # (#1225). allow_null=True: a root group has no parent, so the method
+    # returns None — declaring the field non-nullable made every top-level
+    # group's response fail schema conformance (#1119).
+    parent_name = serializers.SerializerMethodField(allow_null=True)
     member_count = serializers.SerializerMethodField()
     board_count = serializers.SerializerMethodField()
     subgroup_count = serializers.SerializerMethodField()
@@ -191,6 +218,9 @@ class GroupSerializer(serializers.ModelSerializer):
             "is_starred",
         ]
         read_only_fields = ["owner", "created_at", "shared_labels", "is_starred"]
+
+    def get_parent_name(self, obj) -> str | None:
+        return _parent_name_for_group(obj)
 
     def get_member_count(self, obj) -> int:
         # Use annotation from GroupViewSet.get_queryset() when available to avoid
