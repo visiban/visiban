@@ -10,7 +10,7 @@ change.**
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
 | `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **15** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
-| `serializer-ts-parity` CI job (#1079 + #1139 + #1209, this page) | The **generated OpenAPI document** | **24** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
+| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282, this page) | The **generated OpenAPI document** | **25** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
 
 Neither supersedes the other, and a green run of one says nothing about the other. Through
 #1139 the coverage gap was a structural one — #821 reached two pairs this gate could not,
@@ -77,7 +77,7 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 
 ## Coverage
 
-`COMPONENT_MAP` in the script is authoritative. As of #1137 it is:
+`COMPONENT_MAP` in the script is authoritative. As of #1282 it is:
 
 | Schema component | TypeScript interface | Also name-checked by #821 |
 |---|---|---|
@@ -97,6 +97,7 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `CustomFieldDefinition` | `CustomFieldDefinition` | no |
 | `CustomFieldValue` | `CustomFieldValue` | no |
 | `EffectiveBoardMember` | `EffectiveBoardMember` | no |
+| `ExternalRef` | `CardExternalRef` | yes |
 | `Group` | `Group` | no |
 | `GroupBrief` | `GroupBrief` | no |
 | `GroupLabel` | `GroupLabel` | no |
@@ -109,7 +110,11 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 The mapping is **not** keyed on the two names matching. There is no `User` component — the
 `/api/v1/auth/me/` shape is `CurrentUser` — and `CardChecklist` is the component behind the
 `CardChecklistItem` interface. Both are one resource under two spellings, and leaving either
-out would be a hole the gate's own name check cannot see.
+out would be a hole the gate's own name check cannot see. `ExternalRef`/`CardExternalRef` is
+the same shape again: `ExternalRefSerializer` is a plain `serializers.Serializer` nested on
+`Card.external_ref` rather than a top-level `ModelSerializer`, which is why it was missed when
+the map was built and stayed missing — undetected — until #1282 added it. Diffing the two
+found no drift.
 
 ### What is not covered, and why
 

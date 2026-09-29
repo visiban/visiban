@@ -192,6 +192,18 @@ EXIT_USAGE = 2
 # allowance for a schema-only field, and adding one for a single unused pair
 # is not worth the gate's own complexity. Revisit once a frontend consumer of
 # `GET /api/v1/cards/` exists and needs its own interface (#1172).
+#
+# `ExternalRef` (`ExternalRefSerializer`, the `Card.external_ref` MR/PR link,
+# #352) was missing from this map entirely until #1282, even though it is one
+# of the fifteen pairs #821's name check reaches — a coverage hole matching
+# the same shape #1139 closed for the other name-checked pairs, just missed at
+# the time because `ExternalRefSerializer` is a plain `serializers.Serializer`
+# nested on `Card`, not a top-level `ModelSerializer`, so it did not show up
+# next to the other viewset-backed components when the map was built. The
+# schema component is `ExternalRef` (`drf-spectacular` strips `Serializer`
+# from the class name); the TypeScript interface is `CardExternalRef` because
+# the frontend names it after the field's role on `Card`, not after the
+# serializer. Diffing the two once mapped found no drift.
 COMPONENT_MAP = {
     "Board": "Board",
     "BoardFull": "BoardFull",
@@ -209,6 +221,7 @@ COMPONENT_MAP = {
     "CustomFieldDefinition": "CustomFieldDefinition",
     "CustomFieldValue": "CustomFieldValue",
     "EffectiveBoardMember": "EffectiveBoardMember",
+    "ExternalRef": "CardExternalRef",
     "Group": "Group",
     "GroupBrief": "GroupBrief",
     "GroupLabel": "GroupLabel",
