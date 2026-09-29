@@ -477,7 +477,7 @@ class AdminCreateUserSerializer(drf_serializers.Serializer):
     """Validates the payload for admin-created accounts."""
     username = drf_serializers.CharField(max_length=150, validators=[UsernameFormatValidator()])
     email = drf_serializers.EmailField()
-    password = drf_serializers.CharField(min_length=12, write_only=True)
+    password = drf_serializers.CharField(min_length=settings.PASSWORD_MIN_LENGTH, write_only=True)
     force_password_reset = drf_serializers.BooleanField(default=True)
 
     def validate_username(self, value):

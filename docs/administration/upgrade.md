@@ -758,6 +758,25 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     this repo's `init-prod.sh` renders once, on the host, not something baked into the nginx
     image the containers pull.
 
+!!! note "12-character password minimum now applies to every password-set path"
+    1.2 raises Django's `MinimumLengthValidator` from its default of 8 to 12 characters
+    (`PASSWORD_MIN_LENGTH` in `visiban/settings.py`), so the 12-character policy that the
+    in-app change-password form and the admin "create user" form already enforced now also
+    applies to self-registration, invite-link registration, the password-reset link,
+    `POST /api/v1/auth/password/change/`, the Django admin's set-password form, and the
+    interactive `createsuperuser` / `changepassword` management commands (#1258). It is not configurable.
+    **No one is locked out:** the rule is checked only when a password is *set*, so existing
+    accounts with a shorter password keep logging in and are asked for 12+ characters only the
+    next time they change it. No migration is involved.
+
+!!! warning "`POST /api/v1/auth/password/change/` now requires `old_password`"
+    This dj-rest-auth endpoint previously changed the password for any authenticated caller
+    without checking the current one (#1257). Any script or integration that calls it must now
+    send `old_password`; requests without it return `400`. The endpoint also now clears a
+    pending forced password change on success (#1259). The Visiban web app does not use this
+    endpoint and is unaffected. See
+    [Authentication API](../api/authentication.md#post-apiv1authpasswordchange).
+
 ### Upgrading to 1.1.x
 
 !!! warning "Removed env-var aliases — rename before upgrading"

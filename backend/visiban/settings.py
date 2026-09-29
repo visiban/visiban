@@ -311,9 +311,24 @@ DATABASES = {
 
 AUTH_USER_MODEL = "accounts.User"
 
+# The single source of truth for Visiban's password-length policy (#1258).
+# Enforced through MinimumLengthValidator below, so it applies to EVERY path
+# that runs AUTH_PASSWORD_VALIDATORS: registration and invite-accept (allauth's
+# clean_password), password-reset confirm and dj-rest-auth's password/change/
+# (Django's SetPasswordForm), /auth/change-password/, admin-created accounts,
+# the Django admin's set-password form and createsuperuser. Before #1258 the
+# validator ran with Django's default of 8, so only the endpoints that also
+# hard-coded 12 enforced the documented policy. Validators run only when a
+# password is *set* — existing accounts with a shorter password still log in
+# and are asked for 12+ characters only the next time they change it.
+PASSWORD_MIN_LENGTH = 12
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": PASSWORD_MIN_LENGTH},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -785,6 +800,14 @@ REST_AUTH = {
     # the per-account login_failed lockout below never fired on this endpoint
     # (#1199). Our subclass routes through get_adapter().authenticate() instead.
     "LOGIN_SERIALIZER": "accounts.serializers.LoginSerializer",
+    # dj-rest-auth defaults this to False, which pops old_password from the
+    # password-change serializer entirely: POST /api/v1/auth/password/change/
+    # changed the password for any authenticated caller — session or PAT —
+    # without proving knowledge of the current one (#1257). Our serializer below
+    # enforces the check regardless of this flag; setting it too keeps any other
+    # consumer of dj-rest-auth's settings consistent with that.
+    "OLD_PASSWORD_FIELD_ENABLED": True,
+    "PASSWORD_CHANGE_SERIALIZER": "accounts.serializers.VisibanPasswordChangeSerializer",
 }
 
 # APP_VERSION is set as the v-prefixed image tag operators pin in .env

@@ -509,40 +509,47 @@ Change the authenticated user's password. Requires authentication.
 
 ### `POST /api/v1/auth/password/change/`
 
-dj-rest-auth's stock password-change endpoint. Requires authentication. It is
-a **distinct URL and request shape** from `POST /api/v1/auth/change-password/`
-above — the two are not aliases and do not accept the same body.
+dj-rest-auth's password-change endpoint. Requires authentication (session or
+token). It is a **distinct URL and request shape** from
+`POST /api/v1/auth/change-password/` above — the two are not aliases and do
+not accept the same body — but since 1.2 they enforce the same rules.
 
 **Request**
 ```json
-{ "new_password1": "new-password", "new_password2": "new-password" }
+{
+  "old_password": "current-password",
+  "new_password1": "new-password",
+  "new_password2": "new-password"
+}
 ```
 
-- **No `current_password` field, and none is checked** (tracked as #1257).
-  Visiban does not set dj-rest-auth's `OLD_PASSWORD_FIELD_ENABLED` option,
-  which defaults to `False`, so this endpoint changes the password for any
-  authenticated caller without proving knowledge of the current one.
-  (`/auth/change-password/` above does require it, except for social-only
-  accounts.) A stray `old_password` field in the request body is silently
-  ignored.
-- Minimum 8 characters — Django's default `MinimumLengthValidator`, which is
-  lower than `/auth/change-password/`'s explicit 12-character minimum
-  (tracked as #1258). The rest of `AUTH_PASSWORD_VALIDATORS` also applies
-  (not too similar to the user's other profile fields, not a common password,
-  not entirely numeric).
+| Field | Required | Description |
+|---|---|---|
+| `old_password` | Yes (see below) | The account's current password. |
+| `new_password1` | Yes | The new password — minimum 12 characters, plus the standard `AUTH_PASSWORD_VALIDATORS` checks (not too similar to the user's other profile fields, not a common password, not entirely numeric). |
+| `new_password2` | Yes | Must match `new_password1`. |
+
+!!! warning "Changed in 1.2: `old_password` is now required"
+    Before 1.2 this endpoint did not check the current password at all — any
+    authenticated caller, including one holding only a Personal Access Token,
+    could change the account's password without knowing it (#1257). It now
+    requires `old_password` and returns `400` if it is missing or wrong, exactly
+    as `/auth/change-password/` does with `current_password`. This is a
+    deliberate, security-driven exception to the rule that new request fields
+    are optional: an integration that omits `old_password` must be updated to
+    send it. Social-only accounts (no usable password yet) may still omit it to
+    set their first password, matching `/auth/change-password/`.
+
+- **Minimum 12 characters** (changed in 1.2, #1258). Previously this endpoint
+  accepted 8, Django's default. The minimum now comes from the instance-wide
+  password policy, so it matches every other password-set path.
 - The current session is kept alive after the change (same as
   `/auth/change-password/`) — the caller is not logged out.
 - All of the user's Personal Access Tokens are revoked on success, same as
   `/auth/change-password/` — see [Personal Access Tokens](#personal-access-tokens)
-  above. This closes the gap #1110's security review found: dj-rest-auth's
-  stock view left tokens alive after a password change, so the "rotate your
-  password to cut off a leaked token" guarantee held only for whichever of
-  the two endpoints the caller happened to use.
-- **Does not clear `must_change_password`** (tracked as #1259). Unlike
-  `/auth/change-password/`, a successful call here leaves a pending
-  forced-password-change flag set — the caller remains blocked from every
-  other endpoint until they also call `/auth/change-password/` (or an admin
-  clears the flag). Use `/auth/change-password/` to satisfy a forced password
+  above.
+- **Clears `must_change_password` on success** (changed in 1.2, #1259), same
+  as `/auth/change-password/`. Either endpoint satisfies a forced password
   change.
 
 **Response** `200 OK { "detail": "New password has been saved." }` on success.
@@ -550,21 +557,22 @@ above — the two are not aliases and do not accept the same body.
 Validation errors use DRF's per-field shape, not `/auth/change-password/`'s
 `{"detail": ...}` shape:
 ```json
-{ "new_password2": ["The two password fields didn’t match."] }
+{ "old_password": ["Your old password was entered incorrectly. Please enter it again."] }
+```
+```json
+{ "new_password2": ["This password is too short. It must contain at least 12 characters."] }
 ```
 
 | Status | Reason |
 |---|---|
-| `400 Bad Request` | `new_password1` / `new_password2` missing, mismatched, or failing an `AUTH_PASSWORD_VALIDATORS` check |
+| `400 Bad Request` | `old_password` missing or incorrect; `new_password1` / `new_password2` missing, mismatched, or failing an `AUTH_PASSWORD_VALIDATORS` check |
 | `401 Unauthorized` | Request is not authenticated |
 
 !!! note
-    Prefer `POST /api/v1/auth/change-password/` for anything user-facing —
-    it enforces the current-password check and the 12-character minimum, and
-    clears `must_change_password`. This endpoint exists so that a client
-    which discovers it from the OpenAPI schema still gets correct
-    token-revocation behavior, not as the recommended integration point. The
-    three gaps above are tracked as #1257, #1258, and #1259.
+    Prefer `POST /api/v1/auth/change-password/` for anything user-facing — the
+    SPA uses it, and its single-sentence `{"detail": ...}` errors are simpler to
+    display. This endpoint is kept for clients that discover it from the OpenAPI
+    schema; since 1.2 it is equally safe to use.
 
 ---
 
@@ -791,6 +799,6 @@ When `registration_mode` is `"invite_only"`, an additional `invite_token` field 
 | `401 Unauthorized` | Missing or invalid token | Check the `Authorization` header format: `Token <key>`. For PATs, ensure the full `vbn_...` value is used. |
 | `403 Forbidden` | Valid token but insufficient role | Check the user's role on the board/group |
 | `403 Forbidden` (CSRF) | Session auth without CSRF token | Include `X-CSRFToken` header, or switch to token auth |
-| `403 Forbidden` (`must_change_password`) | Admin set a forced password-change flag on this account | Call `POST /api/v1/auth/change-password/` to clear the flag; all other endpoints are blocked until then |
+| `403 Forbidden` (`must_change_password`) | Admin set a forced password-change flag on this account | Change the password via `POST /api/v1/auth/change-password/` (or `POST /api/v1/auth/password/change/`) to clear the flag; all other endpoints are blocked until then |
 | `403 Forbidden` (`must_change_username`) | Account's auto-generated username collided during migration | Call `POST /api/v1/auth/choose-username/` — the response body includes `"code": "must_change_username"` as a machine-readable signal |
 | `404 Not Found` (PAT delete) | Token ID not found or belongs to another user | Verify the token ID from `GET /api/v1/auth/tokens/` |

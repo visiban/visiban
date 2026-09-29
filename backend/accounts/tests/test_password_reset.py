@@ -151,8 +151,8 @@ class PasswordResetConfirmTests(TestCase):
         return {
             "uid": uid,
             "token": token,
-            "new_password1": "NewPass9876",
-            "new_password2": "NewPass9876",
+            "new_password1": "NewPassword9876",
+            "new_password2": "NewPassword9876",
         }
 
     def test_confirm_with_valid_token_resets_password(self):
@@ -160,7 +160,7 @@ class PasswordResetConfirmTests(TestCase):
         r = self.client.post("/api/v1/auth/password/reset/confirm/", payload)
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
-        self.assertTrue(self.user.check_password("NewPass9876"))
+        self.assertTrue(self.user.check_password("NewPassword9876"))
 
     def test_confirm_with_invalid_token_returns_400(self):
         payload = self._make_confirm_payload()
@@ -170,9 +170,18 @@ class PasswordResetConfirmTests(TestCase):
 
     def test_confirm_with_mismatched_passwords_returns_400(self):
         payload = self._make_confirm_payload()
-        payload["new_password2"] = "DifferentPass9876"
+        payload["new_password2"] = "DifferentPassword9876"
         r = self.client.post("/api/v1/auth/password/reset/confirm/", payload)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_confirm_rejects_password_below_twelve_characters(self):
+        """#1258: the reset path enforces the same 12-char minimum as every other set path."""
+        payload = self._make_confirm_payload()
+        payload["new_password1"] = payload["new_password2"] = "Kx7#mQ2vLp9"  # 11 chars
+        r = self.client.post("/api/v1/auth/password/reset/confirm/", payload)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("oldpassword1"))
 
     def test_confirm_token_can_only_be_used_once(self):
         payload = self._make_confirm_payload()
@@ -444,7 +453,7 @@ class LoginLockoutEarlyRecoveryTests(TestCase):
     """
 
     PASSWORD = "correct-horse-battery-staple-1"  # gitleaks:allow -- test-only fixture password, not a credential
-    NEW_PASSWORD = "NewPass9876"  # gitleaks:allow -- test-only fixture password, not a credential
+    NEW_PASSWORD = "NewPassword9876"  # gitleaks:allow -- test-only fixture password, not a credential
 
     def setUp(self):
         self.client = APIClient()
