@@ -86,18 +86,18 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           </>
         ) : (
           <>
-            <p className="text-sm text-fg-tertiary mb-1">
-              Delete <span className="font-medium text-fg">{swimlane.name}</span>?
+            <p className="text-fg-tertiary text-sm mb-1">
+              <span className="text-fg font-medium">{swimlane.name}</span> will be permanently deleted.
             </p>
             <p className="text-danger text-sm mb-1">
               If the swimlane contains any archived cards, they will also be permanently deleted.
             </p>
             <p className="text-fg-muted text-sm mb-5">This cannot be undone.</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-fg-tertiary hover:text-fg rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm text-fg-tertiary hover:text-fg rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Cancel
               </button>
-              <button onClick={handleDelete} className="px-4 py-2 text-sm font-medium bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
+              <button onClick={handleDelete} className="px-3 py-1.5 text-sm font-medium bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
                 Delete
               </button>
             </div>
