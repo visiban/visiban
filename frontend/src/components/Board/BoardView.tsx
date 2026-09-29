@@ -2516,6 +2516,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             await replayTour();
             setShowShortcuts(false);
           } : undefined}
+          showLens={showLensTab}
         />
       )}
 

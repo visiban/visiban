@@ -27,6 +27,28 @@ describe('KeyboardShortcutsOverlay', () => {
     expect(screen.getByText('Switch to Analytics view')).toBeInTheDocument()
   })
 
+  it('renders the G U chord as separate kbd chips joined by "then", not one combo chip', () => {
+    const { container } = render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    expect(screen.getByText('Open the user menu')).toBeInTheDocument()
+    const keys = Array.from(container.querySelectorAll('kbd')).map((el) => el.textContent)
+    // Two distinct <kbd> chips — G and U — never a single "G U" chip, so the
+    // sequential chord can't be mistaken for a simultaneous combo like ⌘K.
+    expect(keys).toContain('G')
+    expect(keys).toContain('U')
+    expect(keys).not.toContain('G U')
+    expect(screen.getByText('then')).toBeInTheDocument()
+  })
+
+  it('shows the L shortcut for Lens view when a lens is available', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} showLens={true} />)
+    expect(screen.getByText('Switch to Lens view')).toBeInTheDocument()
+  })
+
+  it('hides the L shortcut for Lens view when no lens is configured', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    expect(screen.queryByText('Switch to Lens view')).not.toBeInTheDocument()
+  })
+
   it('lists the Collapse/expand (E), Archived (Y), and Layout (⌘⇧L) actions', () => {
     render(<KeyboardShortcutsOverlay onClose={() => {}} />)
     expect(screen.getByText('Collapse or expand everything')).toBeInTheDocument()
