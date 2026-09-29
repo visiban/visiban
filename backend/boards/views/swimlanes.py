@@ -1,6 +1,6 @@
 """SwimlaneViewSet — CRUD endpoints for swimlanes on a board."""
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Max
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, viewsets
@@ -106,39 +106,54 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         # Not a model field — pop before save() so ModelSerializer.create() does
         # not try to pass it to Swimlane.objects.create().
         field_pairs = serializer.validated_data.pop("custom_field_values", None)
-        # Lock the board row for the same reason as ColumnViewSet.perform_create —
-        # concurrent swimlane creation could race on Max(position).
-        with transaction.atomic():
-            Board.objects.select_for_update().get(pk=board.pk)
-            _max = board.swimlanes.aggregate(m=Max("position"))["m"]
-            max_pos = 0 if _max is None else _max + 1
-            swimlane = serializer.save(board=board, position=max_pos)
-            if field_pairs:
-                apply_swimlane_custom_field_values(
-                    swimlane=swimlane, pairs=field_pairs, actor=self.request.user
-                )
-            # Broadcast uses the public serializer — contact_email, notes, and
-            # is_admin_only custom field values must not be sent to viewer-role
-            # members who are connected via WebSocket.
-            swimlane_data = SwimlaneSerializer(_refetch_swimlane(swimlane)).data
-            board_id = board.id
-            _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_CREATED, swimlane_data, actor_id=self.request.user.id)
+        try:
+            # Lock the board row for the same reason as ColumnViewSet.perform_create —
+            # concurrent swimlane creation could race on Max(position).
+            with transaction.atomic():
+                Board.objects.select_for_update().get(pk=board.pk)
+                _max = board.swimlanes.aggregate(m=Max("position"))["m"]
+                max_pos = 0 if _max is None else _max + 1
+                swimlane = serializer.save(board=board, position=max_pos)
+                if field_pairs:
+                    apply_swimlane_custom_field_values(
+                        swimlane=swimlane, pairs=field_pairs, actor=self.request.user
+                    )
+                # Broadcast uses the public serializer — contact_email, notes, and
+                # is_admin_only custom field values must not be sent to viewer-role
+                # members who are connected via WebSocket.
+                swimlane_data = SwimlaneSerializer(_refetch_swimlane(swimlane)).data
+                board_id = board.id
+                _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_CREATED, swimlane_data, actor_id=self.request.user.id)
+        except IntegrityError:
+            # Belt and braces for the race the serializer's validate() cannot fully
+            # close (two concurrent creates can both pass validation before either
+            # commits): the unique_together(board, name) constraint caught it, so
+            # report it the way the serializer would have rather than as a 500.
+            raise ValidationError(
+                {"name": "A swimlane with this name already exists on this board."}
+            ) from None
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         field_pairs = serializer.validated_data.pop("custom_field_values", None)
-        with transaction.atomic():
-            swimlane = serializer.save()
-            if field_pairs:
-                apply_swimlane_custom_field_values(
-                    swimlane=swimlane, pairs=field_pairs, actor=self.request.user
-                )
-            # Same broadcast-safety constraint as perform_create.
-            swimlane_data = SwimlaneSerializer(_refetch_swimlane(swimlane)).data
-            board_id = swimlane.board_id
-            _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_UPDATED, swimlane_data, actor_id=self.request.user.id)
+        try:
+            with transaction.atomic():
+                swimlane = serializer.save()
+                if field_pairs:
+                    apply_swimlane_custom_field_values(
+                        swimlane=swimlane, pairs=field_pairs, actor=self.request.user
+                    )
+                # Same broadcast-safety constraint as perform_create.
+                swimlane_data = SwimlaneSerializer(_refetch_swimlane(swimlane)).data
+                board_id = swimlane.board_id
+                _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_UPDATED, swimlane_data, actor_id=self.request.user.id)
+        except IntegrityError:
+            # Same race as perform_create.
+            raise ValidationError(
+                {"name": "A swimlane with this name already exists on this board."}
+            ) from None
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()

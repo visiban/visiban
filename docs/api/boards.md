@@ -1012,6 +1012,8 @@ Update a swimlane. Requires board admin.
 
 **Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2)
 
+> Swimlane names are unique per board. Renaming a swimlane to a name that already exists on the same board returns `400 Bad Request`.
+
 `custom_field_values` writes are also accepted on `PATCH`. Send only the entries you want to change — a swimlane custom field not named in the list keeps its current value. Send `{"field_definition": <id>, "value": ""}` to clear (and delete) a value. At most one entry per `field_definition` per request; a `field_definition` id from another board is rejected with `400 Bad Request`. Since writes to this endpoint are already admin-only, an admin may write a value for an `is_admin_only` field — that is the expected case, not an escalation. There is no separate values endpoint; values are always written through this one.
 
 !!! note
