@@ -150,11 +150,47 @@ endpoints real `@extend_schema` response annotations, so both are now mapped and
 [Coverage](#coverage)). The same issue also wired `NotificationListView` and `ShareBoardView`
 for the first time, adding `Notification` and `PublicCard` to the map.
 
-One pair remains absent for that same structural reason, as of #1282:
+More pairs remain absent for that same structural reason than #1282's first pass found. That
+pass swept `COMPONENT_MAP` forward — every key in it against the generated schema — which by
+construction cannot see an interface whose serializer never reaches the schema at all. The
+correct sweep runs the other direction: every `export interface` in
+`frontend/src/types/index.ts`, checked against `COMPONENT_MAP`'s values and the "opposite
+reason" table below. That reverse sweep turns up thirteen TypeScript interfaces backed by a
+real serializer (or, for `SiteConfig`, a view that builds its response by hand) that
+`drf-spectacular` never publishes a component for — because nothing in their view ever calls
+`@extend_schema` or sets `serializer_class`, the two things spectacular actually introspects.
+An interface with **no** backing serializer at all — `FieldDefinitionShape` (a structural
+subtype satisfied by two already-mapped interfaces, not its own shape),
+`SwimlaneCustomFieldValue` (carried inside `Swimlane.custom_field_values`, not its own
+component — see `_DRIFT_PAIRS`' comment in `test_ts_serializer_drift.py`), and the `Lens*` /
+`TrelloImport*` interfaces (plain dataclasses serialized by hand, not DRF serializers) — is not
+this bug class and is not listed here:
 
-| Pair | Why excluded |
-|---|---|
-| `CardTimelineEntry` (`CardTimelineEntrySerializer`, `backend/boards/views/cards.py:899`, backing `CardViewSet.timeline`) | No schema component exists at all — the `timeline` action (`views/cards.py:737`) has no `@extend_schema` response annotation, so `drf-spectacular` never publishes its shape. It is also not one of #821's fifteen name-checked pairs, so nothing else covers it either. This gate cannot diff a TypeScript interface against a schema component that does not exist. Adding the `@extend_schema` annotation would close this, but that is a real API-surface change and deliberately out of scope for #1282, a CI-tooling fix — revisit as its own change. |
+| TypeScript interface(s) | Serializer | Location |
+|---|---|---|
+| `CardTimelineEntry` | `CardTimelineEntrySerializer` | `backend/boards/views/cards.py:899`, backing the `timeline` action (`views/cards.py:737`) |
+| `AdminUser` | `AdminUserSerializer` | `backend/accounts/admin_views.py:437` |
+| `AdminInviteLink`, `CreatedAdminInviteLink` | `InviteLinkSerializer` | `backend/accounts/admin_views.py:507` |
+| `PersonalAccessToken`, `CreatedPersonalAccessToken` | `PersonalAccessTokenSerializer` | `backend/accounts/serializers.py:458` |
+| `SiteConfig` | — (`SiteConfigView` builds the response directly) | `backend/accounts/views.py:388` |
+| `SiteSettings` | `SiteSettingSerializer` | `backend/accounts/admin_views.py:76` |
+| `SiteEmailSettings` | `SiteEmailSettingSerializer` | `backend/accounts/admin_views.py:95` |
+| `BoardTemplate`, `BoardTemplateColumn` | `BoardTemplateSerializer` | `backend/boards/serializers.py:34` |
+| `OwnedBoardSummary` | `OwnedBoardSummarySerializer` | `backend/accounts/admin_views.py:431` |
+| `GroupMembership` | `GroupMembershipSerializer` | `backend/groups/serializers.py:304` |
+| `GroupInviteLink` | `GroupInviteLinkSerializer` | `backend/groups/serializers.py:340` |
+| `SavedFilter` | `SavedFilterSerializer` | `backend/boards/serializers.py:2658` |
+| `LensConnection` | `LensConnectionSerializer` | `backend/git_lens/serializers.py:20` |
+
+Every one of these endpoints is live and reachable — each serializer is instantiated inside a
+real view method and its `.data` returned in a real `Response(...)` — so this is not dead code
+needing deletion, only response schemas `drf-spectacular` was never told to publish.
+
+All thirteen are tracked in **#1294**, which adds the missing `@extend_schema` (or
+`serializer_class`/`GenericAPIView` wiring, whichever fits each view) so each of these pairs
+can be added to `COMPONENT_MAP` and actually checked. Deliberately not done here: #1282 is a
+CI-tooling fix, and annotating thirteen views to change what they publish is a real API-surface
+change that belongs in its own reviewed branch, not folded into a parity-gate correction.
 
 Four pairs are absent for the opposite reason — the schema has a component but there is no
 TypeScript interface to diff it against:
