@@ -1,0 +1,4791 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Swimlane pipeline board — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.2/administration/upgrade/">
+      
+      
+        <link rel="prev" href="../secret-rotation/">
+      
+      
+        <link rel="next" href="../zero-downtime-upgrade/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Upgrading - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#upgrading-visiban" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Upgrading
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../maintainers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Maintainers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/custom-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/ci-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/load-test-version-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Test Version Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../issue-board-lens-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#version-compatibility-quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version compatibility quick-reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#standard-upgrade-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard upgrade steps
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Standard upgrade steps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-back-up-the-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Back up the database
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-point-app_version-at-the-new-release-and-pull-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Point APP_VERSION at the new release and pull it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-run-migrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Run migrations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-restart-the-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Restart the services
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zero-downtime-migration-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Zero-downtime migration rules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zero-downtime migration rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-these-rules-exist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why these rules exist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rule-1-every-new-column-must-be-nullable-or-have-a-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 1 — Every new column must be nullable or have a default
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rule-2-never-drop-a-column-in-the-same-migration-that-removes-the-orm-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 2 — Never drop a column in the same migration that removes the ORM reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rule-3-column-rename-add-copy-drop-across-three-releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 3 — Column rename = add + copy + drop across three releases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rule-4-every-index-and-constraint-is-built-concurrently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 4 — Every index and constraint is built concurrently
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-replica-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-replica deployments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rollback-guidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rollback guidance
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rollback guidance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reversible-vs-irreversible-migrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reversible vs. irreversible migrations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rolling-back-to-a-specific-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rolling back to a specific migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-specific-upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release-specific upgrade notes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Release-specific upgrade notes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-to-12x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading to 1.2.x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-to-11x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading to 1.1.x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-to-100" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading to 1.0.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checking-migration-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking migration status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../maintainers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintainers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Maintainers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="upgrading-visiban">Upgrading Visiban<a class="headerlink" href="#upgrading-visiban" title="Permanent link">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Available from 1.0</p>
+<p>This guide covers upgrades from Visiban 1.0 onward. If you are migrating from a pre-1.0 release, follow the <a href="#upgrading-to-100">1.0 release notes</a> below first.</p>
+</div>
+<p>This page explains how to safely upgrade a self-hosted Visiban instance between releases.</p>
+<h2 id="version-compatibility-quick-reference">Version compatibility quick-reference<a class="headerlink" href="#version-compatibility-quick-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Upgrading from</th>
+<th>Upgrading to</th>
+<th>Standard upgrade?</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any pre-1.0 beta or RC</td>
+<td>1.0.x</td>
+<td><strong>No — maintenance window required</strong></td>
+<td>Run the <code>groups/0003_placeholder</code> SQL fix first; <code>boards/0005</code> and <code>groups/0012</code> both require stopping backends before migration. See <a href="#upgrading-to-100">Upgrading to 1.0.0</a>.</td>
+</tr>
+<tr>
+<td>1.0.x</td>
+<td>1.0.x (patch)</td>
+<td>Yes — zero-downtime</td>
+<td>Follow the <a href="#standard-upgrade-steps">standard upgrade steps</a>.</td>
+</tr>
+<tr>
+<td>1.0.x</td>
+<td>1.1.x (minor)</td>
+<td>Yes — zero-downtime</td>
+<td>Follow the <a href="#standard-upgrade-steps">standard upgrade steps</a>. Check the <a href="#release-specific-upgrade-notes">release-specific notes</a> for any migration-window exceptions.</td>
+</tr>
+</tbody>
+</table>
+<p>Skipping minor versions (e.g. 1.0 → 1.2 directly) is supported — run all intermediate migrations in sequence. The standard upgrade command (<code>manage.py migrate</code>) handles this automatically. The standard path is: pull the new image, run database migrations, restart. The sections below cover what makes each step safe and what to watch out for in more complex deployments.</p>
+<hr />
+<h2 id="standard-upgrade-steps">Standard upgrade steps<a class="headerlink" href="#standard-upgrade-steps" title="Permanent link">&para;</a></h2>
+<p>These steps apply to a single-server Docker Compose deployment.</p>
+<div class="admonition tip">
+<p class="admonition-title">Optional: freeze writes for the duration</p>
+<p>These steps are safe to run with the instance live — that's the whole point of the
+zero-downtime migration rules below. If you'd still rather nobody move a card while you
+migrate, turn on <a href="../maintenance-mode/">maintenance mode</a> before step 1 and off again after
+step 5. It rejects non-admin writes with <code>503</code> while leaving reads, and your own admin
+access, working throughout.</p>
+</div>
+<h3 id="1-back-up-the-database">1. Back up the database<a class="headerlink" href="#1-back-up-the-database" title="Permanent link">&para;</a></h3>
+<p>Always take a snapshot before upgrading. If a migration fails partway through, you will need this to recover.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>visiban-backup-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d%H%M%S<span class="k">)</span>.sql
+</code></pre></div>
+<p>Store the backup outside the container. A local file on the host is sufficient for most deployments; offsite storage is recommended for production.</p>
+<h3 id="2-point-app_version-at-the-new-release-and-pull-it">2. Point <code>APP_VERSION</code> at the new release and pull it<a class="headerlink" href="#2-point-app_version-at-the-new-release-and-pull-it" title="Permanent link">&para;</a></h3>
+<p>The production stack runs the released images named by <code>APP_VERSION</code> in <code>.env</code>
+and builds nothing locally, so changing that line is what selects the new
+version — without it, <code>pull</code> fetches the version you already run.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># In .env: APP_VERSION=vX.Y.Z   (the release you are upgrading to)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>pull
+</code></pre></div>
+<h3 id="3-run-migrations">3. Run migrations<a class="headerlink" href="#3-run-migrations" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
+</code></pre></div>
+<p>This starts a one-off container, applies all pending migrations, and exits. The running backend container is not restarted yet, so the old code is still serving traffic while migrations run. Because Visiban enforces additive-only migration rules (see <a href="#zero-downtime-migration-rules">Zero-downtime migration rules</a> below), the old code is safe to run against the new schema during this window.</p>
+<h3 id="4-restart-the-services">4. Restart the services<a class="headerlink" href="#4-restart-the-services" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<p>This recreates every service whose image changed with <code>APP_VERSION</code> — <code>backend-init</code> (which
+re-checks migrations), <code>backend</code>, <code>frontend-build</code> (which copies the new SPA into place) and, if
+enabled, <code>scheduler</code>. Recreating only <code>backend</code> would leave the old frontend and scheduler
+running against the new API. Nginx and the database are unaffected.</p>
+<h3 id="5-verify">5. Verify<a class="headerlink" href="#5-verify" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span>--tail<span class="w"> </span><span class="m">40</span>
+</code></pre></div>
+<p>Look for the <code>daphne</code> startup line. An <code>ImproperlyConfigured</code> or migration error here means the new container did not start cleanly — check the logs for the specific error before proceeding.</p>
+<p>Check migration status:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
+</code></pre></div>
+<p>All migrations should show <code>[X]</code>. Any <code>[ ]</code> entry means a migration was not applied.</p>
+<hr />
+<h2 id="zero-downtime-migration-rules">Zero-downtime migration rules<a class="headerlink" href="#zero-downtime-migration-rules" title="Permanent link">&para;</a></h2>
+<p>Visiban enforces strict migration authoring rules that make the upgrade sequence above safe. Understanding these rules helps you evaluate whether a third-party migration or a local customization is safe to run without downtime.</p>
+<h3 id="why-these-rules-exist">Why these rules exist<a class="headerlink" href="#why-these-rules-exist" title="Permanent link">&para;</a></h3>
+<p>During the upgrade window (between step 3 and step 4 above), two versions of the application code are running against the same database schema: the old code reading the migrated schema, and the new code starting up against it. For zero-downtime upgrades to work, the schema after migration must be fully compatible with both versions simultaneously.</p>
+<p>Four patterns break this compatibility — or block the upgrade outright — and are therefore prohibited:</p>
+<h3 id="rule-1-every-new-column-must-be-nullable-or-have-a-default">Rule 1 — Every new column must be nullable or have a default<a class="headerlink" href="#rule-1-every-new-column-must-be-nullable-or-have-a-default" title="Permanent link">&para;</a></h3>
+<p>A <code>NOT NULL</code> column without a default added to an existing table blocks any <code>INSERT</code> from the old code that does not know about the new column. The old container cannot supply a value for a column it does not know about.</p>
+<p><strong>Safe:</strong> <code>nullable=True</code> or a <code>default=</code> value on the field. The old code omits the column from its <code>INSERT</code>; PostgreSQL fills in <code>NULL</code> or the default.</p>
+<p><strong>Unsafe:</strong> <code>NOT NULL</code> with no default. Every <code>INSERT</code> from the old code fails with a constraint violation.</p>
+<p>If a column genuinely must be <code>NOT NULL</code> with no default, the migration must be split across releases:</p>
+<ol>
+<li>Release N: add the column as nullable.</li>
+<li>Backfill data (can be done in the same migration or a data migration).</li>
+<li>Release N+1: add the <code>NOT NULL</code> constraint as a separate migration.</li>
+</ol>
+<h3 id="rule-2-never-drop-a-column-in-the-same-migration-that-removes-the-orm-reference">Rule 2 — Never drop a column in the same migration that removes the ORM reference<a class="headerlink" href="#rule-2-never-drop-a-column-in-the-same-migration-that-removes-the-orm-reference" title="Permanent link">&para;</a></h3>
+<p>When a field is removed from a Django model, the ORM stops referencing it. If the column is also dropped in the same migration, the old code will crash on startup trying to <code>SELECT</code> a column that no longer exists.</p>
+<p><strong>Safe sequence:</strong></p>
+<ol>
+<li>Release N: remove the field from the model. Do <strong>not</strong> drop the column in the migration — Django will generate <code>migrations.RemoveField()</code>, which does drop the column. Replace the <code>RemoveField</code> with a no-op (or a <code>SeparateDatabaseAndState</code> operation) so the column is retained in the database but ignored by the ORM.</li>
+<li>Release N+1: drop the column for real.</li>
+</ol>
+<h3 id="rule-3-column-rename-add-copy-drop-across-three-releases">Rule 3 — Column rename = add + copy + drop across three releases<a class="headerlink" href="#rule-3-column-rename-add-copy-drop-across-three-releases" title="Permanent link">&para;</a></h3>
+<p>Renaming a column in a single migration causes the old code to fail on every query that references the old name.</p>
+<p><strong>Safe sequence:</strong></p>
+<ol>
+<li>Release N: add the new column (nullable), start populating it alongside the old one.</li>
+<li>Release N+1: switch all reads and writes to the new column. Retain the old column.</li>
+<li>Release N+2: drop the old column.</li>
+</ol>
+<h3 id="rule-4-every-index-and-constraint-is-built-concurrently">Rule 4 — Every index and constraint is built concurrently<a class="headerlink" href="#rule-4-every-index-and-constraint-is-built-concurrently" title="Permanent link">&para;</a></h3>
+<p>The first three rules keep the <em>schema</em> compatible across the upgrade window. This one keeps
+<code>migrate</code> itself from being the outage.</p>
+<p>A plain <code>CREATE INDEX</code> or <code>ALTER TABLE ... ADD CONSTRAINT</code> holds an <code>ACCESS EXCLUSIVE</code> lock on
+its table for the entire build — every read and every write to that table blocks until it
+finishes. On <code>cards</code> that is the whole product, and on a large instance an index build is
+minutes, not milliseconds.</p>
+<p>Since 1.2, every index Visiban adds is built with <code>CREATE INDEX CONCURRENTLY</code> and every check
+constraint is added <code>NOT VALID</code> and validated separately. Neither takes a lock that blocks
+readers or writers, so step 3 of the upgrade above can run while the old containers are still
+serving traffic. A CI gate fails the build on any migration that regresses to the blocking
+form — see <a href="../../development/database-migrations/">Database migrations</a> for the pattern and
+the authoring rules.</p>
+<div class="admonition note">
+<p class="admonition-title">Migrations added before 1.2</p>
+<p>Fourteen migrations predate this rule and still build their indexes with a lock. If you are
+replaying them against an already-populated database — the restore-then-migrate case, for
+example loading a pre-1.1 dump into a 1.2 deployment — you can build those indexes by hand
+with <code>CONCURRENTLY</code> first and then <code>migrate --fake</code> past them. The full list and the exact
+procedure are in
+<a href="../../development/database-migrations/#the-pre-1081-migrations-decision-and-reasoning">Database migrations</a>.</p>
+</div>
+<hr />
+<h2 id="multi-replica-deployments">Multi-replica deployments<a class="headerlink" href="#multi-replica-deployments" title="Permanent link">&para;</a></h2>
+<div class="admonition tip">
+<p class="admonition-title">Rolling a Helm deployment with zero downtime</p>
+<p>This section explains why running migrations separately from replica startup matters. For
+a full step-by-step rolling-upgrade procedure on Helm/Kubernetes — pre-upgrade checklist,
+watching the migrate hook Job, verifying a partial rollout, and rolling back mid-upgrade —
+see the <a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Running <code>migrate</code> inside the container startup command is unsafe when <code>backendReplicaCount &gt; 1</code>.</p>
+</div>
+<p><code>docker-compose.prod.yml</code> already keeps migrations out of the backend container: the
+one-shot <code>backend-init</code> service runs <code>migrate</code> and <code>collectstatic</code>, and <code>backend</code> starts only
+after it exits successfully. The backend container itself runs only the idempotent
+<code>ensure_site_admin</code> bootstrap before <code>daphne</code>. The risk below applies if you replace that
+layout with a startup command that migrates — for example on Docker Swarm, a second Compose
+host, or a hand-written Kubernetes manifest — because then every replica races to apply the
+same migrations on startup. Django's migration executor is not safe to run concurrently: two containers applying the same migration at the same time will conflict at the database level and may leave the schema in an inconsistent state.</p>
+<p><strong>Recommended approach for multi-replica deployments:</strong></p>
+<p>Run migrations as a dedicated pre-deploy step before scaling up any application replicas.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Docker Compose</label><label for="__tabbed_1_2">Kubernetes</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># 1. Run migrations once, in a separate container, before any replicas start.</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># 2. Start (or restart) application replicas.</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--scale<span class="w"> </span><span class="nv">backend</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>--no-deps<span class="w"> </span>backend
+</code></pre></div>
+<p>The <code>--no-deps</code> flag prevents Compose from restarting <code>db</code> and <code>valkey</code>.</p>
+</div>
+<div class="tabbed-block">
+<p>Define a Kubernetes <code>Job</code> (or an init container on the <code>Deployment</code>) that runs <code>python manage.py migrate</code>. Set the <code>Deployment</code> to depend on the <code>Job</code> completing successfully, or use a deployment pipeline step that runs the job before updating the <code>Deployment</code> image tag.</p>
+<p>A minimal job manifest:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">batch/v1</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Job</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visiban-migrate</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">template</span><span class="p">:</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">      </span><span class="nt">restartPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Never</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">migrate</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">registry.example.com/visiban-backend:v1.1.0</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">          </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"python"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"manage.py"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"migrate"</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">          </span><span class="nt">envFrom</span><span class="p">:</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">secretRef</span><span class="p">:</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visiban-env</span>
+</code></pre></div>
+<p>Run this job to completion before applying the updated <code>Deployment</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">The Helm chart already handles this</p>
+<p>If you deploy with the bundled chart you do not need any of the above.
+Each backend pod runs <code>python manage.py migrate_with_lock</code> as an init
+container, which serializes concurrent replicas on a PostgreSQL advisory
+lock: exactly one replica applies migrations, the others wait for it and
+then start. The lock is session-scoped, so a pod killed mid-migration
+releases it instead of blocking the next deploy. See
+<a href="../../getting-started/kubernetes/">Kubernetes (Helm)</a>. The same command
+works for hand-rolled manifests — use it in place of bare <code>migrate</code>.</p>
+</div>
+</div>
+</div>
+</div>
+<hr />
+<h2 id="rollback-guidance">Rollback guidance<a class="headerlink" href="#rollback-guidance" title="Permanent link">&para;</a></h2>
+<h3 id="reversible-vs-irreversible-migrations">Reversible vs. irreversible migrations<a class="headerlink" href="#reversible-vs-irreversible-migrations" title="Permanent link">&para;</a></h3>
+<p>Not all migrations can be safely reversed.</p>
+<table>
+<thead>
+<tr>
+<th>Migration type</th>
+<th>Reversible?</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Add a table</td>
+<td>Yes</td>
+<td><code>migrate &lt;app&gt; &lt;prev&gt;</code> drops the table</td>
+</tr>
+<tr>
+<td>Add a nullable column</td>
+<td>Yes</td>
+<td><code>migrate &lt;app&gt; &lt;prev&gt;</code> drops the column</td>
+</tr>
+<tr>
+<td>Add an index</td>
+<td>Yes</td>
+<td>Index is dropped on reverse</td>
+</tr>
+<tr>
+<td>Data transform / <code>RunPython</code></td>
+<td>Only if backward function is implemented</td>
+<td>Check the migration for a <code>reverse_code</code> argument</td>
+</tr>
+<tr>
+<td>Drop a column</td>
+<td>No</td>
+<td>Data is gone; must restore from backup</td>
+</tr>
+<tr>
+<td>Drop a table</td>
+<td>No</td>
+<td>Data is gone; must restore from backup</td>
+</tr>
+<tr>
+<td><code>NOT NULL</code> constraint added to existing column</td>
+<td>No</td>
+<td>Reversing removes the constraint but not the data loss from failed inserts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="rolling-back-to-a-specific-migration">Rolling back to a specific migration<a class="headerlink" href="#rolling-back-to-a-specific-migration" title="Permanent link">&para;</a></h3>
+<p>Identify the target migration — the last known-good state — using <code>showmigrations</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
+</code></pre></div>
+<p>Then migrate backwards to it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>&lt;app_label&gt;<span class="w"> </span>&lt;migration_name&gt;
+</code></pre></div>
+<p>For example, to roll back the <code>boards</code> app to migration <code>0042</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>boards<span class="w"> </span>0042_some_migration_name
+</code></pre></div>
+<p>After rolling back, restart the backend container with the previous image version.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If the migration sequence includes any irreversible operation (a destructive <code>RunPython</code>, a column drop, or a <code>NOT NULL</code> constraint on existing data), Django will raise <code>django.db.migrations.exceptions.IrreversibleError</code> and abort. In that case the only recovery path is to restore the database from the backup taken before the upgrade.</p>
+</div>
+<hr />
+<h2 id="release-specific-upgrade-notes">Release-specific upgrade notes<a class="headerlink" href="#release-specific-upgrade-notes" title="Permanent link">&para;</a></h2>
+<h3 id="upgrading-to-12x">Upgrading to 1.2.x<a class="headerlink" href="#upgrading-to-12x" title="Permanent link">&para;</a></h3>
+<p>Migration <code>accounts/0027_maintenance_mode</code> adds two nullable-by-default columns
+(<code>maintenance_mode</code>, <code>maintenance_message</code>) to the <code>site_settings</code> singleton for the new
+<a href="../maintenance-mode/">maintenance mode</a> feature. It is a plain <code>AddField</code> migration — no index,
+no constraint, no data backfill — and <code>maintenance_mode</code> defaults to <code>False</code>, so an existing
+install behaves exactly as before until an operator deliberately turns it on.</p>
+<p>Migration <code>boards/0059_add_swimlane_custom_fields</code> adds two new tables
+(<code>swimlane_custom_field_definitions</code>, <code>swimlane_custom_field_values</code>) for the new
+<a href="../../features/custom-fields/#swimlane-row-custom-fields">swimlane (row) custom fields</a>
+feature. Both operations are <code>CreateModel</code> — no existing table, index, or constraint is
+touched — so it is zero-downtime and requires no operator action.</p>
+<div class="admonition warning">
+<p class="admonition-title">Personal access tokens now carry scopes — pre-1.2 tokens keep full authority until rotated</p>
+<p>Migration <code>accounts/0026_pat_scopes</code> adds two nullable columns (<code>scopes</code>,
+<code>last_used_scope</code>) to personal access tokens for the new
+<a href="../../features/personal-access-tokens/#scopes">token scopes</a> feature. It is a
+metadata-only <code>AddField</code> migration with no backfill, so it is zero-downtime — but
+unlike the other 1.2 migrations, what it enables changes real request-time behavior:</p>
+<ul>
+<li><strong>Existing tokens keep working unchanged across the entire REST API</strong>, including the
+  admin endpoints if the owner is a site administrator. Their <code>scopes</code> column is <code>NULL</code>
+  ("legacy" authority), not an empty scope list, and upgrading does not narrow or break
+  a running integration.</li>
+<li><strong>Existing tokens are refused by the MCP server</strong>, which now requires the <code>mcp:read</code>
+  scope. Any MCP client authenticating with a pre-1.2 token stops connecting after the
+  upgrade — create a new token with <code>mcp:read</code> to reconnect it.</li>
+<li><strong>New tokens default to <code>["read", "write"]</code></strong> when <code>POST /api/v1/auth/tokens/</code> is
+  called without a <code>scopes</code> list — previously a newly created token silently carried
+  its owner's full authority, including <code>admin</code> for a site administrator. Any script or
+  pipeline that creates its own tokens and relies on that inherited admin authority must
+  now request the <code>admin</code> scope explicitly.</li>
+</ul>
+<p>See <a href="../../features/personal-access-tokens/#scopes">Personal Access Tokens → Scopes</a> for
+the full scope table and non-hierarchical scope semantics.</p>
+</div>
+<p>Migration <code>accounts/0028_admin_action_log</code> creates the <code>admin_action_logs</code> table for the new
+<a href="../admin-panel/">admin action log</a>, which records who changed maintenance mode, registration
+mode, or the uploads switch, and when. It is a single <code>CreateModel</code> (including its two
+indexes) against a brand-new table, so it needs no concurrent build and is zero-downtime.</p>
+<p>Migration <code>accounts/0029_site_email_settings</code> creates the <code>site_email_settings</code> singleton
+table backing <strong>Admin → Settings → Email</strong> and adds a <code>help_text</code>-only <code>AlterField</code> to
+<code>AdminActionLog.action</code> (no schema change). Every column defaults to a value equivalent to
+"unset," and <code>config_source</code> defaults to <code>env</code>, so an upgraded instance keeps reading SMTP
+settings from environment variables until an admin explicitly switches the source over in the
+UI (#306).</p>
+<p>Migration <code>accounts/0030_notification_email_preferences</code> adds five nullable-default boolean
+columns to the user table for per-event <a href="../../features/notifications/">email notifications</a>
+(<code>notif_stale</code> plus four <code>email_notif_*</code> toggles), all defaulting to <code>False</code>. A same-migration
+data backfill copies each user's existing <code>notif_due_soon</code> value into the new <code>notif_stale</code>
+column — before 1.2 that flag only ever gated staleness alerts, so this preserves everyone's
+existing opt-in under its new, more accurately named field. Companion migration
+<code>boards/0060_notification_due_soon_action_type</code> adds the <code>"due_soon"</code> value to
+<code>Notification.action_type</code>'s choices; <code>choices</code> is enforced by Django/DRF only, so this emits
+no DDL. One behavior change worth flagging to users, not the database: because
+<code>email_notif_due_soon</code> now drives the real due-date email, anyone who previously had <strong>Due
+date approaching</strong> on (which historically only produced staleness alerts) starts receiving the
+24-hour due-date email too — see the note in
+<a href="../../features/notifications/">Notifications</a> if you need to tell your users.</p>
+<p>Migration <code>boards/0052_board_show_wip_at_limit</code> adds one nullable-default boolean column
+(<code>show_wip_at_limit</code>) to <code>boards</code>. It is off by default, so existing boards render exactly as
+before; board admins opt in per board from <strong>Board Settings → Rules → Limit enforcement</strong>
+(#973).</p>
+<p>Migration <code>boards/0054_fix_board_template_drift</code> is a data migration that overwrites the
+<code>columns_json</code> (and adds the previously-missing <code>is_done</code> flags) on the built-in
+<code>BoardTemplate</code> rows, correcting two templates whose stored preview had drifted from what
+board creation actually produced (#1115). It touches only the template rows read by <code>GET
+/api/v1/boards/templates/</code> and by template selection at board-creation time — no existing
+board, column, or card is altered, since boards have no foreign key back to the template they
+were created from.</p>
+<p>Migration <code>boards/0055_add_card_board_updated_idx</code> adds a partial index on <code>Card(board,
+-updated_at)</code> backing the new <a href="../../api/cards/"><code>GET /api/v1/cards/</code></a> cross-board query
+endpoint (#1112). Unlike most 1.2 migrations, this one touches the existing, likely-large
+<code>cards</code> table — it uses <code>CREATE INDEX CONCURRENTLY</code> (via <code>visiban.db_operations</code>,
+<code>atomic = False</code>) specifically so it does not take a lock that blocks reads or writes while it
+builds, per the <a href="#zero-downtime-migration-rules">zero-downtime migration rules</a> above.</p>
+<p>Migration <code>boards/0056_board_event_feed</code> creates the <code>board_events</code> append-only table backing
+<code>GET /boards/{id}/events/</code>, the new <a href="../../api/events/">board change feed</a> that lets an
+external consumer resume after a dropped WebSocket instead of re-fetching <code>/full/</code> (#1114). It
+is a <code>CreateModel</code> of a brand-new table (both indexes built with it), so it needs no
+concurrent build. Nothing on <code>boards</code> or <code>cards</code> is touched. Events are retained for
+<code>BOARD_EVENT_RETENTION_DAYS</code> days (default 30) — see <code>prune_board_events</code> under
+<a href="../scheduled-jobs/">Scheduled Jobs</a> below.</p>
+<p>Migration <code>boards/0057_add_custom_fields</code> creates the <code>custom_field_definitions</code> and
+<code>custom_field_values</code> tables for the new <a href="../../features/custom-fields/">custom fields</a>
+feature (#371). Migration <code>boards/0058_add_card_relations</code> creates the <code>card_relations</code> table
+for the new <a href="../../features/card-relations/">card relations</a> (<strong>blocks</strong> / <strong>relates to</strong>)
+feature (#449). Migration <code>boards/0061_add_card_external_ref</code> creates the
+<code>card_external_refs</code> table for the new
+<a href="../../features/card-links/">pull/merge request link</a> feature (#352). All three are
+<code>CreateModel</code> operations — including their indexes, unique constraints, and check
+constraints — against brand-new tables, so none needs a concurrent build and none touches
+<code>boards</code> or <code>cards</code>. All three ship backend-only in 1.2 unless their linked feature page says
+otherwise.</p>
+<p>Migrations <code>git_lens/0001_initial</code> and <code>git_lens/0002_alter_lensconnection_column_dim</code>
+create the entirely new <code>git_lens</code> app and its <code>LensConnection</code> table for
+<a href="../../features/issue-board-lens/">Issue Board Lens</a> (experimental, off by default —
+enabled per instance with <code>GIT_LENS_ENABLED=true</code>). <code>0001</code> is a single <code>CreateModel</code>
+against a new table; <code>0002</code> only changes the <code>column_dim</code> field's Python-level default
+(<code>"status"</code> → <code>"pipeline"</code>), which is a state-only <code>AlterField</code> with no DDL. Neither
+migration touches <code>boards</code> or <code>cards</code>, and an instance that leaves <code>GIT_LENS_ENABLED</code> unset
+(the default) sees no behavior change from either.</p>
+<div class="admonition warning">
+<p class="admonition-title">Compose: <code>DOMAIN</code> must be listed in <code>ALLOWED_HOSTS</code></p>
+<p>The production Compose backend healthcheck now sends <code>Host: $DOMAIN</code> instead
+of <code>Host: localhost</code>. An install whose <code>ALLOWED_HOSTS</code> holds <code>localhost</code> or
+an alias but not the exact <code>DOMAIN</code> value never turns healthy after the
+upgrade, and nginx (which waits on it) does not start. Check that
+<code>ALLOWED_HOSTS</code> in <code>.env</code> contains <code>DOMAIN</code> before running <code>up -d</code>.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Helm: give <code>externalDatabase.password</code> verbatim</p>
+<p>The chart now percent-encodes the database username and password when it
+builds the connection URL, so a password containing <code>/</code> no longer breaks it.
+If you percent-encoded <code>externalDatabase.password</code> (or
+<code>postgresql.auth.password</code>) by hand to work around that, put the plain value
+back before <code>helm upgrade</code> — otherwise it is encoded twice and
+authentication fails.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Helm values are now schema-validated — an unknown key fails the upgrade</p>
+<p>Chart 0.4.0 ships <code>values.schema.json</code> with <code>additionalProperties: false</code> on
+the chart's own blocks. A values key the chart does not read — a typo, or a
+name lifted from another chart's documentation — now fails <code>helm upgrade</code>
+with a message naming the key and its path:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>Error: values don't meet the specifications of the schema(s) in the following chart(s):
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>visiban:
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>- at '/backend/settings': additional properties 'allowedHost' not allowed
+</code></pre></div>
+<p><strong>This is not a regression in what the chart supports.</strong> Such a key was never
+being applied; it was accepted in silence and changed nothing on the pod,
+which is indistinguishable from the setting having no effect. The upgrade now
+stops instead of continuing to ignore it.</p>
+<p><strong>What to do:</strong> correct the spelling, or delete the key. To find them ahead
+of the upgrade, run the schema check without deploying anything:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>helm<span class="w"> </span>template<span class="w"> </span>visiban<span class="w"> </span>oci://ghcr.io/visiban/charts/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span>&gt;/dev/null
+</code></pre></div>
+<p>Blocks handed to a subchart or to <code>toYaml</code> stay open and accept any key:
+<code>global</code>, <code>postgresql</code>, <code>valkey</code>, <code>ingress.annotations</code>,
+<code>backend.resources</code>, <code>frontend.resources</code>, <code>backend.securityContext.pod</code> /
+<code>.container</code>, <code>postgresql.securityContext.pod</code> / <code>.container</code> (chart
+0.6.0, #1210).</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Upload limits are now derived from one value</p>
+<p><code>backend.settings.maxUploadSizeBytes</code> (default 10 MB) now drives the
+application cap, the frontend nginx <code>client_max_body_size</code>, and the ingress
+<code>nginx.ingress.kubernetes.io/proxy-body-size</code> annotation — the last two with
+10 MB of multipart-framing headroom.</p>
+<p>With only this change, all three resolve to exactly what 1.1 shipped at the
+chart defaults. The Trello import cap below raises the two transport limits
+to 35 MB; the application's attachment cap is unchanged. If you previously raised the limit, set
+<code>backend.settings.maxUploadSizeBytes</code> instead of editing the annotation and
+the nginx config separately; a hand-set <code>ingress.annotations</code> entry of the
+same name still overrides the derived one.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Default transport body limit raised from 20 MB to 35 MB (Trello import)</p>
+<p>1.2 adds a <a href="../../features/trello-import/">Trello import</a> that accepts exports
+up to <code>VISIBAN_IMPORT_MAX_SIZE</code> (default 25 MB, Helm:
+<code>backend.settings.importMaxSizeBytes</code>). So those uploads reach Visiban
+instead of dying at the edge, the transport limits are now derived from the
+<strong>larger</strong> of <code>maxUploadSizeBytes</code> and <code>importMaxSizeBytes</code> plus 10 MB:</p>
+<ul>
+<li><strong>Helm:</strong> nginx <code>client_max_body_size</code> and the ingress <code>proxy-body-size</code>
+  annotation go from <code>20M</code> to <code>35M</code> at the chart defaults.</li>
+<li><strong>Docker Compose:</strong> <code>nginx/app.conf.template</code> and
+  <code>nginx/app-http.conf.template</code> now set <code>client_max_body_size 35M</code>.</li>
+</ul>
+<p>Attachment uploads are still capped at <code>MAX_UPLOAD_SIZE_BYTES</code> (10 MB) by
+the application, so this does not let larger attachments through. If you
+run your own reverse proxy in front of Visiban, raise its body limit to at
+least 35 MB for Trello imports to work — see
+<a href="../configuration/#import-limits">Import limits</a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Service renamed: Redis → Valkey (container and Helm chart)</p>
+<p>Visiban 1.2 replaces the Redis container with <strong>Valkey</strong> (the BSD-3-licensed, Linux Foundation fork of Redis). Valkey is wire-compatible with Redis 7+ — the RESP protocol is identical — so <strong>no env var changes are required</strong>.</p>
+<p><strong>What changes:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Before 1.2</th>
+<th>After 1.2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Docker Compose service name</td>
+<td><code>redis</code></td>
+<td><code>valkey</code></td>
+</tr>
+<tr>
+<td>Docker image</td>
+<td><code>redis:7-alpine</code></td>
+<td><code>valkey/valkey:8-alpine</code></td>
+</tr>
+<tr>
+<td>Helm chart</td>
+<td><code>bitnami/redis</code> subchart</td>
+<td>Built-in StatefulSet on <code>valkey/valkey:8-alpine</code> (see below)</td>
+</tr>
+<tr>
+<td>Helm values key</td>
+<td><code>redis:</code></td>
+<td><code>valkey:</code></td>
+</tr>
+<tr>
+<td>In-cluster service DNS</td>
+<td><code>&lt;release&gt;-redis-master:6379</code></td>
+<td><code>&lt;release&gt;-valkey-primary:6379</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What stays the same:</strong></p>
+<ul>
+<li><code>REDIS_URL</code>, <code>REDIS_CACHE_URL</code>, <code>REDIS_PASSWORD</code> — env var names are unchanged</li>
+<li><code>redis://</code> URL scheme — unchanged; Valkey speaks the same protocol</li>
+<li><code>externalRedis</code> Helm values key — unchanged for backward compatibility</li>
+<li><code>/api/health/readiness/</code> response field <code>"redis"</code> — unchanged (it is a published API contract)</li>
+</ul>
+<p><strong>No data migration required</strong> — Valkey holds only ephemeral channel-layer and cache data (WebSocket group subscriptions and short-lived rate-limit keys). All of this is rebuilt automatically on startup. Simply redeploy:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Docker Compose</label><label for="__tabbed_2_2">Kubernetes / Helm</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>pull
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<p>The old <code>redis</code> container is replaced by the new <code>valkey</code> container. Any in-flight WebSocket connections will reconnect automatically.</p>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>helm<span class="w"> </span>dependency<span class="w"> </span>update<span class="w"> </span>helm/visiban
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span>--set<span class="w"> </span>valkey.image.repository<span class="o">=</span>valkey/valkey<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span>--set<span class="w"> </span>valkey.image.tag<span class="o">=</span><span class="m">8</span>-alpine
+</code></pre></div>
+<p>The two <code>--set</code> flags are needed only with <code>--reuse-values</code>; see
+"Helm: bundled Valkey is no longer the Bitnami subchart" below.</p>
+<p>If you previously set <code>redis.enabled: false</code> and pointed <code>externalRedis.url</code> at an external Redis instance, no change is needed — the <code>externalRedis</code> key is unchanged and your external instance continues to work.</p>
+<p>If you used the bundled subchart, the in-cluster service DNS changes from <code>&lt;release&gt;-redis-master:6379</code> to <code>&lt;release&gt;-valkey-primary:6379</code>. The Helm chart sets <code>REDIS_URL</code> automatically from the new service name — no manual update is required unless you overrode <code>REDIS_URL</code> in your values file.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Helm: bundled Valkey is no longer the Bitnami subchart</p>
+<p>Chart 0.5.0 runs the bundled Valkey as the chart's own StatefulSet on the
+official, versioned <code>valkey/valkey:8-alpine</code> image — the same major as
+<code>docker-compose.prod.yml</code> — instead of the Bitnami <code>valkey</code> subchart. That
+subchart's default image was <code>bitnami/valkey:latest</code> (Bitnami no longer
+publishes versioned tags), so every pod reschedule could move a Helm install
+to a different Valkey major with no diff (#1200).</p>
+<p><strong>What stays the same:</strong> the Service name <code>&lt;release&gt;-valkey-primary</code>, so
+<code>REDIS_URL</code> and <code>REDIS_CACHE_URL</code> do not change; <code>valkey.enabled</code>;
+<code>externalRedis</code>; and the NetworkPolicy rule that admits only the backend,
+scheduler and demo-seed pods to port 6379.</p>
+<p><strong>What <code>helm upgrade</code> does:</strong> Helm creates a new StatefulSet,
+<code>&lt;release&gt;-valkey</code>, re-points the <code>&lt;release&gt;-valkey-primary</code> Service at it,
+and deletes the subchart's StatefulSet <code>&lt;release&gt;-valkey-primary</code>, its
+headless Service, ConfigMaps, ServiceAccount and PodDisruptionBudget. The
+new name is deliberate: a StatefulSet's selector, service name and volume
+templates cannot be changed in place, so reusing the old name would fail the
+upgrade. Upgrading straight from the 1.1 chart (<code>bitnami/redis</code> subchart)
+works the same way.</p>
+<p><strong>Data:</strong> none that matters. Valkey holds only the real-time (Channels)
+layer and the Django cache — no sessions, no job queue — and the chart ran
+it without persistence. Open WebSocket connections drop once and reconnect,
+cached settings are re-read from the database, and rate-limit and
+login-lockout counters start again from zero (as they already did on any
+Valkey pod restart). No backup or migration step is needed.</p>
+<p><strong>If you enabled Valkey (or Redis) persistence</strong>, the old claim is left
+behind, as Kubernetes does for every StatefulSet volume. It holds only
+rebuildable data; delete it once the upgrade is healthy:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>get<span class="w"> </span>pvc<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">'valkey-data|redis-data'</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>valkey-data-&lt;release&gt;-valkey-primary-0
+</code></pre></div>
+<p><strong>Values that no longer apply.</strong> The chart now reads <code>valkey.enabled</code>,
+<code>valkey.image.repository</code>, <code>valkey.image.tag</code>, <code>valkey.image.pullPolicy</code>,
+<code>valkey.primary.persistence.enabled</code>, <code>.size</code>, <code>.storageClass</code>,
+<code>valkey.primary.resources</code> and <code>valkey.commonConfiguration</code>. Three leftover
+subchart settings would change what runs if they were ignored, so the
+upgrade <strong>fails with an explanation</strong> instead:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Why it is refused</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>valkey.architecture: replication</code></td>
+<td>The backend only ever used the primary; the replicas did nothing</td>
+<td>Remove it, or use <code>externalRedis</code></td>
+</tr>
+<tr>
+<td><code>valkey.auth.enabled: true</code></td>
+<td><code>REDIS_URL</code> never carried a password, so this has never worked</td>
+<td>Remove it (NetworkPolicy restricts access), or use <code>externalRedis</code> with the password in the URL</td>
+</tr>
+<tr>
+<td>A <code>bitnami/*</code> <code>valkey.image.repository</code>, or an empty or <code>latest</code> <code>valkey.image.tag</code></td>
+<td>A Bitnami image does not start under the new configuration, and <code>latest</code> is the drift this change removes</td>
+<td><code>--set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine</code></td>
+</tr>
+<tr>
+<td>A <code>valkey.image.registry</code> other than Docker Hub</td>
+<td>The chart no longer reads the key, so the image would silently come from Docker Hub</td>
+<td>Drop it (<code>--set valkey.image.registry=null</code>) and put the mirror in <code>valkey.image.repository</code></td>
+</tr>
+</tbody>
+</table>
+<p>A Docker Hub <code>valkey.image.registry</code> (<code>docker.io</code>, <code>registry-1.docker.io</code>)
+is accepted and ignored, because the official image lives there too.</p>
+<p><strong><code>helm upgrade --reuse-values</code> needs two extra flags.</strong> <code>--reuse-values</code>
+carries the previous release's values forward, and for a release made with
+the subchart those include the subchart's own image defaults
+(<code>bitnami/valkey</code>, tag <code>latest</code>). The upgrade therefore stops at the image
+check above. Either pass the official image explicitly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span>--set<span class="w"> </span>valkey.image.repository<span class="o">=</span>valkey/valkey<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span>--set<span class="w"> </span>valkey.image.tag<span class="o">=</span><span class="m">8</span>-alpine
+</code></pre></div>
+<p>or, on Helm 3.14 or later, use <code>--reset-then-reuse-values</code> instead of
+<code>--reuse-values</code>. It starts from this chart's defaults and re-applies only
+the values you set yourself. An upgrade that passes <code>-f my-values.yaml</code>
+without <code>--reuse-values</code> needs neither.</p>
+<p>Every other Bitnami-only key (for example <code>valkey.primary.resourcesPreset</code>,
+<code>valkey.primary.podLabels</code>, <code>valkey.networkPolicy.*</code>, <code>valkey.metrics.*</code>) is
+accepted and ignored. Check what your values file sets before upgrading:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>helm<span class="w"> </span>get<span class="w"> </span>values<span class="w"> </span>&lt;release&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>yq<span class="w"> </span><span class="s1">'.valkey'</span>
+</code></pre></div>
+<p><strong>Rolling back</strong> with <code>helm rollback</code> to a pre-0.5.0 revision recreates the
+subchart's StatefulSet; a persistence claim you have not deleted is
+reattached.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Helm: backend and PostgreSQL pods now run hardened, like Valkey (chart 0.6.0)</p>
+<p>Chart 0.6.0 brings the backend Deployment (its <code>migrate</code>, <code>collectstatic</code>
+and <code>bootstrap</code> init containers included) and the bundled PostgreSQL
+StatefulSet up to the same hardening the bundled Valkey StatefulSet has run
+with since chart 0.5.0 (#1200): a non-root user, <code>seccompProfile:
+RuntimeDefault</code>, <code>allowPrivilegeEscalation: false</code>, a <strong>read-only root
+filesystem</strong>, every Linux capability dropped, and no mounted
+ServiceAccount token (#1210). See
+<a href="../../getting-started/kubernetes/#pod-security">Pod security</a> for the full
+list and the values that control it.</p>
+<p><strong>This is a default change for existing installs, not an opt-in.</strong> A
+<code>helm upgrade</code> to chart 0.6.0 replaces every backend and PostgreSQL pod
+with one running under the new <code>securityContext</code> — no values change
+required to pick it up.</p>
+<p><strong>What could break:</strong> a custom backend image that writes somewhere other
+than <code>/tmp</code>, <code>STATIC_ROOT</code> (<code>/app/staticfiles</code>) or the already-mounted
+media/admin-password volumes, or a custom PostgreSQL image that writes
+somewhere other than <code>PGDATA</code>, <code>/var/run/postgresql</code> or <code>/tmp</code>, will fail
+to start under a read-only root filesystem. The stock images ship with the
+chart do not do this — the chart's own <code>scripts/helm-install-drill.sh</code> and
+<code>scripts/helm-netpol-drill.sh</code> boot both hardened pods on a real cluster —
+but an overridden <code>backend.image</code> or <code>postgresql.image</code> should be verified
+against a staging release first.</p>
+<p><strong>If your image cannot run under this hardening</strong>, relax just the field
+that conflicts rather than disabling the whole block — for example, to
+keep a writable root filesystem on a custom PostgreSQL image:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.securityContext.container.readOnlyRootFilesystem<span class="o">=</span><span class="nb">false</span>
+</code></pre></div>
+<p>Helm deep-merges nested maps, so a single-leaf <code>--set</code> like the one above
+(or a <code>-f</code> file that sets only <code>readOnlyRootFilesystem</code>) keeps the chart's
+other defaults (<code>allowPrivilegeEscalation</code>, <code>capabilities.drop</code>) for the
+rest of the <code>container</code> block — you never need to repeat every key. To
+remove a key the chart sets rather than change its value, set it to
+<code>null</code> explicitly (<code>--set postgresql.securityContext.container.foo=null</code>);
+an override file that simply omits a key leaves the chart default in
+place, it does not clear it.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Scheduled jobs ship in 1.2 — off by default</p>
+<p>1.2 adds a scheduler for <code>notify_due_soon</code>, <code>notify_stale_cards</code>,
+<code>prune_board_events</code> and the new <code>prune_notifications</code>: an opt-in <code>scheduler</code>
+service (Compose profile <code>scheduler</code>) in <code>docker-compose.prod.yml</code>, and
+<code>scheduledJobs</code> CronJobs in the Helm chart. <strong>Neither is on after an
+upgrade</strong>, and no data is pruned until you enable a prune job yourself.</p>
+<ul>
+<li>If you <strong>already schedule these commands from host cron</strong>, either keep
+  doing that or switch to the shipped scheduler. Do not do both: two
+  notification scans started in the same minute can notify a user twice.
+  Remove the cron line before you enable the shipped job.</li>
+<li>If you <strong>never scheduled them</strong>, users who turned on due-date or staleness
+  notifications have received nothing. Enable the scheduler to fix that.</li>
+<li><code>NOTIFICATION_RETENTION_DAYS</code> (default 90, minimum 14) is new. It has no
+  effect until <code>prune_notifications</code> is scheduled. Preview the first run
+  with <code>python manage.py prune_notifications --dry-run</code>.</li>
+</ul>
+<p>See <a href="../scheduled-jobs/">Scheduled Jobs</a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Data integrity check — cards pointing at another board's column/swimlane</p>
+<p>1.2 closes a security hole where <code>PATCH</code>/<code>PUT .../cards/{id}/</code> accepted a <code>column</code> or
+<code>swimlane</code> id from a different board, silently detaching the card from both boards'
+<code>/full/</code> views and skipping WIP/weight enforcement and the <code>CardMovement</code> audit trail
+(see the changelog security entry for this release). The API now rejects such requests
+with <code>400</code>, but rows written by a client that exploited this before upgrading are not
+fixed automatically.</p>
+<p>Run the new read-only management command after upgrading to find any already-corrupted
+cards:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>find_cross_board_cards
+</code></pre></div>
+<p>It lists every card whose <code>column.board_id</code> or <code>swimlane.board_id</code> does not match the
+card's own <code>board_id</code>. It makes no changes — repair each reported card manually (move it
+back to a column/swimlane on its own board via the API or admin, or archive it) since the
+correct destination cannot be inferred automatically.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title"><code>APP_VERSION</code> is now required in <code>.env</code> — no more silent <code>latest</code> fallback</p>
+<p><code>docker-compose.prod.yml</code> previously resolved <code>${APP_VERSION:-latest}</code> on the <code>backend</code>,
+<code>backend-init</code>, <code>scheduler</code> and <code>frontend-build</code> services when <code>.env</code> did not set
+<code>APP_VERSION</code>. 1.2 makes it fail-closed instead
+(<code>${APP_VERSION:?APP_VERSION must be set in .env — see .env.example}</code>), matching the
+<code>DB_PASSWORD</code>/<code>REDIS_PASSWORD</code>/<code>DOMAIN</code> pattern the rest of the file already uses. This
+closes the gap TruePPM's audit named directly (#1074): the documented production path
+pulled a mutable tag that could not be verified or rolled back. Release images are
+content-addressed by digest, but are not yet scanned, SBOM'd, or signed against that
+digest — that work is tracked separately in
+<a href="https://gitlab.com/visiban/visiban/-/issues/1153">#1153</a>.</p>
+<p><strong>If your <code>.env</code> already sets <code>APP_VERSION</code></strong> — the documented path since <code>.env.example</code>
+has always shipped one — this changes nothing; <code>docker compose pull</code>/<code>up</code> resolve to the
+exact same tag as before. <code>GET /api/v1/version/</code> now always returns bare semver
+(<code>1.2.0</code>) even when <code>APP_VERSION=v1.2.0</code> (#1174) — previously it echoed <code>APP_VERSION</code>
+verbatim, so a <code>v</code>-pinned install got <code>v1.1.0</code> back — so a script comparing the
+endpoint's response to <code>$APP_VERSION</code> should strip a leading <code>v</code> before comparing.</p>
+<p><strong>If your <code>.env</code> does not set <code>APP_VERSION</code></strong> (a hand-rolled <code>.env</code> that skipped this line,
+or one where it was later removed), <code>docker compose pull</code>/<code>up -d</code> and <code>init-prod.sh</code> now
+fail immediately with a message telling you to set it, instead of silently resolving to
+whatever <code>latest</code> currently points at. Add the line before upgrading:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"APP_VERSION=v1.2.0"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env<span class="w">   </span><span class="c1"># pin to the release you are deploying</span>
+</code></pre></div>
+<p>A scheduled CI job (<code>check-release-images</code>) now also runs on every scheduled CI pipeline
+to verify that the newest released <code>backend</code>/<code>frontend</code> image tag is still pullable from
+both the GitLab registry and GHCR — see
+<a href="../container-image-retention/">Container image retention</a>. How often that actually is
+depends on the project's configured pipeline schedule(s), not on this code.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title"><code>TLS_MODE=selfsigned</code> no longer sends a 2-year HSTS header</p>
+<p>The bundled <code>nginx/app.conf.template</code> used to hardcode
+<code>Strict-Transport-Security: max-age=63072000; includeSubDomains</code> for <strong>both</strong>
+<code>TLS_MODE=letsencrypt</code> and <code>TLS_MODE=selfsigned</code>, contradicting the docs (which have always
+said selfsigned disables HSTS by default) and ignoring an operator-set <code>SECURE_HSTS_SECONDS</code>.
+<code>init-prod.sh</code> now renders the header itself from <code>SECURE_HSTS_SECONDS</code>, and nginx hides
+Django's own copy of the header on every proxied path so exactly one is ever sent (#1201).</p>
+<p><strong>What changes for an existing install:</strong></p>
+<ul>
+<li><strong><code>TLS_MODE=letsencrypt</code></strong> — no change if you don't set <code>SECURE_HSTS_SECONDS</code>: the header
+  still defaults to 2 years with <code>includeSubDomains</code>. If you already set
+  <code>SECURE_HSTS_SECONDS</code> in <code>.env</code>, nginx now actually honors it (previously it was silently
+  ignored in favor of the hardcoded 2-year value).</li>
+<li><strong><code>TLS_MODE=selfsigned</code></strong> — the 2-year header is <strong>removed</strong>; no <code>Strict-Transport-Security</code>
+  header is sent by default. This is the intended fix, not a regression: browsers only
+  enforce HSTS on a connection they already trust, so the practical effect was limited to
+  operators who manually trust the self-signed cert (a common staging setup) — those browsers
+  were being pinned to HTTPS for two years, including on all subdomains, with no documented
+  way to back out early. Set <code>SECURE_HSTS_SECONDS</code> explicitly in <code>.env</code> if you want the
+  header on a selfsigned deployment anyway.</li>
+</ul>
+<p><strong>This step is required, not optional.</strong> After upgrading, re-run <code>./init-prod.sh</code> to
+re-render <code>nginx/active.conf.template</code>, then
+<code>docker compose -f docker-compose.prod.yml up -d --force-recreate nginx</code> — a plain
+<code>up -d</code>/<code>pull</code> does not notice that the bind-mounted nginx config content changed, so nginx
+keeps running whatever it already had on disk from before the upgrade.</p>
+<p>If you skip this step, both problems this release fixes silently persist, with no error and
+no visible difference until someone inspects the response headers directly: nginx keeps
+serving its <strong>old</strong> rendered config — the one still carrying the original hardcoded
+<code>max-age=63072000</code> line unconditionally on both modes, and none of the new
+<code>proxy_hide_header Strict-Transport-Security</code> lines. So <code>TLS_MODE=selfsigned</code> keeps sending
+the 2-year header exactly as before (the docs mismatch this release exists to fix stays
+unfixed), and every proxied path (<code>/api/</code>, <code>/admin/</code>, <code>/media/</code>, etc.) keeps stacking
+nginx's hardcoded header on top of Django's own independently-computed one — two
+<code>Strict-Transport-Security</code> headers on the same response, which per RFC 6797 §8.1 means
+browsers ignore HSTS entirely on those paths. Pulling the new backend/frontend images and
+restarting those containers has no effect on this: nginx's config is a bind-mounted file
+this repo's <code>init-prod.sh</code> renders once, on the host, not something baked into the nginx
+image the containers pull.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">12-character password minimum now applies to every password-set path</p>
+<p>1.2 raises Django's <code>MinimumLengthValidator</code> from its default of 8 to 12 characters
+(<code>PASSWORD_MIN_LENGTH</code> in <code>visiban/settings.py</code>), so the 12-character policy that the
+in-app change-password form and the admin "create user" form already enforced now also
+applies to self-registration, invite-link registration, the password-reset link,
+<code>POST /api/v1/auth/password/change/</code>, the Django admin's set-password form, and the
+interactive <code>createsuperuser</code> / <code>changepassword</code> management commands (#1258). It is not configurable.
+<strong>No one is locked out:</strong> the rule is checked only when a password is <em>set</em>, so existing
+accounts with a shorter password keep logging in and are asked for 12+ characters only the
+next time they change it. No migration is involved.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title"><code>POST /api/v1/auth/password/change/</code> now requires <code>old_password</code></p>
+<p>This dj-rest-auth endpoint previously changed the password for any authenticated caller
+without checking the current one (#1257). Any script or integration that calls it must now
+send <code>old_password</code>; requests without it return <code>400</code>. The endpoint also now clears a
+pending forced password change on success (#1259). The Visiban web app does not use this
+endpoint and is unaffected. See
+<a href="../../api/authentication/#post-apiv1authpasswordchange">Authentication API</a>.</p>
+</div>
+<h3 id="upgrading-to-11x">Upgrading to 1.1.x<a class="headerlink" href="#upgrading-to-11x" title="Permanent link">&para;</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Removed env-var aliases — rename before upgrading</p>
+<p>Two deprecated environment variable aliases were <strong>removed</strong> in 1.1. Operators who still set the old names will get silent failures — OIDC will be deactivated and email verification will have no effect:</p>
+<table>
+<thead>
+<tr>
+<th>Old name (removed)</th>
+<th>Canonical name (use this)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OIDC_SECRET</code></td>
+<td><code>OIDC_CLIENT_SECRET</code></td>
+</tr>
+<tr>
+<td><code>ACCOUNT_EMAIL_VERIFICATION</code></td>
+<td><code>EMAIL_VERIFICATION</code></td>
+</tr>
+</tbody>
+</table>
+<p>Before upgrading, search your <code>.env</code> file and any CI/CD secret stores for these old names and rename them. From 1.1 on, setting either removed alias logs a startup deprecation warning naming the canonical replacement — but the old name is no longer read, so that warning is your only signal that SSO or email verification has silently stopped working. If neither alias appears anywhere in your config, no action is required.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Card density migration — existing boards default to Dense</p>
+<p>In 1.1, card display is controlled by a per-board <strong>Card density</strong> setting (Comfortable / Standard / Dense) that replaces the previous per-user per-field hide toggles.</p>
+<p>Existing boards are automatically migrated to the <strong>Dense</strong> tier, which reproduces the pre-1.1 card layout. New boards default to <strong>Comfortable</strong>.</p>
+<p>The previous per-user preferences (<code>hideLabels</code>, <code>hideDueDate</code>, <code>hideAssignee</code>, <code>hidePriority</code>, <code>hideLastMoved</code>) stored in <code>localStorage</code> are silently ignored after the upgrade — they are not migrated. Board admins can adjust the density for their board at any time from <strong>Board Settings → Display</strong>.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Breaking change — Valkey authentication is now required in production</p>
+<p><code>docker-compose.prod.yml</code> now starts Valkey with <code>--requirepass</code> and constructs <code>REDIS_URL</code> and <code>REDIS_CACHE_URL</code> using the password. <strong>The stack will fail to start if <code>REDIS_PASSWORD</code> is not set in your <code>.env</code>.</strong></p>
+<p>Before running <code>docker compose -f docker-compose.prod.yml up</code>, add <code>REDIS_PASSWORD</code> to your <code>.env</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Generate a strong random password and insert it into .env</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">"s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|"</span><span class="w"> </span>.env
+</code></pre></div>
+<p>Or generate a value manually and add it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="w">   </span><span class="c1"># hex, not base64: a "/" in the password breaks the redis:// URL</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="c1"># Copy the output, then add to .env:</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;generated<span class="w"> </span>value&gt;
+</code></pre></div>
+<p>Existing deployments that used the default unauthenticated Valkey (or Redis) will continue to work after setting this variable — Valkey data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of data is required.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Migration window — GIN trigram indexes (<code>boards/0030</code>)</p>
+<p>Migration <code>boards/0030</code> creates full-text GIN indexes on the <code>cards</code> table using <code>CREATE INDEX</code> (not <code>CREATE INDEX CONCURRENTLY</code>). On PostgreSQL, a standard index build holds an <code>AccessShareLock</code> on the table for the duration of the build, blocking writes to <code>cards</code>.</p>
+<p>For most self-hosted deployments the index build completes in seconds and is not noticeable. For installations with <strong>millions of cards</strong>, this may cause a brief write outage on board operations during the migration window.</p>
+<p><strong>If you have a large <code>cards</code> table and need zero-downtime index creation</strong>, pre-create the indexes manually before running <code>migrate</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_title_trgm</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">title</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_description_trgm</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">description</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
+</code></pre></div>
+<p>Then run <code>python manage.py migrate</code> as normal — the migration's <code>CREATE INDEX IF NOT EXISTS</code> will detect the indexes exist and skip creation.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Pre-1.0 installs upgrading directly to 1.1 — <code>groups/0003_placeholder</code></p>
+<p>If your database was created from any pre-1.0 release <strong>and you are upgrading directly to 1.1.x without first running 1.0.x</strong>, you must apply the same <code>groups/0003_placeholder</code> reconciliation step described under <a href="#upgrading-to-100">Upgrading to 1.0.0</a> below before running <code>manage.py migrate</code>. Without it, Django's <code>InconsistentMigrationHistory</code> check aborts the upgrade and the schema is not advanced.</p>
+<p>Equivalent management-command form (run inside the backend container):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>groups<span class="w"> </span>0003_placeholder<span class="w"> </span>--fake
+</code></pre></div>
+<p>Instances that already ran 1.0.x are unaffected — the reconciliation row is already present in <code>django_migrations</code>.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Irreversible migration — <code>boards/0050</code> (BoardExportLog audit table)</p>
+<p>Migration <code>boards/0050</code> creates the <code>BoardExportLog</code> table that records who ran a board export, the format, the row count, and the role the actor held at export time. The table is permanent audit storage and the migration has <strong>no safe reverse</strong> — rolling it back drops the table and destroys the audit history.</p>
+<p>Take a database backup before applying <code>boards/0050</code> if you need a rollback path. After the migration applies, the only way to retain audit rows is to restore from that backup; reverting the migration cannot recover them.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Migration window — column name deduplication (<code>boards/0043</code>)</p>
+<p>Migration <code>boards/0043</code> adds a unique constraint on <code>(board, name)</code> for columns. Before applying the constraint, it runs a Python loop to deduplicate any existing column names within the same board (e.g. renaming a second "Done" column to "Done (2)").</p>
+<p>For deployments with a very large number of boards and columns, this deduplication loop may take several seconds. The subsequent <code>ADD CONSTRAINT</code> then issues a brief table lock to build the unique index.</p>
+<p><strong>If you have many thousands of columns</strong>, you can run the deduplication ahead of the migration window by executing it as a one-off management command before upgrading:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="s2">from boards.models import Column</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="s2">from django.db.models import Count</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="s2">for board_id in Column.objects.values_list('board_id', flat=True).distinct():</span>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="s2">    seen = {}</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="s2">    for col in Column.objects.filter(board_id=board_id).order_by('position'):</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="s2">        base = col.name</span>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="s2">        if base in seen:</span>
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="s2">            seen[base] += 1</span>
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="s2">            col.name = f'{base} ({seen[base]})'</span>
+<a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a><span class="s2">            col.save(update_fields=['name'])</span>
+<a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="s2">        else:</span>
+<a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a><span class="s2">            seen[base] = 1</span>
+<a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="s2">print('Done')</span>
+<a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a><span class="s2">"</span>
+</code></pre></div>
+<p>After this runs, <code>boards/0043</code> will find no duplicates and the constraint add will complete quickly.</p>
+</div>
+<h3 id="upgrading-to-100">Upgrading to 1.0.0<a class="headerlink" href="#upgrading-to-100" title="Permanent link">&para;</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Required pre-deploy step for any instance that ran a pre-1.0 beta</p>
+<p>If your database was created from any pre-1.0 release (including any release candidate), you <strong>must</strong> run the following SQL against your database <strong>before</strong> running <code>manage.py migrate</code> or starting the 1.0 backend container:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">django_migrations</span><span class="w"> </span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">applied</span><span class="p">)</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">'groups'</span><span class="p">,</span><span class="w"> </span><span class="s1">'0003_placeholder'</span><span class="p">,</span><span class="w"> </span><span class="n">NOW</span><span class="p">())</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="k">ON</span><span class="w"> </span><span class="n">CONFLICT</span><span class="w"> </span><span class="k">DO</span><span class="w"> </span><span class="k">NOTHING</span><span class="p">;</span>
+</code></pre></div>
+<p><strong>Why:</strong> Migration <code>groups/0003_placeholder</code> was added to the 1.0 release to fill a gap in the <code>groups</code> migration sequence. Because <code>groups/0004</code> was already applied in pre-1.0 releases, Django's startup check (<code>InconsistentMigrationHistory</code>) will prevent <code>manage.py migrate</code> from running if <code>0003</code> is not already marked applied. The SQL above registers it as applied so Django accepts the history as consistent. The migration itself is a no-op — it contains no schema changes.</p>
+<p>Fresh installs (where no pre-1.0 migrations have ever been applied) are not affected.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Maintenance window required for groups/0012 (plaintext token column drop)</p>
+<p>Migration <code>groups/0012</code> drops the <code>token</code> column from the <code>groupinvitelinks</code> table. This column was replaced by <code>token_hash</code> + <code>prefix</code> in migrations <code>0010</code>/<code>0011</code>. All invite link lookups have read <code>token_hash</code> exclusively since that point (#605).</p>
+<p>Because this is a column drop, it is <strong>irreversible</strong> — if you apply this migration and need to roll back, you must restore from a backup.</p>
+<p><strong>Required upgrade procedure for instances running a version prior to <code>groups/0012</code>:</strong></p>
+<ol>
+<li>Stop all backend container(s) before running migrations — the old code references <code>token</code> at the ORM level; running it against the post-0012 schema will cause startup errors.</li>
+<li>Run <code>python manage.py migrate</code>.</li>
+<li>Start backend container(s) with the new image.</li>
+</ol>
+<p>Instances that are already on a release that includes <code>groups/0012</code> are not affected.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Maintenance window required for boards/0005 (Customer → Swimlane rename)</p>
+<p>Migration <code>boards/0005</code> renames the <code>customers</code> table to <code>swimlanes</code> and renames four columns (<code>customer_id</code>, <code>from_customer_id</code>, <code>to_customer_id</code>) to their <code>swimlane</code> equivalents. This is a <strong>single-step rename</strong> — there is no intermediate schema state where both the old code (reading <code>customer</code>) and the new code (reading <code>swimlane</code>) can run simultaneously.</p>
+<p><strong>Required upgrade procedure for pre-1.0 instances:</strong></p>
+<ol>
+<li>Stop all backend container(s) — do <strong>not</strong> leave them running during migration.</li>
+<li>Run <code>python manage.py migrate</code> to apply <code>boards/0005</code> and any subsequent migrations.</li>
+<li>Start backend container(s) with the new image.</li>
+</ol>
+<p>This is a one-time requirement for the 1.0 upgrade. All subsequent releases follow the standard zero-downtime upgrade path described above.</p>
+</div>
+<hr />
+<h2 id="checking-migration-status">Checking migration status<a class="headerlink" href="#checking-migration-status" title="Permanent link">&para;</a></h2>
+<p>At any time you can inspect which migrations have been applied:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
+</code></pre></div>
+<p><code>[X]</code> means applied. <code>[ ]</code> means pending. A pending migration after a deployment indicates the migration step was skipped or failed silently — run <code>migrate</code> manually and check the output for errors before serving traffic.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
