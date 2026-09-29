@@ -3917,7 +3917,7 @@
 </tr>
 <tr>
 <td><code>REDIS_PASSWORD</code></td>
-<td>Valkey authentication password — required in production; the Valkey service starts with <code>--requirepass</code> and <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> are built from this value. Generate with: <code>openssl rand -base64 32</code></td>
+<td>Valkey authentication password — required in production; the Valkey service starts with <code>--requirepass</code> and <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> are built from this value. Generate with: <code>openssl rand -hex 32</code> (base64 output can contain <code>/</code>, which breaks the URL)</td>
 </tr>
 <tr>
 <td><code>DJANGO_SECRET_KEY</code></td>
