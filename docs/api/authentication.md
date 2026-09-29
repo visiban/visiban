@@ -507,6 +507,67 @@ Change the authenticated user's password. Requires authentication.
 
 ---
 
+### `POST /api/v1/auth/password/change/`
+
+dj-rest-auth's stock password-change endpoint. Requires authentication. It is
+a **distinct URL and request shape** from `POST /api/v1/auth/change-password/`
+above — the two are not aliases and do not accept the same body.
+
+**Request**
+```json
+{ "new_password1": "new-password", "new_password2": "new-password" }
+```
+
+- **No `current_password` field, and none is checked** (tracked as #1257).
+  Visiban does not set dj-rest-auth's `OLD_PASSWORD_FIELD_ENABLED` option,
+  which defaults to `False`, so this endpoint changes the password for any
+  authenticated caller without proving knowledge of the current one.
+  (`/auth/change-password/` above does require it, except for social-only
+  accounts.) A stray `old_password` field in the request body is silently
+  ignored.
+- Minimum 8 characters — Django's default `MinimumLengthValidator`, which is
+  lower than `/auth/change-password/`'s explicit 12-character minimum
+  (tracked as #1258). The rest of `AUTH_PASSWORD_VALIDATORS` also applies
+  (not too similar to the user's other profile fields, not a common password,
+  not entirely numeric).
+- The current session is kept alive after the change (same as
+  `/auth/change-password/`) — the caller is not logged out.
+- All of the user's Personal Access Tokens are revoked on success, same as
+  `/auth/change-password/` — see [Personal Access Tokens](#personal-access-tokens)
+  above. This closes the gap #1110's security review found: dj-rest-auth's
+  stock view left tokens alive after a password change, so the "rotate your
+  password to cut off a leaked token" guarantee held only for whichever of
+  the two endpoints the caller happened to use.
+- **Does not clear `must_change_password`** (tracked as #1259). Unlike
+  `/auth/change-password/`, a successful call here leaves a pending
+  forced-password-change flag set — the caller remains blocked from every
+  other endpoint until they also call `/auth/change-password/` (or an admin
+  clears the flag). Use `/auth/change-password/` to satisfy a forced password
+  change.
+
+**Response** `200 OK { "detail": "New password has been saved." }` on success.
+
+Validation errors use DRF's per-field shape, not `/auth/change-password/`'s
+`{"detail": ...}` shape:
+```json
+{ "new_password2": ["The two password fields didn’t match."] }
+```
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | `new_password1` / `new_password2` missing, mismatched, or failing an `AUTH_PASSWORD_VALIDATORS` check |
+| `401 Unauthorized` | Request is not authenticated |
+
+!!! note
+    Prefer `POST /api/v1/auth/change-password/` for anything user-facing —
+    it enforces the current-password check and the 12-character minimum, and
+    clears `must_change_password`. This endpoint exists so that a client
+    which discovers it from the OpenAPI schema still gets correct
+    token-revocation behavior, not as the recommended integration point. The
+    three gaps above are tracked as #1257, #1258, and #1259.
+
+---
+
 ## Choose username
 
 ### `POST /api/v1/auth/choose-username/`

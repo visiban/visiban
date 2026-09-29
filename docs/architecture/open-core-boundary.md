@@ -17,6 +17,8 @@ This document records the OSS vs enterprise classification for every feature are
 | OIDC authentication (generic) | OSS | Extension of existing OAuth stack; no new dependency | #349 |
 | SSO / SAML | Enterprise | See OIDC vs SAML ruling below | — |
 | Card-level activity (CardMovement) | OSS | Core collaborative feature — teams need their own card history | — |
+| AdminActionLog (instance admin control-plane actions) | OSS | Fixed, narrow record of a closed set of admin toggles (maintenance mode, registration mode, uploads, email config); no configurable retention or SIEM export. See [Audit log (split)](#audit-log-split) | #1126 |
+| BoardExportLog (board export history) | OSS | Fixed, narrow record of successful board exports (actor, role, format, row count); no configurable retention or SIEM export. See [Audit log (split)](#audit-log-split) | #842 |
 | System-wide compliance audit log | Enterprise | Compliance tooling; card-level history in OSS is sufficient for small teams | #350→enterprise |
 | Hard WIP enforcement | OSS | Core Kanban mechanism; soft-only enforcement does not work | #344 |
 | Outgoing webhooks (per-board, signed, best-effort) | OSS | Minimum integration surface for a team tool; delivered from the change feed with no task queue. Reversed from Enterprise on 2026-04-15 | #863 |
@@ -95,9 +97,20 @@ The audit log is split across OSS and enterprise by scope:
 
 `CardMovement` and `CardActivity` record what happened to individual cards. This is a core collaborative feature that teams rely on daily. It exists in the OSS codebase and will stay there.
 
+**OSS — feature-scoped security logs**
+
+Two further OSS tables each record a *fixed, enumerable* set of privileged actions, narrow to a single feature rather than a general-purpose audit product:
+
+- **`AdminActionLog`** (#1126) records instance-wide admin control-plane actions — maintenance mode enabled/disabled, the maintenance notice changed, registration mode changed, uploads enabled/disabled, and email settings changes. Read-only via `GET /api/v1/admin/action-log/`, restricted to site admins (`_ADMIN_PERMISSIONS`); there is no write or delete endpoint. There is deliberately no retention pruner — the table grows by a handful of rows a month — and no configurable retention, arbitrary per-object diffing, or SIEM export. See the "Scope — deliberately narrow" section of the model docstring (`backend/accounts/models.py`).
+- **`BoardExportLog`** (#842) records successful board exports for a single board — actor, role held at export time, export format, row count, and timestamp. Read-only via `GET /api/v1/boards/{id}/export-history/`, restricted to board admins (and site admins). `AdminActionLog` explicitly reuses this table's shape, lifted to instance scope (see its docstring).
+
+Both exist to answer "who did this privileged thing, and when?" for a specific, bounded action — not to serve as a general compliance audit trail. Neither table takes configuration, diffs arbitrary objects, or exports anywhere; that is what keeps them in OSS rather than the enterprise product below.
+
 **Enterprise — system-wide compliance audit log**
 
-A compliance audit log records board lifecycle events (created, deleted, archived), membership changes, and admin actions. It may export to a SIEM and enforce configurable retention policies. This serves security and compliance buyers, not small teams.
+A compliance audit log records board lifecycle events (created, deleted, archived), membership changes, and admin actions **beyond the closed set `AdminActionLog` already covers in OSS** — configurable per the operator's compliance policy rather than a fixed enum. It may export to a SIEM and enforce configurable retention policies. This serves security and compliance buyers, not small teams.
+
+> **Reconciling with `AdminActionLog` / `BoardExportLog` (#1248).** "Admin actions" in the paragraph above describes the enterprise product's *configurable, system-wide* scope, not a rule that any record of an admin action belongs in enterprise. The two OSS tables above are deliberately narrow — a closed set of control-plane toggles, and board exports, respectively — with no retention configuration and no SIEM export; that narrowness, not the mere existence of an admin-action record, is what keeps them in OSS. If either table ever grows configurable retention, arbitrary diffing, or SIEM export, revisit this ruling — until then they are the OSS side of the split this section describes, not candidates for it.
 
 **OSS extension points required** (before the enterprise audit log can be built):
 

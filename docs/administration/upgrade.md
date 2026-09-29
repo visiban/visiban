@@ -292,6 +292,104 @@ Migration `boards/0059_add_swimlane_custom_fields` adds two new tables
 feature. Both operations are `CreateModel` — no existing table, index, or constraint is
 touched — so it is zero-downtime and requires no operator action.
 
+!!! warning "Personal access tokens now carry scopes — pre-1.2 tokens keep full authority until rotated"
+    Migration `accounts/0026_pat_scopes` adds two nullable columns (`scopes`,
+    `last_used_scope`) to personal access tokens for the new
+    [token scopes](../features/personal-access-tokens.md#scopes) feature. It is a
+    metadata-only `AddField` migration with no backfill, so it is zero-downtime — but
+    unlike the other 1.2 migrations, what it enables changes real request-time behavior:
+
+    - **Existing tokens keep working unchanged across the entire REST API**, including the
+      admin endpoints if the owner is a site administrator. Their `scopes` column is `NULL`
+      ("legacy" authority), not an empty scope list, and upgrading does not narrow or break
+      a running integration.
+    - **Existing tokens are refused by the MCP server**, which now requires the `mcp:read`
+      scope. Any MCP client authenticating with a pre-1.2 token stops connecting after the
+      upgrade — create a new token with `mcp:read` to reconnect it.
+    - **New tokens default to `["read", "write"]`** when `POST /api/v1/auth/tokens/` is
+      called without a `scopes` list — previously a newly created token silently carried
+      its owner's full authority, including `admin` for a site administrator. Any script or
+      pipeline that creates its own tokens and relies on that inherited admin authority must
+      now request the `admin` scope explicitly.
+
+    See [Personal Access Tokens → Scopes](../features/personal-access-tokens.md#scopes) for
+    the full scope table and non-hierarchical scope semantics.
+
+Migration `accounts/0028_admin_action_log` creates the `admin_action_logs` table for the new
+[admin action log](admin-panel.md), which records who changed maintenance mode, registration
+mode, or the uploads switch, and when. It is a single `CreateModel` (including its two
+indexes) against a brand-new table, so it needs no concurrent build and is zero-downtime.
+
+Migration `accounts/0029_site_email_settings` creates the `site_email_settings` singleton
+table backing **Admin → Settings → Email** and adds a `help_text`-only `AlterField` to
+`AdminActionLog.action` (no schema change). Every column defaults to a value equivalent to
+"unset," and `config_source` defaults to `env`, so an upgraded instance keeps reading SMTP
+settings from environment variables until an admin explicitly switches the source over in the
+UI (#306).
+
+Migration `accounts/0030_notification_email_preferences` adds five nullable-default boolean
+columns to the user table for per-event [email notifications](../features/notifications.md)
+(`notif_stale` plus four `email_notif_*` toggles), all defaulting to `False`. A same-migration
+data backfill copies each user's existing `notif_due_soon` value into the new `notif_stale`
+column — before 1.2 that flag only ever gated staleness alerts, so this preserves everyone's
+existing opt-in under its new, more accurately named field. Companion migration
+`boards/0060_notification_due_soon_action_type` adds the `"due_soon"` value to
+`Notification.action_type`'s choices; `choices` is enforced by Django/DRF only, so this emits
+no DDL. One behavior change worth flagging to users, not the database: because
+`email_notif_due_soon` now drives the real due-date email, anyone who previously had **Due
+date approaching** on (which historically only produced staleness alerts) starts receiving the
+24-hour due-date email too — see the note in
+[Notifications](../features/notifications.md) if you need to tell your users.
+
+Migration `boards/0052_board_show_wip_at_limit` adds one nullable-default boolean column
+(`show_wip_at_limit`) to `boards`. It is off by default, so existing boards render exactly as
+before; board admins opt in per board from **Board Settings → Rules → Limit enforcement**
+(#973).
+
+Migration `boards/0054_fix_board_template_drift` is a data migration that overwrites the
+`columns_json` (and adds the previously-missing `is_done` flags) on the built-in
+`BoardTemplate` rows, correcting two templates whose stored preview had drifted from what
+board creation actually produced (#1115). It touches only the template rows read by `GET
+/api/v1/boards/templates/` and by template selection at board-creation time — no existing
+board, column, or card is altered, since boards have no foreign key back to the template they
+were created from.
+
+Migration `boards/0055_add_card_board_updated_idx` adds a partial index on `Card(board,
+-updated_at)` backing the new [`GET /api/v1/cards/`](../api/cards.md) cross-board query
+endpoint (#1112). Unlike most 1.2 migrations, this one touches the existing, likely-large
+`cards` table — it uses `CREATE INDEX CONCURRENTLY` (via `visiban.db_operations`,
+`atomic = False`) specifically so it does not take a lock that blocks reads or writes while it
+builds, per the [zero-downtime migration rules](#zero-downtime-migration-rules) above.
+
+Migration `boards/0056_board_event_feed` creates the `board_events` append-only table backing
+`GET /boards/{id}/events/`, the new [board change feed](../api/events.md) that lets an
+external consumer resume after a dropped WebSocket instead of re-fetching `/full/` (#1114). It
+is a `CreateModel` of a brand-new table (both indexes built with it), so it needs no
+concurrent build. Nothing on `boards` or `cards` is touched. Events are retained for
+`BOARD_EVENT_RETENTION_DAYS` days (default 30) — see `prune_board_events` under
+[Scheduled Jobs](scheduled-jobs.md) below.
+
+Migration `boards/0057_add_custom_fields` creates the `custom_field_definitions` and
+`custom_field_values` tables for the new [custom fields](../features/custom-fields.md)
+feature (#371). Migration `boards/0058_add_card_relations` creates the `card_relations` table
+for the new [card relations](../features/card-relations.md) (**blocks** / **relates to**)
+feature (#449). Migration `boards/0061_add_card_external_ref` creates the
+`card_external_refs` table for the new
+[pull/merge request link](../features/card-links.md) feature (#352). All three are
+`CreateModel` operations — including their indexes, unique constraints, and check
+constraints — against brand-new tables, so none needs a concurrent build and none touches
+`boards` or `cards`. All three ship backend-only in 1.2 unless their linked feature page says
+otherwise.
+
+Migrations `git_lens/0001_initial` and `git_lens/0002_alter_lensconnection_column_dim`
+create the entirely new `git_lens` app and its `LensConnection` table for
+[Issue Board Lens](../features/issue-board-lens.md) (experimental, off by default —
+enabled per instance with `GIT_LENS_ENABLED=true`). `0001` is a single `CreateModel`
+against a new table; `0002` only changes the `column_dim` field's Python-level default
+(`"status"` → `"pipeline"`), which is a state-only `AlterField` with no DDL. Neither
+migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENABLED` unset
+(the default) sees no behavior change from either.
+
 !!! warning "Compose: `DOMAIN` must be listed in `ALLOWED_HOSTS`"
     The production Compose backend healthcheck now sends `Host: $DOMAIN` instead
     of `Host: localhost`. An install whose `ALLOWED_HOSTS` holds `localhost` or
