@@ -7,9 +7,14 @@ crashed the backend with a ValueError that quoted the start of the password
 into the container log, and a "/" in REDIS_PASSWORD booted a backend pointed at
 no host at all.
 
-Settings are evaluated in a subprocess, as in test_force_insecure_cookies.py:
-the guards run at import time, and the Redis branch is skipped entirely when
-settings detect a test run.
+`ConnectionUrlGuardTests` below evaluates settings in a subprocess, as in
+test_force_insecure_cookies.py: the guards run at import time, and the Redis
+branch is skipped entirely when settings detect a test run. That subprocess
+isn't instrumented by `backend/.coveragerc`, so it proves real end-to-end
+behavior but doesn't register as coverage. `ConnectionUrlGuardFunctionTests`
+calls the same guard logic — factored out of settings.py into
+`_validate_redis_url` / `_load_database_url` for this reason — directly and
+in-process, so the branches show up in coverage.xml too.
 """
 
 import os
@@ -17,7 +22,10 @@ import subprocess
 import sys
 from urllib.parse import quote
 
+from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
+
+from visiban import settings as settings_module
 
 _SECRET_FRAGMENT = "Sekrit9"
 
@@ -128,3 +136,72 @@ class ConnectionUrlGuardTests(SimpleTestCase):
     def test_plain_urls_still_load(self):
         result = self._load()
         self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+
+class ConnectionUrlGuardFunctionTests(SimpleTestCase):
+    """In-process tests of the extracted guard functions themselves.
+
+    See the module docstring: these exist so the branches
+    ConnectionUrlGuardTests above only reaches via a subprocess also show up
+    in coverage.xml. Password fixtures mirror the subprocess tests' — same
+    parser, same expected outcome — so a failure here is not a difference
+    in behavior between the two test styles.
+    """
+
+    databases = []
+
+    def test_validate_redis_url_accepts_plain_and_hostless_urls(self):
+        # Should not raise.
+        settings_module._validate_redis_url("REDIS_URL", "redis://:plainpw@valkey:6379/0")
+        settings_module._validate_redis_url("REDIS_URL", "redis:///0")
+
+    def test_validate_redis_url_accepts_percent_encoded_password(self):
+        encoded = quote(f"{_SECRET_FRAGMENT}/+=", safe="")
+        settings_module._validate_redis_url("REDIS_CACHE_URL", f"redis://:{encoded}@valkey:6379/1")
+
+    def test_validate_redis_url_rejects_reserved_chars_without_leaking(self):
+        for char in "/?#":
+            with self.subTest(char=char):
+                url = f"redis://:{_SECRET_FRAGMENT}{char}rest@valkey:6379/0"
+                with self.assertRaises(ImproperlyConfigured) as ctx:
+                    settings_module._validate_redis_url("REDIS_URL", url)
+                self.assertIn("REDIS_URL could not be parsed", str(ctx.exception))
+                self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+
+    def test_validate_redis_url_rejects_brackets_without_leaking(self):
+        url = f"redis://:Sek[{_SECRET_FRAGMENT}]x@valkey:6379/0"
+        with self.assertRaises(ImproperlyConfigured) as ctx:
+            settings_module._validate_redis_url("REDIS_CACHE_URL", url)
+        self.assertIn("REDIS_CACHE_URL could not be parsed", str(ctx.exception))
+        self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+
+    def test_load_database_url_accepts_plain_url(self):
+        db_config = settings_module._load_database_url("postgres://visiban:plainpw@db:5432/visiban")
+        self.assertEqual(db_config["HOST"], "db")
+        self.assertTrue(db_config["ENGINE"])
+
+    def test_load_database_url_accepts_percent_encoded_password(self):
+        password = f"{_SECRET_FRAGMENT}/+=@:"
+        db_config = settings_module._load_database_url(
+            f"postgres://visiban:{quote(password, safe='')}@db:5432/visiban"
+        )
+        self.assertEqual(db_config["HOST"], "db")
+
+    def test_load_database_url_rejects_reserved_chars_without_leaking(self):
+        for char in "/?":
+            with self.subTest(char=char):
+                url = f"postgres://visiban:{_SECRET_FRAGMENT}{char}rest@db:5432/visiban"
+                with self.assertRaises(ImproperlyConfigured) as ctx:
+                    settings_module._load_database_url(url)
+                self.assertIn("DATABASE_URL could not be parsed", str(ctx.exception))
+                self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+
+    def test_load_database_url_rejects_schemeless_url_without_leaking(self):
+        # django-environ does not raise here: it warns with the parsed config
+        # dict (PASSWORD included) and returns {}. The guard must swallow
+        # that warning and refuse the URL itself.
+        url = f"//visiban:{_SECRET_FRAGMENT}@db/visiban"
+        with self.assertRaises(ImproperlyConfigured) as ctx:
+            settings_module._load_database_url(url)
+        self.assertIn("DATABASE_URL could not be parsed", str(ctx.exception))
+        self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
