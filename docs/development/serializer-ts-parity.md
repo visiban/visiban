@@ -10,7 +10,7 @@ change.**
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
 | `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **15** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
-| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282, this page) | The **generated OpenAPI document** | **29** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
+| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282, this page) | The **generated OpenAPI document** | **30** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
 
 Neither supersedes the other, and a green run of one says nothing about the other. Through
 #1139 the coverage gap was a structural one — #821 reached two pairs this gate could not,
@@ -106,6 +106,7 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `LinkedCard` | `RelatedCardRef` | no |
 | `Notification` | `Notification` | no |
 | `PublicAssignee` | `PublicAssignee` | no |
+| `PublicBoard` | `BoardPublic` | no |
 | `PublicCard` | `PublicCard` | no |
 | `ShareBoardResponse` | `ShareActionResponse` | no |
 | `Swimlane` | `Swimlane` | yes |
@@ -138,6 +139,18 @@ never been added to the map:
   `UnshareBoardResponse` stays unmapped — see [What is not covered](#what-is-not-covered-and-why).
 
 All four diffed clean — no real drift found on any of them.
+
+A later pass of this same audit found a fifth, different-shaped miss: `PublicBoard`
+(`PublicBoardSerializer`, the outer `{uid, name, columns, swimlanes, labels, cards}` shape at
+`GET /api/share/{token}/`) had been *documented* as having no TypeScript interface, in "What is
+not covered, and why" below — but `BoardPublic` in `frontend/src/types/index.ts` is exactly
+that shape, just under a renamed name, the same pattern as `CurrentUser`/`User`. That was a
+documentation error, not a structural gap, and #1282 fixed the record and mapped the pair.
+`BoardPublic.swimlanes` is typed `Swimlane[]` rather than a dedicated `PublicSwimlane[]`, but
+this gate's array check compares only the outer `array` family and does not recurse into item
+shapes, so that looseness produces no finding and needed no suppression — see `PublicSwimlane`
+below for the honest accounting of that specific gap, which a recursive array-item check would
+still need to catch.
 
 ### What is not covered, and why
 
@@ -192,15 +205,22 @@ can be added to `COMPONENT_MAP` and actually checked. Deliberately not done here
 CI-tooling fix, and annotating thirteen views to change what they publish is a real API-surface
 change that belongs in its own reviewed branch, not folded into a parity-gate correction.
 
-Four pairs are absent for the opposite reason — the schema has a component but there is no
-TypeScript interface to diff it against:
+Three pairs are absent for the opposite reason — the schema has a component but there is no
+TypeScript interface to diff it against. Confirmed by grepping all of `frontend/src` (not just
+`types/index.ts` — the `api/*.ts` call sites are where a renamed interface would actually be
+consumed) for each of these three; none turned up a renamed or differently-named interface the
+way `PublicBoard`/`BoardPublic` turned out to be one:
 
 | Pair | Why excluded |
 |---|---|
 | `CardQuery` (`CardQuerySerializer`, `GET /api/v1/cards/`, #1112) | No TypeScript interface exists — `frontend/src/api/cards.ts` has no caller of this endpoint yet. Mapping it to the closest interface, `Card`, would not work: `CardQuery` sends every `Card` field plus `board` by design (a cross-board list must say which board each row is on), so the pair would report a permanent `missing_in_ts: board` finding that is not real drift. Revisit once a frontend consumer exists and needs its own interface (#1172). |
-| `PublicBoard` (`PublicBoardSerializer`, `GET /api/share/{token}/`, #1209) | No TypeScript interface exists — the SPA's share-link view only reads the nested `cards` list, for which `PublicCard` (mapped above) already exists. Revisit if a frontend consumer needs the outer `{uid, name, columns, swimlanes, labels, cards}` shape as its own type. |
-| `PublicSwimlane` (`PublicSwimlaneSerializer`, nested on `PublicBoardSerializer.swimlanes`, `GET /api/share/{token}/`) | No dedicated TypeScript interface exists — `BoardPublic.swimlanes` in `frontend/src/types/index.ts` reuses the full `Swimlane[]` interface instead. Mapping `PublicSwimlane` to `Swimlane` would not detect real drift: `PublicSwimlaneSerializer` deliberately drops `custom_field_values`, `contact_email`, and `notes` (#1140), so the pair would report a permanent `missing_in_ts` finding for each of those that is not a bug — the same shape as the `CardQuery`/`Card` case above. Revisit if the frontend ever gives the public swimlane shape its own interface; until then, reusing `Swimlane` means the TypeScript type is wider than what a share-link visitor actually receives, which this gate cannot see. |
-| `UnshareBoardResponse` (an `inline_serializer` in `boards/views/boards.py`, backing `DELETE /api/v1/boards/{id}/share/`) | No TypeScript interface exists — `disableBoardSharing()` in `frontend/src/api/boards.ts` never reads a typed response body. Structurally identical to `ShareBoardResponse` (mapped above, to `ShareActionResponse`), but with no TypeScript consumer to diff it against. |
+| `PublicSwimlane` (`PublicSwimlaneSerializer`, nested on `PublicBoardSerializer.swimlanes`, `GET /api/share/{token}/`) | No dedicated TypeScript interface exists — `BoardPublic.swimlanes` in `frontend/src/types/index.ts` reuses the full `Swimlane[]` interface instead (grepped `frontend/src` for any other name; there is no `PublicSwimlane`-named or otherwise dedicated type). Mapping `PublicSwimlane` to `Swimlane` would not detect real drift: `PublicSwimlaneSerializer` deliberately drops `custom_field_values`, `contact_email`, and `notes` (#1140), so the pair would report a permanent `missing_in_ts` finding for each of those that is not a bug — the same shape as the `CardQuery`/`Card` case above. Revisit if the frontend ever gives the public swimlane shape its own interface; until then, reusing `Swimlane` means the TypeScript type is wider than what a share-link visitor actually receives, which this gate cannot see. |
+| `UnshareBoardResponse` (an `inline_serializer` in `boards/views/boards.py`, backing `DELETE /api/v1/boards/{id}/share/`) | No TypeScript interface exists — `disableBoardSharing()` in `frontend/src/api/boards.ts` calls `client.delete(...)` with no generic type argument at all, so it never reads a typed response body. Structurally identical to `ShareBoardResponse` (mapped above, to `ShareActionResponse`), but with no TypeScript consumer to diff it against. |
+
+`PublicBoard` was removed from this table by #1282: it does have a TypeScript interface —
+`BoardPublic` — and is now mapped in [Coverage](#coverage) instead. The entry above was wrong
+from the day it was written, not something that went stale later; see the note under
+[Coverage](#coverage) for the correction.
 
 Everything else is deliberately in scope and mapped. Of the pairs that have **both** a schema
 component and a hand-maintained TypeScript interface, none is left unchecked.
@@ -356,8 +376,8 @@ would assert a correspondence that does not exist. That union stays hand-maintai
 [#1078](https://gitlab.com/visiban/visiban/-/issues/1078) covers WebSocket event reachability
 separately.
 
-**Pairs with a component but no TypeScript interface.** `CardQuery` and `PublicBoard` — see
-[What is not covered, and why](#what-is-not-covered-and-why).
+**Pairs with a component but no TypeScript interface.** `CardQuery`, `PublicSwimlane`, and
+`UnshareBoardResponse` — see [What is not covered, and why](#what-is-not-covered-and-why).
 
 **Request bodies.** `SPECTACULAR_SETTINGS` sets `COMPONENT_SPLIT_REQUEST: True`, so the schema
 carries 34 separate `*Request` / `Patched*Request` components describing what you may *send*.

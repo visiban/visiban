@@ -233,6 +233,22 @@ EXIT_USAGE = 2
 #     no TypeScript interface on the other end to diff against.
 #
 # Diffing all four once mapped found no real drift.
+#
+# `PublicBoard` (`PublicBoardSerializer`, the outer `{uid, name, columns,
+# swimlanes, labels, cards}` shape at `GET /api/share/{token}/`) was wrongly
+# *documented* rather than mapped: an earlier pass of this same audit recorded
+# it in "What is not covered, and why" as having no TypeScript interface,
+# which was never true — `BoardPublic` in `frontend/src/types/index.ts` is
+# exactly that shape, just under a renamed (not identical) name, the same
+# pattern as `CurrentUser`/`User`. #1282 corrected the documentation error and
+# mapped it here. `BoardPublic.swimlanes` is typed `Swimlane[]` rather than a
+# dedicated `PublicSwimlane[]` — the wider authenticated shape reused for the
+# narrower public one — but this gate's array check only compares the outer
+# family (`array` vs `array`); it does not recurse into item shapes, so that
+# looseness produces no finding here and needed no `TS_ONLY_FIELDS` entry or
+# other suppression. It is a real, separately-tracked type gap that only a
+# recursive array-item check would catch — see `PublicSwimlane` in "What is
+# not covered, and why" for the honest accounting of it.
 COMPONENT_MAP = {
     "Board": "Board",
     "BoardExportLog": "BoardExportLogEntry",
@@ -259,6 +275,7 @@ COMPONENT_MAP = {
     "LinkedCard": "RelatedCardRef",
     "Notification": "Notification",
     "PublicAssignee": "PublicAssignee",
+    "PublicBoard": "BoardPublic",
     "PublicCard": "PublicCard",
     "ShareBoardResponse": "ShareActionResponse",
     "Swimlane": "Swimlane",
