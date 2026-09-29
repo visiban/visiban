@@ -1682,6 +1682,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-to-set-board-roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to set board roles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#moderator-entitlement" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3597,7 +3608,7 @@
 
 
 <h1 id="roles-permissions">Roles &amp; Permissions<a class="headerlink" href="#roles-permissions" title="Permanent link">&para;</a></h1>
-<p>Visiban has five roles that control access at both the group and board level. <strong>Why it matters:</strong> this table is the source of truth for what each role can and can't touch — check it before granting or denying access.</p>
+<p>Visiban has five roles that control access at the group, board, and site level. <strong>Why it matters:</strong> this page is the single source of truth for what each role can and can't touch — check it before granting or denying access. It supersedes any other permission table in these docs; if another page's description ever disagrees with this one, this page is correct.</p>
 <h2 id="role-hierarchy">Role hierarchy<a class="headerlink" href="#role-hierarchy" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3745,6 +3756,14 @@
 <td style="text-align: center;">✓</td>
 </tr>
 <tr>
+<td>Import board from file</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
 <td>Delete board</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">owner only</td>
@@ -3753,7 +3772,7 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Edit board structure (columns, swimlanes, labels)</td>
+<td>Create / edit / delete columns</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">—</td>
@@ -3761,7 +3780,63 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Manage board members</td>
+<td>Reorder columns</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Create / edit / delete swimlanes</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Reorder swimlanes</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Create / edit / delete labels</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Invite members</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Change member roles</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Grant / revoke moderator</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Remove members</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">—</td>
@@ -3777,10 +3852,42 @@
 <td style="text-align: center;"></td>
 </tr>
 <tr>
-<td>Create / edit card</td>
+<td>View cards &amp; movement history</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>View archived cards</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Create card</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Edit own card (title, description, priority, due date, weight, labels)</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Edit any card</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">mod†</td>
 <td style="text-align: center;">—</td>
 <td style="text-align: center;">—</td>
 </tr>
@@ -3841,6 +3948,14 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
+<td><strong>Collaboration</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
 <td>Comment on cards</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
@@ -3889,7 +4004,7 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Add checklist items</td>
+<td>Add checklist items‡</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
@@ -3897,7 +4012,7 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Edit / check / uncheck own checklist item</td>
+<td>Edit / check / uncheck own checklist item‡</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
@@ -3905,7 +4020,7 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Edit / check / uncheck any checklist item</td>
+<td>Edit / check / uncheck any checklist item‡</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">mod†</td>
@@ -3913,7 +4028,7 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Delete own checklist item</td>
+<td>Delete own checklist item‡</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
@@ -3921,20 +4036,12 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Delete any checklist item</td>
+<td>Delete any checklist item‡</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">mod†</td>
 <td style="text-align: center;">—</td>
 <td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>View cards &amp; movement history</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
 </tr>
 <tr>
 <td><strong>Export &amp; Import</strong></td>
@@ -3945,15 +4052,7 @@
 <td style="text-align: center;"></td>
 </tr>
 <tr>
-<td>Export board (CSV / JSON)‡</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td>Import board from file</td>
+<td>Export board (CSV / JSON)§</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
@@ -3986,17 +4085,32 @@
 </tr>
 </tbody>
 </table>
-<p><strong>†</strong> <code>mod</code> = only members with the moderator entitlement. Regular members can only perform these actions on their own content.</p>
-<p><strong>†</strong> <code>move</code> = Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member that the moving user did not create requires the moderator entitlement or Admin role.</p>
-<p><strong>‡</strong> Every role can export by default — a board admin can raise the minimum required role with the <code>export_min_role</code> setting. See <a href="../../permissions/">Board Permissions</a>.</p>
+<p><strong>†</strong> <code>mod</code> = only members with the moderator entitlement. Regular members can only perform these actions on content they created. See <a href="#moderator-entitlement">Moderator entitlement</a> below.</p>
+<p><strong>†</strong> <code>move</code> = Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member that the moving user did not create requires the moderator entitlement or Admin role. When blocked, the card snaps back to its original position and an amber toast displays: "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."</p>
+<p><strong>‡</strong> The ownership gate on adding, editing, checking/unchecking, and deleting checklist items was added in 1.1 (<a href="https://gitlab.com/visiban/visiban/-/issues/692">#692</a>) — before that release, any member or collaborator could act on any item.</p>
+<p><strong>§</strong> Every role can export by default — a board admin can raise the minimum required role with the <code>export_min_role</code> board setting. See the "Board export default and per-board threshold" note below.</p>
 <div class="admonition note">
 <p class="admonition-title">Personal boards</p>
 <p>Any authenticated user can create a personal board regardless of their group-level role. The "Create personal board" row above reflects this — personal boards aren't scoped to a group, so group-level permissions don't apply. The permission table above reflects group-level permissions for all other rows.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Viewer boundary enforced since 1.0</p>
+<p>Before 1.0, the Viewer role wasn't fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. Corrected in <a href="https://gitlab.com/visiban/visiban/-/issues/248">#248</a>: all write operations now return <code>403 Forbidden</code> for Viewers.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Board export default and per-board threshold</p>
+<p>By default, any board member (including Viewers and Collaborators) can export the full CSV or JSON dump — a role that can already read every card via the paginated API can reconstruct the board, so an unrestricted default is consistent. Re-affirmed in <a href="https://gitlab.com/visiban/visiban/-/issues/800">#800</a>. Board admins can restrict exports to a higher minimum role using the <code>export_min_role</code> board setting (added in 1.1, <a href="https://gitlab.com/visiban/visiban/-/issues/807">#807</a>) — set it to <code>member</code>, <code>collaborator</code>, or any other level; Owners and site admins always bypass the threshold. Every successful export is recorded in the board's export history (added in 1.1, <a href="https://gitlab.com/visiban/visiban/-/issues/806">#806</a>), visible to board admins under <strong>Board Settings → Export History</strong>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Export analytics CSV is a UI convenience, not an API boundary</p>
+<p>The analytics CSV is generated client-side from data already returned by the <code>summary</code>/<code>analytics</code> endpoints, which any board member (including Viewers) can read. Hiding the <strong>Export CSV</strong> button for non-Admins keeps the action consistent with the board-structure permissions above; it is not a data-access restriction, since a Member could already read the same numbers through the API.</p>
+</div>
+<h2 id="how-to-set-board-roles">How to set board roles<a class="headerlink" href="#how-to-set-board-roles" title="Permanent link">&para;</a></h2>
+<p>See <a href="../../permissions/#how-to-set-roles">Board Permissions — How to set roles</a> for the board-toolbar UI steps.</p>
 <h2 id="moderator-entitlement">Moderator entitlement<a class="headerlink" href="#moderator-entitlement" title="Permanent link">&para;</a></h2>
-<p>Board admins can grant the <strong>moderator</strong> entitlement to any member or admin via the Members tab in Board Settings. A moderator can assign, edit, delete, and archive cards created by other users, and delete comments created by other users — normally a member can only do this on their own content.</p>
-<p>Moderator is a boolean flag (<code>is_moderator</code>) on the board membership, not a separate role. It appears as a checkbox next to the role dropdown. Demoting a moderator to collaborator or viewer automatically clears the flag.</p>
-<p>See <a href="../../permissions/#moderator-entitlement">Board Permissions</a> for the full description.</p>
+<p>Board admins can grant the <strong>moderator</strong> entitlement to any member or admin via the Members tab in Board Settings. A moderator can assign, edit, delete, and archive cards created by other users, and delete comments, attachments, and checklist items created by other users — normally a member can only do this on their own content.</p>
+<p>Moderator is a boolean flag (<code>is_moderator</code>) on the board membership, not a separate role. It appears as a checkbox next to the role dropdown. Demoting a moderator to collaborator or viewer automatically clears the flag. The checkbox is only available for members and admins — collaborators and viewers can't be designated as moderators.</p>
+<p>See <a href="../../permissions/#moderator-entitlement">Board Permissions — Moderator entitlement</a> for how to grant it in the board UI and the assignee-dropdown gating behavior.</p>
 <h2 id="site-admin-protection">Site admin protection<a class="headerlink" href="#site-admin-protection" title="Permanent link">&para;</a></h2>
 <p>Site admins can't be demoted or removed by anyone but another site admin. A role-change or remove-member call on a group or board that <strong>targets a user with <code>is_site_admin=True</code></strong> returns <code>403 Forbidden</code> unless the caller is also a site admin.</p>
 <p><strong>Watch out:</strong> manage <code>is_site_admin</code> and <code>can_access_all_content</code> together (the <code>set_site_admin</code> command does this for you). Separate them only when you have a specific reason — see the tip below.</p>
