@@ -47,7 +47,7 @@ Scopes required: `read_user`, `openid`, `email`
 Replace `http://localhost:8000` with your public domain in all callback URLs.
 
 !!! note
-    OAuth callbacks are handled at `/accounts/...` paths (as shown above), not `/_allauth/`. Ensure your production nginx config proxies `/accounts/` to the backend — both `nginx/app.conf.template` (HTTPS) and `nginx/app-http.conf.template` (HTTP) already include this block.
+    OAuth callbacks are handled at `/accounts/...` paths (as shown above). Ensure your production nginx config proxies `/accounts/` to the backend — both `nginx/app.conf.template` (HTTPS) and `nginx/app-http.conf.template` (HTTP) already include this block.
 
 ## Generic OIDC (OpenID Connect)
 
