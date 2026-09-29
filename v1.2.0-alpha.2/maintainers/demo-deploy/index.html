@@ -3728,21 +3728,16 @@ check it. Confirm that the node is not in the runner inventory
 PostgreSQL and Valkey, and nothing else) is only a claim if the CNI enforces it. k3s
 enforces NetworkPolicy with its embedded kube-router controller unless it was installed
 with <code>--disable-network-policy</code>.</p>
-<p>Configuration check, on the node (expect no output):</p>
+<p>Configuration check, on the node (expect no output). This is the only part of this
+precondition you can check before the first install — it looks at k3s's own config, not at
+a running pod:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sudo<span class="w"> </span>grep<span class="w"> </span>-rs<span class="w"> </span>--<span class="w"> </span><span class="s1">'disable-network-policy'</span><span class="w"> </span>/etc/rancher/k3s/<span class="w"> </span>/etc/systemd/system/k3s*.service
 </code></pre></div>
-<p>Behavioral check after the install, from any machine with cluster access. This is the
-one-line <code>kubectl</code> check. A pod carrying the backend's labels must NOT reach the internet:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>visiban-demo<span class="w"> </span>run<span class="w"> </span>egress-check<span class="w"> </span>--rm<span class="w"> </span>-i<span class="w"> </span>--restart<span class="o">=</span>Never<span class="w"> </span>--image<span class="o">=</span>busybox:1.36<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--labels<span class="o">=</span>app.kubernetes.io/name<span class="o">=</span>visiban,app.kubernetes.io/instance<span class="o">=</span>visiban-demo,app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--<span class="w"> </span>nc<span class="w"> </span>-z<span class="w"> </span>-w<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="m">1</span>.1.1.1<span class="w"> </span><span class="m">443</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"NOT ENFORCED: egress is open"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"OK: egress denied"</span>
-</code></pre></div>
-<p>Then the control, so "denied" means the policy and not a node without internet. An
-unlabeled pod SHOULD connect:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>visiban-demo<span class="w"> </span>run<span class="w"> </span>egress-control<span class="w"> </span>--rm<span class="w"> </span>-i<span class="w"> </span>--restart<span class="o">=</span>Never<span class="w"> </span>--image<span class="o">=</span>busybox:1.36<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--<span class="w"> </span>nc<span class="w"> </span>-z<span class="w"> </span>-w<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="m">1</span>.1.1.1<span class="w"> </span><span class="m">443</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"OK: control connects"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"control failed: check node egress first"</span>
-</code></pre></div>
-<p>If the first command prints <code>NOT ENFORCED</code>, stop and fix the node before exposing the demo.</p>
+<p>The <em>behavioral</em> check — proving enforcement actually blocks egress, not just that it isn't
+disabled in config — needs a real, already-running pod to test against (see
+<a href="#install-or-upgrade">Install or upgrade, step 4</a> for why and for the check itself), so it
+cannot run until after the first install. On a node rebuild, treat that step as part of
+this precondition too: redeploy, then run it before exposing the demo again.</p>
 <h3 id="3-cloudflare-bot-and-abuse-reduction-not-security-controls">3. Cloudflare: bot and abuse reduction, not security controls<a class="headerlink" href="#3-cloudflare-bot-and-abuse-reduction-not-security-controls" title="Permanent link">&para;</a></h3>
 <p>The maintainer decided (2026-09-27) that there is <strong>no Cloudflare Access or email gate</strong>.
 Visitors give no email, so nothing needs to be disclosed. Configure only Cloudflare
@@ -3778,42 +3773,77 @@ so the deployment record is the only durable trace that these were actually set 
 <ol>
 <li>
 <p>Create the secrets file outside the repository (never commit it):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># ~/visiban-demo-secrets.yaml</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">secret</span><span class="p">:</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">djangoSecretKey</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;python3</span><span class="nv"> </span><span class="s">-c</span><span class="nv"> </span><span class="s">'import</span><span class="nv"> </span><span class="s">secrets;</span><span class="nv"> </span><span class="s">print(secrets.token_hex(50))'&gt;"</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nt">postgresql</span><span class="p">:</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;openssl</span><span class="nv"> </span><span class="s">rand</span><span class="nv"> </span><span class="s">-hex</span><span class="nv"> </span><span class="s">24&gt;"</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="nt">demo</span><span class="p">:</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">loginHint</span><span class="p">:</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;openssl</span><span class="nv"> </span><span class="s">rand</span><span class="nv"> </span><span class="s">-base64</span><span class="nv"> </span><span class="s">18</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">tr</span><span class="nv"> </span><span class="s">-d</span><span class="nv"> </span><span class="s">'=+/'&gt;"</span><span class="w">   </span><span class="c1"># PUBLISHED on the login page</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nt">adminPassword</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;openssl</span><span class="nv"> </span><span class="s">rand</span><span class="nv"> </span><span class="s">-base64</span><span class="nv"> </span><span class="s">24&gt;"</span><span class="w">              </span><span class="c1"># never published</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="nt">memberPassword</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;openssl</span><span class="nv"> </span><span class="s">rand</span><span class="nv"> </span><span class="s">-base64</span><span class="nv"> </span><span class="s">24&gt;"</span><span class="w">             </span><span class="c1"># not published</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># ~/visiban-demo-secrets.yaml</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">secret</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">djangoSecretKey</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;python3</span><span class="nv"> </span><span class="s">-c</span><span class="nv"> </span><span class="s">'import</span><span class="nv"> </span><span class="s">secrets;</span><span class="nv"> </span><span class="s">print(secrets.token_hex(50))'&gt;"</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">postgresql</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;openssl</span><span class="nv"> </span><span class="s">rand</span><span class="nv"> </span><span class="s">-hex</span><span class="nv"> </span><span class="s">24&gt;"</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nt">demo</span><span class="p">:</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">loginHint</span><span class="p">:</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;openssl</span><span class="nv"> </span><span class="s">rand</span><span class="nv"> </span><span class="s">-base64</span><span class="nv"> </span><span class="s">18</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">tr</span><span class="nv"> </span><span class="s">-d</span><span class="nv"> </span><span class="s">'=+/'&gt;"</span><span class="w">   </span><span class="c1"># PUBLISHED on the login page</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="nt">adminPassword</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;openssl</span><span class="nv"> </span><span class="s">rand</span><span class="nv"> </span><span class="s">-base64</span><span class="nv"> </span><span class="s">24&gt;"</span><span class="w">              </span><span class="c1"># never published</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="nt">memberPassword</span><span class="p">:</span><span class="w"> </span><span class="s">"&lt;openssl</span><span class="nv"> </span><span class="s">rand</span><span class="nv"> </span><span class="s">-base64</span><span class="nv"> </span><span class="s">24&gt;"</span><span class="w">             </span><span class="c1"># not published</span>
 </code></pre></div>
 </li>
 <li>
 <p>Install or upgrade. Pin both image tags to a release that contains #1179 and #1180
    (1.2.0 or later):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban-demo<span class="w"> </span>./helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban-demo<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values-demo.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>-f<span class="w"> </span>~/visiban-demo-secrets.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>vX.Y.Z<span class="w"> </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>vX.Y.Z<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--wait<span class="w"> </span>--timeout<span class="w"> </span>12m
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban-demo<span class="w"> </span>./helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban-demo<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values-demo.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>-f<span class="w"> </span>~/visiban-demo-secrets.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>vX.Y.Z<span class="w"> </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>vX.Y.Z<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span>--wait<span class="w"> </span>--timeout<span class="w"> </span>12m
 </code></pre></div>
 <p>Every install and every upgrade runs the seed hook, which <strong>empties the database and
 reseeds it</strong>. Visitors are signed out, just as they are by a scheduled reset.</p>
 </li>
 <li>
 <p>Prove the fence:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>helm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>visiban-demo<span class="w"> </span>-n<span class="w"> </span>visiban-demo<span class="w"> </span>--logs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>helm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>visiban-demo<span class="w"> </span>-n<span class="w"> </span>visiban-demo<span class="w"> </span>--logs
 </code></pre></div>
 <p>Expect <code>signed in as visitor ... (200)</code>, <code>board create refused 403 demo_read_only</code>,
 <code>moved seeded card ... (200)</code> and a <code>demo_next_reset_at</code>. A failure here means do not
 expose the instance.</p>
 </li>
 <li>
-<p>Run the NetworkPolicy behavioral check from <a href="#2-networkpolicy-is-enforced-on-the-node">Precondition 2</a>.</p>
+<p>Verify NetworkPolicy enforcement behaviorally, now that a real backend pod exists (this
+   is the behavioral half of <a href="#2-networkpolicy-is-enforced-on-the-node">Precondition 2</a>; the
+   config check there must already have passed). A pod carrying the backend's labels must
+   NOT reach the internet.</p>
+<p><strong>Test against the real, already-running backend pod with <code>kubectl exec</code> — not a
+throwaway <code>kubectl run --rm</code> pod.</strong> k3s's embedded NetworkPolicy controller
+(kube-router) builds a per-pod <code>KUBE-POD-FW-*</code> iptables chain <em>after</em> the pod starts,
+not before. A <code>kubectl run --rm</code> pod that runs its check and self-deletes within a few
+seconds can race that chain's provisioning and see unrestricted egress even though
+enforcement is working correctly — a false <code>NOT ENFORCED</code> result, not a real gap (this
+cost a debugging session chasing a phantom node-wide networking failure, #1285). A
+real, standing pod has had time for its chain to settle, so exec into one instead:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">POD</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban-demo<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>visiban-demo<span class="w"> </span><span class="nb">exec</span><span class="w"> </span><span class="s2">"</span><span class="nv">$POD</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span>backend<span class="w"> </span>--<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="s2">import socket</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="s2">s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="s2">s.settimeout(5)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="s2">try:</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="s2">    s.connect(('1.1.1.1', 443))</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="s2">    print('NOT ENFORCED: egress open (connected)')</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="s2">except Exception as e:</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="s2">    print(f'OK: egress denied ({type(e).__name__}: {e})')</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="s2">finally:</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="s2">    s.close()</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="s2">"</span>
+</code></pre></div>
+<p>The backend image is a Django/Python base with neither <code>nc</code> nor <code>curl</code> installed — only
+<code>python3</code> — hence the socket-connect script instead of a one-line <code>nc</code> call.</p>
+<p>Then the control, so "denied" means the policy and not a node without internet. An
+unlabeled throwaway pod SHOULD connect — this one does not carry the backend's labels,
+so no NetworkPolicy selects it and there is no restrictive chain for it to race against,
+so the same false-negative failure mode does not apply here:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>visiban-demo<span class="w"> </span>run<span class="w"> </span>egress-control<span class="w"> </span>--rm<span class="w"> </span>-i<span class="w"> </span>--restart<span class="o">=</span>Never<span class="w"> </span>--image<span class="o">=</span>busybox:1.36<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--<span class="w"> </span>nc<span class="w"> </span>-z<span class="w"> </span>-w<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="m">1</span>.1.1.1<span class="w"> </span><span class="m">443</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"OK: control connects"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"control failed: check node egress first"</span>
+</code></pre></div>
+<p>If the exec check prints <code>NOT ENFORCED</code>, stop and fix the node before exposing the demo.</p>
 </li>
 </ol>
 <h2 id="expose-it-through-the-tunnel">Expose it through the tunnel<a class="headerlink" href="#expose-it-through-the-tunnel" title="Permanent link">&para;</a></h2>
