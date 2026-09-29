@@ -145,6 +145,35 @@ class BoardSchemaContractTests(TestCase):
         # extend_schema_field stores its override on the decorated method.
         self.assertTrue(hasattr(BoardFullSerializer.get_group_detail, "_spectacular_annotation"))
 
+    def test_board_full_group_name_survives_partial_bind(self):
+        """Defense-in-depth for #1189: BoardFullSerializer.group_name used to be
+        a dotted-source `CharField(source="group.name", default=None)` — the same
+        shape that caused #1166's `group_name`-absent-on-PATCH bug on
+        BoardSerializer. BoardFullSerializer is currently only ever instantiated
+        read-only (BoardViewSet.full()), so there is no live endpoint that binds
+        it with `partial=True` to reproduce the bug end-to-end. This exercises
+        DRF's `Serializer.to_representation()` field loop directly — the same
+        `get_attribute()` / `to_representation()` calls a partial-bound
+        serializer would make — so a future partial-bound reuse can't silently
+        reintroduce it.
+
+        Pre-fix, the `group=None` branch below raised `SkipField` from
+        `Field.get_default()`, which unconditionally fires whenever
+        `self.root.partial` is True, regardless of whether `default` is set.
+        """
+        board = _make_board(self.user)
+        serializer = BoardFullSerializer(board, partial=True)
+        self.assertTrue(serializer.partial)
+        field = serializer.fields["group_name"]
+
+        attribute = field.get_attribute(board)
+        self.assertIsNone(field.to_representation(attribute))
+
+        board.group = Group.objects.create(name="Team", owner=self.user)
+        board.save(update_fields=["group"])
+        attribute = field.get_attribute(board)
+        self.assertEqual(field.to_representation(attribute), "Team")
+
     def test_current_user_matches_schema(self):
         resp = self.client.get("/api/v1/auth/user/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
