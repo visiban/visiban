@@ -45,32 +45,7 @@ The `data` object contains the serialized resource (card, column, swimlane, etc.
 
 ### Event types
 
-| Event | Trigger |
-|-------|---------|
-| `card.created` | A new card is created |
-| `card.updated` | A card's fields are updated |
-| `card.deleted` | A card is deleted |
-| `card.moved` | A card is moved to a different column or swimlane |
-| `card.archived` | A card is archived |
-| `card.unarchived` | An archived card is restored |
-| `column.created` | A new column is created |
-| `column.updated` | A column's fields are updated |
-| `column.deleted` | A column is deleted |
-| `column.reordered` | Column positions are changed (since 1.1; replaces deprecated `columns.reordered`) |
-| `columns.reordered` | **Deprecated** (removed in 2.0) — plural alias of `column.reordered` |
-| `swimlane.created` | A new swimlane is created |
-| `swimlane.updated` | A swimlane's fields are updated |
-| `swimlane.deleted` | A swimlane is deleted |
-| `swimlane.reordered` | Swimlane positions are changed (since 1.1; replaces deprecated `swimlanes.reordered`) |
-| `swimlanes.reordered` | **Deprecated** (removed in 2.0) — plural alias of `swimlane.reordered` |
-| `label.created` | A new label is created |
-| `label.updated` | A label's fields are updated |
-| `label.deleted` | A label is deleted |
-| `member.added` | A member is added to the board |
-| `member.updated` | A member's role is changed |
-| `member.removed` | A member is removed from the board |
-| `board.updated` | Board settings are changed |
-| `board.deleted` | The board is deleted |
+Every event follows the `{ "event": "<event_type>", "data": { ... } }` envelope shown above. The full, CI-enforced list of event types — board, column, swimlane, label, custom field, swimlane field, card, member, and Git Lens events — is maintained in one place: see [WebSockets → Event reference](websockets.md#event-reference).
 
 ---
 

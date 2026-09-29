@@ -20,6 +20,7 @@ from drf_spectacular.generators import SchemaGenerator
 
 from accounts.models import User
 from groups.models import Group, GroupMembership
+from groups.serializers import GroupSerializer
 
 _GROUP_DETAIL_PATH = "/api/v1/groups/{id}/"
 _GROUP_LIST_PATH = "/api/v1/groups/"
@@ -118,6 +119,35 @@ class GroupSchemaContractTests(TestCase):
         self.assertIsInstance(body["subgroup_count"], int)
         self.assertIsInstance(body["is_starred"], bool)
         self._assert_matches_documented_response(self.detail_operation, body, 200)
+
+    def test_group_parent_name_survives_partial_bind(self):
+        """Defense-in-depth for #1225: `GroupSerializer.parent_name` used to be a
+        dotted-source `CharField(source="parent.name", default=None)` — the same
+        shape that caused #1166's `group_name`-absent-on-PATCH bug on
+        `BoardSerializer` (fixed for `BoardFullSerializer` in #1189). This
+        exercises DRF's `Serializer.to_representation()` field loop directly —
+        the same `get_attribute()` / `to_representation()` calls a partial-bound
+        serializer would make — so a future dotted-source reintroduction can't
+        silently bring the bug back even if no live call site happens to be
+        partial-bound at the time.
+
+        Pre-fix, the `parent=None` branch below raised `SkipField` from
+        `Field.get_default()`, which unconditionally fires whenever
+        `self.root.partial` is True, regardless of whether `default` is set.
+        """
+        group = _make_group(self.owner, name="Root Group")
+        serializer = GroupSerializer(group, partial=True)
+        self.assertTrue(serializer.partial)
+        field = serializer.fields["parent_name"]
+
+        attribute = field.get_attribute(group)
+        self.assertIsNone(field.to_representation(attribute))
+
+        parent = _make_group(self.owner, name="Parent Group")
+        group.parent = parent
+        group.save(update_fields=["parent"])
+        attribute = field.get_attribute(group)
+        self.assertEqual(field.to_representation(attribute), "Parent Group")
 
     def test_list_groups_response_matches_documented_schema(self):
         """The list endpoint uses the plain `GroupSerializer`, not `GroupDetailSerializer`
