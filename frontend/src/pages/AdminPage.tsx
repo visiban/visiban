@@ -423,13 +423,13 @@ function InviteLinksTab() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleRevoke(link.id)}
-                      className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="text-xs text-danger hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       Confirm revoke
                     </button>
                     <button
                       onClick={() => setRevokeConfirm(null)}
-                      className="text-xs text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="text-xs text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       Cancel
                     </button>
@@ -437,7 +437,7 @@ function InviteLinksTab() {
                 ) : (
                   <button
                     onClick={() => setRevokeConfirm(link.id)}
-                    className="shrink-0 text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="shrink-0 text-xs text-danger hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     Revoke
                   </button>

@@ -737,12 +737,12 @@ describe('BehaviorTab — restart tour', () => {
     )
   })
 
-  it('button shows "Resetting…" while request is in flight', async () => {
+  it('button shows "Restarting…" while request is in flight', async () => {
     let resolveReset!: () => void
     mockResetTour.mockReturnValueOnce(new Promise<void>((res) => { resolveReset = res }))
     const user = await openBehaviorTab()
     await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
-    expect(await screen.findByRole('button', { name: 'Resetting…' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Restarting…' })).toBeDisabled()
     resolveReset()
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Restart onboarding tour' })).toBeInTheDocument(),

@@ -398,6 +398,68 @@ describe('AdminPage — Users tab', () => {
     ).toBeInTheDocument()
   })
 
+  it('ignores a second restart-tour click for the same user while its PATCH is in flight, independent of the disabled attribute (#1280)', async () => {
+    // The passing test above shows the button is `disabled` and a click is a
+    // no-op — but a native disabled button never dispatches click at all, so
+    // that alone doesn't prove the component's own `restartingTourIds` guard
+    // does anything. Here we clear the DOM `disabled` property by hand right
+    // before the second click, so the click *does* reach the onClick handler,
+    // and assert the handler's own early return still stops a duplicate PATCH.
+    const toured: AdminUser = { ...fakeAdminUsers[1], has_completed_tour: true }
+    mockGetAdminUsers.mockResolvedValue({
+      count: 2,
+      offset: 0,
+      page_size: 50,
+      results: [fakeAdminUsers[0], toured],
+    })
+    mockPatchAdminUser.mockReturnValue(new Promise<AdminUser>(() => { /* never resolves */ }))
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getByText('@alice'))
+
+    const button = screen.getByText('Restart onboarding tour') as HTMLButtonElement
+    fireEvent.click(button)
+    await waitFor(() => expect(button).toBeDisabled())
+    expect(mockPatchAdminUser).toHaveBeenCalledTimes(1)
+
+    button.disabled = false
+    fireEvent.click(button)
+
+    expect(mockPatchAdminUser).toHaveBeenCalledTimes(1)
+  })
+
+  // Regression guard (#1280): unmounting while the 4s success-message
+  // auto-clear timer is pending must clear it, not fire a state update after
+  // teardown — the same class of bug fixed for SettingsPage's tour-restart
+  // confirmation in #870.
+  it('clears the pending success-message timer on unmount, without throwing or warning', async () => {
+    const toured: AdminUser = { ...fakeAdminUsers[1], has_completed_tour: true }
+    mockGetAdminUsers.mockResolvedValue({
+      count: 2,
+      offset: 0,
+      page_size: 50,
+      results: [fakeAdminUsers[0], toured],
+    })
+    mockPatchAdminUser.mockResolvedValue({ ...toured, has_completed_tour: false })
+    const { unmount } = renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getByText('@alice'))
+    fireEvent.click(screen.getByText('Restart onboarding tour'))
+    await waitFor(() => {
+      expect(
+        screen.getByText(`Tour will restart for ${toured.display_name} on their next visit to a board.`)
+      ).toBeInTheDocument()
+    })
+
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => unmount()).not.toThrow()
+    expect(clearSpy).toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+    clearSpy.mockRestore()
+    errorSpy.mockRestore()
+  })
+
   it('calls clearAdminUserLockout after confirming the clear-lockout action (#1203)', async () => {
     mockClearAdminUserLockout.mockResolvedValue(fakeAdminUsers[1])
     renderAdminPage()
