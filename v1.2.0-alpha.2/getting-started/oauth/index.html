@@ -3650,7 +3650,7 @@
 <p>Replace <code>http://localhost:8000</code> with your public domain in all callback URLs.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>OAuth callbacks are handled at <code>/accounts/...</code> paths (as shown above), not <code>/_allauth/</code>. Ensure your production nginx config proxies <code>/accounts/</code> to the backend — both <code>nginx/app.conf.template</code> (HTTPS) and <code>nginx/app-http.conf.template</code> (HTTP) already include this block.</p>
+<p>OAuth callbacks are handled at <code>/accounts/...</code> paths (as shown above). Ensure your production nginx config proxies <code>/accounts/</code> to the backend — both <code>nginx/app.conf.template</code> (HTTPS) and <code>nginx/app-http.conf.template</code> (HTTP) already include this block.</p>
 </div>
 <h2 id="generic-oidc-openid-connect">Generic OIDC (OpenID Connect)<a class="headerlink" href="#generic-oidc-openid-connect" title="Permanent link">&para;</a></h2>
 <p>Visiban supports any standards-compliant OpenID Connect provider (Keycloak, Authentik, Dex, Azure AD, Okta, etc.) via the generic OIDC backend.</p>

@@ -3747,6 +3747,9 @@
 <p>django-allauth covers email/password, Google/GitHub/GitLab OAuth, and generic OIDC (Keycloak, Authentik, Okta, Dex, and any OIDC-compliant IdP) from a single dependency. Generic OIDC is part of the OSS distribution — it uses the same <code>django-allauth</code> stack as the social providers and requires no enterprise tier.</p>
 <p>Headless API mode separates the concerns cleanly: the React SPA controls what the login screen looks like and how it behaves, while allauth handles OAuth redirects, token exchange, and session management underneath. There is no Django-rendered login page to style or maintain.</p>
 <p>Personal Access Tokens (<code>vbn_</code> prefix) are implemented on top of allauth's session model. Tokens are shown once at creation time, stored as a hash at rest, and revoked on password change. The prefix makes tokens easy to identify in logs and rotate tooling.</p>
+<blockquote>
+<p><strong>Note (2026-09-29, #1281):</strong> Headless API mode described above was never actually adopted — <code>allauth.headless</code> is not installed, and <code>backend/visiban/urls.py</code> mounts no <code>/_allauth/</code> route. OAuth/OIDC runs through allauth's browser-based <code>/accounts/</code> flow instead. The dead <code>/_allauth/</code> nginx proxy blocks (present in both nginx templates and the Helm frontend configmap, but never backed by a route) were removed in #1281. This note corrects the record without rewriting the decision above; a future move to real headless mode would need its own ADR entry.</p>
+</blockquote>
 <hr />
 <h2 id="valkey-replacing-redis">Valkey (replacing Redis)<a class="headerlink" href="#valkey-replacing-redis" title="Permanent link">&para;</a></h2>
 <p>The deployed service is <strong>Valkey</strong>, not Redis. The rationale covers both why a pub/sub store is in the stack at all and why Valkey specifically.</p>
