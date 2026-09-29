@@ -512,11 +512,15 @@ migration-check:
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # No unconditional main fallback (#1266): nothing downstream needs this job
+  # (a pure pipeline-greenness leaf), and `changes:` already re-fires on main
+  # push pipelines whenever a merge actually touches these paths — so a
+  # docs-only or frontend-only merge no longer pays for a full migrate +
+  # concurrency/constraint-safety cycle it cannot affect.
   rules:
     - changes:
         - backend/**/*
         - requirements*.txt
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
     - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
@@ -576,10 +580,10 @@ backend-schema-validate:
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # No unconditional main fallback (#1266) — see migration-check's comment above.
   rules:
     - changes:
         - backend/**/*
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   variables:
     DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@localhost:5432/${CI_POSTGRES_DB}"
     REDIS_URL: "redis://localhost:6379/0"
@@ -713,9 +717,13 @@ backend-schema-validate:
 # --baseline-prune`, from a full-length run) so the job starts catching a
 # regression in that area again.
 #
-# Scoped to the file classes #1080 names (views/, serializers.py, urls.py)
-# plus always on main, so a schema-shape change gets checked before merge
-# without running on every unrelated branch (e.g. a frontend-only MR).
+# Scoped to the file classes #1080 names (views/, serializers.py, urls.py), so
+# a schema-shape change gets checked without running on every unrelated
+# branch (e.g. a frontend-only MR). No unconditional main fallback (#1266):
+# nothing downstream `needs:` this job — it only gates pipeline greenness —
+# and `changes:` already re-fires on main push pipelines whenever a merge
+# actually touches these paths, so a docs-only merge no longer pays for a
+# full server boot + seed + up to 600s of fuzzing it cannot affect.
 backend-schema-fuzz:
   extends: .pip-cache
   stage: test
@@ -746,7 +754,6 @@ backend-schema-fuzz:
         - backend/**/views/**/*
         - backend/**/serializers.py
         - backend/**/urls.py
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
     - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
@@ -992,7 +999,11 @@ backend-test-mcp:
 # FRONTEND_URL is pointed at the liveness endpoint so the post-login redirect
 # resolves inside the job without needing the React dev server running.
 #
-# Runs on any change to OIDC-related files, and always on the default branch.
+# Runs on any change to OIDC-related files. No unconditional main fallback
+# (#1266): nothing downstream needs this job, and `changes:` already re-fires
+# on main push pipelines when a merge touches these paths — so an unrelated
+# merge no longer pays for a Keycloak JVM boot it cannot affect. Doubly worth
+# trimming here since that boot is already the slowest, flakiest leg below.
 # allow_failure: true — Keycloak boot is slow on the shared small runner and the
 # job historically times out far more often than it succeeds, so a red run must
 # not block unrelated MRs.  The job is still reported in the pipeline summary.
@@ -1016,7 +1027,6 @@ oidc-smoke:
         - scripts/oidc_smoke_test.py
         - oidc/**/*
         - docker-compose.oidc.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   allow_failure: true
   services:
     - name: quay.io/keycloak/keycloak:24.0.5
