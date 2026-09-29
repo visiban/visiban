@@ -113,6 +113,53 @@ describe('EditSwimlaneModal', () => {
     expect(mockDeleteSwimlane).not.toHaveBeenCalled()
   })
 
+  it('OK dismisses the blocked confirmation and returns to the edit form', async () => {
+    render(
+      <EditSwimlaneModal
+        boardId={1}
+        swimlane={makeSwimlane()}
+        cardCount={3}
+        onUpdated={onUpdated}
+        onDeleted={onDeleted}
+        onClose={onClose}
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Delete swimlane/ }))
+    expect(screen.getByText('Cannot delete swimlane')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(screen.queryByText('Cannot delete swimlane')).not.toBeInTheDocument()
+    expect(screen.getByText('Edit Swimlane')).toBeInTheDocument()
+    expect(mockDeleteSwimlane).not.toHaveBeenCalled()
+    expect(onDeleted).not.toHaveBeenCalled()
+  })
+
+  it('Cancel dismisses the delete confirmation without deleting', async () => {
+    render(
+      <EditSwimlaneModal
+        boardId={1}
+        swimlane={makeSwimlane()}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onDeleted={onDeleted}
+        onClose={onClose}
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Delete swimlane/ }))
+    expect(screen.getByText('Delete swimlane?')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByText('Delete swimlane?')).not.toBeInTheDocument()
+    expect(screen.getByText('Edit Swimlane')).toBeInTheDocument()
+    expect(mockDeleteSwimlane).not.toHaveBeenCalled()
+    expect(onDeleted).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('calls deleteSwimlane when confirmed on empty swimlane', async () => {
     mockDeleteSwimlane.mockResolvedValue(undefined)
 
