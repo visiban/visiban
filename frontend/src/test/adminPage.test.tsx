@@ -352,6 +352,39 @@ describe('AdminPage — Users tab', () => {
     })
   })
 
+  it('shows Reset onboarding tour only for a user who completed the tour, and PATCHes has_completed_tour: false on click (#1280)', async () => {
+    const toured: AdminUser = { ...fakeAdminUsers[1], has_completed_tour: true }
+    mockGetAdminUsers.mockResolvedValue({
+      count: 2,
+      offset: 0,
+      page_size: 50,
+      results: [fakeAdminUsers[0], toured],
+    })
+    mockPatchAdminUser.mockResolvedValue({ ...toured, has_completed_tour: false })
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getByText('@alice'))
+
+    // fakeAdminUsers[0] (admin) has no has_completed_tour set (falsy), so the
+    // action must not render for that row — only one button total.
+    const resetTourBtns = screen.getAllByText('Reset onboarding tour')
+    expect(resetTourBtns).toHaveLength(1)
+
+    fireEvent.click(resetTourBtns[0])
+    await waitFor(() => {
+      expect(mockPatchAdminUser).toHaveBeenCalledWith(
+        toured.id,
+        { has_completed_tour: false }
+      )
+    })
+
+    // After the update comes back with has_completed_tour: false, the action
+    // disappears — nothing left to reset.
+    await waitFor(() => {
+      expect(screen.queryByText('Reset onboarding tour')).not.toBeInTheDocument()
+    })
+  })
+
   it('calls clearAdminUserLockout after confirming the clear-lockout action (#1203)', async () => {
     mockClearAdminUserLockout.mockResolvedValue(fakeAdminUsers[1])
     renderAdminPage()

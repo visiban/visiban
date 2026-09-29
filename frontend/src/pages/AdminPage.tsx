@@ -993,7 +993,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
 
   const applyPatch = async (
     userId: number,
-    patch: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "can_access_all_content" | "must_change_password">>
+    patch: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "can_access_all_content" | "must_change_password" | "has_completed_tour">>
   ) => {
     setActionError(null);
     try {
@@ -1229,6 +1229,20 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                             className="text-xs text-fg-tertiary hover:text-warning transition"
                           >
                             Force reset
+                          </button>
+                        )}
+
+                        {/* Reset onboarding tour (#1280) — mirrors the Force
+                            reset pattern above: hidden once the user is
+                            already in the target state (tour not completed),
+                            since there's nothing left to reset. */}
+                        {u.has_completed_tour && (
+                          <button
+                            onClick={() => applyPatch(u.id, { has_completed_tour: false })}
+                            title="Show the onboarding tour again the next time this user opens a board"
+                            className="text-xs text-fg-tertiary hover:text-info transition"
+                          >
+                            Reset onboarding tour
                           </button>
                         )}
 
