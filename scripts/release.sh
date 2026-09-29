@@ -59,6 +59,33 @@ refuse_if_published() {
   fi
 }
 
+# ─── Helm chart tag pin ──────────────────────────────────────────────────────
+#
+# pin_helm_tags <file> <tag> — writes the rewritten file to stdout.
+#
+# Only rewrites a `tag:` line when it is the first one encountered after a
+# `repository: ghcr.io/visiban/visiban/backend` or `.../frontend` line — the
+# bundled Valkey and the `helm test` curl probe image also have `tag:` lines
+# at the same indentation and must never be touched (#1254).
+pin_helm_tags() {
+  awk -v tag="$2" '
+    /repository: ghcr\.io\/visiban\/visiban\/(backend|frontend)/ { pin=1 }
+    pin && /^    tag: / { sub(/tag: .*/, "tag: \"" tag "\""); pin=0 }
+    { print }
+  ' "$1"
+}
+
+# rc_banner_is_current <file> <version> — true if <file> carries the RC banner
+# for exactly <version>, in the bolded, full-version form the script's own
+# writer blocks (both the first-RC-of-cycle awk block and the subsequent-RC
+# sed, above) actually produce. A bare "rc.N is the current..." substring
+# never appears in the real file (#1263) — this function is the single source
+# of truth both the live check and its self-test call, so a regression of one
+# can't hide behind an out-of-sync copy in the other.
+rc_banner_is_current() {
+  grep -qF "**${2}** is the current stable release candidate" "$1"
+}
+
 if [[ "${1:-}" == "--self-test" ]]; then
   rc=0; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
   _rot_case() { # <label> <input> <expected>
@@ -145,6 +172,54 @@ if [[ "${1:-}" == "--self-test" ]]; then
   _pub_case "new tag on a clean remote passes" 0 "$tmp/origin.git" v1.0.0
   _pub_case "unreachable remote fails closed" 1 "$tmp/nope.git" v1.0.0
 
+  # pin_helm_tags: only the backend/frontend tag: lines get pinned — the
+  # bundled Valkey's tag at the same indentation must survive untouched (#1254).
+  printf '%s\n' \
+'backend:
+  image:
+    repository: ghcr.io/visiban/visiban/backend
+    pullPolicy: IfNotPresent
+    tag: "v1.1.0"
+
+frontend:
+  image:
+    repository: ghcr.io/visiban/visiban/frontend
+    pullPolicy: IfNotPresent
+    tag: "v1.1.0"
+
+valkey:
+  image:
+    repository: valkey/valkey
+    tag: "8-alpine"
+    pullPolicy: IfNotPresent' > "$tmp/values.yaml"
+  got="$(pin_helm_tags "$tmp/values.yaml" v1.2.0-rc.1)"
+  if [[ "$got" == *'repository: ghcr.io/visiban/visiban/backend'$'\n''    pullPolicy: IfNotPresent'$'\n''    tag: "v1.2.0-rc.1"'* ]] \
+     && [[ "$got" == *'repository: ghcr.io/visiban/visiban/frontend'$'\n''    pullPolicy: IfNotPresent'$'\n''    tag: "v1.2.0-rc.1"'* ]] \
+     && [[ "$got" == *'repository: valkey/valkey'$'\n''    tag: "8-alpine"'* ]]; then
+    echo "SELF-TEST OK: pin_helm_tags pins backend/frontend, leaves valkey untouched"
+  else
+    echo "SELF-TEST FAILED: pin_helm_tags pins backend/frontend, leaves valkey untouched" >&2
+    echo "--- got ---" >&2; printf '%s\n' "$got" >&2
+    rc=1
+  fi
+
+  # rc_banner_is_current: exercises the actual function the live check calls
+  # (not a hardcoded copy of its pattern), against the exact bolded-full-
+  # version text the script's writer blocks produce (#1263).
+  printf '%s\n' '    **1.2.0-rc.1** is the current stable release candidate for the upcoming release.' > "$tmp/index.md"
+  if rc_banner_is_current "$tmp/index.md" "1.2.0-rc.1"; then
+    echo "SELF-TEST OK: rc_banner_is_current matches the script's actual banner text"
+  else
+    echo "SELF-TEST FAILED: rc_banner_is_current matches the script's actual banner text" >&2
+    rc=1
+  fi
+  if rc_banner_is_current "$tmp/index.md" "1.2.0-rc.2"; then
+    echo "SELF-TEST FAILED: rc_banner_is_current wrongly matches a different RC version" >&2
+    rc=1
+  else
+    echo "SELF-TEST OK: rc_banner_is_current does not match a different RC version"
+  fi
+
   [[ $rc -eq 0 ]] && echo "release: self-test passed."
   exit $rc
 fi
@@ -194,12 +269,6 @@ git checkout -b "$RELEASE_BRANCH"
 # publishes to GHCR), not the bare VERSION -- #1174. The backend strips the
 # "v" itself before serving GET /api/v1/version/ (visiban/utils.py).
 sed -i '' "s/^APP_VERSION=.*/APP_VERSION=${TAG}/" .env.example
-
-# Update docker-compose.yml (hardcoded value, not the :-dev fallback line)
-# Only replace if there's already a hardcoded value; skip if it's the ${APP_VERSION:-dev} form
-if grep -q "APP_VERSION: [^$]" docker-compose.yml; then
-  sed -i '' "s/APP_VERSION: .*/APP_VERSION: ${VERSION}/" docker-compose.yml
-fi
 
 # Update frontend/package.json — Vite injects this as __APP_VERSION__ at build time
 # so the Settings → About page reads the version from here.
@@ -310,9 +379,10 @@ fi
 # fail-closed `${APP_VERSION:?...}` in docker-compose.prod.yml itself; see the
 # consistency check below, which now guards THAT instead of a release-tag pin
 # that was never actually happening.
-sed -i '' "s|^  tag: .*|  tag: \"${TAG}\"|" helm/visiban/values.yaml
+TMP=$(mktemp)
+pin_helm_tags helm/visiban/values.yaml "$TAG" > "$TMP" && mv "$TMP" helm/visiban/values.yaml
 
-echo "Updated .env.example, docker-compose.yml, helm/visiban/values.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md, docs/getting-started/kubernetes.md"
+echo "Updated .env.example, helm/visiban/values.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md, docs/getting-started/kubernetes.md"
 
 # Verify version consistency across key files
 echo "Verifying version consistency..."
@@ -356,7 +426,7 @@ fi
 # docs/index.md must reference the RC number (for RC releases)
 if echo "$VERSION" | grep -qE 'rc\.[0-9]+'; then
   RC_NUM=$(echo "$VERSION" | grep -oE 'rc\.[0-9]+')
-  if ! grep -q "${RC_NUM} is the current stable release candidate" docs/index.md; then
+  if ! rc_banner_is_current docs/index.md "$VERSION"; then
     echo "  WARN: docs/index.md does not reference ${RC_NUM} as current RC" >&2
     ERRORS=$((ERRORS + 1))
   fi
@@ -404,7 +474,7 @@ fi
 # Include changelog.d/ so that fragment deletions from assemble-changelog.sh
 # are committed — without this, deleted fragments are left as unstaged changes
 # and re-accumulate on main after the next pull.
-git add CHANGELOG.md .env.example docker-compose.yml docker-compose.prod.yml \
+git add CHANGELOG.md .env.example docker-compose.prod.yml \
         frontend/package.json README.md docs/index.md docs/getting-started/installation.md \
         docs/getting-started/kubernetes.md helm/visiban/values.yaml changelog.d/
 git commit -m "chore: release ${TAG}"

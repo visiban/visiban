@@ -83,7 +83,7 @@ The script will automatically:
    `RELEASE_REMOTE` overrides it), or the local tag-listing check itself was ambiguous —
    fails closed rather than proceeding as if the tag were absent
 2. Create a `chore/release-{version}` branch from `main`
-3. Update `.env.example` and `docker-compose.yml` with the new version
+3. Update `.env.example` with the new version
 4. Rotate `CHANGELOG.md` — moves `[Unreleased]` to `[vX.Y.Z] — YYYY-MM-DD`, prepends a fresh
    `[Unreleased]` block, in a single pass (no intermediate state that could leave a stray
    `---` divider behind)
