@@ -87,6 +87,14 @@ describe('EditSwimlaneModal', () => {
     )
     await userEvent.setup().click(screen.getByRole('button', { name: /Delete swimlane/ }))
     expect(screen.getByText(/This cannot be undone/)).toBeInTheDocument()
+    // Text is split across a <span> (the name) and a trailing text node, so match
+    // on the paragraph's full normalized textContent rather than a plain string.
+    expect(
+      screen.getByText((_, node) => node?.tagName.toLowerCase() === 'p' && node.textContent === 'Default will be permanently deleted.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/If the swimlane contains any archived cards, they will also be permanently deleted/)
+    ).toBeInTheDocument()
   })
 
   it('blocks delete when swimlane has cards', async () => {
@@ -103,6 +111,53 @@ describe('EditSwimlaneModal', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /Delete swimlane/ }))
     expect(screen.getByText(/Move or delete all cards/)).toBeInTheDocument()
     expect(mockDeleteSwimlane).not.toHaveBeenCalled()
+  })
+
+  it('OK dismisses the blocked confirmation and returns to the edit form', async () => {
+    render(
+      <EditSwimlaneModal
+        boardId={1}
+        swimlane={makeSwimlane()}
+        cardCount={3}
+        onUpdated={onUpdated}
+        onDeleted={onDeleted}
+        onClose={onClose}
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Delete swimlane/ }))
+    expect(screen.getByText('Cannot delete swimlane')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(screen.queryByText('Cannot delete swimlane')).not.toBeInTheDocument()
+    expect(screen.getByText('Edit Swimlane')).toBeInTheDocument()
+    expect(mockDeleteSwimlane).not.toHaveBeenCalled()
+    expect(onDeleted).not.toHaveBeenCalled()
+  })
+
+  it('Cancel dismisses the delete confirmation without deleting', async () => {
+    render(
+      <EditSwimlaneModal
+        boardId={1}
+        swimlane={makeSwimlane()}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onDeleted={onDeleted}
+        onClose={onClose}
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Delete swimlane/ }))
+    expect(screen.getByText('Delete swimlane?')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByText('Delete swimlane?')).not.toBeInTheDocument()
+    expect(screen.getByText('Edit Swimlane')).toBeInTheDocument()
+    expect(mockDeleteSwimlane).not.toHaveBeenCalled()
+    expect(onDeleted).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('calls deleteSwimlane when confirmed on empty swimlane', async () => {
