@@ -1084,3 +1084,44 @@ describe('CardDetail — MR/PR link section (#352)', () => {
     expect(screen.queryByText('Pull / merge request')).not.toBeInTheDocument()
   })
 })
+
+describe('CardDetail — custom fields (#371, #1236)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUpdateCard.mockImplementation((_boardId: number, _cardId: number, patch: Record<string, unknown>) =>
+      Promise.resolve({ ...makeCard(), ...patch })
+    )
+  })
+
+  const statusField = {
+    id: 500, uid: 'cfduid00001', name: 'Status', field_type: 'dropdown' as const,
+    choices: ['Red', 'Green', 'Blue'], position: 0, show_on_card: false,
+    is_required: false, help_text: '', created_at: '2026-01-01T00:00:00Z',
+  }
+
+  // #1236 — CustomFieldEditRow wraps CustomFieldValueInput with no
+  // `debounceMs` override, so it relies on the 600ms default (an autosave
+  // surface, not a Save-button one). Dropdown commits immediately regardless
+  // of debounce, so this exercises the row → onSave → updateCard wiring
+  // without needing fake timers.
+  it('committing a dropdown custom field value reaches updateCard via onSave', async () => {
+    const props = defaultProps()
+    props.board = makeBoard({ custom_field_definitions: [statusField] })
+    render(<CardDetail {...props} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Custom fields/ }))
+    await userEvent.click(screen.getByRole('button', { name: /— No value —/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Green' }))
+
+    await waitFor(() => {
+      expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, {
+        custom_field_values: [{ field_definition: 500, value: 'Green' }],
+      })
+    })
+  })
+
+  it('does not render the custom fields section when the board has no definitions', () => {
+    render(<CardDetail {...defaultProps()} />)
+    expect(screen.queryByText('Custom fields')).not.toBeInTheDocument()
+  })
+})
