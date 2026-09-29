@@ -28,7 +28,7 @@ from visiban.permissions import (
 
 from .. import broadcast as _broadcast
 from ..services import cards as card_services
-from ..services.notifications import create_notifications
+from ..services.notifications import card_watcher_ids, create_notifications, quoted_card_verb
 from ..services.errors import CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
@@ -962,21 +962,26 @@ class CardViewSet(viewsets.ModelViewSet):
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
             # Parse @username mentions and notify each mentioned board member.
             # Comments don't need a re-notification guard — each comment is a new event.
+            member_ids = self._board_context()["member_ids"]
             mentioned_usernames = extract_mentions(comment.body)
+            mentioned_ids = set()
             if mentioned_usernames:
-                eff_ids = self._board_context()["member_ids"]
-                member_users = User.objects.filter(
-                    username__in=mentioned_usernames,
-                    pk__in=eff_ids,
-                    notif_mentioned=True,
-                ).exclude(pk=request.user.pk)
+                # Materialized: the ids feed the watcher exclusion below.
+                member_users = list(
+                    User.objects.filter(
+                        username__in=mentioned_usernames,
+                        pk__in=member_ids,
+                        notif_mentioned=True,
+                    ).exclude(pk=request.user.pk)
+                )
+                mentioned_ids = {u.pk for u in member_users}
                 create_notifications(
                     [
                         Notification(
                             recipient=u,
                             actor=request.user,
                             action_type=Notification.ActionType.MENTIONED,
-                            verb=f"{request.user.username} mentioned you in \"{card.title}\"",
+                            verb=quoted_card_verb(f"{request.user.username} mentioned you in", card.title),
                             card=card,
                             board=board,
                         )
@@ -990,6 +995,38 @@ class CardViewSet(viewsets.ModelViewSet):
                         "comment_id": comment.pk,
                         "comment_body": comment.body,
                     },
+                )
+            # Notify the card's implicit watchers (creator + assignee, #1277).
+            # Intersecting with member_ids is the access check: a creator or
+            # assignee who has since lost board access must not keep receiving
+            # the card's comments. A user @mentioned in this same comment already
+            # got the more specific MENTIONED row, so they are not told twice.
+            # mentioned_ids only holds mentions that produced a row, so a watcher
+            # who opted out of mention notifications still gets COMMENT_ADDED.
+            watcher_ids = card_watcher_ids(card) & set(member_ids)
+            if watcher_ids:
+                watchers = (
+                    User.objects.filter(
+                        pk__in=watcher_ids,
+                        notif_comment_added=True,
+                        is_active=True,
+                    )
+                    .exclude(pk=request.user.pk)
+                    .exclude(pk__in=mentioned_ids)
+                )
+                create_notifications(
+                    [
+                        Notification(
+                            recipient=u,
+                            actor=request.user,
+                            action_type=Notification.ActionType.COMMENT_ADDED,
+                            verb=quoted_card_verb(f"{request.user.username} commented on", card.title),
+                            card=card,
+                            board=board,
+                        )
+                        for u in watchers
+                    ],
+                    context={"comment_id": comment.pk, "comment_body": comment.body},
                 )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

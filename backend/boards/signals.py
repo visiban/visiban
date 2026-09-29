@@ -81,6 +81,7 @@ swimlane_custom_field_value_changed = Signal()
 #                              comment_id, comment_body (comment source only)
 #                 card_moved → from_column_name, to_column_name
 #                 due_soon   → due_date (ISO date string)
+#                 comment_added → comment_id, comment_body
 #               Treat every key as optional and absent-by-default: keys may be
 #               added, and no key may be removed or retyped without a major bump.
 #
