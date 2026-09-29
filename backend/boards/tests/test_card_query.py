@@ -17,14 +17,18 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, CardRelation, Column, Label, Swimlane,
+    Board, BoardMembership, Card, CardAttachment, CardChecklist, CardMovement,
+    CardRelation, Column, Label, Swimlane,
 )
 
 URL = "/api/v1/cards/"
 
 
-def _make_board(owner, name="Board", group=None):
-    board = Board.objects.create(name=name, owner=owner, group=group)
+def _make_board(owner, name="Board", group=None, staleness_threshold_days=7):
+    board = Board.objects.create(
+        name=name, owner=owner, group=group,
+        staleness_threshold_days=staleness_threshold_days,
+    )
     BoardMembership.objects.create(board=board, user=owner, role=BoardMembership.Role.ADMIN)
     col = Column.objects.create(board=board, name="Backlog", position=0, allow_card_creation=True)
     swim = Swimlane.objects.create(board=board, name="General", position=0)
@@ -35,6 +39,29 @@ def _make_card(board, col, swim, user, **kwargs):
     kwargs.setdefault("title", "Card")
     kwargs.setdefault("position", 0)
     return Card.objects.create(board=board, column=col, swimlane=swim, created_by=user, **kwargs)
+
+
+def _make_movement(card, col, swim, user, days_ago=0):
+    """Create a CardMovement and backdate moved_at (auto_now_add prevents direct set).
+
+    Matches the backdating pattern in test_serializers.py's
+    CardSerializerIsStaleTests — moved_at is auto_now_add, so the only way to
+    get a movement "in the past" is to create it and then UPDATE the column
+    directly, bypassing auto_now_add on the second write.
+    """
+    mv = CardMovement.objects.create(
+        card=card,
+        from_column=None, from_column_name="",
+        to_column=col, to_column_name=col.name,
+        from_swimlane=None, from_swimlane_name="",
+        to_swimlane=swim, to_swimlane_name=swim.name,
+        moved_by=user,
+    )
+    if days_ago:
+        backdated = timezone.now() - datetime.timedelta(days=days_ago)
+        CardMovement.objects.filter(pk=mv.pk).update(moved_at=backdated)
+        mv.refresh_from_db()
+    return mv
 
 
 class CardQueryAccessScopingTests(TestCase):
@@ -589,3 +616,147 @@ class CardQuerySchemaTypeTests(TestCase):
         self.assertEqual(
             card_query_schema["properties"]["blocker_count"]["type"], "integer",
         )
+
+
+class CardQueryMethodFieldValueTests(TestCase):
+    """Value assertions for CardQuerySerializer's other hand-rolled method
+    fields (#1249) — CardQueryBlockerCountValueTests above is the pattern:
+    CardQuerySerializerFieldParityTests only guards field *names*, so a lost
+    prefetch or wrong direction on last_moved_at/attachment_count/
+    checklist_total/checklist_done would leave the field present and always
+    zero/null while every existing test (which never asserts a real value on
+    these) kept passing.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="mf_owner", password="x")
+        self.board, self.col, self.swim = _make_board(self.owner)
+        self.card = _make_card(self.board, self.col, self.swim, self.owner, title="Card")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _row(self):
+        r = self.client.get(URL)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return next(c for c in r.data["results"] if c["id"] == self.card.id)
+
+    def test_last_moved_at_is_null_with_no_movements(self):
+        self.assertIsNone(self._row()["last_moved_at"])
+
+    def test_last_moved_at_reports_most_recent_movement(self):
+        _make_movement(self.card, self.col, self.swim, self.owner, days_ago=5)
+        newest = _make_movement(self.card, self.col, self.swim, self.owner, days_ago=1)
+        row = self._row()
+        # r.data holds the pre-render serializer output (real datetime
+        # objects), not JSON strings — compare directly against the
+        # DB-stored value rather than parsing a rendered string.
+        newest.refresh_from_db()
+        self.assertEqual(row["last_moved_at"], newest.moved_at)
+
+    def test_attachment_count(self):
+        self.assertEqual(self._row()["attachment_count"], 0)
+        CardAttachment.objects.create(
+            card=self.card, uploaded_by=self.owner,
+            filename="a.txt", file="attachments/a.txt", size=1,
+        )
+        CardAttachment.objects.create(
+            card=self.card, uploaded_by=self.owner,
+            filename="b.txt", file="attachments/b.txt", size=1,
+        )
+        self.assertEqual(self._row()["attachment_count"], 2)
+
+    def test_checklist_total_and_done_count_separately(self):
+        CardChecklist.objects.create(card=self.card, text="done", is_checked=True, position=0)
+        CardChecklist.objects.create(card=self.card, text="done too", is_checked=True, position=1)
+        CardChecklist.objects.create(card=self.card, text="not done", is_checked=False, position=2)
+        row = self._row()
+        self.assertEqual(row["checklist_total"], 3)
+        self.assertEqual(row["checklist_done"], 2)
+
+    def test_checklist_done_is_zero_with_no_checked_items(self):
+        CardChecklist.objects.create(card=self.card, text="a", is_checked=False, position=0)
+        row = self._row()
+        self.assertEqual(row["checklist_total"], 1)
+        self.assertEqual(row["checklist_done"], 0)
+
+
+class CardQueryIsStaleCrossBoardThresholdTests(TestCase):
+    """get_is_stale() deliberately re-derives staleness in Python per-row
+    instead of reusing _annotate_is_stale()'s single SQL-level cutoff,
+    specifically because a cross-board page can mix boards with different
+    staleness_threshold_days (see the method's own comment in card_query.py).
+    That mixed-threshold scenario had zero test coverage anywhere in the repo
+    (#1249) — every other is_stale test (test_serializers.py,
+    test_query_counts.py) exercises a single board.
+
+    These tests are constructed so that using any ONE shared threshold for
+    both cards (whichever board's, or the global default) gets at least one
+    of the two rows wrong — see the inline math in each test.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="stale_owner", password="x")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _rows(self):
+        r = self.client.get(URL)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return {row["id"]: row for row in r.data["results"]}
+
+    def test_is_stale_uses_each_cards_own_board_threshold(self):
+        # Board A: threshold=2 days. Board B: threshold=20 days. Both cards'
+        # last movement is 5 days ago.
+        #   - card_a (threshold 2): 5 >= 2  -> stale (True)
+        #   - card_b (threshold 20): 5 < 20 -> NOT stale (False)
+        # A single shared threshold gets one of these wrong no matter which
+        # board's threshold (or the model default of 7) is used instead:
+        #   - shared=2  -> card_b wrongly True
+        #   - shared=20 -> card_a wrongly False
+        #   - shared=7  -> card_a wrongly False (5 < 7)
+        board_a, col_a, swim_a = _make_board(
+            self.owner, name="Board A", staleness_threshold_days=2,
+        )
+        board_b, col_b, swim_b = _make_board(
+            self.owner, name="Board B", staleness_threshold_days=20,
+        )
+        card_a = _make_card(board_a, col_a, swim_a, self.owner, title="Card A")
+        card_b = _make_card(board_b, col_b, swim_b, self.owner, title="Card B")
+        _make_movement(card_a, col_a, swim_a, self.owner, days_ago=5)
+        _make_movement(card_b, col_b, swim_b, self.owner, days_ago=5)
+
+        rows = self._rows()
+        self.assertTrue(rows[card_a.id]["is_stale"], "card on the low-threshold board should be stale")
+        self.assertFalse(rows[card_b.id]["is_stale"], "card on the high-threshold board should NOT be stale")
+
+    def test_is_stale_uses_each_cards_own_board_threshold_no_movements(self):
+        """Same discrimination, but through the no-movements/created_at branch."""
+        board_a, col_a, swim_a = _make_board(
+            self.owner, name="Board A", staleness_threshold_days=2,
+        )
+        board_b, col_b, swim_b = _make_board(
+            self.owner, name="Board B", staleness_threshold_days=20,
+        )
+        card_a = _make_card(board_a, col_a, swim_a, self.owner, title="Card A")
+        card_b = _make_card(board_b, col_b, swim_b, self.owner, title="Card B")
+        old_time = timezone.now() - datetime.timedelta(days=5)
+        Card.objects.filter(pk=card_a.pk).update(created_at=old_time)
+        Card.objects.filter(pk=card_b.pk).update(created_at=old_time)
+
+        rows = self._rows()
+        self.assertTrue(rows[card_a.id]["is_stale"], "card on the low-threshold board should be stale")
+        self.assertFalse(rows[card_b.id]["is_stale"], "card on the high-threshold board should NOT be stale")
+
+    def test_is_stale_true_immediately_with_zero_threshold(self):
+        """staleness_threshold_days is a PositiveIntegerField (0 is a valid
+        value, unlike the other boards in this file which are all >=1) — a
+        board that sets it to 0 must treat every card as stale immediately,
+        since (now - created_at).days >= 0 is always true. Covers the edge
+        the method's own branch logic allows but no test exercised."""
+        board, col, swim = _make_board(
+            self.owner, name="Board Zero", staleness_threshold_days=0,
+        )
+        card = _make_card(board, col, swim, self.owner, title="Card Zero")
+
+        rows = self._rows()
+        self.assertTrue(rows[card.id]["is_stale"])
