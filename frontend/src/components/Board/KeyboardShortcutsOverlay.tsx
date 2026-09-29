@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { formatShortcut } from "../../utils/platform";
 
@@ -12,6 +13,11 @@ interface Props {
 
 interface ShortcutRow {
   key: string;
+  /** A sequential chord (press, release, press — e.g. `G` then `U`), as
+   * opposed to a simultaneous combo like ⌘K. Renders as separate <kbd>
+   * chips joined by "then" so it can't be mistaken for one; omit for a
+   * single key or simultaneous modifier chord, which render as before. */
+  sequence?: string[];
   description: string;
 }
 
@@ -32,7 +38,7 @@ function buildSections(showLens: boolean): ShortcutSection[] {
         { key: formatShortcut({ mod: true, key: "K" }), description: "Open command palette" },
         { key: "/", description: "Focus the search box" },
         { key: formatShortcut({ mod: true, key: "," }), description: "Open board settings" },
-        { key: "G U", description: "Open the user menu" },
+        { key: "G U", sequence: ["G", "U"], description: "Open the user menu" },
       ],
     },
     {
@@ -82,12 +88,25 @@ export default function KeyboardShortcutsOverlay({ onClose, onRestartTour, showL
             </h3>
             <table className="w-full text-sm">
               <tbody className="divide-y divide-line">
-                {rows.map(({ key, description }) => (
+                {rows.map(({ key, sequence, description }) => (
                   <tr key={`${heading}-${key}`}>
-                    <td className="py-2 pr-4 w-24">
-                      <kbd className="inline-block bg-surface-hover text-fg text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong">
-                        {key}
-                      </kbd>
+                    <td className={`py-2 pr-4 ${sequence ? "w-28" : "w-24"}`}>
+                      {sequence ? (
+                        <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                          {sequence.map((k, i) => (
+                            <Fragment key={`${k}-${i}`}>
+                              {i > 0 && <span className="text-fg-tertiary text-xs">then</span>}
+                              <kbd className="inline-block bg-surface-hover text-fg text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong">
+                                {k}
+                              </kbd>
+                            </Fragment>
+                          ))}
+                        </span>
+                      ) : (
+                        <kbd className="inline-block bg-surface-hover text-fg text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong">
+                          {key}
+                        </kbd>
+                      )}
                     </td>
                     <td className="py-2 text-fg-secondary">{description}</td>
                   </tr>

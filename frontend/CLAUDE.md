@@ -841,6 +841,7 @@ Shortcut wiring lives in two places: the board-scoped keydown listener in `Board
 - **Platform-aware formatting — always route through `src/utils/platform.ts`.** `formatShortcut({ mod, shift, alt, key })` renders visible hints (⌘⇧L on Mac; Ctrl+Shift+L elsewhere). `formatAriaKeyshortcuts()` renders the ARIA 1.2 canonical form (`Meta+Shift+L` / `Control+Shift+L`). Never hard-code the Mac glyphs or the `Meta+` prefix at a call site.
 - **Tooltip hints — parenthesize the shortcut after the label.** Format `"${label} (${formatShortcut(...)})"`. The overflow menu's own `shortcut` slot already renders the hint inline; set it there instead of baking the hint into the item label.
 - **The shortcuts overlay is the canonical registry.** Every non-trivial binding must appear in `KeyboardShortcutsOverlay.tsx` grouped under one of the four sections (Navigation / Board view / Board actions / Help) and in `docs/features/keyboard-shortcuts.md`. Descriptions are imperative (`Switch to Board view`, not `Board view`) so each row reads as a command.
+- **Sequential chords render as separate chips, never one.** Sequential chords (press, release, press — e.g. `G` then `U`) render as separate <kbd> chips joined by "then", never as one chip, so they can't be mistaken for a simultaneous combo like ⌘K.
 - **A control is allowed to have no shortcut, on purpose.** The grid overlay picker
   (#1147) deliberately has none and carries no `aria-keyshortcuts`: it is a cosmetic
   reading layer, it is Tab-reachable in Row 2 at every supported width, and the bare-letter

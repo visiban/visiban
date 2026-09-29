@@ -27,10 +27,16 @@ describe('KeyboardShortcutsOverlay', () => {
     expect(screen.getByText('Switch to Analytics view')).toBeInTheDocument()
   })
 
-  it('lists the G U chord to open the user menu', () => {
-    render(<KeyboardShortcutsOverlay onClose={() => {}} />)
-    expect(screen.getByText('G U')).toBeInTheDocument()
+  it('renders the G U chord as separate kbd chips joined by "then", not one combo chip', () => {
+    const { container } = render(<KeyboardShortcutsOverlay onClose={() => {}} />)
     expect(screen.getByText('Open the user menu')).toBeInTheDocument()
+    const keys = Array.from(container.querySelectorAll('kbd')).map((el) => el.textContent)
+    // Two distinct <kbd> chips — G and U — never a single "G U" chip, so the
+    // sequential chord can't be mistaken for a simultaneous combo like ⌘K.
+    expect(keys).toContain('G')
+    expect(keys).toContain('U')
+    expect(keys).not.toContain('G U')
+    expect(screen.getByText('then')).toBeInTheDocument()
   })
 
   it('shows the L shortcut for Lens view when a lens is available', () => {
