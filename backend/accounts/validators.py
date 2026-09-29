@@ -55,8 +55,20 @@ def is_username_taken(username: str, exclude_pk=None) -> bool:
     not a collision with yourself.
     """
     from django.contrib.auth import get_user_model  # deferred: app registry
+    from django.db.models import CharField, Value
+    from django.db.models.functions import Lower
 
-    qs = get_user_model().objects.filter(username__iexact=username)
+    # Compare on Lower(username), not ``username__iexact``: on PostgreSQL
+    # iexact compiles to UPPER(...) = UPPER(...), which cannot use the
+    # unique_username_ci functional index on Lower("username") (migration
+    # 0021) and would sequentially scan users on every profile save. The
+    # candidate is lowered by the database too (not Python's str.lower), so
+    # both sides use the same case mapping as the index itself.
+    qs = (
+        get_user_model()
+        .objects.annotate(username_lower=Lower("username"))
+        .filter(username_lower=Lower(Value(username, output_field=CharField())))
+    )
     if exclude_pk is not None:
         qs = qs.exclude(pk=exclude_pk)
     return qs.exists()

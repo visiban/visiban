@@ -237,6 +237,11 @@ describe('ProfileTab', () => {
     expect(screen.getByText(/we sent a link to new@example\.com/)).toBeInTheDocument()
     // The field shows the address still in effect, not the pending one.
     expect(screen.getByDisplayValue('j@example.com')).toBeInTheDocument()
+    // State-specific result copy replaces the generic one; never both.
+    expect(
+      screen.getByText('Profile updated. Check your inbox to confirm your new email address.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument()
     act(() => { vi.advanceTimersByTime(1500) })
     expect(mockNavigate).not.toHaveBeenCalled()
   })
@@ -246,9 +251,37 @@ describe('ProfileTab', () => {
     expect(screen.getByText(/we sent a link to new@example\.com/)).toBeInTheDocument()
   })
 
-  it('does not show the notice when no change is pending', () => {
+  it('reserves the pending-note slot and keeps aria-describedby stable when nothing is pending', () => {
     renderSettings({ ...fakeUser, pending_email: null })
+    const note = screen.getByTestId('pending-email-note')
+    expect(note).toBeInTheDocument()
+    expect(note).toBeEmptyDOMElement()
+    expect(note).toHaveAttribute('id', 'pending-email-note')
+    expect(screen.getByDisplayValue('j@example.com')).toHaveAttribute(
+      'aria-describedby',
+      'pending-email-note',
+    )
     expect(screen.queryByText(/we sent a link to/)).not.toBeInTheDocument()
+  })
+
+  it('aria-describedby points at the same note id while a change is pending', () => {
+    renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
+    expect(screen.getByDisplayValue('j@example.com')).toHaveAttribute(
+      'aria-describedby',
+      'pending-email-note',
+    )
+    expect(screen.getByTestId('pending-email-note')).toHaveTextContent(/new@example\.com/)
+  })
+
+  it('announces the save result through a polite, atomic live region', async () => {
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    const user = userEvent.setup()
+    renderSettings()
+    const status = screen.getByRole('status')
+    expect(status).toHaveAttribute('aria-live', 'polite')
+    expect(status).toHaveAttribute('aria-atomic', 'true')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(status).toHaveTextContent('Changes saved.'))
   })
 
   it('shows the server username error on a taken username', async () => {

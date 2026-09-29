@@ -150,15 +150,16 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.email}
           onChange={set("email")}
           required
-          aria-describedby={pendingEmail ? "pending-email-note" : undefined}
+          aria-describedby="pending-email-note"
           className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
-        {pendingEmail && (
-          <span id="pending-email-note" className="text-xs text-fg-muted">
-            Waiting for confirmation: we sent a link to {pendingEmail}. Your email address
-            changes once you open it.
-          </span>
-        )}
+        {/* Reserved slot (frontend/CLAUDE.md § Inline status messages): the
+            container always renders so the form doesn't shift, and the
+            input's aria-describedby always has a stable target. */}
+        <span id="pending-email-note" data-testid="pending-email-note" className="block min-h-4 text-xs text-fg-muted">
+          {pendingEmail &&
+            `Waiting for confirmation: we sent a link to ${pendingEmail}. Your email address changes once you open it.`}
+        </span>
       </label>
 
       <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
@@ -208,9 +209,17 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         </div>
       </div>
 
-      <p className="text-xs h-4">
+      {/* Live region: with an email change pending the page stays here, so
+          this line is the terminal state of the save and must be announced. */}
+      <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
         {error && <span className="text-danger">{error}</span>}
-        {saved && !error && <span className="text-success">Changes saved.</span>}
+        {saved && !error && (
+          <span className="text-success">
+            {pendingEmail
+              ? "Profile updated. Check your inbox to confirm your new email address."
+              : "Changes saved."}
+          </span>
+        )}
       </p>
 
       <div>

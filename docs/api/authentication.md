@@ -662,7 +662,7 @@ Update the authenticated user's profile. All fields are optional.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `username` | string | No | 1-150 characters; letters, digits, and `@/./+/-/_` only. Must not match another account's username **ignoring case** — the same rule as [`POST /api/v1/auth/choose-username/`](#post-apiv1authchoose-username). Re-casing your own username is allowed. A request that changes the username also counts against that endpoint's rate limit (the two share one per-user budget), and clears `must_change_username`. |
-| `email` | string | No | A valid email address, or `""` to clear it. On instances with `EMAIL_VERIFICATION=mandatory`, a **new** address doesn't take effect on this request — see below. |
+| `email` | string | No | A valid email address, or `""` to clear it. On instances with `EMAIL_VERIFICATION=mandatory`, a **new** address doesn't take effect on this request (see below), and clearing an existing address is refused. |
 | `avatar_url` | string / null | No | URL of the user's avatar image. Accepts any absolute URL or `null` to clear. |
 | `theme` | string | No | Color scheme preference. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"` for new accounts. |
 | `default_board_id` | integer \| null | No | Board to redirect to after login. Must be a board the user is a member of, or `null` to clear. |
@@ -680,7 +680,7 @@ Update the authenticated user's profile. All fields are optional.
 - Choosing an address that is already a verified address of your own account applies it immediately.
 - An address already verified by another account can't be confirmed.
 
-With `optional` (the default) or `none`, `email` is written directly, as before, and `pending_email` stays `null`.
+With `optional` (the default) or `none`, `email` is written directly, as before (including `""` to clear it), and `pending_email` stays `null`.
 
 **Example — set theme**
 
@@ -703,6 +703,7 @@ PATCH /api/v1/auth/me/
 | `400 Bad Request` | `theme` is not one of `"system"`, `"dark"`, or `"light"` — response body contains `{"theme": ["..."]}`  |
 | `400 Bad Request` | `default_board_id` refers to a board the user is not a member of |
 | `400 Bad Request` | `username` is taken by another account (compared ignoring case) — `{"username": ["That username is already taken."]}` |
+| `400 Bad Request` | `email` is `""` on an account that has an address, when the instance sets `EMAIL_VERIFICATION=mandatory` — `{"email": ["An email address is required."]}` |
 | `429 Too Many Requests` | Too many username changes — the request changed `username` and exhausted the per-user budget it shares with `POST /api/v1/auth/choose-username/` |
 | `401 Unauthorized` | Request is not authenticated |
 

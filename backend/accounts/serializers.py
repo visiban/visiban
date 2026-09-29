@@ -347,7 +347,28 @@ class UserSerializer(serializers.ModelSerializer):
     def get_has_usable_password(self, obj) -> bool:
         return obj.has_usable_password()
 
-    validate_email = staticmethod(validate_optional_email_format)
+    def validate_email(self, value):
+        """Format check, plus: no blanking the address when verification is mandatory (#1273).
+
+        ``User.email`` is ``blank=True`` and a blank address stays valid under
+        ``optional``/``none``. Under ``mandatory`` an account is expected to hold
+        a verified address; writing ``""`` directly would leave the verified
+        primary ``EmailAddress`` row behind (so ``User.email`` and allauth
+        disagree) and a still-pending change could later "un-blank" it. Only a
+        change *to* blank is refused, so an account that already has no address
+        (e.g. SSO without an email claim) can still save the rest of its profile.
+        """
+        from .email_change import email_verification_mandatory
+
+        value = validate_optional_email_format(value)
+        if (
+            not value
+            and email_verification_mandatory()
+            and self.instance is not None
+            and self.instance.email
+        ):
+            raise serializers.ValidationError("An email address is required.")
+        return value
 
     def validate_username(self, value):
         """Case-insensitive uniqueness, the same rule as POST /auth/choose-username/ (#1273).

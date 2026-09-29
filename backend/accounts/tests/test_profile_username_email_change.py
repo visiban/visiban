@@ -241,6 +241,33 @@ class MandatoryEmailChangeTests(TestCase):
         self.assertEqual(r.json()["first_name"], "Erin")
         self.assertEqual(r.json()["pending_email"], "erin@new.example")
 
+    def test_blanking_email_is_rejected(self):
+        for url in PROFILE_ENDPOINTS:
+            with self.subTest(url=url):
+                r = self.client.patch(url, {"email": ""}, format="json")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(r.json()["email"], ["An email address is required."])
+                self.user.refresh_from_db()
+                self.assertEqual(self.user.email, "erin@old.example")
+                self.assertTrue(EmailAddress.objects.filter(pk=self.old_address.pk).exists())
+
+    def test_blanking_email_does_not_disturb_a_pending_change(self):
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@new.example"}, format="json")
+        r = self.client.patch("/api/v1/auth/me/", {"email": "", "first_name": "E"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "erin@old.example")
+        self.assertEqual(self.user.first_name, "")
+
+    def test_account_without_email_can_still_save_profile(self):
+        # e.g. SSO without an email claim: re-sending the existing blank is not a change.
+        self.user.email = ""
+        self.user.save(update_fields=["email"])
+        self.old_address.delete()
+        r = self.client.patch("/api/v1/auth/me/", {"email": "", "first_name": "E"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["first_name"], "E")
+
     def test_signup_confirmation_is_unaffected(self):
         # A primary-but-unverified signup address confirms as before.
         self.old_address.verified = False
@@ -270,3 +297,49 @@ class OptionalEmailChangeTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "gina@new.example")
         self.assertEqual(len(mail.outbox), 0)
+
+    def test_blank_email_is_still_allowed(self):
+        for policy in ("optional", "none"):
+            with self.subTest(policy=policy), override_settings(ACCOUNT_EMAIL_VERIFICATION=policy):
+                self.user.email = "gina@old.example"
+                self.user.save(update_fields=["email"])
+                r = self.client.patch("/api/v1/auth/me/", {"email": ""}, format="json")
+                self.assertEqual(r.status_code, status.HTTP_200_OK)
+                self.assertEqual(r.json()["email"], "")
+                self.user.refresh_from_db()
+                self.assertEqual(self.user.email, "")
+
+
+class UsernameTakenLookupTests(TestCase):
+    """is_username_taken() compares on Lower(username) so it can use unique_username_ci."""
+
+    def test_query_uses_lower_on_both_sides(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from accounts.validators import is_username_taken
+
+        User.objects.create_user(username="Hank")
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertTrue(is_username_taken("hANK"))
+        sql = ctx.captured_queries[-1]["sql"].upper()
+        self.assertIn('LOWER("USERS"."USERNAME")', sql)
+        self.assertNotIn("UPPER(", sql)
+        self.assertNotIn(" LIKE ", sql)
+
+    def test_exclude_pk_and_miss(self):
+        from accounts.validators import is_username_taken
+
+        hank = User.objects.create_user(username="Hank")
+        self.assertFalse(is_username_taken("hank", exclude_pk=hank.pk))
+        self.assertFalse(is_username_taken("ivan"))
+
+    def test_choose_username_still_rejects_case_variant(self):
+        User.objects.create_user(username="Hank")
+        me = User.objects.create_user(username="jo", password="pass12345678")
+        client = APIClient()
+        client.force_authenticate(me)
+        cache.clear()
+        r = client.post("/api/v1/auth/choose-username/", {"username": "hank"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(r.json(), {"detail": "That username is already taken."})
