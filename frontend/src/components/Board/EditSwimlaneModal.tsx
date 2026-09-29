@@ -86,9 +86,13 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           </>
         ) : (
           <>
-            <p className="text-sm text-fg-tertiary mb-5">
-              Delete <span className="font-medium text-fg">{swimlane.name}</span>? This cannot be undone.
+            <p className="text-sm text-fg-tertiary mb-1">
+              Delete <span className="font-medium text-fg">{swimlane.name}</span>?
             </p>
+            <p className="text-danger text-sm mb-1">
+              If the swimlane contains any archived cards, they will also be permanently deleted.
+            </p>
+            <p className="text-fg-muted text-sm mb-5">This cannot be undone.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-fg-tertiary hover:text-fg rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Cancel

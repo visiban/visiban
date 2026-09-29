@@ -87,6 +87,9 @@ describe('EditSwimlaneModal', () => {
     )
     await userEvent.setup().click(screen.getByRole('button', { name: /Delete swimlane/ }))
     expect(screen.getByText(/This cannot be undone/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/If the swimlane contains any archived cards, they will also be permanently deleted/)
+    ).toBeInTheDocument()
   })
 
   it('blocks delete when swimlane has cards', async () => {
