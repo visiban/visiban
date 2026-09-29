@@ -27,6 +27,22 @@ describe('KeyboardShortcutsOverlay', () => {
     expect(screen.getByText('Switch to Analytics view')).toBeInTheDocument()
   })
 
+  it('lists the G U chord to open the user menu', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    expect(screen.getByText('G U')).toBeInTheDocument()
+    expect(screen.getByText('Open the user menu')).toBeInTheDocument()
+  })
+
+  it('shows the L shortcut for Lens view when a lens is available', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} showLens={true} />)
+    expect(screen.getByText('Switch to Lens view')).toBeInTheDocument()
+  })
+
+  it('hides the L shortcut for Lens view when no lens is configured', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    expect(screen.queryByText('Switch to Lens view')).not.toBeInTheDocument()
+  })
+
   it('lists the Collapse/expand (E), Archived (Y), and Layout (⌘⇧L) actions', () => {
     render(<KeyboardShortcutsOverlay onClose={() => {}} />)
     expect(screen.getByText('Collapse or expand everything')).toBeInTheDocument()

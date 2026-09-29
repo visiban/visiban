@@ -4,6 +4,10 @@ import { formatShortcut } from "../../utils/platform";
 interface Props {
   onClose: () => void;
   onRestartTour?: () => void;
+  /** Whether the Issue Board Lens view is available on this board — controls
+   * whether the `L` row is shown in Board view. Defaults to false so other
+   * call sites (outside a board with a lens connection) are unaffected. */
+  showLens?: boolean;
 }
 
 interface ShortcutRow {
@@ -20,7 +24,7 @@ interface ShortcutSection {
 // chords), Board view (view-tab bindings), Board actions (on-board tools),
 // and Help (everything else). Imperative-tone descriptions start with a verb
 // ("Search…", "Toggle…") so each row reads as a command, not a status line.
-function buildSections(): ShortcutSection[] {
+function buildSections(showLens: boolean): ShortcutSection[] {
   return [
     {
       heading: "Navigation",
@@ -28,6 +32,7 @@ function buildSections(): ShortcutSection[] {
         { key: formatShortcut({ mod: true, key: "K" }), description: "Open command palette" },
         { key: "/", description: "Focus the search box" },
         { key: formatShortcut({ mod: true, key: "," }), description: "Open board settings" },
+        { key: "G U", description: "Open the user menu" },
       ],
     },
     {
@@ -37,6 +42,7 @@ function buildSections(): ShortcutSection[] {
         { key: "S", description: "Switch to Summary view" },
         { key: "H", description: "Switch to History view" },
         { key: "A", description: "Switch to Analytics view" },
+        ...(showLens ? [{ key: "L", description: "Switch to Lens view" }] : []),
       ],
     },
     {
@@ -64,8 +70,8 @@ function buildSections(): ShortcutSection[] {
   ];
 }
 
-export default function KeyboardShortcutsOverlay({ onClose, onRestartTour }: Props) {
-  const sections = buildSections();
+export default function KeyboardShortcutsOverlay({ onClose, onRestartTour, showLens = false }: Props) {
+  const sections = buildSections(showLens);
   return (
     <ModalWrapper open={true} onClose={onClose} title="Keyboard shortcuts" maxWidth="max-w-md">
       <div className="flex flex-col gap-4">
