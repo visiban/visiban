@@ -814,8 +814,9 @@ class BoardViewSet(
         user_id = request.data.get("user_id")
         member_role = request.data.get("role", BoardMembership.Role.MEMBER)
         target_user = get_object_or_404(User, pk=user_id)
-        # Only site admins can add/change other site admins
-        if target_user.is_site_admin and role != SITE_ADMIN:
+        # Site-admin protection keys on the caller's own site-admin status,
+        # matching groups/views.py's update_member.
+        if target_user.is_site_admin and not request.user.is_site_admin:
             raise PermissionDenied("Cannot modify a site admin's board membership.")
         raw_mod = request.data.get("is_moderator")
         # Normalize: None means "not provided", else coerce to bool.
@@ -891,7 +892,9 @@ class BoardViewSet(
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         target_user = get_object_or_404(User, pk=user_id)
-        if target_user.is_site_admin and role != SITE_ADMIN:
+        # See the same check in `members()` above for why this uses
+        # request.user.is_site_admin rather than the resolved `role`.
+        if target_user.is_site_admin and not request.user.is_site_admin:
             raise PermissionDenied("Cannot remove a site admin from a board.")
         board_id = board.id
         removed_user_id = target_user.id

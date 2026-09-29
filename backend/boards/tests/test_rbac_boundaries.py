@@ -224,7 +224,11 @@ class MemberCardOwnershipTests(TestCase):
 
 
 class SiteAdminMembershipProtectionTests(TestCase):
-    """Attempting to remove or demote a site_admin from board members should be blocked."""
+    """Board member add/remove endpoints protect a site admin from being demoted or
+    removed by anyone except another site admin, matching
+    ``groups.views.update_member``. Exercises the caller/target combinations across
+    both endpoints.
+    """
 
     def setUp(self):
         self.admin = User.objects.create_user(username="admin", password="pass")
@@ -247,6 +251,118 @@ class SiteAdminMembershipProtectionTests(TestCase):
             {"user_id": self.site_admin.pk, "role": "viewer"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_can_access_all_content_only_caller_cannot_remove_site_admin(self):
+        """A caller who is not a site admin cannot remove a site admin from a board,
+        even with can_access_all_content=True."""
+        caller = User.objects.create_user(username="content_only_del", password="pass")
+        caller.can_access_all_content = True
+        caller.save()
+        client = APIClient()
+        client.force_authenticate(caller)
+        resp = client.delete(f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_can_access_all_content_only_caller_cannot_change_site_admin_role(self):
+        """Same as above, for the POST role-change endpoint."""
+        caller = User.objects.create_user(username="content_only_post", password="pass")
+        caller.can_access_all_content = True
+        caller.save()
+        client = APIClient()
+        client.force_authenticate(caller)
+        resp = client.post(
+            f"/api/v1/boards/{self.board.pk}/members/",
+            {"user_id": self.site_admin.pk, "role": "viewer"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch(PATCH_BROADCAST)
+    def test_true_site_admin_without_can_access_all_content_can_remove_site_admin(self, _mock):
+        """A genuine site admin (is_site_admin=True) who reaches board ADMIN through an
+        explicit membership — not through can_access_all_content — can remove another
+        site admin's membership."""
+        caller = User.objects.create_user(
+            username="true_sa_del", password="pass", is_site_admin=True
+        )
+        BoardMembership.objects.create(
+            board=self.board, user=caller, role=BoardMembership.Role.ADMIN
+        )
+        client = APIClient()
+        client.force_authenticate(caller)
+        resp = client.delete(f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    @patch(PATCH_BROADCAST)
+    def test_true_site_admin_without_can_access_all_content_can_change_site_admin_role(self, _mock):
+        """Same as above, for the POST role-change endpoint."""
+        caller = User.objects.create_user(
+            username="true_sa_post", password="pass", is_site_admin=True
+        )
+        BoardMembership.objects.create(
+            board=self.board, user=caller, role=BoardMembership.Role.ADMIN
+        )
+        client = APIClient()
+        client.force_authenticate(caller)
+        resp = client.post(
+            f"/api/v1/boards/{self.board.pk}/members/",
+            {"user_id": self.site_admin.pk, "role": "viewer"},
+        )
+        # 201: self.site_admin has no BoardMembership row yet, so this creates one
+        # rather than updating an existing row.
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+    @patch(PATCH_BROADCAST)
+    def test_full_site_admin_can_remove_site_admin(self, _mock):
+        """Caller with both is_site_admin and can_access_all_content is allowed."""
+        caller = User.objects.create_user(username="full_sa_del", password="pass", is_site_admin=True)
+        caller.can_access_all_content = True
+        caller.save()
+        client = APIClient()
+        client.force_authenticate(caller)
+        resp = client.delete(f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    @patch(PATCH_BROADCAST)
+    def test_full_site_admin_can_change_site_admin_role(self, _mock):
+        """Caller with both is_site_admin and can_access_all_content is allowed, via POST."""
+        caller = User.objects.create_user(username="full_sa_post", password="pass", is_site_admin=True)
+        caller.can_access_all_content = True
+        caller.save()
+        client = APIClient()
+        client.force_authenticate(caller)
+        resp = client.post(
+            f"/api/v1/boards/{self.board.pk}/members/",
+            {"user_id": self.site_admin.pk, "role": "viewer"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+    def test_true_site_admin_with_no_board_access_is_refused_by_outer_gate(self):
+        """A true site admin with no board membership and no can_access_all_content has
+        no board role at all, so the outer role check on both endpoints refuses them
+        before the site-admin target check is ever reached. Pinned so a future change
+        to the outer gate cannot loosen this."""
+        caller = User.objects.create_user(
+            username="unreachable_sa", password="pass", is_site_admin=True
+        )
+        client = APIClient()
+        client.force_authenticate(caller)
+        resp = client.post(
+            f"/api/v1/boards/{self.board.pk}/members/",
+            {"user_id": self.site_admin.pk, "role": "viewer"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        resp = client.delete(f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch(PATCH_BROADCAST)
+    def test_board_admin_can_remove_non_site_admin_member(self, _mock):
+        """Sanity: removing a regular (non-site-admin) member is unaffected by this check."""
+        regular = User.objects.create_user(username="regular_member", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=regular, role=BoardMembership.Role.MEMBER
+        )
+        resp = self.client.delete(f"/api/v1/boards/{self.board.pk}/members/{regular.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
 
 class LastAdminSelfDemotionTests(TestCase):
