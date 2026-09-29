@@ -246,7 +246,7 @@ EXIT_USAGE = 2
 # narrower public one — but this gate's array check only compares the outer
 # family (`array` vs `array`); it does not recurse into item shapes, so that
 # looseness produces no finding here and needed no `TS_ONLY_FIELDS` entry or
-# other suppression. It is a real, separately-tracked type gap that only a
+# other suppression. It is a real type gap, tracked in #1296, that only a
 # recursive array-item check would catch — see `PublicSwimlane` in "What is
 # not covered, and why" for the honest accounting of it.
 COMPONENT_MAP = {

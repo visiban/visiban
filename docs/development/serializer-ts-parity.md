@@ -149,8 +149,7 @@ documentation error, not a structural gap, and #1282 fixed the record and mapped
 `BoardPublic.swimlanes` is typed `Swimlane[]` rather than a dedicated `PublicSwimlane[]`, but
 this gate's array check compares only the outer `array` family and does not recurse into item
 shapes, so that looseness produces no finding and needed no suppression — see `PublicSwimlane`
-below for the honest accounting of that specific gap, which a recursive array-item check would
-still need to catch.
+below for the honest accounting of that specific gap, tracked in #1296.
 
 ### What is not covered, and why
 
@@ -168,8 +167,9 @@ pass swept `COMPONENT_MAP` forward — every key in it against the generated sch
 construction cannot see an interface whose serializer never reaches the schema at all. The
 correct sweep runs the other direction: every `export interface` in
 `frontend/src/types/index.ts`, checked against `COMPONENT_MAP`'s values and the "opposite
-reason" table below. That reverse sweep turns up thirteen TypeScript interfaces backed by a
-real serializer (or, for `SiteConfig`, a view that builds its response by hand) that
+reason" table below. That reverse sweep turns up sixteen TypeScript interfaces across thirteen
+pairs, each backed by a real serializer (or, for `SiteConfig`, a view that builds its response
+by hand) that
 `drf-spectacular` never publishes a component for — because nothing in their view ever calls
 `@extend_schema` or sets `serializer_class`, the two things spectacular actually introspects.
 An interface with **no** backing serializer at all — `FieldDefinitionShape` (a structural
