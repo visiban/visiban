@@ -6135,6 +6135,9 @@ caller below <code>admin</code> — the same role gate this export already appli
 <h3 id="put-apiv1boardsidswimlanesswimlane_id"><code>PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#put-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
 <p>Update a swimlane. Requires board admin.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>is_collapsed</code>, <code>contact_email</code>, <code>notes</code>, <code>custom_field_values</code> (since 1.2)</p>
+<blockquote>
+<p>Swimlane names are unique per board. Renaming a swimlane to a name that already exists on the same board returns <code>400 Bad Request</code>.</p>
+</blockquote>
 <p><code>custom_field_values</code> writes are also accepted on <code>PATCH</code>. Send only the entries you want to change — a swimlane custom field not named in the list keeps its current value. Send <code>{"field_definition": &lt;id&gt;, "value": ""}</code> to clear (and delete) a value. At most one entry per <code>field_definition</code> per request; a <code>field_definition</code> id from another board is rejected with <code>400 Bad Request</code>. Since writes to this endpoint are already admin-only, an admin may write a value for an <code>is_admin_only</code> field — that is the expected case, not an escalation. There is no separate values endpoint; values are always written through this one.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
