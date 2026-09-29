@@ -21,9 +21,9 @@ The version-string half of a release is enforced by a gate rather than by memory
 re-verify these by hand; run the release and read what the gate says.
 
 - `scripts/release.sh <version>` rewrites the version-bearing files, including the
-  `docs/index.md` banner: the pre-release banner for RC tags and the stable
-  "Latest release" banner for GA tags. It then runs the docs gate as a cross-check and warns
-  if it fails.
+  `docs/index.md` banner: the release-candidate banner for RC tags, a pre-release banner for
+  alpha/beta tags, and the stable "Latest release" banner for GA tags. It then runs the docs
+  gate as a cross-check and warns if it fails.
 - CI job `docs-version-accuracy` (script `scripts/check-docs-version-accuracy.sh`) runs on
   MRs, `main`, and tag pipelines. It reads the current version from `frontend/package.json`
   and fails on: a `Coming in X` / `Ships in X` / `Lands in X` / `Planned for X` claim naming

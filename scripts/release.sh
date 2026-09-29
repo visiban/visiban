@@ -86,6 +86,14 @@ rc_banner_is_current() {
   grep -qF "**${2}** is the current stable release candidate" "$1"
 }
 
+# dev_banner_is_current <file> <version> — same role as rc_banner_is_current,
+# for the alpha/beta stage's own (more cautious) banner wording (#1265). Kept
+# as a separate function/phrase rather than reusing the RC one: an alpha/beta
+# is deliberately never called "the current release candidate".
+dev_banner_is_current() {
+  grep -qF "**${2}** is a pre-release development build" "$1"
+}
+
 if [[ "${1:-}" == "--self-test" ]]; then
   rc=0; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
   _rot_case() { # <label> <input> <expected>
@@ -220,6 +228,28 @@ valkey:
     echo "SELF-TEST OK: rc_banner_is_current does not match a different RC version"
   fi
 
+  # dev_banner_is_current: same coverage as rc_banner_is_current, for the
+  # alpha/beta stage's own banner wording (#1265).
+  printf '%s\n' '    **1.2.0-alpha.1** is a pre-release development build of the upcoming release — expect bugs and breaking changes.' > "$tmp/index.md"
+  if dev_banner_is_current "$tmp/index.md" "1.2.0-alpha.1"; then
+    echo "SELF-TEST OK: dev_banner_is_current matches the script's actual banner text"
+  else
+    echo "SELF-TEST FAILED: dev_banner_is_current matches the script's actual banner text" >&2
+    rc=1
+  fi
+  if dev_banner_is_current "$tmp/index.md" "1.2.0-beta.1"; then
+    echo "SELF-TEST FAILED: dev_banner_is_current wrongly matches a different pre-release version" >&2
+    rc=1
+  else
+    echo "SELF-TEST OK: dev_banner_is_current does not match a different pre-release version"
+  fi
+  if rc_banner_is_current "$tmp/index.md" "1.2.0-alpha.1"; then
+    echo "SELF-TEST FAILED: rc_banner_is_current wrongly matches an alpha/beta banner" >&2
+    rc=1
+  else
+    echo "SELF-TEST OK: rc_banner_is_current does not match an alpha/beta banner"
+  fi
+
   [[ $rc -eq 0 ]] && echo "release: self-test passed."
   exit $rc
 fi
@@ -292,7 +322,15 @@ sed -i '' "s|^APP_VERSION=.*|APP_VERSION=${TAG}|" docs/getting-started/installat
 sed -i '' "s|backend\.image\.tag=v[^ ]*|backend.image.tag=${TAG}|" docs/getting-started/kubernetes.md
 sed -i '' "s|frontend\.image\.tag=v[^ ]*|frontend.image.tag=${TAG}|" docs/getting-started/kubernetes.md
 
-# Update docs/index.md release candidate banner
+# Update docs/index.md's pre-release/stable banner.
+#
+# All three banner-rewrite blocks below (rc, alpha/beta, GA) match the same
+# widened header set `(Release candidate|Pre-release|Latest release)` — not
+# just their own stage's header — because a version can transition through
+# any stage boundary (alpha -> beta, beta -> rc, or straight to GA) and the
+# awk fallback has to recognize whatever banner the *previous* release left
+# behind, not just the one its own stage normally writes (#1265).
+#
 # Matches "**MAJOR.MINOR.PATCH-rc.N**" (just the version bolded, not the whole phrase)
 # and "Earlier release candidates (rc.1–rc.N) are superseded..."
 if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
@@ -300,14 +338,15 @@ if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
   PREV_RC_NUM=$(( $(echo "$RC_NUM" | grep -oE '[0-9]+$') - 1 ))
   sed -i '' "s|\*\*[0-9][0-9.]*-rc\.[0-9]*\*\*|**${VERSION}**|g" docs/index.md
   sed -i '' "s|Earlier release candidates (rc\.1–rc\.[0-9]*)|Earlier release candidates (rc.1–rc.${PREV_RC_NUM})|" docs/index.md
-  # First RC of a cycle: docs/index.md still holds the GA "Latest release"
-  # banner from the previous release, so the seds above find nothing to
+  # First RC of a cycle: docs/index.md still holds the previous cycle's GA
+  # "Latest release" banner (or, now that alpha/beta are wired up, that
+  # cycle's own "Pre-release" banner), so the seds above find nothing to
   # rewrite. Convert it into the release-candidate banner (mirror of the GA
   # branch below) so the RC verification and the docs gate both pass.
-  if ! grep -q 'is the current stable release candidate' docs/index.md; then
+  if ! rc_banner_is_current docs/index.md "$VERSION"; then
     TMP_INDEX=$(mktemp)
     awk -v ver="$VERSION" '
-      /^!!! (warning|note) "(Release candidate|Latest release)"/ {
+      /^!!! (warning|note) "(Release candidate|Pre-release|Latest release)"/ {
         print "!!! warning \"Release candidate\""
         print "    **" ver "** is the current stable release candidate for the upcoming release. Help test it and [report issues](https://gitlab.com/visiban/visiban/-/issues) before the stable release. See the [installation guide](getting-started/installation.md) to get started."
         skip = 1
@@ -317,16 +356,37 @@ if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
       { skip = 0; print }
     ' docs/index.md > "$TMP_INDEX" && mv "$TMP_INDEX" docs/index.md
   fi
+elif echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta)\.[0-9]+$'; then
+  # alpha/beta: same two-path structure as rc above (bump-in-place sed, then
+  # a first-of-cycle awk fallback), but deliberately its own, more cautious
+  # wording -- an alpha/beta is not "the current release candidate" (#1265).
+  # No "Earlier release candidates" bookkeeping either; that list is
+  # rc-cycle-specific and alpha/beta don't have an equivalent convention yet.
+  sed -i '' "s|\*\*[0-9][0-9.]*-\(alpha\|beta\)\.[0-9]*\*\* is a pre-release development build|**${VERSION}** is a pre-release development build|" docs/index.md
+  if ! dev_banner_is_current docs/index.md "$VERSION"; then
+    TMP_INDEX=$(mktemp)
+    awk -v ver="$VERSION" '
+      /^!!! (warning|note) "(Release candidate|Pre-release|Latest release)"/ {
+        print "!!! warning \"Pre-release\""
+        print "    **" ver "** is a pre-release development build of the upcoming release — expect bugs and breaking changes. [Report issues](https://gitlab.com/visiban/visiban/-/issues) or see the [installation guide](getting-started/installation.md) if you want to try it early."
+        skip = 1
+        next
+      }
+      skip && /^    / { next }
+      { skip = 0; print }
+    ' docs/index.md > "$TMP_INDEX" && mv "$TMP_INDEX" docs/index.md
+  fi
 elif echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  # GA: replace the release-candidate admonition (header + indented body) with
-  # the stable "Latest release" banner. Without this the GA docs shipped
-  # carrying the RC banner and it was fixed by hand every release (#1083).
-  # Also matches an existing "Latest release" banner so re-running is a no-op
-  # apart from the version. scripts/check-docs-version-accuracy.sh asserts the
-  # result in CI and on the tag pipeline.
+  # GA: replace whatever pre-release admonition (header + indented body) is
+  # currently there with the stable "Latest release" banner. Without this the
+  # GA docs shipped carrying the previous banner and it was fixed by hand
+  # every release (#1083). Also matches an existing "Latest release" banner
+  # so re-running is a no-op apart from the version.
+  # scripts/check-docs-version-accuracy.sh asserts the result in CI and on
+  # the tag pipeline.
   TMP_INDEX=$(mktemp)
   awk -v ver="$VERSION" -v tag="$TAG" '
-    /^!!! (warning|note) "(Release candidate|Latest release)"/ {
+    /^!!! (warning|note) "(Release candidate|Pre-release|Latest release)"/ {
       print "!!! note \"Latest release\""
       print "    **" ver "** is the current stable release. See the [release notes](https://gitlab.com/visiban/visiban/-/releases/" tag ") for what'"'"'s new, and the [installation guide](getting-started/installation.md) to get started."
       skip = 1
@@ -432,10 +492,18 @@ if echo "$VERSION" | grep -qE 'rc\.[0-9]+'; then
   fi
 fi
 
+# docs/index.md must reference the pre-release version (for alpha/beta releases)
+if echo "$VERSION" | grep -qE '\-(alpha|beta)\.[0-9]+$'; then
+  if ! dev_banner_is_current docs/index.md "$VERSION"; then
+    echo "  WARN: docs/index.md does not reference ${VERSION} as the current pre-release" >&2
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
 # docs/index.md must carry the stable banner for a GA release
 if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   if ! grep -qF "**${VERSION}** is the current stable release." docs/index.md \
-     || grep -qi 'release candidate' docs/index.md; then
+     || grep -qiE 'release candidate|pre-release development build' docs/index.md; then
     echo "  WARN: docs/index.md does not carry the GA banner for ${VERSION}" >&2
     ERRORS=$((ERRORS + 1))
   fi
