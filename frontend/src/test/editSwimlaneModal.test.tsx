@@ -87,6 +87,11 @@ describe('EditSwimlaneModal', () => {
     )
     await userEvent.setup().click(screen.getByRole('button', { name: /Delete swimlane/ }))
     expect(screen.getByText(/This cannot be undone/)).toBeInTheDocument()
+    // Text is split across a <span> (the name) and a trailing text node, so match
+    // on the paragraph's full normalized textContent rather than a plain string.
+    expect(
+      screen.getByText((_, node) => node?.tagName.toLowerCase() === 'p' && node.textContent === 'Default will be permanently deleted.')
+    ).toBeInTheDocument()
     expect(
       screen.getByText(/If the swimlane contains any archived cards, they will also be permanently deleted/)
     ).toBeInTheDocument()

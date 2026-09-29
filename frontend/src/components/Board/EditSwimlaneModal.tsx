@@ -79,7 +79,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               <span className="font-medium text-fg">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
             </p>
             <div className="flex justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm bg-surface-hover text-fg rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm bg-surface-hover text-fg rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 OK
               </button>
             </div>
