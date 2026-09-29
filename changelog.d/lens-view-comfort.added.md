@@ -1,1 +1,0 @@
-The issue board lens gained native-board view comforts: collapse individual swimlanes or focus a single lane (both shareable via the URL), and a compact card-density toggle that strips cards to the essentials for an at-a-glance scan (persisted per user).
