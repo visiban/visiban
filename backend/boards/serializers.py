@@ -1950,6 +1950,25 @@ class AllowedPrioritiesField(serializers.JSONField):
     """
 
 
+def _group_name_for_board(board) -> str | None:
+    """Shared by BoardSerializer.get_group_name and BoardFullSerializer.get_group_name.
+
+    Both expose the board's group name via a SerializerMethodField rather than
+    a dotted-source ``CharField(source="group.name", default=None)`` — see the
+    comment on BoardSerializer.group_name for why the dotted-source form
+    silently drops the field from PATCH responses (#1166). BoardFullSerializer
+    still used the dotted-source form until #1189, even though it is currently
+    only ever bound read-only (see BoardFullSerializer.group_name) — this
+    keeps both call sites correct without duplicating the traversal logic.
+
+    ``board.group_id`` reads the already-loaded FK column (no query); when it
+    is set, ``board.group`` resolves from the ``select_related("group", ...)``
+    every caller of these serializers already loads (BoardViewSet.get_queryset
+    and get_board_for_user), so this never issues an extra query.
+    """
+    return board.group.name if board.group_id else None
+
+
 class BoardSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
@@ -2146,7 +2165,7 @@ class BoardSerializer(serializers.ModelSerializer):
         return obj.cards.count()
 
     def get_group_name(self, obj) -> str | None:
-        return obj.group.name if obj.group_id else None
+        return _group_name_for_board(obj)
 
     def get_is_starred(self, obj) -> bool:
         if hasattr(obj, "_is_starred"):
@@ -2217,7 +2236,15 @@ class BoardFullSerializer(serializers.ModelSerializer):
     # that BoardFull is a component (#1137). Output is identical — a read-only
     # JSONField returns the stored value unchanged either way.
     allowed_priorities = AllowedPrioritiesField(read_only=True)
-    group_name = serializers.CharField(source="group.name", default=None, read_only=True, allow_null=True)
+    # A SerializerMethodField, not `CharField(source="group.name", default=None)`
+    # — same #1166 SkipField-under-partial pitfall as BoardSerializer.group_name
+    # above (dotted-source fields fall back to Field.get_default(), which raises
+    # SkipField() unconditionally whenever the root serializer is bound with
+    # partial=True). BoardFullSerializer is currently only ever instantiated
+    # read-only, from BoardViewSet.full() — but filed as #1189 so a future
+    # partial-bound reuse doesn't silently reintroduce the bug. See
+    # _group_name_for_board() above.
+    group_name = serializers.SerializerMethodField(allow_null=True)
     group_detail = serializers.SerializerMethodField()
     current_user_role = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
@@ -2249,6 +2276,9 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
         ]
         read_only_fields = ["uid"]
+
+    def get_group_name(self, obj) -> str | None:
+        return _group_name_for_board(obj)
 
     @extend_schema_field(GroupBriefSerializer(allow_null=True))
     def get_group_detail(self, obj):

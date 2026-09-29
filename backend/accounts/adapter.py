@@ -25,6 +25,21 @@ __all__ = [
 ]
 
 
+def account_lockout_cache_seed(site_domain: str, user) -> str:
+    """The per-account ``login_failed`` key seed for ``user`` (#1206).
+
+    Keyed on the primary key, not the username, so a renamed account keeps its
+    bucket and two usernames differing only in case never share one. The
+    ``#`` separator can never be produced by allauth's own submitted-string
+    seed (``f"{domain}:{identifier}"``) — the domain is the same prefix and the
+    next character differs — so no typed identifier, however crafted, can land
+    in (and pre-exhaust or collide with) an account's bucket by string
+    coincidence. allauth hashes the seed before it reaches the cache, so the
+    pk is never stored in the clear either.
+    """
+    return f"{site_domain}#account:{user.pk}"
+
+
 def clear_login_lockout(request, user) -> None:
     """Clear the per-account (``/key``-scoped) half of allauth's ``login_failed``
     rate limit for ``user`` — never the per-IP (``/ip``-scoped) half.
@@ -44,13 +59,20 @@ def clear_login_lockout(request, user) -> None:
     about allauth's rate limiter at all (verified against the running code,
     #1199's review; this was the gap #1203 tracks).
 
-    Why BOTH the username and the email key are cleared
-    -----------------------------------------------------
+    Why the account key AND the username and email keys are cleared
+    ------------------------------------------------------------------
+    Since #1206, an attempt naming an existing account (by username or by a
+    unique email) consumes one account-scoped bucket
+    (``account_lockout_cache_seed``), so that is the key that normally holds
+    the lockout. The string keys below are still cleared for the cases that
+    fall back to allauth's default keying, and for buckets written before
+    #1206. The history of why the string keys were needed:
+
     Even allauth's own recovery path above only clears the email-keyed
     bucket. That is incomplete here: ``ACCOUNT_LOGIN_METHODS = {"username",
-    "email"}`` (visiban/settings.py) means a login attempt — and therefore the
-    lockout it can trip — is keyed on whichever identifier was actually
-    submitted (see ``DefaultAccountAdapter._get_login_attempts_cache_key``:
+    "email"}`` (visiban/settings.py) means that — under allauth's default
+    keying — a login attempt, and therefore the lockout it can trip — is
+    keyed on whichever identifier was actually submitted (see ``DefaultAccountAdapter._get_login_attempts_cache_key``:
     email takes precedence over username only when both are present in the
     same call, otherwise whichever one was given). There is no record here of
     which identifier a locked-out attacker (or the legitimate user) used, so
@@ -97,9 +119,15 @@ def clear_login_lockout(request, user) -> None:
         return
 
     site_domain = get_current_site(request).domain
-    identifiers = {value.lower() for value in (user.username, user.email) if value}
-    for identifier in identifiers:
-        cache_key_seed = f"{site_domain}:{identifier}"
+    # The account-scoped key is the one every login attempt that names this
+    # user now consumes (#1206 — see RegistrationAdapter.
+    # _get_login_attempts_cache_key). The username/email string keys are still
+    # cleared too: an email shared by several accounts resolves to none of
+    # them and keeps allauth's submitted-string key, and buckets written before
+    # the upgrade used the string keys.
+    seeds = {account_lockout_cache_seed(site_domain, user)}
+    seeds |= {f"{site_domain}:{value.lower()}" for value in (user.username, user.email) if value}
+    for cache_key_seed in seeds:
         for rate in key_rates:
             cache.delete(get_cache_key(request, action="login_failed", rate=rate, key=cache_key_seed))
 
@@ -130,6 +158,37 @@ class RegistrationAdapter(DefaultAccountAdapter):
         if mode == SiteSetting.RegistrationMode.CLOSED:
             raise PermissionDenied("Registration is closed.")
         return super().save_user(request, user, form, commit)
+
+    def _get_login_attempts_cache_key(self, request, **credentials):
+        """Key the per-account lockout on the ACCOUNT, not the typed identifier (#1206).
+
+        allauth's default keys the ``login_failed`` "/key" bucket on the
+        submitted string (``email`` if given, else ``username``, lowercased).
+        Once email login works that gives one account two independent
+        lockouts — 5 wrong passwords by username plus 5 by email — and a
+        lockout tripped through one identifier would not stop attempts through
+        the other. Resolving the identifier with the same rules the login
+        backend uses (``accounts.backends.resolve_login_user``) collapses both
+        onto one per-account key, whether or not the password is right.
+
+        Identifiers that resolve to no account (unknown strings, and emails
+        shared by several accounts — which cannot log in by email anyway) keep
+        allauth's own submitted-string key, so an attacker still cannot bypass
+        the rate limit by spraying unknown identifiers.
+
+        This is an override of a private allauth method; it is the single
+        place allauth computes this key (``pre_authenticate`` and allauth's own
+        password-reset clear both call it), verified against 65.14.3.
+        """
+        from django.contrib.sites.shortcuts import get_current_site
+
+        from .backends import resolve_login_user
+
+        identifier = credentials.get("email", credentials.get("username", ""))
+        user = resolve_login_user(identifier, request)
+        if user is not None:
+            return account_lockout_cache_seed(get_current_site(request).domain, user)
+        return super()._get_login_attempts_cache_key(request, **credentials)
 
     def get_client_ip(self, request) -> str:
         """Key allauth's per-IP rate limits on the same address DRF throttles on (#1180).
