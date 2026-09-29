@@ -52,30 +52,19 @@ PostgreSQL and Valkey, and nothing else) is only a claim if the CNI enforces it.
 enforces NetworkPolicy with its embedded kube-router controller unless it was installed
 with `--disable-network-policy`.
 
-Configuration check, on the node (expect no output):
+Configuration check, on the node (expect no output). This is the only part of this
+precondition you can check before the first install — it looks at k3s's own config, not at
+a running pod:
 
 ```bash
 sudo grep -rs -- 'disable-network-policy' /etc/rancher/k3s/ /etc/systemd/system/k3s*.service
 ```
 
-Behavioral check after the install, from any machine with cluster access. This is the
-one-line `kubectl` check. A pod carrying the backend's labels must NOT reach the internet:
-
-```bash
-kubectl -n visiban-demo run egress-check --rm -i --restart=Never --image=busybox:1.36 \
-  --labels=app.kubernetes.io/name=visiban,app.kubernetes.io/instance=visiban-demo,app.kubernetes.io/component=backend \
-  -- nc -z -w 5 1.1.1.1 443 && echo "NOT ENFORCED: egress is open" || echo "OK: egress denied"
-```
-
-Then the control, so "denied" means the policy and not a node without internet. An
-unlabeled pod SHOULD connect:
-
-```bash
-kubectl -n visiban-demo run egress-control --rm -i --restart=Never --image=busybox:1.36 \
-  -- nc -z -w 5 1.1.1.1 443 && echo "OK: control connects" || echo "control failed: check node egress first"
-```
-
-If the first command prints `NOT ENFORCED`, stop and fix the node before exposing the demo.
+The *behavioral* check — proving enforcement actually blocks egress, not just that it isn't
+disabled in config — needs a real, already-running pod to test against (see
+[Install or upgrade, step 4](#install-or-upgrade) for why and for the check itself), so it
+cannot run until after the first install. On a node rebuild, treat that step as part of
+this precondition too: redeploy, then run it before exposing the demo again.
 
 ### 3. Cloudflare: bot and abuse reduction, not security controls
 
@@ -153,7 +142,50 @@ so the deployment record is the only durable trace that these were actually set 
     `moved seeded card ... (200)` and a `demo_next_reset_at`. A failure here means do not
     expose the instance.
 
-4. Run the NetworkPolicy behavioral check from [Precondition 2](#2-networkpolicy-is-enforced-on-the-node).
+4. Verify NetworkPolicy enforcement behaviorally, now that a real backend pod exists (this
+   is the behavioral half of [Precondition 2](#2-networkpolicy-is-enforced-on-the-node); the
+   config check there must already have passed). A pod carrying the backend's labels must
+   NOT reach the internet.
+
+    **Test against the real, already-running backend pod with `kubectl exec` — not a
+    throwaway `kubectl run --rm` pod.** k3s's embedded NetworkPolicy controller
+    (kube-router) builds a per-pod `KUBE-POD-FW-*` iptables chain *after* the pod starts,
+    not before. A `kubectl run --rm` pod that runs its check and self-deletes within a few
+    seconds can race that chain's provisioning and see unrestricted egress even though
+    enforcement is working correctly — a false `NOT ENFORCED` result, not a real gap (this
+    cost a debugging session chasing a phantom node-wide networking failure, #1285). A
+    real, standing pod has had time for its chain to settle, so exec into one instead:
+
+    ```bash
+    POD=$(kubectl get pods -n visiban-demo -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}')
+    kubectl -n visiban-demo exec "$POD" -c backend -- python3 -c "
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(5)
+    try:
+        s.connect(('1.1.1.1', 443))
+        print('NOT ENFORCED: egress open (connected)')
+    except Exception as e:
+        print(f'OK: egress denied ({type(e).__name__}: {e})')
+    finally:
+        s.close()
+    "
+    ```
+
+    The backend image is a Django/Python base with neither `nc` nor `curl` installed — only
+    `python3` — hence the socket-connect script instead of a one-line `nc` call.
+
+    Then the control, so "denied" means the policy and not a node without internet. An
+    unlabeled throwaway pod SHOULD connect — this one does not carry the backend's labels,
+    so no NetworkPolicy selects it and there is no restrictive chain for it to race against,
+    so the same false-negative failure mode does not apply here:
+
+    ```bash
+    kubectl -n visiban-demo run egress-control --rm -i --restart=Never --image=busybox:1.36 \
+      -- nc -z -w 5 1.1.1.1 443 && echo "OK: control connects" || echo "control failed: check node egress first"
+    ```
+
+    If the exec check prints `NOT ENFORCED`, stop and fix the node before exposing the demo.
 
 ## Expose it through the tunnel
 
