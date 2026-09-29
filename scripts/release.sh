@@ -109,6 +109,49 @@ dev_banner_is_current() {
   grep -qF "**${2}** is a pre-release development build" "$1"
 }
 
+# confirm_release_notes <notes>
+#
+# Shows the release notes about to ship — verbatim as extracted from
+# CHANGELOG.md's [Unreleased] section — and gates on human approval before
+# the release branch carries any further edit. Mirrors the release-summary
+# gate in TruePPM's scripts/release.sh (release-default-summary.py): getting
+# the version number right says nothing about whether the prose describing
+# it is still correct — a stale bullet, a fragment filed under the wrong
+# category, or an empty [Unreleased] all used to ship silently to
+# CHANGELOG.md and the GitLab Release page.
+#
+# Enter accepts; anything else (including 'q'/'n') aborts. This function only
+# reads and prints — the caller owns cleaning up the release branch on abort.
+# RELEASE_ASSUME_YES=1 / -y accepts non-interactively (the /release skill
+# sets this after the user has already approved the notes in chat); a
+# non-TTY run without it fails closed rather than shipping unreviewed notes.
+confirm_release_notes() {
+  local notes="$1"
+
+  if [[ "$ASSUME_YES" == true ]]; then
+    echo "Release notes confirmed via --yes." >&2
+    return 0
+  fi
+
+  if [[ ! -t 0 ]]; then
+    echo "Error: no TTY to confirm release notes. Re-run with -y/--yes (or RELEASE_ASSUME_YES=1) to accept them non-interactively — normally only after showing them to the user and getting approval first." >&2
+    return 1
+  fi
+
+  {
+    echo ""
+    echo "Release notes for ${TAG} (ship in CHANGELOG.md's [${VERSION}] section and the GitLab Release page):"
+    echo "--------------------------------------------------------------------------------------------------"
+    printf '%s\n' "$notes"
+    echo "--------------------------------------------------------------------------------------------------"
+    echo "To change them, abort here, edit CHANGELOG.md's [Unreleased] section, and re-run."
+  } >&2
+
+  local reply
+  read -r -p "Enter to accept and continue, anything else to abort: " reply
+  [[ -z "$reply" ]]
+}
+
 if [[ "${1:-}" == "--self-test" ]]; then
   rc=0; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
   _rot_case() { # <label> <input> <expected>
@@ -292,13 +335,50 @@ dependencies:
     echo "SELF-TEST OK: rc_banner_is_current does not match an alpha/beta banner"
   fi
 
+  # confirm_release_notes: ASSUME_YES=true accepts without touching stdin;
+  # a non-TTY run without it fails closed instead of shipping unreviewed
+  # notes. Both exercised with stdin redirected from /dev/null (never a TTY
+  # under CI or this self-test harness) so the fail-closed path is the one
+  # actually reached rather than assumed.
+  TAG="v9.9.9"; VERSION="9.9.9"
+  ASSUME_YES=true
+  if confirm_release_notes "- fake note" < /dev/null; then
+    echo "SELF-TEST OK: confirm_release_notes accepts via ASSUME_YES without reading stdin"
+  else
+    echo "SELF-TEST FAILED: confirm_release_notes accepts via ASSUME_YES without reading stdin" >&2
+    rc=1
+  fi
+  ASSUME_YES=false
+  if confirm_release_notes "- fake note" < /dev/null; then
+    echo "SELF-TEST FAILED: confirm_release_notes wrongly accepted with no TTY and no ASSUME_YES" >&2
+    rc=1
+  else
+    echo "SELF-TEST OK: confirm_release_notes fails closed with no TTY and no ASSUME_YES"
+  fi
+
   [[ $rc -eq 0 ]] && echo "release: self-test passed."
   exit $rc
 fi
 
+# -y/--yes (also RELEASE_ASSUME_YES=1) skips the release-notes confirmation
+# gate below (confirm_release_notes). Stripped from "$@" before the
+# positional VERSION arg is read so it can appear in either position:
+# `release.sh -y 1.2.0` or `release.sh 1.2.0 -y`.
+ASSUME_YES=false
+[[ "${RELEASE_ASSUME_YES:-0}" == "1" ]] && ASSUME_YES=true
+REST=""
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes) ASSUME_YES=true ;;
+    *) REST="$REST $arg" ;;
+  esac
+done
+# shellcheck disable=SC2086
+set -- $REST
+
 VERSION="${1:-}"
 if [[ -z "$VERSION" ]]; then
-  echo "Usage: $0 <version>  (e.g. 0.2.0-beta.1)" >&2
+  echo "Usage: $0 [-y|--yes] <version>  (e.g. 0.2.0-beta.1)" >&2
   exit 1
 fi
 
@@ -335,6 +415,62 @@ git checkout main
 git pull origin main
 RELEASE_BRANCH="chore/release-${VERSION}"
 git checkout -b "$RELEASE_BRANCH"
+
+# ─── Release notes — resolved and confirmed before any manifest is touched ──
+#
+# Assemble pending changelog.d/ fragments into CHANGELOG.md's [Unreleased]
+# section and extract the notes that will both open the new dated CHANGELOG
+# section and become the GitLab Release page body (glab release create
+# --notes-file, further down). Doing this immediately after the branch
+# checkout — before .env.example, the frontend/README/docs seds below, and
+# the CHANGELOG rotation itself — means an empty or unconfirmed summary
+# aborts a tree that has had nothing but a branch checkout done to it, not
+# one with a half-finished set of file edits already applied. Mirrors why
+# TruePPM's release.sh resolves its own release summary before bumping
+# anything (release-default-summary.py).
+abort_release_branch() {
+  git reset --hard HEAD
+  git checkout main
+  git branch -D "$RELEASE_BRANCH"
+}
+
+if [[ -d changelog.d ]]; then
+  scripts/assemble-changelog.sh || { echo "Error: changelog assembly failed" >&2; abort_release_branch; exit 1; }
+fi
+
+if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
+  echo "Error: CHANGELOG.md has no [Unreleased] section" >&2
+  abort_release_branch
+  exit 1
+fi
+
+# Extract the unreleased notes (everything between [Unreleased] header and next ## heading)
+RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
+  | sed '/^[[:space:]]*$/d' | sed '/^---[[:space:]]*$/d')
+
+if [[ -z "$(echo "$RELEASE_NOTES" | tr -d '[:space:]')" ]]; then
+  echo "Error: CHANGELOG.md [Unreleased] section is empty — add release notes before releasing." >&2
+  abort_release_branch
+  exit 1
+fi
+
+confirm_release_notes "$RELEASE_NOTES" || {
+  echo "Aborted by operator — no release cut." >&2
+  abort_release_branch
+  exit 1
+}
+
+# Rotate CHANGELOG: rename [Unreleased] → [v{VERSION}] and prepend a fresh
+# [Unreleased] — single pass; see rotate_changelog above for why a
+# rename-then-prepend two-step leaves a self-perpetuating orphan divider.
+TMP=$(mktemp)
+rotate_changelog CHANGELOG.md "$VERSION" "$TODAY" > "$TMP" && mv "$TMP" CHANGELOG.md
+
+if ! grep -q "^## \[${VERSION}\] — ${TODAY}$" CHANGELOG.md; then
+  echo "Error: CHANGELOG rotation did not produce a [${VERSION}] section" >&2
+  abort_release_branch
+  exit 1
+fi
 
 # Update .env.example
 # APP_VERSION is the v-prefixed image tag (matches the tags CI actually
@@ -439,30 +575,9 @@ elif echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   ' docs/index.md > "$TMP_INDEX" && mv "$TMP_INDEX" docs/index.md
 fi
 
-# Assemble any pending changelog fragments into CHANGELOG.md before rotating
-if [[ -d changelog.d ]]; then
-  scripts/assemble-changelog.sh || { echo "Error: changelog assembly failed" >&2; exit 1; }
-fi
-
-# Rotate CHANGELOG: rename [Unreleased] → [v{VERSION}] and prepend a fresh [Unreleased]
-if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
-  echo "Error: CHANGELOG.md has no [Unreleased] section" >&2
-  exit 1
-fi
-
-# Extract the unreleased notes (everything between [Unreleased] header and next ## heading)
-RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
-  | sed '/^[[:space:]]*$/d' | sed '/^---[[:space:]]*$/d')
-
-# Single pass — see rotate_changelog above for why a rename-then-prepend
-# two-step leaves a self-perpetuating orphan divider.
-TMP=$(mktemp)
-rotate_changelog CHANGELOG.md "$VERSION" "$TODAY" > "$TMP" && mv "$TMP" CHANGELOG.md
-
-if ! grep -q "^## \[${VERSION}\] — ${TODAY}$" CHANGELOG.md; then
-  echo "Error: CHANGELOG rotation did not produce a [${VERSION}] section" >&2
-  exit 1
-fi
+# CHANGELOG.md was already assembled, extracted (into $RELEASE_NOTES),
+# confirmed, and rotated to [${VERSION}] — ${TODAY} right after the branch
+# checkout above, before this or any other file was touched.
 
 # Pin the Helm chart to the release version so users deploying the chart get
 # the exact matching image, not a moving tag.
