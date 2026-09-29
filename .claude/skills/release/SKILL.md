@@ -72,10 +72,35 @@ For every entry in `CHANGELOG.md [Unreleased]`, verify documentation is in sync:
 
 Do not proceed to Step 2 until the docs audit is complete. A release with stale documentation is worse than no documentation — users will follow the wrong instructions.
 
+## Step 1c — Show the release notes and get approval (the one pause the script itself enforces)
+
+`scripts/release.sh` assembles `changelog.d/` and extracts the notes under `CHANGELOG.md`'s
+`[Unreleased]` section — the text that becomes both the new dated CHANGELOG entry and the
+GitLab Release page body — immediately after branching, before touching any other file. It
+then gates on human approval (`confirm_release_notes`) before doing anything else, mirroring
+TruePPM's release-summary gate: getting the version number right says nothing about whether
+the prose describing it is still accurate.
+
+The script's own prompt reads from a TTY, which the agent driving it does not have. So:
+
+1. Run `scripts/assemble-changelog.sh --dry-run` (or read `changelog.d/*.md` plus the current
+   `[Unreleased]` section) and show the resulting notes to the user in chat.
+2. Wait for explicit approval. If the notes are wrong (a stale bullet, a fragment under the
+   wrong category, something missing), stop here — fix `CHANGELOG.md`/`changelog.d/` first,
+   then re-show the notes. Do not paper over a wrong note by editing only what ships on the
+   Release page; the same text goes to both places.
+3. Only once approved, invoke the script with `-y` (or `RELEASE_ASSUME_YES=1`) in Step 2 so
+   its own confirmation gate doesn't block on a TTY it doesn't have. This is correct *only*
+   because you just got the approval it exists to collect — never pass `-y` to skip getting
+   that approval, and never pass it before the notes have actually been shown.
+
+If the user is running the script themselves interactively (not via the agent), skip this
+step — the script's own prompt is the gate.
+
 ## Step 2 — Run the release script
 
 ```bash
-./scripts/release.sh {version}
+RELEASE_ASSUME_YES=1 ./scripts/release.sh {version}
 ```
 
 The script will automatically:
@@ -83,12 +108,17 @@ The script will automatically:
    `RELEASE_REMOTE` overrides it), or the local tag-listing check itself was ambiguous —
    fails closed rather than proceeding as if the tag were absent
 2. Create a `chore/release-{version}` branch from `main`
-3. Update `.env.example` with the new version
+3. Assemble `changelog.d/` fragments, extract the release notes, and gate on approval
+   (`confirm_release_notes` — see Step 1c) before touching any other file. On abort, it
+   leaves the tree exactly as it was: `git reset --hard`, checkout `main`, delete the release
+   branch.
 4. Rotate `CHANGELOG.md` — moves `[Unreleased]` to `[vX.Y.Z] — YYYY-MM-DD`, prepends a fresh
    `[Unreleased]` block, in a single pass (no intermediate state that could leave a stray
    `---` divider behind)
-5. Commit and push the branch
-6. Create an MR targeting `main`, then **poll the MR's own pipeline status directly** until
+5. Update `.env.example`, `frontend/package.json`, `README.md`, and the docs pages with the
+   new version
+6. Commit and push the branch
+7. Create an MR targeting `main`, then **poll the MR's own pipeline status directly** until
    it reaches `success` (not `glab mr merge --when-pipeline-succeeds`, which asks GitLab to
    watch for us and has 405'd when fired before GitLab had created the pipeline object yet).
    **Write the poll loop as `while true; do …; if [ "$s" = success ] || [ "$s" = failed ]; then
@@ -98,12 +128,12 @@ The script will automatically:
    then "completes" immediately regardless of the pipeline's real state, and a background
    watcher's "finished" notification carries no information. Read the pipeline's actual
    status after the loop returns; don't trust that it returned.
-7. Merge the MR only once that pipeline is confirmed green
-8. **Confirm the pipeline at the merge commit itself** — on `main`, at that exact SHA — is
+8. Merge the MR only once that pipeline is confirmed green
+9. **Confirm the pipeline at the merge commit itself** — on `main`, at that exact SHA — is
    also green before tagging. A merge-request pipeline going green is not the same promise
    as the subsequent `push` pipeline on `main`, which can run a different job set
-9. Tag the merge commit and push the tag
-10. Create a GitLab release with notes from the CHANGELOG
+10. Tag the merge commit and push the tag
+11. Create a GitLab release with notes from the CHANGELOG (the same notes approved in Step 1c)
 
 Do not interrupt the script. If it fails, read the error output before taking any action —
 each failure mode above prints what to check or do manually. The tag pipeline itself (not
