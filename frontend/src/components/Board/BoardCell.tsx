@@ -98,7 +98,13 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       // or populated. They're the long-standing power-user shortcuts; the cell-
       // as-button (#962) only adds the *empty-cell* keyboard path on top.
       onDoubleClick={() => { if (column.allow_card_creation && canEdit) setAdding(true); }}
-      onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
+      // A touch long-press fires `contextmenu` too, and that same long-press is
+      // what starts a touch drag (#1287). While any drag is active, swallow it so
+      // the new-card input doesn't open (and the native menu doesn't show) mid-drag.
+      onContextMenu={(e) => {
+        if (active != null) { e.preventDefault(); return; }
+        if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); }
+      }}
       style={{ width: width ?? 220 }}
       className={`group/cell relative shrink-0 min-h-[80px] p-2 transition-colors bg-canvas ${
         isOver && isDraggingCard ? "bg-surface-hover/40" : ""

@@ -3,7 +3,7 @@
 The kanban grid, its cards, and the settings that shape them — the core workspace for anyone who works a board day to day, from quick status checks to full admin control.
 
 !!! note "Small screens"
-    Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally. Drag-and-drop and column/swimlane resizing are easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See [Navigation → Mobile behavior](navigation.md#mobile-behavior).
+    Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally. On a touch screen, press and hold a card to drag it (see [Touch screens](#touch-screens)). Column/swimlane resizing is easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See [Navigation → Mobile behavior](navigation.md#mobile-behavior).
 
 ## Board creation
 
@@ -240,6 +240,16 @@ The 600 ms delay means casual scrolling and rapid drag-and-drop do not trigger t
 Cards are dragged between cells using @dnd-kit. Updates are **optimistic** — the UI moves the card immediately and rolls back if the API call fails.
 
 Every drag that changes column or swimlane creates a `CardMovement` audit record automatically.
+
+### Touch screens
+
+> **Changed in 1.2**
+
+On a tablet or phone, **press and hold** a card for about a quarter of a second, then drag it. A quick swipe scrolls the board instead, so you can still pan a wide board with one finger. The same press-and-hold picks up a column header or swimlane handle (board admins) and reorders custom fields in Board Settings.
+
+To move a card without dragging, open it and tap **Move** next to the column name at the top of the panel. On touch screens this button is larger and shows its label.
+
+A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
 
 ### Board panning
 

@@ -444,13 +444,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       setMovePopoverError(null);
                       setShowMovePopover((v) => !v);
                     }}
-                    className="w-5 h-5 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    // On coarse pointers (touch) this is the non-drag way to move a card,
+                    // but a 20px icon is too small to tap and its hover tooltip never
+                    // shows (#1287). Grow it to 32px and show the "Move" label inline.
+                    className="w-5 h-5 [@media(pointer:coarse)]:w-auto [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:px-2 [@media(pointer:coarse)]:gap-1 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     aria-label="Move card to different column or swimlane"
                   >
                     {/* Two-headed arrows = transfer/move-to-another-location metaphor */}
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                       <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
                     </svg>
+                    <span className="hidden [@media(pointer:coarse)]:inline text-xs" aria-hidden="true">Move</span>
                   </button>
                   {/* Styled tooltip — 300ms delay on show, immediate hide */}
                   <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-sunken text-fg text-xs rounded px-2 py-1 shadow-lg opacity-0 group-hover/move:opacity-100 transition-opacity delay-300 group-hover/move:delay-300">

@@ -7,15 +7,13 @@ import AnalyticsView from "./AnalyticsView";
 import MovementHistoryView from "./MovementHistoryView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useDragSensors } from "../../hooks/useDragSensors";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
 import ConnectionStatus from "../Common/ConnectionStatus";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
   closestCenter,
-  useSensor,
-  useSensors,
   useDroppable,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
@@ -1343,7 +1341,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, [board.swimlanes, insertSwimlanePosition, onSwimlaneAdded, onSwimlanesReordered]);
 
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Mouse drags start after 5px; touch drags on press-and-hold (#1287).
+  const sensors = useDragSensors();
 
   // Unique 3-char abbreviations for collapsed column headers.
   // Algorithm: strip spaces, take first 3 chars uppercased; if two columns share
