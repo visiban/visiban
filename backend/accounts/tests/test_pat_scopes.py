@@ -457,6 +457,7 @@ class PasswordChangeRevokesTokensOnBothRoutesTests(APITestCase):
         PersonalAccessToken.generate(self.user, "a", scopes=[SCOPE_READ])
         PersonalAccessToken.generate(self.user, "b", scopes=[SCOPE_MCP_READ])
         r = self.client.post("/api/v1/auth/password/change/", {
+            "old_password": "ScopePass123!",
             "new_password1": "BrandNewPass456!",
             "new_password2": "BrandNewPass456!",
         })

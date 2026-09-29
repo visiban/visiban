@@ -12,6 +12,24 @@ Visiban supports several authentication methods. Some are available in the OSS e
 | SAML 2.0 / ADFS | — | Yes |
 | SCIM directory sync / JIT provisioning | — | Yes |
 
+## Password policy
+
+Every password must be at least **12 characters** long and pass Django's standard checks: not
+too similar to the user's username, email, or name; not a commonly used password; and not
+entirely numeric. The same policy applies on every path that sets a password — registration and
+invite-link sign-up, the password-reset link, both change-password API endpoints, admin-created
+accounts, the Django admin, and the interactive `createsuperuser` / `changepassword` management commands (`createsuperuser` still offers its own "bypass validation" prompt).
+
+The policy is checked only when a password is set. Accounts created before 1.2, when some of
+these paths accepted 8 characters, keep working and are asked for a 12-character password the
+next time they change it.
+
+Changing a password — through either `POST /api/v1/auth/change-password/` or
+`POST /api/v1/auth/password/change/` — requires the current password (except for OAuth-only
+accounts setting their first one), revokes all of the user's
+[personal access tokens](../features/personal-access-tokens.md), and clears a pending
+"must change password" flag set by an administrator.
+
 ## Forgot password (self-service password reset)
 
 Users with a password-based account can reset their own password from the login page without administrator intervention.

@@ -45,8 +45,8 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError("");
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters.");
       return;
     }
     // eslint-disable-next-line security/detect-possible-timing-attacks -- client-side UI validation only, not a cryptographic comparison
@@ -155,7 +155,7 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
                 />
-                <p className="text-xs text-fg-muted mt-1">Must be at least 8 characters</p>
+                <p className="text-xs text-fg-muted mt-1">Must be at least 12 characters</p>
               </div>
               <div>
                 <label htmlFor="rp-confirm" className="block text-fg-tertiary text-xs mb-1">

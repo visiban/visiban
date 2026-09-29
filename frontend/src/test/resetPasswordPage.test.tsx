@@ -56,7 +56,7 @@ describe('ResetPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('New password'), 'Password123')
+    await user.type(screen.getByLabelText('New password'), 'Password1234')
     await user.type(screen.getByLabelText('Confirm new password'), 'Different123')
     await user.click(screen.getByRole('button', { name: 'Set new password' }))
 
@@ -68,11 +68,12 @@ describe('ResetPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('New password'), 'short')
-    await user.type(screen.getByLabelText('Confirm new password'), 'short')
+    // 11 characters: one below the 12-character server policy (#1258).
+    await user.type(screen.getByLabelText('New password'), 'Password123')
+    await user.type(screen.getByLabelText('Confirm new password'), 'Password123')
     await user.click(screen.getByRole('button', { name: 'Set new password' }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('at least 8 characters')
+    expect(screen.getByRole('alert')).toHaveTextContent('at least 12 characters')
     expect(mockConfirm).not.toHaveBeenCalled()
   })
 
@@ -81,15 +82,15 @@ describe('ResetPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('New password'), 'NewPass9876')
-    await user.type(screen.getByLabelText('Confirm new password'), 'NewPass9876')
+    await user.type(screen.getByLabelText('New password'), 'NewPassword9876')
+    await user.type(screen.getByLabelText('Confirm new password'), 'NewPassword9876')
     await user.click(screen.getByRole('button', { name: 'Set new password' }))
 
     await waitFor(() => {
       expect(screen.getByText('Password updated')).toBeInTheDocument()
     })
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
-    expect(mockConfirm).toHaveBeenCalledWith('abc', 'tok-en123', 'NewPass9876', 'NewPass9876')
+    expect(mockConfirm).toHaveBeenCalledWith('abc', 'tok-en123', 'NewPassword9876', 'NewPassword9876')
   })
 
   it('shows token-invalid state and "Request a new link" CTA on token error', async () => {
@@ -99,8 +100,8 @@ describe('ResetPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('New password'), 'NewPass9876')
-    await user.type(screen.getByLabelText('Confirm new password'), 'NewPass9876')
+    await user.type(screen.getByLabelText('New password'), 'NewPassword9876')
+    await user.type(screen.getByLabelText('Confirm new password'), 'NewPassword9876')
     await user.click(screen.getByRole('button', { name: 'Set new password' }))
 
     await waitFor(() => {
@@ -116,8 +117,8 @@ describe('ResetPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('New password'), 'NewPass9876')
-    await user.type(screen.getByLabelText('Confirm new password'), 'NewPass9876')
+    await user.type(screen.getByLabelText('New password'), 'NewPassword9876')
+    await user.type(screen.getByLabelText('Confirm new password'), 'NewPassword9876')
     await user.click(screen.getByRole('button', { name: 'Set new password' }))
 
     await waitFor(() => {
@@ -132,8 +133,8 @@ describe('ResetPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('New password'), 'NewPass9876')
-    await user.type(screen.getByLabelText('Confirm new password'), 'NewPass9876')
+    await user.type(screen.getByLabelText('New password'), 'NewPassword9876')
+    await user.type(screen.getByLabelText('Confirm new password'), 'NewPassword9876')
     await user.click(screen.getByRole('button', { name: 'Set new password' }))
 
     await waitFor(() => {

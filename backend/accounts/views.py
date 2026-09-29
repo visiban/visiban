@@ -243,6 +243,26 @@ class CurrentUserView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+def finalize_password_change(user):
+    """Side effects every successful user-initiated password change must have.
+
+    Shared by ChangePasswordView and TokenRevokingPasswordChangeView so the two
+    endpoints cannot drift again (#1259: the second only revoked tokens and
+    left a forced-change user locked out). Call it inside the same transaction
+    as the password save, so a failure here cannot leave a new password in
+    place with the old tokens still live.
+
+    - Clears ``must_change_password``: choosing a new password is exactly what
+      the forced-change flag asks for, whichever endpoint the user reached.
+    - Revokes every Personal Access Token: ``PersonalAccessToken`` documents
+      "all tokens are deleted when the password changes", and users are told
+      rotating the password is how to cut off a leaked token (#406, #1110).
+    """
+    user.must_change_password = False
+    user.save(update_fields=["must_change_password"])
+    user.personal_access_tokens.all().delete()
+
+
 class ChangePasswordView(APIView):
     """Change the authenticated user's password, keeping the session alive afterwards.
 
@@ -256,9 +276,12 @@ class ChangePasswordView(APIView):
         current_password = request.data.get("current_password", "")
         new_password = request.data.get("new_password", "")
 
-        if not new_password or len(new_password) < 12:
+        # Checked here as well as by AUTH_PASSWORD_VALIDATORS' MinimumLengthValidator
+        # (same PASSWORD_MIN_LENGTH) so this endpoint keeps its documented
+        # single-sentence {"detail": ...} error for a short password.
+        if not new_password or len(new_password) < settings.PASSWORD_MIN_LENGTH:
             return Response(
-                {"detail": "New password must be at least 12 characters."},
+                {"detail": f"New password must be at least {settings.PASSWORD_MIN_LENGTH} characters."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -279,14 +302,10 @@ class ChangePasswordView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        request.user.set_password(new_password)
-        request.user.must_change_password = False
-        request.user.save(update_fields=["password", "must_change_password"])
-        # Revoke all personal access tokens on password change so that a
-        # compromised account cannot retain API access after a credential reset.
-        # Documented behaviour: users must regenerate any tokens they need after
-        # changing their password.
-        request.user.personal_access_tokens.all().delete()
+        with transaction.atomic():
+            request.user.set_password(new_password)
+            request.user.save(update_fields=["password"])
+            finalize_password_change(request.user)
         # Keep the current session alive after the password rotation so the
         # user does not get logged out and left with a broken session state.
         update_session_auth_hash(request, request.user)
@@ -517,12 +536,23 @@ class TokenRevokingPasswordChangeView(DjRestAuthPasswordChangeView):
 
     Found by the security review on #1110, which made scoping meaningful enough
     that "rotate the password to revoke the credential" has to actually work.
+
+    Since #1257-#1259 it matches ChangePasswordView on every rule, not just
+    revocation: the current password is required (VisibanPasswordChangeSerializer),
+    the 12-character minimum applies (PASSWORD_MIN_LENGTH via
+    AUTH_PASSWORD_VALIDATORS), and a successful change clears
+    must_change_password through the same finalize_password_change() helper.
     """
 
     def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        if response.status_code == status.HTTP_200_OK:
-            request.user.personal_access_tokens.all().delete()
+        # The current-password check (#1257) lives in the configured
+        # PASSWORD_CHANGE_SERIALIZER, accounts.serializers.VisibanPasswordChangeSerializer.
+        # atomic() so the password save and finalize_password_change() commit
+        # or roll back together.
+        with transaction.atomic():
+            response = super().post(request, *args, **kwargs)
+            if response.status_code == status.HTTP_200_OK:
+                finalize_password_change(request.user)
         return response
 
 

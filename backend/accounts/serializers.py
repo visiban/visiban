@@ -1,5 +1,6 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from dj_rest_auth.serializers import LoginSerializer as DjRestAuthLoginSerializer
+from dj_rest_auth.serializers import PasswordChangeSerializer as DjRestAuthPasswordChangeSerializer
 from dj_rest_auth.serializers import PasswordResetConfirmSerializer as DjRestAuthPasswordResetConfirmSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.core.validators import EmailValidator
@@ -216,6 +217,46 @@ class VisibanPasswordResetConfirmSerializer(DjRestAuthPasswordResetConfirmSerial
         result = super().save()
         clear_login_lockout(self.context["request"], self.user)
         return result
+
+
+class VisibanPasswordChangeSerializer(DjRestAuthPasswordChangeSerializer):
+    """dj-rest-auth's password change, with the current password always verified (#1257).
+
+    dj-rest-auth only checks ``old_password`` when its
+    ``OLD_PASSWORD_FIELD_ENABLED`` setting is on; with the default (off) it pops
+    the field and changes the password for any authenticated caller. That made
+    ``POST /api/v1/auth/password/change/`` a way for anyone holding a session or
+    a Personal Access Token to take over the account's password without knowing
+    it — while ``/auth/change-password/`` has always required
+    ``current_password``. The check is forced on here rather than left to the
+    setting alone, so a future edit to ``REST_AUTH`` cannot silently reopen it.
+
+    Making ``old_password`` required is a deliberate break of the "new body
+    fields must be optional" API rule: the only client that omits it is one
+    relying on the vulnerability. No Visiban client (SPA, docs examples) calls
+    this endpoint; the SPA uses ``/auth/change-password/``.
+
+    Social-only accounts (no usable password) are exempt, matching
+    ``ChangePasswordView``: they have no current password to prove, and this is
+    how they set their first one.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.old_password_field_enabled = True
+        if "old_password" not in self.fields:
+            self.fields["old_password"] = serializers.CharField(max_length=128)
+        if self.user is not None and not self.user.has_usable_password():
+            self.fields["old_password"].required = False
+            self.fields["old_password"].allow_blank = True
+
+    def validate_old_password(self, value):
+        if self.user is not None and self.user.has_usable_password():
+            if not self.user.check_password(value):
+                raise serializers.ValidationError(
+                    "Your old password was entered incorrectly. Please enter it again."
+                )
+        return value
 
 
 class PublicUserSerializer(serializers.ModelSerializer):

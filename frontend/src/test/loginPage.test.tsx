@@ -111,11 +111,13 @@ describe('LoginPage', () => {
 
     await user.click(screen.getByText('Create one'))
     await user.type(screen.getByPlaceholderText('Email address'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'short')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'short')
+    // 11 characters: one below the 12-character server policy (#1258).
+    await user.type(screen.getByPlaceholderText('Password'), 'password123')
+    await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
     await user.click(screen.getByText('Create account'))
 
-    expect(screen.getByText('Password must be at least 8 characters.')).toBeInTheDocument()
+    expect(screen.getByText('Password must be at least 12 characters.')).toBeInTheDocument()
+    expect(mockRegister).not.toHaveBeenCalled()
   })
 
   it('calls login API and onLogin on success', async () => {
@@ -168,12 +170,12 @@ describe('LoginPage', () => {
     // disabled until the async config resolves, so a synchronous getByRole click
     // races against the pending microtask and fails intermittently.
     await user.type(screen.getByPlaceholderText('Email address'), 'kelly@example.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
+    await user.type(screen.getByPlaceholderText('Password'), 'password1234')
+    await user.type(screen.getByPlaceholderText('Confirm password'), 'password1234')
     await user.click(await screen.findByRole('button', { name: /create account/i }))
 
     // 4th arg is the invite token from sessionStorage — undefined when none is present
-    expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password123', 'password123', undefined)
+    expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password1234', 'password1234', undefined)
   })
 
   it('hides "Create one" and shows invite-only message when registration is closed', async () => {
