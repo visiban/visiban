@@ -463,7 +463,7 @@ Clear the target user's per-account login lockout early (#1203). The per-account
 
 **Permission:** `IsSiteAdmin`.
 
-Idempotent — calling it on an account that isn't currently locked out succeeds and changes nothing. Clears both the username-keyed and the email-keyed lockout bucket, since Visiban accepts login by either identifier and the live lockout could be keyed on whichever one was actually used at login time.
+Idempotent — calling it on an account that isn't currently locked out succeeds and changes nothing. Visiban accepts login by username or email, and since 1.2 (#1206) both count against one lockout keyed on the account; this clears that lockout, plus the username- and email-string buckets (used for identifiers that don't resolve to exactly one account, and by lockouts recorded before the upgrade).
 
 **Request body:** none.
 
