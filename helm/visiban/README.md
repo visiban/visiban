@@ -69,8 +69,10 @@ edit it:
 `additionalProperties: false` at the root and on every chart-owned object, so a
 misspelled or invented key is rejected by `helm install` instead of being
 silently accepted and doing nothing. Blocks handed to a subchart or to `toYaml`
-— `global`, `postgresql`, `ingress.annotations`, `*.resources` — stay
-open, because the chart is not the authority on what is valid inside them.
+— `global`, `postgresql`, `ingress.annotations`, `*.resources`,
+`backend.securityContext.pod` / `.container`, `postgresql.securityContext.pod`
+/ `.container` — stay open, because the chart is not the authority on what is
+valid inside them.
 `valkey` also stays open, so a values file written for the Bitnami subchart the
 chart used before 0.5.0 still upgrades; see [Bundled Valkey](#bundled-valkey).
 
@@ -101,6 +103,28 @@ the nginx `client_max_body_size` and the ingress `proxy-body-size` annotation,
 each with 10 MB of multipart-framing headroom. Raise the one value and the whole
 path moves with it; a transport limit below the app cap would 413 uploads at the
 edge before Django could return a message naming the real limit.
+
+## Pod security
+
+Every long-running or scheduled workload the chart renders — the backend
+Deployment (its migrate/collectstatic/bootstrap init containers included), the
+bundled PostgreSQL and Valkey StatefulSets, the scheduledJobs CronJobs, and the
+demo seed Job/CronJob — runs as a non-root user with a read-only root
+filesystem, `seccompProfile: RuntimeDefault`, no privilege escalation, every
+Linux capability dropped, and no mounted ServiceAccount token. Scratch space
+each image needs to write (`/tmp`, PostgreSQL's `/var/run/postgresql`, the
+backend's `STATIC_ROOT`) is an `emptyDir`, never the root filesystem.
+
+The Valkey StatefulSet's hardening (#1200) is not overridable. The backend
+Deployment's and the bundled PostgreSQL StatefulSet's are, via
+`backend.securityContext.pod` / `.container` and
+`postgresql.securityContext.pod` / `.container` (#1210) — for an operator on a
+base image that cannot run as the chart's numeric UID, or that needs a
+writable root filesystem. `scripts/helm-structure-check.sh` asserts
+`runAsNonRoot` and a full capability drop on every workload except the
+frontend (nginx) Deployment, which does not carry this hardening yet — its
+base image's default user and writable paths have not been audited for it,
+and it is tracked separately in #1224.
 
 ## Scheduled jobs
 

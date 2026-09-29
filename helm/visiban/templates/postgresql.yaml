@@ -26,15 +26,18 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: postgresql
     spec:
+      # Hardening to match the bundled Valkey StatefulSet (templates/valkey.yaml,
+      # #1200) — see #1210. Overridable: an operator on a postgres image that
+      # cannot run as this numeric UID, or needs a writable root filesystem,
+      # sets postgresql.securityContext.pod / .container in their values.
+      automountServiceAccountToken: false
       securityContext:
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
+        {{- include "visiban.postgresql.securityContext.pod" (.Values.postgresql.securityContext | default dict) | nindent 8 }}
       containers:
         - name: postgresql
           image: {{ .Values.postgresql.image | quote }}
           securityContext:
-            allowPrivilegeEscalation: false
+            {{- include "visiban.postgresql.securityContext.container" (.Values.postgresql.securityContext | default dict) | nindent 12 }}
           ports:
             - name: postgresql
               containerPort: 5432
@@ -55,6 +58,14 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            # Required now that the root filesystem is read-only: the official
+            # image's entrypoint creates/chmods this directory on every start
+            # regardless of UID, and postgres writes its Unix-socket file here
+            # at runtime.
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", {{ .Values.postgresql.auth.username | quote }}]
@@ -74,6 +85,11 @@ spec:
               cpu: 500m
               memory: 512Mi
   {{- if .Values.postgresql.primary.persistence.enabled }}
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -85,6 +101,10 @@ spec:
   {{- else }}
       volumes:
         - name: data
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
   {{- end }}
 ---

@@ -138,6 +138,29 @@ backend:
       cpu: 500m
       memory: 512Mi
 
+  # Pod- and container-level securityContext for the backend Deployment: its
+  # migrate/collectstatic/bootstrap init containers and the app container.
+  # Matches the hardening in templates/valkey.yaml (#1200) and
+  # _helpers.tpl's demoSeedPodSpec (#1180) — see #1210. Passed straight
+  # through with toYaml (open, like backend.resources above), so an operator
+  # on a base image that cannot run as this numeric UID, or that needs a
+  # writable root filesystem, can relax either block without forking the
+  # chart.
+  securityContext:
+    pod:
+      runAsNonRoot: true
+      # The backend image's `visiban` user (backend/Dockerfile). Numeric
+      # because the kubelet cannot verify runAsNonRoot against a user NAME.
+      runAsUser: 1001
+      runAsGroup: 1001
+      seccompProfile:
+        type: RuntimeDefault
+    container:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+
 frontend:
   image:
     repository: ghcr.io/visiban/visiban/frontend
@@ -211,6 +234,27 @@ postgresql:
     persistence:
       enabled: true
       size: 5Gi
+  # Pod- and container-level securityContext for the bundled PostgreSQL
+  # StatefulSet, matching the hardening in templates/valkey.yaml (#1200) —
+  # see #1210. Not read when subchartEnabled is true (the bitnami/postgresql
+  # subchart owns its own security settings). An operator on a postgres image
+  # that cannot run as this numeric UID, or that needs a writable root
+  # filesystem, can relax either block without forking the chart.
+  securityContext:
+    pod:
+      runAsNonRoot: true
+      # The official postgres image's `postgres` user/group. Numeric because
+      # the kubelet cannot verify runAsNonRoot against a user NAME.
+      runAsUser: 999
+      runAsGroup: 999
+      fsGroup: 999
+      seccompProfile:
+        type: RuntimeDefault
+    container:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
 
 # External database — used only when postgresql.enabled is false
 externalDatabase:
