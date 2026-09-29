@@ -4139,7 +4139,7 @@
 <tr>
 <td><code>DJANGO_ADMIN_ALLOWED_IPS</code></td>
 <td style="text-align: center;">No</td>
-<td>Comma-separated list of exact IP addresses allowed to access <code>/admin/</code> (CIDR ranges are not matched). In production the default is loopback only (<code>127.0.0.1</code>, <code>::1</code>); setting this <strong>replaces</strong> that default, so include <code>127.0.0.1,::1</code> if you still need loopback access. Also documented in <a href="../../administration/secret-rotation/">Secret Rotation</a>.</td>
+<td>Comma-separated list of IP addresses and/or CIDR ranges (e.g. <code>10.0.0.0/8</code>) allowed to access <code>/admin/</code>. In production the default is loopback only (<code>127.0.0.1</code>, <code>::1</code>); setting this <strong>replaces</strong> that default, so include <code>127.0.0.1,::1</code> if you still need loopback access. Also documented in <a href="../../administration/secret-rotation/">Secret Rotation</a>.</td>
 </tr>
 <tr>
 <td><code>OIDC_CLIENT_ID</code></td>

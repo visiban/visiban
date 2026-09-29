@@ -4364,12 +4364,12 @@ to check and trigger runs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="c1"># Then open http://localhost:8000/admin/</span>
 </code></pre></div>
-<p><strong>IP allowlist</strong> — for persistent access from a bastion or VPN host, set <code>backend.settings.adminAllowedIPs</code> to a comma-separated list of IPs:</p>
+<p><strong>IP allowlist</strong> — for persistent access from a bastion or VPN host, set <code>backend.settings.adminAllowedIPs</code> to a comma-separated list of IPs and/or CIDR ranges:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">"10.0.1.20,192.168.42.7"</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">"10.0.0.0/8,192.168.42.7"</span>
 </code></pre></div>
 <p>The allowlist is enforced by both the frontend Nginx config and the Django <code>AdminIPRestrictionMiddleware</code> for defense in depth.</p>
-<p><strong>Watch out:</strong> Nginx accepts CIDR ranges, but the Django middleware matches exact IPs only — a CIDR entry passes Nginx and is then rejected by Django with a 403. See <a href="../../administration/secret-rotation/#helm">Secret Rotation</a>.</p>
+<p>Both Nginx and the Django middleware accept CIDR ranges (e.g. <code>10.0.0.0/8</code>) as well as individual IPs for this value. See <a href="../../administration/secret-rotation/#helm">Secret Rotation</a>.</p>
 <h2 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
 </code></pre></div>
