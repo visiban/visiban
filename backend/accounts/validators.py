@@ -39,6 +39,29 @@ def is_valid_username_format(value: str) -> bool:
     return bool(USERNAME_PATTERN.match(value)) and all(ord(char) <= 0xFFFF for char in value)
 
 
+USERNAME_TAKEN_MESSAGE = "That username is already taken."
+
+
+def is_username_taken(username: str, exclude_pk=None) -> bool:
+    """Whether another account already holds ``username``, ignoring case.
+
+    The one uniqueness rule for every endpoint where a user picks their own
+    username — ``POST /auth/choose-username/`` and ``PATCH /auth/me/`` (and
+    dj-rest-auth's ``/auth/user/``) — so the two can't drift (#1273: PATCH
+    once relied on the model's exact-match ``unique=True`` alone, which lets
+    ``Alice`` through next to ``alice`` until the ``unique_username_ci`` DB
+    index rejects it as an unhandled IntegrityError). ``exclude_pk`` is the
+    requesting user, so re-casing your own name (``alice`` -> ``Alice``) is
+    not a collision with yourself.
+    """
+    from django.contrib.auth import get_user_model  # deferred: app registry
+
+    qs = get_user_model().objects.filter(username__iexact=username)
+    if exclude_pk is not None:
+        qs = qs.exclude(pk=exclude_pk)
+    return qs.exists()
+
+
 class UsernameFormatValidator:
     """DRF/Django field validator wrapping `is_valid_username_format`."""
 

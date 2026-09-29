@@ -107,6 +107,13 @@ export interface User {
    * the reset that would change it also ends the session.
    */
   demo_next_reset_at?: string | null;
+  /**
+   * An email change awaiting confirmation, or null (#1273). Set only when the
+   * install requires verified addresses (EMAIL_VERIFICATION=mandatory): a new
+   * address sent on PATCH is held here, and `email` keeps the current address,
+   * until the user follows the link mailed to the new one. Read-only.
+   */
+  pending_email?: string | null;
 }
 
 /** A scope a personal access token can carry. Strictly non-hierarchical — no

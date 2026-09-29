@@ -56,6 +56,9 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // #1273: on installs with EMAIL_VERIFICATION=mandatory a new address is held
+  // until confirmed from its inbox; `email` keeps the current one meanwhile.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(user.pending_email ?? null);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -75,9 +78,23 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
       });
       onUserUpdated(updated);
       setSaved(true);
-      setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
-    } catch {
-      setError("Failed to save changes. Please try again.");
+      const pending = updated.pending_email ?? null;
+      setPendingEmail(pending);
+      if (pending) {
+        // Stay on the page so the confirmation notice can be read, and show
+        // the address that is actually in effect in the field.
+        setForm((f) => ({ ...f, email: updated.email ?? "" }));
+      } else {
+        setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
+      }
+    } catch (err) {
+      const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      const usernameError = Array.isArray(data?.username) ? data.username[0] : null;
+      setError(
+        typeof usernameError === "string"
+          ? usernameError
+          : "Failed to save changes. Please try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -133,8 +150,15 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.email}
           onChange={set("email")}
           required
+          aria-describedby={pendingEmail ? "pending-email-note" : undefined}
           className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
+        {pendingEmail && (
+          <span id="pending-email-note" className="text-xs text-fg-muted">
+            Waiting for confirmation: we sent a link to {pendingEmail}. Your email address
+            changes once you open it.
+          </span>
+        )}
       </label>
 
       <div className="flex flex-col gap-1 text-sm text-fg-tertiary">

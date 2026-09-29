@@ -224,6 +224,45 @@ describe('ProfileTab', () => {
     )
   })
 
+  // #1273: EMAIL_VERIFICATION=mandatory holds a new address until confirmed.
+  it('shows a pending-confirmation notice and stays on the page when the email change is pending', async () => {
+    vi.useFakeTimers()
+    mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, pending_email: 'new@example.com' })
+    renderSettings()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByText(/we sent a link to new@example\.com/)).toBeInTheDocument()
+    // The field shows the address still in effect, not the pending one.
+    expect(screen.getByDisplayValue('j@example.com')).toBeInTheDocument()
+    act(() => { vi.advanceTimersByTime(1500) })
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('shows the pending-confirmation notice on load', () => {
+    renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
+    expect(screen.getByText(/we sent a link to new@example\.com/)).toBeInTheDocument()
+  })
+
+  it('does not show the notice when no change is pending', () => {
+    renderSettings({ ...fakeUser, pending_email: null })
+    expect(screen.queryByText(/we sent a link to/)).not.toBeInTheDocument()
+  })
+
+  it('shows the server username error on a taken username', async () => {
+    mockUpdateCurrentUser.mockRejectedValueOnce({
+      response: { status: 400, data: { username: ['That username is already taken.'] } },
+    })
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(screen.getByText('That username is already taken.')).toBeInTheDocument(),
+    )
+  })
+
   it('shows "Saving…" button text while saving', async () => {
     let resolveUpdate!: (value: User) => void
     mockUpdateCurrentUser.mockReturnValueOnce(

@@ -242,6 +242,10 @@ Settings are accessed from the avatar menu in the top-right navbar.
 | Number format | US (1,234.56) · European (1.234,56) · French (1 234,56) · Indian (1,23,456) |
 | Timezone | Any IANA timezone; defaults to browser-detected on first save |
 
+Usernames are unique regardless of case: if someone is already `alice`, you can't become `Alice`, though you can re-case your own username. Renaming yourself is rate-limited the same way as the forced username change.
+
+**Changing your email address** — on an instance that requires verified email addresses (`EMAIL_VERIFICATION=mandatory`), a new address doesn't take effect when you save it. Visiban sends a confirmation link to the new address and shows *Waiting for confirmation* under the field; your current address stays in use (for sign-in, password resets, and notification email) until you open the link. If you save another new address before confirming, only the most recent link works. On instances with the default `optional` policy, the new address takes effect immediately, as before.
+
 **Appearance** — theme switcher: System (follows OS preference), Dark, or Light. Applied immediately and synced to your account, so it follows you to your other browsers and devices on their next load. See [Appearance](appearance.md) for the full behavior.
 
 **Notifications** — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added).
