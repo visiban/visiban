@@ -3161,8 +3161,18 @@ docs-deploy:
         - mkdocs.yml
       when: on_success
     # Manual recovery on main — set DOCS_VERSION in pipeline variables
+    #
+    # allow_failure: true is required here even though this is already a
+    # manual job: when `when: manual` is set inside a `rules:` entry (as
+    # opposed to bare at the job level), GitLab defaults allow_failure to
+    # false, not true — so without this, an un-triggered docs-deploy blocks
+    # main's pipeline from ever reporting "success", which shows as
+    # "blocked"/manual (not green) on the pipeline widget and the
+    # shields.io/GitLab pipeline badge. seed-demo-data and nightly-load-test
+    # already set this explicitly for the same reason.
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       when: manual
+      allow_failure: true
 
 # ─── Weekly CVE dependency scan ───────────────────────────────────────────────
 #
