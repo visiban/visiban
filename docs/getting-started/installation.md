@@ -280,7 +280,7 @@ Before starting the production stack, confirm each item below. The backend will 
 | Variable | Requirement |
 |---|---|
 | `DB_PASSWORD` | Must be set to a strong, unique password. Docker Compose **will not start** if this variable is missing — there is no insecure default. |
-| `REDIS_PASSWORD` | Must be set to a strong, unique password. The production Valkey service starts with `--requirepass` and the backend URLs are built from this value. Docker Compose **will not start** if this variable is missing. Generate with: `openssl rand -base64 32` |
+| `REDIS_PASSWORD` | Must be set to a strong, unique password. The production Valkey service starts with `--requirepass` and the backend URLs are built from this value. Docker Compose **will not start** if this variable is missing. Generate with: `openssl rand -hex 32` (not base64 — see the warning under Step 1) |
 | `DJANGO_SECRET_KEY` | Must be a long random string. If left as `change-me-in-production` or empty, Django will raise `ImproperlyConfigured` at startup. Generate one with: `python -c "import secrets; print(secrets.token_hex(50))"` |
 | `CORS_ALLOWED_ORIGINS` | Must be set to your production frontend origin (e.g. `https://yourdomain.com`). The default `http://localhost:5173` is only suitable for local development. |
 | `DEBUG` | Must be `false` in production. Running with `DEBUG=true` leaks stack traces to HTTP responses and disables the `DJANGO_SECRET_KEY` guard. |
@@ -328,15 +328,22 @@ Open `.env` in a text editor and set the following values. Every line marked **r
     To generate and insert a secret in one step without it touching your history:
 
     ```bash
-    # Generate DJANGO_SECRET_KEY directly into .env
-    sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')|" .env
+    # Replace KEY's line in .env, or append it if .env has none (DB_PASSWORD is
+    # only a comment in .env.example, so a bare `sed` would silently change nothing).
+    set_env() { grep -q "^$1=" .env && sed -i "s|^$1=.*|$1=$2|" .env || echo "$1=$2" >> .env; }
 
-    # Generate DB_PASSWORD directly into .env
-    sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -base64 32)|" .env
-
-    # Generate REDIS_PASSWORD directly into .env
-    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -base64 32)|" .env
+    set_env DJANGO_SECRET_KEY "$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')"
+    set_env DB_PASSWORD "$(openssl rand -hex 32)"
+    set_env REDIS_PASSWORD "$(openssl rand -hex 32)"
     ```
+
+!!! warning "Use hex, not base64, for `DB_PASSWORD` and `REDIS_PASSWORD`"
+    `docker-compose.prod.yml` places both passwords inside connection URLs
+    (`postgres://visiban:<DB_PASSWORD>@db…`), and Compose cannot escape them. A
+    `/`, `?`, `#`, `%`, `[`, `]` or space in either one breaks the URL and the backend
+    refuses to start — and `openssl rand -base64` puts a `/` in about half of
+    its outputs. `openssl rand -hex 32` is just as strong and URL-safe.
+    `init-prod.sh` rejects an unsafe value before starting anything.
 
 ```bash
 # Django
@@ -346,13 +353,15 @@ ALLOWED_HOSTS=yourdomain.com            # required
 CORS_ALLOWED_ORIGINS=https://yourdomain.com  # required — must be your public domain, not localhost
 FRONTEND_URL=https://yourdomain.com     # required — allauth redirects here after OAuth login/logout
 SITE_DOMAIN=yourdomain.com             # required — used for OAuth callback URLs
+DEFAULT_FROM_EMAIL=noreply@yourdomain.com  # required on 1.1.x — the backend refuses to start
+                                           # while it is the example.com default (1.2+ only warns)
 
-# Database (Postgres runs inside Docker Compose)
-DATABASE_URL=postgres://visiban:${DB_PASSWORD}@db:5432/visiban
-DB_PASSWORD=<strong password>           # required — used by both Django and Postgres
+# Database (Postgres runs inside Docker Compose). docker-compose.prod.yml builds
+# DATABASE_URL from DB_PASSWORD itself; there is nothing else to set.
+DB_PASSWORD=<strong password>           # required — generate: openssl rand -hex 32
 
 # Valkey (runs inside Docker Compose)
-REDIS_PASSWORD=<strong password>        # required — generate: openssl rand -base64 32
+REDIS_PASSWORD=<strong password>        # required — generate: openssl rand -hex 32
 # REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.
 # Only override here if you use an external Valkey or Redis-compatible instance.
 
@@ -444,14 +453,9 @@ See [First Boot](first-boot.md) for full details.
 
 ### Subsequent deploys
 
-Pull the latest code and rebuild:
-
-```bash
-git pull origin main
-docker compose -f docker-compose.prod.yml up -d --build
-```
-
-This rebuilds images, re-runs the frontend build (output replaces the previous static files in the shared volume), and restarts services with zero manual steps.
+The production stack runs the released images named by `APP_VERSION` in your
+`.env`; it builds nothing locally, and `git pull` does not change your `.env`.
+To move to a new release, see [Updating to a new version](#updating-to-a-new-version).
 
 ### Certificate renewal
 
@@ -482,13 +486,21 @@ docker compose -f docker-compose.prod.yml up -d
 
 ### Updating to a new version
 
+Take a database backup first (see [Backing up and restoring](#backing-up-and-restoring)), then:
+
 ```bash
 cd visiban
-git pull origin main
-docker compose -f docker-compose.prod.yml up -d --build
+git pull origin main                     # updated compose file, nginx templates, scripts
+# Edit .env: set APP_VERSION to the new release tag (vX.Y.Z)
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-Django migrations run automatically on startup. Check the backend logs after updating:
+Changing `APP_VERSION` is the step that actually upgrades: without it, `pull`
+fetches the version you already run. The `backend-init` service applies the
+new migrations before the new backend starts, and `frontend-build` copies the
+new SPA into place. See the [Upgrade guide](../administration/upgrade.md) for
+version-specific notes and rollback. Check the backend logs after updating:
 
 ```bash
 docker compose -f docker-compose.prod.yml logs backend | tail -20

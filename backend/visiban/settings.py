@@ -1,6 +1,7 @@
 import os
 import sys
 import warnings
+from urllib.parse import urlparse
 import environ
 from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
@@ -22,6 +23,74 @@ def _warn_deprecated_env_alias(old_name: str, new_name: str) -> None:
             DeprecationWarning,
             stacklevel=2,
         )
+
+
+def _validate_redis_url(name: str, url: str) -> None:
+    """Raise if `url` can't be parsed into a host, without echoing it (it carries the password).
+
+    A password containing "/", "?", "#" or "[" / "]" spliced raw into the URL
+    (docker-compose.prod.yml builds these from REDIS_PASSWORD) moves the host
+    into the path. Nothing fails without this check — the backend just boots
+    pointing at no host and every WebSocket and cache call fails later, far
+    from the cause. Extracted from the settings body so it can be unit-tested
+    directly instead of only via a subprocess settings reload (#987).
+    """
+    try:
+        # urlparse itself raises on "[" / "]" in the netloc (it validates
+        # them as an IPv6 literal) and its message quotes the bracketed
+        # text — part of the password — so it must sit inside the try too.
+        parsed = urlparse(url)
+        parsed.port  # noqa: B018 — raises ValueError on a malformed port
+        # An empty netloc (redis:///0) is a valid "default host" URL; a
+        # netloc that yields no hostname is the broken-password case.
+        bad = (
+            parsed.scheme in ("redis", "rediss")
+            and bool(parsed.netloc)
+            and not parsed.hostname
+        )
+    except ValueError:
+        bad = True
+    if bad:
+        raise ImproperlyConfigured(
+            f"{name} could not be parsed into a host. If its password contains "
+            "any of / ? # % [ ] or a space, percent-encode them, or generate the "
+            "password with `openssl rand -hex 32`."
+        )
+
+
+_DB_URL_ERROR = (
+    "DATABASE_URL could not be parsed. If its password contains any of "
+    "/ ? # % [ ] or a space, percent-encode them, or generate the password "
+    "with `openssl rand -hex 32`."
+)
+
+
+def _load_database_url(url: str) -> dict:
+    """Parse DATABASE_URL, raising ImproperlyConfigured rather than echoing a bad password.
+
+    Same failure class as the Redis URLs above, but louder: a "/" in the
+    password (docker-compose.prod.yml splices DB_PASSWORD in raw) makes the
+    parser read the text before it as the port, and its ValueError quotes
+    that text — a fragment of the database password, printed to the
+    container log. Re-raised without the original message (`from None` also
+    drops the chained traceback).
+
+    The warnings are captured and never re-emitted: for a URL with no usable
+    scheme, django-environ does not raise but warns "Engine not recognized
+    from url: {config}" — the parsed dict, PASSWORD included — and returns
+    {}. Extracted from the settings body so it can be unit-tested directly
+    instead of only via a subprocess settings reload (#987).
+    """
+    try:
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            db_config = environ.Env.db_url_config(url)
+    except ValueError:
+        raise ImproperlyConfigured(_DB_URL_ERROR) from None
+    if not db_config.get("ENGINE"):
+        raise ImproperlyConfigured(_DB_URL_ERROR)
+    return db_config
+
 
 # Detect when running under `manage.py test` or pytest so we can substitute
 # fast in-process backends for Redis-backed services. This avoids requiring a
@@ -208,11 +277,17 @@ if _TESTING:
         }
     }
 else:
+    _REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+    _REDIS_CACHE_URL = env("REDIS_CACHE_URL", default="redis://localhost:6379/1")
+    # Fail at startup on an unparseable host, and never echo the URL: it
+    # carries the password. See _validate_redis_url's docstring above.
+    for _name, _url in (("REDIS_URL", _REDIS_URL), ("REDIS_CACHE_URL", _REDIS_CACHE_URL)):
+        _validate_redis_url(_name, _url)
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [env("REDIS_URL", default="redis://localhost:6379/0")],
+                "hosts": [_REDIS_URL],
             },
         },
     }
@@ -222,12 +297,16 @@ else:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": env("REDIS_CACHE_URL", default="redis://localhost:6379/1"),
+            "LOCATION": _REDIS_CACHE_URL,
         }
     }
 
+# Same failure class as the Redis URLs above, but louder — see
+# _load_database_url's docstring above.
+_DEFAULT_DB = _load_database_url(env("DATABASE_URL"))
+
 DATABASES = {
-    "default": env.db("DATABASE_URL"),
+    "default": _DEFAULT_DB,
 }
 
 AUTH_USER_MODEL = "accounts.User"

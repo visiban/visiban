@@ -39,11 +39,15 @@ docker compose -f docker-compose.prod.yml exec db \
 
 Store the backup outside the container. A local file on the host is sufficient for most deployments; offsite storage is recommended for production.
 
-### 2. Pull the new image and rebuild
+### 2. Point `APP_VERSION` at the new release and pull it
+
+The production stack runs the released images named by `APP_VERSION` in `.env`
+and builds nothing locally, so changing that line is what selects the new
+version — without it, `pull` fetches the version you already run.
 
 ```bash
+# In .env: APP_VERSION=vX.Y.Z   (the release you are upgrading to)
 docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml build --no-cache backend frontend-build
 ```
 
 ### 3. Run migrations
@@ -57,10 +61,13 @@ This starts a one-off container, applies all pending migrations, and exits. The 
 ### 4. Restart the services
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --force-recreate backend
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-This replaces the running backend container with the new image. Nginx and the database are unaffected.
+This recreates every service whose image changed with `APP_VERSION` — `backend-init` (which
+re-checks migrations), `backend`, `frontend-build` (which copies the new SPA into place) and, if
+enabled, `scheduler`. Recreating only `backend` would leave the old frontend and scheduler
+running against the new API. Nginx and the database are unaffected.
 
 ### 5. Verify
 
@@ -161,16 +168,13 @@ the authoring rules.
 !!! warning
     Running `migrate` inside the container startup command is unsafe when `backendReplicaCount > 1`.
 
-The default `docker-compose.prod.yml` backend command is:
-
-```yaml
-command: >
-  sh -c "python manage.py migrate &&
-         python manage.py ensure_site_admin &&
-         daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"
-```
-
-This is convenient for single-server deployments: the one backend container migrates and then starts. However, if you scale the backend to more than one replica — whether via Docker Swarm, Kubernetes, or a second Compose host — every replica races to apply the same migrations on startup. Django's migration executor is not safe to run concurrently: two containers applying the same migration at the same time will conflict at the database level and may leave the schema in an inconsistent state.
+`docker-compose.prod.yml` already keeps migrations out of the backend container: the
+one-shot `backend-init` service runs `migrate` and `collectstatic`, and `backend` starts only
+after it exits successfully. The backend container itself runs only the idempotent
+`ensure_site_admin` bootstrap before `daphne`. The risk below applies if you replace that
+layout with a startup command that migrates — for example on Docker Swarm, a second Compose
+host, or a hand-written Kubernetes manifest — because then every replica races to apply the
+same migrations on startup. Django's migration executor is not safe to run concurrently: two containers applying the same migration at the same time will conflict at the database level and may leave the schema in an inconsistent state.
 
 **Recommended approach for multi-replica deployments:**
 
@@ -287,6 +291,21 @@ Migration `boards/0059_add_swimlane_custom_fields` adds two new tables
 [swimlane (row) custom fields](../features/custom-fields.md#swimlane-row-custom-fields)
 feature. Both operations are `CreateModel` — no existing table, index, or constraint is
 touched — so it is zero-downtime and requires no operator action.
+
+!!! warning "Compose: `DOMAIN` must be listed in `ALLOWED_HOSTS`"
+    The production Compose backend healthcheck now sends `Host: $DOMAIN` instead
+    of `Host: localhost`. An install whose `ALLOWED_HOSTS` holds `localhost` or
+    an alias but not the exact `DOMAIN` value never turns healthy after the
+    upgrade, and nginx (which waits on it) does not start. Check that
+    `ALLOWED_HOSTS` in `.env` contains `DOMAIN` before running `up -d`.
+
+!!! warning "Helm: give `externalDatabase.password` verbatim"
+    The chart now percent-encodes the database username and password when it
+    builds the connection URL, so a password containing `/` no longer breaks it.
+    If you percent-encoded `externalDatabase.password` (or
+    `postgresql.auth.password`) by hand to work around that, put the plain value
+    back before `helm upgrade` — otherwise it is encoded twice and
+    authentication fails.
 
 !!! warning "Helm values are now schema-validated — an unknown key fails the upgrade"
     Chart 0.4.0 ships `values.schema.json` with `additionalProperties: false` on
@@ -667,13 +686,13 @@ touched — so it is zero-downtime and requires no operator action.
 
     ```bash
     # Generate a strong random password and insert it into .env
-    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -base64 32)|" .env
+    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -hex 32)|" .env
     ```
 
     Or generate a value manually and add it:
 
     ```bash
-    openssl rand -base64 32
+    openssl rand -hex 32   # hex, not base64: a "/" in the password breaks the redis:// URL
     # Copy the output, then add to .env:
     REDIS_PASSWORD=<generated value>
     ```

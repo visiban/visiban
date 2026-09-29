@@ -53,23 +53,23 @@
 # Usage:   bash scripts/helm-install-drill.sh
 # Env:     KIND_CLUSTER   cluster name (default visiban-install)
 #          KEEP_CLUSTER=1 skip teardown, to poke at a failed run
-#          EXTRA_HELM_ARGS  appended to every install/upgrade. Escape hatch for a
-#                           local machine whose kernel the bundled datastore
-#                           images do not tolerate. The Bitnami subchart's
-#                           floating bitnami/valkey:latest (Valkey 9.x) died
-#                           with "Fatal: Can't initialize Background Jobs.
-#                           Error message: Operation not permitted" on some
-#                           arm64 VMs (Rancher Desktop / Lima) — pthread_create
-#                           denied by the host's seccomp profile. Since #1200
-#                           the chart runs the pinned official
-#                           valkey/valkey:8-alpine instead; if a host still
-#                           rejects it, point the drill at an out-of-band
-#                           instance:
+#          EXTRA_HELM_ARGS  appended to every install/upgrade. Escape hatch for
+#                           local-only obstacles, e.g. pointing the datastores
+#                           at side-loaded images when Docker Hub rate-limits
+#                           the kind node (429 on postgres / valkey), or at an
+#                           out-of-band instance:
 #                             EXTRA_HELM_ARGS="--set valkey.enabled=false \
 #                               --set externalRedis.url=redis://my-valkey:6379/0 \
 #                               --set externalRedis.cacheUrl=redis://my-valkey:6379/1"
 #                           CI does not set it, so CI always drills the shipped
 #                           defaults on amd64.
+#
+# Use a current kind (CI pins KIND_VERSION in .gitlab-ci.yml). Valkey dying with
+# "Fatal: Can't initialize Background Jobs. Error message: Operation not
+# permitted" (seen with the pre-#1200 bitnami/valkey:latest, Valkey 9.x) is an
+# OUTDATED kind, not the host: kind v0.11's node image ships a seccomp profile
+# that answers clone3 with EPERM, so pthread_create fails. The same Rancher
+# Desktop arm64 host passes this whole drill on kind v0.24.0.
 
 set -euo pipefail
 
