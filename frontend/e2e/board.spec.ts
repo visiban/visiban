@@ -71,8 +71,8 @@ test.describe('board view', () => {
     const doneHeader = page.getByText('Done').first()
 
     // Drag the card to the Done column header.
-    // dnd-kit uses PointerSensor with a 5px activation distance.
-    // We use page.mouse sequences so pointer events match what PointerSensor expects.
+    // dnd-kit uses MouseSensor with a 5px activation distance (useDragSensors).
+    // We use page.mouse sequences so mouse events match what MouseSensor expects.
     const cardBox = await cardEl.boundingBox()
     const doneBox = await doneHeader.boundingBox()
     if (!cardBox || !doneBox) throw new Error('Could not locate card or Done column')

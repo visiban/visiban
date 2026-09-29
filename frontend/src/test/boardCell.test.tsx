@@ -1,12 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardCell from '../components/Board/BoardCell'
 import type { Card, Column, Swimlane } from '../types'
 
+// Mutable so a test can simulate an in-flight drag (#1287).
+const dnd = vi.hoisted(() => ({ active: null as { id: string } | null }))
+
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
-  useDndContext: () => ({ active: null }),
+  useDndContext: () => ({ active: dnd.active }),
 }))
 
 vi.mock('@dnd-kit/sortable', () => ({
@@ -209,5 +212,29 @@ describe('BoardCell', () => {
     // longer a button, the bottom-aligned button is the only create affordance.
     expect(screen.queryByRole('button', { name: /Add card to/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+ Add card' })).toBeInTheDocument()
+  })
+
+  it('right-click (or touch long-press) opens the new-card input when no drag is active', () => {
+    dnd.active = null
+    render(<BoardCell {...defaultProps()} />)
+    const cell = screen.getByRole('button', { name: 'Add card to To Do in Customer A' })
+    const notCanceled = fireEvent.contextMenu(cell)
+    expect(notCanceled).toBe(false)
+    expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
+  })
+
+  it('a contextmenu during an active drag neither opens the input nor the native menu (#1287)', () => {
+    // On Android a long-press fires `contextmenu`, and a long-press is also what
+    // starts a touch drag — so this fires mid-drag in practice.
+    dnd.active = { id: '1' }
+    try {
+      render(<BoardCell {...defaultProps()} />)
+      const cell = screen.getByRole('button', { name: 'Add card to To Do in Customer A' })
+      const notCanceled = fireEvent.contextMenu(cell)
+      expect(notCanceled).toBe(false)
+      expect(screen.queryByPlaceholderText('Card title…')).not.toBeInTheDocument()
+    } finally {
+      dnd.active = null
+    }
   })
 })

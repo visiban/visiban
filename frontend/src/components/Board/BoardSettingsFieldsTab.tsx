@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardFull, CustomFieldDefinition, CustomFieldType } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
+import { useDragSensors } from "../../hooks/useDragSensors";
 import { Toggle } from "../Common/Toggle";
 import {
   createCustomFieldDefinition,
@@ -96,6 +97,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const [deleteTarget, setDeleteTarget] = useState<CustomFieldDefinition | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
   const [saving, setSaving] = useState(false);
+  // Keeps DndContext's default keyboard reordering; adds touch press-and-hold (#1287).
+  const dragSensors = useDragSensors({ keyboard: true });
 
   const pinnedCount = fields.filter((f) => f.show_on_card).length;
 
@@ -313,7 +316,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
       {fields.length === 0 && editingId === null ? (
         <EmptyState isAdmin onAdd={startAdd} />
       ) : (
-        <DndContext onDragEnd={(e) => void handleDragEnd(e)}>
+        <DndContext sensors={dragSensors} onDragEnd={(e) => void handleDragEnd(e)}>
           <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
             {fields.map((def) => (
               <FieldRow
