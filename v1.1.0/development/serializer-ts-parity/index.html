@@ -3504,18 +3504,19 @@ either one covers your change.</strong></p>
 <td>Field <strong>names</strong>, both directions</td>
 </tr>
 <tr>
-<td><code>serializer-ts-parity</code> CI job (#1079 + #1139, this page)</td>
+<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209, this page)</td>
 <td>The <strong>generated OpenAPI document</strong></td>
-<td><strong>20</strong> pairs — every pair that has a schema component</td>
+<td><strong>24</strong> pairs — every pair that has a schema component</td>
 <td>Names, <strong>types</strong>, nullability, enum membership</td>
 </tr>
 </tbody>
 </table>
-<p>Neither supersedes the other, and a green run of one says nothing about the other — but since</p>
-<h1 id="1139-the-coverage-gap-is-down-to-a-single-structural-difference-821-reaches-two-pairs">1139 the coverage gap is down to a single, structural difference: **#821 reaches two pairs<a class="headerlink" href="#1139-the-coverage-gap-is-down-to-a-single-structural-difference-821-reaches-two-pairs" title="Permanent link">&para;</a></h1>
-<p>this gate cannot, because <code>drf-spectacular</code> emits no component for them** (a third, <code>BoardFull</code>,
-gained a component in #1137). See
-<a href="#coverage">Coverage</a> for the pair-by-pair table.</p>
+<p>Neither supersedes the other, and a green run of one says nothing about the other. Through</p>
+<h1 id="1139-the-coverage-gap-was-a-structural-one-821-reached-two-pairs-this-gate-could-not">1139 the coverage gap was a structural one — #821 reached two pairs this gate could not,<a class="headerlink" href="#1139-the-coverage-gap-was-a-structural-one-821-reached-two-pairs-this-gate-could-not" title="Permanent link">&para;</a></h1>
+<p>because <code>drf-spectacular</code> emitted no component for them (a third, <code>BoardFull</code>, gained a
+component in #1137). #1209 wired real response schemas for the endpoints behind <code>CardActivity</code>,
+<code>CardAttachment</code>, and two more pairs #821 does not reach at all (<code>Notification</code>, <code>PublicCard</code>),
+closing that gap. See <a href="#coverage">Coverage</a> for the pair-by-pair table.</p>
 <p>Until #1139, this gate type-checked only five pairs while #821 name-checked fourteen, so a
 green job read as much broader assurance than it delivered. Widening it to eighteen turned up
 nine more real mismatches on the new pairs (and one false positive caused by a defect in the
@@ -3641,6 +3642,16 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>yes</td>
 </tr>
 <tr>
+<td><code>CardActivity</code></td>
+<td><code>CardActivity</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>CardAttachment</code></td>
+<td><code>CardAttachment</code></td>
+<td>yes</td>
+</tr>
+<tr>
 <td><code>CardChecklist</code></td>
 <td><code>CardChecklistItem</code></td>
 <td>yes</td>
@@ -3706,6 +3717,16 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>yes</td>
 </tr>
 <tr>
+<td><code>Notification</code></td>
+<td><code>Notification</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>PublicCard</code></td>
+<td><code>PublicCard</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>Swimlane</code></td>
 <td><code>Swimlane</code></td>
 <td>yes</td>
@@ -3722,31 +3743,16 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <code>CardChecklistItem</code> interface. Both are one resource under two spellings, and leaving either
 out would be a hole the gate's own name check cannot see.</p>
 <h3 id="what-is-not-covered-and-why">What is not covered, and why<a class="headerlink" href="#what-is-not-covered-and-why" title="Permanent link">&para;</a></h3>
-<p>Two pairs #821 name-checks are absent here, both for the same structural reason: the schema
-has no component to diff against, so there is nothing this gate could compare.</p>
-<table>
-<thead>
-<tr>
-<th>Pair</th>
-<th>Why excluded</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>CardActivity</code></td>
-<td>No component emitted.</td>
-</tr>
-<tr>
-<td><code>CardAttachment</code></td>
-<td>No component emitted.</td>
-</tr>
-</tbody>
-</table>
-<p>That is a <strong>missing component, not a passing check</strong> — the two are unchecked here, and the
-gate says nothing about their published types. Making them checkable means getting
-<code>drf-spectacular</code> to emit components for them, which needs its own issue.</p>
-<p>One further pair is absent for the opposite reason — the schema has a component but there is
-no TypeScript interface to diff it against:</p>
+<p>Until #1209, two pairs #821 name-checks were absent here for a structural reason: the schema
+had no component to diff against, so there was nothing this gate could compare. <code>CardActivity</code>
+and <code>CardAttachment</code> backed endpoints (<code>CardViewSet.activities</code>/<code>.attachments</code>) that fell back
+to the viewset's default <code>CardSerializer</code> with no dedicated response wiring, so
+<code>drf-spectacular</code> published the wrong component entirely rather than none. #1209 gave both
+endpoints real <code>@extend_schema</code> response annotations, so both are now mapped and checked (see
+<a href="#coverage">Coverage</a>). The same issue also wired <code>NotificationListView</code> and <code>ShareBoardView</code>
+for the first time, adding <code>Notification</code> and <code>PublicCard</code> to the map.</p>
+<p>Two pairs are absent for the opposite reason — the schema has a component but there is no
+TypeScript interface to diff it against:</p>
 <table>
 <thead>
 <tr>
@@ -3758,6 +3764,10 @@ no TypeScript interface to diff it against:</p>
 <tr>
 <td><code>CardQuery</code> (<code>CardQuerySerializer</code>, <code>GET /api/v1/cards/</code>, #1112)</td>
 <td>No TypeScript interface exists — <code>frontend/src/api/cards.ts</code> has no caller of this endpoint yet. Mapping it to the closest interface, <code>Card</code>, would not work: <code>CardQuery</code> sends every <code>Card</code> field plus <code>board</code> by design (a cross-board list must say which board each row is on), so the pair would report a permanent <code>missing_in_ts: board</code> finding that is not real drift. Revisit once a frontend consumer exists and needs its own interface (#1172).</td>
+</tr>
+<tr>
+<td><code>PublicBoard</code> (<code>PublicBoardSerializer</code>, <code>GET /api/share/{token}/</code>, #1209)</td>
+<td>No TypeScript interface exists — the SPA's share-link view only reads the nested <code>cards</code> list, for which <code>PublicCard</code> (mapped above) already exists. Revisit if a frontend consumer needs the outer <code>{uid, name, columns, swimlanes, labels, cards}</code> shape as its own type.</td>
 </tr>
 </tbody>
 </table>
@@ -3892,7 +3902,7 @@ serializer — a different shape that merely shares a name. Mapping the WebSocke
 would assert a correspondence that does not exist. That union stays hand-maintained;
 <a href="https://gitlab.com/visiban/visiban/-/issues/1078">#1078</a> covers WebSocket event reachability
 separately.</p>
-<p><strong>Pairs with no schema component.</strong> <code>CardActivity</code> and <code>CardAttachment</code> — see
+<p><strong>Pairs with a component but no TypeScript interface.</strong> <code>CardQuery</code> and <code>PublicBoard</code> — see
 <a href="#what-is-not-covered-and-why">What is not covered, and why</a>.</p>
 <p><strong>Request bodies.</strong> <code>SPECTACULAR_SETTINGS</code> sets <code>COMPONENT_SPLIT_REQUEST: True</code>, so the schema
 carries 34 separate <code>*Request</code> / <code>Patched*Request</code> components describing what you may <em>send</em>.
