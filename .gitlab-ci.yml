@@ -3003,6 +3003,15 @@ helm-publish:
       fi
       echo "appVersion check passed: $APP_VERSION"
     - printf '%s' "$GHCR_TOKEN" | helm registry login ghcr.io -u "$GHCR_USER" --password-stdin
+    # `helm registry login` above only populates Helm's own registry config —
+    # it has no effect on cosign, which resolves registry auth through
+    # go-containerregistry's default keychain (the Docker credential store).
+    # Without this, `cosign sign` below fails closed with
+    # "UNAUTHORIZED: authentication required" even though the push two lines
+    # down succeeds — the two tools simply don't share a credential store
+    # (#1284, first caught on v1.2.0-alpha.2 once #1268 let execution reach
+    # this far for the first time).
+    - printf '%s' "$GHCR_TOKEN" | cosign login ghcr.io -u "$GHCR_USER" --password-stdin
     - helm package helm/visiban --destination /tmp
     - |
       CHART_FILE="$(ls /tmp/visiban-*.tgz)"
