@@ -1,6 +1,6 @@
 # Technology Decisions
 
-This page explains *why* each component of the Visiban stack was chosen, not just *what* was chosen. It is written for engineers evaluating self-hosting, potential contributors, and technical evaluators who want to understand the trade-offs behind the architecture.
+Why each piece of the Visiban stack was chosen, not just what was chosen — for contributors, self-hosters, and anyone evaluating the trade-offs.
 
 ---
 
@@ -8,7 +8,7 @@ This page explains *why* each component of the Visiban stack was chosen, not jus
 
 The stack follows one rule: choose the simplest thing that could work correctly and securely, and resist adding complexity until it genuinely earns its place.
 
-Visiban is a well-built monolith, containerised, with a clear upgrade path to Kubernetes when scale demands it. There are no microservices, no message queues, and no separate search index in the default deployment. Each of those patterns has a real cost — operational overhead, more failure modes, more moving parts for a self-hoster to manage. None of them was justified at the scale Visiban targets out of the box.
+Visiban is a well-built monolith, containerized, with a clear upgrade path to Kubernetes when scale demands it. There are no microservices, no message queues, and no separate search index in the default deployment. Each of those patterns has a real cost — operational overhead, more failure modes, more moving parts for a self-hoster to manage. None of them was justified at the scale Visiban targets out of the box.
 
 The upgrade path exists. Valkey is already present for WebSocket channel messaging. The Helm chart deploys today what a Kubernetes migration would require. But the complexity is not paid upfront.
 
@@ -16,9 +16,9 @@ The upgrade path exists. Valkey is already present for WebSocket channel messagi
 
 ## Django + Django REST Framework
 
-Django is a battle-tested Python framework with a large, stable ecosystem and a well-understood security model. The ORM eliminates raw SQL by default — parameterised queries are the path of least resistance, not something that has to be remembered. That is a security property built into the stack rather than bolted on.
+Django is a battle-tested Python framework with a large, stable ecosystem and a well-understood security model. The ORM eliminates raw SQL by default — parameterized queries are the path of least resistance, not something that has to be remembered. That is a security property built into the stack rather than bolted on.
 
-Django REST Framework adds serialiser-level validation and permission enforcement from day one. The pattern encourages checking auth and input shape at the API boundary, before business logic runs.
+Django REST Framework adds serializer-level validation and permission enforcement from day one. The pattern encourages checking auth and input shape at the API boundary, before business logic runs.
 
 From a hiring and contribution perspective, Django is one of the most widely understood Python frameworks. A contributor familiar with Django elsewhere can navigate Visiban's backend without a learning curve specific to this project.
 
@@ -30,7 +30,7 @@ From a hiring and contribution perspective, Django is one of the most widely und
 
 Real-time board updates required WebSocket support. The alternative would have been a separate Node.js service, which would have doubled the operational surface: a second language runtime, a second process to monitor, a second image to build and maintain.
 
-Django Channels handles WebSockets inside the same Django codebase. The migration from gunicorn (WSGI) to daphne (ASGI) was the only infrastructure change required — all existing HTTP views, serialisers, and middleware continued working without modification.
+Django Channels handles WebSockets inside the same Django codebase. The migration from gunicorn (WSGI) to daphne (ASGI) was the only infrastructure change required — all existing HTTP views, serializers, and middleware continued working without modification.
 
 Two design choices keep the WebSocket layer correct:
 
@@ -74,9 +74,9 @@ Three specific PostgreSQL capabilities are in active use:
 
 ## React 19 + TypeScript + Vite
 
-TypeScript was chosen primarily for its ability to catch contract drift between backend serialisers and frontend interfaces at compile time. Without static types, a renamed serialiser field silently becomes `undefined` in the browser — an error that only surfaces at runtime, in a customer session. With TypeScript, the same mistake is a build failure.
+TypeScript was chosen primarily for its ability to catch contract drift between backend serializers and frontend interfaces at compile time. Without static types, a renamed serializer field silently becomes `undefined` in the browser — an error that only surfaces at runtime, in a customer session. With TypeScript, the same mistake is a build failure.
 
-The `Board`, `Card`, `User`, and related interfaces are defined to match backend serialiser fields exactly. This is enforced by convention and caught by the type system: when a backend field is added or renamed, the corresponding TypeScript interface must be updated in the same MR.
+The `Board`, `Card`, `User`, and related interfaces are defined to match backend serializer fields exactly. This is enforced by convention and caught by the type system: when a backend field is added or renamed, the corresponding TypeScript interface must be updated in the same MR.
 
 Vite's dev server keeps iteration fast. Hot module replacement works well with the component structure and avoids the multi-second rebuild cycles of older bundlers.
 
@@ -90,7 +90,7 @@ react-beautiful-dnd was the default choice for Kanban-style boards for several y
 
 `@dnd-kit` is its modern successor. It is accessible by default, headless (no bundled styles), and designed specifically for complex multi-container layouts. The column × swimlane grid in Visiban is exactly the kind of layout where simpler drag libraries break down — each card can be dropped into any cell of a two-dimensional grid, not just reordered within a list.
 
-Optimistic updates on drag mean the UI feels instant: the card moves visually before the API call completes. Rollback on API failure means the board stays correct: if the server rejects the move, the card returns to its original position. The headless approach means drag behaviour is fully controlled — there is no third-party drag style to fight or override.
+Optimistic updates on drag mean the UI feels instant: the card moves visually before the API call completes. Rollback on API failure means the board stays correct: if the server rejects the move, the card returns to its original position. The headless approach means drag behavior is fully controlled — there is no third-party drag style to fight or override.
 
 ---
 
@@ -98,7 +98,7 @@ Optimistic updates on drag mean the UI feels instant: the card moves visually be
 
 Card descriptions support rich text: formatting, inline code, mentions, and links. The editing experience needed to match what engineers and project managers expect from modern tools.
 
-Tiptap wraps ProseMirror in an extension-based API. `@mention` autocomplete is just another extension — it plugs into the same system as bold or code formatting, rather than being wired specially into the editor. Adding a new inline extension does not require touching the core editor logic.
+Tiptap wraps ProseMirror in an extension-based API. `@mention` autocomplete is another extension — it plugs into the same system as bold or code formatting, rather than being wired specially into the editor. Adding a new inline extension does not require touching the core editor logic.
 
 Card content is stored as Markdown server-side. This keeps the data portable: card descriptions are readable outside the UI, exportable, and not locked to a specific editor's internal format.
 
@@ -172,4 +172,4 @@ Key design decisions and the reasoning behind each:
 
 **Migration safety job.** This job catches three dangerous patterns before they reach production: missing migrations (a model change with no corresponding migration file), destructive column operations (DROP COLUMN in a migration), and NOT NULL columns added without a default (which blocks zero-downtime deploys). These are the three most common sources of production migration incidents.
 
-**Claude Code reviewer stage.** A dedicated CI stage runs the Claude Code reviewer on every MR. This catches patterns that static analysis misses — incorrect permission checks, missing `transaction.on_commit()` wrappers on broadcast calls, serialiser fields that expose data beyond what the endpoint should return.
+**Claude Code reviewer stage.** A dedicated CI stage runs the Claude Code reviewer on every MR. This catches patterns that static analysis misses — incorrect permission checks, missing `transaction.on_commit()` wrappers on broadcast calls, serializer fields that expose data beyond what the endpoint should return.

@@ -53,7 +53,7 @@ def handle_exception(self, exc):
 
 The bodies live in that module, rather than being reassembled in the views, because they are a frozen contract and one home for them is the only way to keep them frozen. The card API returns five mutually incompatible `409`/`403` shapes — `wip_limit_exceeded` and `weight_limit_exceeded` carry no `detail` key at all, `wip_hard_blocked` carries both `detail` and `code`, and the move assignee gate is the only `403` in the card API with a `code`. The web client reads those field names directly, so converging the shapes needs a major version bump. `backend/boards/tests/test_card_error_bodies.py` pins every one by exact dictionary equality.
 
-Note that the adapter does **not** wrap these in a DRF `APIException`. DRF coerces every value in an exception detail to a string, which would turn `current_count`, `wip_limit`, `card_weight`, and `current_version` into strings and break clients that compare them numerically.
+The adapter does **not** wrap these in a DRF `APIException`. DRF coerces every value in an exception detail to a string, which would turn `current_count`, `wip_limit`, `card_weight`, and `current_version` into strings and break clients that compare them numerically.
 
 `boards/services/errors.py` is **not** an extension point and carries no stability guarantee — unlike `boards/hooks.py`. The hierarchy is expected to change when the error bodies are converged.
 

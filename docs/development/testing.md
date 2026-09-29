@@ -10,11 +10,14 @@ Visiban ships three layers of automated tests. Run the one that matches what you
 
 ## Backend tests
 
+CI and local runs both go through `pytest` (`backend/setup.cfg`'s `[tool:pytest]` config),
+not `manage.py test` — `pytest-django` reads the same `TestCase` classes.
+
 ```bash
 cd backend
-python manage.py test
-# or a single app/class/method
-python manage.py test boards.tests.test_views.BoardViewSetTest.test_list_boards
+pytest                 # whole suite
+pytest -q boards/tests/test_views_extra.py                                   # one file
+pytest -q boards/tests/test_views_extra.py::CardAttachmentTests::test_list_attachments_empty  # one test
 ```
 
 Use Django's `TestCase` for anything that touches the database. If a test spawns threads that hit the ORM, close per-thread connections before the thread exits — see [`CLAUDE.md`](https://gitlab.com/visiban/visiban/-/blob/main/CLAUDE.md#threaded-tests--always-close-db-connections) for the pattern.
@@ -23,9 +26,9 @@ Use Django's `TestCase` for anything that touches the database. If a test spawns
 
 ```bash
 cd frontend
-npm test               # watch mode
-npm test -- --run      # single run (CI mode)
-npm test -- --coverage # with coverage report
+npx vitest              # watch mode
+npm test                # single run with coverage off (CI mode; runs `vitest run`)
+npm test -- --coverage  # single run with a coverage report
 ```
 
 Prefer `@testing-library/react` queries in the order:
@@ -47,11 +50,13 @@ E2E tests verify complete user flows against the real Vite dev server. All API c
 ```bash
 cd frontend
 npx playwright install chromium   # one-time
-npm run test:e2e                  # all specs, headless
-npm run test:e2e -- --ui          # Playwright UI mode (interactive)
-npm run test:e2e -- filter-bar    # match by filename
-npm run test:e2e -- --headed      # watch Chromium as it runs
+npx playwright test               # all specs, headless
+npx playwright test --ui          # Playwright UI mode (interactive)
+npx playwright test filter-bar    # match by filename
+npx playwright test --headed      # watch Chromium as it runs
 ```
+
+`npm run test:e2e` is the same command (`playwright test`) via a package.json alias — either form works.
 
 Playwright auto-starts the Vite dev server on port 5173 (`playwright.config.ts` → `webServer`). If you already have `npm run dev` running, Playwright reuses it.
 
@@ -73,7 +78,9 @@ frontend/e2e/
 ├── command-palette.spec.ts  # Cmd+K search
 ├── theme.spec.ts         # Light/dark toggle + persistence
 ├── export.spec.ts        # Export button visibility + JSON trigger
-└── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
+├── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
+├── rich-text-editor.spec.ts  # Card description editor + markdown round-trip
+└── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
 ```
 
 ### Fixture pattern
@@ -216,9 +223,9 @@ Before committing a new spec:
 
 ## CI
 
-- Backend tests run in the `test-backend` job on every MR
-- Frontend unit tests run in `test-frontend`
-- Playwright E2E runs in `e2e-test` — requires the Vite dev server build to succeed first
+- Backend tests run in the `backend-test` job (3 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
+- Frontend unit tests run in `frontend-test`
+- Playwright E2E runs in `playwright-e2e` — starts its own Vite dev server, no separate build step needed. It's `allow_failure: true` during rollout; promotion to blocking is tracked separately.
 - `backend-schema-validate` checks the generated OpenAPI document is well-formed;
   `backend-schema-fuzz` goes further and fuzzes a real, running instance with
   [schemathesis](https://schemathesis.readthedocs.io/) to catch a response that doesn't match
@@ -338,4 +345,6 @@ manually so the two can be chained instead. Run `scripts/check-issue-collision.s
 --self-test` to exercise the issue-collision check offline against stubbed forge
 responses.
 
-All four jobs must be green before a merge request can be merged.
+Both hooks are local, best-effort checks — `gitleaks-scan` is the CI job that actually
+blocks a merge; `check-issue-collision.sh` has no CI counterpart (see
+[CI gate self-tests](ci-gates.md#known-gaps-and-deferred-work)).

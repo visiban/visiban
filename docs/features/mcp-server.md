@@ -2,11 +2,11 @@
 
 > **Added in 1.2**
 
-This guide walks through connecting an AI agent — Claude Desktop or any other [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP) client — to a self-hosted Visiban instance: enabling the server, issuing a credential, and wiring up the client. For the full tool/resource reference (exact argument and return shapes, error codes), see [API Reference — MCP Server](../api/mcp.md).
+This guide connects an AI agent — Claude Desktop or any other [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP) client — to a self-hosted Visiban instance: enabling the server, issuing a credential, and wiring up the client. For the full tool/resource reference (argument and return shapes, error codes), see [API Reference — MCP Server](../api/mcp.md).
 
 ## What is the Visiban MCP server?
 
-MCP is an open protocol that lets AI assistants call tools and read resources exposed by a server, instead of relying only on what a user types into the chat. Visiban's MCP server exposes your boards, columns, swimlanes, cards, and the movement audit trail over this protocol, so an AI agent can answer questions about your pipeline and — with a suitably scoped credential — create, move, update, and archive cards on your behalf.
+MCP is an open protocol that lets AI assistants call tools and read resources exposed by a server, instead of relying only on what a user types into the chat. Visiban's MCP server exposes your boards, columns, swimlanes, cards, and the movement audit trail over this protocol — an AI agent can answer questions about your pipeline, and with a suitably scoped credential, create, move, update, and archive cards on your behalf.
 
 Any Streamable HTTP MCP client can connect: Claude Desktop, Claude.ai (via a remote MCP connector), or a custom agent built on the MCP SDK. This guide uses Claude Desktop as the worked example.
 
@@ -21,7 +21,7 @@ Any Streamable HTTP MCP client can connect: Claude Desktop, Claude.ai (via a rem
 
 ## Generating a Bearer token
 
-The MCP server reuses Visiban's existing [Personal Access Token](personal-access-tokens.md) system — there is no separate "API Tokens" screen in Django admin. Generate one from your own account settings:
+The MCP server reuses Visiban's existing [Personal Access Token](personal-access-tokens.md) system — there's no separate "API Tokens" screen in Django admin. Generate one from your own account settings:
 
 1. Open your avatar menu (top-right) and select **Settings**.
 2. Go to **Access Tokens** in the left sidebar.
@@ -34,7 +34,7 @@ The MCP server reuses Visiban's existing [Personal Access Token](personal-access
 !!! warning "Copy your token now"
     The full token value is shown **only once**, immediately after creation. Copy it to a password manager or secret store before navigating away.
 
-Scopes are **not** hierarchical: a token's default `read`/`write` REST scopes do not grant MCP access, and `mcp:read` does not grant `mcp:write`. A token created before 1.2 has no scopes recorded and is refused at `/mcp` even though it still works over REST — create a new token instead of reusing an old one. See [Personal Access Tokens — Scopes](personal-access-tokens.md#scopes) for the full non-hierarchical-scopes rule.
+**Watch out:** scopes are **not** hierarchical. A token's default `read`/`write` REST scopes don't grant MCP access, and `mcp:read` doesn't grant `mcp:write`. A token created before 1.2 has no scopes recorded and is refused at `/mcp` even though it still works over REST — create a new token instead of reusing an old one. See [Personal Access Tokens — Scopes](personal-access-tokens.md#scopes) for the full non-hierarchical-scopes rule.
 
 ## Connecting Claude Desktop
 
@@ -52,14 +52,14 @@ Add a `visiban` entry to Claude Desktop's `claude_desktop_config.json`:
 }
 ```
 
-Replace `<your-visiban-host>` with your instance's hostname and `<your-token>` with the token you just copied. Restart Claude Desktop after saving the file.
+Replace `<your-visiban-host>` with your instance's hostname and `<your-token>` with the token you copied. Restart Claude Desktop after saving the file.
 
-Once connected, Claude Desktop shows Visiban as an active MCP server with a green status indicator. Opening the server's details lists:
+Once connected, Claude Desktop shows Visiban as an active MCP server with a green status indicator. The server's details list:
 
 - **Tools** — `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, and, if your token carries `mcp:write`, `create_card`, `move_card`, `update_card`, `archive_card`
 - **Resources** — the `board` and `card` resource templates (`board://{board_id}`, `card://{card_id}`)
 
-If the server doesn't appear, double-check the URL includes `/mcp`, the token is prefixed `Bearer ` (not `Token `), and `MCP_SERVER_ENABLED` is set on the backend.
+**Watch out:** if the server doesn't appear, double-check the URL includes `/mcp`, the token is prefixed `Bearer ` (not `Token `), and `MCP_SERVER_ENABLED` is set on the backend.
 
 ## Available tools (OSS)
 
@@ -74,7 +74,7 @@ If the server doesn't appear, double-check the URL includes `/mcp`, the token is
 | `update_card` | Update title/description/priority/assignee/labels/due date | admin, member | `mcp:read` + `mcp:write` |
 | `archive_card` | Soft-delete a card (idempotent) | admin, member | `mcp:read` + `mcp:write` |
 
-`collaborator` and `viewer` roles can read but not write — a write tool called with either role returns a structured `permission_denied` error, not a `500`. Full argument/return shapes and every error code are documented in [API Reference — MCP Server — Tools](../api/mcp.md#tools).
+`collaborator` and `viewer` roles can read but not write — a write tool called with either role returns a structured `permission_denied` error, not a `500`. Full argument/return shapes and error codes are in [API Reference — MCP Server — Tools](../api/mcp.md#tools).
 
 ## Available resources (OSS)
 
@@ -89,13 +89,13 @@ Both resources are read-only and require only the `mcp:read` scope. See [API Ref
 
 > **Added in 1.2**
 
-Every tool call and resource read counts against a per-token limit (`300/min` by default, configurable via `MCP_THROTTLE_READ_RATE`), and `list_cards`/`board://{board_id}` additionally count against a tighter, second limit for expensive reads (`30/min` by default, `MCP_THROTTLE_COMPUTE_RATE`). Limits are per token, not per IP, and hold across every backend replica. A call over the limit gets a structured error with a `retry_after` hint instead of hanging or 500ing. See [API Reference — MCP Server — Rate limiting](../api/mcp.md#rate-limiting) for the exact settings, defaults, and error shape.
+Every tool call and resource read counts against a per-token limit (`300/min` by default, configurable via `MCP_THROTTLE_READ_RATE`). `list_cards`/`board://{board_id}` also count against a tighter, second limit for expensive reads (`30/min` by default, `MCP_THROTTLE_COMPUTE_RATE`). Limits are per token, not per IP, and hold across every backend replica. A call over the limit gets a structured error with a `retry_after` hint instead of hanging or 500ing. See [API Reference — MCP Server — Rate limiting](../api/mcp.md#rate-limiting) for exact settings, defaults, and error shape.
 
 ## Self-hosted / Docker Compose deployment notes
 
-- The `/mcp` endpoint is served on the same port as the Django app — no additional container, process, or ingress rule is needed. If you terminate TLS behind a reverse proxy, disable response buffering on the `/mcp` location (the bundled Nginx templates and Helm chart already do this).
-- Set `MCP_SERVER_ENABLED=true` on the backend service and restart it — the flag is off by default, so `/mcp` 404s until it's set.
-- **`ALLOWED_HOSTS` / `MCP_ALLOWED_HOSTS`** guard DNS rebinding and apply to every client, browser-based or not: the `Host` header of a request to `/mcp` must match one of these. If `ALLOWED_HOSTS` is `*` (a common self-hosting shortcut), set `MCP_ALLOWED_HOSTS` explicitly to the hostname(s) clients reach `/mcp` on — a wildcard cannot serve as the rebinding allowlist.
+- The `/mcp` endpoint is served on the same port as the Django app — no additional container, process, or ingress rule needed. If you terminate TLS behind a reverse proxy, disable response buffering on the `/mcp` location (the bundled Nginx templates and Helm chart already do this).
+- Set `MCP_SERVER_ENABLED=true` on the backend service and restart it — off by default, so `/mcp` 404s until it's set.
+- **`ALLOWED_HOSTS` / `MCP_ALLOWED_HOSTS`** guard DNS rebinding and apply to every client, browser-based or not: the `Host` header of a request to `/mcp` must match one of these. If `ALLOWED_HOSTS` is `*` (a common self-hosting shortcut), set `MCP_ALLOWED_HOSTS` explicitly to the hostname(s) clients reach `/mcp` on — a wildcard can't serve as the rebinding allowlist.
 - **`CORS_ALLOWED_ORIGINS`** only matters for a *browser-based* MCP client (for example, a custom web agent, or a future Claude.ai in-browser connector) — it controls whether a browser is allowed to read the response. A native desktop app like Claude Desktop is not subject to CORS, so this setting has no effect on it.
 
 ```yaml
@@ -119,8 +119,8 @@ npx @modelcontextprotocol/inspector
 # Add header: Authorization: Bearer <token>
 ```
 
-The Inspector should list the server and its tools/resources exactly as described above. If the connection fails, check the backend logs — a `401` means the token or scope is wrong, and a `404` means `MCP_SERVER_ENABLED` is not set.
+The Inspector should list the server and its tools/resources exactly as described above. If the connection fails, check the backend logs — `401` means the token or scope is wrong; `404` means `MCP_SERVER_ENABLED` isn't set.
 
 ## Upgrade path to enterprise
 
-The tools, resources, and Bearer-token authentication above are the full OSS (Phase 1) surface. [Visiban Enterprise](https://visiban.com/enterprise) is planned to add OAuth 2.1 (so connecting a client no longer means managing a long-lived Bearer token by hand), analytics tools, prompt templates, and RBAC-scoped tool visibility (hiding tools a caller's role could never use, rather than returning a `permission_denied` when they're called). None of this is implemented yet — see the [API reference's roadmap note](../api/mcp.md#roadmap).
+The tools, resources, and Bearer-token authentication above are the full OSS (Phase 1) surface. [Visiban Enterprise](https://visiban.com/enterprise) is planned to add OAuth 2.1 (so connecting a client no longer means managing a long-lived Bearer token by hand), analytics tools, prompt templates, and RBAC-scoped tool visibility (hiding tools a caller's role could never use, rather than returning `permission_denied` when they're called). None of this is implemented yet — see the [API reference's roadmap note](../api/mcp.md#roadmap).

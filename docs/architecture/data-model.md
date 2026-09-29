@@ -1,9 +1,17 @@
 # Data Model
 
+Three Django apps own the schema: `accounts` (users, tokens, site settings, admin audit),
+`boards` (boards, cards, and everything on them), `groups` (the folder hierarchy boards sit
+in). A fourth, `git_lens`, adds one model but is off by default — see
+[Issue Board Lens](#git_lens-app-off-by-default) at the bottom of this page.
+
 ## Core entities
 
 ```
 User
+ ├── avatar_url (str, blank — external avatar URL)
+ ├── display_name (str, blank)
+ ├── theme (str — system | dark | light; default system)
  ├── is_site_admin (bool — grants access to the admin panel)
  ├── can_access_all_content (bool — read/write access to all boards and groups, independent of is_site_admin)
  ├── must_change_password (bool)
@@ -25,11 +33,46 @@ User
  ├── email_notif_mentioned (bool, default false — also email the @mention notification)
  ├── email_notif_due_soon (bool, default false — also email the due-date notification)
  ├── email_notif_card_moved (bool, default false — also email the card-moved notification)
- └── has_completed_tour (bool, default false — whether the user has completed the onboarding tour)
+ ├── has_completed_tour (bool, default false — whether the user has completed the onboarding tour)
+ ├── PersonalAccessToken  (name, prefix, token_hash, expires_at, scopes, last_used_scope)
+ └── InviteLink created_by / redemptions, GroupInviteLink created_by (see below)
+
+SiteSetting  (accounts app — singleton, pk=1)
+ ├── registration_mode (str — open | invite_only | closed; default open)
+ ├── uploads_enabled (bool, default true)
+ ├── maintenance_mode (bool, default false)
+ └── maintenance_message (text, max 1000 chars)
+
+SiteEmailSetting  (accounts app — singleton, pk=1)
+ ├── config_source (str — env | database; default env)
+ ├── host, port, username, from_email, timeout
+ ├── password_ciphertext (text — encrypted at rest, never returned by the API)
+ └── use_tls / use_ssl (mutually exclusive)
+
+AdminActionLog  (accounts app — append-only)
+ ├── action (str — "<subject>.<verb>", e.g. maintenance_mode.enabled)
+ ├── actor_id / actor_username (plain columns, not a FK — see Entity details)
+ ├── source (str — admin_api | django_admin | cli)
+ ├── metadata (JSON — action-specific detail)
+ └── created_at
+
+InviteLink  (accounts app — site-level registration invites)
+ ├── token_hash (str, unique — SHA-256 hash; raw token shown once at creation)
+ ├── prefix (str — first 8 chars of raw token, safe for display)
+ ├── created_by → User (nullable)
+ ├── expires_at (datetime, nullable — null = never expires)
+ ├── single_use (bool)
+ ├── used_at (datetime, nullable)
+ ├── revoked_at (datetime, nullable)
+ ├── use_count (int, default 0 — incremented on every successful registration, preserved after revocation)
+ └── InviteLinkRedemption  (email_hash, redeemed_at — one per email, multi-use links only)
 
 Group
  ├── owner → User
  ├── parent → Group (nullable — null = top-level)
+ ├── default_board_member_role (str — admin | member | collaborator | viewer; default member)
+ ├── allowed_priorities (JSON — empty = all allowed)
+ ├── GroupLabel  (name, color — shared label library copied to new boards)
  ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
  ├── GroupInviteLink  (name, token, role, expires_at)
  └── GroupFavorite → User  (unique per user+group)
@@ -46,11 +89,18 @@ Board
  ├── stale_warning_pct (int 0–100 — yellow threshold for analytics heatmap; default 50)
  ├── allowed_priorities (JSON — restricts available card priorities; empty = all allowed)
  ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
+ ├── share_token_expires_at (datetime, nullable — null = never expires; past this the share endpoint returns 410)
+ ├── export_min_role (str, default viewer — minimum BoardMembership.Role required to export)
+ ├── card_density (str — comfortable | standard | dense; default comfortable for new boards)
+ ├── show_wip_at_limit (bool, default false — ambient "WIP n/n" indicator at exactly the limit)
  ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
  ├── BoardFavorite → User  (unique per user+board)
  ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done)
  ├── Swimlane  (uid, position, color, is_collapsed)
- └── Label  (uid, name, color)
+ ├── Label  (uid, name, color)
+ ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required — max 30/board)
+ ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 15/board)
+ └── BoardExportLog  (actor, role_at_export, export_format, row_count)
 
 Card
  ├── uid  (16-char hex, unique, read-only)
@@ -73,7 +123,17 @@ Card
  ├── CardComment  (author, body)
  ├── CardActivity  (event_type, from_value, to_value, actor)
  ├── CardChecklist  (text, is_checked, position)
- └── CardAttachment  (file, filename, size, uploaded_by)
+ ├── CardAttachment  (file, filename, size, uploaded_by)
+ ├── CustomFieldValue  (field_definition, value — one row per set field, unique per card+definition)
+ ├── CardExternalRef  (1:1 — provider, ref, url; a card's link to a PR/MR on an external forge)
+ └── CardRelation  (outgoing_relations / incoming_relations — blocks | relates_to, between two cards on the same board)
+
+BoardEvent  (append-only feed of every committed board mutation, #1114)
+ ├── board_id (plain int, not a FK — see Entity details)
+ ├── event (str — the WebSocket event type, e.g. "card.moved")
+ ├── data (JSON — the broadcast payload, verbatim)
+ ├── actor_id (plain int, nullable)
+ └── created_at
 
 BoardTemplate
  ├── id (UUID)
@@ -102,16 +162,6 @@ Notification
  ├── card → Card (nullable)
  ├── board → Board (nullable)
  └── read (bool)
-
-InviteLink  (accounts app — site-level registration invites)
- ├── token_hash (str, unique — SHA-256 hash; raw token shown once at creation)
- ├── prefix (str — first 8 chars of raw token, safe for display)
- ├── created_by → User (nullable)
- ├── expires_at (datetime, nullable — null = never expires)
- ├── single_use (bool)
- ├── used_at (datetime, nullable)
- ├── revoked_at (datetime, nullable)
- └── use_count (int, default 0 — incremented on every successful registration, preserved after revocation)
 ```
 
 ## Entity details
@@ -120,6 +170,8 @@ InviteLink  (accounts app — site-level registration invites)
 
 The `is_site_admin` flag grants access to the Visiban admin panel (user management, site settings). It does **not** grant access to boards or groups. The separate `can_access_all_content` flag grants read/write access to every board and group on the instance regardless of membership. The two flags are independent and can be combined.
 
+`theme` (`system` / `dark` / `light`, default `system`) is the per-user dark-mode preference; `avatar_url` and `display_name` are both optional and blank by default. `avatar_url` uses `""` rather than `null` as its "no avatar" sentinel — a 1.0 API contract that cannot change without a major version bump.
+
 `default_board` is a foreign key to `Board` with `on_delete=SET_NULL`. After login, the frontend redirects to this board if set. The frontend verifies access before redirecting to prevent an IDOR leak via a stale FK.
 
 `close_editor_on_enter` controls whether pressing Enter in the new-card inline editor submits and closes the editor (default true). Shift+Enter always inserts a newline regardless of this setting.
@@ -127,6 +179,18 @@ The `is_site_admin` flag grants access to the Visiban admin panel (user manageme
 The `notif_*` boolean fields store per-user notification preferences. Each flag maps to one `action_type` on the `Notification` model. Defaults follow the principle of least surprise: events directly targeting the user (`card_assigned`, `mentioned`, `board_invite`) are on by default; ambient events (`due_soon`, `card_moved`, `comment_added`) are off by default to avoid noise. Users can change preferences from their profile settings page.
 
 `has_completed_tour` is set to true the first time the onboarding tour completes. The frontend reads this field on login and skips the tour for returning users.
+
+### PersonalAccessToken
+
+Named, revocable API tokens (`vbn_` prefix), capped at 10 per user. Only a SHA-256 hash of the raw value is stored — the plaintext is shown exactly once, at creation. Since 1.2 (#1110) a token also carries `scopes`: a JSON list drawn from `read`, `write`, `admin`, `mcp:read`, `mcp:write`, non-hierarchical (holding `admin` does not imply `read`). `scopes=None` marks a legacy pre-1.2 token, which carries its owner's full REST authority but can never satisfy an `mcp:*` requirement; `scopes=[]` is an explicit grant of nothing. A new token always gets an explicit list — `read` + `write` by default when the caller omits `scopes`. All of a user's tokens are deleted when their password changes.
+
+### SiteSetting / SiteEmailSetting
+
+Two accounts-app singletons (always `pk=1`, fetched via `.get()`), split so a value that must never reach the audit log — the SMTP password — cannot live next to values that always do. `SiteSetting` holds `registration_mode` (open / invite_only / closed), `uploads_enabled`, and instance-wide `maintenance_mode` plus its notice; both are read on nearly every request through a 60-second cache invalidated on write. `SiteEmailSetting` holds outbound SMTP configuration, gated by `config_source` (`env` or `database`) — the two sources are never merged field-by-field, only switched wholesale, so a half-filled database row cannot silently blend with environment variables.
+
+### AdminActionLog
+
+Append-only record of a fixed, enumerable set of instance-wide admin actions (#1126): maintenance mode toggled, the maintenance notice changed, registration mode changed, uploads toggled, and outbound-email configuration changes. `actor_id` and `actor_username` are plain columns, not a foreign key — a FK's `on_delete=SET_NULL` would let deleting a user erase who performed a privileged action, which is the one thing this table exists to answer. There is deliberately no retention pruner; volume is a handful of rows a month. See [Open-core boundary § Audit log](open-core-boundary.md#audit-log-split) for why this stays in OSS rather than the enterprise compliance audit log.
 
 ### Board
 
@@ -138,7 +202,9 @@ The `notif_*` boolean fields store per-user notification preferences. Each flag 
 
 `allowed_priorities` is a JSON list. When non-empty, it restricts which priority values are available for cards on this board. An empty list means all priorities (`low`, `medium`, `high`, `urgent`) are allowed.
 
-`share_token` is a UUID generated when a board admin enables public sharing. When set, the board is accessible at `/share/:token` as a read-only view with no login required. Setting the token to null disables sharing immediately.
+`share_token` is a UUID generated when a board admin enables public sharing. When set, the board is accessible at `/share/:token` as a read-only view with no login required. Setting the token to null disables sharing immediately. `share_token_expires_at` (nullable) optionally bounds that link: past the timestamp the share endpoint returns `410 Gone` rather than auto-rotating the token.
+
+`export_min_role` (default `viewer`) sets the minimum `BoardMembership.Role` required to export the board; owners and site admins always bypass it. `card_density` (`comfortable` / `standard` / `dense`, default `comfortable` for new boards) controls how much metadata renders on the card face. `show_wip_at_limit` is purely ambient — it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement.
 
 ### Column
 
@@ -186,6 +252,24 @@ Three decisions worth knowing before changing either model:
 `is_required` exists as a column but is **not enforced**; turning it on would make
 previously valid card writes fail, so it needs a release note, not a quiet change.
 
+The same shape exists one level up, for swimlanes rather than cards: `SwimlaneCustomFieldDefinition` / `SwimlaneCustomFieldValue` (#1140), capped at 15 definitions and 3 pinned per board — a swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a `target_type` discriminator on the card-level models, so that existing 1.0 response shapes (`BoardFullSerializer`, the CSV export header, the per-board cap count) never have to filter for scope. `is_admin_only` (default `true`) restricts a row field's values to board admins, reusing the existing `SwimlaneSerializer` / `SwimlaneAdminSerializer` split.
+
+### CardRelation
+
+A typed, directional link between two cards on the same board (#449): `blocks` or `relates_to`. Only one row is stored per pair — `outgoing_relations` reads it forwards ("blocks"), `incoming_relations` reads it backwards ("blocked by") — rather than two mirrored rows, so the pair cannot drift out of sync. `relates_to` is symmetric and normalized at write time (lower card id becomes `from_card`) so `unique_together` actually dedupes it. Same-board-only is enforced in the view, not the database (a `CheckConstraint` cannot span a join); a database `CheckConstraint` does block self-relations. Longer cycles (A→B→C→A) are deliberately not detected — nothing in v1 walks the graph as an ordering.
+
+### CardExternalRef
+
+A card's one-to-one link to a merge request or pull request on an external forge (#352): `provider` (`gitlab` / `github` / `other`), a freeform `ref` (e.g. `group/proj!45`), and a validated `url`. The API shape `external_ref: {provider, ref, url} | null` is a stable public contract from 1.2 — the enterprise auto-link integration reads and writes it. `url` accepts only absolute `http`/`https` URLs with no embedded credentials and no backslashes (browsers treat `\` as `/` in a URL while Python's parser does not, which would otherwise let one host be stored and a different one rendered).
+
+### BoardEvent
+
+An append-only, cursor-resumable feed of every committed board mutation (#1114), read via `GET /api/v1/boards/{id}/events/`. A row is written inside the same transaction as the mutation it describes, so a rolled-back write produces no event. `data` is the WebSocket broadcast payload verbatim — a consumer can switch between polling the feed and holding a socket open without reconciling two representations. `board_id` and `actor_id` are plain columns, not foreign keys, so deleting a board or a user cannot rewrite history a consumer is mid-read of; `board.deleted` is itself an event this table must be able to persist. This is the delivery source for OSS webhooks — see [Open-core boundary § Outgoing webhooks](open-core-boundary.md#outgoing-webhooks-oss-vs-webhook-operations-enterprise).
+
+### BoardExportLog
+
+Records a successful board export (#842): actor, the role they held at export time, format, and row count. Only successful exports are logged — a denied attempt never reached the data. `actor` is `SET_NULL` so the row survives the user's later deactivation, but `role_at_export` is captured verbatim at write time so a later role change doesn't rewrite history.
+
 ### BoardTemplate
 
 Templates are pre-configured board layouts seeded via a data migration. They are not user-editable. When a user creates a board and selects a template, the template's columns are created and the user is prompted to name the first swimlane using the template's `lane_label` and `lane_placeholder`.
@@ -212,6 +296,16 @@ per-model signal would have been invisible to half the events. See
 Site-level registration invite links live in the accounts app and are distinct from `GroupInviteLink` (which controls group membership). The raw token value is generated once and never stored — only a SHA-256 hash is persisted. The raw value is returned exactly once at creation.
 
 Single-use links are consumed atomically via `select_for_update()` at registration time to prevent race-condition double-use. A soft cap of 50 active links per instance prevents token flood from a compromised admin account.
+
+A multi-use link needs its own guard against repeat redemption by the same person: `InviteLinkRedemption` (#925) stores a SHA-256 hash of the normalized email per `(invite_link, email_hash)`, enforced with a unique constraint. Single-use links don't need it — the existing `used_at` flag already blocks re-use. Storage is hash-only, so an operator investigating "who redeemed this link" sees hashes, not addresses.
+
+### GroupLabel
+
+A group-level label library (name, color) copied onto every new board created under that group, so related boards start with a consistent label set instead of each admin recreating one. Distinct from a board's own `Label` rows, which a board can add to independently after creation.
+
+## `git_lens` app (off by default)
+
+A fourth Django app, `git_lens`, is registered only when `GIT_LENS_ENABLED=true` (default `false`) — its tables, routes, and one model, `LensConnection`, stay entirely dormant otherwise. `LensConnection` is a one-to-one link from a `Board` to an external GitHub or GitLab repository (`provider`, `repo_slug`, plus `column_dim` / `swimlane_dim` for how issues map onto the board's grid), backing the [Issue Board Lens](../features/issue-board-lens.md) feature: a shareable, read-only board derived from a repo's issues and merge/pull request state. It reuses the host board's RBAC rather than defining its own.
 
 ## Key design decisions
 

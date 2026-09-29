@@ -26,6 +26,10 @@ Saved filters are private to each user. Other board members cannot see, load, or
 
 Any board role — including Viewer — can create, load, and delete their own saved filters.
 
+## Real-time sync
+
+Saving or deleting a filter syncs your other open tabs on the same board immediately over WebSocket — the broadcast carries only the filter's ID and your user ID, never its contents, so other board members never see that you saved anything. See [Real-time Updates](realtime.md).
+
 ## API reference
 
 | Method | Endpoint | Description |
@@ -42,6 +46,8 @@ See [`docs/api/boards.md`](../api/boards.md#saved-filters) for the full `state_j
 
 Each saved filter carries a `state_version` field. The version identifies the shape of the stored `state_json` so a future non-additive change to the filter state (for example, splitting one field into two) can be migrated forward without losing presets saved under the old shape.
 
-Today only version `1` exists. The server accepts higher `state_version` values from newer clients unchanged — a mixed-version deploy where a newer frontend writes `state_version: 2` against an older backend will not lose the user's save. On read, older clients fall back to a defensive v1 reader for any shared fields; unknown v2-only fields are ignored.
+Today only version `1` exists. The server accepts any `state_version` number ≥ 1, including one higher than it recognizes — so a mixed-version deploy where a newer frontend tags its write `state_version: 2` isn't rejected on the version number alone.
+
+That check is separate from the `state_json` key allow-list: the server still only accepts the v1 key set (`search`, `assigneeIds`, `labelIds`, `priorities`, `dueDate`) regardless of the declared version, so a genuinely new v2-only key is rejected with `400` until the backend's allow-list is updated to match. On read, older clients fall back to a defensive v1 reader for any shared fields.
 
 Additive changes (adding a new optional key to `state_json`) do **not** require a version bump — update the key allow-list in the serializer's `validate_state_json` validator and the frontend `FilterState` type in the same release.

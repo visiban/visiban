@@ -1,5 +1,7 @@
 # API Versioning
 
+Visiban's REST API is a public contract from 1.0 onward: this page is the backward-compatibility policy that binds every change to it.
+
 ## URL path versioning — `/api/v1/`
 
 All Visiban API endpoints are served under the `/api/v1/` prefix (e.g. `/api/v1/boards/`, `/api/v1/auth/login/`). This is implemented using DRF's `URLPathVersioning` with `DEFAULT_VERSION = "v1"` and `ALLOWED_VERSIONS = ["v1"]`.

@@ -2,7 +2,7 @@
 
 > **Added in 1.1**
 
-Visiban supports a per-user appearance preference with three options:
+Visiban offers a per-user appearance preference with three options.
 
 | Option | Behavior |
 |---|---|
@@ -19,11 +19,11 @@ The preference is stored with your account, so it follows you to every browser a
 3. Under **Theme**, choose one of the three options.
 4. The change takes effect immediately — no page reload.
 
-Your choice is remembered across logins. It syncs instantly to any other tab open in the same browser, and to your other browsers and devices the next time each one loads or reloads Visiban — there is no live push between already-open sessions on different devices.
+Your choice is remembered across logins and syncs instantly to any other tab in the same browser. It reaches your other browsers and devices the next time each one loads or reloads Visiban — there's no live push between already-open sessions on different devices.
 
 ## System (auto) option
 
-The **System** option follows your operating system's appearance preference via the standard `prefers-color-scheme` signal. When your OS switches modes (e.g. a scheduled night-shift on macOS), Visiban picks it up without a page reload.
+**System** follows your operating system's appearance preference via the standard `prefers-color-scheme` signal. When your OS switches modes (e.g. a scheduled night-shift on macOS), Visiban picks it up without a page reload.
 
 ### macOS
 
@@ -46,9 +46,9 @@ Other desktop environments (KDE Plasma, XFCE, Cinnamon) expose the same `prefers
 
 ## Light palette availability
 
-The **Light** option is available by default in every Visiban installation.
+**Light** is available by default in every Visiban installation.
 
-Administrators who wish to hide the Light option — for example, on an install-specific fork that has not adopted the light palette — can set the build-time environment variable `VITE_THEME_LIGHT_ENABLED=false` when building the frontend image. The **System** and **Dark** options are always available regardless.
+Administrators who want to hide it — for example, on an install-specific fork that hasn't adopted the light palette — can set the build-time environment variable `VITE_THEME_LIGHT_ENABLED=false` when building the frontend image. **System** and **Dark** are always available regardless.
 
 ## What's next
 

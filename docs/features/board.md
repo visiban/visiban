@@ -1,11 +1,15 @@
 # Board & Cards
 
-!!! note "Desktop only"
-    The board view is designed for desktop browsers (1024 px and wider). Below that width, the authenticated app shows a desktop-only notice rather than a degraded layout — drag-and-drop, column resizing, and swimlane resizing require a pointer device and horizontal space that phones and portrait tablets can't provide. A mobile-optimized layout is planned for a future release.
+The kanban grid, its cards, and the settings that shape them — the core workspace for anyone who works a board day to day, from quick status checks to full admin control.
+
+!!! note "Small screens"
+    Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally. Drag-and-drop and column/swimlane resizing are easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See [Navigation → Mobile behavior](navigation.md#mobile-behavior).
 
 ## Board creation
 
-When creating a new board, you can select from a set of pre-built templates in the **Create Board** modal. Each template provides a tailored column layout and a first swimlane so you can start working immediately. Eleven templates are available, covering workflows such as Sales Pipeline, Customer Support, Product Roadmap, Project Delivery, Hiring & Recruiting, and more. If no template fits your needs, select **Blank board** to start with the default columns (Backlog, To Do, Doing, Done).
+Pick a template in the **Create Board** modal — ten are available (Sales Pipeline, Customer Support, Product Roadmap, Project Delivery, Hiring & Recruiting, and more), each with a tailored column layout and a first swimlane so you can start working right away.
+
+No template fit? Select **Blank Board** — it creates no columns at all, so you build the layout yourself.
 
 Templates are applied once at creation time — after the board is created you can rename, reorder, add, or remove columns freely.
 
@@ -29,7 +33,13 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 > **Changed in 1.1** — empty cells now read as a discoverable click target instead of hiding the **+ Add card** affordance in the bottom-left corner.
 
-An empty cell shows a dashed inset border with **+ Add card** centered. Clicking anywhere in the cell — or pressing **Tab** to focus it and then **Enter** or **Space** — opens the inline new-card input. The dashed treatment disappears the moment a card lives in the cell; populated cells keep the dense info-rich layout, with the **+ Add card** button anchored at the bottom for additional cards. Double-click and right-click on a cell continue to work for power users. Card creation is gated by the column's *Allow card creation* setting and your board role (Members and above).
+An empty cell shows a dashed inset border with **+ Add card** centered.
+
+- Click anywhere in the cell, or press **Tab** to focus it then **Enter**/**Space**, to open the inline new-card input.
+- The dashed border disappears the moment a card lives in the cell; populated cells keep the **+ Add card** button anchored at the bottom for additional cards.
+- Double-click and right-click on a cell still work for power users.
+
+Card creation requires the column's *Allow card creation* setting and at least the Member role.
 
 ## Swimlanes
 
@@ -45,18 +55,21 @@ Each swimlane has the following fields:
 |---|---|
 | Name | Required; unique per board |
 | Color | Left-edge stripe color on the label panel |
-| Contact email | Optional; displayed in the label panel for admins only (hidden from members and viewers) |
-| Notes | Optional free-text field; visible in the Edit Swimlane modal for admins only |
+| Contact email | Optional; set when you create the swimlane. Displayed in the label panel for admins only (hidden from members and viewers) |
+| Notes | Optional free-text field on the data model; not currently exposed in the UI |
 | Position | Controls row order on the board |
 
 !!! note
     The `contact_email` and `notes` fields are restricted to board admin and site admin roles. Members and viewers do not receive this data via the REST API or WebSocket events.
 
+!!! note "Contact email isn't editable after creation yet"
+    Contact email can only be set in the **Add Swimlane** dialog. The **Edit Swimlane** modal covers name and color, not contact email — to change it, delete and recreate the swimlane, or wait for that gap to close.
+
 Each swimlane can be collapsed to save vertical space. Click the chevron on the label panel to toggle. When collapsed:
 
 - The row shrinks to its minimum height — the stored row min-height is ignored
-- Each column cell renders as a narrow compact box showing only the card count (empty cells show nothing)
-- The label panel shows only the swimlane name and collapse toggle; the contact email and edit button are hidden
+- Each column cell keeps the column's full width and renders as a centered count pill (empty cells show nothing)
+- The contact email and edit (✎) button are hidden; the drag handle and the focus-mode crosshair remain
 - Click the chevron again to expand and restore full card visibility
 
 Admins can double-click the swimlane label to open the Edit Swimlane modal.
@@ -109,7 +122,9 @@ Columns represent pipeline stages. Each column has:
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
 
-Columns can be reordered by dragging the column header left or right. Admins manage columns through the **`⋮` kebab** that appears on each column header on hover or keyboard focus — it opens a menu with **Rename**, **Edit settings…**, and **Delete column**. Renaming is also reachable by double-clicking the column name. The kebab is the keyboard-accessible path; mouse users can additionally drag a column onto the trash zone (see *Column trash zone* below) for the same delete confirmation.
+- Drag a column header left or right to reorder it.
+- Manage a column through the **`⋮` kebab** on its header (hover or keyboard focus) — **Rename**, **Edit settings…**, **Delete column**. Double-click the column name to rename directly.
+- The kebab is the keyboard-accessible path; mouse users can also drag a column onto the trash zone (see *Column trash zone* below) for the same delete confirmation.
 
 ### Adding columns and swimlanes
 
@@ -126,7 +141,10 @@ The far-left separator (between the swimlane label column and the first board co
 
 > **Changed in 1.1** — the trash zone is now opt-in, gated behind ⌥ (Alt). Reorder is the default; deletion is a deliberate gesture. The new column kebab menu (`⋮`) is the discoverable, keyboard-accessible alternative.
 
-When dragging a column, the drag overlay shows a small **Hold ⌥ to delete** hint. Holding ⌥ (Alt) reveals a red **Delete** drop target at the right edge of the board, and the hint flips to **Drop on trash to delete**. Releasing ⌥ hides the trash zone again. Dropping a column on the trash zone opens the same confirmation dialog reachable from the column kebab `Delete column` action — for columns that contain cards, you must type the column name to confirm; empty columns can be deleted with a single click.
+Dragging a column shows a **Hold ⌥ to delete** hint on the drag overlay.
+
+- Hold ⌥ (Alt) to reveal a red **Delete** drop target at the right edge of the board — the hint flips to **Drop on trash to delete**. Release ⌥ to hide it again.
+- Dropping a column there opens the same confirmation as the kebab's `Delete column` action: type the column name to confirm if it holds cards, or delete an empty column with a single click.
 
 ### Hard WIP enforcement
 
@@ -190,7 +208,7 @@ Empty cells show a dashed border to indicate they are valid drop targets even wh
 Click a card to open its **detail panel** on the right side. The panel contains all editable fields plus two tabs:
 
 - **Details** — description, priority, assignee, labels, due date, weight, checklist, attachments, and comments. The Checklist and Attachments sections are collapsible via a chevron toggle; each auto-collapses when empty on load. A scroll gradient at the bottom of the panel indicates there is more content below the visible area.
-- **History** — the full movement and activity timeline. See [Card History](card-history.md).
+- **Activity** — the full movement and activity timeline. See [Card History](card-history.md).
 
 The Details tab also includes a **Move to** section at the bottom (visible to members and above). It lets you move the card to a different column and/or swimlane without closing the panel — select the destination swimlane and column from the dropdowns, then click **Move**. WIP and weight limits are enforced the same way as drag-and-drop moves.
 
@@ -206,7 +224,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Due date | Optional date; past dates are disabled in the picker; shown as relative text on the card ("Today", "Tomorrow", "3d", "2d late"); overdue dates appear in red |
 | Weight | Numeric effort estimate (default 1) |
 | Checklist | Sub-tasks with checked/unchecked state |
-| Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE`) |
+| Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE_BYTES`) |
 | Comments | Threaded, visible to all board members; type `@` to mention a member; timestamps show relative time ("5m ago", "3h ago") for recent comments and full date + time for older ones |
 
 ### Card peek
@@ -241,7 +259,7 @@ Select multiple cards by clicking the checkbox that appears in the top-right cor
 
 Press **Escape** or click the **×** button to clear the selection. Selection is also cleared when starting a drag or opening a card detail panel. Bulk operations are only available to users with the **member** role or above.
 
-Each bulk action calls the existing individual card API endpoints via `Promise.allSettled`, so partial failures are handled gracefully.
+Each bulk action calls the existing individual card API endpoints, so partial failures are handled gracefully. Assign, Priority, Archive, and Delete fire their requests concurrently via `Promise.allSettled`; **Move to...** runs sequentially instead, to avoid database deadlocks from concurrent position-reorder transactions.
 
 ## Right-click to add
 
@@ -255,14 +273,20 @@ Right-click any board cell to open an inline card creation input directly in tha
 | `/` | Open the filter bar and focus the search input |
 | `?` | Show / hide the keyboard shortcuts overlay |
 | `.` | Open the overflow menu in the board toolbar |
+| `b` / `s` / `h` / `a` | Switch to the Board / Summary / History / Analytics view |
+| `l` | Switch to the Lens view (when Issue Board Lens is connected) |
+| `e` | Collapse or expand every swimlane and column at once |
+| `c` | Collapse the swimlane you last hovered |
+| `y` | Toggle the Archived cards panel |
 | `Esc` | Deselect cards / close the card detail panel or any open dialog |
 | `⌘K` / `Ctrl+K` | Open the command palette |
 | `⌘\` / `Ctrl+\` | Toggle the activity drawer |
 | `⌘⇧E` / `Ctrl+Shift+E` | Open the Export board dialog (when export is permitted) |
 | `⌘,` / `Ctrl+,` | Open the Board settings dialog (admins only) |
+| `⌘⇧L` / `Ctrl+Shift+L` | Toggle card layout between Expanded and Compact |
 | `Space` + drag | Pan the board (see [Board panning](#board-panning)) |
 
-Bare single-key shortcuts (`f`, `/`, `?`, `.`) are ignored when focus is inside an input, textarea, select, or contenteditable element. Modifier-combo shortcuts (`⌘K`, `⌘\`, `⌘⇧E`) fire from any focus location.
+Bare single-key shortcuts (`f`, `/`, `?`, `.`, `b`, `s`, `h`, `a`, `l`, `e`, `c`, `y`) are ignored when focus is inside an input, textarea, select, or contenteditable element. Modifier-combo shortcuts (`⌘K`, `⌘\`, `⌘⇧E`, `⌘,`, `⌘⇧L`) fire from any focus location. The in-app overlay (`?`) is the source of truth if this list drifts.
 
 ### Board toolbar layout
 
@@ -275,9 +299,11 @@ The board toolbar (Row 2) groups controls into three zones plus a pinned trailin
 
 The **Collapse** button is a split control: clicking the main segment collapses or expands everything at once (preserving one-click muscle memory), while clicking the chevron opens a menu with granular options to hide or show only swimlanes, only columns, or everything.
 
-The overflow kebab (`⋮`) contains Export, Keyboard shortcuts, and Replay onboarding tour. On viewports below 1024 px, the Layout toggle, Archived, Activity drawer, and Settings fold into the overflow menu as well — the toolbar degrades gracefully without hiding functionality. The first time you visit a board at this viewport size, the kebab menu auto-expands once so the folded controls are visible; from then on a small first-encounter dot reminds you that more actions live in the menu, and is dismissed the first time you click the kebab.
+The overflow kebab (`⋮`) contains Export, Keyboard shortcuts, and Replay onboarding tour. Below 1024 px, the Layout toggle, Archived, Activity drawer, and Settings fold into it too — the toolbar degrades gracefully without hiding functionality.
 
-On viewports below 768 px (phones and narrow tablets), Zone 2 becomes a horizontally-scrolling strip while the trailing cluster stays pinned to the right edge so the overflow kebab is always reachable.
+The first time you visit a board at that viewport size, the kebab auto-expands once so the folded controls are visible. After that, a small first-encounter dot marks the kebab until you click it.
+
+The toolbar scrolls horizontally when it's wider than the viewport, with the trailing cluster (overflow kebab and connection status) pinned to the right edge so it's always reachable — this applies at any width, not just narrow phones.
 
 ## Card layout
 
@@ -394,13 +420,10 @@ apart:
 Screen readers get the reading in words — for example "Card count: 4 cards, level 3 of
 4" — and selecting an overlay is announced ("Overlay: Card count" / "Overlay off").
 
-A legend floats in the bottom-right corner of the grid whenever an overlay is active. It
-names the overlay, describes it in one line, and lists the four steps with the range of
-values actually observed in each; a step no cell landed in shows `—`. When the active
-overlay has nothing to show, the legend says so instead of showing an empty ramp. The
-legend is passive — it never intercepts a click — and it fades out while you drag. When a
-filter is what left the overlay with nothing to scale, the legend says that rather than
-claiming the board is empty.
+A legend floats in the bottom-right corner of the grid whenever an overlay is active. It names the overlay, describes it in one line, and lists the four steps with the range of values actually observed in each — a step no cell landed in shows `—`.
+
+- When the active overlay has nothing to show, the legend says so instead of showing an empty ramp — and if a filter is what left it with nothing to scale, it says that rather than claiming the board is empty.
+- The legend is passive: it never intercepts a click, and it fades out while you drag.
 
 Because the overlay reads the cards that are currently *visible*, narrowing the filter bar
 re-scales it and the labels switch to "matching cards", so the shading always agrees with
@@ -445,13 +468,12 @@ All filters are URL-synced and persist across page reloads.
 | Filter | Description |
 |---|---|
 | **Swimlane** | Limit results to cards currently in a specific swimlane |
-| **To column** | Limit results to movements whose destination was a specific column |
-| **Assignee** | Limit results to cards assigned to a specific member |
-| **Moved by** | Limit results to movements performed by a specific member |
+| **Column** | Limit results to movements whose destination was a specific column |
+| **User** | Limit results to movements performed by a specific member ("moved by") |
 | **Moved after** | Lower bound date (inclusive) |
 | **Moved before** | Upper bound date (inclusive) |
 
-When no date range is specified, the full movement history is shown.
+When no date range is specified, the full movement history is shown. There's no separate assignee filter — filter by swimlane or column to narrow the list instead.
 
 #### Detail panel
 
@@ -459,7 +481,7 @@ Click any row to open a slide-in detail panel showing the full movement record: 
 
 #### Archive and restore events
 
-Archive and restore events are excluded from the History view by default. They continue to appear on the individual card's **History** tab. Use `exclude_type=archived,unarchived` in the API to control this behavior explicitly.
+Archive and restore events **are included** in the board History view by default, alongside column-to-column moves. The API supports narrowing this with `exclude_type=archived,unarchived`, but the board toolbar's History view doesn't expose a control for it — use the API directly, or check the individual card's **Activity** tab, if you want moves only.
 
 ## Export & import
 
@@ -467,12 +489,14 @@ Archive and restore events are excluded from the History view by default. They c
 
 Click **Export** in the board toolbar to download the board data:
 
-- **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
+- **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (Activity tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
 - **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.
 
 > **Added in 1.1** — export permission threshold and audit history (#842, #843)
 
-By default, any board member can export. Admins can raise the threshold per board under **Board Settings → Data → Export permission** to restrict exports to collaborators, members, or admins only. Owners and site admins always bypass the threshold. When a user's role is below the threshold, the **Export** button is hidden and direct API calls return `403 export_restricted`. The export endpoints are:
+By default, any board member can export. Admins can raise the threshold per board under **Board Settings → Data → Export permission** to restrict exports to collaborators, members, or admins only — owners and site admins always bypass it.
+
+Below the threshold, the **Export** button is hidden and direct API calls return `403 export_restricted`. The export endpoints are:
 
 - `GET /api/v1/boards/{id}/export/` — CSV
 - `GET /api/v1/boards/{id}/export/?format=json` — JSON
@@ -490,7 +514,7 @@ Click **Import** on the dashboard to create a new board from a previously export
 **JSON import** restores full card history:
 
 - Assignee (matched by username; cards whose assignee username is not found in this instance are imported unassigned)
-- Movement history — every column transition appears in the card's **History** tab
+- Movement history — every column transition appears in the card's **Activity** tab
 - Activity log — assignee changes, label changes, priority changes, due-date changes, checklist events, and comments all appear in the activity feed
 
 **CSV import** creates cards with their current field values only. Movement history and activity log are not restored.
@@ -523,7 +547,12 @@ Admins can manage board members directly from the board toolbar via the **Member
 
 ## Real-time indicator
 
-The board toolbar shows a **ConnectionStatus** indicator in the top-right area. When the WebSocket connection is healthy the indicator is quiet — a small dot with the word "Live" (visible at wider viewports). When the connection is degraded or lost it becomes prominent: an amber pill for reconnecting or stale states, a red pill for a failed connection. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
+The board toolbar shows a **ConnectionStatus** indicator in the top-right corner:
+
+- **Healthy** — quiet: a small dot with the word "Live" (visible at wider viewports)
+- **Degraded or lost** — prominent: an amber pill for reconnecting/stale, a red pill for failed
+
+Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
 
 ## Activity drawer
 
@@ -536,7 +565,7 @@ The drawer has two filter rows:
 - **Kind**: *All*, *Moves* (includes creations), *Members*
 - **Window**: *1h*, *24h*, *7d* — defaults to **24h** so the drawer stays focused on today's activity rather than all history. Widen to **7d** to scan back through the week, or narrow to **1h** for what's happened in the last hour.
 
-The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open full history →** at the bottom of the drawer (also reachable from any card's **History** tab — see [Card History](card-history.md)).
+The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open full history →** at the bottom of the drawer (also reachable from any card's **Activity** tab — see [Card History](card-history.md)).
 
 ## Board sharing
 
@@ -576,7 +605,7 @@ Toggle **Enable public share link** off to revoke the current token immediately.
 
 ### Rate limiting
 
-The public board endpoint is rate-limited to **120 requests per hour per IP address** to prevent token enumeration.
+The public board endpoint is rate-limited to **120 requests per hour per IP address** to prevent token enumeration, with a separate, higher per-token limit (240/hour) layered on top for a legitimately busy shared link.
 
 ### API
 

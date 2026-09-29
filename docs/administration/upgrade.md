@@ -1,9 +1,9 @@
 # Upgrading Visiban
 
 !!! note "Available from 1.0"
-    This guide covers upgrades from Visiban 1.0 onward. If you are migrating from a pre-1.0 release, follow the [1.0 release notes](#upgrading-to-100) below first.
+    Covers upgrades from Visiban 1.0 onward. Migrating from a pre-1.0 release? Follow the [1.0 release notes](#upgrading-to-100) below first.
 
-This page explains how to safely upgrade a self-hosted Visiban instance between releases.
+Upgrade a self-hosted Visiban instance between releases with zero downtime, using the standard steps below.
 
 ## Version compatibility quick-reference
 
@@ -12,6 +12,7 @@ This page explains how to safely upgrade a self-hosted Visiban instance between 
 | Any pre-1.0 beta or RC | 1.0.x | **No — maintenance window required** | Run the `groups/0003_placeholder` SQL fix first; `boards/0005` and `groups/0012` both require stopping backends before migration. See [Upgrading to 1.0.0](#upgrading-to-100). |
 | 1.0.x | 1.0.x (patch) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). |
 | 1.0.x | 1.1.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). Check the [release-specific notes](#release-specific-upgrade-notes) for any migration-window exceptions. |
+| 1.1.x | 1.2.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). See [Upgrading to 1.2.x](#upgrading-to-12x) — most changes are additive and need no operator action, but read the `!!!` callouts (Compose `ALLOWED_HOSTS`/`DOMAIN`, Helm values-schema validation, PAT scopes and the MCP server). |
 
 Skipping minor versions (e.g. 1.0 → 1.2 directly) is supported — run all intermediate migrations in sequence. The standard upgrade command (`manage.py migrate`) handles this automatically. The standard path is: pull the new image, run database migrations, restart. The sections below cover what makes each step safe and what to watch out for in more complex deployments.
 
@@ -66,8 +67,8 @@ docker compose -f docker-compose.prod.yml up -d
 
 This recreates every service whose image changed with `APP_VERSION` — `backend-init` (which
 re-checks migrations), `backend`, `frontend-build` (which copies the new SPA into place) and, if
-enabled, `scheduler`. Recreating only `backend` would leave the old frontend and scheduler
-running against the new API. Nginx and the database are unaffected.
+enabled, `scheduler`. **Watch out:** recreating only `backend` leaves the old frontend and
+scheduler running against the new API. Nginx and the database are unaffected.
 
 ### 5. Verify
 
@@ -162,8 +163,8 @@ the authoring rules.
 !!! tip "Rolling a Helm deployment with zero downtime"
     This section explains why running migrations separately from replica startup matters. For
     a full step-by-step rolling-upgrade procedure on Helm/Kubernetes — pre-upgrade checklist,
-    watching the migrate hook Job, verifying a partial rollout, and rolling back mid-upgrade —
-    see the [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md).
+    watching each new pod's `migrate` init container, verifying a partial rollout, and rolling
+    back mid-upgrade — see the [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md).
 
 !!! warning
     Running `migrate` inside the container startup command is unsafe when `backendReplicaCount > 1`.
@@ -174,7 +175,9 @@ after it exits successfully. The backend container itself runs only the idempote
 `ensure_site_admin` bootstrap before `daphne`. The risk below applies if you replace that
 layout with a startup command that migrates — for example on Docker Swarm, a second Compose
 host, or a hand-written Kubernetes manifest — because then every replica races to apply the
-same migrations on startup. Django's migration executor is not safe to run concurrently: two containers applying the same migration at the same time will conflict at the database level and may leave the schema in an inconsistent state.
+same migrations on startup. **Watch out:** Django's migration executor is not safe to run
+concurrently — two containers applying the same migration at the same time will conflict at the
+database level and may leave the schema in an inconsistent state.
 
 **Recommended approach for multi-replica deployments:**
 
@@ -435,6 +438,22 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     `.container`, `postgresql.securityContext.pod` / `.container` (chart
     0.6.0, #1210).
 
+!!! note "Helm: migrations now run in an init container, not a hook Job"
+    Database migrations moved from a `pre-install`/`pre-upgrade` hook Job to a `migrate` init
+    container on the backend `Deployment`, serialized across replicas by a PostgreSQL advisory
+    lock (`manage.py migrate_with_lock`). This fixes a fresh `helm install` on the chart's
+    default values, which the hook Job broke — Helm runs pre-install hooks before creating any
+    release resource, so the hook tried to reach the bundled PostgreSQL Service before it
+    existed.
+
+    No values change is required — `helm upgrade` on an existing release picks this up
+    automatically. What changes is how you **watch** an upgrade in progress: there is no
+    longer a separate `visiban-migrate` Job to `kubectl logs`. See the
+    [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md#2-the-rolling-upgrade) for the
+    new commands. Two new tunables, `backend.migrate.connectTimeout` (default 300s) and
+    `backend.migrate.lockTimeout` (default 900s), replace anything you may have set for the
+    old Job's `activeDeadlineSeconds`.
+
 !!! note "Upload limits are now derived from one value"
     `backend.settings.maxUploadSizeBytes` (default 10 MB) now drives the
     application cap, the frontend nginx `client_max_body_size`, and the ingress
@@ -486,7 +505,7 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     - `externalRedis` Helm values key — unchanged for backward compatibility
     - `/api/health/readiness/` response field `"redis"` — unchanged (it is a published API contract)
 
-    **No data migration required** — Valkey holds only ephemeral channel-layer and cache data (WebSocket group subscriptions and short-lived rate-limit keys). All of this is rebuilt automatically on startup. Simply redeploy:
+    **No data migration required** — Valkey holds only ephemeral channel-layer and cache data (WebSocket group subscriptions and short-lived rate-limit keys). All of this is rebuilt automatically on startup. Redeploy:
 
     === "Docker Compose"
 

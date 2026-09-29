@@ -1,6 +1,6 @@
 # Stable UIDs
 
-Every board object — boards, columns, swimlanes, labels, and cards — carries a stable, globally unique identifier called a **UID**.
+Every board object — boards, columns, swimlanes, labels, cards, and custom field definitions — carries a stable, globally unique identifier called a **UID**. **Why it matters:** names change and numeric IDs go null on delete; a UID never does, so it's the safe key for external systems.
 
 ## What is a UID?
 
@@ -16,7 +16,7 @@ UIDs are:
 
 ## Where UIDs appear
 
-UIDs are included in all API responses that return the relevant object type.
+UIDs appear in every API response that returns the object type.
 
 | Object | Field | Where it appears |
 |---|---|---|
@@ -25,6 +25,7 @@ UIDs are included in all API responses that return the relevant object type.
 | Swimlane | `uid` | `GET /api/v1/boards/{id}/full/` (inside `swimlanes` array) |
 | Label | `uid` | `GET /api/v1/boards/{id}/full/` (inside `labels` array), `GET /api/v1/boards/{id}/labels/` |
 | Card | `uid` | All card endpoints |
+| Custom field definition | `uid` | `GET /api/v1/boards/{id}/custom-fields/`, `GET /api/v1/boards/{id}/swimlane-custom-fields/` — see [Custom Fields](custom-fields.md) |
 
 ## UIDs in movement history
 
@@ -37,10 +38,10 @@ When a card is moved, `CardMovement` captures the UID of the source and destinat
 | `from_swimlane_uid` | UID of the swimlane the card left |
 | `to_swimlane_uid` | UID of the swimlane the card entered |
 
-These values survive the deletion or renaming of the referenced column or swimlane. After a column is deleted, its `id` FK becomes `null` in the movement record, but the `_uid` field retains the original value. This makes UIDs the correct identifier to use when reconciling movement history against an external system.
+These values survive the deletion or renaming of the referenced column or swimlane. After a column is deleted, its `id` FK becomes `null` in the movement record, but the `_uid` field keeps the original value — the right identifier for reconciling movement history against an external system.
 
 !!! tip
-    If you are building an integration that tracks where cards have been, use the `*_uid` fields — not the `*_id` or `*_name` fields. Names change. IDs become null after deletion. UIDs are permanent.
+    Building an integration that tracks where cards have been? Use the `*_uid` fields, not `*_id` or `*_name`. Names change. IDs go null after deletion. UIDs are permanent.
 
 ## Using UIDs in integrations
 
@@ -60,11 +61,11 @@ for mv in movements:
     print(f"Card moved to: {to_col} at {mv['moved_at']}")
 ```
 
-Because `to_column_uid` is stable, this lookup works correctly even if the column was renamed after the move.
+This lookup works even if the column was renamed after the move, because `to_column_uid` never changes.
 
 ### Example: webhook deduplication
 
-If your webhook processor receives board update events, use the `uid` to deduplicate or update records without relying on the numeric `id`:
+Use `uid`, not the numeric `id`, to deduplicate or update records from webhook events:
 
 ```python
 def handle_card_event(payload):
@@ -72,23 +73,23 @@ def handle_card_event(payload):
     record = db.upsert("cards", uid=uid, title=payload["card"]["title"])
 ```
 
-Numeric `id` values are local to each Visiban installation. UIDs are the correct key to use when storing Visiban objects in an external system.
+Numeric `id` values are local to each installation. UIDs are the right key for storing Visiban objects in an external system.
 
 ## UIDs in export files
 
-The JSON and CSV exports (`GET /api/v1/boards/{id}/export/`) serialize objects **by name, not by UID**. UIDs are not included in export files. This is intentional: the export format is designed for portability — columns and swimlanes are referenced by name so the file can be imported into a different board or a different Visiban installation without carrying over identifiers that are meaningless in the new context.
+The JSON and CSV exports (`GET /api/v1/boards/{id}/export/`) serialize objects **by name, not by UID** — UIDs aren't included at all. This is intentional: the export format is built for portability, so columns and swimlanes are referenced by name and the file can be imported into a different board or installation without carrying over identifiers meaningless in the new context.
 
 ## UIDs on import
 
-When a board is imported via `POST /api/v1/boards/import/`, **every object receives a brand new UID** regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.
+Importing a board via `POST /api/v1/boards/import/` assigns **every object a brand new UID**, regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.
 
 - If the source file was produced by the Visiban export endpoint, the original UIDs are not preserved — the imported board is a new entity with new identities.
 - If the source file was hand-crafted (e.g. for automation testing or to match the import template spec), any `uid` field present in the JSON is silently ignored.
 
-This means you cannot use UIDs to correlate an imported board with its export source. If you need to track which records came from a specific import, use the board name or a naming convention, then delete those boards explicitly after use.
+You can't use UIDs to correlate an imported board with its export source. To track which records came from a specific import, use the board name or a naming convention, then delete those boards explicitly after use.
 
 !!! warning "Imported test data is indistinguishable from real data"
-    Records created via import carry no provenance marker. An imported test card looks identical to a real card — same UID format, same `archived_at` behavior, same appearance in movement history. Clean up test imports explicitly; there is no automated way to find and remove them after the fact. See [Demo Data](../administration/demo-data.md) for cleanup guidance.
+    Records created via import carry no provenance marker. An imported test card looks identical to a real card — same UID format, same `archived_at` behavior, same appearance in movement history. Clean up test imports explicitly; there's no automated way to find and remove them after the fact. See [Demo Data](../administration/demo-data.md) for cleanup guidance.
 
 ## API response examples
 

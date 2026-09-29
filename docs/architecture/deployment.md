@@ -1,5 +1,7 @@
 # Deployment
 
+Two supported paths: Docker Compose for a single server, Helm for Kubernetes. Both run the same images and the same daphne/ASGI backend.
+
 ## Docker Compose (recommended for self-hosting)
 
 > **Tested:** The Docker Compose development stack has been verified end-to-end.
@@ -14,7 +16,9 @@ The `docker-compose.yml` starts four services: `db` (Postgres 17), `valkey` (Val
 
 > **Note:** The backend uses **daphne** (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.
 
-The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does **not** proxy `/api/` requests. Access the [OpenAPI schema](../api/openapi.md) at `http://localhost:8000/api/schema/swagger-ui/`.
+The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does **not** proxy `/api/` requests. Access the [OpenAPI schema](../api/openapi.md) at `http://localhost:8000/api/schema/swagger-ui/` — the schema endpoints require an authenticated session or PAT, to avoid exposing the full API surface to anonymous callers.
+
+For a production-oriented Docker Compose stack (nginx, TLS via certbot, a `scheduler` service for daily notification jobs, no bind-mounted source), see `docker-compose.prod.yml` and [Installation](../getting-started/installation.md).
 
 ## Production Docker images
 
@@ -218,8 +222,8 @@ helm install visiban helm/visiban \
 | `secret.djangoSecretKey` | `change-me-in-production` | Django `SECRET_KEY` (ignored when `existingSecret` is set) |
 | `postgresql.auth.existingSecret` | `""` | Name of a pre-existing K8s Secret for the PG password (key: `password`) |
 | `postgresql.auth.password` | `visiban` | Database password (ignored when `existingSecret` is set) |
-| `backend.image.tag` | `v1.0.0` | Backend image tag |
-| `frontend.image.tag` | `v1.0.0` | Frontend image tag |
+| `backend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Backend image tag — bumped by `scripts/release.sh` on every release |
+| `frontend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Frontend image tag — bumped by `scripts/release.sh` on every release |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
 | `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
 | `valkey.enabled` | `true` | Use bundled Valkey 8; set `false` to use `externalRedis.url` |
@@ -296,7 +300,7 @@ To disable the PVC and use an emptyDir instead (data lost on pod restart):
 
 ### OpenAPI schema
 
-The nginx ingress proxies `/api/` to the backend, so the schema endpoints are accessible at your ingress host with no additional configuration:
+The nginx ingress proxies `/api/` to the backend, so the schema endpoints are accessible at your ingress host with no additional configuration — sign in first, since these endpoints require an authenticated session or PAT:
 
 ```
 https://<ingress-host>/api/schema/swagger-ui/
@@ -367,7 +371,7 @@ In production (`DEBUG=False`), the API enforces the following request rate limit
 | Scope | Limit | Notes |
 |---|---|---|
 | Anonymous requests | 300 / hour | Applies to unauthenticated API calls |
-| Authenticated users | 5000 / hour | Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user easily uses 500+ per hour |
+| Authenticated users | 5000 / hour | Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user can reach 500+ per hour |
 | Login (`/api/v1/auth/login/`) (1.1+) | 20 / hour per IP | This DRF throttle only wraps the SPA/API endpoint. Alongside it, allauth's own `login_failed` gate (`ACCOUNT_RATE_LIMITS = "10/m/ip,5/300s/key"`) applies to **both** `/api/v1/auth/login/` (the SPA goes through allauth's rate-limited adapter, #1199) and allauth's own HTML view at `/accounts/login/` (which this DRF throttle does not wrap at all — the allauth gate is its only rate limit). That gate is two rates, both enforced everywhere it applies: 10 failed attempts / minute per IP (across any accounts), and 5 failed attempts / 5 min per account (across any IPs) |
 | User search (`/api/v1/users/search/`) | 30 / minute | Tighter limit to prevent username enumeration |
 | Invite link redemption (`/api/v1/groups/.../join/`) | 10 / hour | Low ceiling to prevent invite token brute-force scanning |

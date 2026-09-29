@@ -76,7 +76,10 @@ backend:
 
 Since 1.2, `backend.email.backend` defaults to `""` (unset) rather than `"smtp"`, so you can leave `backend.email.*` blank and install first — a site admin can then configure SMTP afterward from **Admin → Settings → Email**, without a redeploy. The chart's render-time check for a placeholder `fromAddress` (e.g. `noreply@example.com`) only fires when `backend.email.host` is set, so an install with the whole block blank passes.
 
-Set `backend.email.*` explicitly only if you want env-only email configuration — doing so pins the backend and **disables** the Admin → Settings → Email UI. To send mail via SMTP from values instead of the admin UI, fill in `host`, `port`, `user`, `password`, and `fromAddress`, and set `backend.email.backend: "smtp"`. `backend.email.useSsl` is also available for implicit TLS (port 465), as an alternative to `useTls`. To skip SMTP entirely (logs emails to stdout), set `backend.email.backend=console` and leave the other fields blank.
+Set `backend.email.*` explicitly only if you want env-only email configuration — doing so pins the backend and **disables** the Admin → Settings → Email UI.
+
+- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`, and set `backend.email.backend: "smtp"`. Use `backend.email.useSsl` instead of `useTls` for implicit TLS (port 465).
+- **Console (no SMTP):** set `backend.email.backend=console` and leave the other fields blank — emails log to stdout.
 
 !!! warning "Never commit `values.secret.yaml`"
     This file is gitignored. Keep secrets out of shell history — always use `-f values.secret.yaml` instead of `--set secret.djangoSecretKey=...`. The `--set` flag leaks values to shell history (`~/.bash_history`), `/proc/*/cmdline`, and process listings visible to other users on the host.
@@ -421,11 +424,11 @@ All other ingress to Visiban pods is denied.
 
     This must **fail**. If it succeeds, your policies are not being enforced.
 
-The policies name their allowed clients by `app.kubernetes.io/component`. If you
-add a workload that opens a PostgreSQL or Valkey connection, add its component to
-the allow-lists at the top of `templates/networkpolicy.yaml` — otherwise it is
-denied, and that usually presents as an install that hangs rather than as an
-error.
+**Watch out:** the policies name allowed clients by `app.kubernetes.io/component`.
+If you add a workload that opens a PostgreSQL or Valkey connection, add its
+component to the allow-lists at the top of `templates/networkpolicy.yaml` —
+otherwise it is denied, and that usually shows up as an install that hangs, not
+as an explicit error.
 
 ## Media persistence
 
@@ -516,14 +519,16 @@ kubectl port-forward -n visiban svc/visiban-backend 8000:8000
 # Then open http://localhost:8000/admin/
 ```
 
-**IP allowlist** — for persistent access from a bastion or VPN range, set `backend.settings.adminAllowedIPs` to a comma-separated list of CIDRs:
+**IP allowlist** — for persistent access from a bastion or VPN host, set `backend.settings.adminAllowedIPs` to a comma-separated list of IPs:
 
 ```bash
 helm upgrade visiban helm/visiban --reuse-values \
-  --set backend.settings.adminAllowedIPs="10.0.0.0/8,192.168.42.0/24"
+  --set backend.settings.adminAllowedIPs="10.0.1.20,192.168.42.7"
 ```
 
-The allowlist is enforced by both the frontend Nginx config and the Django `AdminAllowedIPsMiddleware` for defense in depth.
+The allowlist is enforced by both the frontend Nginx config and the Django `AdminIPRestrictionMiddleware` for defense in depth.
+
+**Watch out:** Nginx accepts CIDR ranges, but the Django middleware matches exact IPs only — a CIDR entry passes Nginx and is then rejected by Django with a 403. See [Secret Rotation](../administration/secret-rotation.md#helm).
 
 ## Uninstalling
 

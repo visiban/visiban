@@ -18,7 +18,7 @@ a fully populated board with working analytics.
 | **Project Delivery** | Projects | Cross-functional project tracking from planning to retro |
 | **Content Production** | Content channels | Content pipeline from ideation to publishing |
 | **Hiring & Recruiting** | Departments | Hiring pipeline from sourcing to offer |
-| **Infra & DevOps** | Systems / environments | Infrastructure and operations tracking |
+| **Infrastructure & DevOps** | Systems / environments | Infrastructure and operations tracking |
 | **Legal & Compliance** | Practice areas | Legal document and compliance workflow tracking |
 
 ## How to import

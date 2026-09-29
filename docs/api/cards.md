@@ -1,5 +1,7 @@
 # Cards API
 
+Cards and everything attached to one — moves, comments, attachments, checklists, relations, and activity history.
+
 ## Cross-board card query
 
 ### `GET /api/v1/cards/`
@@ -377,6 +379,8 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
   "card": { "id": 101, "uid": "3a9f1c2d7e4b8a05", ... },
   "movement": {
     "id": 42,
+    "card_uid": "3a9f1c2d7e4b8a05",
+    "card_title": "Fix login bug",
     "from_column": 2,
     "from_column_name": "To Do",
     "from_column_uid": "a1b2c3d4e5f60718",
@@ -429,7 +433,7 @@ When `enforce_wip_hard` is not enabled, board admins may override the limit by a
 POST /api/v1/boards/1/cards/42/move/?force=true
 ```
 
-Non-admin users who send `?force=true` receive `403 Forbidden`.
+`?force=true` only takes effect when the move would otherwise be blocked by an actual WIP or weight limit breach — sending it on a move that doesn't hit a limit is a no-op and succeeds normally regardless of role. A non-admin whose move *does* hit a limit and who sends `?force=true` receives `403 Forbidden`.
 
 The `*_uid` fields in the movement record are permanent — they remain set even after the referenced column or swimlane is deleted (the FK `*_id` field becomes `null` at that point, but the UID is preserved). See [Stable UIDs](../features/stable-uids.md).
 
@@ -438,7 +442,7 @@ The `*_uid` fields in the movement record are permanent — they remain set even
 ## History
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/movements/`
-Full movement history for a card. Each record includes `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields. UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
+Full movement history for a card. Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields. UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/activities/`
 Activity log (field changes, comments, attachments, checklist events).
@@ -459,7 +463,7 @@ Activity log (field changes, comments, attachments, checklist events).
     "event_type": "status_changed",
     "from_value": "To Do",
     "to_value": "In Progress",
-    "actor": { "id": 3, "username": "jordan" },
+    "actor": { "id": 3, "username": "jordan", "display_name": "Jordan Lee", "avatar_url": null },
     "created_at": "2026-09-20T14:03:11Z"
   }
 ]
@@ -563,6 +567,7 @@ Use this endpoint when you need a single list combining moves, comments, field e
 
 | Status | Description |
 |---|---|
+| `400 Bad Request` | `event_types` names a group not in the allowed set — `{"detail": "Invalid event_types: ... Valid groups: ..."}` |
 | `403 Forbidden` | Requesting user is not a board member |
 | `404 Not Found` | Card does not exist or does not belong to this board |
 
@@ -596,7 +601,7 @@ curl -O -J http://localhost:8000/media/attachments/abc123.pdf \
 ```
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/attachments/`
-Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB. **Minimum role: Collaborator.**
+Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB by default, operator-configurable via the `MAX_UPLOAD_SIZE_BYTES` env var. **Minimum role: Collaborator.**
 
 **Allowed file types**
 
@@ -785,10 +790,12 @@ Add a checklist item. **Minimum role: Collaborator.**
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
 Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 
+> **Ownership gate:** Collaborators and members may only edit items they created. Admins and moderators may edit any item. Items created before the `created_by` field existed (migration 0044) have no recorded creator and are unrestricted. Non-moderator callers who did not create the item receive `403 Forbidden` with `{"detail": "You can only edit checklist items you created."}`.
+
 **Request** `{ "is_checked": true }`
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
-Delete a checklist item. **Minimum role: Collaborator.**
+Delete a checklist item. **Minimum role: Collaborator.** Same ownership gate as `PATCH` above.
 
 **Checklist item response shape**
 

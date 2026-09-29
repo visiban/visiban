@@ -24,7 +24,7 @@ production could never be verified against that signature or rolled back to a sp
 artifact. Visiban's `APP_VERSION` half of the same gap is now closed — see
 [Upgrading → `APP_VERSION` is now required](upgrade.md#upgrading-to-12x). Visiban's own
 release images are **not yet** scanned, SBOM'd, or signed the way TruePPM's are; that work is
-tracked in [#1153](https://gitlab.com/visiban/visiban/-/issues/1153). This page covers the
+tracked in [#1153](https://gitlab.com/visiban/visiban/-/issues/1153). Below covers the
 registry-retention half and digest pinning, both of which apply regardless of #1153's status.
 
 ## GitLab container registry

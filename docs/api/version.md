@@ -1,5 +1,10 @@
 # Version API
 
+A single endpoint that reports the running server's version string.
+
+**Why it matters:** it's the frozen 1.x contract clients rely on to check compatibility before
+calling anything else — see the stability commitment below.
+
 ## `GET /api/v1/version/`
 
 Returns the running server version string. Authentication is required.

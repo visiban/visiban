@@ -5,9 +5,11 @@ Visiban uses WebSockets (Django Channels + Valkey) to push board changes to all 
 ## How it works
 
 1. When a user opens a board, the frontend opens a WebSocket connection to `ws://{host}/ws/boards/{board_id}/`
-2. The server authenticates the connection using the session cookie; unauthenticated connections are closed with code `4001`
+2. The browser SPA authenticates with the session cookie; unauthenticated connections are closed with code `4001`, and connections from a non-member are closed with `4003`
 3. Any mutation — card, column, swimlane, label, member, or board setting change — broadcasts an event to all clients subscribed to that board's channel group
 4. The frontend applies the event to local state, keeping all open tabs in sync without a page refresh
+
+Native, CLI, and agent clients have no cookie jar to send, so they authenticate with a short-lived **ticket** (since 1.2) obtained over the REST API instead — see [WebSocket API → Ticket authentication](../api/websockets.md#ticket-authentication-since-12) for the full flow.
 
 ## Connection status
 
@@ -17,84 +19,21 @@ The top-right corner of the board toolbar shows the connection state via the **C
 - 🟡 **Reconnecting…** — connection dropped; client is retrying automatically; amber pill with label always shown
 - 🟡 **Stale** — connected but no event has arrived in over 60 seconds; amber pill indicates the feed may be lagging
 - 🟡 **Connecting…** — initial connection attempt in progress; amber pill
-- 🔴 **Failed** — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect
+- 🔴 **Offline** — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect
 
-The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Failed**.
+The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**.
 
 ## Event types
 
-### Board events
+Board-channel events fall into a few categories:
 
-| Event | Trigger |
-|---|---|
-| `board.updated` | Board settings changed, share token toggled, or board moved between groups |
-| `board.deleted` | Board deleted |
-| `board.star_changed` | Board starred or unstarred by any member (added in 1.1) |
+- **Board** — settings changes, deletion, and per-user star toggles
+- **Members** — added, role changed, or removed (removing the current user also closes their connection)
+- **Cards** — created, field changes, moves between columns/swimlanes, deletion, archive, and restore
+- **Columns, swimlanes, and labels** — created, updated, deleted, and (for columns and swimlanes) reordered
+- **Feature-specific families** riding the same board channel: saved-filter events (see [Saved Filters](saved-filters.md)), custom field and swimlane field events (see [Custom Fields](custom-fields.md#api-and-real-time-events)), and — when [Issue Board Lens](issue-board-lens.md) is enabled — Git Lens connection events
 
-### Member events
-
-| Event | Trigger |
-|---|---|
-| `member.added` | User added to the board |
-| `member.updated` | Member's role changed |
-| `member.removed` | Member removed from the board |
-
-!!! warning
-    When a `member.removed` event targets the current user, the server automatically closes that user's WebSocket connection. The client does not need to handle this explicitly — the connection indicator will switch to **Offline** and the user will no longer receive events for the board.
-
-### Card events
-
-| Event | Trigger |
-|---|---|
-| `card.created` | Card added to the board |
-| `card.updated` | Card field changed (title, priority, assignee, etc.) |
-| `card.moved` | Card dragged to a new column or swimlane |
-| `card.deleted` | Card deleted |
-
-### Card archive events
-
-| Event | Trigger |
-|---|---|
-| `card.archived` | Card archived via the Archive action |
-| `card.unarchived` | Card restored from the archived panel |
-
-`card.archived` payload — contains only the card UID (not the full card object):
-
-```json
-{ "event": "card.archived", "data": { "card_uid": "3a9f1c2d7e4b8a05" } }
-```
-
-`card.unarchived` payload — contains the full serialized card so the frontend can restore it to the board without an additional API call:
-
-```json
-{ "event": "card.unarchived", "data": { "id": 101, "uid": "3a9f1c2d7e4b8a05", "title": "...", "archived_at": null, ... } }
-```
-
-### Column events
-
-| Event | Trigger |
-|---|---|
-| `column.created` | Column added to the board |
-| `column.updated` | Column renamed, recolored, or limits changed |
-| `column.deleted` | Column deleted |
-| `column.reordered` | Columns reordered by an admin (since 1.1) |
-
-### Swimlane events
-
-| Event | Trigger |
-|---|---|
-| `swimlane.created` | Swimlane added to the board |
-| `swimlane.updated` | Swimlane renamed, recolored, or collapsed state changed |
-| `swimlane.deleted` | Swimlane deleted |
-| `swimlane.reordered` | Swimlanes reordered by an admin (since 1.1) |
-
-### Label events
-
-| Event | Trigger |
-|---|---|
-| `label.created` | Label added to the board |
-| `label.updated` | Label renamed or recolored |
-| `label.deleted` | Label deleted |
+For the complete, canonical event list, trigger conditions, and `data` shape for every event, see **[WebSocket API — Event reference](../api/websockets.md#event-reference)** — that table is CI-enforced against the backend event registry and frontend handlers, so it cannot drift the way a second hand-maintained copy would.
 
 ## Event payload structure
 
@@ -186,17 +125,9 @@ In addition to the per-board channel, Visiban exposes a per-group WebSocket chan
 
 **Authentication:** same as the board channel — session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership are closed with code `4003`. No retry is attempted for either code.
 
-**Events emitted on this channel:**
+**What it streams:** board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes, and invite link revocations. Each payload follows the standard `{"event": "...", "data": {...}}` envelope. The group channel does not emit card-level events — those remain on the per-board channel.
 
-| Event | Trigger |
-|---|---|
-| `board.created` | A new board is created inside this group |
-| `board.updated` | A board in this group has its name, settings, or group changed |
-| `board.deleted` | A board in this group is deleted |
-
-Each event payload follows the standard `{"event": "...", "data": {...}}` envelope. `board.deleted` carries `{"board_uid": "..."}`; when the board was **moved out** of this group (rather than deleted outright) the payload additionally carries `"board_id": N` so clients keyed by integer id can drop the row without a re-fetch. `board.created` and `board.updated` include the full board summary object.
-
-The group channel does not emit card-level events — those remain on the per-board channel.
+For the complete, canonical event list and `data` shape for every event, see **[WebSocket API — Group channel](../api/websockets.md#group-channel-since-11)**.
 
 ## Requirements
 
@@ -242,6 +173,18 @@ externalRedis:
 When a browser tab is backgrounded, the operating system may throttle or suspend JavaScript timers and WebSocket connections. Events broadcast while the tab is inactive can be lost, causing the board state to drift.
 
 To guard against this, Visiban automatically re-fetches the full board state when a tab returns to the foreground (`visibilitychange` event). A 30-second throttle prevents redundant fetches when the user rapidly switches between tabs. The reload is "silent" — it does not flash a loading skeleton.
+
+## Resuming after a dropped connection
+
+> **Added in 1.2**
+
+The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer that lives outside the browser — a second front end, a sync job, the MCP server's REST client — can instead replay exactly what it missed:
+
+- Every event the board channel broadcasts is durably persisted in the same transaction as the mutation it describes, and each WebSocket frame carries the matching `event_id`.
+- `GET /api/v1/boards/{id}/events/?after=<event_id>` returns the missed events in order, so a consumer can catch up without re-fetching the whole board.
+- Events are retained for `BOARD_EVENT_RETENTION_DAYS` days (default 30); a cursor older than that gets `410 Gone` with a re-sync hint instead of silently skipping events.
+
+See [Board Change Feed API](../api/events.md) for the full reference.
 
 ## Optimistic concurrency control
 

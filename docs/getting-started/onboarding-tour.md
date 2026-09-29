@@ -17,7 +17,8 @@ When a new user opens a board for the first time, Visiban displays an 8-step gui
 
 ## Behavior
 
-- The tour triggers only when the user's `has_completed_tour` flag is `false` **and** the board has at least one swimlane and one card (so every tour step has a visible target element).
+- The tour triggers whenever the user's `has_completed_tour` flag is `false`, on any board they open — there's no minimum swimlane or card count.
+- Each step targets a specific element (swimlane, card, and so on). If a board doesn't have that element yet, the tour skips straight to the next step, or completes immediately if no later step has a visible target either.
 - Clicking **Next** advances to the next step. Clicking **Done** on the last step completes the tour.
 - Clicking **Skip tour** at any step immediately dismisses the tour.
 - Pressing **Escape** dismisses the tour.
@@ -32,13 +33,7 @@ PATCH /api/v1/auth/me/
 { "has_completed_tour": false }
 ```
 
-**Admin reset (site admins only):** reset any user's tour flag from the admin panel:
-
-1. Go to `/admin` → **Users** tab.
-2. Find the user and open their detail view.
-3. Click **Reset onboarding tour**.
-
-You can also reset it via the Admin API:
+**Admin reset (site admins only):** the Admin panel has no button for this yet — reset another user's tour flag via the Admin API:
 
 ```
 PATCH /api/v1/admin/users/{id}/

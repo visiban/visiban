@@ -39,4 +39,7 @@ Archived cards are included in analytics for the period they were active. Dwell 
 
 ## Column and swimlane deletion
 
-Deleting a column or swimlane also deletes all cards in it — including archived cards that were in that column or swimlane at the time of archiving. A warning in the confirmation dialog notes that archived cards will also be deleted.
+Deleting a column or swimlane also deletes all cards in it — including archived cards that were in that column or swimlane at the time of archiving.
+
+!!! warning "Swimlane deletion doesn't warn about archived cards"
+    Deleting a column shows a confirmation warning that its archived cards will also be deleted. Deleting a swimlane does not — its confirmation dialog only warns about active cards, so a swimlane holding only archived cards can be deleted with no mention of them.

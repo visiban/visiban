@@ -4,15 +4,17 @@
 
 Groups organize boards and users into a hierarchy. A board can belong to one group; a group can have one parent group (unlimited nesting, traversal capped at 6 levels).
 
+**Why it matters:** membership and shared settings inherit down the tree, so a manager can onboard a whole team by adding one group instead of every board.
+
 ## Group description
 
-Each group has an optional **description** field — a short free-text summary of the group's purpose. The description appears on the group detail page and is inline-editable: click it to enter edit mode, then press **Enter** (or click outside) to save, or press **Escape** to cancel.
+Each group has an optional **description** field — a short free-text summary of the group's purpose. It appears on the group detail page and is inline-editable: click it to enter edit mode, then press **Enter** (or click outside) to save, or **Escape** to cancel.
 
 The description is returned as `description` in `GET /api/v1/groups/{id}/` and is writable via `PUT /api/v1/groups/{id}/` (group admin required).
 
 ## Ancestor breadcrumb chain
 
-When viewing a group that has a parent, the group detail page shows a breadcrumb chain above the group name listing all ancestor groups from the root down to the immediate parent. Each ancestor is a clickable link. This makes it easy to orient yourself and navigate back up deep hierarchies.
+When viewing a group with a parent, the group detail page shows a breadcrumb chain above the group name, listing every ancestor from the root down to the immediate parent as a clickable link — useful for orienting yourself and navigating back up deep hierarchies.
 
 The full ancestor list is also available in the API: `GET /api/v1/groups/{id}/` returns an `ancestors` array (see [Groups API](../api/groups.md)).
 
@@ -37,7 +39,7 @@ Each group has members with one of four roles:
 | `collaborator` | View boards in the group; can comment on cards but cannot create, edit, move, or delete them |
 | `viewer` | Read-only access to all boards in the group — can view cards and card history but cannot create, edit, move, delete cards, or manage members |
 
-Membership is **inherited** — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants. You don't need to add users to each subgroup individually. See [Group Inheritance](rbac/inheritance.md) for full details.
+Membership is **inherited** — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants, with no need to add users to each subgroup individually. See [Group Inheritance](rbac/inheritance.md) for full details.
 
 ## Board roles vs group roles
 
@@ -55,7 +57,7 @@ Group admins can create subgroups. Nesting is unlimited (traversal is capped at 
 
 > **Added in 1.0**
 
-Group admins can generate up to **5 active invite links** per group from the group detail page. Each link can be configured independently:
+Group admins can generate up to **5 active invite links** per group from the group detail page. Each link is configured independently:
 
 | Setting | Options |
 |---|---|
@@ -66,20 +68,20 @@ Group admins can generate up to **5 active invite links** per group from the gro
 
 > **Added in 1.1** — single-use invite links (#689)
 
-Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and cannot be used to join. Single-use links display a status badge and consumed-at timestamp in the invite links list after they have been used. Each link can be revoked independently — existing members are not affected.
+Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and can't be used to join. Used single-use links display a status badge and consumed-at timestamp in the invite links list. Each link can be revoked independently — existing members are not affected.
 
-Unauthenticated visitors who open an invite link are shown a full authentication interface: a **Create an account** button (primary), a **Sign in** option, and social login buttons (Google / GitHub / GitLab) if those providers are configured. After authenticating, the invite is accepted automatically and the user is redirected to the group page with a confirmation banner.
+**How it works:**
 
-Authenticated users who open an invite link see a single **Join &lt;group name&gt;** button and are redirected to the group page immediately after joining. If the user is already a member they are silently redirected without re-joining.
-
-If the link is invalid or expired, a countdown timer is shown and the user is automatically redirected to the dashboard after 5 seconds — no manual action required.
+- **Unauthenticated visitors** see a full authentication interface: a **Create an account** button (primary), a **Sign in** option, and social login buttons (Google / GitHub / GitLab) where configured. After authenticating, the invite is accepted automatically and they land on the group page with a confirmation banner.
+- **Authenticated users** see a single **Join &lt;group name&gt;** button and are redirected to the group page right after joining. If already a member, they're silently redirected without re-joining.
+- **Invalid or expired links** show a countdown timer and auto-redirect to the dashboard after 5 seconds — no manual action needed.
 
 !!! tip
     Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one `member` link for the team and one `viewer` link for stakeholders).
 
 ## Moving boards between groups
 
-Any board can be moved to a different group or back to personal boards. Use the **Move to group** option in the board settings (gear icon in the toolbar). Only board admins and site admins can move a board.
+Any board can move to a different group or back to personal boards, via **Move to group** in board settings (gear icon in the toolbar). Only board admins and site admins can move a board.
 
 **API:** `POST /api/v1/boards/{id}/move-group/` with `{ "group_id": 5 }` or `{ "group_id": null }` for personal.
 
@@ -87,9 +89,11 @@ Any board can be moved to a different group or back to personal boards. Use the 
 
 > **Added in 1.0**
 
-Group admins can define a shared label library for the group. New boards created inside the group automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.
+Group admins can define a shared label library for the group. New boards created inside it automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.
 
-Labels are managed from the **Settings** tab on the group detail page. Changes to a group label (rename, recolor) propagate to all boards that inherited it; deletions only remove the label from the group library — boards that already have the label keep it.
+Manage labels from the **Settings** tab on the group detail page.
+
+**Watch out:** inheritance is a one-time copy at board-creation time, not a live link. Renaming, recoloring, or deleting a group label only changes the group's shared library and future boards — boards that already inherited the label keep their own independent copy, unaffected by later edits or deletion.
 
 **API:** `GET/POST /api/v1/groups/{id}/labels/`, `PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/`
 
@@ -100,7 +104,7 @@ Group admins can configure defaults that apply to every new board created in the
 | Setting | Description |
 |---|---|
 | **Default member role** | Role granted to group members on new boards (`admin`, `member`, `collaborator`, `viewer`). Defaults to `member`. |
-| **Allowed priorities** | Restricts which priority values are available on new boards. `null` (default) allows all priorities. |
+| **Allowed priorities** | Restricts which priority values are available on new boards. An empty list `[]` (default) allows all priorities. |
 
 Board defaults are configured from the **Settings** tab on the group detail page.
 
@@ -108,9 +112,9 @@ Board defaults are configured from the **Settings** tab on the group detail page
 
 ## Transferring group ownership
 
-Only the **current owner** of a group can transfer ownership to another user. The recipient must already be a group **admin**. To confirm the transfer, type the group name exactly as shown.
+Only the **current owner** of a group can transfer ownership, and only to an existing group **admin**. Confirm the transfer by typing the group name exactly as shown.
 
-After transfer, the previous owner becomes a regular admin — they are not removed from the group.
+After transfer, the previous owner becomes a regular admin — not removed from the group.
 
 **API:** `POST /api/v1/groups/{id}/transfer-ownership/` with `{ "new_owner_id": 42, "confirmation": "Group Name" }`
 
@@ -122,7 +126,7 @@ The star button (☆/★) in the group detail page header lets you mark frequent
 
 > **Added in 1.1**
 
-The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time without a page refresh.
+The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time — no page refresh needed.
 
 The group page subscribes to a per-group WebSocket channel (`ws/groups/<group_id>/`) that emits the following events:
 
@@ -136,7 +140,7 @@ A **Live / Reconnecting… / Failed** connection status indicator in the group p
 
 ## Dashboard
 
-The primary way to navigate between groups and boards is the persistent collapsible left sidebar, which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions.
+The persistent, collapsible left sidebar is the primary way to navigate between groups and boards — it shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.
 
 The **+ New board** and **+ New group** buttons in the sidebar footer open their respective creation dialogs immediately — no navigation required.
 
@@ -149,6 +153,6 @@ The **Create Group** modal has two fields:
 | **Name** | Required. The group's display name. |
 | **Description** | Optional. A short summary of the group's purpose. A character counter is shown below the field as you type. |
 
-After creating a group or subgroup, the modal transitions to a **post-creation state** where you can immediately add subgroups without navigating away. Type a subgroup name, click **+ Add** (or press Enter), and repeat as needed. Each subgroup is created instantly. Click **Done** when finished.
+After creating a group or subgroup, the modal switches to a **post-creation state** where you can add subgroups immediately, without navigating away: type a name, click **+ Add** (or press Enter), and repeat. Each subgroup is created instantly. Click **Done** when finished.
 
-This flow works at every level of the hierarchy — you can create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.
+This flow works at every level of the hierarchy — create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.

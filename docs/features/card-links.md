@@ -72,7 +72,7 @@ You can override the detected provider and reference at any time.
   "Enter a valid http or https URL." and **Save link** stays disabled.
 - URLs that contain a username or password are rejected.
 - The URL can be up to 2048 characters.
-- The reference is required, cannot contain spaces, and can be up to 255 characters.
+- The reference is required, cannot contain spaces or other whitespace/control characters, and can be up to 255 characters.
 - Each card holds one link. To link a different pull request, edit the existing one.
 
 ---

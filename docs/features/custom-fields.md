@@ -41,8 +41,8 @@ Click **+ Add field**, or **✎** on an existing field, to open the inline edito
 
 Click **Save field** to commit, or **Cancel** to discard.
 
-!!! warning "Changing an existing field's type"
-    If you change the type of a field that may already have values stored on cards, the editor shows an inline warning — **"Changing this field's type may make existing values unreadable"** — before you confirm. Visiban does not retroactively re-validate or convert existing card values against the new type, so a value stored under the old type can become unreadable or unwritable after the change. A brand-new, unsaved field has no existing values to protect and skips this warning.
+!!! warning "A field's type locks once it holds a value"
+    Once any card on the board has a stored value for a field, the API blocks changing that field's type — the editor disables the other type buttons and explains why, the same way it does for [swimlane fields](#swimlane-row-custom-fields). Delete the field and add it again under a new type if you need to change it. A brand-new, unsaved field has no existing values yet, so its type can be changed freely.
 
 ### Field limits
 
@@ -100,7 +100,9 @@ If the board has no custom fields defined, this section doesn't appear at all.
 
 ## Hover peek
 
-Hovering a card for 600 ms opens the existing [card peek popover](board.md#card-peek). In addition to weight, attachment count, and last-moved information, the peek now lists any **non-pinned** custom field values that have data — so a field's value is never hidden just because it isn't one of the board's 2 pinned slots. The list is capped at 6 entries; beyond that, a `+N more` marker summarizes the rest. Pinned fields are not repeated here since they already show on the card face.
+Hovering a card for 600 ms opens the existing [card peek popover](board.md#card-peek). Alongside weight, attachment count, and last-moved information, the peek now lists any **non-pinned** custom field values that have data — so a field's value is never hidden just because it isn't one of the board's 2 pinned slots.
+
+The list is capped at 6 entries; beyond that, a `+N more` marker summarizes the rest. Pinned fields aren't repeated here since they already show on the card face.
 
 ---
 
@@ -173,7 +175,6 @@ This page covers the UI. For the wire format:
 | No conditional coloring | Custom field values cannot be color-coded by threshold (e.g. red above N) |
 | No range filtering | Number and date filters match an exact value only, not a range |
 | `is_required` not enforced | The field definition has a "required" concept in the data model, but it is not enforced in the UI or API in this release — a field marked required can still be left blank |
-| Type changes aren't guarded server-side | The inline warning in the field editor is a client-side caution, not a backend safeguard; the API does not validate a retyped field's existing values |
 | Swimlane fields aren't filterable | The board's filter bar only offers controls for card fields; swimlane field values cannot be used as filter criteria in this release |
 | `is_required` not enforced (swimlane fields) | Same gap as the card-level entry above — a swimlane field marked required can still be left blank in the Edit Swimlane modal |
 

@@ -68,8 +68,8 @@ for you out of the box, Visiban is the wrong choice and you should pick somethin
 OIDC and OAuth — Google, GitHub, GitLab, and any OIDC-compliant provider such as Keycloak, Okta, or
 Authentik — are part of the Apache-2.0 core. Not a paid tier, not an add-on.
 
-This is a deliberate position, and it is worth checking against the alternatives: identity is the
-feature most commonly moved behind a paywall in self-hosted project tools, and it is the one that
+This is a deliberate position — check it against the alternatives. Identity is the
+feature most commonly moved behind a paywall in self-hosted project tools, and the one that
 most often forces a team onto a commercial tier they otherwise would not need.
 
 See [OAuth Setup](oauth.md).

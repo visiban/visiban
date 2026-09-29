@@ -1,6 +1,6 @@
 # Features
 
-Visiban is built around a core idea: every card's journey through your pipeline should be visible, measurable, and actionable. The features below work together to make that happen.
+Every card's journey through your pipeline should be visible, measurable, and actionable. This page is a map of the features that make that true.
 
 ---
 
@@ -22,13 +22,15 @@ Cards are dragged between cells. Every move that changes column or swimlane is l
 
 Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` focuses search, and `?` shows the full shortcut reference.
 
-→ [Board & Cards](board.md)
+**Grid overlays** shade each cell by a single number — card count, WIP usage, or weight — without hiding or resizing anything, so you can spot hot spots at a glance.
+
+→ [Board & Cards](board.md) · [Grid overlays](board.md#grid-overlays)
 
 ---
 
 ## Board creation & templates
 
-When creating a new board you choose from eleven purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring & Recruiting, Legal & Compliance, Infrastructure & DevOps, or Blank Board — each pre-seeded with the right columns and a swimlane placeholder.
+When creating a new board you choose from ten purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring & Recruiting, Legal & Compliance, or Infrastructure & DevOps — each pre-seeded with the right columns and a swimlane placeholder. Or start from **Blank Board**, which creates no columns at all so you can build the layout yourself.
 
 After choosing a template you're prompted to name the first swimlane using the template's label (e.g. "Account" for Sales Pipeline). You can also mark any newly created board as your **default board** so it opens automatically after login.
 
@@ -48,11 +50,12 @@ Click any card to open a side panel with full context:
 - **Checklist** — sub-tasks with progress tracking
 - **Attachments** — upload files directly to a card (up to 10 MB each)
 - **Description** — rich text editor with bold, italic, code, lists, headings, blockquote, and text color; type `@username` to mention a board member and send them a notification
+- **Relations** — link cards as Blocked by / Blocks / Relates to, with a red indicator for unfinished blockers
 - **Pull / merge request** — link a GitHub or GitLab PR/MR to the card
 - **Comments** — threaded discussion visible to collaborators and above
-- **History tab** — full movement timeline and activity log
+- **Activity tab** — full movement timeline and activity log
 
-→ [Card History](card-history.md) · [Card Descriptions](card-descriptions.md) · [Pull & Merge Request Links](card-links.md)
+→ [Card History](card-history.md) · [Card Descriptions](card-descriptions.md) · [Card Relations](card-relations.md) · [Pull & Merge Request Links](card-links.md)
 
 ---
 
@@ -102,7 +105,9 @@ Visiban surfaces two types of alerts in the notification bell:
 
 Stale cards show an amber tint overlay with reduced opacity on the board so they're impossible to miss at a glance.
 
-→ [Notifications](notifications.md)
+Four of these events — assigned to me, @mentioned, due date approaching, and a watched card moved — can also be **delivered by email**, off by default, once an administrator configures outgoing SMTP and you turn the per-event toggle on in Settings → Notifications.
+
+→ [Notifications](notifications.md) · [Email notifications](notifications.md#email-notifications)
 
 ---
 
@@ -148,6 +153,8 @@ Four board roles let you grant exactly the right level of access:
 
 Assigning a user **Group Admin** automatically grants them board-admin rights on every board in that group — the recommended role for team leads.
 
+The [RBAC guide](rbac/index.md) covers this in depth: [role definitions](rbac/roles.md), [how access inherits down the group hierarchy](rbac/inheritance.md), and [how to assign or revoke it](rbac/managing.md).
+
 → [Groups](groups.md) · [Roles & Permissions](rbac/roles.md)
 
 ---
@@ -156,7 +163,9 @@ Assigning a user **Group Admin** automatically grants them board-admin rights on
 
 Create named, revocable tokens to authenticate scripts, CI pipelines, and integrations without sharing your password. Tokens use the `vbn_` prefix, are shown once at creation, and are automatically revoked when your password changes.
 
-→ [Personal Access Tokens](personal-access-tokens.md)
+Tokens created from 1.2 onward carry explicit **scopes** (`read`, `write`, `admin`, `mcp:read`, `mcp:write`) that cap what the token can do — non-hierarchical, so a token must list every scope its requests need. Tokens created before 1.2 keep working unscoped.
+
+→ [Personal Access Tokens](personal-access-tokens.md) · [Scopes](personal-access-tokens.md#scopes)
 
 ---
 
@@ -182,7 +191,7 @@ Every board, column, swimlane, label, and card carries a stable 16-character hex
 
 > **Added in 1.1**
 
-Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd>) from any authenticated page to open the global command palette. Behaviour adapts to the current surface:
+Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd>) from any authenticated page to open the global command palette. Behavior adapts to the current surface:
 
 - **Board** — searches cards on the current board by title, plus board-scoped actions (open card history, toggle filters, switch view).
 - **Dashboard / Group** — jumps to a board across the user's full board set; starred boards lead the unfiltered list (alphabetical), then recent visits.
@@ -213,8 +222,10 @@ Site admins can manage the instance from the `/admin` panel (accessible via the 
 - **Registration mode** — open (anyone can sign up), invite-only (registration disabled; admin creates accounts), or closed
 - **User management** — create accounts, toggle active/site-admin status, and force a password reset on next login
 - **Maintenance mode** — puts the instance into read-only mode for the duration of an upgrade or migration; non-admin writes are rejected while reads keep working
+- **Email (SMTP) configuration** — set up the outgoing mail server for password resets, verification, and notification email straight from the admin UI, no environment variables or restart required
+- **Action log** — every settings-tab toggle change is recorded with the admin who made it and when, readable via the API (added in 1.2)
 
-→ [Administration](../administration/index.md) · [Maintenance Mode](../administration/maintenance-mode.md)
+→ [Administration](../administration/index.md) · [Maintenance Mode](../administration/maintenance-mode.md) · [Admin Panel](../administration/admin-panel.md)
 
 ---
 
@@ -252,7 +263,9 @@ WIP limits can now be configured in two modes: **soft** (advisory, admins can ov
 
 Weight limits work the same way: the corresponding **Enforce weight limits** setting blocks moves that would push a column's total weight over its budget.
 
-→ [Board & Cards — Hard WIP enforcement](board.md#hard-wip-enforcement)
+A column sitting exactly *at* its WIP limit normally reads as an ordinary count — the optional **Show at-limit WIP indicator** board setting (off by default) adds ambient visibility for that at-limit case too, not just over-limit.
+
+→ [Board & Cards — Hard WIP enforcement](board.md#hard-wip-enforcement) · [At-limit WIP indicator](board.md#at-limit-wip-indicator)
 
 ---
 
@@ -286,7 +299,9 @@ Each board has an admin-controlled **Card density** setting (Comfortable / Stand
 
 The previous per-user per-field hide toggles (Labels / Due date / Assignee / Priority badge / Last moved) are removed in 1.1. Card density is the single layout knob, and `localStorage` values for the old keys are silently ignored.
 
-→ [Board & Cards — Card density](board.md#card-density)
+Any member can override the board's density for their own view without changing it for anyone else — turn on **Use my own density** in Board Settings → Display (added in 1.2, browser-local, board-scoped).
+
+→ [Board & Cards — Card density](board.md#card-density) · [Personal density override](board.md#personal-density-override)
 
 ---
 
@@ -316,7 +331,7 @@ The card detail panel now includes a **Move to** button in the breadcrumb row. C
 
 The board sub-navigation tabs (Board, Summary, Analytics, History) now reflect in the URL via a `?view=` search parameter. Tab views can be bookmarked and shared, and the browser Back button skips tab transitions.
 
-Within the card detail History tab, the **Show full history** toggle now persists across card opens, page refreshes, and sessions via `localStorage`. Users who prefer the expanded view no longer need to re-enable it each time.
+Within the card detail Activity tab, the **Show full history** toggle now persists across card opens, page refreshes, and sessions via `localStorage`. Users who prefer the expanded view no longer need to re-enable it each time.
 
 → [Board & Cards](board.md) · [Card History](card-history.md)
 
@@ -397,7 +412,7 @@ Generic OpenID Connect (OIDC) is configurable via environment variables, making 
 !!! info "Validated against Keycloak; community feedback welcome for other providers"
     The end-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end — report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
 
-→ [Authentication](../administration/authentication.md#generic-oidc-beta)
+→ [Authentication](../administration/authentication.md#generic-oidc)
 
 ---
 

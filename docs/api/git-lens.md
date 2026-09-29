@@ -1,9 +1,11 @@
 # Issue Board Lens API
 
-!!! warning "Experimental feature"
-    Issue Board Lens is an **experimental** feature. It is read-only, supports **public repositories only**, and is subject to change without a deprecation notice until it leaves experimental status.
+Issue Board Lens surfaces GitHub or GitLab issues directly inside a Visiban board, pivoted by column and swimlane dimensions.
 
-Issue Board Lens surfaces GitHub or GitLab issues directly inside a Visiban board, pivoted by column and swimlane dimensions. The feature is flag-gated: all endpoints below return `404 Not Found` unless the server is started with `GIT_LENS_ENABLED=true`.
+!!! warning "Experimental feature"
+    Read-only, **public repositories only**, and subject to change without a deprecation notice until it leaves experimental status.
+
+The feature is flag-gated: all endpoints below return `404 Not Found` unless the server is started with `GIT_LENS_ENABLED=true`.
 
 All endpoints require authentication (`Authorization: Token <value>`). Unauthenticated requests receive `403 Forbidden`.
 

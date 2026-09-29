@@ -1,5 +1,7 @@
 # Managing Roles
 
+How to assign, change, and revoke group, board, and site admin roles via the UI or API.
+
 ## Board membership
 
 Board admins can add, change, or remove members via the board settings panel or the API.
@@ -26,6 +28,8 @@ DELETE /api/v1/groups/{group_id}/members/42/
 
 Valid group roles: `admin`, `member`, `collaborator`, `viewer`
 
+Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership, and set the default role new members get on boards created in the group. See [Groups](../groups.md#invite-links), [Groups — Transferring group ownership](../groups.md#transferring-group-ownership), and [Groups — Group board defaults](../groups.md#group-board-defaults).
+
 ## Granting site admin
 
 Site admin status is a field on the `User` model (`is_site_admin`). It can be set via:
@@ -51,6 +55,6 @@ Navigate to `/admin/accounts/user/`, find the user, and toggle the `is_site_admi
     The `set_site_admin` command sets both `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) together. To manage them independently — for example, granting admin panel access without board omniscience — use the admin panel instead. See [Site Admins](../../administration/site-admins.md) for details.
 
 !!! warning
-    The `is_site_admin` flag protects the user from demotion: any role-change or remove-member API call targeting a user with `is_site_admin=True` returns `403 Forbidden` unless the caller is also a site admin. This protection is based on `is_site_admin` specifically, not `can_access_all_content`.
+    The `is_site_admin` flag protects the user from demotion: any group or board role-change or remove-member API call targeting a user with `is_site_admin=True` returns `403 Forbidden` unless the caller is also a site admin. The same protection applies to board membership — see [Site admin protection](roles.md#site-admin-protection).
 
-    Only grant site admin to trusted operators.
+    Grant site admin only to trusted operators.

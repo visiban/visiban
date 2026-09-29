@@ -1,6 +1,9 @@
 # Admin API
 
-All endpoints in this section require **site admin** authentication. Non-admin users receive `403 Forbidden`.
+Site-wide settings, the action log, email configuration, maintenance mode, users, and invite
+links — administrative endpoints, restricted to site admins.
+
+All endpoints below require **site admin** authentication; non-admin users receive `403 Forbidden`.
 
 See [Admin Panel](../administration/admin-panel.md) for the equivalent UI and [Site Admins](../administration/site-admins.md) for first-boot setup.
 
@@ -441,6 +444,8 @@ If the target user owns one or more boards, you must supply a `transfers` list m
   "avatar_url": null,
   "is_active": false,
   "is_site_admin": false,
+  "can_access_all_content": false,
+  "has_completed_tour": true,
   "must_change_password": false,
   "date_joined": "2025-11-02T08:00:00Z",
   "owned_boards": []

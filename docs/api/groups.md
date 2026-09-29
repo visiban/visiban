@@ -1,5 +1,7 @@
 # Groups API
 
+Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults that new boards in the group inherit.
+
 ## Groups
 
 ### `GET /api/v1/groups/`
@@ -45,10 +47,10 @@ Get group details.
 | `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. **Only present on this single-object retrieve endpoint** — the list endpoint (`GET /api/v1/groups/`) omits `ancestors`. |
 | `created_at` | string | ISO 8601 timestamp |
 
-### `PUT /api/v1/groups/{id}/`
-Update group name, description, or parent. Requires group admin.
+### `PUT /api/v1/groups/{id}/` / `PATCH /api/v1/groups/{id}/`
+Update group fields. Both `PUT` and `PATCH` are accepted. Requires group admin.
 
-**Writable fields:** `name`, `description`, `parent`.
+**Writable fields:** `name`, `description`, `parent`, `default_board_member_role`, `allowed_priorities`. The latter two duplicate what [`PATCH /groups/{id}/board-defaults/`](#board-defaults) does — either endpoint can set them.
 
 ### `DELETE /api/v1/groups/{id}/`
 Delete a group. Requires group owner or site admin.
@@ -64,7 +66,7 @@ List group members. Requires group membership.
 
 | Field | Type | Description |
 |---|---|---|
-| `id` | integer / null | Membership record ID. `null` for inherited members (access via ancestor group), for the group owner who has no explicit direct membership record, and for site admins. Callers must not assume this field is always an integer. |
+| `id` | integer / null | Membership record ID. `null` for inherited members — access via an ancestor group's membership rather than a direct row on this group. A group's owner always holds a direct `admin` `GroupMembership` row (created with the group, or transferred via [Transfer ownership](#transfer-ownership), which requires the new owner to already be a direct admin), so the owner's `id` here is never `null`. A site admin with no membership of their own does not appear in this list at all. Callers must not assume this field is always an integer. |
 | `user` | object | `{ "id", "username", "display_name", "avatar_url" }` |
 | `role` | string | Effective role on this group: `admin`, `member`, `collaborator`, or `viewer` |
 | `joined_at` | string / null | ISO 8601 timestamp of when the membership was created; `null` for inherited members |
@@ -107,7 +109,7 @@ Create a board in this group. Requires group admin. Boards created here inherit 
 | `name` | Yes | Board display name |
 | `description` | No | Optional free-text description |
 | `template` | No | Template slug to pre-populate columns. Valid values match those from `GET /api/v1/boards/templates/` (e.g. `simple_kanban`, `sales_pipeline`, `customer_support`). Default: `simple_kanban`. Omitting the field (or sending `""`/`null`) uses the default; a non-blank slug that doesn't match an active template returns `400 {"code": ["unknown_template"], ...}` — same validation and error shape as `POST /api/v1/boards/` (#1115). |
-| `swimlane_name` | No | Label for the swimlane axis (e.g. `"Customer"`, `"Team"`). Defaults to `"General"` |
+| `swimlane_name` | No | Label for the swimlane axis (e.g. `"Customer"`, `"Team"`). Defaults to `"General"`; truncated to 255 characters |
 
 ### `GET /api/v1/groups/{id}/descendant-boards/`
 List all boards in this group and all of its descendant subgroups that the requesting user can access. This answers "what boards live anywhere inside this group subtree?" — including boards in deeply nested subgroups. Requires group membership.
@@ -190,18 +192,28 @@ Valid roles: `admin`, `member`, `collaborator`, `viewer`
 | `used_at` | string / null | ISO 8601 timestamp of consumption (single-use links only); `null` for multi-use or unredeemed. |
 | `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). |
 
+!!! note
+    `revoked` is a real status value, but `GET /invite-links/` cannot return a link in that state — a revoked link's `is_active` is cleared and it is filtered out of the list. Once a link is revoked, it is gone from this endpoint entirely rather than kept around showing `status: "revoked"`.
+
 ### `DELETE /api/v1/groups/{id}/invite-links/{link_id}/`
 Revoke a single invite link. Requires group admin.
+
+**Errors**
+
+| Status | Condition |
+|---|---|
+| `404 Not Found` | Link does not exist, or is already revoked |
+| `400 Bad Request` | The link is a single-use link that has already been consumed — `{"detail": "This link has already been consumed and cannot be revoked."}` |
 
 ---
 
 ## Favorites
 
 ### `POST /api/v1/groups/{id}/star/`
-Star (favorite) a group. Requires authentication.
+Star (favorite) a group. Requires group membership (any role) — not just authentication.
 
 ### `DELETE /api/v1/groups/{id}/star/`
-Unstar a group. Requires authentication.
+Unstar a group. Requires group membership (any role) — not just authentication.
 
 ### `GET /api/v1/groups/?starred=true`
 List only starred groups for the current user.
@@ -225,7 +237,10 @@ The previous owner becomes a regular admin after transfer. Returns the updated g
 
 **Error responses**
 - `403 Forbidden` — you are not the current owner
-- `400 Bad Request` — confirmation does not match group name, or new owner is not an admin member
+- `400 Bad Request` — request body is not a JSON object
+- `400 Bad Request` — confirmation does not match group name
+- `400 Bad Request` — `new_owner_id` is not a member of this group
+- `400 Bad Request` — `new_owner_id` is a member but not an admin
 
 ---
 

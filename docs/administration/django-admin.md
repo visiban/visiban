@@ -1,6 +1,14 @@
 # Django Admin Panel
 
-The Django admin panel is available at `/admin/` on the backend server (port 8000 in development).
+Django's built-in admin — for direct database record editing, not day-to-day
+administration — lives at `/admin/` (**with** a trailing slash) on the backend
+server (port 8000 in development).
+
+Why it matters: this is a different page from the React **site-admin panel**
+at `/admin` (**no** trailing slash — see [Admin Panel](admin-panel.md)), which
+is what most day-to-day tasks (users, registration mode, maintenance mode)
+should go through. The two share a URL prefix by coincidence of routing, not
+by design — Nginx and the SPA router tell them apart by the trailing slash.
 
 ## Access
 
@@ -25,4 +33,8 @@ u.save()
 
 ## Production note
 
-Restrict access to the Django admin in production via network policy or Nginx — it should not be publicly accessible.
+**Restricted to loopback by default** — both the bundled Nginx config and
+`AdminIPRestrictionMiddleware` block any client IP that isn't `127.0.0.1` or
+`::1`, unless you widen the allowlist. See [Secret Rotation → Admin interface
+access](secret-rotation.md#admin-interface-access) for the Compose and Helm
+steps, and why they differ.

@@ -3,6 +3,10 @@
 Inventory and behavior of the GitLab Runners that execute Visiban's pipelines, and the traps
 that follow from how they're configured.
 
+**Why it matters:** no job in `.gitlab-ci.yml` uses `tags:`, so a job that needs a specific
+runner's resources can silently land on the wrong one and fail with a confusing error instead
+of "no runner available."
+
 ## Inventory
 
 As of 2026-09-14, three GitLab group runners are registered against `visiban/visiban`
@@ -31,14 +35,12 @@ here (the `gitlab-runner` binary itself runs under Rosetta) and `uname -m` on th
 `backend-docker-push-arm64` / `frontend-docker-push-arm64` do.
 
 !!! warning "No job in `.gitlab-ci.yml` uses `tags:`"
-    Every job — including ones that need a specific runner's local resources — queues for
-    *any* available runner, self-hosted or GitLab SaaS. When a self-hosted runner goes
-    offline, jobs that depended on something only it provides don't fail loudly with "no
-    runner available" — they get scheduled onto a SaaS runner instead and fail with a
-    confusing error from deep inside the job script. This has already happened once (see
-    "Docker push" below). If a job needs the self-hosted runner specifically, add a `tags:`
-    selector to make the dependency explicit rather than relying on the untagged runners
-    happening to be healthy.
+    Every job queues for *any* available runner, self-hosted or GitLab SaaS. A self-hosted
+    runner going offline doesn't fail its jobs loudly with "no runner available" — they get
+    scheduled onto a SaaS runner instead and fail with a confusing error deep inside the job
+    script. This has already happened once (see "Docker push" below). If a job needs the
+    self-hosted runner specifically, add a `tags:` selector rather than relying on the
+    untagged runners staying healthy.
 
 ## Docker image push — amd64 via kaniko, arm64 via a dedicated runner
 

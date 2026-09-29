@@ -1,6 +1,6 @@
 # Secret Rotation
 
-This guide covers rotating the three most critical secrets in a Visiban deployment: `DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `CORS_ALLOWED_ORIGINS`.
+Rotate Visiban's three most critical secrets — `DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `CORS_ALLOWED_ORIGINS` — without downtime beyond a backend restart.
 
 ---
 
@@ -176,7 +176,10 @@ No user action is required — CORS policy is enforced per-request, not per-sess
 
 ## Admin interface access
 
-Since v1.0 the Django admin interface (`/admin/`) is restricted to loopback addresses at both the Nginx layer and via `AdminIPRestrictionMiddleware`. External requests return 403.
+Since v1.0 the Django admin interface (`/admin/` — not the site-admin panel at
+`/admin` with no trailing slash, see [Django Admin](django-admin.md)) is
+restricted to loopback addresses at both the Nginx layer and via
+`AdminIPRestrictionMiddleware`. External requests return 403.
 
 To access admin from your local machine:
 
@@ -187,13 +190,47 @@ ssh -L 8080:127.0.0.1:443 user@yourserver
 
 Then visit `https://localhost:8080/admin/` in your browser.
 
-To allow access from a specific non-loopback IP (e.g. an internal bastion host), set `DJANGO_ADMIN_ALLOWED_IPS` in your `.env`:
+### Docker Compose
+
+The bundled `nginx/app.conf.template` hardcodes `allow 127.0.0.1; allow ::1;
+deny all;` on the `/admin/` block — it does not read any environment
+variable. To allow a non-loopback IP (e.g. an internal bastion host) on
+Compose, you must edit that template yourself and add an `allow` line for it,
+**and** set `DJANGO_ADMIN_ALLOWED_IPS` in `.env` so the middleware layer
+agrees:
 
 ```bash
 DJANGO_ADMIN_ALLOWED_IPS=10.0.1.20,10.0.1.21
 ```
 
-This extends — not replaces — the loopback addresses. Restart the backend after changing this variable.
+!!! warning "This replaces the loopback allowlist, it does not extend it"
+    `DJANGO_ADMIN_ALLOWED_IPS` **replaces** the middleware's default
+    (loopback-only) allowlist rather than adding to it
+    (`backend/visiban/middleware.py`, `AdminIPRestrictionMiddleware`). If you
+    still want to keep SSH-tunnel access working, include the loopback
+    addresses explicitly:
+
+    ```bash
+    DJANGO_ADMIN_ALLOWED_IPS=127.0.0.1,::1,10.0.1.20,10.0.1.21
+    ```
+
+Restart the backend after changing this variable.
+
+### Helm
+
+Set `backend.settings.adminAllowedIPs` (comma-separated IPs) to open `/admin/`
+beyond loopback. The chart uses the one value in two places:
+
+- **Nginx** — added to the loopback default in the rendered `/admin/` allowlist
+  (`helm/visiban/templates/frontend-configmap.yaml`). Nginx accepts CIDRs.
+- **Backend** — passed to the pod as `DJANGO_ADMIN_ALLOWED_IPS`
+  (`helm/visiban/templates/_backend-env.tpl`), where it **replaces** the
+  loopback default, as described above.
+
+**Watch out:** the backend middleware compares the client IP against each entry
+as an exact string. It does not parse CIDR ranges, so `10.0.0.0/8` matches no
+client and Django returns 403 even though Nginx let the request through. List
+individual IPs until CIDR support lands.
 
 !!! warning
     Operators upgrading from a release prior to the v1.0 security hardening must apply the Nginx `/admin/` block manually if they manage the Nginx config outside of the bundled template. Add the following to the `/admin/` location block:
