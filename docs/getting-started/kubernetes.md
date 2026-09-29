@@ -32,6 +32,11 @@ cosign verify ghcr.io/visiban/charts/visiban:<version> \
 helm show values oci://ghcr.io/visiban/charts/visiban
 ```
 
+> A chart signing gap (#1284, fixed after `v1.2.0-alpha.2`) means any chart published at or
+> before that tag is unsigned — `cosign verify` against those versions fails with no signature
+> found, not a tampering warning. Check `docs/maintainers/known-ci-failures.md` if verification
+> fails against a version you expect to be signed.
+
 Every `helm install helm/visiban` below also works as
 `helm install oci://ghcr.io/visiban/charts/visiban`.
 
