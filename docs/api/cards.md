@@ -443,6 +443,28 @@ Full movement history for a card. Each record includes `from_column_uid`, `to_co
 ### `GET /api/v1/boards/{board_id}/cards/{id}/activities/`
 Activity log (field changes, comments, attachments, checklist events).
 
+| Field | Type | Notes |
+|---|---|---|
+| `id` | integer | |
+| `event_type` | string | |
+| `from_value` | string | |
+| `to_value` | string | |
+| `actor` | object \| `null` | User who triggered the event, or `null` if that user has since been deleted |
+| `created_at` | string | ISO 8601 timestamp |
+
+```json
+[
+  {
+    "id": 501,
+    "event_type": "status_changed",
+    "from_value": "To Do",
+    "to_value": "In Progress",
+    "actor": { "id": 3, "username": "jordan" },
+    "created_at": "2026-09-20T14:03:11Z"
+  }
+]
+```
+
 ---
 
 ## Timeline
@@ -598,6 +620,30 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 
 ```json
 { "detail": "File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented." }
+```
+
+**Error response (no file provided)** — `400 Bad Request`
+
+```json
+{ "detail": "No file provided." }
+```
+
+**Error response (file too large)** — `400 Bad Request`
+
+```json
+{ "detail": "File too large. Maximum size is 10 MB." }
+```
+
+**Error response (viewer role)** — `403 Forbidden`. Viewers cannot upload attachments; collaborators and above can.
+
+```json
+{ "detail": "Viewers cannot perform this action." }
+```
+
+**Error response (uploads disabled)** — `403 Forbidden`. Returned when the site administrator has disabled uploads instance-wide; applies to all roles including admins.
+
+```json
+{ "code": "feature_disabled", "detail": "File uploads are disabled by the site administrator." }
 ```
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`

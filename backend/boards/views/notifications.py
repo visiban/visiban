@@ -1,5 +1,6 @@
 """Notification views — list, mark-read, and unread-count endpoints."""
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -28,8 +29,17 @@ class NotificationSerializer(serializers.ModelSerializer):
     ``id, username, display_name, avatar_url`` only — no email or other PII.
     """
 
-    card_title = serializers.CharField(source="card.title", default=None, read_only=True)
-    board_name = serializers.CharField(source="board.name", default=None, read_only=True)
+    # allow_null=True (#1209): a notification with no card/board (e.g. a
+    # board_invite notification) has no `card`/`board` to traverse, so DRF's
+    # dotted-source lookup catches the AttributeError and falls back to
+    # `default=None` — this already serializes as null today. Declaring
+    # `allow_null=True` here is schema-only: it makes the published OpenAPI
+    # schema (only reachable now that NotificationListView has response
+    # wiring) match the response DRF was already producing. Same
+    # declared-vs-actual gap as #1192; surfaced by regression-check while
+    # auditing #1209's schema wiring.
+    card_title = serializers.CharField(source="card.title", default=None, read_only=True, allow_null=True)
+    board_name = serializers.CharField(source="board.name", default=None, read_only=True, allow_null=True)
     # allow_null=True (#1192): actor is a SET_NULL FK with null=True — a
     # system-generated notification (e.g. stale-card alerts) has no human
     # actor and serializes with `actor: null`. Same declared-nested-field gap
@@ -87,6 +97,10 @@ class NotificationListView(APIView):
         TokenHasScope,
     ]
 
+    @extend_schema(
+        summary="List the current user's unread notifications",
+        responses=NotificationSerializer(many=True),
+    )
     def get(self, request):
         qs = (
             Notification.objects
