@@ -171,6 +171,24 @@ class ColumnCRUDTests(TestCase):
         self.assertEqual(self.col.name, "Renamed")
 
     @patch(PATCH_BROADCAST)
+    def test_update_column_echoing_current_position_as_float_accepted(self, _):
+        """An unchanged position sent as `5.0` must be accepted. DRF's
+        IntegerField coerces the submitted value to `int` before
+        ColumnSerializer.validate() ever compares it, so — unlike the raw
+        string/int comparison update_card() needed to normalize (#1275) —
+        this pins existing behavior rather than requiring a code change."""
+        col = Column.objects.create(board=self.board, name="Col5", position=5)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/columns/{col.id}/",
+            {"position": 5.0, "name": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        col.refresh_from_db()
+        self.assertEqual(col.name, "Renamed")
+        self.assertEqual(col.position, 5)
+
+    @patch(PATCH_BROADCAST)
     def test_reorder_endpoint_still_changes_column_position(self, _):
         """The dedicated reorder endpoint must still be able to change
         position — only the plain PATCH/PUT bypass is closed."""
@@ -292,6 +310,24 @@ class SwimlaneCRUDTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.swim.refresh_from_db()
         self.assertEqual(self.swim.name, "Renamed")
+
+    @patch(PATCH_BROADCAST)
+    def test_update_swimlane_echoing_current_position_as_float_accepted(self, _):
+        """An unchanged position sent as `5.0` must be accepted. DRF's
+        IntegerField coerces the submitted value to `int` before
+        SwimlaneSerializer.validate() ever compares it, so — unlike the raw
+        string/int comparison update_card() needed to normalize (#1275) —
+        this pins existing behavior rather than requiring a code change."""
+        swim = Swimlane.objects.create(board=self.board, name="Swim5", position=5)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/swimlanes/{swim.id}/",
+            {"position": 5.0, "name": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        swim.refresh_from_db()
+        self.assertEqual(swim.name, "Renamed")
+        self.assertEqual(swim.position, 5)
 
     @patch(PATCH_BROADCAST)
     def test_reorder_endpoint_still_changes_swimlane_position(self, _):

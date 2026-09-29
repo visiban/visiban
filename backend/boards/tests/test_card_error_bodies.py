@@ -191,6 +191,25 @@ class CardErrorBodyTests(TestCase):
             },
         )
 
+    def test_update_position_change_rejected_body(self):
+        """#1275: PATCHing ``position`` is rejected with the same
+        ``use_move_endpoint`` body shape as #1106's column/swimlane guard."""
+        resp = self._as(self.owner).patch(
+            self._card_url(), {"position": self.card.position + 1}, format="json"
+        )
+        self._assert_body(
+            resp,
+            400,
+            {
+                "code": "use_move_endpoint",
+                "detail": (
+                    "Changing a card's position via PATCH/PUT is not allowed — "
+                    "it bypasses WIP/weight limits and the movement audit trail. "
+                    f"Use POST /api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/ instead."
+                ),
+            },
+        )
+
     # ── move: permission and concurrency ──────────────────────────────────
 
     def test_move_role_denied_body(self):

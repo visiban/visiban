@@ -265,7 +265,7 @@ and write:
 A non-object value (other than `null`) returns
 `{ "external_ref": { "non_field_errors": ["..."] } }`.
 
-> **`column` and `swimlane` cannot be changed via PATCH/PUT.** These fields are present in the serializer response, and echoing back the card's *current* `column`/`swimlane` value is accepted (so a PUT client that round-trips the full representation still works). Submitting a *different* value — same board or another board — is rejected with `400` and body `{"code": "use_move_endpoint", "detail": "..."}`. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`, which enforces WIP/weight limits and writes the `CardMovement` audit trail.
+> **`column`, `swimlane`, and `position` cannot be changed via PATCH/PUT.** These fields are present in the serializer response, and echoing back the card's *current* `column`/`swimlane`/`position` value is accepted (so a PUT client that round-trips the full representation still works). Submitting a *different* value — same board or another board — is rejected with `400` and body `{"code": "use_move_endpoint", "detail": "..."}`. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`, which enforces WIP/weight limits and writes the `CardMovement` audit trail.
 
 > `column` and `swimlane` are also rejected on **create** (`POST`) when they reference a column/swimlane belonging to a different board — `400`, not `404`.
 
