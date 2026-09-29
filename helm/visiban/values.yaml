@@ -10,7 +10,7 @@ backend:
   image:
     repository: ghcr.io/visiban/visiban/backend
     pullPolicy: IfNotPresent
-    tag: "v1.2.0-alpha.1"
+    tag: "v1.2.0-alpha.2"
 
   service:
     type: ClusterIP
@@ -165,7 +165,7 @@ frontend:
   image:
     repository: ghcr.io/visiban/visiban/frontend
     pullPolicy: IfNotPresent
-    tag: "v1.2.0-alpha.1"
+    tag: "v1.2.0-alpha.2"
 
   service:
     type: ClusterIP

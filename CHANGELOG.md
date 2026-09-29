@@ -10,6 +10,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
+## [1.2.0-alpha.2] — 2026-09-29
+
+
+### Changed
+- `scripts/release.sh` now shows the release notes extracted from `CHANGELOG.md`'s `[Unreleased]` section — the same text that becomes the dated CHANGELOG entry and the GitLab Release page body — and asks for confirmation before touching any other file, right after creating the release branch. Aborting leaves the tree untouched (`git reset --hard`, back to `main`, release branch deleted). Non-interactive runs (used by the `/release` skill after the user has approved the notes in chat) pass `-y`/`--yes` or set `RELEASE_ASSUME_YES=1`; a non-TTY run without either now fails closed instead of shipping unreviewed notes. Mirrors the release-summary confirmation TruePPM's `scripts/release.sh` already had.
+
+### Fixed
+- `scripts/release.sh` now bumps `helm/visiban/Chart.yaml`'s `appVersion` on every release, alongside the existing `helm/visiban/values.yaml` image tag pin. Previously it was never updated, so the `helm-publish` CI job's appVersion-vs-tag guard failed at tag time and no chart was published for that release — this affected `v1.2.0-alpha.1`, whose Helm chart was never published; the demo site at try.visiban.com deploys from this chart, so it stayed on the previous release until this fix.
 ## [1.2.0-alpha.1] — 2026-09-29
 
 
