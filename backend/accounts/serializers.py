@@ -111,10 +111,13 @@ class LoginSerializer(DjRestAuthLoginSerializer):
     Routing through ``get_adapter(request).authenticate()`` instead reuses allauth's
     own pre_authenticate -> authenticate -> rollback-on-success sequence, so this
     view now shares the same per-account bucket allauth's own login views consume.
-    It also sidesteps the missing-``AUTHENTICATION_BACKENDS``-entry half of the bug:
-    the adapter still ultimately calls Django's ``authenticate()`` for the actual
-    credential check, so backend registration is unchanged from before, but the
-    rate-limit consult/rollback bookkeeping around it no longer depends on it.
+    The adapter still ultimately calls Django's ``authenticate()`` for the actual
+    credential check, so the credential check is whatever ``AUTHENTICATION_BACKENDS``
+    says — since #1206 that is ``ModelBackend`` plus ``accounts.backends.EmailBackend``,
+    so the ``username`` field accepts a username or an email address. The
+    per-account lockout key is resolved to the account itself (see
+    ``accounts.adapter.RegistrationAdapter._get_login_attempts_cache_key``), so
+    failures by username and by email accumulate into one lockout.
 
     On lockout, ``pre_authenticate()`` raises ``django.core.exceptions.
     ValidationError`` (code ``too_many_login_attempts``) *before* the password is
@@ -146,25 +149,38 @@ class LoginSerializer(DjRestAuthLoginSerializer):
         from django.contrib.auth import authenticate as django_authenticate
 
         request = self.context["request"]
-        if settings.DEMO_MODE and self._is_demo_account(kwargs):
+        if settings.DEMO_MODE and self._is_demo_account(kwargs, request):
             return django_authenticate(request, **kwargs)
         return get_adapter(request).authenticate(request, **kwargs)
 
     @staticmethod
-    def _is_demo_account(credentials):
+    def _is_demo_account(credentials, request=None):
         """Whether these credentials target the published demo account.
 
-        Mirrors allauth's own key normalization in
-        ``DefaultAccountAdapter._get_login_attempts_cache_key`` (email takes
-        precedence over username, then lowercased) so the carve-out matches
-        exactly what the allauth lockout would otherwise key on — plus a strip,
-        since a demo visitor pasting the published credential is more likely to
-        pick up incidental whitespace than a real login attempt.
+        Mirrors the identifier-precedence order (email over username) that
+        ``RegistrationAdapter._get_login_attempts_cache_key`` (#1206) uses to
+        *resolve* which account a login attempt is against — the lockout
+        itself now keys on that resolved account's pk, not on the identifier
+        string, but this carve-out only needs to know which credentials name
+        the demo account, so it reuses the same resolution order — plus a
+        strip, since a demo visitor pasting the published credential is more
+        likely to pick up incidental whitespace than a real login attempt.
         """
         from django.conf import settings
 
-        identifier = credentials.get("email", credentials.get("username", ""))
-        return identifier.strip().lower() == settings.DEMO_LOGIN_USERNAME.strip().lower()
+        from .backends import resolve_login_user
+
+        demo_username = settings.DEMO_LOGIN_USERNAME.strip().lower()
+        if not demo_username:
+            return False
+        identifier = credentials.get("email", credentials.get("username", "")) or ""
+        if identifier.strip().lower() == demo_username:
+            return True
+        # #1206: the demo account can also be named by its email address. The
+        # lockout now keys on the resolved account, so without this a visitor
+        # typing the demo email could lock the shared account's bucket.
+        user = resolve_login_user(identifier.strip(), request)
+        return user is not None and user.get_username().strip().lower() == demo_username
 
 
 class VisibanPasswordResetSerializer(PasswordResetSerializer):

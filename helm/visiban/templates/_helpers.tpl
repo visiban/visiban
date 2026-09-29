@@ -245,6 +245,76 @@ backend scheduler{{ if include "visiban.demoEnabled" . }} demo-seed{{ end }}
 {{- end }}
 
 {{/*
+Hardened pod/container securityContext defaults (#1210), with a hardcoded
+fallback for the case where the whole block is absent from .Values rather
+than merely unset at a field level.
+
+Helm's own values coalescing (chartutil.CoalesceValues) already deep-merges
+any `-f`/`--set`/`--reuse-values` override with the CURRENT chart's
+values.yaml, so a render that overrides only one field (e.g.
+`readOnlyRootFilesystem: false`) already sees the rest of this chart's
+hardened defaults for the others — nothing here needs to re-merge that.
+DON'T reach for Sprig's `merge` to "help" here: `merge $override $defaults`
+uses mergo, which treats Go zero values (`false`, `0`, `""`) in $override as
+*unset* and silently replaces them with $defaults — so a deliberate
+`readOnlyRootFilesystem: false` override would be silently overwritten back
+to `true`. (Confirmed: `merge (dict "a" false) (dict "a" true")` renders
+`a: true`.) These templates therefore pass an already-resolved
+`.pod`/`.container` value straight through unchanged, and only supply the
+hardcoded default when the value is genuinely absent (`kindIs "invalid"` —
+how a template sees Go's untyped nil).
+Called as `include "visiban.postgresql.securityContext.pod" (.Values.postgresql.securityContext | default dict)`
+— the `| default dict` at the call site guards against `.securityContext`
+itself being absent, so `.pod`/`.container` here never index into a nil map.
+*/}}
+{{- define "visiban.backend.securityContext.pod" -}}
+{{- if kindIs "invalid" .pod -}}
+runAsNonRoot: true
+runAsUser: 1001
+runAsGroup: 1001
+seccompProfile:
+  type: RuntimeDefault
+{{- else -}}
+{{- toYaml .pod }}
+{{- end -}}
+{{- end }}
+
+{{- define "visiban.backend.securityContext.container" -}}
+{{- if kindIs "invalid" .container -}}
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+capabilities:
+  drop: ["ALL"]
+{{- else -}}
+{{- toYaml .container }}
+{{- end -}}
+{{- end }}
+
+{{- define "visiban.postgresql.securityContext.pod" -}}
+{{- if kindIs "invalid" .pod -}}
+runAsNonRoot: true
+runAsUser: 999
+runAsGroup: 999
+fsGroup: 999
+seccompProfile:
+  type: RuntimeDefault
+{{- else -}}
+{{- toYaml .pod }}
+{{- end -}}
+{{- end }}
+
+{{- define "visiban.postgresql.securityContext.container" -}}
+{{- if kindIs "invalid" .container -}}
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+capabilities:
+  drop: ["ALL"]
+{{- else -}}
+{{- toYaml .container }}
+{{- end -}}
+{{- end }}
+
+{{/*
 Pod spec shared by the demo seed hook and the demo reset CronJob (#1180).
 
 ONE definition on purpose: the reset must be exactly the install-time seed, run
