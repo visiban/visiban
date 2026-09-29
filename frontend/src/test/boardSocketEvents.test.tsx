@@ -41,7 +41,7 @@ vi.mock('../hooks/useBoardSocket', () => ({
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DragOverlay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  MouseSensor: class {},
+  MouseSensor: class { static activators = [] },
   TouchSensor: class {},
   KeyboardSensor: class {},
   closestCenter: vi.fn(),

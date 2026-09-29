@@ -18,9 +18,9 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, act, renderHook } from '@testing-library/react'
-import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useDraggable, useDroppable } from '@dnd-kit/core'
+import { DndContext, KeyboardSensor, TouchSensor, closestCenter, useDraggable, useDroppable } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
-import { MOUSE_ACTIVATION, TOUCH_ACTIVATION, useDragSensors } from '../hooks/useDragSensors'
+import { MOUSE_ACTIVATION, PrimaryButtonMouseSensor, TOUCH_ACTIVATION, useDragSensors } from '../hooks/useDragSensors'
 
 const COL_B: DOMRect = Object.assign(
   { left: 300, top: 0, right: 500, bottom: 300, width: 200, height: 300, x: 300, y: 0 },
@@ -70,8 +70,8 @@ function touch(type: string, x: number, y: number): TouchEvent {
   return event
 }
 
-function mouse(type: string, x: number, y: number): MouseEvent {
-  return new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y })
+function mouse(type: string, x: number, y: number, button = 0): MouseEvent {
+  return new MouseEvent(type, { bubbles: true, cancelable: true, button, clientX: x, clientY: y })
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -166,14 +166,29 @@ describe('useDragSensors — mouse (unchanged desktop behavior)', () => {
   })
 })
 
+describe('useDragSensors — mouse buttons', () => {
+  it('a middle-button press and move never starts a drag (primary button only, as PointerSensor was)', async () => {
+    const onDragStart = vi.fn()
+    const { getByTestId } = render(<TestBoard onDragStart={onDragStart} onDragEnd={vi.fn()} />)
+
+    await act(async () => {
+      getByTestId('card-1').dispatchEvent(mouse('mousedown', 100, 150, 1))
+      document.dispatchEvent(mouse('mousemove', 400, 150, 1))
+      document.dispatchEvent(mouse('mouseup', 400, 150, 1))
+    })
+
+    expect(onDragStart).not.toHaveBeenCalled()
+  })
+})
+
 describe('useDragSensors — sensor set', () => {
   it('uses mouse + touch only by default (the board grid has no keyboard drag)', () => {
     const { result } = renderHook(() => useDragSensors())
-    expect(result.current.map((s) => s.sensor)).toEqual([MouseSensor, TouchSensor])
+    expect(result.current.map((s) => s.sensor)).toEqual([PrimaryButtonMouseSensor, TouchSensor])
   })
 
   it('adds the keyboard sensor on request, preserving DndContext default keyboard reordering', () => {
     const { result } = renderHook(() => useDragSensors({ keyboard: true }))
-    expect(result.current.map((s) => s.sensor)).toEqual([MouseSensor, TouchSensor, KeyboardSensor])
+    expect(result.current.map((s) => s.sensor)).toEqual([PrimaryButtonMouseSensor, TouchSensor, KeyboardSensor])
   })
 })

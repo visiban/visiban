@@ -363,7 +363,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           `}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSelect(); }}
           onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); onSelect(); } }}
+          // Drags start on mousedown / touchstart (#1287), not pointerdown, so all
+          // three must stop here or pressing the checkbox and moving drags the card.
           onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
         >
           {selected && (
             <svg className="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
@@ -454,7 +458,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       // point anywhere, and the tooltip is where a reader checks.
                       title={`${label} ${externalRef.ref} — ${new URL(externalRef.url).host} (opens in new tab)`}
                       onClick={(e) => e.stopPropagation()}
+                      // Mouse/touch too: the card's drag sensors start on those (#1287).
                       onPointerDown={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 text-xs text-info hover:underline shrink-0 max-w-[10rem] min-w-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >

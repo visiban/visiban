@@ -1,6 +1,20 @@
 import { KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 /**
+ * MouseSensor that only starts on the primary (left) button. Stock MouseSensor
+ * rejects only right-click, so a middle-button press would start a drag and
+ * fight middle-click autoscroll; the PointerSensor it replaced (#1287)
+ * accepted only the primary button, and this keeps that behavior.
+ */
+export class PrimaryButtonMouseSensor extends MouseSensor {
+  static activators = MouseSensor.activators.map((activator) => ({
+    ...activator,
+    handler: (...args: Parameters<typeof activator.handler>) =>
+      (args[0].nativeEvent as MouseEvent).button === 0 && activator.handler(...args),
+  }));
+}
+
+/**
  * Mouse drags start after 5px of movement so a plain click on a card still
  * opens it instead of starting a drag.
  */
@@ -30,7 +44,7 @@ export const TOUCH_ACTIVATION = { delay: 250, tolerance: 5 } as const;
  * on DndContext's default sensors, which include it.
  */
 export function useDragSensors({ keyboard = false }: { keyboard?: boolean } = {}) {
-  const mouse = useSensor(MouseSensor, { activationConstraint: MOUSE_ACTIVATION });
+  const mouse = useSensor(PrimaryButtonMouseSensor, { activationConstraint: MOUSE_ACTIVATION });
   const touch = useSensor(TouchSensor, { activationConstraint: TOUCH_ACTIVATION });
   const keys = useSensor(KeyboardSensor);
   // useSensors drops null entries, so this is safe to vary per call site.

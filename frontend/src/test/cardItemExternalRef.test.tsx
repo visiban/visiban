@@ -87,15 +87,21 @@ describe('CardItem — MR/PR badge (#352)', () => {
     expect(onKeyDown).not.toHaveBeenCalled()
   })
 
-  it('pointer-down on the badge does not bubble (never starts a drag)', () => {
-    const onPointerDown = vi.fn()
+  // The card's drag sensors start on mousedown (MouseSensor) and touchstart
+  // (TouchSensor), not pointerdown (#1287) — all three must be stopped.
+  it.each([
+    ['pointer-down', 'onPointerDown', fireEvent.pointerDown],
+    ['mouse-down', 'onMouseDown', fireEvent.mouseDown],
+    ['touch-start', 'onTouchStart', fireEvent.touchStart],
+  ] as const)('%s on the badge does not bubble (never starts a drag)', (_name, prop, fire) => {
+    const handler = vi.fn()
     render(
-      <div onPointerDown={onPointerDown}>
+      <div {...{ [prop]: handler }}>
         <CardItem card={makeCard()} density="standard" />
       </div>,
     )
-    fireEvent.pointerDown(screen.getByRole('link'))
-    expect(onPointerDown).not.toHaveBeenCalled()
+    fire(screen.getByRole('link'))
+    expect(handler).not.toHaveBeenCalled()
   })
 
   it('never renders an href for a non-http URL', () => {
@@ -122,5 +128,22 @@ describe('CardItem — MR/PR badge (#352)', () => {
     await act(async () => { vi.advanceTimersByTime(600) })
     const tooltip = screen.getByRole('tooltip')
     expect(tooltip).toHaveTextContent('GitHub acme/web#12')
+  })
+})
+
+describe('CardItem — selection checkbox never starts a drag (#1287)', () => {
+  it.each([
+    ['pointer-down', 'onPointerDown', fireEvent.pointerDown],
+    ['mouse-down', 'onMouseDown', fireEvent.mouseDown],
+    ['touch-start', 'onTouchStart', fireEvent.touchStart],
+  ] as const)('%s on the checkbox does not bubble', (_name, prop, fire) => {
+    const handler = vi.fn()
+    render(
+      <div {...{ [prop]: handler }}>
+        <CardItem card={makeCard({ external_ref: null })} density="standard" onSelect={vi.fn()} />
+      </div>,
+    )
+    fire(screen.getByRole('checkbox'))
+    expect(handler).not.toHaveBeenCalled()
   })
 })

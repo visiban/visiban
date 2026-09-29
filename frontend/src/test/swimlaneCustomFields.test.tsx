@@ -20,7 +20,7 @@ const dnd = vi.hoisted(() => ({
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
   useDndContext: () => ({ active: null }),
-  MouseSensor: class {},
+  MouseSensor: class { static activators = [] },
   TouchSensor: class {},
   KeyboardSensor: class {},
   useSensor: () => ({}),

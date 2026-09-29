@@ -2,9 +2,11 @@
  * Card drag-and-drop tests using the real @dnd-kit DndContext — no mocking of
  * the dnd library itself.  This complements the mocked-DndContext tests in
  * boardView.test.tsx which focus on BoardView's onDragEnd business logic;
- * these tests verify that dnd-kit's PointerSensor actually activates and that
- * onDragEnd fires with the correct active/over IDs when pointer events are
- * dispatched in jsdom.
+ * these tests verify that onDragEnd fires with the correct active/over IDs
+ * when a real drag runs in jsdom. They drive DndContext's *default*
+ * PointerSensor for simplicity; the app's own sensors (useDragSensors:
+ * mouse + touch, #1287) and their activation constraints are covered in
+ * dragSensors.test.tsx.
  *
  * jsdom polyfill notes:
  *   - PointerEvent is not implemented by jsdom; the test setup file polyfills
