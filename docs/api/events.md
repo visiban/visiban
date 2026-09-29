@@ -113,8 +113,9 @@ Keep calling with `after` set to the previous response's `next` until `next` is
 ## Event coverage
 
 Every event type the WebSocket emits on the board channel is persisted:
-`board.*`, `column.*`, `swimlane.*`, `label.*`, `card.*`, `member.*`,
-`saved_filter.*`, and `lens_connection.*`. The [WebSocket event
+`board.*`, `column.*`, `swimlane.*`, `label.*`, `custom_field.*`,
+`swimlane_custom_field.*`, `card.*`, `member.*`, `saved_filter.*`, and
+`lens_connection.*`. The [WebSocket event
 reference](websockets.md#event-reference) is the single list of payload shapes
 for both surfaces.
 
