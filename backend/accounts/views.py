@@ -356,9 +356,12 @@ class UsernameChangeThrottle(ChooseUsernameThrottle):
             new_username = request.data.get("username")
         except AttributeError:  # non-dict body (e.g. a JSON list); the serializer rejects it
             return True
-        if not isinstance(new_username, str):
+        if new_username is None:
             return True
-        if new_username.strip() == getattr(request.user, "username", None):
+        # Normalize like the serializer's CharField would: it accepts ints and
+        # floats too (``{"username": 1003}`` renames the account to "1003"), so
+        # only skipping str values let a numeric rename bypass the limit.
+        if str(new_username).strip() == getattr(request.user, "username", None):
             return True
         return super().allow_request(request, view)
 

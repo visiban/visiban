@@ -5,9 +5,16 @@ writable — that is part of the 1.0 API contract. But on an install that
 requires verified addresses, writing the new value straight to ``User.email``
 would let an account adopt an address nobody has proved they own, and then
 receive that address's mail (notifications, password resets) and log in with
-it. So under ``mandatory`` the change is held as allauth's own "pending"
-state: an unverified, non-primary ``EmailAddress`` row plus allauth's normal
-confirmation email. ``User.email`` is left alone until the link is followed.
+it. So under ``mandatory`` the change is held as an unverified, non-primary
+allauth ``EmailAddress`` row plus allauth's normal confirmation email, and
+``User.pending_email_address`` points at that row. ``User.email`` is left
+alone until the link is followed.
+
+The pointer is what makes a row a change request. "Unverified and
+non-primary" alone is not enough: social signup imports unverified secondary
+addresses, and allauth's /accounts/email/ page can add them, and neither is a
+change the user asked for here. Only the tracked row is reported, replaced,
+or promoted.
 
 Confirmation needs no new endpoint: the link goes through the existing SPA
 ``/confirm-email/<key>`` route and ``POST /auth/registration/verify-email/``,
@@ -16,7 +23,7 @@ when the user has no primary yet (``ACCOUNT_CHANGE_EMAIL`` is off here), so
 ``apply_confirmed_email_change`` below finishes the switch from allauth's
 ``email_confirmed`` signal. ``ACCOUNT_CHANGE_EMAIL`` itself is deliberately not
 turned on: its ``add_new_email`` treats *any* unverified row as the pending
-change and deletes it, which would also delete (and blank ``User.email`` for)
+change and deletes it (the same inference problem as above), which would also delete (and blank ``User.email`` for)
 an account whose current primary address simply was never verified.
 
 Email addresses are personal data: nothing in this module logs one.
@@ -30,24 +37,51 @@ def email_verification_mandatory() -> bool:
     return getattr(settings, "ACCOUNT_EMAIL_VERIFICATION", "optional") == "mandatory"
 
 
-def _pending_queryset(user):
-    """Unverified, non-primary addresses: the change(s) awaiting confirmation."""
+def _set_pending_pointer(user, address) -> None:
+    """Point ``user.pending_email_address`` at ``address`` (or clear it), in DB and in memory.
+
+    A queryset update rather than ``user.save()``: allauth's ``set_as_primary``
+    saves its own copy of the user, and a full save here from a stale instance
+    would race it.
+    """
+    from django.contrib.auth import get_user_model
+
+    get_user_model().objects.filter(pk=user.pk).update(pending_email_address=address)
+    user.pending_email_address = address
+
+
+def _drop_tracked_row(user, keep_pk=None) -> None:
+    """Delete the row this flow is tracking for ``user`` (unless it is ``keep_pk``).
+
+    Only the tracked row is ever deleted — never an unverified secondary address
+    that social signup or allauth's /accounts/email/ page created — and only
+    while it is still unverified and non-primary, as a guard against a pointer
+    that has drifted onto a row that has since been confirmed.
+    """
     from allauth.account.models import EmailAddress
 
-    return EmailAddress.objects.filter(user=user, verified=False, primary=False)
+    tracked_pk = user.pending_email_address_id
+    if tracked_pk is None or tracked_pk == keep_pk:
+        return
+    EmailAddress.objects.filter(
+        pk=tracked_pk, user=user, verified=False, primary=False
+    ).delete()
 
 
 def get_pending_email(user) -> str | None:
-    """The address ``user`` asked to change to and has not yet confirmed, or None."""
-    current = (user.email or "").lower()
-    pending = (
-        _pending_queryset(user)
-        .exclude(email=current)
-        .order_by("-pk")
+    """The address ``user`` asked to change to and has not yet confirmed, or None.
+
+    No query at all for the common case of no change in flight.
+    """
+    from allauth.account.models import EmailAddress
+
+    if user.pending_email_address_id is None:
+        return None
+    return (
+        EmailAddress.objects.filter(pk=user.pending_email_address_id, verified=False)
         .values_list("email", flat=True)
         .first()
     )
-    return pending
 
 
 def request_email_change(request, user, new_email: str) -> bool:
@@ -59,7 +93,9 @@ def request_email_change(request, user, new_email: str) -> bool:
 
     Any earlier pending change is replaced: only the most recent request can
     be confirmed, so an old link sent to an address the user abandoned stops
-    working.
+    working. If the account already has an unverified row for exactly this
+    address (e.g. imported by a social login), that row is adopted as the
+    pending change rather than duplicated — (user, email) is unique.
     """
     from allauth.account.internal.flows.email_verification import (
         send_verification_email_to_address,
@@ -70,15 +106,17 @@ def request_email_change(request, user, new_email: str) -> bool:
     with transaction.atomic():
         existing = EmailAddress.objects.filter(user=user, email=new_email).first()
         if existing is not None and existing.verified:
-            # Switching back to an address this account already verified.
+            # Switching to an address this account has already verified.
             existing.set_as_primary()
-            _pending_queryset(user).exclude(pk=existing.pk).delete()
+            _drop_tracked_row(user, keep_pk=existing.pk)
+            _set_pending_pointer(user, None)
             return True
-        _pending_queryset(user).exclude(email=new_email).delete()
+        _drop_tracked_row(user, keep_pk=existing.pk if existing else None)
         if existing is None:
             existing = EmailAddress.objects.create(
                 user=user, email=new_email, verified=False, primary=False
             )
+        _set_pending_pointer(user, existing)
     # Outside the transaction: the row must be committed before the link in
     # the email can be followed. allauth's own confirm_email rate limit
     # applies here and silently skips a resend that exceeds it — the link in
@@ -88,26 +126,37 @@ def request_email_change(request, user, new_email: str) -> bool:
 
 
 def apply_confirmed_email_change(sender, request, email_address, **kwargs):
-    """``email_confirmed`` receiver: make a confirmed pending address the account's email.
+    """``email_confirmed`` receiver: make the confirmed pending address the account's email.
+
+    Acts only on the row ``User.pending_email_address`` tracks; confirming any
+    other address (a signup address, or one added on allauth's own pages)
+    keeps allauth's default behavior untouched.
 
     allauth has already marked the row verified. If the account had no
     primary address it has also made this one primary and synced
-    ``User.email``, and there is nothing to do. Otherwise this row is a
-    confirmed change request: promote it (``set_as_primary`` updates
-    ``User.email``) and drop the address it replaces, so the old address no
+    ``User.email``. Otherwise promote it (``set_as_primary`` updates
+    ``User.email``) and drop the primary it replaces, so the old address no
     longer counts as a verified address of this account (the notification
     email gate reads verified ``EmailAddress`` rows).
     """
     from allauth.account.models import EmailAddress
+    from django.contrib.auth import get_user_model
 
-    if email_address.primary:
-        return
+    User = get_user_model()
     with transaction.atomic():
-        previous = EmailAddress.objects.filter(
-            user_id=email_address.user_id, primary=True
-        ).exclude(pk=email_address.pk)
-        previous_ids = list(previous.values_list("pk", flat=True))
-        email_address.set_as_primary()
-        EmailAddress.objects.filter(pk__in=previous_ids).delete()
-        # Any other still-pending request is superseded by this confirmation.
-        _pending_queryset(email_address.user).exclude(pk=email_address.pk).delete()
+        user = (
+            User.objects.select_for_update()
+            .filter(pk=email_address.user_id, pending_email_address_id=email_address.pk)
+            .first()
+        )
+        if user is None:
+            return
+        if not email_address.primary:
+            previous_ids = list(
+                EmailAddress.objects.filter(user_id=user.pk, primary=True)
+                .exclude(pk=email_address.pk)
+                .values_list("pk", flat=True)
+            )
+            email_address.set_as_primary()
+            EmailAddress.objects.filter(pk__in=previous_ids).delete()
+        _set_pending_pointer(user, None)

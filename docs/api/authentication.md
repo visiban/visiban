@@ -679,6 +679,7 @@ Update the authenticated user's profile. All fields are optional.
 - Requesting another address before confirming replaces the pending one, and the earlier link stops working. Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works.
 - Choosing an address that is already a verified address of your own account applies it immediately.
 - An address already verified by another account can't be confirmed.
+- `pending_email` only reflects a change requested through this endpoint. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never reported as pending, and they're not removed by a change request or its confirmation.
 
 With `optional` (the default) or `none`, `email` is written directly, as before (including `""` to clear it), and `pending_email` stays `null`.
 

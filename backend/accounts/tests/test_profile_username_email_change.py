@@ -110,6 +110,25 @@ class ProfileUsernameThrottleTests(TestCase):
                 self.assertEqual(codes[:2], [200, 200])
                 self.assertEqual(codes[2], status.HTTP_429_TOO_MANY_REQUESTS)
 
+    def test_numeric_username_is_counted(self):
+        # DRF's CharField accepts a JSON number, so it is a real rename and
+        # must consume the bucket like a string would.
+        codes = [
+            self.client.patch("/api/v1/auth/me/", {"username": 1000 + i}, format="json").status_code
+            for i in range(4)
+        ]
+        self.assertEqual(codes[:2], [200, 200])
+        self.assertEqual(codes[2:], [status.HTTP_429_TOO_MANY_REQUESTS] * 2)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, "1001")
+
+    def test_resending_numeric_current_username_is_not_counted(self):
+        self.user.username = "1234"
+        self.user.save(update_fields=["username"])
+        for _ in range(4):
+            r = self.client.patch("/api/v1/auth/me/", {"username": 1234}, format="json")
+            self.assertEqual(r.status_code, status.HTTP_200_OK)
+
     def test_unchanged_username_is_not_counted(self):
         # The SPA profile form re-sends the current username on every save.
         for _ in range(5):
@@ -267,6 +286,65 @@ class MandatoryEmailChangeTests(TestCase):
         r = self.client.patch("/api/v1/auth/me/", {"email": "", "first_name": "E"}, format="json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["first_name"], "E")
+
+    def test_change_request_is_tracked_explicitly(self):
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@new.example"}, format="json")
+        self.user.refresh_from_db()
+        pending = EmailAddress.objects.get(user=self.user, email="erin@new.example")
+        self.assertEqual(self.user.pending_email_address_id, pending.pk)
+        self._confirm(pending)
+        self.user.refresh_from_db()
+        self.assertIsNone(self.user.pending_email_address_id)
+
+    def test_unrelated_unverified_secondary_is_not_reported_as_pending(self):
+        # e.g. imported by a social login, or added on allauth's /accounts/email/.
+        EmailAddress.objects.create(
+            user=self.user, email="erin@social.example", verified=False, primary=False
+        )
+        r = self.client.get("/api/v1/auth/me/")
+        self.assertIsNone(r.json()["pending_email"])
+
+    def test_unrelated_unverified_secondary_survives_a_change_request(self):
+        other = EmailAddress.objects.create(
+            user=self.user, email="erin@social.example", verified=False, primary=False
+        )
+        r = self.client.patch("/api/v1/auth/me/", {"email": "erin@new.example"}, format="json")
+        self.assertEqual(r.json()["pending_email"], "erin@new.example")
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@newer.example"}, format="json")
+        self.assertTrue(EmailAddress.objects.filter(pk=other.pk).exists())
+        pending = EmailAddress.objects.get(user=self.user, email="erin@newer.example")
+        self._confirm(pending)
+        self.assertTrue(EmailAddress.objects.filter(pk=other.pk).exists())
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "erin@newer.example")
+
+    def test_confirming_an_untracked_secondary_does_not_switch_email(self):
+        other = EmailAddress.objects.create(
+            user=self.user, email="erin@social.example", verified=False, primary=False
+        )
+        self.assertEqual(self._confirm(other).status_code, status.HTTP_200_OK)
+        other.refresh_from_db()
+        self.assertTrue(other.verified)
+        self.assertFalse(other.primary)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "erin@old.example")
+        self.assertTrue(EmailAddress.objects.filter(pk=self.old_address.pk).exists())
+
+    def test_existing_unverified_row_for_the_same_address_is_adopted(self):
+        row = EmailAddress.objects.create(
+            user=self.user, email="erin@social.example", verified=False, primary=False
+        )
+        r = self.client.patch("/api/v1/auth/me/", {"email": "erin@social.example"}, format="json")
+        self.assertEqual(r.json()["pending_email"], "erin@social.example")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.pending_email_address_id, row.pk)
+
+    def test_deleting_the_tracked_row_clears_the_pending_change(self):
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@new.example"}, format="json")
+        EmailAddress.objects.filter(email="erin@new.example").delete()
+        self.user.refresh_from_db()
+        self.assertIsNone(self.user.pending_email_address_id)
+        self.assertIsNone(self.client.get("/api/v1/auth/me/").json()["pending_email"])
 
     def test_signup_confirmation_is_unaffected(self):
         # A primary-but-unverified signup address confirms as before.
