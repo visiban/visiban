@@ -3787,17 +3787,39 @@ problem).</p>
 <p>Third-party registries (<code>quay.io</code>'s Keycloak image, <code>ghcr.io</code>/<code>gcr.io</code> for trivy/kaniko,
 <code>mcr.microsoft.com</code>'s Playwright image) are out of scope — GitLab's Dependency Proxy only
 mirrors Docker Hub, so these keep pulling directly regardless of <code>DOCKERHUB_MIRROR</code>.</p>
-<p><strong>Not yet covered — arm64 release jobs (#1204):</strong> <code>.arm64-docker-push-base</code>,
+<p><strong>arm64 release jobs covered as of #1204.</strong> <code>.arm64-docker-push-base</code>,
 <code>backend-docker-push-arm64</code>, and <code>frontend-docker-push-arm64</code> (#1084, see "Docker image push"
-above) still pull their Docker Hub base images directly rather than through
-<code>${DOCKERHUB_MIRROR}</code>. Left out of #1198 deliberately: those jobs are being rewritten by the
-separate, still-open <strong>!964</strong>, and rewriting them here first would just create a conflict.
-Tracked as <strong>#1204</strong>, to apply once !964 merges.</p>
+above) were left out of #1198's initial rollout: they were being rewritten by the separate
+<strong>!964</strong> (arm64 release-token and push-safety hardening), and applying the mirror there first
+would have conflicted with that work. !964 was closed as superseded once #1084's fix branch
+(which kept the same job/template names this doc references) merged instead, so #1204 wires
+these jobs up the same way as everything else in this section — both <code>docker build</code> calls now pass
+<code>--build-arg BASE_REGISTRY="${DOCKERHUB_MIRROR:-docker.io/library}"</code>, same as the amd64 kaniko
+legs.</p>
+<p>Because these jobs run on <code>Max1-Runner-Visiban</code>'s <strong>shell executor</strong> against a real, persistent
+Docker daemon rather than kaniko's disposable <code>/kaniko/.docker/config.json</code>, they can't rely on
+a build-time credential file the way kaniko does — they authenticate the same way they already
+authenticate to <code>$CI_REGISTRY</code> and <code>ghcr.io</code>: <code>.arm64-docker-push-base</code>'s <code>before_script</code> runs
+<code>docker login "$CI_DEPENDENCY_PROXY_SERVER" -u "$CI_DEPENDENCY_PROXY_USER" --password-stdin</code>
+before either build, guarded on <code>CI_DEPENDENCY_PROXY_SERVER</code> being non-empty (empty on a fork
+with no working group Dependency Proxy, where the <code>${DOCKERHUB_MIRROR:-docker.io/library}</code>
+shell fallback already routes the build to Docker Hub directly and needs no login). If the
+variable is set but the login itself fails, the job fails loud (<code>set -eu</code>) rather than quietly
+falling back to an anonymous pull mid-release. <code>backend-docker-push-arm64</code> /
+<code>frontend-docker-push-arm64</code>'s <code>after_script</code> blocks each log back out of the proxy
+(<code>docker logout "$CI_DEPENDENCY_PROXY_SERVER" || true</code>, guarded the same way and tolerant of
+never having logged in), alongside the existing <code>$CI_REGISTRY</code>/<code>ghcr.io</code> logouts — this
+persistent shared host must not accumulate registry credentials between releases.</p>
 <h2 id="related-open-items">Related open items<a class="headerlink" href="#related-open-items" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>#1084</strong> — resolved: native arm64 image publishing restored via <code>Max1-Runner-Visiban</code> +
   <code>manifest-tool</code>. Acceptance criteria (multi-arch <code>:&lt;tag&gt;</code>/<code>:latest</code>/<code>:MAJOR.MINOR</code> on both
   registries) are verified at the next release tag pipeline, not by this change alone.</li>
+<li><strong>#1204</strong> — resolved: the arm64 release jobs' base-image pulls now route through
+  <code>${DOCKERHUB_MIRROR}</code> like every other Docker Hub pull in this file (see "Dependency Proxy"
+  above). Like #1084, full verification (a clean release-tag pipeline with no anonymous Docker
+  Hub pulls from the arm64 runner) only happens at the next release tag — these jobs don't run
+  on MR pipelines.</li>
 </ul>
 
 
