@@ -500,22 +500,11 @@ class LoginLockoutEarlyRecoveryTests(TestCase):
         r = self.client.post("/api/v1/auth/password/reset/confirm/", self._reset_confirm_payload())
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
 
-        # Logging in with a bare `email` field never actually succeeds in this
-        # app today, independent of this fix: only ModelBackend is registered
-        # in AUTHENTICATION_BACKENDS (verified directly — settings.py has no
-        # explicit setting, so Django's default applies), and it matches on
-        # USERNAME_FIELD ("username") only, so it never resolves a user from
-        # an `email` kwarg. accounts.serializers.LoginSerializer's docstring
-        # calls this out by name as "the missing-AUTHENTICATION_BACKENDS-entry
-        # half" of #1199's original bug, left deliberately unaddressed there —
-        # fixing it is out of scope for #1203 too. What's asserted below is
-        # narrower and squarely in scope: the lockout itself ("Too many failed
-        # login attempts") must be gone — proving the email-keyed rate-limit
-        # bucket was actually cleared — even though the credential check that
-        # runs after it still fails for that unrelated, pre-existing reason.
+        # Since #1206 email login works (accounts.backends.EmailBackend), so
+        # the reset must leave the user able to log in by email outright — not
+        # merely "no longer rate-limited" as this test asserted before.
         r = self._post_login("email", self.user.email, self.NEW_PASSWORD, "198.51.100.200")
-        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
-        self.assertNotIn("Too many", str(r.json()))
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
 
     def test_reset_does_not_clear_a_different_accounts_lockout(self):
         """The clear must be scoped to the resetting user — a locked-out

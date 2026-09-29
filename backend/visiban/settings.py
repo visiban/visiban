@@ -557,6 +557,20 @@ SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
 _warn_deprecated_env_alias("ACCOUNT_EMAIL_VERIFICATION", "EMAIL_VERIFICATION")
 ACCOUNT_EMAIL_VERIFICATION = env("EMAIL_VERIFICATION", default="optional")
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
+# Password login accepts a username or an email address (#1206) — the SPA form
+# has always said "Username or email". ModelBackend stays first and stays listed:
+# existing sessions record it as their backend, so dropping it would log every
+# user out on upgrade. EmailBackend only handles identifiers that are not a
+# username and fails closed on an email shared by several accounts — see
+# accounts/backends.py. An enterprise settings include that replaces this list
+# must keep both entries to keep email login working. The setting is process-
+# global, so Django admin's /admin/login/ also accepts an email — intended, and no
+# permission change: the password is still required and both backends share
+# ModelBackend's permission logic.
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "accounts.backends.EmailBackend",
+]
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 # The public origin of the SPA. Read into a setting of its own (#356) as well as
 # the two allauth redirect settings below, because outbound mail needs to build
