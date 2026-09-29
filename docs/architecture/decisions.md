@@ -118,6 +118,8 @@ Headless API mode separates the concerns cleanly: the React SPA controls what th
 
 Personal Access Tokens (`vbn_` prefix) are implemented on top of allauth's session model. Tokens are shown once at creation time, stored as a hash at rest, and revoked on password change. The prefix makes tokens easy to identify in logs and rotate tooling.
 
+> **Note (2026-09-29, #1281):** Headless API mode described above was never actually adopted — `allauth.headless` is not installed, and `backend/visiban/urls.py` mounts no `/_allauth/` route. OAuth/OIDC runs through allauth's browser-based `/accounts/` flow instead. The dead `/_allauth/` nginx proxy blocks (present in both nginx templates and the Helm frontend configmap, but never backed by a route) were removed in #1281. This note corrects the record without rewriting the decision above; a future move to real headless mode would need its own ADR entry.
+
 ---
 
 ## Valkey (replacing Redis)
