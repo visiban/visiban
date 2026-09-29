@@ -179,3 +179,32 @@ Because these run on a real Docker daemon (shell executor) rather than kaniko, t
 own `docker login "$CI_DEPENDENCY_PROXY_SERVER"` in `before_script` (guarded on that variable
 being non-empty) and a matching `docker logout` in `after_script` — see
 [CI Runners](ci-runners.md#dependency-proxy) for the full detail.
+
+## `helm-publish`: `cosign sign` fails with `UNAUTHORIZED: authentication required`
+
+**Signature:** `helm-publish` job fails after `helm push` has already succeeded — the chart is
+visible in the registry, but the job still fails at the `cosign sign` step:
+
+```
+Pushed: ghcr.io/visiban/charts/visiban:0.6.0
+Digest: sha256:...
+Error: signing [ghcr.io/visiban/charts/visiban@sha256:...]: accessing image: GET
+https://ghcr.io/token?...: UNAUTHORIZED: authentication required
+```
+
+**Root cause:** the job runs `helm registry login ghcr.io` before `helm push`, but never logs
+cosign in separately. `helm registry login` only populates Helm's own registry config; cosign
+resolves registry auth through go-containerregistry's default keychain (the Docker/OCI
+credential store), which `helm registry login` never touches. The two tools simply don't share
+a credential store, so `cosign sign` fails closed even though `helm push` — authenticated via a
+completely separate path — succeeds moments earlier. This was invisible until `v1.2.0-alpha.2`'s
+tag pipeline, the first one where the `appVersion` check (#1268) let execution reach this far.
+
+**Fix:** add `printf '%s' "$GHCR_TOKEN" | cosign login ghcr.io -u "$GHCR_USER" --password-stdin`
+alongside the existing `helm registry login` line, before `helm package`/`helm push`/`cosign
+sign` (#1284, `.gitlab-ci.yml`'s `helm-publish` job).
+
+**Note:** every chart published before this fix (including `v1.2.0-alpha.2`'s
+`ghcr.io/visiban/charts/visiban:0.6.0`) is unsigned — the fix does not retroactively sign an
+already-pushed chart. If this signature reappears, check that the `cosign login` step wasn't
+dropped in a later edit to the job.
