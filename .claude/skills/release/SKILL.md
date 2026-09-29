@@ -90,7 +90,14 @@ The script will automatically:
 5. Commit and push the branch
 6. Create an MR targeting `main`, then **poll the MR's own pipeline status directly** until
    it reaches `success` (not `glab mr merge --when-pipeline-succeeds`, which asks GitLab to
-   watch for us and has 405'd when fired before GitLab had created the pipeline object yet)
+   watch for us and has 405'd when fired before GitLab had created the pipeline object yet).
+   **Write the poll loop as `while true; do …; if [ "$s" = success ] || [ "$s" = failed ]; then
+   break; fi; sleep N; done`, never `until …; case $s in …esac; do sleep N; done`** — a `case`
+   statement is the last command of the loop body, and `case` returns 0 whether or not a
+   branch matched, so an `until` gated on it exits after the very first iteration. The loop
+   then "completes" immediately regardless of the pipeline's real state, and a background
+   watcher's "finished" notification carries no information. Read the pipeline's actual
+   status after the loop returns; don't trust that it returned.
 7. Merge the MR only once that pipeline is confirmed green
 8. **Confirm the pipeline at the merge commit itself** — on `main`, at that exact SHA — is
    also green before tagging. A merge-request pipeline going green is not the same promise
