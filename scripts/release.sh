@@ -75,6 +75,21 @@ pin_helm_tags() {
   ' "$1"
 }
 
+# bump_chart_app_version <file> <version> — writes the rewritten file to stdout.
+#
+# Only the top-level `appVersion:` line is rewritten. The chart's own
+# `version:` field (its packaging semver) is deliberately untouched here — it
+# is bumped independently, on changes to the chart templates themselves, not
+# on every app release. Anchored to column 0 so a same-named field nested
+# under a `dependencies:` entry (none currently exists, but nothing prevents
+# one) can never be mistaken for the top-level field (#1268).
+bump_chart_app_version() {
+  awk -v version="$2" '
+    /^appVersion: / { sub(/appVersion: .*/, "appVersion: \"" version "\"") }
+    { print }
+  ' "$1"
+}
+
 # rc_banner_is_current <file> <version> — true if <file> carries the RC banner
 # for exactly <version>, in the bolded, full-version form the script's own
 # writer blocks (both the first-RC-of-cycle awk block and the subsequent-RC
@@ -207,6 +222,33 @@ valkey:
     echo "SELF-TEST OK: pin_helm_tags pins backend/frontend, leaves valkey untouched"
   else
     echo "SELF-TEST FAILED: pin_helm_tags pins backend/frontend, leaves valkey untouched" >&2
+    echo "--- got ---" >&2; printf '%s\n' "$got" >&2
+    rc=1
+  fi
+
+  # bump_chart_app_version: only the top-level appVersion: line changes; the
+  # chart's own `version:` field and a same-indentation dependency line must
+  # survive untouched (#1268).
+  printf '%s\n' \
+'apiVersion: v2
+name: visiban
+description: Self-hosted Kanban board with customer swimlanes and card movement audit trail
+type: application
+version: 0.6.0
+appVersion: "1.1.0"
+
+dependencies:
+  - name: postgresql
+    version: "16.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.subchartEnabled' > "$tmp/Chart.yaml"
+  got="$(bump_chart_app_version "$tmp/Chart.yaml" 1.2.0-rc.1)"
+  if [[ "$got" == *$'\n''appVersion: "1.2.0-rc.1"'$'\n'* ]] \
+     && [[ "$got" == *$'\n''version: 0.6.0'$'\n'* ]] \
+     && [[ "$got" == *'version: "16.x.x"'* ]]; then
+    echo "SELF-TEST OK: bump_chart_app_version rewrites appVersion, leaves chart version and dependency version untouched"
+  else
+    echo "SELF-TEST FAILED: bump_chart_app_version rewrites appVersion, leaves chart version and dependency version untouched" >&2
     echo "--- got ---" >&2; printf '%s\n' "$got" >&2
     rc=1
   fi
@@ -442,7 +484,13 @@ fi
 TMP=$(mktemp)
 pin_helm_tags helm/visiban/values.yaml "$TAG" > "$TMP" && mv "$TMP" helm/visiban/values.yaml
 
-echo "Updated .env.example, helm/visiban/values.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md, docs/getting-started/kubernetes.md"
+# Bump the chart's appVersion to match this release. The bare VERSION (no
+# "v" prefix), matching frontend/package.json's version field and what the
+# helm-publish CI job's hard-fail check compares against (#1268).
+TMP=$(mktemp)
+bump_chart_app_version helm/visiban/Chart.yaml "$VERSION" > "$TMP" && mv "$TMP" helm/visiban/Chart.yaml
+
+echo "Updated .env.example, helm/visiban/values.yaml, helm/visiban/Chart.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md, docs/getting-started/kubernetes.md"
 
 # Verify version consistency across key files
 echo "Verifying version consistency..."
@@ -534,6 +582,15 @@ if ! grep -q "tag: \"${TAG}\"" helm/visiban/values.yaml; then
   ERRORS=$((ERRORS + 1))
 fi
 
+# helm/visiban/Chart.yaml's appVersion must match the release version — the
+# helm-publish CI job hard-fails on this at tag time (#1268), so catching it
+# here fails fast instead of after every other tag-pipeline job (images,
+# manifests, GitHub release, docs deploy) has already published.
+if ! grep -q "^appVersion: \"${VERSION}\"" helm/visiban/Chart.yaml; then
+  echo "  WARN: helm/visiban/Chart.yaml appVersion does not match ${VERSION}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+
 if [[ "$ERRORS" -gt 0 ]]; then
   echo "  ${ERRORS} version consistency warning(s) — review before committing" >&2
 fi
@@ -544,7 +601,7 @@ fi
 # and re-accumulate on main after the next pull.
 git add CHANGELOG.md .env.example docker-compose.prod.yml \
         frontend/package.json README.md docs/index.md docs/getting-started/installation.md \
-        docs/getting-started/kubernetes.md helm/visiban/values.yaml changelog.d/
+        docs/getting-started/kubernetes.md helm/visiban/values.yaml helm/visiban/Chart.yaml changelog.d/
 git commit -m "chore: release ${TAG}"
 git push -u origin "$RELEASE_BRANCH"
 
