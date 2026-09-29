@@ -3836,6 +3836,12 @@ needed if you want to modify it:</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>helm<span class="w"> </span>show<span class="w"> </span>values<span class="w"> </span>oci://ghcr.io/visiban/charts/visiban
 </code></pre></div>
+<blockquote>
+<p>A chart signing gap (#1284, fixed after <code>v1.2.0-alpha.2</code>) means any chart published at or
+before that tag is unsigned — <code>cosign verify</code> against those versions fails with no signature
+found, not a tampering warning. Check <code>docs/maintainers/known-ci-failures.md</code> if verification
+fails against a version you expect to be signed.</p>
+</blockquote>
 <p>Every <code>helm install helm/visiban</code> below also works as
 <code>helm install oci://ghcr.io/visiban/charts/visiban</code>.</p>
 <p>To work from a checkout instead:</p>

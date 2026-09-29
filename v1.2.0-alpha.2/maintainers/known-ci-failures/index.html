@@ -3522,6 +3522,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#helm-publish-cosign-sign-fails-with-unauthorized-authentication-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        helm-publish: cosign sign fails with UNAUTHORIZED: authentication required
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3757,6 +3768,28 @@ Because these run on a real Docker daemon (shell executor) rather than kaniko, t
 own <code>docker login "$CI_DEPENDENCY_PROXY_SERVER"</code> in <code>before_script</code> (guarded on that variable
 being non-empty) and a matching <code>docker logout</code> in <code>after_script</code> — see
 <a href="../ci-runners/#dependency-proxy">CI Runners</a> for the full detail.</p>
+<h2 id="helm-publish-cosign-sign-fails-with-unauthorized-authentication-required"><code>helm-publish</code>: <code>cosign sign</code> fails with <code>UNAUTHORIZED: authentication required</code><a class="headerlink" href="#helm-publish-cosign-sign-fails-with-unauthorized-authentication-required" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> <code>helm-publish</code> job fails after <code>helm push</code> has already succeeded — the chart is
+visible in the registry, but the job still fails at the <code>cosign sign</code> step:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Pushed: ghcr.io/visiban/charts/visiban:0.6.0
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Digest: sha256:...
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Error: signing [ghcr.io/visiban/charts/visiban@sha256:...]: accessing image: GET
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>https://ghcr.io/token?...: UNAUTHORIZED: authentication required
+</code></pre></div>
+<p><strong>Root cause:</strong> the job runs <code>helm registry login ghcr.io</code> before <code>helm push</code>, but never logs
+cosign in separately. <code>helm registry login</code> only populates Helm's own registry config; cosign
+resolves registry auth through go-containerregistry's default keychain (the Docker/OCI
+credential store), which <code>helm registry login</code> never touches. The two tools simply don't share
+a credential store, so <code>cosign sign</code> fails closed even though <code>helm push</code> — authenticated via a
+completely separate path — succeeds moments earlier. This was invisible until <code>v1.2.0-alpha.2</code>'s
+tag pipeline, the first one where the <code>appVersion</code> check (#1268) let execution reach this far.</p>
+<p><strong>Fix:</strong> add <code>printf '%s' "$GHCR_TOKEN" | cosign login ghcr.io -u "$GHCR_USER" --password-stdin</code>
+alongside the existing <code>helm registry login</code> line, before <code>helm package</code>/<code>helm push</code>/<code>cosign
+sign</code> (#1284, <code>.gitlab-ci.yml</code>'s <code>helm-publish</code> job).</p>
+<p><strong>Note:</strong> every chart published before this fix (including <code>v1.2.0-alpha.2</code>'s
+<code>ghcr.io/visiban/charts/visiban:0.6.0</code>) is unsigned — the fix does not retroactively sign an
+already-pushed chart. If this signature reappears, check that the <code>cosign login</code> step wasn't
+dropped in a later edit to the job.</p>
 
 
 
