@@ -3753,6 +3753,17 @@ before the real invocation — see <a href="../ci-gates/">CI gate self-tests</a>
 </ul>
 <p>The job can also be run manually at any time (advisory — <code>allow_failure: true</code> on the manual
 path only; the scheduled run is blocking) via "Run pipeline" or the job's manual play button.</p>
+<div class="admonition warning">
+<p class="admonition-title">This step is easy to skip silently — #1213</p>
+<p>This is GitLab project configuration, not a file in this repo, so nothing in a diff or a
+review catches it being missed. It <em>was</em> missed: the schedule above was never created
+after this job merged, and the gap sat undetected until #1213 found it — by which point a
+real ~40% p95 regression on <code>GET /boards/{id}/full/</code> had already shipped past it. The
+<code>schedule-config-check</code> job (<code>scripts/check-pipeline-schedules.sh</code>) now asserts this
+schedule (and every other <code>$CI_PIPELINE_SOURCE == "schedule" &amp;&amp; $VAR == "true"</code> rule in
+<code>.gitlab-ci.yml</code>) has an active GitLab schedule actually setting its variable, on every
+scheduled pipeline run — see <a href="../ci-gates/">CI gate self-tests</a>.</p>
+</div>
 <h2 id="budget-derivation-the-rule">Budget derivation — the rule<a class="headerlink" href="#budget-derivation-the-rule" title="Permanent link">&para;</a></h2>
 <p><strong>Budgets are committed to the repo, in <code>backend/nightly-load-test-baseline.json</code>, and every
 <code>budget_p95_ms</code> must trace to a <code>measured_p95_ms</code> via a stated formula — never a round number

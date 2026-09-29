@@ -3816,6 +3816,11 @@ own header — is never mistaken for a real exemption.</p>
 <td>sourced in the <code>script:</code> of <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code>; self-test runs in <code>arm64-runner-preflight</code> (release tags)</td>
 <td>Bounded retry around <code>docker push</code> for the persistent arm64 shell runner, whose daemon can hit a transient cross-repo blob-mount failure a fresh kaniko container never sees (#1205, ported from TruePPM). 3-case self-test with a stubbed <code>docker</code> (the stub hook is honored only under <code>--self-test</code>, never from a CI variable): succeeds on a later attempt, gives up after exactly the max, and never re-pushes a clean push. Needs no daemon, so it runs on the preflight's plain alpine image.</td>
 </tr>
+<tr>
+<td><code>scripts/check-pipeline-schedules.sh</code></td>
+<td><code>schedule-config-check</code> (scheduled pipelines only)</td>
+<td>#1213: <code>nightly-load-test</code>'s GitLab pipeline schedule was never configured, and nothing asserted it existed — same failure shape as <code>check-release-images</code>. Self-test stubs <code>SCHEDULE_PROBE</code> with fixed JSON covering a covered variable, one with no schedule at all, one on an <code>active:false</code> schedule, one set to <code>"false"</code>, an <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> entry, a probe failure (must fail open, not report a false MISSING), and a CI file with no schedule-gated rules at all. See <a href="../nightly-load-test/#the-schedule">Nightly load test § The schedule</a>.</td>
+</tr>
 </tbody>
 </table>
 <p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,
