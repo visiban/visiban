@@ -301,7 +301,7 @@ The production stack (`docker-compose.prod.yml`) replaces the Vite dev server wi
 
 | Component | Role |
 |---|---|
-| **Nginx** | Serves the compiled React app; proxies `/api/`, `/_allauth/`, `/ws/`, `/admin/`, `/static/`, `/media/` to the backend |
+| **Nginx** | Serves the compiled React app; proxies `/api/`, `/accounts/`, `/ws/`, `/admin/`, `/static/`, `/media/` to the backend |
 | **Frontend build** | The release image's pre-built SPA (compiled at image-build time) is copied into a shared volume at startup |
 | **Certbot** | (TLS_MODE=letsencrypt only) Obtains the Let's Encrypt certificate on first boot; renews automatically every 12 hours |
 
