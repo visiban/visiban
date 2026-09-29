@@ -2,16 +2,16 @@
 
 ## What is Visiban?
 
-Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams. It runs on Django + PostgreSQL (backend) and React + TypeScript (frontend), deployable via Docker Compose. The core product is Apache 2.0 licensed. Enterprise features (SSO, audit logs, automation, integrations) are in a separate private repo.
+Visiban is a self-hosted, open-core Kanban board for teams of any size — from a single squad to a large organization. It runs on Django + PostgreSQL (backend) and React + TypeScript (frontend), deployable via Docker Compose or Helm. The core product is Apache 2.0 licensed with unlimited users and boards, so cost doesn't scale with headcount the way a per-seat SaaS tool does. Enterprise features (SSO, audit logs, automation, integrations) are in a separate private repo — as of this writing, **SAML SSO and SCIM directory sync are still in development there, not yet shipped**, which matters if a rollout depends on centralized identity provisioning at scale.
 
 ---
 
 ## Tech stack
 
-- **Backend:** Python 3.12, Django 5, Django REST Framework, PostgreSQL 17, django-allauth, gunicorn
-- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS 3, @dnd-kit, Tiptap (rich text), React Router v6, Axios
+- **Backend:** Python 3.12, Django 5, Django REST Framework, PostgreSQL 17, django-allauth, Daphne (ASGI)
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS 3, @dnd-kit, Tiptap (rich text, 3.x), React Router v7, Axios
 - **Real-time:** WebSockets (Django Channels)
-- **Infra:** Docker Compose, Nginx, kaniko (CI builds)
+- **Infra:** Docker Compose, Helm (Kubernetes), Nginx, kaniko (CI builds)
 - **Auth:** django-allauth headless/API mode, OAuth (Google, GitHub, GitLab), OIDC
 
 ---
@@ -23,11 +23,13 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 | Concept | Description |
 |---|---|
 | **Board** | A workspace containing columns and swimlanes. Boards belong to a user (owner) or a group. |
-| **Column** | Represents a workflow stage (e.g. To Do, In Progress, Done). Boards can have up to 50 columns. |
-| **Swimlane** | A horizontal row dividing the board by customer, team, priority, or any other dimension. Up to 100 swimlanes. |
+| **Column** | Represents a workflow stage (e.g. To Do, In Progress, Done). No fixed per-board limit. |
+| **Swimlane** | A horizontal row dividing the board by customer, team, priority, or any other dimension. No fixed per-board limit. |
 | **Cell** | The intersection of a column and swimlane — a droppable zone for cards. |
-| **Card** | A unit of work. Lives in one cell. Has title, description, priority, assignee, labels, due date, weight, checklist, comments, attachments, and movement history. |
+| **Card** | A unit of work. Lives in one cell. Has title, description, priority, assignee, labels, due date, weight, checklist, comments, attachments, custom fields, relations, and movement history. |
 | **Label** | A colored tag attached to cards for categorization. Board-scoped. |
+
+*Column/swimlane counts are unbounded on the board itself; only bulk **import** operations are capped (50 columns / 100 swimlanes per file — see Import/Export).*
 
 ### Board templates
 
@@ -66,6 +68,7 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 | Labels | many-to-many | Board-scoped |
 | Due date | date | Overdue dates shown in red |
 | Weight | integer | Story points / effort estimate |
+| Custom fields | board-defined | See Custom fields section |
 | Stable UID | 16-char hex | Immutable external reference |
 
 ### Card actions
@@ -78,6 +81,11 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 - Delete (permanent, confirmation required)
 - Bulk select + bulk archive / bulk assign / bulk priority / bulk delete
 
+### Card relations
+
+- Link cards as **blocks** / **blocked by** / **relates to**
+- Card face and detail panel show a `blocker_count` so blocked work is visible without opening the card
+
 ### Card detail panel
 
 - Rich text description editor (Tiptap) — click to edit, Save/Cancel
@@ -85,7 +93,8 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 - Comment thread with avatars (distinct color per user)
 - @mention in comments — notification on each comment (no re-notification guard — each comment is a new event)
 - Checklist items (add, check/uncheck, delete) — collapsible section
-- File attachments (up to 10 MB, allowlisted MIME types) — collapsible section
+- File attachments (up to 10 MB by default, operator-adjustable via `MAX_UPLOAD_SIZE_BYTES`; allowlisted MIME types) — collapsible section
+- Custom field values (see Custom fields section) — up to 2 pinned to the card face
 - Movement history (which columns/swimlanes the card moved through, and when)
 - Field-change activity log (who changed what and when) — tracks title, description, priority, weight, assignee, labels, due date, checklist items, comments, attachments; rapid-fire changes to the same field are debounced and collapsed into a single net entry
 - "Show full history" toggle persists across sessions via `localStorage`
@@ -98,6 +107,8 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 - Checklist progress (`✓ done/total`)
 - Due date (overdue shown in red)
 - Weight — shown when weight > 1
+- External reference badge — a linked PR/MR (`external_ref`) shown on the card face when set
+- Pinned custom field values (up to 2 per board)
 - Last-moved label — relative text (e.g. "moved yesterday", "moved 3 days ago") for cards not moved within the last 24 hours; cards moved within 24 hours show a blue dot indicator on hover; togglable per-board via Board Settings → Card fields
 
 ### Card movement audit trail
@@ -115,6 +126,14 @@ Pure reorders (same cell, different position) do not create movement records.
 
 ---
 
+## Custom fields
+
+- **Cards** — up to 30 custom field definitions per board; up to 2 can be pinned to the card face
+- **Swimlane rows** — up to 15 custom field definitions per board; up to 3 can be pinned
+- Definitions are board-scoped; values attach per-card or per-swimlane respectively
+
+---
+
 ## Board UI
 
 ### Layout
@@ -122,7 +141,9 @@ Pure reorders (same cell, different position) do not create movement records.
 - CSS Grid: columns (x-axis) × swimlane rows (y-axis)
 - Swimlane label sidebar on the left (resizable by dragging right edge, persisted to localStorage)
 - Column headers sticky on scroll, show WIP count
+- Optional grid overlay per cell: none, or a card-count badge
 - Optional WIP limit enforcement (`enforce_wip_limits` board setting): moving a card into a full column returns an error; board admins can override; archived cards excluded from count
+- "At-limit" indicator — visually distinct state when a column is exactly at its WIP limit, ahead of actually going over; off by default (`show_wip_at_limit` board setting), admin-toggled
 - Optional weight limit enforcement (`enforce_weight_limits` board setting): moving a card that would push a column over its weight budget is blocked; board admins can override; archived cards excluded from weight sum
 - Hard WIP enforcement (`enforce_wip_hard` board setting): when enabled, WIP/weight limits block all roles including admins — no force override available
 - Both WIP and weight enforcement default to **on** for newly created boards
@@ -132,6 +153,7 @@ Pure reorders (same cell, different position) do not create movement records.
 - Sub-nav tabs (Board / Summary / Analytics / History) are URL-addressable via `?view=` — tabs can be bookmarked and shared; Back button skips tab transitions
 - Board-level History tab with filterable movement log — search by swimlane, column, user, and date range
 - Space + drag panning — hold Space to enter pan mode (cursor changes to grab), then drag to scroll the board without activating card drag-and-drop
+- Drag-and-drop is announced via an `aria-live="polite"` status region ("Moved `<card>` to `<column>` / `<swimlane>`") for screen-reader users
 
 ### Resizing
 
@@ -154,7 +176,8 @@ Pure reorders (same cell, different position) do not create movement records.
 - Filter by: priority, label, assignee, due date (overdue, upcoming)
 - Active filter count badge on the filter bar
 - Saved filter presets — save and restore named filter combinations per board; user-private, stored server-side; any board member (including viewers) can save presets
-- Server-side card search (title + description, case-insensitive, debounced 300ms with AbortController cancellation); client-side filters intersected with server results
+- Server-side card search (title + description, case-insensitive, debounced 300ms with AbortController cancellation) — scoped to the current board; client-side filters intersected with server results
+- Command Palette (⌘K) — quick card search and board-jump while on a board; off a board it jumps between boards only. True cross-board card search isn't wired up yet (see Known gaps)
 - Filter state persisted to localStorage per board
 - "No cards match the active filters" banner when filters produce zero results
 
@@ -166,10 +189,18 @@ Pure reorders (same cell, different position) do not create movement records.
 
 ---
 
+## Appearance
+
+- Theme preference — system / dark / light, per user; respects `prefers-color-scheme` when set to "system"
+- A semantic design-token layer (surface, foreground, border, primary tones) backs every surface, modal, drawer, and badge in both modes
+
+---
+
 ## Swimlane features
 
 - Collapsible swimlane rows
 - Contact email and notes fields
+- Custom field values (see Custom fields section)
 - Color picker
 - Position reorder
 - Focus mode — crosshair button dims all other swimlanes; URL-addressable via `?focus=<swimlane_id>`; toggles off on second click
@@ -184,7 +215,7 @@ Boards can be shared as a public read-only link with no login required.
 - Share link serves a static read-only board view at `/share/:token` — full grid with column headers, swimlane labels, and card tiles (title, labels, checklist progress, due date, weight, assignee)
 - Revoking the token immediately invalidates the link; visitors see a "This board is no longer shared" page
 - Share links expose only non-sensitive card fields — no comments, attachments, or movement history
-- Rate-limited to 120 requests/hour per IP
+- Rate-limited to 120 requests/hour per IP, and 240 requests/hour per token
 
 ---
 
@@ -258,6 +289,9 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 - File uploads toggle — enable or disable attachment uploads instance-wide; existing attachments remain accessible when uploads are disabled
 - Invite links — admins can create site-wide invite links with optional TTL (1d / 7d / 30d) and single-use flag; "Invite Links" tab shows status badges and supports inline revocation
 - Invite link auto-join — authenticated users are joined automatically on arrival; OAuth users are joined immediately after provider redirect; invite-token registration works even when registration is globally closed
+- **Maintenance mode** — a read-only instance toggle; non-admin writes get a `503` with a `maintenance_mode` error code while it's on, admins are exempt
+- **Admin-configurable SMTP** — Admin → Settings → Email lets an admin set SMTP credentials from the UI (encrypted at rest) with a test-send action, instead of env vars only
+- **Site-wide admin action log** — records who changed maintenance mode, registration mode, or the file-uploads toggle, and when (distinct from the per-card field-change activity log, and from the board-level admin audit log, which is not yet implemented — see Known gaps)
 
 ---
 
@@ -281,7 +315,8 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 - Re-notification guard on description edits (won't re-notify the same user for the same mention)
 - Deep-link from notification to the card
 - Per-user notification preferences in Settings → Notifications (each trigger toggleable; board invites default on)
-- Capped at 50 most recent per user
+- Email delivery — per-trigger channel split (in-app / email / both); gated by `NOTIFICATION_EMAIL_ENABLED` (instance default **on** — configuring SMTP is the only step needed to enable it), with a configurable send timeout; per-user email preferences default to **off**, so nothing sends until a user opts in
+- Capped at 50 most recent per user in-app; independently, notifications older than `NOTIFICATION_RETENTION_DAYS` are pruned by a background job
 
 ---
 
@@ -298,9 +333,39 @@ All board mutations broadcast to connected clients after `transaction.on_commit(
 - Column / swimlane reordered
 - Board updated / deleted
 
+Each WebSocket frame carries an `event_id`. A polling-friendly alternative — a board change-feed endpoint — is also available for clients that can't hold a persistent connection.
+
 Server-side keepalive ping every 30 seconds prevents NATs and reverse proxies from dropping idle connections; frontend detects a missing ping within 45 seconds and auto-reconnects.
 
 Live indicator is three-state: green "Live" when connected, amber "Reconnecting…" while attempting to reconnect, grey "Offline" when the connection has permanently failed. Evicted members have their WebSocket connection closed immediately on removal.
+
+**WebSocket ticket auth** — token/PAT/CLI clients (anything that can't rely on a session cookie) call `POST /api/v1/auth/ws-ticket/` with any supported credential and pass the returned value as `?ticket=` on the upgrade, instead of being closed with `4001`. Tickets are single-use, expire after 30 seconds, and are stored hashed. Board and group membership is still enforced on every connection; the browser SPA's session-cookie handshake is unchanged.
+
+---
+
+## Issue Board Lens (Git-backed boards)
+
+*OSS core — not gated behind the enterprise edition.*
+
+An optional, read-only board view that mirrors a public GitHub or GitLab repository's issues and merge/pull requests into a Visiban-style pipeline board, so a team doesn't have to manually recreate status that already lives in the forge.
+
+- Off by default — enabled instance-wide via `GIT_LENS_ENABLED`
+- Columns derive from issue/PR state; swimlanes and the label panel are user-configurable, and both are resizable (mirrors the native board's resize gesture, sizes remembered per board)
+- Pivot by status, milestone, label, or assignee
+- Filters: state, milestone (including an explicit "no milestone" option), label (AND-combined, up to 5 at once), and free text — applied server-side so they reach issues beyond the fetch cap, not just the already-loaded page
+- Current-milestone highlighting — sorts to the top of the board and is marked "Current"; detected automatically (nearest active milestone by due date, falling back to the one with the most in-progress work)
+- Admin-only outbound-call observability — `GET /api/v1/admin/git-lens/usage/` reports the last 24 hours of provider API call counts (per provider, resource kind, and outcome), cache hit/miss rates, and the fixed limits that bound the traffic; each call is also logged as one structured `git_lens.outbound` line with no tokens or query values
+
+---
+
+## MCP server (AI agent integration)
+
+*OSS core — not gated behind the enterprise edition.*
+
+Visiban exposes a Model Context Protocol server (`/mcp`) so an MCP-compatible AI agent can read and act on boards under the same role-based permissions as a human user — no bypass of board membership or role checks.
+
+- Tools: `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`
+- Every token needs `mcp:read` just to open a session; write tools (create/move/update/archive) additionally require the `mcp:write` scope
 
 ---
 
@@ -313,6 +378,8 @@ Live indicator is three-state: green "Live" when connected, amber "Reconnecting�
 - **Period filter** (7d / 30d / 90d) — correctly scopes dwell times and velocity calculations to the selected window; shows "No card movements recorded in the last N days" when the window is empty
 - Analytics export (CSV) — admin only
 - Board summary endpoint
+
+*Cross-board portfolio analytics (cumulative flow diagrams, cross-board cycle-time reporting) are not part of OSS core — see the enterprise repo's roadmap.*
 
 ---
 
@@ -327,7 +394,8 @@ Live indicator is three-state: green "Live" when connected, amber "Reconnecting�
 
 - JSON (Visiban export format) — restores full card history including movements, activities, and assignees
 - CSV (flexible: accepts lowercase/snake_case headers; `due_date`, `duedate`, `Due Date` all work)
-- Limits: 500 cards, 50 columns, 100 swimlanes per import
+- **Trello board import** — imports a Trello board export directly, in addition to the native JSON/CSV formats; has its own, higher limits (5,000 cards / 50 lists / 1,000 members / 50,000 actions)
+- Limits for native JSON/CSV import: 500 cards, 50 columns, 100 swimlanes per import
 - Auto-creates columns, swimlanes, labels from values seen in the file
 - Creates importer as board admin
 
@@ -352,7 +420,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 - Admin panel restricted to loopback IP in production
 - `SECRET_KEY` validation at startup
 - No default DB password in production compose
-- File attachment MIME type + magic byte validation
+- File attachment MIME type + magic byte validation; size capped at 10 MB by default (operator-adjustable via `MAX_UPLOAD_SIZE_BYTES`)
 - Text file polyglot XSS prevention (HTML/script markers rejected in first 4 KB)
 - `Content-Disposition: attachment` enforced on all media downloads (no inline rendering)
 - Invite link tokens hashed SHA-256 (raw token returned once at creation)
@@ -361,7 +429,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 - Invite link redemption rate-limited (10/hr per IP)
 - CORS validation prevents localhost origins in production
 - Import size limits (500 cards, 50 columns, 100 swimlanes)
-- SAST: bandit (backend) + eslint-plugin-security (frontend) in CI
+- SAST: Semgrep + Bandit (backend), eslint-plugin-security (frontend); secret scanning via `gitleaks-scan`; dependency/license/image scanning in CI (see CI/CD)
 
 ---
 
@@ -372,6 +440,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 `docker-compose.prod.yml` — production-ready stack with TLS, health checks, and no default credentials:
 
 - Services: `db` (Postgres 17 Alpine), `valkey` (Valkey 8 Alpine — the Redis-compatible, BSD-licensed fork), `backend` (daphne ASGI), `frontend-build` (init container that copies SPA assets into a shared volume), `nginx` (1.27 Alpine), `certbot` (auto-renewing Let's Encrypt every 12 hours)
+- `scheduler` profile — background jobs for due-date/staleness scans and notification pruning (`NOTIFICATION_RETENTION_DAYS`)
 - `DB_PASSWORD` is mandatory — the compose file fails fast with a descriptive error if unset; no insecure default
 - `DOMAIN` is mandatory — nginx config is rendered at container startup via `envsubst` so the host never needs to run it manually
 - `APP_VERSION` env var controls which image tag is pulled — required; the compose file fails fast if unset rather than resolving to the mutable `latest` tag
@@ -394,17 +463,22 @@ The same `existingSecret` pattern applies to the PostgreSQL password (`postgresq
 - `values.secret.yaml.example` ships in the repo as a template for the gitignored secrets file approach
 - `backend.oauth.*` block — per-provider `clientId`/`clientSecret` fields; leave empty to disable a provider
 - `backend.oauth.oidc.*` — `serverUrl`, `clientId`, `clientSecret`, `providerName` for generic OIDC
+- `scheduledJobs` — CronJobs mirroring the Compose `scheduler` profile (staleness scans, notification pruning)
+- `demo.enabled` — hosted-demo mode: egress `NetworkPolicy`, a reset `CronJob`, and a write-fence `helm test` (see Seed / demo data)
 
 ---
 
 ## CI/CD
 
-- GitLab CI pipeline: lint, SAST (Semgrep + Bandit), secret detection, migration check, backend tests (sharded across 3 parallel jobs via pytest-split), frontend tests, docker build, changelog check
-- Docker image builds use kaniko (no Docker-in-Docker)
-- Merge only allowed with green pipeline
-- Cache policy split: pull on MR, pull-push on main via dedicated warm jobs
-- Docs auto-deploy on version tags; Docker images tagged with version on release
-- Scheduled seed-data refresh job for demo environment
+GitLab CI pipeline, grouped by what each gate protects:
+
+- **Correctness & tests** — lint, backend tests (sharded across 3 parallel jobs via pytest-split), frontend tests, migration check, migration-numbering check, diff-coverage gates on backend and frontend (80% of changed lines)
+- **Contract & drift** — serializer↔TypeScript parity (`frontend/src/types/index.ts` vs. the OpenAPI schema), WebSocket event reachability (every event name reconciled across emit/doc/handler), schema fuzzing (schemathesis against the declared OpenAPI schema), RBAC and broadcast-wiring static checks
+- **Security** — SAST (Semgrep via the GitLab catalog component + Bandit), secret detection (gitleaks), dependency/license scanning (OSV + per-ecosystem checks), container image scanning, a live OIDC (Keycloak) smoke test every pipeline
+- **Performance** — a schedule-only job asserting p50/p95/p99 latency budgets against a large seeded fixture
+- **Infra** — Docker builds via kaniko (no Docker-in-Docker) for amd64; arm64 images build natively on a dedicated Apple Silicon runner instead, since kaniko can't cross-build; Compose/Dockerfile/shell linting; Helm chart lint/template/network-policy/install/publish jobs
+- **Harness meta-gates** — a suppressions check (every temporary `SUPPRESSED-UNTIL(#NNNN)` marker's cited issue must still be open), a gate-self-test-parity check, a kaizen yield-watch, and a docs-version-accuracy check (fails a stale "Coming in X" claim or a version mismatch — the same gate this document is expected to pass)
+- Merge only allowed with a green pipeline; cache policy split (pull on MR, pull-push on main via dedicated warm jobs); docs auto-deploy and Docker images tagged with version on release tags; scheduled seed-data refresh for the demo environment
 
 ---
 
@@ -416,8 +490,17 @@ The same `existingSecret` pattern applies to the PostgreSQL password (`postgresq
 - All cards (including Backlog) have at least one creation movement so the History tab is never empty
 - `--wipe`: removes the existing demo board first (refuses on production without `--force`)
 - `--export`: regenerates seed JSON/CSV files
+- `--demo-site`: seeds Software, Marketing, and Hiring boards plus an admin and two member accounts, for hosted-demo deployments
 
 `python manage.py seed_template_boards` — seeds all 10 non-blank board templates with 10–11 swimlanes, 110–121 unique cards each, domain-specific content, movement history, activities, labels, checklists, and comments. Seed files exported to `sample-boards/<slug>.json`. All templates also ship as ready-to-import JSON and CSV files at the repo root.
+
+### Hosted demo mode
+
+An opt-in, public-facing demo deployment mode, off by default:
+
+- `DEMO_MODE` shows a live-demo banner with credentials on the login page
+- Pairs with `seed_demo_data --demo-site` for content
+- Helm's `demo.enabled` adds an egress `NetworkPolicy`, a scheduled reset `CronJob`, and a write-fence `helm test` so a public demo can't be used to pivot into the rest of the cluster or accumulate unbounded state
 
 ---
 
@@ -434,66 +517,32 @@ The same `existingSecret` pattern applies to the PostgreSQL password (`postgresq
 
 - "Close editor on Enter" — per-user, controls whether Enter in the new-card input submits and closes (defaults to on for new accounts)
 - "Show full history" — per-user, controls whether the card activity panel shows all activity or just movements; persists across sessions via localStorage
+- Theme — system / dark / light (see Appearance)
+- Card density — personal override for card-face density
 - Default board — login redirects to this board
 - Avatar color — distinct per user in comment threads
-- Notification preferences — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added, board invites)
-- Timezone, date format, time format, number locale
+- Notification preferences — per-trigger toggles and channel (in-app / email / both) (card assigned, @mentioned, due date warning, card moved, comment added, board invites)
+- Timezone, date format, time format, number locale — applied consistently across due dates, movement/activity timestamps, and notifications
 
 ---
 
-## 1.1 roadmap
+## Known gaps (not yet implemented)
 
-### Foundation work (land first — unblocks multiple features)
+Tracked backlog, not a committed roadmap for any specific release — check GitLab milestones for current scheduling.
 
-These cross-cutting refactors are load-bearing dependencies for several 1.1 items. Shipping them first turns the feature MRs into near-trivial swaps.
-
-| Item | Notes |
-|---|---|
-| Date utility unification | One `formatDate`/`parseDate` pair that reads `user.date_format` and `user.timezone`. Prerequisite for #243, #222, and email notification rendering (#225). |
-| Accent color token | Extract a single `--accent` CSS variable in `index.css` and route Tailwind utilities (`accent-primary`, `accent-focus`) through it. Replaces scattered `blue-600`/`blue-500`/`blue-400` usage. Prerequisite for #251 and light mode. |
-| Theme token layer | Split hard-coded `slate-*` backgrounds and `white`/`gray-*` text into semantic tokens (`--surface`, `--surface-muted`, `--text`, `--text-muted`, `--border`). Prerequisite for light mode. |
-
-### Features
-
-| Feature | Notes |
-|---|---|
-| Card watchers / subscriptions (#229) | Subscribe/eye toggle in `CardDetail` header next to Archive/Delete, with subscriber count tooltip. Passive "You're watching because you were @mentioned" hint so implicit watchers understand notification origin. |
-| Global board activity feed (#232) | Extend the existing `BoardActivityDrawer` to an account-scoped feed opened from the navbar bell icon (combined feed + notifications pane). Group entries by board; collapse within-board bursts to keep Maya's at-a-glance view usable. |
-| Styled date picker (#243) | One `DatePickerInput` component reading user prefs; swap all four native `<input type="date">` call sites (CardDetail, MovementHistoryView, SettingsPage, filters) in the same MR. Stored value stays ISO — backward compatible. |
-| Archive organizer (#250) | Add title/description search, sort (archived date / title / column), column / swimlane / assignee filters, bulk-select with bulk restore + permanent delete. Show origin (column → swimlane) on each row. Distinguish "empty archive" vs "no matches" empty states. |
-| Custom color scheme (#251) | User-selectable accent via the `--accent` token from foundation work. Restrict to 6–8 curated hues that meet AA contrast on the canvas background. |
-| Light mode | System-wide light theme driven by the theme token layer. Per-user preference (`light` / `dark` / `system`) on the profile page; respects `prefers-color-scheme` by default. Every surface, modal, drawer, and badge must pass AA contrast in both modes. Audit swimlanes, over-WIP indicators, drag preview, and mention highlights — these are the common regression spots. |
-| Site-level email invitations (#213) | "Invite people" action in Admin → Users emailing a signed, time-boxed link. Track redemption state; support revoke and bulk invite for Alex. |
-| Site admin: change user email (#215) | Row-level action in the admin user list. |
-| Site admin: view user's boards (#216) | Row-level action; links into the board with admin context. |
-| Site admin: delete user account (#214) | Row-level action gated by a "type the username" danger-zone confirm, reusing the pattern from board deletion. |
-| Auto-archive done cards (#222) | Toggle + paired numeric fields ("Archive cards in Done after N days" + warning threshold) in the existing `BoardSettingsModal` rules tab, following the paired-numeric convention in `frontend/CLAUDE.md`. |
-| Cross-board card search (#224) | Navbar omnibox (⌘K) hitting a new cross-board endpoint; results grouped by board and filtered by per-board permissions. |
-| Email notifications (#225) | Extend `NotificationsTab` with a per-preference channel split (in-app / email / both). Uses the unified date utility for timestamp rendering. |
-
-### Admin row-level actions (#214/#215/#216 grouped)
-
-All three admin actions share an overflow "⋯" menu per row in the user list to avoid cluttering the main columns. Ship them in one MR with a single menu component.
-
-### UX polish (1.1 scope)
-
-These surfaced during the 1.1 UI review. Group into one or two polish MRs rather than per-item issues.
-
-- Keyboard-shortcut discoverability — add a muted "Keyboard shortcuts" link in the footer and a first-run indicator on the help icon
-- Drag-and-drop screen-reader announcements — `role="status"` live region that reports "Moved <card> to <column> / <swimlane>"
-- Modal focus-trap consistency — standardize on `useEscapeStack` across `CardDetail`, `BoardSettingsModal`, and any other modal
-- Over-WIP collapsed-column indicator — add a ⚠ glyph; text-color alone disappears when the column is collapsed
-- Auto-save confirmation — transient checkmark on RTE description, weight, and any other auto-saved field
-- Tablet responsive pass — Dashboard and SettingsPage should degrade cleanly at `md:` breakpoints for Sam; board view remains desktop-first
-- Empty-state unification — codify the canonical pattern in `frontend/CLAUDE.md` and refactor outliers (archived panel, empty board, no-results filter, etc.)
-
-### Later / unscheduled
-
-| Feature | Notes |
-|---|---|
-| Card templates | Reusable card scaffolds |
-| Threaded comment replies | Nested comment threads |
-| Board-level admin audit log | Track admin actions |
-| PDF/print export | CSS print or headless renderer |
-| Column archival | Soft-delete columns instead of hard delete |
-| Migration squash to 1.0 baseline | Reduce startup time |
+- Cross-board card search — a backend cursor-paginated endpoint (`GET /api/v1/cards/`, permission-scoped) exists but isn't wired to any UI yet; the ⌘K Command Palette currently does board-scoped search plus a board-list jump, not cross-board card content (#191, open, milestone 1.4)
+- Card watchers / subscriptions — no per-card "notify me" toggle; notifications currently rely on @mentions and assignment
+- Global, account-scoped activity feed — the activity drawer is still per-board; no combined cross-board feed from the navbar bell
+- Styled, preference-aware date picker — due-date and filter inputs are still native `<input type="date">`
+- Archive organizer search/sort/filters/bulk actions — the Archived panel shows origin and supports pagination/unarchive, but has no title search, sort control, column/swimlane/assignee filters, or bulk restore/delete yet
+- User-selectable accent color — theming is currently limited to the system/dark/light preference, not a per-user hue picker
+- Site-level email invitations — admin invite links generate a shareable URL only; nothing emails a specific recipient directly yet
+- Site admin row-level actions to edit a user's email, view a user's boards, or delete a user account — only deactivate (with the offboarding/ownership-transfer flow) exists today
+- Keyboard-shortcut discoverability polish — no footer link or first-run indicator pointing at the shortcuts overlay
+- Tablet-responsive layout pass for the Dashboard and Settings pages
+- Card templates (reusable card scaffolds)
+- Threaded comment replies (comments are flat)
+- Board-level admin audit log (distinct from the site-wide admin action log, which does exist — see Site admin panel)
+- PDF/print export
+- Column archival (soft-delete) — columns are hard-deleted today
+- A migration squash to a fresh 1.0 baseline (currently 60+ sequential migration files)
