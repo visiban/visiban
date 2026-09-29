@@ -4,6 +4,7 @@ import type { BoardFull, Card, Column, User } from "../../types";
 import { userDisplayName } from "../../types";
 import { moveCard, updateCard, deleteCard, archiveCard } from "../../api/cards";
 import ModalWrapper from "../shared/ModalWrapper";
+import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 
 interface Props {
   board: BoardFull;
@@ -279,7 +280,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
                   role="menuitem"
                   onClick={() => handleMove(col)}
                   onKeyDown={(e) => handleMoveItemKeyDown(e, i)}
-                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg"
+                  className={`flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg ${MENU_ITEM_FOCUS_RING}`}
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
                   {col.name}
@@ -312,7 +313,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
                 role="menuitem"
                 onClick={() => handleAssign(null)}
                 onKeyDown={(e) => handleAssignItemKeyDown(e, 0)}
-                className="w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg-tertiary italic"
+                className={`w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg-tertiary italic ${MENU_ITEM_FOCUS_RING}`}
               >
                 Unassign
               </button>
@@ -323,7 +324,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
                   role="menuitem"
                   onClick={() => handleAssign(m.user.id)}
                   onKeyDown={(e) => handleAssignItemKeyDown(e, i + 1)}
-                  className="w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg"
+                  className={`w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg ${MENU_ITEM_FOCUS_RING}`}
                 >
                   {userDisplayName(m.user)}
                 </button>
@@ -357,7 +358,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
                   role="menuitem"
                   onClick={() => handlePriority(p.value)}
                   onKeyDown={(e) => handlePriorityItemKeyDown(e, i)}
-                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg capitalize"
+                  className={`flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg capitalize ${MENU_ITEM_FOCUS_RING}`}
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                   {p.value}

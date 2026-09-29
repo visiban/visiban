@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import SplitButton from "../../Common/SplitButton";
 import Tooltip from "../../Common/Tooltip";
+import { MENU_ITEM_FOCUS_RING } from "../../Common/menuItemFocusRing";
 import OverflowMenu from "../../Layout/OverflowMenu";
 import type { OverflowItem } from "../../Layout/OverflowMenu";
 import { LayoutCompactIcon, LayoutExpandedIcon } from "../toolbarIcons";
@@ -126,7 +127,7 @@ export default function LensToolbar({
               role="menuitem"
               disabled={disabled}
               onClick={() => { if (disabled) return; onClick(); close(); }}
-              className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover focus:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed ${MENU_ITEM_FOCUS_RING}`}
             >
               {label}
             </button>

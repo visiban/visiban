@@ -606,6 +606,36 @@ describe('BulkActionToolbar', () => {
     expect(moveTrigger).toHaveAttribute('aria-expanded', 'false')
   })
 
+  it('Move/Assign/Priority menuitems carry a visible keyboard-focus ring (#1234)', async () => {
+    // Roving-tabindex menuitems are real tab stops; `hover:` alone is
+    // invisible to a keyboard user who arrowed onto an item without
+    // touching the mouse. Regression guard for the missing
+    // `focus:outline-none focus:ring-2 focus:ring-primary-emphasis` classes.
+    const user = userEvent.setup()
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByText('Move to...'))
+    expect(screen.getByRole('menuitem', { name: 'To Do' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+    await user.click(screen.getByText('Move to...'))
+
+    await user.click(screen.getByText('Assign to...'))
+    expect(screen.getByRole('menuitem', { name: 'Unassign' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+    expect(screen.getByRole('menuitem', { name: 'Jane Doe' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+    await user.click(screen.getByText('Assign to...'))
+
+    await user.click(screen.getByText('Priority...'))
+    expect(screen.getByRole('menuitem', { name: 'urgent' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+  })
+
   it('deselect-all button has an accessible title so screen reader users know its purpose', () => {
     render(
       <BulkActionToolbar
