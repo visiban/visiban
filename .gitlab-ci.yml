@@ -3168,20 +3168,14 @@ docs-deploy:
     # Force-update in case a stale local branch exists from a previous job on the same runner.
     - git fetch origin gh-pages --depth=1 && (git branch -f gh-pages origin/gh-pages 2>/dev/null || git branch gh-pages origin/gh-pages) || true
   script:
+    # Self-test runs first, per #1093's gate-selftest-parity rule.
+    - bash scripts/resolve-docs-version.sh --self-test
     - |
-      VERSION="${DOCS_VERSION:-$CI_COMMIT_TAG}"
-      if [ -z "$VERSION" ]; then
-        # Auto-deploy from main (docs change pipeline): read version from .env.example.
-        VERSION=$(grep '^APP_VERSION=' .env.example | cut -d= -f2)
-        # .env.example now carries the v prefix (v1.1.0 — #1174), so this
-        # is normally a no-op; kept as a safety net for older trees or a
-        # manually-edited .env.example that dropped it, since mike entries
-        # must match release tags either way.
-        if [ -n "$VERSION" ] && ! echo "$VERSION" | grep -q '^v'; then
-          VERSION="v${VERSION}"
-        fi
-      fi
-      if [ -z "$VERSION" ]; then
+      # Resolution + v-prefix normalization lives in a standalone script so
+      # it's unit-testable (scripts/tests/resolve-docs-version.test.sh) —
+      # see scripts/resolve-docs-version.sh for why normalization must be
+      # unconditional across all three VERSION sources (#1270).
+      if ! VERSION=$(scripts/resolve-docs-version.sh); then
         # Manual trigger from main without DOCS_VERSION set and no APP_VERSION found.
         echo "INFO: no version to deploy. Re-run with DOCS_VERSION=<tag> to publish docs."
         exit 0
