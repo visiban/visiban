@@ -4096,6 +4096,96 @@ install behaves exactly as before until an operator deliberately turns it on.</p
 feature. Both operations are <code>CreateModel</code> — no existing table, index, or constraint is
 touched — so it is zero-downtime and requires no operator action.</p>
 <div class="admonition warning">
+<p class="admonition-title">Personal access tokens now carry scopes — pre-1.2 tokens keep full authority until rotated</p>
+<p>Migration <code>accounts/0026_pat_scopes</code> adds two nullable columns (<code>scopes</code>,
+<code>last_used_scope</code>) to personal access tokens for the new
+<a href="../../features/personal-access-tokens/#scopes">token scopes</a> feature. It is a
+metadata-only <code>AddField</code> migration with no backfill, so it is zero-downtime — but
+unlike the other 1.2 migrations, what it enables changes real request-time behavior:</p>
+<ul>
+<li><strong>Existing tokens keep working unchanged across the entire REST API</strong>, including the
+  admin endpoints if the owner is a site administrator. Their <code>scopes</code> column is <code>NULL</code>
+  ("legacy" authority), not an empty scope list, and upgrading does not narrow or break
+  a running integration.</li>
+<li><strong>Existing tokens are refused by the MCP server</strong>, which now requires the <code>mcp:read</code>
+  scope. Any MCP client authenticating with a pre-1.2 token stops connecting after the
+  upgrade — create a new token with <code>mcp:read</code> to reconnect it.</li>
+<li><strong>New tokens default to <code>["read", "write"]</code></strong> when <code>POST /api/v1/auth/tokens/</code> is
+  called without a <code>scopes</code> list — previously a newly created token silently carried
+  its owner's full authority, including <code>admin</code> for a site administrator. Any script or
+  pipeline that creates its own tokens and relies on that inherited admin authority must
+  now request the <code>admin</code> scope explicitly.</li>
+</ul>
+<p>See <a href="../../features/personal-access-tokens/#scopes">Personal Access Tokens → Scopes</a> for
+the full scope table and non-hierarchical scope semantics.</p>
+</div>
+<p>Migration <code>accounts/0028_admin_action_log</code> creates the <code>admin_action_logs</code> table for the new
+<a href="../admin-panel/">admin action log</a>, which records who changed maintenance mode, registration
+mode, or the uploads switch, and when. It is a single <code>CreateModel</code> (including its two
+indexes) against a brand-new table, so it needs no concurrent build and is zero-downtime.</p>
+<p>Migration <code>accounts/0029_site_email_settings</code> creates the <code>site_email_settings</code> singleton
+table backing <strong>Admin → Settings → Email</strong> and adds a <code>help_text</code>-only <code>AlterField</code> to
+<code>AdminActionLog.action</code> (no schema change). Every column defaults to a value equivalent to
+"unset," and <code>config_source</code> defaults to <code>env</code>, so an upgraded instance keeps reading SMTP
+settings from environment variables until an admin explicitly switches the source over in the
+UI (#306).</p>
+<p>Migration <code>accounts/0030_notification_email_preferences</code> adds five nullable-default boolean
+columns to the user table for per-event <a href="../../features/notifications/">email notifications</a>
+(<code>notif_stale</code> plus four <code>email_notif_*</code> toggles), all defaulting to <code>False</code>. A same-migration
+data backfill copies each user's existing <code>notif_due_soon</code> value into the new <code>notif_stale</code>
+column — before 1.2 that flag only ever gated staleness alerts, so this preserves everyone's
+existing opt-in under its new, more accurately named field. Companion migration
+<code>boards/0060_notification_due_soon_action_type</code> adds the <code>"due_soon"</code> value to
+<code>Notification.action_type</code>'s choices; <code>choices</code> is enforced by Django/DRF only, so this emits
+no DDL. One behavior change worth flagging to users, not the database: because
+<code>email_notif_due_soon</code> now drives the real due-date email, anyone who previously had <strong>Due
+date approaching</strong> on (which historically only produced staleness alerts) starts receiving the
+24-hour due-date email too — see the note in
+<a href="../../features/notifications/">Notifications</a> if you need to tell your users.</p>
+<p>Migration <code>boards/0052_board_show_wip_at_limit</code> adds one nullable-default boolean column
+(<code>show_wip_at_limit</code>) to <code>boards</code>. It is off by default, so existing boards render exactly as
+before; board admins opt in per board from <strong>Board Settings → Rules → Limit enforcement</strong>
+(#973).</p>
+<p>Migration <code>boards/0054_fix_board_template_drift</code> is a data migration that overwrites the
+<code>columns_json</code> (and adds the previously-missing <code>is_done</code> flags) on the built-in
+<code>BoardTemplate</code> rows, correcting two templates whose stored preview had drifted from what
+board creation actually produced (#1115). It touches only the template rows read by <code>GET
+/api/v1/boards/templates/</code> and by template selection at board-creation time — no existing
+board, column, or card is altered, since boards have no foreign key back to the template they
+were created from.</p>
+<p>Migration <code>boards/0055_add_card_board_updated_idx</code> adds a partial index on <code>Card(board,
+-updated_at)</code> backing the new <a href="../../api/cards/"><code>GET /api/v1/cards/</code></a> cross-board query
+endpoint (#1112). Unlike most 1.2 migrations, this one touches the existing, likely-large
+<code>cards</code> table — it uses <code>CREATE INDEX CONCURRENTLY</code> (via <code>visiban.db_operations</code>,
+<code>atomic = False</code>) specifically so it does not take a lock that blocks reads or writes while it
+builds, per the <a href="#zero-downtime-migration-rules">zero-downtime migration rules</a> above.</p>
+<p>Migration <code>boards/0056_board_event_feed</code> creates the <code>board_events</code> append-only table backing
+<code>GET /boards/{id}/events/</code>, the new <a href="../../api/events/">board change feed</a> that lets an
+external consumer resume after a dropped WebSocket instead of re-fetching <code>/full/</code> (#1114). It
+is a <code>CreateModel</code> of a brand-new table (both indexes built with it), so it needs no
+concurrent build. Nothing on <code>boards</code> or <code>cards</code> is touched. Events are retained for
+<code>BOARD_EVENT_RETENTION_DAYS</code> days (default 30) — see <code>prune_board_events</code> under
+<a href="../scheduled-jobs/">Scheduled Jobs</a> below.</p>
+<p>Migration <code>boards/0057_add_custom_fields</code> creates the <code>custom_field_definitions</code> and
+<code>custom_field_values</code> tables for the new <a href="../../features/custom-fields/">custom fields</a>
+feature (#371). Migration <code>boards/0058_add_card_relations</code> creates the <code>card_relations</code> table
+for the new <a href="../../features/card-relations/">card relations</a> (<strong>blocks</strong> / <strong>relates to</strong>)
+feature (#449). Migration <code>boards/0061_add_card_external_ref</code> creates the
+<code>card_external_refs</code> table for the new
+<a href="../../features/card-links/">pull/merge request link</a> feature (#352). All three are
+<code>CreateModel</code> operations — including their indexes, unique constraints, and check
+constraints — against brand-new tables, so none needs a concurrent build and none touches
+<code>boards</code> or <code>cards</code>. All three ship backend-only in 1.2 unless their linked feature page says
+otherwise.</p>
+<p>Migrations <code>git_lens/0001_initial</code> and <code>git_lens/0002_alter_lensconnection_column_dim</code>
+create the entirely new <code>git_lens</code> app and its <code>LensConnection</code> table for
+<a href="../../features/issue-board-lens/">Issue Board Lens</a> (experimental, off by default —
+enabled per instance with <code>GIT_LENS_ENABLED=true</code>). <code>0001</code> is a single <code>CreateModel</code>
+against a new table; <code>0002</code> only changes the <code>column_dim</code> field's Python-level default
+(<code>"status"</code> → <code>"pipeline"</code>), which is a state-only <code>AlterField</code> with no DDL. Neither
+migration touches <code>boards</code> or <code>cards</code>, and an instance that leaves <code>GIT_LENS_ENABLED</code> unset
+(the default) sees no behavior change from either.</p>
+<div class="admonition warning">
 <p class="admonition-title">Compose: <code>DOMAIN</code> must be listed in <code>ALLOWED_HOSTS</code></p>
 <p>The production Compose backend healthcheck now sends <code>Host: $DOMAIN</code> instead
 of <code>Host: localhost</code>. An install whose <code>ALLOWED_HOSTS</code> holds <code>localhost</code> or
