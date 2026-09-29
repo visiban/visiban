@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import BoardSettingsSwimlaneFieldsTab from '../components/Board/BoardSettingsSwimlaneFieldsTab'
+import SwimlaneFieldEditRow from '../components/Board/SwimlaneFieldEditRow'
 import { mergeSwimlaneFromBroadcast } from '../utils/swimlaneMerge'
 import type { BoardFull, Card, Column, Swimlane, SwimlaneCustomFieldDefinition, User } from '../types'
 
@@ -792,6 +793,54 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       const names = screen.getAllByTitle(/^(?!Edit|Delete)[AB]$/).map((n) => n.textContent)
       expect(names).toEqual(['A', 'B'])
     })
+  })
+})
+
+describe('SwimlaneFieldEditRow (#1140, #1236)', () => {
+  // #1236 — this row is a real consumer of CustomFieldValueInput distinct
+  // from CustomFieldEditRow: EditSwimlaneModal commits once behind an
+  // explicit Save button, not per keystroke, so SwimlaneFieldEditRow passes
+  // `debounceMs={0}` deliberately (see its own JSDoc). Prove the wiring:
+  // a value change reaches `onChange` immediately, with no timer pending.
+  it('a text field change reaches onChange immediately (debounceMs=0 contract)', () => {
+    vi.useFakeTimers()
+    const onChange = vi.fn()
+    render(<SwimlaneFieldEditRow definition={makeDef({ field_type: 'text' })} value="" onChange={onChange} />)
+    act(() => {
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'new owner' } })
+    })
+    expect(onChange).toHaveBeenCalledWith('new owner')
+    // Nothing pending — a debounce timer would still be queued here.
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
+  })
+
+  it('a checkbox field toggle reaches onChange immediately', () => {
+    const onChange = vi.fn()
+    render(
+      <SwimlaneFieldEditRow
+        definition={makeDef({ field_type: 'checkbox', name: 'Active' })}
+        value="false"
+        onChange={onChange}
+      />,
+    )
+    fireEvent.click(screen.getByRole('switch'))
+    expect(onChange).toHaveBeenLastCalledWith('true')
+  })
+
+  it('a dropdown field selection reaches onChange immediately', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SwimlaneFieldEditRow
+        definition={makeDef({ field_type: 'dropdown', name: 'Region', choices: ['East', 'West'] })}
+        value=""
+        onChange={onChange}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /— No value —/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'West' }))
+    expect(onChange).toHaveBeenCalledWith('West')
   })
 })
 
