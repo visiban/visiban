@@ -3433,6 +3433,52 @@ nightly-load-test:
     - when: manual
       allow_failure: true
 
+# ─── Scheduled — pipeline schedule configuration audit ─────────────────────────
+#
+# #1213: nightly-load-test above required a manual, one-time GitLab UI step
+# (CI/CD → Schedules → New schedule) that was never done, and nothing in this
+# repo asserted it existed — the schedule is GitLab project configuration,
+# not a file a diff touches. The gap sat unnoticed long enough for a real
+# ~40% p95 regression to ship undetected. Same failure shape as
+# check-release-images (#1074): config that lives outside the repo, that no
+# commit touches and no job goes red on, so the only way to notice it
+# drifting is to go and look, on a schedule.
+#
+# Derives the set of variables every `$CI_PIPELINE_SOURCE == "schedule" &&
+# $VAR == "true"` rule in this file actually needs (never hardcoded — same
+# reasoning as gate-selftest-parity) and fails, naming the variable, if no
+# *active* GitLab pipeline schedule sets it. See scripts/check-pipeline-schedules.sh
+# and docs/development/ci-gates.md.
+#
+# Runs on every scheduled pipeline, same slot check-release-images/
+# helm-install/helm-netpol already use, so this needs no new schedule of its
+# own to be exercised. Requires GITLAB_API_TOKEN (already configured for
+# suppressions-check) with at least Reporter access to read pipeline
+# schedules; fails open (warns, does not block) if that lookup is
+# inconclusive rather than report a false MISSING.
+#
+# SCHEDULE_AUDIT_ACCEPTED_GAPS below lists gaps #1213's own audit already
+# found and filed as #1232 — a documented, temporary exception (same shape as
+# check-release-images' ACCEPTED_GAPS), not a way to quiet this gate
+# permanently. Remove each entry as its schedule is created.
+schedule-config-check:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  variables:
+    # SUPPRESSED-UNTIL(#1232): dep-scan-osv, seed-demo-data's weekly refresh,
+    # and kaizen-yield-watch have never had a schedule configured either —
+    # filed as its own issue rather than fixed here so #1213 stays scoped to
+    # nightly-load-test. Remove each name as #1232 closes it.
+    SCHEDULE_AUDIT_ACCEPTED_GAPS: "OSV_SCAN SEED_SCHEDULE KAIZEN_YIELD_WATCH"
+  before_script:
+    - apk add --no-cache bash curl jq
+  script:
+    - bash scripts/check-pipeline-schedules.sh --self-test
+    - bash scripts/check-pipeline-schedules.sh
+
 # Runs on the gh-pages branch after docs-deploy pushes to it.
 # Copies the branch content to public/ for GitLab Pages to serve.
 # The job name must be exactly "pages" for GitLab Pages to pick it up.

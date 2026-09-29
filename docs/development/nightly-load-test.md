@@ -98,6 +98,16 @@ Configure once in GitLab: **CI/CD → Schedules → New schedule**
 The job can also be run manually at any time (advisory — `allow_failure: true` on the manual
 path only; the scheduled run is blocking) via "Run pipeline" or the job's manual play button.
 
+!!! warning "This step is easy to skip silently — #1213"
+    This is GitLab project configuration, not a file in this repo, so nothing in a diff or a
+    review catches it being missed. It *was* missed: the schedule above was never created
+    after this job merged, and the gap sat undetected until #1213 found it — by which point a
+    real ~40% p95 regression on `GET /boards/{id}/full/` had already shipped past it. The
+    `schedule-config-check` job (`scripts/check-pipeline-schedules.sh`) now asserts this
+    schedule (and every other `$CI_PIPELINE_SOURCE == "schedule" && $VAR == "true"` rule in
+    `.gitlab-ci.yml`) has an active GitLab schedule actually setting its variable, on every
+    scheduled pipeline run — see [CI gate self-tests](ci-gates.md).
+
 ## Budget derivation — the rule
 
 **Budgets are committed to the repo, in `backend/nightly-load-test-baseline.json`, and every
