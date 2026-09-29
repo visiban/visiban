@@ -524,16 +524,16 @@ kubectl port-forward -n visiban svc/visiban-backend 8000:8000
 # Then open http://localhost:8000/admin/
 ```
 
-**IP allowlist** — for persistent access from a bastion or VPN host, set `backend.settings.adminAllowedIPs` to a comma-separated list of IPs:
+**IP allowlist** — for persistent access from a bastion or VPN host, set `backend.settings.adminAllowedIPs` to a comma-separated list of IPs and/or CIDR ranges:
 
 ```bash
 helm upgrade visiban helm/visiban --reuse-values \
-  --set backend.settings.adminAllowedIPs="10.0.1.20,192.168.42.7"
+  --set backend.settings.adminAllowedIPs="10.0.0.0/8,192.168.42.7"
 ```
 
 The allowlist is enforced by both the frontend Nginx config and the Django `AdminIPRestrictionMiddleware` for defense in depth.
 
-**Watch out:** Nginx accepts CIDR ranges, but the Django middleware matches exact IPs only — a CIDR entry passes Nginx and is then rejected by Django with a 403. See [Secret Rotation](../administration/secret-rotation.md#helm).
+Both Nginx and the Django middleware accept CIDR ranges (e.g. `10.0.0.0/8`) as well as individual IPs for this value. See [Secret Rotation](../administration/secret-rotation.md#helm).
 
 ## Uninstalling
 

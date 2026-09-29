@@ -227,10 +227,12 @@ beyond loopback. The chart uses the one value in two places:
   (`helm/visiban/templates/_backend-env.tpl`), where it **replaces** the
   loopback default, as described above.
 
-**Watch out:** the backend middleware compares the client IP against each entry
-as an exact string. It does not parse CIDR ranges, so `10.0.0.0/8` matches no
-client and Django returns 403 even though Nginx let the request through. List
-individual IPs until CIDR support lands.
+Both layers accept CIDR ranges (e.g. `10.0.0.0/8`) as well as individual IPs —
+the backend middleware parses each entry with `ipaddress.ip_network()`, so a
+range that passes the Nginx allowlist is matched by Django too. An entry with
+host bits set (e.g. `10.0.0.5/24`) is normalized to its network address, and
+an unusually broad range (`/0` most of all) is logged as a warning at
+startup — both still take effect, for parity with Nginx.
 
 !!! warning
     Operators upgrading from a release prior to the v1.0 security hardening must apply the Nginx `/admin/` block manually if they manage the Nginx config outside of the bundled template. Add the following to the `/admin/` location block:

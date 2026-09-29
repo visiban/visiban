@@ -1,3 +1,5 @@
+import ipaddress
+import logging
 import os
 
 from django.conf import settings
@@ -12,14 +14,15 @@ from visiban.demo import (
 )
 from visiban.utils import get_client_ip
 
+logger = logging.getLogger(__name__)
 
 # Addresses trusted by default when no DJANGO_ADMIN_ALLOWED_IPS env var is set.
 # Loopback addresses only — matches both IPv4 and the IPv6 loopback.
-_LOOPBACK_IPS = {"127.0.0.1", "::1"}
+_LOOPBACK_IPS = ("127.0.0.1", "::1")
 
 
 class AdminIPRestrictionMiddleware:
-    """Block access to /admin/ for any IP not in the allowlist.
+    """Block access to /admin/ for any IP (or CIDR range) not in the allowlist.
 
     In DEBUG mode all IPs are allowed so local development is not affected.
     In production the allowlist is populated from the DJANGO_ADMIN_ALLOWED_IPS
@@ -29,27 +32,138 @@ class AdminIPRestrictionMiddleware:
     This provides defence-in-depth: the Nginx config already blocks external
     access to /admin/ at the network layer, but this middleware ensures that
     even if Nginx is misconfigured or bypassed the endpoint remains locked down.
+
+    Entries are parsed as IP *networks* (``ipaddress.ip_network(..., strict=False)``),
+    not exact strings: the Helm chart feeds the same
+    ``backend.settings.adminAllowedIPs`` value to both this middleware and the
+    frontend Nginx allowlist (`frontend-configmap.yaml`), and Nginx's
+    `geo`/`allow` directives already accept CIDR ranges there. A CIDR entry
+    that passes Nginx but is then rejected here (exact string match only) is a
+    silent misconfiguration that fails closed — the request is blocked rather
+    than leaked, but the allowlisted admin access an operator configured
+    simply does not work. Parsing as a network makes a bare IP and a CIDR
+    range behave identically (`ip_network("10.0.0.1", strict=False)` is a
+    single-address /32 or /128 network), so this is a strict superset of the
+    old exact-match behaviour.
+
+    ``strict=False`` is kept even though it silently normalizes a mistyped
+    entry with host bits set (`10.0.0.5/24` becomes `10.0.0.0/24`) — Nginx's
+    `geo` directive accepts the same host-bits-set entries, so rejecting them
+    here would break the parity the whole CIDR fix exists for. Both that case
+    and an unusually broad prefix (which could open `/admin/` to far more of
+    the internet than an operator intended, `/0` most of all) are instead
+    logged once at startup — see `_parse_allowed_networks`.
+
+    An IPv4-mapped IPv6 client address (`::ffff:10.0.0.1`, which a
+    dual-stack proxy can produce) is also tested against IPv4 entries: Python's
+    `IPv4Network.__contains__` returns False for such an address even though
+    it denotes the same host, so without this an IPv4 CIDR entry would never
+    match a client that arrived over the IPv6 socket. See `_is_allowed`.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
+        # Parsed once at process start, not per request: the env var does not
+        # change at runtime, and re-parsing on every /admin/ request would be
+        # pure waste on a hot path that already has to run before every other
+        # check.
+        self._allowed_networks = self._parse_allowed_networks()
+
+    @staticmethod
+    def _parse_allowed_networks():
+        allowed_ips_env = os.environ.get("DJANGO_ADMIN_ALLOWED_IPS", "")
+        entries = [ip.strip() for ip in allowed_ips_env.split(",") if ip.strip()]
+        if not entries:
+            entries = list(_LOOPBACK_IPS)
+
+        networks = []
+        for entry in entries:
+            try:
+                network = ipaddress.ip_network(entry, strict=False)
+            except ValueError:
+                # Logged once at startup, and deliberately WITHOUT any
+                # per-request client IP — this is the operator-supplied
+                # DJANGO_ADMIN_ALLOWED_IPS config value, not request data, so
+                # logging it here does not log a client IP.
+                logger.warning(
+                    "Ignoring invalid DJANGO_ADMIN_ALLOWED_IPS entry: %r", entry
+                )
+                continue
+
+            # strict=True raises exactly when the entry has host bits set
+            # (e.g. "10.0.0.5/24"), which strict=False above silently
+            # normalized to the network address ("10.0.0.0/24"). That
+            # normalization is intentional — see the class docstring — but a
+            # mistyped mask should not be silently different from what the
+            # operator typed, so it is logged once here.
+            try:
+                ipaddress.ip_network(entry, strict=True)
+            except ValueError:
+                logger.warning(
+                    "DJANGO_ADMIN_ALLOWED_IPS entry %r has host bits set; "
+                    "normalized to network %s",
+                    entry,
+                    network,
+                )
+
+            # A prefix broader than this is large enough that it is more
+            # likely a typo than an intentional allowlist — most of all a
+            # /0, which is every address on the internet.
+            broad = (network.version == 4 and network.prefixlen < 8) or (
+                network.version == 6 and network.prefixlen < 32
+            )
+            if broad:
+                if network.prefixlen == 0:
+                    logger.warning(
+                        "DJANGO_ADMIN_ALLOWED_IPS entry %r is /0 — this "
+                        "allows every IPv%s address to reach /admin/.",
+                        entry,
+                        network.version,
+                    )
+                else:
+                    logger.warning(
+                        "DJANGO_ADMIN_ALLOWED_IPS entry %r resolves to the "
+                        "unusually broad network %s; double-check this is "
+                        "intentional.",
+                        entry,
+                        network,
+                    )
+
+            networks.append(network)
+        return networks
 
     def __call__(self, request):
         if request.path.startswith("/admin/") and not getattr(settings, "DEBUG", False):
-            allowed_ips_env = os.environ.get("DJANGO_ADMIN_ALLOWED_IPS", "")
-            if allowed_ips_env.strip():
-                allowed_ips = {ip.strip() for ip in allowed_ips_env.split(",") if ip.strip()}
-            else:
-                allowed_ips = _LOOPBACK_IPS
-
             client_ip = get_client_ip(request)
-            if client_ip not in allowed_ips:
+            if not self._is_allowed(client_ip):
                 return HttpResponseForbidden(
                     "Access to the admin interface is restricted. "
                     "Set DJANGO_ADMIN_ALLOWED_IPS to grant access."
                 )
 
         return self.get_response(request)
+
+    def _is_allowed(self, client_ip: str) -> bool:
+        try:
+            address = ipaddress.ip_address(client_ip)
+        except ValueError:
+            # An unparseable client IP (e.g. get_client_ip()'s "unknown"
+            # fallback, or a malformed X-Forwarded-For entry) fails closed
+            # rather than being compared against the allowlist as a string.
+            return False
+
+        # An IPv4-mapped IPv6 address is the same host as its IPv4 form, so
+        # it must also be checked against IPv4 allowlist entries.
+        candidates = [address]
+        ipv4_mapped = getattr(address, "ipv4_mapped", None)
+        if ipv4_mapped is not None:
+            candidates.append(ipv4_mapped)
+
+        return any(
+            candidate in network
+            for candidate in candidates
+            for network in self._allowed_networks
+        )
 
 
 # ---------------------------------------------------------------------------
