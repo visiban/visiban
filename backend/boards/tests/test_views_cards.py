@@ -827,6 +827,21 @@ class CardBoardScopingTests(TestCase):
         self.assertEqual(self.card.title, "Renamed")
 
     @patch(PATCH_BROADCAST)
+    def test_update_card_echoing_current_position_as_float_accepted(self, _):
+        """An unchanged position sent as `5.0` (a different JSON encoding of the
+        same value, e.g. `0.0` here) must not be misreported as a real change
+        — the comparison normalizes both sides to int (security-review finding
+        on #1275)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"position": float(self.card.position), "title": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.title, "Renamed")
+
+    @patch(PATCH_BROADCAST)
     def test_move_endpoint_still_changes_position(self, _):
         """The dedicated move endpoint must still be able to change position —
         only the plain PATCH/PUT bypass is closed."""
