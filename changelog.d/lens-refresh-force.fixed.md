@@ -1,1 +1,0 @@
-The Refresh button on an issue board lens now forces a re-fetch of the latest upstream issues (and updates the "Synced … ago" time), instead of being served the still-fresh cached copy within the cache's soft-TTL window.

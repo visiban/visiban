@@ -374,7 +374,7 @@ CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alert
 
 # App version — pin to a release tag of the form vX.Y.Z (see CHANGELOG.md);
 # the bare X.Y.Z form is not published on GHCR and the pull will fail.
-APP_VERSION=v1.1.0
+APP_VERSION=v1.2.0-alpha.1
 ```
 
 !!! tip "Using `TLS_MODE=none` behind an external load balancer"
