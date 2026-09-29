@@ -69,8 +69,13 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
     setError(null);
     setSaved(false);
     try {
+      // Only send `email` when it was edited. On EMAIL_VERIFICATION=mandatory
+      // installs, sending the current address back withdraws a pending email
+      // change (#1273), so an unrelated profile save must not include it.
+      const { email, ...rest } = form;
       const updated = await updateCurrentUser({
-        ...form,
+        ...rest,
+        ...(email !== (user.email ?? "") ? { email } : {}),
         timezone: form.timezone || browserTimezone(),
         date_format: form.date_format,
         time_format: form.time_format,

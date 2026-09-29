@@ -246,6 +246,29 @@ describe('ProfileTab', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  it('omits an unchanged email from the save, so a pending change is not withdrawn', async () => {
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    const user = userEvent.setup()
+    renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
+    expect(mockUpdateCurrentUser.mock.calls[0][0]).not.toHaveProperty('email')
+  })
+
+  it('sends the email when it was edited', async () => {
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    const user = userEvent.setup()
+    renderSettings()
+    const emailInput = screen.getByDisplayValue('j@example.com')
+    await user.clear(emailInput)
+    await user.type(emailInput, 'other@example.com')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'other@example.com' }),
+    )
+  })
+
   it('shows the pending-confirmation notice on load', () => {
     renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
     expect(screen.getByText(/we sent a link to new@example\.com/)).toBeInTheDocument()

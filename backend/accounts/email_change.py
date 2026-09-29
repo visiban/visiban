@@ -78,10 +78,27 @@ def get_pending_email(user) -> str | None:
     if user.pending_email_address_id is None:
         return None
     return (
-        EmailAddress.objects.filter(pk=user.pending_email_address_id, verified=False)
+        # Scoped to the user as well as the pk: if the row were ever reassigned to
+        # another account (e.g. by an admin), it must not surface here.
+        EmailAddress.objects.filter(
+            pk=user.pending_email_address_id, user_id=user.pk, verified=False
+        )
         .values_list("email", flat=True)
         .first()
     )
+
+
+def cancel_email_change(user) -> None:
+    """Withdraw ``user``'s pending email change, if any.
+
+    Reached by PATCHing ``email`` back to the current address: the tracked row
+    is deleted (so its link stops working) and the pointer cleared.
+    """
+    if user.pending_email_address_id is None:
+        return
+    with transaction.atomic():
+        _drop_tracked_row(user)
+        _set_pending_pointer(user, None)
 
 
 def request_email_change(request, user, new_email: str) -> bool:

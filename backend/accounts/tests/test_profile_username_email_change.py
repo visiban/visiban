@@ -346,6 +346,63 @@ class MandatoryEmailChangeTests(TestCase):
         self.assertIsNone(self.user.pending_email_address_id)
         self.assertIsNone(self.client.get("/api/v1/auth/me/").json()["pending_email"])
 
+    def test_stale_pointer_to_a_confirmed_row_does_not_delete_it(self):
+        # (a) The first link is confirmed, then a second request arrives while
+        # the pointer still names that (now verified, primary) row.
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@first.example"}, format="json")
+        first = EmailAddress.objects.get(user=self.user, email="erin@first.example")
+        self._confirm(first)
+        User.objects.filter(pk=self.user.pk).update(pending_email_address=first)
+        # force_authenticate reuses this object; reload it as a real request would.
+        self.user.refresh_from_db()
+        r = self.client.patch("/api/v1/auth/me/", {"email": "erin@second.example"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        first.refresh_from_db()
+        self.assertTrue(first.verified)
+        self.assertTrue(first.primary)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "erin@first.example")
+
+    def test_tracked_row_verified_elsewhere_survives_a_new_request(self):
+        # (b) e.g. an admin marks the tracked row verified in Django admin.
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@first.example"}, format="json")
+        first = EmailAddress.objects.get(user=self.user, email="erin@first.example")
+        EmailAddress.objects.filter(pk=first.pk).update(verified=True)
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@second.example"}, format="json")
+        self.assertTrue(EmailAddress.objects.filter(pk=first.pk, verified=True).exists())
+
+    def test_pending_email_is_scoped_to_the_user(self):
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@new.example"}, format="json")
+        other = User.objects.create_user(username="oscar", email="oscar@example.com")
+        # An admin reassigns the tracked row; the stale pointer must not leak it.
+        EmailAddress.objects.filter(email="erin@new.example").update(user=other)
+        self.assertIsNone(self.client.get("/api/v1/auth/me/").json()["pending_email"])
+        # Nor may a later request delete the other user's row through it.
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@newer.example"}, format="json")
+        self.assertTrue(EmailAddress.objects.filter(user=other, email="erin@new.example").exists())
+
+    def test_setting_email_back_to_current_withdraws_the_pending_change(self):
+        for n, url in enumerate(PROFILE_ENDPOINTS):
+            with self.subTest(url=url):
+                new = f"erin{n}@withdraw.example"
+                self.client.patch(url, {"email": new}, format="json")
+                row = EmailAddress.objects.get(user=self.user, email=new)
+                r = self.client.patch(url, {"email": "ERIN@old.example"}, format="json")
+                self.assertEqual(r.status_code, status.HTTP_200_OK)
+                self.assertIsNone(r.json()["pending_email"])
+                self.assertEqual(r.json()["email"].lower(), "erin@old.example")
+                self.assertFalse(EmailAddress.objects.filter(pk=row.pk).exists())
+                self.user.refresh_from_db()
+                self.assertIsNone(self.user.pending_email_address_id)
+                # The withdrawn link no longer does anything.
+                self.assertNotEqual(self._confirm(row).status_code, status.HTTP_200_OK)
+                self.assertTrue(EmailAddress.objects.filter(pk=self.old_address.pk).exists())
+
+    def test_patch_without_email_keeps_the_pending_change(self):
+        self.client.patch("/api/v1/auth/me/", {"email": "erin@new.example"}, format="json")
+        r = self.client.patch("/api/v1/auth/me/", {"first_name": "E"}, format="json")
+        self.assertEqual(r.json()["pending_email"], "erin@new.example")
+
     def test_signup_confirmation_is_unaffected(self):
         # A primary-but-unverified signup address confirms as before.
         self.old_address.verified = False

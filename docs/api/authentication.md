@@ -676,7 +676,8 @@ Update the authenticated user's profile. All fields are optional.
 - `email` in the response (and on the account) is **unchanged**, so it's still the address used for login, password resets, and notification email.
 - `pending_email` in the response holds the new address, and a confirmation link is emailed to it.
 - The address switches when the link is confirmed through `POST /api/v1/auth/registration/verify-email/` (the link opens the SPA's `/confirm-email/<key>` page, which calls it). `pending_email` then returns to `null`, and the old address is removed from the account.
-- Requesting another address before confirming replaces the pending one, and the earlier link stops working. Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works.
+- Requesting another address before confirming replaces the pending one, and the earlier link normally stops working (two `PATCH` requests racing each other can leave both links usable, and whichever is confirmed wins). Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works.
+- Sending `email` equal to the current address (ignoring case) while a change is pending **withdraws** it: `pending_email` returns to `null` and the pending link stops working. A `PATCH` that omits `email` leaves a pending change alone, so clients should send `email` only when the user edited it.
 - Choosing an address that is already a verified address of your own account applies it immediately.
 - An address already verified by another account can't be confirmed.
 - `pending_email` only reflects a change requested through this endpoint. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never reported as pending, and they're not removed by a change request or its confirmation.

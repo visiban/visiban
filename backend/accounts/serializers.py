@@ -391,23 +391,31 @@ class UserSerializer(serializers.ModelSerializer):
         - A changed email under ``EMAIL_VERIFICATION=mandatory`` is not written to
           ``User.email``; it becomes a pending change confirmed by email (see
           accounts/email_change.py). Otherwise it is written directly, as before.
+        - Under ``mandatory``, sending the current address back while a change is
+          pending withdraws that change.
         """
         from django.db import IntegrityError, transaction
 
-        from .email_change import email_verification_mandatory, request_email_change
+        from .email_change import (
+            cancel_email_change,
+            email_verification_mandatory,
+            request_email_change,
+        )
 
         new_username = validated_data.get("username")
         if new_username is not None and new_username != instance.username:
             validated_data["must_change_username"] = False
 
         pending_email = None
+        cancel_pending = False
         new_email = validated_data.get("email")
-        if (
-            new_email
-            and new_email.lower() != (instance.email or "").lower()
-            and email_verification_mandatory()
-        ):
-            pending_email = validated_data.pop("email")
+        if new_email and email_verification_mandatory():
+            if new_email.lower() != (instance.email or "").lower():
+                pending_email = validated_data.pop("email")
+            elif instance.pending_email_address_id is not None:
+                # Setting the email back to the current address withdraws a
+                # change that is still awaiting confirmation.
+                cancel_pending = True
 
         try:
             with transaction.atomic():
@@ -422,6 +430,8 @@ class UserSerializer(serializers.ModelSerializer):
         if pending_email is not None:
             request_email_change(self.context.get("request"), instance, pending_email)
             instance.refresh_from_db(fields=["email"])
+        elif cancel_pending:
+            cancel_email_change(instance)
         return instance
 
     class Meta:
