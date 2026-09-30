@@ -272,6 +272,88 @@ describe('BoardSettingsModal — Members tab', () => {
   })
 })
 
+// ─── Member-row lock keyed on the member's is_site_admin (#1290) ───────────
+
+describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
+  // A real site admin holding an ordinary explicit membership: role "member".
+  const siteAdminMember = {
+    id: 12,
+    user: { id: 3, username: 'root', display_name: 'Root Admin', avatar_url: '' },
+    role: 'member' as const,
+    is_moderator: false,
+    is_site_admin: true,
+    joined_at: '',
+  }
+  // All-content access without site-admin status: synthesized role "site_admin".
+  const allContentMember = {
+    id: null,
+    user: { id: 4, username: 'auditor', display_name: 'Audit Reader', avatar_url: '' },
+    role: 'site_admin' as const,
+    is_moderator: false,
+    is_site_admin: false,
+    joined_at: '',
+  }
+  const lockBoard: BoardFull = {
+    ...fakeBoard,
+    members: [
+      { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+      siteAdminMember,
+      allContentMember,
+    ],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('locks a site-admin member with an explicit membership for a non-site-admin caller', () => {
+    render(<BoardSettingsModal board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
+    // Two dropdowns: the caller's own row and the all-content row. The
+    // site-admin member's row is static text with no dropdown.
+    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    const locked = screen.getByTitle('Site administrator — role managed at the instance level')
+    expect(locked).toHaveTextContent('member')
+    // One remove button: the site-admin row has none, the all-content row has
+    // no membership row to remove (id null).
+    expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
+    // No moderator checkbox on the locked row either — only the admin's row.
+    expect(screen.getAllByText('Moderator')).toHaveLength(1)
+  })
+
+  it('leaves an all-content member (role "site_admin", not a site admin) editable', async () => {
+    const user = userEvent.setup()
+    mockSetBoardMember.mockResolvedValue({ ...allContentMember, id: 13, role: 'viewer' })
+    render(<BoardSettingsModal board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
+    const dropdown = screen.getByText('Site admin').closest('button') as HTMLButtonElement
+    expect(dropdown).not.toBeDisabled()
+    await user.click(dropdown)
+    await user.click(screen.getByRole('option', { name: 'Viewer' }))
+    await waitFor(() => {
+      expect(mockSetBoardMember).toHaveBeenCalledWith(lockBoard.id, allContentMember.user.id, 'viewer')
+    })
+  })
+
+  it('falls back to the role and stays locked when a row has no is_site_admin key', () => {
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 10, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },
+        { id: null, user: { id: 5, username: 'legacy', display_name: 'Legacy Admin', avatar_url: '' }, role: 'site_admin', is_moderator: false, joined_at: '' },
+      ],
+    }
+    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getByText('site admin')).toBeInTheDocument()
+  })
+
+  it('unlocks a site-admin member when the caller is a site admin', () => {
+    render(<BoardSettingsModal board={lockBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getAllByRole('combobox')).toHaveLength(3)
+    expect(screen.queryByTitle('Site administrator — role managed at the instance level')).toBeNull()
+    expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(2)
+  })
+})
+
 // ─── Add-member flow (in Members tab) ──────────────────────────────────────
 
 // Helper to stage a user. Uses fake timers + manual debounce advance.

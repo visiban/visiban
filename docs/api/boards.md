@@ -869,6 +869,8 @@ Add or update a board member. Requires board admin. Cannot modify a site admin's
 
 **Visibility of `is_moderator` in board responses (since 1.1; self-row exception since 1.2):** the `is_moderator` field is included in the `members` array of `GET /api/v1/boards/{id}/full/` for `admin` and `site_admin` requesters, on every row. A lower-role requester (`member`, `collaborator`, `viewer`) receives the field only on the row belonging to themselves — so a member promoted to moderator can see their own entitlement — and every other row omits it. This endpoint's own response always carries the field, since it requires board admin. The `member.added` / `member.updated` WebSocket broadcast and the [change feed](events.md) apply the identical self-row rule per recipient (#1191): the subscriber's/reader's own row always carries the field, every other non-admin-visible row omits it.
 
+**`is_site_admin` on member rows (since 1.2):** each row in the `members` array of `GET /api/v1/boards/{id}/full/`, this endpoint's response, and the `member.added` / `member.updated` WebSocket broadcast and [change feed](events.md) carries a boolean `is_site_admin` — the member's instance-level site-admin flag, the same flag this endpoint and `DELETE` below check. Use it, not `role`, to decide whether a row can be edited: `role: "site_admin"` means the member has `can_access_all_content`, which is a separate flag. The field is present only for `admin` and `site_admin` requesters, subscribers and readers, and there is no self-row exception (read your own flag from `/api/v1/auth/me/`). It is never added to the nested `user` object.
+
 ### `DELETE /api/v1/boards/{id}/members/{user_id}/`
 Remove a member. Requires board admin. Cannot remove a site admin.
 

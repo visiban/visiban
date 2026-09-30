@@ -284,6 +284,9 @@ class BoardFullMembersSchemaTests(TestCase):
         )
         # Omitted for requesters below admin (#920), so it must not be required.
         self.assertNotIn("is_moderator", self.components["EffectiveBoardMember"]["required"])
+        # Likewise omitted for requesters below admin (#1290).
+        self.assertIn("is_site_admin", props)
+        self.assertNotIn("is_site_admin", self.components["EffectiveBoardMember"]["required"])
 
     def test_members_endpoint_keeps_the_strict_membership_schema(self):
         op = self.schema["paths"]["/api/v1/boards/{id}/members/"]["post"]
@@ -333,6 +336,8 @@ class BoardFullMembersSchemaTests(TestCase):
         self.assertFalse(own_row["is_moderator"])
         other_rows = [m for m in body["members"] if m["user"]["username"] != "viewer"]
         self.assertTrue(all("is_moderator" not in m for m in other_rows))
+        # is_site_admin has no self-row exception (#1290).
+        self.assertTrue(all("is_site_admin" not in m for m in body["members"]))
         self._validate(body, self._response_schema())
 
     def test_synthesized_rows_do_not_fit_the_strict_membership_schema(self):
@@ -369,14 +374,17 @@ class BoardFullMembersSchemaTests(TestCase):
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")
         by_user = {m["user"]["username"]: m for m in body["members"]}
+        # `is_site_admin` is an additive row field (#1290), present for an
+        # admin requester like this one.
+        row_keys = ["id", "is_moderator", "is_site_admin", "joined_at", "role", "user"]
         self.assertEqual(
             {name: (row["id"] is None, row["role"], sorted(row)) for name, row in by_user.items()},
             {
-                "direct": (False, "admin", ["id", "is_moderator", "joined_at", "role", "user"]),
-                "viewer": (False, "viewer", ["id", "is_moderator", "joined_at", "role", "user"]),
-                "inherited": (True, "member", ["id", "is_moderator", "joined_at", "role", "user"]),
-                "owner": (True, "admin", ["id", "is_moderator", "joined_at", "role", "user"]),
-                "siteadmin": (True, "site_admin", ["id", "is_moderator", "joined_at", "role", "user"]),
+                "direct": (False, "admin", row_keys),
+                "viewer": (False, "viewer", row_keys),
+                "inherited": (True, "member", row_keys),
+                "owner": (True, "admin", row_keys),
+                "siteadmin": (True, "site_admin", row_keys),
             },
         )
         self.assertIs(by_user["direct"]["is_moderator"], True)

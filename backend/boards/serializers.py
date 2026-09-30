@@ -20,6 +20,7 @@ from groups.serializers import GroupBriefSerializer
 from .permissions import (
     MODERATOR_BEARING_EVENTS,
     moderator_field_visible,
+    site_admin_field_visible,
 )
 
 from .models import (
@@ -43,10 +44,21 @@ class BoardTemplateSerializer(serializers.ModelSerializer):
 
 class BoardMembershipSerializer(serializers.ModelSerializer):
     user = BoardUserSerializer(read_only=True)
+    # The member's instance-level site-admin flag (#1290). A sibling of
+    # ``role`` rather than a field on the nested ``user``, because
+    # BoardUserSerializer is embedded in every board payload (assignees,
+    # comment authors, ...) and must stay limited to its public fields.
+    # Stripped below for viewers below admin — see site_admin_field_visible().
+    # Reading it costs no query: ``user`` is already loaded for BoardUserSerializer.
+    is_site_admin = serializers.BooleanField(
+        source="user.is_site_admin", read_only=True,
+        help_text="Whether the member is a site administrator. Present only "
+                  "when the requesting user is a board admin or site admin.",
+    )
 
     class Meta:
         model = BoardMembership
-        fields = ["id", "user", "role", "is_moderator", "joined_at"]
+        fields = ["id", "user", "role", "is_moderator", "is_site_admin", "joined_at"]
 
     def to_representation(self, instance):
         """Strip ``is_moderator`` from the response when the requesting user is
@@ -91,6 +103,8 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
             viewer_id = request.user.id if request and request.user.is_authenticated else None
             if not moderator_field_visible(role, viewer_id, instance.user_id):
                 data.pop("is_moderator", None)
+            if not site_admin_field_visible(role):
+                data.pop("is_site_admin", None)
         return data
 
 
@@ -153,7 +167,13 @@ class BoardEventSerializer(serializers.ModelSerializer):
                 subject = payload.get("user")
                 subject_user_id = subject.get("id") if isinstance(subject, dict) else None
                 if not moderator_field_visible(role, reader_id, subject_user_id):
-                    data["data"] = {k: v for k, v in payload.items() if k != "is_moderator"}
+                    payload = {k: v for k, v in payload.items() if k != "is_moderator"}
+                    data["data"] = payload
+            # ``is_site_admin`` (#1290) follows the socket's rule too: admin /
+            # site_admin readers only, failing closed on an unknown role.
+            if isinstance(payload, dict) and "is_site_admin" in payload:
+                if not site_admin_field_visible(role):
+                    data["data"] = {k: v for k, v in payload.items() if k != "is_site_admin"}
         return data
 
 
@@ -2293,6 +2313,13 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
         help_text="Present when the requesting user is an admin or site admin, "
                   "or on the row belonging to the requesting user themselves.",
     )
+    # Same reason as is_moderator for not being read_only: get_members() omits
+    # it for viewers below admin (#1290). No self-row exception.
+    is_site_admin = serializers.BooleanField(
+        required=False,
+        help_text="Whether the member is a site administrator. Present only "
+                  "when the requesting user is a board admin or site admin.",
+    )
     joined_at = serializers.DateTimeField(read_only=True)
 
 
@@ -2454,7 +2481,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         if site_admin_users is None:
             site_admin_users = list(
                 User.objects.filter(can_access_all_content=True).only(
-                    "id", "username", "display_name", "avatar_url"
+                    "id", "username", "display_name", "avatar_url", "is_site_admin"
                 )
             )
             self.context["_site_admin_users"] = site_admin_users
@@ -2566,7 +2593,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
             from accounts.models import User as _User
             site_admin_users = list(
                 _User.objects.filter(can_access_all_content=True).only(
-                    "id", "username", "display_name", "avatar_url"
+                    "id", "username", "display_name", "avatar_url", "is_site_admin"
                 )
             )
             self.context["_site_admin_users"] = site_admin_users
@@ -2609,6 +2636,13 @@ class BoardFullSerializer(serializers.ModelSerializer):
             # of the rule (#1191).
             if moderator_field_visible(viewer_role, requesting_user_id, entry["user"].pk):
                 row["is_moderator"] = entry["is_moderator"]
+            # The member-controls lock signal (#1290), keyed on the real flag
+            # the members endpoints check rather than on ``role`` (which says
+            # ``site_admin`` for can_access_all_content, a different flag).
+            # ``is_site_admin`` is in the .only() list of the site-admin query
+            # above, so this never triggers a deferred-field load.
+            if site_admin_field_visible(viewer_role):
+                row["is_site_admin"] = entry["user"].is_site_admin
             result.append(row)
         return result
 

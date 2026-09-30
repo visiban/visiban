@@ -184,6 +184,13 @@ export interface BoardMembership {
   role: BoardRole;
   /** Omitted for a requester below admin/site_admin (#920) — not always present. */
   is_moderator?: boolean;
+  /**
+   * The member's instance-level site-admin flag (#1290) — the signal the
+   * member endpoints use to lock a row. Not the same as `role: "site_admin"`,
+   * which reflects all-content access. Omitted for a requester below
+   * admin/site_admin, with no self-row exception.
+   */
+  is_site_admin?: boolean;
   joined_at: string;
 }
 
@@ -201,6 +208,13 @@ export interface EffectiveBoardMember {
   role: BoardOrSiteRole;
   /** Omitted for a requester below admin/site_admin (#920) — not always present. */
   is_moderator?: boolean;
+  /**
+   * The member's instance-level site-admin flag (#1290) — the signal the
+   * member endpoints use to lock a row. Not the same as `role: "site_admin"`,
+   * which reflects all-content access. Omitted for a requester below
+   * admin/site_admin, with no self-row exception.
+   */
+  is_site_admin?: boolean;
   joined_at: string;
 }
 
