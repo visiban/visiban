@@ -251,13 +251,39 @@ export interface Swimlane {
    * `is_admin_only` is absent here entirely for members and viewers, so there
    * is nothing to hide client-side.
    *
-   * Optional for the same reason `contact_email` and `notes` are: the
-   * anonymous share-link serializer (`PublicSwimlaneSerializer`) omits the key
-   * entirely rather than sending an empty list, so a `BoardPublic` swimlane
-   * genuinely has no such property. Read a missing value as "not visible to
-   * me", never as "this row has none".
+   * Optional defensively: every serializer that reaches this interface today
+   * (`SwimlaneSerializer`, `SwimlaneAdminSerializer`) always emits the key, so
+   * nothing currently omits it. It used to be optional for a real reason —
+   * the anonymous share-link serializer (`PublicSwimlaneSerializer`) omits it
+   * entirely — but as of #1296 `BoardPublic.swimlanes` is typed
+   * `PublicSwimlane[]`, a dedicated interface, so that reason no longer
+   * applies to `Swimlane` itself. Left `?` rather than tightened, since
+   * narrowing an existing field's optionality is out of scope for the gate
+   * fix that prompted this comment. Read a missing value as "not visible to
+   * me", never as "this row has none", if a future variant does omit it.
    */
   custom_field_values?: SwimlaneCustomFieldValue[];
+}
+
+/**
+ * Swimlane shape served to unauthenticated share-link visitors
+ * (`PublicSwimlaneSerializer`, nested on `BoardPublic.swimlanes`, #1140,
+ * #1296). Deliberately narrower than `Swimlane`, not a partial view of it:
+ * `contact_email`, `notes`, and `custom_field_values` are never present, not
+ * merely hidden, because a share-link visitor is unauthenticated and the
+ * board owner may not know who they are — the same reasoning
+ * `PublicCard` applies to card values. Previously `BoardPublic.swimlanes`
+ * was mistyped as the wider `Swimlane[]`, which the array-item-type check
+ * added in #1296 (`scripts/check-serializer-ts-parity.py`) now catches.
+ */
+export interface PublicSwimlane {
+  id: number;
+  uid: string;
+  name: string;
+  position: number;
+  color: string;
+  is_collapsed: boolean;
+  created_at: string;
 }
 
 export interface Label {
@@ -510,7 +536,7 @@ export interface Notification {
   board_id: number | null;
   board_name: string | null;
   // Backend enforces blank=False with ActionType choices — '' is not a valid value post-migration 0041.
-  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | 'due_soon';
+  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | 'due_soon' | 'comment_added';
   read: boolean;
   created_at: string;
 }
@@ -946,7 +972,7 @@ export interface BoardPublic {
   // to avoid leaking internal board configuration to anonymous share-link visitors.
   // is_stale is computed server-side so the client does not need the threshold value.
   columns: Column[];
-  swimlanes: Swimlane[];
+  swimlanes: PublicSwimlane[];
   labels: Label[];
   cards: PublicCard[];
 }

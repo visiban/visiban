@@ -10,7 +10,7 @@ change.**
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
 | `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **15** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
-| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282 + #1294, this page) | The **generated OpenAPI document** | **44** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
+| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282 + #1294 + #1296, this page) | The **generated OpenAPI document** | **45** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership, **array item types** |
 
 Neither supersedes the other, and a green run of one says nothing about the other. Through
 #1139 the coverage gap was a structural one — #821 reached two pairs this gate could not,
@@ -59,7 +59,7 @@ The job regenerates the OpenAPI schema with `drf-spectacular` — the same comma
 `backend-schema-validate` runs, and for the same reason it needs no database — and compares
 its components against the hand-written interfaces.
 
-Six kinds of mismatch are reported:
+Seven kinds of mismatch are reported:
 
 | Check | Fires when |
 |---|---|
@@ -69,15 +69,37 @@ Six kinds of mismatch are reported:
 | `untyped_schema` | The schema declares no resolvable type at all — a `JSONField` or bare `Field` reaching the client as `unknown` |
 | `nullability` | One side admits `null` and the other does not |
 | `enum_members` | Both resolve to a set of string values and the sets differ |
+| `array_item_type` | Both sides are arrays, the schema's `items` is a `$ref` to a component `COMPONENT_MAP` itself maps, and the TypeScript element type names a *different* mapped interface (#1296) |
 
 A check is **skipped, never guessed**, when either side cannot be classified confidently. An
 unresolvable TypeScript alias produces no finding rather than a false one. Optional fields
 (`x?: T`) are exempt from the nullability check, because in this codebase `?` already carries
 the "only present under some conditions" meaning — an `?expand=` payload, for instance.
 
+`array_item_type` is deliberately narrow, not a general structural recursion into array
+elements. Every check above reduced an array field to the single family `array` on both sides
+and stopped, which missed real drift: `BoardPublic.swimlanes` was typed `Swimlane[]` while the
+serializer's `items` schema was a `$ref` to `PublicSwimlane`, a narrower shape (#1140) that
+deliberately drops `custom_field_values`, `contact_email`, and `notes`. Every array-typed field
+on all 44 pairs mapped before #1296 had this blind spot. The check only fires when *both* sides
+name something comparable:
+
+- The schema's `items` must resolve to a direct `$ref` (optionally through one level of `allOf`
+  wrapping — the same shape `_unwrap_schema` already follows for a plain field). An inline item
+  schema or a primitive item has no name to compare and is left to the outer `array`-vs-`array`
+  check.
+- That `$ref`'s component name must itself be a `COMPONENT_MAP` key — the same map the whole
+  gate is keyed on, so there is no second table for "what should this item be". If the item's
+  component is **not** mapped, the check is silently skipped, the same "skip, don't guess" rule
+  every other check here follows — see [What is not covered, and why](#what-is-not-covered-and-why)
+  for what that specific gap means in practice.
+- On the TypeScript side, only a bare capitalised identifier before `[]` (or inside
+  `Array<...>`) counts as a named element type; an inline object literal or a primitive element
+  is skipped the same way an unmapped schema item is.
+
 ## Coverage
 
-`COMPONENT_MAP` in the script is authoritative. As of #1282 it is:
+`COMPONENT_MAP` in the script is authoritative. As of #1296 it is:
 
 | Schema component | TypeScript interface | Also name-checked by #821 |
 |---|---|---|
@@ -118,6 +140,7 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `PublicAssignee` | `PublicAssignee` | no |
 | `PublicBoard` | `BoardPublic` | no |
 | `PublicCard` | `PublicCard` | no |
+| `PublicSwimlane` | `PublicSwimlane` | no |
 | `SavedFilter` | `SavedFilter` | no |
 | `ShareBoardResponse` | `ShareActionResponse` | no |
 | `SiteConfig` | `SiteConfig` | no |
@@ -160,10 +183,17 @@ A later pass of this same audit found a fifth, different-shaped miss: `PublicBoa
 not covered, and why" below — but `BoardPublic` in `frontend/src/types/index.ts` is exactly
 that shape, just under a renamed name, the same pattern as `CurrentUser`/`User`. That was a
 documentation error, not a structural gap, and #1282 fixed the record and mapped the pair.
-`BoardPublic.swimlanes` is typed `Swimlane[]` rather than a dedicated `PublicSwimlane[]`, but
-this gate's array check compares only the outer `array` family and does not recurse into item
-shapes, so that looseness produces no finding and needed no suppression — see `PublicSwimlane`
-below for the honest accounting of that specific gap, tracked in #1296.
+`BoardPublic.swimlanes` was typed `Swimlane[]` rather than a dedicated `PublicSwimlane[]` at the
+time, and this gate's array check then compared only the outer `array` family and did not
+recurse into item shapes, so that looseness produced no finding and needed no suppression.
+#1296 closed the gap on both sides: it added an `array_item_type` check (see
+[What it checks](#what-it-checks)) that follows a schema array's `items` `$ref` and compares it
+against the TypeScript element type, and it gave the public swimlane shape its own
+`PublicSwimlane` interface (matching `PublicSwimlaneSerializer` exactly — see
+[What is not covered, and why](#what-is-not-covered-and-why) for why that pair was excluded
+before) so `BoardPublic.swimlanes` could be correctly typed `PublicSwimlane[]` and the new check
+had something correct to compare it against. `PublicSwimlane` is now mapped in
+[Coverage](#coverage) above.
 
 #1294 closed the structural gap the reverse sweep found (see
 [What is not covered, and why](#what-is-not-covered-and-why) below): twelve of the thirteen
@@ -248,17 +278,26 @@ can fix:
 |---|---|
 | `LensConnection` (`LensConnectionSerializer`, `LensConnectionView`, `backend/git_lens/`) | The `git_lens` app — and every one of its URLs, including `LensConnectionView` — is only installed/routed when `GIT_LENS_ENABLED=true` (`visiban/urls.py`, `visiban/settings.py`). Neither `serializer-ts-parity` nor `backend-schema-validate` sets that flag (only the dedicated `backend-test-git-lens` job does, "and nowhere else" per its own comment in `.gitlab-ci.yml`), so the schema those jobs generate never contains a `LensConnection` component to diff against — mapping it would make the gate fail in CI even though nothing is wrong. `LensConnectionView.get`/`.put` do now carry `@extend_schema` (#1294), so the component exists and is accurate whenever the schema *is* generated with the flag on (local dev, or a future CI job that sets it) — only the always-on parity job's environment is the blocker. Tracked in #1306. |
 
-Three pairs are absent for the opposite reason — the schema has a component but there is no
+Two pairs are absent for the opposite reason — the schema has a component but there is no
 TypeScript interface to diff it against. Confirmed by grepping all of `frontend/src` (not just
 `types/index.ts` — the `api/*.ts` call sites are where a renamed interface would actually be
-consumed) for each of these three; none turned up a renamed or differently-named interface the
+consumed) for each of these two; neither turned up a renamed or differently-named interface the
 way `PublicBoard`/`BoardPublic` turned out to be one:
 
 | Pair | Why excluded |
 |---|---|
 | `CardQuery` (`CardQuerySerializer`, `GET /api/v1/cards/`, #1112) | No TypeScript interface exists — `frontend/src/api/cards.ts` has no caller of this endpoint yet. Mapping it to the closest interface, `Card`, would not work: `CardQuery` sends every `Card` field plus `board` by design (a cross-board list must say which board each row is on), so the pair would report a permanent `missing_in_ts: board` finding that is not real drift. Revisit once a frontend consumer exists and needs its own interface (#1172). |
-| `PublicSwimlane` (`PublicSwimlaneSerializer`, nested on `PublicBoardSerializer.swimlanes`, `GET /api/share/{token}/`) | No dedicated TypeScript interface exists — `BoardPublic.swimlanes` in `frontend/src/types/index.ts` reuses the full `Swimlane[]` interface instead (grepped `frontend/src` for any other name; there is no `PublicSwimlane`-named or otherwise dedicated type). Mapping `PublicSwimlane` to `Swimlane` would not detect real drift: `PublicSwimlaneSerializer` deliberately drops `custom_field_values`, `contact_email`, and `notes` (#1140), so the pair would report a permanent `missing_in_ts` finding for each of those that is not a bug — the same shape as the `CardQuery`/`Card` case above. Revisit if the frontend ever gives the public swimlane shape its own interface; until then, reusing `Swimlane` means the TypeScript type is wider than what a share-link visitor actually receives, which this gate cannot see. |
 | `UnshareBoardResponse` (an `inline_serializer` in `boards/views/boards.py`, backing `DELETE /api/v1/boards/{id}/share/`) | No TypeScript interface exists — `disableBoardSharing()` in `frontend/src/api/boards.ts` calls `client.delete(...)` with no generic type argument at all, so it never reads a typed response body. Structurally identical to `ShareBoardResponse` (mapped above, to `ShareActionResponse`), but with no TypeScript consumer to diff it against. |
+
+`PublicSwimlane` (`PublicSwimlaneSerializer`, nested on `PublicBoardSerializer.swimlanes`,
+`GET /api/share/{token}/`) was in this table until #1296. It used to have the same shape as
+`CardQuery` above — no dedicated TypeScript interface, with `BoardPublic.swimlanes` reusing the
+wider `Swimlane[]` instead — but #1296's `array_item_type` check (see
+[What it checks](#what-it-checks)) needed a correct, dedicated interface to compare the array's
+element type against, so the frontend now declares `PublicSwimlane` matching
+`PublicSwimlaneSerializer` exactly (`id`, `uid`, `name`, `position`, `color`, `is_collapsed`,
+`created_at` — no `custom_field_values`, `contact_email`, or `notes`), and the pair is mapped in
+[Coverage](#coverage).
 
 `PublicBoard` was removed from this table by #1282: it does have a TypeScript interface —
 `BoardPublic` — and is now mapped in [Coverage](#coverage) instead. The entry above was wrong
@@ -419,8 +458,9 @@ would assert a correspondence that does not exist. That union stays hand-maintai
 [#1078](https://gitlab.com/visiban/visiban/-/issues/1078) covers WebSocket event reachability
 separately.
 
-**Pairs with a component but no TypeScript interface.** `CardQuery`, `PublicSwimlane`, and
-`UnshareBoardResponse` — see [What is not covered, and why](#what-is-not-covered-and-why).
+**Pairs with a component but no TypeScript interface.** `CardQuery` and `UnshareBoardResponse`
+— see [What is not covered, and why](#what-is-not-covered-and-why). (`PublicSwimlane` was in
+this category until #1296 gave it a dedicated interface.)
 
 **Request bodies.** `SPECTACULAR_SETTINGS` sets `COMPONENT_SPLIT_REQUEST: True`, so the schema
 carries 34 separate `*Request` / `Patched*Request` components describing what you may *send*.
@@ -431,7 +471,7 @@ explicit request-body interfaces, mapping them is the natural extension.
 **Nothing else, with one standing exception.** Every schema component that has a matching
 TypeScript interface *and reaches the schema this gate's own environment generates* is mapped as
 of [#1294](https://gitlab.com/visiban/visiban/-/issues/1294), so a green `serializer-ts-parity`
-run means "the published response components and the interfaces agree", not "thirty of them do".
+run means "the published response components and the interfaces agree", not "forty-five of them do".
 `LensConnection` is the sole component this job cannot see at all, for the feature-flag reason in
 [What is not covered, and why](#what-is-not-covered-and-why) — not a gap in `COMPONENT_MAP`, a
 gap in what the job's own schema generation includes. If you add a serializer *and* an

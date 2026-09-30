@@ -108,7 +108,29 @@ This notification appears in the bell dropdown and includes a **View board →**
 
 ## Comment added notifications
 
-When a comment is posted on a card, the card's assignee is notified (unless they posted the comment themselves).
+> **Changed in 1.2**
+> Before 1.2 the **Comment on a watched card** toggle was saved but never
+> created a notification (#1277). It now works as described below.
+
+When someone comments on a card you are **watching**, you get a notification in
+the bell:
+
+> "{username} commented on "{card title}""
+
+For now, you are watching a card when you **created it** or **are assigned to
+it**. There is no separate watch or unwatch control yet, and commenting on a card
+does not make you a watcher. Explicit watch/unwatch is planned (#229).
+
+- **Off by default.** Turn on **Comment on a watched card** in
+  **Settings → Notifications** to receive these.
+- **Never for your own comment.** Commenting on a card you created or are
+  assigned to does not notify you.
+- **One notification per comment.** If the same comment @mentions you, you get
+  only the @mention notification, not this one as well.
+- **Only while you can see the board.** If you created a card but have since
+  been removed from the board, or your account is deactivated, you are not
+  notified.
+- **In-app only.** This event is not delivered by email.
 
 ## Staleness notifications
 

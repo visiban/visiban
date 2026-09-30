@@ -40,6 +40,40 @@ from ..signals import post_notification_created
 logger = logging.getLogger(__name__)
 
 
+def card_watcher_ids(card) -> set[int]:
+    """Return the ids of the users implicitly watching ``card`` (#1277).
+
+    v1 has no ``CardWatcher`` model: a card is "watched" by its creator and its
+    assignee, which is the implicit-watcher definition #229 settled on. There is
+    deliberately no auto-watch on comment — commenting once must not subscribe
+    somebody to every later reply.
+
+    This is the seam #229 replaces in 1.4 with an explicit watch/unwatch table.
+    That migration must backfill a watcher row for every existing card's creator
+    (and assignee), or everybody silently stops receiving these notifications on
+    upgrade.
+
+    The result is *not* access-checked: a creator can have left the board.
+    Callers must intersect it with the board's effective member ids.
+    """
+    return {card.created_by_id, card.assignee_id} - {None}
+
+
+def quoted_card_verb(lead, title):
+    """Return ``f'{lead} "{title}"'`` clipped to fit ``Notification.verb``.
+
+    ``Card.title`` and ``Notification.verb`` are both ``max_length=500``, so an
+    unclipped title plus any prefix overflows the column — a DataError on
+    PostgreSQL that would turn the comment POST behind the notification into a
+    500. The title is shortened with an ellipsis; the lead is never cut.
+    """
+    max_len = Notification._meta.get_field("verb").max_length
+    room = max_len - len(lead) - 3  # the separating space and two quotes
+    if len(title) > room:
+        title = title[: max(room - 1, 0)] + "\u2026"
+    return f'{lead} "{title}"'
+
+
 def create_notifications(notifications, *, context=None):
     """Persist ``notifications`` and schedule delivery for after the commit.
 

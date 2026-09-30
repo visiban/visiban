@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPublicBoard } from "../api/boards";
-import type { BoardPublic, PublicCard, Column, Swimlane, Label } from "../types";
+import type { BoardPublic, PublicCard, Column, PublicSwimlane, Label } from "../types";
 import { PRIORITY_COLORS } from "../constants/colors";
 import ShareBoardHeader from "../components/Board/ShareBoardHeader";
 
@@ -88,7 +88,7 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
 // Static swimlane label panel
 // ---------------------------------------------------------------------------
 
-function StaticSwimlaneSidebar({ swimlane }: { swimlane: Swimlane }) {
+function StaticSwimlaneSidebar({ swimlane }: { swimlane: PublicSwimlane }) {
   return (
     <div
       className="bg-surface flex items-center px-3 py-2 min-w-0"

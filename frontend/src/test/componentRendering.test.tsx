@@ -993,6 +993,24 @@ describe('ColumnHeader', () => {
     )
     expect(screen.queryByText('⚠')).not.toBeInTheDocument()
   })
+
+  // #1240 — the collapse button's only content is the glyph "◀"; it must carry
+  // an aria-label describing the action, not rely on title alone.
+  it('gives the expanded-state collapse button an aria-label', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Review' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.getByTitle('Collapse column')).toHaveAttribute('aria-label', 'Collapse column')
+  })
 })
 
 // ---------------------------------------------------------------------------

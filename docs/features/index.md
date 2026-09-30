@@ -101,6 +101,7 @@ Visiban surfaces two types of alerts in the notification bell:
 
 - **Assignment** — you're notified when someone assigns a card to you
 - **@mentions** — you're notified when someone mentions you in a card description
+- **Comments** — opt in to be notified when someone comments on a card you created or are assigned to
 - **Staleness** — cards that haven't moved in N days (configurable per board) appear with an amber indicator and trigger a daily digest
 
 Stale cards show an amber tint overlay with reduced opacity on the board so they're impossible to miss at a glance.
