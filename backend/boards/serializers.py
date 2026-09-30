@@ -11,6 +11,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 from accounts.serializers import BoardUserSerializer
+from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 # Module-level (not lazy) so ``@extend_schema_field`` can reference it at class-body
 # evaluation time — see BoardSerializer.get_group_detail. No import cycle: neither
 # groups.serializers nor groups.models imports anything from boards (groups.views
@@ -2028,7 +2029,13 @@ def _expand_requested(context, name):
 # legitimate client sends anywhere near this many entries; 100 is a fixed
 # ceiling rather than a multiple of the valid-slug count, so it doesn't shift
 # if a priority is ever added.
-_MAX_ALLOWED_PRIORITIES_LENGTH = 100
+#
+# The value itself lives in ``visiban.utils`` (#1186) — shared with
+# GroupSerializer's identical cap, which independently duplicated this same
+# constant after #1169 with nothing keeping the two in sync. Kept as a
+# module-level name here (rather than referencing visiban.utils inline below)
+# so it stays grep-able and matches the existing local-name convention.
+_MAX_ALLOWED_PRIORITIES_LENGTH = MAX_ALLOWED_PRIORITIES_LENGTH
 
 
 @extend_schema_field({
@@ -2171,12 +2178,9 @@ class BoardSerializer(serializers.ModelSerializer):
         # Reject an absurdly long list before the `any(...)` scan below (#1169
         # L1) — otherwise a list of a million valid-but-repeated entries (e.g.
         # "low") pays the full O(n) scan on every write instead of being
-        # rejected in O(1).
-        if len(value) > _MAX_ALLOWED_PRIORITIES_LENGTH:
-            raise serializers.ValidationError(
-                "allowed_priorities may have at most "
-                f"{_MAX_ALLOWED_PRIORITIES_LENGTH} entries."
-            )
+        # rejected in O(1). Shared with GroupSerializer's identical check
+        # (#1186).
+        check_allowed_priorities_length(value)
         if not value:
             return value
         valid = {p[0] for p in Card.Priority.choices}
