@@ -77,6 +77,9 @@ describe('BoardMembersModal', () => {
     expect(screen.getByText('Remove?')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Yes' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'No' })).toBeInTheDocument()
+    // text-xs typography floor (#1311) — was text-[11px]
+    expect(screen.getByText('Remove?').className).toMatch(/\btext-xs\b/)
+    expect(screen.getByText('Remove?').className).not.toMatch(/text-\[(8|9|10|11)px\]/)
   })
 
   it('remove member: confirming calls removeBoardMember and invokes onMembersChanged', async () => {
