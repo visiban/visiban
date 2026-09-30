@@ -3534,9 +3534,9 @@ change.</strong></p>
 <td>Field <strong>names</strong>, both directions</td>
 </tr>
 <tr>
-<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209, this page)</td>
+<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209 + #1282, this page)</td>
 <td>The <strong>generated OpenAPI document</strong></td>
-<td><strong>24</strong> pairs — every pair that has a schema component</td>
+<td><strong>30</strong> pairs — every pair that has a schema component</td>
 <td>Names, <strong>types</strong>, nullability, enum membership</td>
 </tr>
 </tbody>
@@ -3636,7 +3636,7 @@ unresolvable TypeScript alias produces no finding rather than a false one. Optio
 (<code>x?: T</code>) are exempt from the nullability check, because in this codebase <code>?</code> already carries
 the "only present under some conditions" meaning — an <code>?expand=</code> payload, for instance.</p>
 <h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
-<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1137 it is:</p>
+<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1282 it is:</p>
 <table>
 <thead>
 <tr>
@@ -3650,6 +3650,11 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td><code>Board</code></td>
 <td><code>Board</code></td>
 <td>yes</td>
+</tr>
+<tr>
+<td><code>BoardExportLog</code></td>
+<td><code>BoardExportLogEntry</code></td>
+<td>no</td>
 </tr>
 <tr>
 <td><code>BoardFull</code></td>
@@ -3727,6 +3732,11 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>no</td>
 </tr>
 <tr>
+<td><code>ExternalRef</code></td>
+<td><code>CardExternalRef</code></td>
+<td>yes</td>
+</tr>
+<tr>
 <td><code>Group</code></td>
 <td><code>Group</code></td>
 <td>no</td>
@@ -3747,13 +3757,33 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>yes</td>
 </tr>
 <tr>
+<td><code>LinkedCard</code></td>
+<td><code>RelatedCardRef</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>Notification</code></td>
 <td><code>Notification</code></td>
 <td>no</td>
 </tr>
 <tr>
+<td><code>PublicAssignee</code></td>
+<td><code>PublicAssignee</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>PublicBoard</code></td>
+<td><code>BoardPublic</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>PublicCard</code></td>
 <td><code>PublicCard</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>ShareBoardResponse</code></td>
+<td><code>ShareActionResponse</code></td>
 <td>no</td>
 </tr>
 <tr>
@@ -3771,7 +3801,39 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <p>The mapping is <strong>not</strong> keyed on the two names matching. There is no <code>User</code> component — the
 <code>/api/v1/auth/me/</code> shape is <code>CurrentUser</code> — and <code>CardChecklist</code> is the component behind the
 <code>CardChecklistItem</code> interface. Both are one resource under two spellings, and leaving either
-out would be a hole the gate's own name check cannot see.</p>
+out would be a hole the gate's own name check cannot see. <code>ExternalRef</code>/<code>CardExternalRef</code> is
+the same shape again: <code>ExternalRefSerializer</code> is a plain <code>serializers.Serializer</code> nested on
+<code>Card.external_ref</code> rather than a top-level <code>ModelSerializer</code>, which is why it was missed when
+the map was built and stayed missing — undetected — until #1282 added it. Diffing the two
+found no drift.</p>
+<h1 id="1282s-completeness-check-widened-the-audit-past-821s-own-name-checked-list-which-only">1282's completeness-check widened the audit past #821's own name-checked list (which only<a class="headerlink" href="#1282s-completeness-check-widened-the-audit-past-821s-own-name-checked-list-which-only" title="Permanent link">&para;</a></h1>
+<p>sees <code>ModelSerializer</code>/<code>Serializer</code> subclasses it imports directly) and found four more
+components with a real, hand-maintained TypeScript interface on the other end that had simply
+never been added to the map:</p>
+<ul>
+<li><code>PublicAssignee</code> (<code>PublicAssigneeSerializer</code>, the display-name-only user on a public
+  share-link card) — identical name on both sides, the same miss as <code>ExternalRef</code> above, just
+  without a rename to make it visible.</li>
+<li><code>LinkedCard</code> (<code>LinkedCardSerializer</code>, the compact card reference on a <code>CardRelation</code>, #449) →
+  <code>RelatedCardRef</code> — a renamed pair, same shape as <code>CardChecklist</code>/<code>CardChecklistItem</code>.</li>
+<li><code>BoardExportLog</code> (<code>BoardExportLogSerializer</code>, the export-history audit row, #842/#980) →
+  <code>BoardExportLogEntry</code> — another renamed pair.</li>
+<li><code>ShareBoardResponse</code> (an <code>inline_serializer</code> in <code>boards/views/boards.py</code>, backing
+  <code>POST /api/v1/boards/{id}/share/</code>) → <code>ShareActionResponse</code>, the interface
+  <code>enableBoardSharing()</code> actually imports in <code>frontend/src/api/boards.ts</code>. Its sibling
+  <code>UnshareBoardResponse</code> stays unmapped — see <a href="#what-is-not-covered-and-why">What is not covered</a>.</li>
+</ul>
+<p>All four diffed clean — no real drift found on any of them.</p>
+<p>A later pass of this same audit found a fifth, different-shaped miss: <code>PublicBoard</code>
+(<code>PublicBoardSerializer</code>, the outer <code>{uid, name, columns, swimlanes, labels, cards}</code> shape at
+<code>GET /api/share/{token}/</code>) had been <em>documented</em> as having no TypeScript interface, in "What is
+not covered, and why" below — but <code>BoardPublic</code> in <code>frontend/src/types/index.ts</code> is exactly
+that shape, just under a renamed name, the same pattern as <code>CurrentUser</code>/<code>User</code>. That was a
+documentation error, not a structural gap, and #1282 fixed the record and mapped the pair.
+<code>BoardPublic.swimlanes</code> is typed <code>Swimlane[]</code> rather than a dedicated <code>PublicSwimlane[]</code>, but
+this gate's array check compares only the outer <code>array</code> family and does not recurse into item
+shapes, so that looseness produces no finding and needed no suppression — see <code>PublicSwimlane</code>
+below for the honest accounting of that specific gap, tracked in #1296.</p>
 <h3 id="what-is-not-covered-and-why">What is not covered, and why<a class="headerlink" href="#what-is-not-covered-and-why" title="Permanent link">&para;</a></h3>
 <p>Until #1209, two pairs #821 name-checks were absent here for a structural reason: the schema
 had no component to diff against, so there was nothing this gate could compare. <code>CardActivity</code>
@@ -3781,8 +3843,111 @@ to the viewset's default <code>CardSerializer</code> with no dedicated response 
 endpoints real <code>@extend_schema</code> response annotations, so both are now mapped and checked (see
 <a href="#coverage">Coverage</a>). The same issue also wired <code>NotificationListView</code> and <code>ShareBoardView</code>
 for the first time, adding <code>Notification</code> and <code>PublicCard</code> to the map.</p>
-<p>Two pairs are absent for the opposite reason — the schema has a component but there is no
-TypeScript interface to diff it against:</p>
+<p>More pairs remain absent for that same structural reason than #1282's first pass found. That
+pass swept <code>COMPONENT_MAP</code> forward — every key in it against the generated schema — which by
+construction cannot see an interface whose serializer never reaches the schema at all. The
+correct sweep runs the other direction: every <code>export interface</code> in
+<code>frontend/src/types/index.ts</code>, checked against <code>COMPONENT_MAP</code>'s values and the "opposite
+reason" table below. That reverse sweep turns up sixteen TypeScript interfaces across thirteen
+pairs, each backed by a real serializer (or, for <code>SiteConfig</code>, a view that builds its response
+by hand) that
+<code>drf-spectacular</code> never publishes a component for — because nothing in their view ever calls
+<code>@extend_schema</code> or sets <code>serializer_class</code>, the two things spectacular actually introspects.
+An interface with <strong>no</strong> backing serializer at all — <code>FieldDefinitionShape</code> (a structural
+subtype satisfied by two already-mapped interfaces, not its own shape),
+<code>SwimlaneCustomFieldValue</code> (carried inside <code>Swimlane.custom_field_values</code>, not its own
+component — see <code>_DRIFT_PAIRS</code>' comment in <code>test_ts_serializer_drift.py</code>), and the <code>Lens*</code> /
+<code>TrelloImport*</code> interfaces (plain dataclasses serialized by hand, not DRF serializers) — is not
+this bug class and is not listed here:</p>
+<table>
+<thead>
+<tr>
+<th>TypeScript interface(s)</th>
+<th>Serializer</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CardTimelineEntry</code></td>
+<td><code>CardTimelineEntrySerializer</code></td>
+<td><code>backend/boards/views/cards.py:899</code>, backing the <code>timeline</code> action (<code>views/cards.py:737</code>)</td>
+</tr>
+<tr>
+<td><code>AdminUser</code></td>
+<td><code>AdminUserSerializer</code></td>
+<td><code>backend/accounts/admin_views.py:437</code></td>
+</tr>
+<tr>
+<td><code>AdminInviteLink</code>, <code>CreatedAdminInviteLink</code></td>
+<td><code>InviteLinkSerializer</code></td>
+<td><code>backend/accounts/admin_views.py:507</code></td>
+</tr>
+<tr>
+<td><code>PersonalAccessToken</code>, <code>CreatedPersonalAccessToken</code></td>
+<td><code>PersonalAccessTokenSerializer</code></td>
+<td><code>backend/accounts/serializers.py:458</code></td>
+</tr>
+<tr>
+<td><code>SiteConfig</code></td>
+<td>— (<code>SiteConfigView</code> builds the response directly)</td>
+<td><code>backend/accounts/views.py:388</code></td>
+</tr>
+<tr>
+<td><code>SiteSettings</code></td>
+<td><code>SiteSettingSerializer</code></td>
+<td><code>backend/accounts/admin_views.py:76</code></td>
+</tr>
+<tr>
+<td><code>SiteEmailSettings</code></td>
+<td><code>SiteEmailSettingSerializer</code></td>
+<td><code>backend/accounts/admin_views.py:95</code></td>
+</tr>
+<tr>
+<td><code>BoardTemplate</code>, <code>BoardTemplateColumn</code></td>
+<td><code>BoardTemplateSerializer</code></td>
+<td><code>backend/boards/serializers.py:34</code></td>
+</tr>
+<tr>
+<td><code>OwnedBoardSummary</code></td>
+<td><code>OwnedBoardSummarySerializer</code></td>
+<td><code>backend/accounts/admin_views.py:431</code></td>
+</tr>
+<tr>
+<td><code>GroupMembership</code></td>
+<td><code>GroupMembershipSerializer</code></td>
+<td><code>backend/groups/serializers.py:304</code></td>
+</tr>
+<tr>
+<td><code>GroupInviteLink</code></td>
+<td><code>GroupInviteLinkSerializer</code></td>
+<td><code>backend/groups/serializers.py:340</code></td>
+</tr>
+<tr>
+<td><code>SavedFilter</code></td>
+<td><code>SavedFilterSerializer</code></td>
+<td><code>backend/boards/serializers.py:2658</code></td>
+</tr>
+<tr>
+<td><code>LensConnection</code></td>
+<td><code>LensConnectionSerializer</code></td>
+<td><code>backend/git_lens/serializers.py:20</code></td>
+</tr>
+</tbody>
+</table>
+<p>Every one of these endpoints is live and reachable — each serializer is instantiated inside a
+real view method and its <code>.data</code> returned in a real <code>Response(...)</code> — so this is not dead code
+needing deletion, only response schemas <code>drf-spectacular</code> was never told to publish.</p>
+<p>All thirteen are tracked in <strong>#1294</strong>, which adds the missing <code>@extend_schema</code> (or
+<code>serializer_class</code>/<code>GenericAPIView</code> wiring, whichever fits each view) so each of these pairs
+can be added to <code>COMPONENT_MAP</code> and actually checked. Deliberately not done here: #1282 is a
+CI-tooling fix, and annotating thirteen views to change what they publish is a real API-surface
+change that belongs in its own reviewed branch, not folded into a parity-gate correction.</p>
+<p>Three pairs are absent for the opposite reason — the schema has a component but there is no
+TypeScript interface to diff it against. Confirmed by grepping all of <code>frontend/src</code> (not just
+<code>types/index.ts</code> — the <code>api/*.ts</code> call sites are where a renamed interface would actually be
+consumed) for each of these three; none turned up a renamed or differently-named interface the
+way <code>PublicBoard</code>/<code>BoardPublic</code> turned out to be one:</p>
 <table>
 <thead>
 <tr>
@@ -3796,13 +3961,21 @@ TypeScript interface to diff it against:</p>
 <td>No TypeScript interface exists — <code>frontend/src/api/cards.ts</code> has no caller of this endpoint yet. Mapping it to the closest interface, <code>Card</code>, would not work: <code>CardQuery</code> sends every <code>Card</code> field plus <code>board</code> by design (a cross-board list must say which board each row is on), so the pair would report a permanent <code>missing_in_ts: board</code> finding that is not real drift. Revisit once a frontend consumer exists and needs its own interface (#1172).</td>
 </tr>
 <tr>
-<td><code>PublicBoard</code> (<code>PublicBoardSerializer</code>, <code>GET /api/share/{token}/</code>, #1209)</td>
-<td>No TypeScript interface exists — the SPA's share-link view only reads the nested <code>cards</code> list, for which <code>PublicCard</code> (mapped above) already exists. Revisit if a frontend consumer needs the outer <code>{uid, name, columns, swimlanes, labels, cards}</code> shape as its own type.</td>
+<td><code>PublicSwimlane</code> (<code>PublicSwimlaneSerializer</code>, nested on <code>PublicBoardSerializer.swimlanes</code>, <code>GET /api/share/{token}/</code>)</td>
+<td>No dedicated TypeScript interface exists — <code>BoardPublic.swimlanes</code> in <code>frontend/src/types/index.ts</code> reuses the full <code>Swimlane[]</code> interface instead (grepped <code>frontend/src</code> for any other name; there is no <code>PublicSwimlane</code>-named or otherwise dedicated type). Mapping <code>PublicSwimlane</code> to <code>Swimlane</code> would not detect real drift: <code>PublicSwimlaneSerializer</code> deliberately drops <code>custom_field_values</code>, <code>contact_email</code>, and <code>notes</code> (#1140), so the pair would report a permanent <code>missing_in_ts</code> finding for each of those that is not a bug — the same shape as the <code>CardQuery</code>/<code>Card</code> case above. Revisit if the frontend ever gives the public swimlane shape its own interface; until then, reusing <code>Swimlane</code> means the TypeScript type is wider than what a share-link visitor actually receives, which this gate cannot see.</td>
+</tr>
+<tr>
+<td><code>UnshareBoardResponse</code> (an <code>inline_serializer</code> in <code>boards/views/boards.py</code>, backing <code>DELETE /api/v1/boards/{id}/share/</code>)</td>
+<td>No TypeScript interface exists — <code>disableBoardSharing()</code> in <code>frontend/src/api/boards.ts</code> calls <code>client.delete(...)</code> with no generic type argument at all, so it never reads a typed response body. Structurally identical to <code>ShareBoardResponse</code> (mapped above, to <code>ShareActionResponse</code>), but with no TypeScript consumer to diff it against.</td>
 </tr>
 </tbody>
 </table>
-<p>Everything else is deliberately in scope and mapped. There is no pair that has a component, an
-interface, and is simply not checked.</p>
+<p><code>PublicBoard</code> was removed from this table by #1282: it does have a TypeScript interface —
+<code>BoardPublic</code> — and is now mapped in <a href="#coverage">Coverage</a> instead. The entry above was wrong
+from the day it was written, not something that went stale later; see the note under
+<a href="#coverage">Coverage</a> for the correction.</p>
+<p>Everything else is deliberately in scope and mapped. Of the pairs that have <strong>both</strong> a schema
+component and a hand-maintained TypeScript interface, none is left unchecked.</p>
 <h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full check: regenerates the schema, then diffs (needs the backend venv)</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py
@@ -3932,8 +4105,8 @@ serializer — a different shape that merely shares a name. Mapping the WebSocke
 would assert a correspondence that does not exist. That union stays hand-maintained;
 <a href="https://gitlab.com/visiban/visiban/-/issues/1078">#1078</a> covers WebSocket event reachability
 separately.</p>
-<p><strong>Pairs with a component but no TypeScript interface.</strong> <code>CardQuery</code> and <code>PublicBoard</code> — see
-<a href="#what-is-not-covered-and-why">What is not covered, and why</a>.</p>
+<p><strong>Pairs with a component but no TypeScript interface.</strong> <code>CardQuery</code>, <code>PublicSwimlane</code>, and
+<code>UnshareBoardResponse</code> — see <a href="#what-is-not-covered-and-why">What is not covered, and why</a>.</p>
 <p><strong>Request bodies.</strong> <code>SPECTACULAR_SETTINGS</code> sets <code>COMPONENT_SPLIT_REQUEST: True</code>, so the schema
 carries 34 separate <code>*Request</code> / <code>Patched*Request</code> components describing what you may <em>send</em>.
 This gate compares <strong>response</strong> components only. A write-only field whose type drifts triggers
