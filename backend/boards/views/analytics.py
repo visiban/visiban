@@ -6,11 +6,13 @@ import statistics
 
 from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery, Window
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import serializers, status
 
 from ..models import CardMovement
+from ..serializers import CardMovementSerializer
 from .. import hooks
 from ._helpers import get_board_for_user
 
@@ -489,6 +491,18 @@ class BoardAnalyticsMixin:
             "stale_warning_pct": board.stale_warning_pct,
         })
 
+    @extend_schema(
+        summary="List board-level movement history with filtering and offset pagination",
+        responses=inline_serializer(
+            name="BoardMovementsPage",
+            fields={
+                "count": serializers.IntegerField(),
+                "offset": serializers.IntegerField(),
+                "page_size": serializers.IntegerField(),
+                "results": CardMovementSerializer(many=True),
+            },
+        ),
+    )
     @action(detail=True, methods=["get"], url_path="movements")
     def movements(self, request, pk=None):
         """Board-level movement history with filtering and offset pagination.
@@ -576,7 +590,6 @@ class BoardAnalyticsMixin:
         )
         total = page[0]._total if page else qs.count()
 
-        from ..serializers import CardMovementSerializer
         serializer = CardMovementSerializer(page, many=True, context={"request": request})
         return Response({
             "count": total,

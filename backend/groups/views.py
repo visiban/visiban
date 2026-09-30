@@ -26,6 +26,14 @@ from .serializers import (
     _ALLOWED_PRIORITY_SLUGS, _MAX_ALLOWED_PRIORITIES_LENGTH,
 )
 
+# Module-level only for @extend_schema, which needs the class at class-body
+# evaluation time (same reason boards/serializers.py imports GroupBriefSerializer
+# module-level). Every runtime use inside the action bodies below still imports
+# boards.serializers/.models lazily, so this does not change the app's
+# dependency direction (groups still has no *runtime* import of boards) — it
+# only makes the response type visible to schema generation.
+from boards.serializers import BoardSerializer as _BoardSerializer
+
 logger = logging.getLogger(__name__)
 
 
@@ -266,8 +274,12 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Members
     # ------------------------------------------------------------------
 
+    # pagination_class=None: the response is the plain member list (direct +
+    # inherited), never paginated. Without it drf-spectacular wraps the schema
+    # in the viewset's default paginated-list envelope (same bug #1142 fixed
+    # for reorder actions), which never matches what this action returns.
     @extend_schema(responses=GroupMembershipSerializer(many=True))
-    @action(detail=True, methods=["get"])
+    @action(detail=True, methods=["get"], pagination_class=None)
     def members(self, request, pk=None):
         group = self.get_object()
         _require_group_member(request.user, group)
@@ -488,7 +500,12 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Subgroups
     # ------------------------------------------------------------------
 
-    @action(detail=True, methods=["get"])
+    # pagination_class=None: returns the full subgroup list in one payload, never paginated.
+    @extend_schema(
+        summary="List direct subgroups of a group",
+        responses=GroupSerializer(many=True),
+    )
+    @action(detail=True, methods=["get"], pagination_class=None)
     def subgroups(self, request, pk=None):
         group = self.get_object()
         _require_group_member(request.user, group)
@@ -520,7 +537,15 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Boards
     # ------------------------------------------------------------------
 
-    @action(detail=True, methods=["get", "post"])
+    # pagination_class=None: GET returns the full board list in one payload, never paginated.
+    @extend_schema(summary="List boards directly in a group", methods=["GET"], responses=_BoardSerializer(many=True))
+    @extend_schema(
+        summary="Create a board inside a group",
+        methods=["POST"],
+        request=_BoardSerializer,
+        responses={201: _BoardSerializer},
+    )
+    @action(detail=True, methods=["get", "post"], pagination_class=None)
     def boards(self, request, pk=None):
         from boards.models import Board, Swimlane
         from boards.serializers import BoardSerializer
@@ -646,7 +671,12 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Descendant boards
     # ------------------------------------------------------------------
 
-    @action(detail=True, methods=["get"], url_path="descendant-boards")
+    # pagination_class=None: returns the full descendant board list in one payload, never paginated.
+    @extend_schema(
+        summary="List boards in a group and all its descendant subgroups",
+        responses=_BoardSerializer(many=True),
+    )
+    @action(detail=True, methods=["get"], url_path="descendant-boards", pagination_class=None)
     def descendant_boards(self, request, pk=None):
         """Return all boards in this group and all its descendants that the user can access.
 
@@ -905,7 +935,16 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Board defaults (shared labels, allowed priorities, default role)
     # ------------------------------------------------------------------
 
-    @action(detail=True, methods=["get", "post"], url_path="labels")
+    @extend_schema(
+        summary="List a group's shared label library", methods=["GET"],
+        responses=GroupLabelSerializer(many=True),
+    )
+    @extend_schema(
+        summary="Create a group shared label", methods=["POST"],
+        request=GroupLabelSerializer, responses={201: GroupLabelSerializer},
+    )
+    # pagination_class=None: GET returns the full label library in one payload, never paginated.
+    @action(detail=True, methods=["get", "post"], url_path="labels", pagination_class=None)
     def group_labels(self, request, pk=None):
         """GET/POST group-level shared label library."""
         group = self.get_object()
@@ -930,6 +969,11 @@ class GroupViewSet(viewsets.ModelViewSet):
             transaction.on_commit(_broadcast_label_created)
         return Response(label_data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        summary="Update a group shared label", methods=["PATCH"],
+        request=GroupLabelSerializer, responses=GroupLabelSerializer,
+    )
+    @extend_schema(summary="Delete a group shared label", methods=["DELETE"], responses={204: None})
     @action(detail=True, methods=["patch", "delete"], url_path=r"labels/(?P<label_id>[^/.]+)")
     def update_group_label(self, request, pk=None, label_id=None):
         """PATCH or DELETE a group shared label."""
