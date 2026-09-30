@@ -1055,10 +1055,18 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 <section className="border-t border-line pt-5">
                   <h3 className="text-xs font-semibold text-danger uppercase tracking-wide mb-3">Danger Zone</h3>
                   <p className="text-sm text-fg-tertiary mb-3">
-                    Permanently delete <span className="text-fg font-medium">{board.name}</span> and all its cards, columns, and history. This cannot be undone.
+                    Permanently delete <span className="text-fg font-medium">{board.name}</span> and all its cards (including archived cards), columns, and history. This cannot be undone.
                   </p>
-                  {board.cards.length > 0 ? (
+                  {/* Archived cards are not in board.cards but cascade with the
+                      board, so they count toward the typed-confirmation gate
+                      exactly like active cards (#1289). */}
+                  {board.cards.length > 0 || (board.archived_card_count ?? 0) > 0 ? (
                     <div className="flex flex-col gap-2">
+                      {(board.archived_card_count ?? 0) > 0 && (
+                        <p className="text-xs text-danger">
+                          This board has {board.archived_card_count} archived card{board.archived_card_count !== 1 ? "s" : ""}, which will also be permanently deleted.
+                        </p>
+                      )}
                       <p className="text-xs text-fg-muted">
                         Type <span className="text-fg-secondary font-mono">{board.name}</span> to confirm deletion.
                       </p>

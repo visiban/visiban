@@ -254,6 +254,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     moveCard: onMoveCard,
     addCard: onCardAdded,
     removeCard,
+    archiveCard,
+    archiveCardByUid,
+    unarchiveCard,
     updateCard: onCardUpdated,
     addColumn: onColumnAdded,
     updateColumn: onColumnUpdated,
@@ -295,11 +298,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Re-fetch board state when the user returns to a backgrounded tab.
   useBoardResync(silentReload);
 
-  // Alias removeCard for the two semantic uses (archive and delete both remove
-  // the card from local state).
+  // Delete and archive both remove the card from local state, but archive also
+  // moves it into archived_card_count, which the settings modal's delete gate
+  // reads (#1289) — so they are distinct handlers.
   const onCardDeleted = removeCard;
-  const onCardArchived = removeCard;
-  const onCardUnarchived = onCardAdded;
+  const onCardArchived = archiveCard;
+  const onCardUnarchived = unarchiveCard;
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   // While the instance is in maintenance mode (#783) every write this user
   // could attempt would come back 503, so fold it into the existing per-board
@@ -404,7 +408,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
-      evictCardByUid((d as { card_uid: string }).card_uid);
+      archiveCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.unarchived") {
       onCardUnarchived(d as unknown as Card);
     } else if (event.event === "column.created") {
@@ -528,7 +532,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, board.custom_field_definitions, silentReload, onSwimlaneFieldDefinitionsApplied, board.swimlane_custom_field_definitions, board.swimlanes, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, board.custom_field_definitions, silentReload, onSwimlaneFieldDefinitionsApplied, board.swimlane_custom_field_definitions, board.swimlanes, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.

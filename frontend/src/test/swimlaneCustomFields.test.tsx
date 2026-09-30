@@ -274,6 +274,7 @@ describe('mergeSwimlaneFromBroadcast (#1140)', () => {
 function makeBoard(defs: SwimlaneCustomFieldDefinition[], swimlanes: Swimlane[] = []): BoardFull {
   return {
     id: 1, uid: 'boarduid0001', name: 'Board', description: '', group: null, group_name: null,
+    archived_card_count: 0,
     columns: [], swimlanes, cards: [], labels: [],
     members: [], custom_field_definitions: [], swimlane_custom_field_definitions: defs,
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],

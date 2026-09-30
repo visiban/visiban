@@ -48,6 +48,7 @@ Get board summary. Response includes:
 | `group_detail` | object / null | Populated with a `GroupBrief` object when `?expand=group` is appended to the request; `null` otherwise. `GroupBrief` shape: `{ id, name, parent, parent_name, ancestors }` where `parent` is the parent group FK ID (or `null`) and `ancestors` is a root-first `[{ id, name }]` chain. |
 | `member_count` | integer | Number of direct board members |
 | `card_count` | integer | Number of active (non-archived) cards |
+| `archived_card_count` | integer | Number of archived cards. Reported separately because `card_count` excludes them, yet `DELETE /api/v1/boards/{id}/` deletes them too. Clients that confirm a board delete should treat `card_count + archived_card_count` as the number of cards at stake. Also present on `GET /api/v1/boards/`, `GET /api/v1/groups/{id}/boards/`, and `/full/`. Added in 1.2 (#1289). |
 | `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
 | `allowed_priorities` | array / null | Permitted priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` means all priorities are allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
 | `enforce_wip_limits` | boolean | When `true`, card moves that would exceed a column's WIP limit return `409 Conflict` (default: `true` for new boards) |
@@ -66,10 +67,12 @@ Update board fields. Both `PUT` and `PATCH` are accepted — all fields are opti
 **Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, `show_wip_at_limit`. The entire request requires board admin (or site admin) — there is no tier of fields a non-admin member can edit; a non-admin PATCHing even a single field like `description` receives `403 Forbidden`.
 
 ### `DELETE /api/v1/boards/{id}/`
-Delete board. Requires board owner or site admin.
+Delete board. Requires board owner or site admin. Deletes every card on the board, **including archived cards** — see `archived_card_count` above.
 
 ### `GET /api/v1/boards/{id}/full/`
 Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists) and `share_token_expires_at` (ISO-8601 timestamp of the share link's expiry, or `null` for no expiry; admin-only, mirrors `share_token` visibility — added in 1.1, #804). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
+
+`cards` lists active cards only. Since 1.2, the payload also carries `archived_card_count` (integer) — the number of archived cards that `cards` omits but that a board delete would remove (#1289).
 
 Since 1.2, each card in the payload also carries `external_ref` (`{ provider, ref, url }` or `null`) — see [External ref](cards.md#external-ref-since-12).
 

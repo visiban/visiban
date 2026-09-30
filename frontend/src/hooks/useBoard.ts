@@ -200,6 +200,39 @@ export function useBoard() {
     setBoard((b) => b ? { ...b, cards: b.cards.filter((c) => c.id !== cardId) } : b);
   }, []);
 
+  // Archive / unarchive keep BoardFull.archived_card_count current in-session,
+  // because the settings modal's Danger Zone gates typed-name confirmation on
+  // it (#1289) and /full/ only reports it at load time. Each updater only moves
+  // the count when the card actually leaves or enters `cards`, so the local
+  // handler and the echoed card.archived / card.unarchived socket event for
+  // the same action never double-count, whichever lands first.
+  const archiveCardWhere = useCallback((match: (c: Card) => boolean) => {
+    setBoard((b) => {
+      if (!b || !b.cards.some(match)) return b;
+      return {
+        ...b,
+        cards: b.cards.filter((c) => !match(c)),
+        archived_card_count: (b.archived_card_count ?? 0) + 1,
+      };
+    });
+  }, []);
+  const archiveCard = useCallback((cardId: number) => archiveCardWhere((c) => c.id === cardId), [archiveCardWhere]);
+  const archiveCardByUid = useCallback((cardUid: string) => archiveCardWhere((c) => c.uid === cardUid), [archiveCardWhere]);
+
+  const unarchiveCard = useCallback((card: Card) => {
+    setBoard((b) => {
+      if (!b) return b;
+      if (b.cards.some((c) => c.id === card.id)) {
+        return { ...b, cards: b.cards.map((c) => (c.id === card.id ? card : c)) };
+      }
+      return {
+        ...b,
+        cards: [...b.cards, card],
+        archived_card_count: Math.max(0, (b.archived_card_count ?? 0) - 1),
+      };
+    });
+  }, []);
+
   const addColumn = useCallback((column: Column) => {
     setBoard((b) => {
       if (!b) return b;
@@ -382,7 +415,17 @@ export function useBoard() {
   }, []);
 
   const mergeBoardState = useCallback((patch: Partial<BoardFull>) => {
-    setBoard((b) => b ? { ...b, ...patch } : b);
+    // archived_card_count is deliberately NOT merged (#1289). board.updated
+    // payloads are full BoardSerializer snapshots taken at emit time, so one
+    // that lands after a local archive would overwrite the incremented count
+    // with the older, lower value — and the later card.archived echo cannot
+    // re-add it because the card has already left `cards`. A low count lets
+    // the Danger Zone skip typed confirmation. Taking max(local, payload)
+    // instead would go wrong the other way after an unarchive (a stale
+    // snapshot would re-raise the count). The archive/unarchive handlers are
+    // therefore the sole in-session authority; a full reload re-seeds it.
+    const { archived_card_count: _ignored, ...rest } = patch;
+    setBoard((b) => b ? { ...b, ...rest } : b);
   }, []);
 
   const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
@@ -396,5 +439,5 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
-  return { board, loading, error, reload: load, silentReload, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
+  return { board, loading, error, reload: load, silentReload, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
 }

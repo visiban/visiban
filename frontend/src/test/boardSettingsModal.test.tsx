@@ -62,6 +62,7 @@ const fakeMember2: User = {
 const fakeBoard: BoardFull = {
   id: 1,
   uid: 'boarduid0001',
+  archived_card_count: 0,
   name: 'Sprint Board',
   description: '',
   group: null,
@@ -1199,5 +1200,42 @@ describe('BoardSettingsModal — hosted demo (#1179)', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(document.getElementById('board-settings-demo-notice')).toBeNull()
     expect(screen.queryByTestId('demo-inert')).not.toBeInTheDocument()
+  })
+})
+
+// ─── Danger Zone: archived cards (#1289) ────────────────────────────────────
+
+describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  function renderDangerZone(board: BoardFull) {
+    return render(
+      <BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} initialTab="data" />
+    )
+  }
+
+  it('requires typed confirmation for a board holding only archived cards', async () => {
+    const user = userEvent.setup()
+    renderDangerZone({ ...fakeBoard, cards: [], archived_card_count: 2 })
+    expect(screen.getByText('This board has 2 archived cards, which will also be permanently deleted.')).toBeInTheDocument()
+    const deleteButton = screen.getByRole('button', { name: 'Delete board' })
+    expect(deleteButton).toBeDisabled()
+    await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
+    expect(deleteButton).toBeEnabled()
+  })
+
+  it('uses the singular for one archived card', () => {
+    renderDangerZone({ ...fakeBoard, cards: [], archived_card_count: 1 })
+    expect(screen.getByText('This board has 1 archived card, which will also be permanently deleted.')).toBeInTheDocument()
+  })
+
+  it('mentions archived cards and allows single-click delete for an empty board', () => {
+    renderDangerZone({ ...fakeBoard, cards: [], archived_card_count: 0 })
+    expect(screen.getByText(/all its cards \(including archived cards\), columns, and history/)).toBeInTheDocument()
+    expect(screen.queryByText(/archived cards?, which will also be permanently deleted/)).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Sprint Board')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete board' })).toBeEnabled()
   })
 })

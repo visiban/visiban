@@ -16,6 +16,9 @@ export interface BoardContextType {
   clearMoveError: () => void;
   addCard: (card: Card) => void;
   removeCard: (cardId: number) => void;
+  archiveCard: (cardId: number) => void;
+  archiveCardByUid: (cardUid: string) => void;
+  unarchiveCard: (card: Card) => void;
   addColumn: (column: Column) => void;
   removeColumn: (columnId: number) => Promise<void>;
   addSwimlane: (swimlane: Swimlane) => void;

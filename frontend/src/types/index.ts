@@ -592,7 +592,14 @@ export interface Board {
   group_name: string | null;
   group_detail?: GroupBrief | null;
   member_count: number;
+  /** Active (non-archived) cards only (#693). */
   card_count: number;
+  /**
+   * Archived cards on the board (#1289). Deleting a board cascades to these, so
+   * the delete confirmations gate typed-name confirmation on
+   * card_count + archived_card_count, not card_count alone.
+   */
+  archived_card_count: number;
   staleness_threshold_days: number;
   stale_warning_pct: number;
   allowed_priorities: Priority[];
@@ -685,6 +692,13 @@ export interface BoardFull {
   capabilities: { movement_export: boolean; [key: string]: boolean };
   share_token: string | null;
   share_token_expires_at: string | null;
+  /**
+   * Archived cards on the board (#1289). `cards` above is active-only, but
+   * deleting the board cascades to archived cards too, so the settings modal's
+   * Danger Zone reads this. Kept current in-session by useBoard's archive /
+   * unarchive handlers.
+   */
+  archived_card_count: number;
 }
 
 export interface GroupLabel {

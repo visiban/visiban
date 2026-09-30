@@ -156,8 +156,8 @@ class BoardViewSet(
             qs = qs.filter(favorites__user=user)
         # select_related("owner", "group") prevents one JOIN-per-board for the
         # owner and group_name serializer fields. Annotate to avoid 3 further
-        # subqueries per board (member_count, card_count, is_starred). The
-        # /full/ endpoint loads card data via its own queryset in
+        # subqueries per board (member_count, card_count, archived_card_count,
+        # is_starred). The /full/ endpoint loads card data via its own queryset in
         # get_board_for_user(); BoardSerializer (used by list/retrieve) never
         # reads card fields so prefetching cards__labels / cards__assignee
         # here only loaded data that was immediately discarded.
@@ -173,6 +173,7 @@ class BoardViewSet(
         return qs.select_related("owner", group_related).annotate(
             _member_count=Count("memberships", distinct=True),
             _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+            _archived_card_count=Count("cards", filter=Q(cards__archived_at__isnull=False), distinct=True),
             _is_starred=Exists(
                 BoardFavorite.objects.filter(board=OuterRef("pk"), user=user)
             ),
@@ -526,7 +527,7 @@ class BoardViewSet(
         get_current_user_role() and get_swimlanes() can reuse it without
         issuing a second get_board_role() query.
         """
-        board, role = get_board_for_user(pk, request.user)
+        board, role = get_board_for_user(pk, request.user, with_archived_card_count=True)
         return Response(BoardFullSerializer(board, context={"request": request, "role": role}).data)
 
     @extend_schema(

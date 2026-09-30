@@ -1072,3 +1072,6 @@ class GroupBoardCardCountTests(TestCase):
         self.assertEqual(r.status_code, 200)
         board_data = next(b for b in r.json() if b["id"] == board.id)
         self.assertEqual(board_data["card_count"], 1, "Archived cards must be excluded from card_count")
+        # #1289: the archived card is reported separately, so the delete
+        # confirmations can gate on it without changing card_count's meaning.
+        self.assertEqual(board_data["archived_card_count"], 1)

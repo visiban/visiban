@@ -365,6 +365,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits",
             "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at",
             "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+            # Additive (#1289): archived cards cascade on board delete.
+            "archived_card_count",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")

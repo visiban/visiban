@@ -315,3 +315,44 @@ describe('Dashboard — hosted demo (#1179)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
+
+// #1289 — archived cards cascade with the board, so they must gate typed-name
+// confirmation exactly like active cards, and the dialog must name them.
+describe('Dashboard — delete confirmation and archived cards (#1289)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockListGroups.mockResolvedValue([])
+  })
+
+  async function openDeleteDialog(card_count: number, archived_card_count: number) {
+    mockListBoards.mockResolvedValue([
+      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count, archived_card_count, created_at: '', updated_at: '' },
+    ])
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Sprint Board')
+    await user.click(screen.getByTitle('Delete board'))
+    return { user, dialog: screen.getByRole('dialog', { name: 'Delete board?' }) }
+  }
+
+  it('requires typed confirmation for a board holding only archived cards', async () => {
+    const { user, dialog } = await openDeleteDialog(0, 500)
+    expect(dialog).toHaveTextContent('This board has 500 archived cards. Type the board name to confirm deletion.')
+    const deleteButton = screen.getByRole('button', { name: 'Delete' })
+    expect(deleteButton).toBeDisabled()
+    await user.type(screen.getByPlaceholderText('Type "Sprint Board" to confirm'), 'Sprint Board')
+    expect(deleteButton).toBeEnabled()
+  })
+
+  it('names both active and archived cards when the board has both', async () => {
+    const { dialog } = await openDeleteDialog(1, 3)
+    expect(dialog).toHaveTextContent('This board has 1 card and 3 archived cards. Type the board name to confirm deletion.')
+  })
+
+  it('mentions archived cards and allows single-click delete for an empty board', async () => {
+    const { dialog } = await openDeleteDialog(0, 0)
+    expect(dialog).toHaveTextContent('all its data, including archived cards, will be permanently deleted')
+    expect(screen.queryByPlaceholderText('Type "Sprint Board" to confirm')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+  })
+})
