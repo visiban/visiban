@@ -261,7 +261,9 @@ ingress:
 
 When `networkPolicy.enabled: true`, the chart creates a default-deny ingress policy and explicit allowlists:
 
-- Ingress controller → frontend (port 80)
+- Ingress controller → frontend (port 8080 — the frontend container's own
+  listen port, #1224; the frontend Service itself still fronts port 80 by
+  default)
 - Frontend → backend (port 8000)
 - Backend → PostgreSQL (port 5432)
 - Backend → Valkey (port 6379)

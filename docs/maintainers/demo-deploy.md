@@ -24,7 +24,7 @@ the one real deployment.
 | Values | `helm/visiban/values-demo.yaml` plus an uncommitted secrets file |
 
 Nothing is shared with TruePPM's release except the node and the tunnel. The frontend
-NetworkPolicy admits port 80 from any peer, so the tunnel reaches it. The backend and the
+NetworkPolicy admits port 8080 from any peer, so the tunnel reaches it. The backend and the
 datastores admit only this release's own components, so TruePPM's namespace cannot reach
 them. Keep it that way: do not widen those policies for convenience.
 

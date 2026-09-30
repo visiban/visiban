@@ -1029,20 +1029,16 @@ check_image_pins() {
 }
 
 # ---------------------------------------------------------------------------
-# 12. Every pod hardens like the bundled Valkey (#1210).
+# 12. Every pod hardens like the bundled Valkey (#1210, #1224).
 # ---------------------------------------------------------------------------
 # #1200 hardened the bundled Valkey StatefulSet (runAsNonRoot, a read-only root
 # filesystem, no Linux capabilities). #1210 brought the bundled PostgreSQL
 # StatefulSet and the backend Deployment — its migrate/collectstatic/bootstrap
-# init containers included — up to the same bar. This asserts the bar holds on
-# every OTHER long-running or scheduled workload the chart renders too
-# (the scheduledJobs CronJobs, and the demo seed Job / reset CronJob), so the
-# next new template does not quietly regress below it.
-#
-# SCOPE: the frontend (nginx) Deployment is deliberately EXCLUDED. It was
-# already below the bar before #1210 and stays there — bringing it up is
-# tracked separately in #1224, not something to sweep silently into this
-# section.
+# init containers included — up to the same bar. #1224 brought the frontend
+# (nginx) Deployment up to the same bar too, so this now asserts it on EVERY
+# long-running or scheduled workload the chart renders, with no exclusions
+# (the scheduledJobs CronJobs, and the demo seed Job / reset CronJob
+# included), so the next new template does not quietly regress below it.
 #
 # Checked on the main render (every optional workload on, including the
 # scheduledJobs CronJobs) AND the demo render (the demo seed Job and reset
@@ -1051,17 +1047,16 @@ check_image_pins() {
 # Two assertions per pod: pod-level securityContext.runAsNonRoot is true, and
 # EVERY container (containers and initContainers) drops the ALL capability.
 # Not asserted here: readOnlyRootFilesystem and the numeric runAsUser/Group —
-# backend.securityContext and postgresql.securityContext are deliberately
-# overridable so an operator on an unusual image can relax them, so a chart
-# default is not a contract this script can enforce without also failing a
-# legitimate override.
+# backend.securityContext, postgresql.securityContext and
+# frontend.securityContext are deliberately overridable so an operator on an
+# unusual image can relax them, so a chart default is not a contract this
+# script can enforce without also failing a legitimate override.
 check_pod_hardening() {
-  section "12. Every pod hardens like the bundled Valkey (#1210)"
+  section "12. Every pod hardens like the bundled Valkey (#1210, #1224)"
 
   local query
   query='
     select((.kind == "Deployment" or .kind == "StatefulSet" or .kind == "Job" or .kind == "CronJob"))
-    | select((.metadata.labels."app.kubernetes.io/component" // "") != "frontend")
     | .kind as $k | .metadata.name as $n
     | (.spec.template // .spec.jobTemplate.spec.template) as $t
     | ($t.spec.securityContext.runAsNonRoot // false) as $podNonRoot
@@ -1100,7 +1095,7 @@ check_pod_hardening() {
     fail "the hardening check scanned zero containers — the query matched nothing"
     return
   fi
-  [ "$bad" -eq 0 ] && pass "every non-frontend pod in the main and demo renders sets runAsNonRoot and drops ALL capabilities ($checked containers checked)"
+  [ "$bad" -eq 0 ] && pass "every pod in the main and demo renders sets runAsNonRoot and drops ALL capabilities ($checked containers checked)"
 }
 
 # ---------------------------------------------------------------------------
@@ -1243,8 +1238,9 @@ self_test() {
     # password would silently get an unauthenticated Valkey.
     "11 valkey auth guard removed|templates/_validate.tpl|s/{{- if (dig \"auth\" \"enabled\" false \$v) -}}/{{- if false -}}/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
-    # 12 (#1210): both hardened workloads (backend, postgresql) lose their
-    # capability drop through their shared values.yaml default at once.
+    # 12 (#1210, #1224): every overridable hardened workload (backend,
+    # postgresql, frontend) loses its capability drop through their shared
+    # values.yaml default at once.
     "12 capabilities.drop ALL removed from values|values.yaml|s/drop: \[\"ALL\"\]/drop: []/"
     # 13: the credential helper stops encoding — the pre-fix behavior.
     "13 database credentials spliced raw|templates/_helpers.tpl|s/{{- . | urlquery | replace \"+\" \"%20\" }}/{{- . }}/"
