@@ -210,6 +210,12 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "Same as CardAdmin.delete_queryset — an admin bulk delete of columns "
         "spanning boards iterates channels, not rows."
     ),
+    "backend/boards/admin.py::_CardChildBroadcastAdminMixin.delete_queryset": (
+        "One card.updated per affected card, already deduped by card_id above "
+        "the loop — a bulk delete of comments/checklist items can span cards "
+        "(and boards), and each frame carries that card's own refetched "
+        "payload, so the frames cannot be collapsed onto a single channel."
+    ),
     "backend/boards/services/cards.py::_broadcast_blocked_peers": (
         "One card.updated per peer whose blocker_count changed. Each frame "
         "carries a different card's full payload, so they cannot be collapsed "

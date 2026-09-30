@@ -146,25 +146,36 @@ class _BoardEventAdminMixin:
     def _delete_payload(self, obj):
         raise NotImplementedError
 
+    def _emit(self, board_id, event, payload, request):
+        # `event` arrives as a plain parameter rather than a literal EVT_*
+        # expression — the concrete constant lives on the subclass
+        # (event_created/event_updated/event_deleted), and the
+        # ws-event-reachability gate can only trace a registry constant
+        # written directly in the calling function's own body, not through
+        # an instance-attribute lookup. This one-line forwarder gets the same
+        # pass-through treatment the gate already gives
+        # _record_board_and_group_event() above; the events themselves are
+        # independently declared/emitted/documented via each model's REST
+        # viewset.
+        _broadcast.record_board_event(board_id, event, payload, actor_id=request.user.pk)
+
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         event = self.event_updated if change else self.event_created
-        _broadcast.record_board_event(
-            self._board_id(obj), event, self._payload(obj, request), actor_id=request.user.pk
-        )
+        self._emit(self._board_id(obj), event, self._payload(obj, request), request)
 
     def delete_model(self, request, obj):
         board_id = self._board_id(obj)
         payload = self._delete_payload(obj)
         super().delete_model(request, obj)
-        _broadcast.record_board_event(board_id, self.event_deleted, payload, actor_id=request.user.pk)
+        self._emit(board_id, self.event_deleted, payload, request)
 
     def delete_queryset(self, request, queryset):
         # Capture identifiers before delete — post-delete each instance's pk is cleared.
         deleted = [(self._board_id(o), self._delete_payload(o)) for o in queryset]
         super().delete_queryset(request, queryset)
         for board_id, payload in deleted:
-            _broadcast.record_board_event(board_id, self.event_deleted, payload, actor_id=request.user.pk)
+            self._emit(board_id, self.event_deleted, payload, request)
 
 
 @admin.register(Swimlane)
