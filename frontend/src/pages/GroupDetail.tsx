@@ -903,7 +903,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     {m.is_inherited ? (
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-fg-muted capitalize">{m.role}</span>
-                        <span className="text-[10px] bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">
+                        <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">
                           ↑ {m.inherited_from}
                         </span>
                       </div>

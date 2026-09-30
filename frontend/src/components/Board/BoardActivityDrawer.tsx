@@ -62,7 +62,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
       <div className="px-4 py-3 border-b border-line flex items-center justify-between">
         <div>
           <div className="text-sm font-medium text-fg">Activity</div>
-          <div className="text-[11px] text-fg-muted">Live · board events</div>
+          <div className="text-xs text-fg-muted">Live · board events</div>
         </div>
         <button
           onClick={onClose}
@@ -76,7 +76,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
       </div>
 
       {/* Filter tabs */}
-      <div className="px-4 py-2 border-b border-line flex gap-1 text-[11px]" role="group" aria-label="Activity kind filter">
+      <div className="px-4 py-2 border-b border-line flex gap-1 text-xs" role="group" aria-label="Activity kind filter">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -95,7 +95,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
 
       {/* Time window selector */}
       <div
-        className="px-4 py-1.5 border-b border-line flex items-center gap-2 text-[11px]"
+        className="px-4 py-1.5 border-b border-line flex items-center gap-2 text-xs"
         role="group"
         aria-label="Activity time window"
       >
@@ -142,7 +142,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t border-line text-[11px] text-fg-muted flex items-center justify-between">
+      <div className="px-4 py-2 border-t border-line text-xs text-fg-muted flex items-center justify-between">
         <button
           onClick={onOpenHistory}
           className="text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"

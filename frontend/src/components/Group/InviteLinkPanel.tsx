@@ -230,7 +230,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                     {link.name || "Default"}
                   </span>
                   <span
-                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ROLE_COLORS[link.role] ?? ROLE_COLORS.member}`}
+                    className={`text-xs font-semibold px-1.5 py-0.5 rounded ${ROLE_COLORS[link.role] ?? ROLE_COLORS.member}`}
                   >
                     {ROLE_LABELS[link.role] ?? link.role}
                   </span>
@@ -238,7 +238,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                   {/* Status badge — shown for non-pending states */}
                   {linkStatus !== "pending" && (
                     <span
-                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${STATUS_COLORS[linkStatus]}`}
+                      className={`text-xs font-semibold px-1.5 py-0.5 rounded ${STATUS_COLORS[linkStatus]}`}
                     >
                       {STATUS_LABELS[linkStatus]}
                     </span>
@@ -247,7 +247,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                   {/* Expiry text — replaced by used_at when consumed */}
                   {linkStatus !== "used" && (
                     <span
-                      className={`text-[10px] ${link.is_expired ? "text-danger font-semibold" : "text-fg-muted"}`}
+                      className={`text-xs ${link.is_expired ? "text-danger font-semibold" : "text-fg-muted"}`}
                     >
                       {formatExpiry(link)}
                     </span>
@@ -255,14 +255,14 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
 
                   {/* Used-at date — only when consumed */}
                   {linkStatus === "used" && link.used_at && (
-                    <span className="text-[10px] text-fg-muted">
+                    <span className="text-xs text-fg-muted">
                       Used {formatUsedAt(link.used_at)}
                     </span>
                   )}
 
                   {/* 1-use indicator — only for live single-use links */}
                   {linkStatus === "pending" && (link.single_use ?? false) && (
-                    <span className="text-[10px] text-warning">1-use</span>
+                    <span className="text-xs text-warning">1-use</span>
                   )}
                 </div>
 
@@ -297,18 +297,18 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                 ) : !isTerminal ? (
                   /* Normal display — prefix only + revoke */
                   <div className="flex gap-2">
-                    <div className="flex-1 text-[11px] bg-surface border border-line rounded px-2 py-1 text-fg-tertiary truncate font-mono">
+                    <div className="flex-1 text-xs bg-surface border border-line rounded px-2 py-1 text-fg-tertiary truncate font-mono">
                       {link.prefix}…
                     </div>
                     {confirmRevokeId === link.id ? (
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => handleRevoke(link.id)} className="text-[11px] text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Revoke</button>
-                        <button onClick={() => setConfirmRevokeId(null)} className="text-[11px] text-fg-muted hover:text-fg-secondary transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">Cancel</button>
+                        <button onClick={() => handleRevoke(link.id)} className="text-xs text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Revoke</button>
+                        <button onClick={() => setConfirmRevokeId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">Cancel</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setConfirmRevokeId(link.id)}
-                        className="text-[11px] text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1"
+                        className="text-xs text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1"
                       >
                         Revoke
                       </button>
@@ -332,7 +332,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
           <p className="text-xs font-semibold text-fg-secondary">New invite link</p>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-fg-tertiary">Name (optional)</label>
+            <label className="text-xs text-fg-tertiary">Name (optional)</label>
             <input
               type="text"
               value={formName}
@@ -345,7 +345,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
 
           <div className="flex gap-3">
             <div className="flex flex-col gap-1 flex-1">
-              <label className="text-[11px] text-fg-tertiary">Role</label>
+              <label className="text-xs text-fg-tertiary">Role</label>
               <SelectDropdown
                 value={formRole}
                 onChange={(v) => setFormRole(v as "admin" | "member" | "collaborator" | "viewer")}
@@ -360,7 +360,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
             </div>
 
             <div className="flex flex-col gap-1 flex-1">
-              <label className="text-[11px] text-fg-tertiary">Expires</label>
+              <label className="text-xs text-fg-tertiary">Expires</label>
               <SelectDropdown
                 value={formExpiry === null ? "null" : String(formExpiry)}
                 onChange={(v) => setFormExpiry(v === "null" ? null : Number(v))}
@@ -382,8 +382,9 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
             onChange={setFormSingleUse}
           />
 
-          {/* Reserved error slot — always rendered to prevent layout shift */}
-          <p className="text-[11px] h-4">
+          {/* Reserved error slot — always rendered to prevent layout shift.
+              h-4 matches text-xs's 1rem line-height so the slot doesn't clip. */}
+          <p className="text-xs h-4">
             {createError && <span className="text-danger">{createError}</span>}
           </p>
 
