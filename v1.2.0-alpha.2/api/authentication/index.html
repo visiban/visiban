@@ -2236,6 +2236,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#delete-apiv1authmepending-email" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/auth/me/pending-email/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1authmepending-emailresend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/auth/me/pending-email/resend/
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2317,6 +2339,17 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1authregistrationverify-email" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/auth/registration/verify-email/
+      
+    </span>
+  </a>
   
 </li>
         
@@ -4935,10 +4968,10 @@ actually bootstraps from) returns the identical shape — both are served by
 <li><code>email</code> in the response (and on the account) is <strong>unchanged</strong>, so it's still the address used for login, password resets, and notification email.</li>
 <li><code>pending_email</code> in the response holds the new address, and a confirmation link is emailed to it.</li>
 <li>The address switches when the link is confirmed through <code>POST /api/v1/auth/registration/verify-email/</code> (the link opens the SPA's <code>/confirm-email/&lt;key&gt;</code> page, which calls it). <code>pending_email</code> then returns to <code>null</code>, and the old address is removed from the account.</li>
-<li>Requesting another address before confirming replaces the pending one, and the earlier link normally stops working (two <code>PATCH</code> requests racing each other can leave both links usable, and whichever is confirmed wins). Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works.</li>
-<li>Sending <code>email</code> equal to the current address (ignoring case) while a change is pending <strong>withdraws</strong> it: <code>pending_email</code> returns to <code>null</code> and the pending link stops working. A <code>PATCH</code> that omits <code>email</code> leaves a pending change alone. A round-trip update, where a client GETs the profile, modifies it, and PATCHes or PUTs the full object back (including <code>PUT /api/v1/auth/user/</code>), sends the current <code>email</code> and therefore <strong>also withdraws</strong> a pending change. Clients should send <code>email</code> only when the user edited it.</li>
+<li>Requesting another address before confirming replaces the pending one, and the earlier link normally stops working (two <code>PATCH</code> requests racing each other can leave both links usable, and whichever is confirmed wins). Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works. To resend the link without re-submitting the form, use <a href="#post-apiv1authmepending-emailresend"><code>POST /api/v1/auth/me/pending-email/resend/</code></a>.</li>
+<li>Sending <code>email</code> equal to the current address (ignoring case) while a change is pending <strong>withdraws</strong> it: <code>pending_email</code> returns to <code>null</code> and the pending link stops working (<a href="#delete-apiv1authmepending-email"><code>DELETE /api/v1/auth/me/pending-email/</code></a> does the same thing explicitly). A <code>PATCH</code> that omits <code>email</code> leaves a pending change alone. A round-trip update, where a client GETs the profile, modifies it, and PATCHes or PUTs the full object back (including <code>PUT /api/v1/auth/user/</code>), sends the current <code>email</code> and therefore <strong>also withdraws</strong> a pending change. Clients should send <code>email</code> only when the user edited it.</li>
 <li>Choosing an address that is already a verified address of your own account applies it immediately.</li>
-<li>An address already verified by another account can't be confirmed.</li>
+<li>An address already verified by another account can't be confirmed. Following its link answers <code>409</code> with <code>code: "email_in_use"</code> (see <a href="#post-apiv1authregistrationverify-email">Verify email</a>); <code>pending_email</code> stays set until the change is withdrawn or replaced.</li>
 <li><code>pending_email</code> only reflects a change requested through this endpoint. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never reported as pending, and they're not removed by a change request or its confirmation.</li>
 </ul>
 <p>With <code>optional</code> (the default) or <code>none</code>, <code>email</code> is written directly, as before (including <code>""</code> to clear it), and <code>pending_email</code> stays <code>null</code>.</p>
@@ -4985,19 +5018,78 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
+<h3 id="delete-apiv1authmepending-email"><code>DELETE /api/v1/auth/me/pending-email/</code><a class="headerlink" href="#delete-apiv1authmepending-email" title="Permanent link">&para;</a></h3>
+<p>Withdraw the authenticated user's pending email change (see <a href="#patch-apiv1authme">Changing <code>email</code> when verification is mandatory</a>). The unconfirmed address is removed from the account, so the link already sent stops working, and <code>email</code> is unchanged. Added in 1.2 (#1293).</p>
+<p>Only the address the pending change tracks is removed. In the rare case where two <code>PATCH</code> requests raced (see above), the losing request's unconfirmed address is indistinguishable from other unconfirmed addresses on the account, such as ones imported by a social login, so it is left in place. Its link can still verify it as an additional address, but it never changes <code>email</code>.</p>
+<p><strong>Permission:</strong> Requires authentication. Acts only on the caller's own pending change; the request takes no address or id. Blocked while the account has a forced password or username change pending, like other profile endpoints except <code>GET</code>/<code>PATCH /api/v1/auth/me/</code>.</p>
+<p><strong>Request body:</strong> none.</p>
+<p><strong>Response</strong> <code>200 OK</code> — the updated profile, the same shape as <a href="#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a>, with <code>pending_email: null</code>.</p>
+<p>Idempotent: with no change pending it changes nothing and still returns <code>200</code>. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never removed.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>Request is not authenticated</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>A forced password or username change is pending</td>
+</tr>
+</tbody>
+</table>
+<h3 id="post-apiv1authmepending-emailresend"><code>POST /api/v1/auth/me/pending-email/resend/</code><a class="headerlink" href="#post-apiv1authmepending-emailresend" title="Permanent link">&para;</a></h3>
+<p>Email the confirmation link for the authenticated user's pending email change again. The address is always the pending one; the request can't choose it. Added in 1.2 (#1293).</p>
+<p><strong>Permission:</strong> Requires authentication. Same gating as <code>DELETE /api/v1/auth/me/pending-email/</code>.</p>
+<p><strong>Request body:</strong> none (any body is ignored).</p>
+<p><strong>Response</strong> <code>200 OK</code></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Confirmation email sent."</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>The link is sent through the same confirmation email as the original request and shares its rate limit: at most one email per address every 3 minutes, counting the email sent by the <code>PATCH</code> that started the change. Links already sent keep working.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>No email change is pending — <code>{"detail": "No email change is waiting for confirmation."}</code></td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td>A confirmation email went to this address within the cooldown, so none was sent. The <code>detail</code> says so; the earlier link still works.</td>
+</tr>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>Request is not authenticated</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>A forced password or username change is pending</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="site-configuration">Site configuration<a class="headerlink" href="#site-configuration" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1authsite-config"><code>GET /api/v1/auth/site-config/</code><a class="headerlink" href="#get-apiv1authsite-config" title="Permanent link">&para;</a></h3>
 <p>Returns site-level configuration. This endpoint is public — no authentication required.</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="w">  </span><span class="nt">"demo_reset_schedule"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="w">  </span><span class="nt">"demo_reset_schedule"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -5086,14 +5178,14 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span>
-<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>The returned <code>key</code> is an API token that can be used immediately in the <code>Authorization: Token &lt;key&gt;</code> header.</p>
 <h4 id="invite-only-mode">Invite-only mode<a class="headerlink" href="#invite-only-mode" title="Permanent link">&para;</a></h4>
@@ -5135,12 +5227,12 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span>
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
-<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="w">  </span><span class="nt">"invite_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"</span>
-<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="p">{</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="w">  </span><span class="nt">"invite_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code> — same shape as open mode: <code>{ "key": "&lt;token&gt;" }</code>.</p>
 <p><strong>Errors</strong></p>
@@ -5178,6 +5270,40 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
+<h3 id="post-apiv1authregistrationverify-email"><code>POST /api/v1/auth/registration/verify-email/</code><a class="headerlink" href="#post-apiv1authregistrationverify-email" title="Permanent link">&para;</a></h3>
+<p>Confirm an email address from the key in a confirmation link. The link in the email opens the SPA's <code>/confirm-email/&lt;key&gt;</code> page, which calls this endpoint. Used both for signup confirmation and for confirming an <a href="#patch-apiv1authme">email change</a>.</p>
+<p><strong>Permission:</strong> None — public endpoint, possession of the key is the credential. IP-throttled (<code>verify_email</code> scope).</p>
+<p><strong>Request body:</strong> <code>{ "key": "&lt;key from the link&gt;" }</code></p>
+<p><strong>Response</strong> <code>200 OK</code> — <code>{ "detail": "ok" }</code></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>key</code> is missing</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>The key is invalid or expired, or the address it names no longer exists (for example, a withdrawn or replaced email change)</td>
+</tr>
+<tr>
+<td><code>409 Conflict</code></td>
+<td><code>{"detail": "...", "code": "email_in_use"}</code> — the key is valid, but another account has already verified this address, so it can't be confirmed for this one. Nothing is changed. Applies to signup confirmations too (for example, two accounts that signed up with the same address before either confirmed it).</td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td>Too many requests from this IP (<code>verify_email</code> throttle scope)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Changed in 1.2</strong> (#1293) — the <code>409</code> case used to answer <code>200 {"detail": "ok"}</code> without confirming anything. It's only returned to someone holding a valid key, which is only ever emailed to that address, so it reveals nothing the inbox's owner can't already find out. The account that requested the change sees no difference: its <code>pending_email</code> stays set either way.</p>
+</blockquote>
 <hr />
 <h2 id="common-errors">Common errors<a class="headerlink" href="#common-errors" title="Permanent link">&para;</a></h2>
 <table>
