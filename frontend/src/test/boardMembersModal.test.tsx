@@ -25,6 +25,7 @@ const fakeBob = {
 
 const fakeBoard: BoardFull = {
   id: 1, uid: 'boarduid0001', name: 'Test', description: '', group: null, group_name: null,
+  archived_card_count: 0,
   columns: [], swimlanes: [], cards: [], labels: [],
   members: [
     { id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },

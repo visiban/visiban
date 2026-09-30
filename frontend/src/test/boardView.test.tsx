@@ -212,6 +212,7 @@ const fakeUser: User = {
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
+    archived_card_count: 0,
     columns: [
       { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
       { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
@@ -252,6 +253,9 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
     clearMoveError: vi.fn(),
     addCard: vi.fn(),
     removeCard: vi.fn(),
+    archiveCard: vi.fn(),
+    archiveCardByUid: vi.fn(),
+    unarchiveCard: vi.fn(),
     addColumn: vi.fn(),
     removeColumn: vi.fn(),
     addSwimlane: vi.fn(),

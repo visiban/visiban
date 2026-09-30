@@ -30,6 +30,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
 function makeBoard(fields: CustomFieldDefinition[] = []): BoardFull {
   return {
     id: 1, uid: "boarduid0001", name: "Board", description: "", group: null, group_name: null,
+    archived_card_count: 0,
     columns: [], swimlanes: [], cards: [], labels: [],
     members: [{ id: 10, user: fakeUser, role: "admin", is_moderator: false, joined_at: "" }],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],

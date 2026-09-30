@@ -126,6 +126,7 @@ const fakeUser: User = {
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
+    archived_card_count: 0,
     columns: [
       { id: 10, uid: 'col001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
       { id: 11, uid: 'col002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
@@ -165,6 +166,9 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     clearMoveError: vi.fn(),
     addCard: vi.fn(),
     removeCard: vi.fn(),
+    archiveCard: vi.fn(),
+    archiveCardByUid: vi.fn(),
+    unarchiveCard: vi.fn(),
     addColumn: vi.fn(),
     removeColumn: vi.fn(),
     addSwimlane: vi.fn(),
@@ -242,23 +246,26 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.evictCardByUid).toHaveBeenCalledWith('crd001')
   })
 
-  it('card.archived routes to evictCardByUid with card_uid (#595)', async () => {
+  it('card.archived routes to archiveCardByUid with card_uid (#595, #1289)', async () => {
+    // archiveCardByUid (not evictCardByUid) so the card moves into
+    // archived_card_count, which the settings modal's delete gate reads.
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
     await act(async () => {})
     act(() => { getOnEvent.dispatch({ event: 'card.archived', data: { card_uid: 'crd001' } }) })
-    expect(ctx.evictCardByUid).toHaveBeenCalledWith('crd001')
+    expect(ctx.archiveCardByUid).toHaveBeenCalledWith('crd001')
+    expect(ctx.evictCardByUid).not.toHaveBeenCalled()
   })
 
-  it('card.unarchived routes the restored card to addCard (#1054)', async () => {
+  it('card.unarchived routes the restored card to unarchiveCard (#1054, #1289)', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
     await act(async () => {})
     const restored = { id: 5, uid: 'crd005', title: 'Restored card', column: 10, swimlane: 20 }
     act(() => { getOnEvent.dispatch({ event: 'card.unarchived', data: restored as unknown as Record<string, unknown> }) })
-    expect(ctx.addCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, uid: 'crd005' }))
+    expect(ctx.unarchiveCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, uid: 'crd005' }))
   })
 
   it('saved_filter.created refreshes the filter list for the owning user (#1054)', async () => {

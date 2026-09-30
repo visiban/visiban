@@ -116,7 +116,13 @@ export default function BoardSelector({ user, onSelect }: Props) {
 
       {confirmDeleteId !== null && (() => {
         const board = boards.find((b) => b.id === confirmDeleteId);
-        const hasCards = (board?.card_count ?? 0) > 0;
+        // Card.board cascades, so archived cards are deleted with the board
+        // even though card_count (#693) leaves them out. Gate typed-name
+        // confirmation on both counts so a board holding only archived cards
+        // cannot be deleted with a single click (#1289).
+        const activeCount = board?.card_count ?? 0;
+        const archivedCount = board?.archived_card_count ?? 0;
+        const hasCards = activeCount + archivedCount > 0;
         const nameMatches = deleteConfirmInput === board?.name;
         const canDelete = !hasCards || nameMatches;
         return (
@@ -132,13 +138,21 @@ export default function BoardSelector({ user, onSelect }: Props) {
             >
               <h3 id={dialogTitleId} className="text-fg font-semibold text-lg mb-2">Delete board?</h3>
               <p className="text-fg-tertiary text-sm mb-1">
-                <span className="text-fg font-medium">{board?.name}</span> and all its columns, swimlanes, cards, and history will be permanently deleted.
+                <span className="text-fg font-medium">{board?.name}</span> and all its columns, swimlanes, cards (including archived cards), and history will be permanently deleted.
               </p>
               <p className="text-danger text-sm mb-4">This cannot be undone.</p>
               {hasCards && (
                 <div className="mb-4">
                   <p className="text-fg-tertiary text-xs mb-2">
-                    This board has <span className="text-fg font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
+                    This board has{" "}
+                    {activeCount > 0 && (
+                      <span className="text-fg font-medium">{activeCount} card{activeCount !== 1 ? "s" : ""}</span>
+                    )}
+                    {activeCount > 0 && archivedCount > 0 && " and "}
+                    {archivedCount > 0 && (
+                      <span className="text-fg font-medium">{archivedCount} archived card{archivedCount !== 1 ? "s" : ""}</span>
+                    )}
+                    . Type the board name to confirm deletion.
                   </p>
                   <input
                     type="text"

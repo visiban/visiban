@@ -16,6 +16,7 @@ const mockGetBoardMovements = getBoardMovements as ReturnType<typeof vi.fn>
 const mockBoard: BoardFull = {
   id: 1,
   uid: 'abc123',
+  archived_card_count: 0,
   name: 'Test Board',
   description: '',
   group: null,

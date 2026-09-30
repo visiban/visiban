@@ -23,7 +23,8 @@ import datetime
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db.models import Prefetch, Q
+from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery
+from django.db.models.functions import Coalesce
 from django_filters import DateTimeFilter, NumberFilter
 from rest_framework.exceptions import PermissionDenied
 
@@ -130,7 +131,7 @@ def get_accessible_boards_queryset(user):
     ).distinct()
 
 
-def get_board_for_user(board_id, user, *, slim=False):
+def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=False):
     """Return (board, role) for board_id if user has access; raise 404 or 403 otherwise.
 
     Loads the board with select_related for owner and the group ancestor chain
@@ -150,6 +151,12 @@ def get_board_for_user(board_id, user, *, slim=False):
     favorites/labels/members on the board instance.  The group ancestor
     select_related is retained because ``get_board_role`` still walks the
     chain to resolve inherited memberships.
+
+    When ``with_archived_card_count=True`` the board row carries an
+    ``_archived_card_count`` annotation (a correlated subquery, so it rides the
+    same SELECT and adds no query) for BoardFullSerializer's
+    ``archived_card_count`` (#1289). Opt-in so the many write endpoints that
+    share this helper do not pay for a count they never read.
     """
     queryset = Board.objects.select_related(
         "owner",
@@ -175,6 +182,20 @@ def get_board_for_user(board_id, user, *, slim=False):
                 "memberships",
                 queryset=BoardMembership.objects.select_related("user"),
                 to_attr="_prefetched_memberships",
+            ),
+        )
+    if with_archived_card_count:
+        queryset = queryset.annotate(
+            _archived_card_count=Coalesce(
+                Subquery(
+                    Card.objects.filter(board=OuterRef("pk"), archived_at__isnull=False)
+                    .order_by()
+                    .values("board")
+                    .annotate(c=Count("pk"))
+                    .values("c"),
+                    output_field=IntegerField(),
+                ),
+                0,
             ),
         )
     board = get_object_or_404(queryset, pk=board_id)

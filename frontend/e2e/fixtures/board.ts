@@ -142,6 +142,7 @@ export const BOARD_LIST_ITEM = {
   group_name: null,
   member_count: 1,
   card_count: 1,
+  archived_card_count: 0,
   my_role: 'admin' as const,
   is_starred: false,
   staleness_threshold_days: 7,

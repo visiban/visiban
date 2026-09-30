@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor, act } from '@testing-library/react'
+import { renderHook, waitFor, act, render, screen } from '@testing-library/react'
+import { createElement } from 'react'
+import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { useBoard } from '../hooks/useBoard'
 import type { BoardFull, Card, Column, Swimlane, Label } from '../types'
 
@@ -20,6 +22,15 @@ vi.mock('../api/boards', () => ({
   reorderSwimlanes: vi.fn(),
   deleteSwimlane: vi.fn(),
   deleteColumn: vi.fn(),
+  // Used only by the BoardSettingsModal render in the #1289 race test.
+  exportBoardCsv: vi.fn(),
+  exportBoardJson: vi.fn(),
+  setBoardMember: vi.fn(),
+  removeBoardMember: vi.fn(),
+  deleteBoard: vi.fn(),
+  enableBoardSharing: vi.fn(),
+  disableBoardSharing: vi.fn(),
+  getBoardExportHistory: vi.fn().mockResolvedValue({ results: [], count: 0, next: null, previous: null }),
 }))
 
 vi.mock('../api/cards', () => ({
@@ -39,6 +50,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     id: 1,
     uid: 'boarduid0001',
+    archived_card_count: 0,
     name: 'Test Board',
     description: '',
     group: null,
@@ -163,6 +175,86 @@ describe('useBoard', () => {
 
     act(() => { result.current.removeCard(100) })
     expect(result.current.board!.cards).toHaveLength(0)
+  })
+
+  // #1289 — archive / unarchive keep archived_card_count current so the
+  // settings modal's delete gate sees cards archived during this session.
+  it('archiveCard removes the card and increments archived_card_count', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 2 }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.archiveCard(100) })
+    expect(result.current.board!.cards).toHaveLength(0)
+    expect(result.current.board!.archived_card_count).toBe(3)
+  })
+
+  it('archiveCard then archiveCardByUid for the same card counts it once (socket echo)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.archiveCard(100) })
+    act(() => { result.current.archiveCardByUid('carduid00001') })
+    expect(result.current.board!.archived_card_count).toBe(1)
+  })
+
+  it('archiveCardByUid is a no-op for an unknown uid', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.archiveCardByUid('does-not-exist') })
+    expect(result.current.board!.cards).toHaveLength(1)
+    expect(result.current.board!.archived_card_count).toBe(0)
+  })
+
+  it('unarchiveCard restores the card and decrements archived_card_count once', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ cards: [], archived_card_count: 1 }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    const restored = makeBoard().cards[0]
+    act(() => { result.current.unarchiveCard(restored) })
+    // A second call (the echoed card.unarchived event) updates in place.
+    act(() => { result.current.unarchiveCard(restored) })
+    expect(result.current.board!.cards).toHaveLength(1)
+    expect(result.current.board!.archived_card_count).toBe(0)
+  })
+
+  it('a stale board.updated snapshot after archiving the last card cannot lower archived_card_count (#1289)', async () => {
+    // Race: the local archive lands first, then a board.updated snapshot that
+    // was serialized before it (archived_card_count: 0) arrives. Merging that
+    // value would leave 0 active + 0 archived and a one-click delete.
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 0 }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.archiveCard(100) })
+    act(() => { result.current.mergeBoardState({ archived_card_count: 0, name: 'Renamed' } as Partial<BoardFull>) })
+    // The echoed card.archived can't re-add it: the card already left `cards`.
+    act(() => { result.current.archiveCardByUid('carduid00001') })
+
+    const board = result.current.board!
+    expect(board.name).toBe('Renamed')
+    expect(board.cards).toHaveLength(0)
+    expect(board.archived_card_count).toBe(1)
+
+    render(createElement(BoardSettingsModal, {
+      board, isAdmin: true, onClose: vi.fn(), onBoardDeleted: vi.fn(), initialTab: 'data',
+    }))
+    expect(screen.getByRole('button', { name: 'Delete board' })).toBeDisabled()
+    expect(screen.getByPlaceholderText('Renamed')).toBeInTheDocument()
+  })
+
+  it('a stale board.updated snapshot after an unarchive cannot re-raise archived_card_count (#1289)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ cards: [], archived_card_count: 1 }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.unarchiveCard(makeBoard().cards[0]) })
+    act(() => { result.current.mergeBoardState({ archived_card_count: 1 } as Partial<BoardFull>) })
+    expect(result.current.board!.archived_card_count).toBe(0)
   })
 
   it('addColumn adds new column', async () => {

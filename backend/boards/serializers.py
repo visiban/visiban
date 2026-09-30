@@ -2064,6 +2064,12 @@ class BoardSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
+    # Additive companion to card_count (#1289). card_count stays active-only
+    # (#693), but Card.board is on_delete=CASCADE, so deleting a board also
+    # destroys its archived cards. The delete confirmations need this count to
+    # require typed-name confirmation for a board that holds only archived
+    # cards, and to tell the user those cards go too.
+    archived_card_count = serializers.SerializerMethodField()
     # A SerializerMethodField, not `CharField(source="group.name", default=None)`:
     # DRF's Field.get_default() unconditionally raises SkipField() whenever the
     # root serializer is bound with partial=True (see fields.py), regardless of
@@ -2088,7 +2094,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "is_starred", "template"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "is_starred", "template"]
         read_only_fields = ["uid", "created_at", "updated_at"]
 
     @extend_schema_field(GroupBriefSerializer(allow_null=True))
@@ -2255,6 +2261,14 @@ class BoardSerializer(serializers.ModelSerializer):
             return obj._card_count
         return obj.cards.count()
 
+    def get_archived_card_count(self, obj) -> int:
+        # Annotated alongside _card_count by every queryset that feeds this
+        # serializer, so the list endpoints stay N+1-free; the fallback only
+        # fires for a bare instance.
+        if hasattr(obj, "_archived_card_count"):
+            return obj._archived_card_count
+        return obj.cards.filter(archived_at__isnull=False).count()
+
     def get_group_name(self, obj) -> str | None:
         return _group_name_for_board(obj)
 
@@ -2349,6 +2363,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
     share_token = serializers.SerializerMethodField()
     share_token_expires_at = serializers.SerializerMethodField()
     capabilities = serializers.SerializerMethodField()
+    # Archived cards are excluded from ``cards`` above, but Card.board is
+    # on_delete=CASCADE so deleting the board destroys them too. The settings
+    # modal's Danger Zone reads this to require typed-name confirmation and to
+    # name the archived cards it will delete (#1289). Additive field.
+    archived_card_count = serializers.SerializerMethodField()
     # The board's custom field schema, shipped with the board so the client can
     # render and edit values without a second round trip (#371). Read-only here:
     # definitions are managed through /boards/{id}/custom-fields/, which is
@@ -2372,8 +2391,16 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "cards", "labels", "members", "custom_field_definitions",
             "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+            "archived_card_count",
         ]
         read_only_fields = ["uid"]
+
+    def get_archived_card_count(self, obj) -> int:
+        # BoardViewSet.full() annotates this via get_board_for_user(
+        # with_archived_card_count=True); the fallback covers any other caller.
+        if hasattr(obj, "_archived_card_count"):
+            return obj._archived_card_count
+        return obj.cards.filter(archived_at__isnull=False).count()
 
     def get_group_name(self, obj) -> str | None:
         return _group_name_for_board(obj)

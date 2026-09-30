@@ -40,3 +40,11 @@ Archived cards are included in analytics for the period they were active. Dwell 
 ## Column and swimlane deletion
 
 Deleting a column or swimlane also deletes all cards in it — including archived cards that were in that column or swimlane at the time of archiving. Both confirmation dialogs warn that any archived cards will also be permanently deleted.
+
+## Board deletion
+
+Deleting a board permanently deletes every card on it, including archived cards. Every board-delete confirmation — on the dashboard, in the board switcher, and in the **Danger Zone** of Board Settings — says so, and when the board has archived cards it tells you how many.
+
+Archived cards count toward the typed confirmation too: if a board holds any cards, active **or** archived, you must type the board's name before **Delete** is enabled. A board with no active cards but hundreds of archived ones can no longer be deleted with a single click. Only a board with no cards at all deletes without typing its name.
+
+The active card count shown elsewhere (for example on the dashboard) still excludes archived cards; the delete dialogs report the two numbers separately. *(Since 1.2, #1289.)*

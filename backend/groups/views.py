@@ -542,6 +542,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                 .annotate(
                     _member_count=Count("memberships", distinct=True),
                     _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+                    _archived_card_count=Count("cards", filter=Q(cards__archived_at__isnull=False), distinct=True),
                     _is_starred=Exists(
                         BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)
                     ),
@@ -607,6 +608,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             board = Board.objects.select_related("owner", "group").annotate(
                 _member_count=Count("memberships", distinct=True),
                 _card_count=Count("cards", filter=_Q(cards__archived_at__isnull=True), distinct=True),
+                _archived_card_count=Count("cards", filter=_Q(cards__archived_at__isnull=False), distinct=True),
                 _is_starred=Exists(_BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
             ).get(pk=board.pk)
 
@@ -695,6 +697,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             .annotate(
                 _member_count=Count("memberships", distinct=True),
                 _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+                _archived_card_count=Count("cards", filter=Q(cards__archived_at__isnull=False), distinct=True),
                 _is_starred=Exists(
                     BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)
                 ),

@@ -147,3 +147,46 @@ describe('BoardSelector', () => {
     expect(await screen.findByText('A test board')).toBeInTheDocument()
   })
 })
+
+// #1289 — archived cards cascade with the board, so they must gate typed-name
+// confirmation exactly like active cards, and the dialog must name them.
+describe('BoardSelector — delete confirmation and archived cards (#1289)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  const boardWith = (card_count: number, archived_card_count: number) => ({
+    id: 1, uid: 'my-board', name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null,
+    member_count: 1, card_count, archived_card_count, staleness_threshold_days: 14, stale_warning_pct: 50,
+    allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
+    export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '',
+  })
+
+  async function openDeleteDialog(card_count: number, archived_card_count: number) {
+    mockListBoards.mockResolvedValue([boardWith(card_count, archived_card_count)])
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('My Board')
+    await user.click(screen.getByTitle('Delete board'))
+    return { user, dialog: screen.getByRole('dialog') }
+  }
+
+  it('requires typed confirmation for a board holding only archived cards', async () => {
+    const { user, dialog } = await openDeleteDialog(0, 4)
+    expect(dialog).toHaveTextContent('This board has 4 archived cards. Type the board name to confirm deletion.')
+    const deleteButton = screen.getByRole('button', { name: 'Delete' })
+    expect(deleteButton).toBeDisabled()
+    await user.type(screen.getByPlaceholderText('Type "My Board" to confirm'), 'My Board')
+    expect(deleteButton).toBeEnabled()
+  })
+
+  it('names both active and archived cards when the board has both', async () => {
+    const { dialog } = await openDeleteDialog(2, 1)
+    expect(dialog).toHaveTextContent('This board has 2 cards and 1 archived card. Type the board name to confirm deletion.')
+  })
+
+  it('mentions archived cards and allows single-click delete for an empty board', async () => {
+    const { dialog } = await openDeleteDialog(0, 0)
+    expect(dialog).toHaveTextContent('including archived cards')
+    expect(screen.queryByPlaceholderText('Type "My Board" to confirm')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+  })
+})

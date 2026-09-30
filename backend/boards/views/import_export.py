@@ -767,6 +767,7 @@ class BoardImportExportMixin:
             board = Board.objects.select_related("owner", "group").annotate(
                 _member_count=Count("memberships", distinct=True),
                 _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+                _archived_card_count=Count("cards", filter=Q(cards__archived_at__isnull=False), distinct=True),
                 _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
             ).get(pk=board.pk)
             board_data = BoardSerializer(board, context={"request": request}).data
@@ -898,6 +899,7 @@ class BoardImportExportMixin:
         board = Board.objects.select_related("owner", "group").annotate(
             _member_count=_count(BoardMembershipModel.objects.all()),
             _card_count=_count(Card.objects.filter(archived_at__isnull=True)),
+            _archived_card_count=_count(Card.objects.filter(archived_at__isnull=False)),
             _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
         ).get(pk=board.pk)
         board_data = BoardSerializer(board, context={"request": request}).data
@@ -1178,6 +1180,7 @@ class BoardImportExportMixin:
             board = Board.objects.select_related("owner", "group").annotate(
                 _member_count=Count("memberships", distinct=True),
                 _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+                _archived_card_count=Count("cards", filter=Q(cards__archived_at__isnull=False), distinct=True),
                 _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
             ).get(pk=board.pk)
             board_data = BoardSerializer(board, context={"request": request}).data

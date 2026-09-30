@@ -98,6 +98,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
+    archived_card_count: 0,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }],
     swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' }],
     cards: [], labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],

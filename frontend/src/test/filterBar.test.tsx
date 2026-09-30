@@ -14,6 +14,7 @@ const fakeUser: User = {
 function makeBoard(): BoardFull {
   return {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
+    archived_card_count: 0,
     columns: [], swimlanes: [], cards: [],
     labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }, { id: 101, uid: 'lbluid000002', name: 'Feature', color: '#3B82F6' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],
