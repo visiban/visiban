@@ -536,7 +536,7 @@ export interface Notification {
   board_id: number | null;
   board_name: string | null;
   // Backend enforces blank=False with ActionType choices — '' is not a valid value post-migration 0041.
-  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | 'due_soon';
+  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | 'due_soon' | 'comment_added';
   read: boolean;
   created_at: string;
 }

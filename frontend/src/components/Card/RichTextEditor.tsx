@@ -61,6 +61,8 @@ function ToolbarButton({
         onClick();
       }}
       title={title}
+      aria-label={title}
+      aria-pressed={active ?? false}
       className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         active
           ? "bg-surface-active text-fg"
@@ -112,11 +114,13 @@ function ColorPicker({
         type="button"
         onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); }}
         title="Text color"
+        aria-label="Text color"
+        aria-expanded={open}
         className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis flex items-center gap-1 ${
           active ? "bg-surface-active text-fg" : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
         }`}
       >
-        <span style={{ borderBottom: `2px solid ${currentColor || "#94a3b8"}` }}>A</span>
+        <span aria-hidden="true" style={{ borderBottom: `2px solid ${currentColor || "#94a3b8"}` }}>A</span>
       </button>
       {open && (
         <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 flex flex-wrap gap-1.5 w-36">
@@ -130,6 +134,7 @@ function ColorPicker({
                 setOpen(false);
               }}
               title={c.label}
+              aria-label={c.label}
               className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 ${
                 currentColor === c.value ? "border-white" : "border-line-strong"
               }`}

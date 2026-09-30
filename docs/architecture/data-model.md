@@ -26,7 +26,7 @@ User
  ├── notif_mentioned (bool, default true — notify on @mention in card description)
  ├── notif_due_soon (bool, default false — notify when a card's due date is approaching)
  ├── notif_card_moved (bool, default false — notify when a card is moved)
- ├── notif_comment_added (bool, default false — notify when a comment is added to an assigned card)
+ ├── notif_comment_added (bool, default false — notify when someone else comments on a card you created or are assigned to; in-app only)
  ├── notif_board_invite (bool, default true — notify when added to a board)
  ├── notif_stale (bool, default false — notify when an owned card has gone stale; split from notif_due_soon in 1.2)
  ├── email_notif_card_assigned (bool, default false — also email the assignment notification)

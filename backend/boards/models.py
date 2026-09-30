@@ -556,6 +556,10 @@ class Notification(models.Model):
         # no DDL and locks nothing. Existing clients that switch on the value
         # must treat an unknown action_type as generic — the API docs say so.
         DUE_SOON = "due_soon", "due soon"
+        # Added in 1.2 (#1277). Additive in exactly the same way as DUE_SOON:
+        # no CHECK constraint, so migration 0062 is state-only. Recipients are the
+        # card's implicit watchers (creator + assignee); see card_watcher_ids().
+        COMMENT_ADDED = "comment_added", "comment added"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"

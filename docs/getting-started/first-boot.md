@@ -41,7 +41,9 @@ docker compose -f docker-compose.prod.yml exec backend rm /tmp/visiban_admin_pas
 ```
 
 !!! note "Password file not found?"
-    If the file does not exist, the admin account was already created on a previous boot (the password is only written once). Reset the password with:
+    If the file does not exist, the admin account was already created on a previous boot (the password is only written once). This commonly happens even on what looks like a fresh start: the database lives in a named Docker volume that survives `docker compose down` / `up --build` / image rebuilds, but `/tmp` inside the `backend` container does not. So the moment the container is recreated for any reason after the admin's first boot — a rebuild, a `down`/`up` cycle, anything that gives you a new container instance — `ensure_site_admin` sees the admin already exists in Postgres, no-ops, and never writes the file again. There is no way to recover that specific file after the fact.
+
+    Reset the password with:
 
     ```bash
     docker compose exec backend python manage.py changepassword admin
@@ -52,6 +54,20 @@ docker compose -f docker-compose.prod.yml exec backend rm /tmp/visiban_admin_pas
     ```bash
     docker compose -f docker-compose.prod.yml exec backend python manage.py changepassword admin
     ```
+
+    `changepassword` prompts interactively and needs a real TTY (`docker compose exec` allocates one by default in an interactive terminal; scripts, CI, and some automation contexts do not and will fail with `EOFError`). In a non-interactive context, set the password directly instead:
+
+    ```bash
+    docker compose exec -T backend python manage.py shell -c "
+    from accounts.models import User
+    u = User.objects.get(username='admin')
+    u.set_password('a-new-temporary-password')
+    u.must_change_password = True
+    u.save()
+    "
+    ```
+
+    Also double check the service name — it's `backend` in this project's compose files, not `api`.
 
 **Local development (bare metal / venv):**
 

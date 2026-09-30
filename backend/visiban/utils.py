@@ -76,3 +76,42 @@ def get_client_ip(request) -> str:
         addrs = xff.split(",")
         return addrs[-min(num_proxies, len(addrs))].strip()
     return request.META.get("REMOTE_ADDR", "unknown")
+
+
+#: Cap on the raw length of a client-submitted ``allowed_priorities`` list,
+#: shared by ``GroupSerializer.validate_allowed_priorities``
+#: (groups/serializers.py) and ``BoardSerializer.validate_allowed_priorities``
+#: (boards/serializers.py) (#1186).
+#:
+#: #1169 added this identical check independently to both serializers because
+#: ``groups/serializers.py`` documents a hard "no import from boards"
+#: invariant (to avoid a groups<->boards cycle, since boards/serializers.py
+#: already imports GroupBriefSerializer from groups/serializers.py), so
+#: neither app's own module was a safe home for the shared copy. Nothing then
+#: kept the two values in sync — a future change to one without the other
+#: would silently reintroduce the drift #1169 fixed. ``visiban.utils`` is the
+#: Django-project-level module (not an app) both already import
+#: (``get_client_ip``, ``normalize_app_version``), so it holds the shared
+#: constant instead of adding a new module.
+MAX_ALLOWED_PRIORITIES_LENGTH = 100
+
+
+def check_allowed_priorities_length(value, max_length=MAX_ALLOWED_PRIORITIES_LENGTH):
+    """Raise a DRF ``ValidationError`` if ``value`` exceeds the shared cap.
+
+    Callers must run this before any iteration or membership test over
+    ``value`` (#1169 L1) so the cost of rejecting an oversized list is O(1),
+    not O(n). The message wording is shared too, since #1169 introduced it
+    identically in both serializers.
+
+    ``rest_framework`` is imported locally, not at module scope, matching
+    ``get_client_ip`` above: ``visiban.settings`` imports this module while
+    Django is still assembling ``INSTALLED_APPS``, before DRF is safe to
+    import at import time.
+    """
+    from rest_framework import serializers
+
+    if len(value) > max_length:
+        raise serializers.ValidationError(
+            f"allowed_priorities may have at most {max_length} entries."
+        )

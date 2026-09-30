@@ -648,6 +648,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                   onClick={() => setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id))}
                                   className="text-xs text-fg-muted hover:text-danger transition w-5 text-center"
                                   title="Remove from invite list"
+                                  aria-label="Remove from invite list"
                                 >
                                   ✕
                                 </button>
