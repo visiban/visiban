@@ -4150,6 +4150,11 @@ no DDL. One behavior change worth flagging to users, not the database: because
 date approaching</strong> on (which historically only produced staleness alerts) starts receiving the
 24-hour due-date email too — see the note in
 <a href="../../features/notifications/">Notifications</a> if you need to tell your users.</p>
+<p>Migration <code>accounts/0034_user_email_notif_comment_added</code> adds one more defaulted boolean
+column, <code>email_notif_comment_added</code>, to the user table — the email opt-in for the
+<strong>Comment on a watched card</strong> notification (#1295). It defaults to <code>False</code> for every user,
+so an upgrade does not start emailing anyone; like the other <code>email_notif_*</code> columns it is a
+metadata-only <code>ADD COLUMN</code> on PostgreSQL 11+ with no index to build.</p>
 <p>Migration <code>boards/0052_board_show_wip_at_limit</code> adds one nullable-default boolean column
 (<code>show_wip_at_limit</code>) to <code>boards</code>. It is off by default, so existing boards render exactly as
 before; board admins opt in per board from <strong>Board Settings → Rules → Limit enforcement</strong>

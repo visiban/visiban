@@ -3806,7 +3806,7 @@
 
 <h1 id="notifications">Notifications<a class="headerlink" href="#notifications" title="Permanent link">&para;</a></h1>
 <p>Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the <code>notify_stale_cards</code> management command.</p>
-<p>Four of these events can also be <strong>delivered by email</strong> — see <a href="#email-notifications">Email notifications</a> below.</p>
+<p>Five of these events can also be <strong>delivered by email</strong> — see <a href="#email-notifications">Email notifications</a> below.</p>
 <h2 id="notification-bell">Notification bell<a class="headerlink" href="#notification-bell" title="Permanent link">&para;</a></h2>
 <p>The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only <strong>unread</strong> notifications. Each notification is a deep link — clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.</p>
 <p>Click <strong>Mark all read</strong> to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.</p>
@@ -3853,8 +3853,8 @@
 <tr>
 <td>Comment on a watched card</td>
 <td>Off</td>
-<td>No</td>
-<td>—</td>
+<td>Yes</td>
+<td>Off</td>
 </tr>
 <tr>
 <td>Card has gone stale</td>
@@ -3945,7 +3945,8 @@ and shipped the preference toggle, but nothing ever created the notification.</p
 <blockquote>
 <p><strong>Changed in 1.2</strong>
 Before 1.2 the <strong>Comment on a watched card</strong> toggle was saved but never
-created a notification (#1277). It now works as described below.</p>
+created a notification (#1277). It now works as described below, and can
+also be delivered by email (#1295).</p>
 </blockquote>
 <p>When someone comments on a card you are <strong>watching</strong>, you get a notification in
 the bell:</p>
@@ -3965,7 +3966,10 @@ does not make you a watcher. Explicit watch/unwatch is planned (#229).</p>
 <li><strong>Only while you can see the board.</strong> If you created a card but have since
   been removed from the board, or your account is deactivated, you are not
   notified.</li>
-<li><strong>In-app only.</strong> This event is not delivered by email.</li>
+<li><strong>Email is optional.</strong> Turn on <strong>Also send by email</strong> under <em>Comment on a
+  watched card</em> to get a copy by email as well. It is off by default and, like
+  every email preference, inert while the in-app toggle is off. See
+  <a href="#email-notifications">Email notifications</a>.</li>
 </ul>
 <h2 id="staleness-notifications">Staleness notifications<a class="headerlink" href="#staleness-notifications" title="Permanent link">&para;</a></h2>
 <p>Cards that haven't moved between columns in a configurable number of days are considered <strong>stale</strong>. The <code>notify_stale_cards</code> management command scans all boards and creates notifications for assignees and board admins of stale cards, for those who have the <strong>Card has gone stale</strong> preference on (it was <strong>Due date approaching</strong> before 1.2 — see the note in <a href="#notification-preferences">Notification preferences</a>).</p>
@@ -4002,7 +4006,7 @@ aggressively would make them send the same notification again.</p>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>Team members who are not watching the board all day can have notifications
-delivered to their email address as well as the bell. Four events support it:</p>
+delivered to their email address as well as the bell. Five events support it:</p>
 <table>
 <thead>
 <tr>
@@ -4026,6 +4030,10 @@ delivered to their email address as well as the bell. Four events support it:</p
 <tr>
 <td>Card I'm watching is moved</td>
 <td><strong>Also send by email</strong> under <em>Card I'm watching is moved</em></td>
+</tr>
+<tr>
+<td>Comment on a watched card</td>
+<td><strong>Also send by email</strong> under <em>Comment on a watched card</em></td>
 </tr>
 </tbody>
 </table>

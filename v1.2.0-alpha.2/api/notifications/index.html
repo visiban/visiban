@@ -3606,12 +3606,13 @@
 <li>A card they own is due within 24 hours (<code>notif_due_soon</code>) — <em>added in 1.2</em></li>
 <li>A card they own has not moved within the configured staleness window (<code>notif_stale</code>) — <em>added in 1.2; previously gated on <code>notif_due_soon</code></em></li>
 <li>They are invited to a board (<code>notif_board_invite</code>)</li>
-<li>Someone else comments on a card they created or are assigned to (<code>notif_comment_added</code>) — <em>added in 1.2</em>; in-app only, and suppressed when the same comment @mentions them</li>
+<li>Someone else comments on a card they created or are assigned to (<code>notif_comment_added</code>) — <em>added in 1.2</em>; suppressed when the same comment @mentions them</li>
 </ul>
 <p>Each notification preference can be toggled individually via <code>PATCH /api/v1/auth/me/</code>. See <a href="../authentication/">Authentication</a>.</p>
-<p>The first four events can also be delivered by email, controlled by a parallel set of
-fields on the same endpoint — <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>,
-<code>email_notif_due_soon</code>, <code>email_notif_card_moved</code> — all of which default to <code>false</code>.
+<p>Assignment, @mention, due-soon, card-moved, and comment-on-a-watched-card notifications
+can also be delivered by email, controlled by a parallel set of fields on the same
+endpoint — <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>,
+<code>email_notif_card_moved</code>, <code>email_notif_comment_added</code> — all of which default to <code>false</code>.
 An email is a copy of the in-app notification, so an <code>email_notif_*</code> field has no effect
 while its <code>notif_*</code> counterpart is <code>false</code>. See
 <a href="../../features/notifications/#email-notifications">Email notifications</a>.</p>
