@@ -64,6 +64,7 @@ from ..models import (
     Notification, Swimlane,
 )
 from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
+from ..serializers import _card_labels
 from ..utils import notify_new_mentions
 from .notifications import create_notifications
 from .errors import (
@@ -415,7 +416,12 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
         old_assignee_id = card.assignee_id
         old_assignee_name = card.assignee.username if card.assignee else "Unassigned"
         old_description = card.description
-        old_label_ids = {label.id for label in card.labels.all()}
+        # _card_labels(), not card.labels.all() (#1223): `card` came from
+        # CardViewSet.get_object(), i.e. _card_queryset(), whose labels
+        # prefetch is now parked with to_attr — .all() on the M2M manager
+        # would miss that parked list and issue a live query here, on every
+        # card update, regardless of whether labels actually changed.
+        old_label_ids = {label.id for label in _card_labels(card)}
         old_due_date = card.due_date.isoformat() if card.due_date else ""
 
         apply()

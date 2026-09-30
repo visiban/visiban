@@ -304,15 +304,16 @@ class BoardFullColdCacheAncestorTests(TestCase):
 
 
 class ParkedPrefetchQueryCountTests(TestCase):
-    """The ``to_attr``-parked card prefetches must stay query-free (#1212).
+    """The ``to_attr``-parked card prefetches must stay query-free (#1212, labels #1223).
 
     ``_card_queryset`` (and ``PublicBoardSerializer.get_cards``) park
-    attachments, checklist items, movements and custom field values on plain
-    list attributes. Any reader that goes back to ``card.<relation>.all()``
-    misses that list and issues one query **per card** — so every read path
-    that serializes those relations is checked here with cards that actually
-    carry every relation, and grown with cards that carry them too (the
-    ``*_budget_scales_with_cards`` tests above add bare cards).
+    attachments, checklist items, movements, custom field values, and (since
+    #1223) labels on plain list attributes. Any reader that goes back to
+    ``card.<relation>.all()`` misses that list and issues one query **per
+    card** — so every read path that serializes those relations is checked
+    here with cards that actually carry every relation, and grown with cards
+    that carry them too (the ``*_budget_scales_with_cards`` tests above add
+    bare cards).
 
     ``FULL_QUERIES`` is the exact count measured on ``/full/`` for this fixture
     (SQLite, force-authenticated) both before and after the #1212 conversion —
@@ -331,6 +332,10 @@ class ParkedPrefetchQueryCountTests(TestCase):
         self.board, self.cols, self.lanes = _seed_board(
             self.user, n_cols=3, n_lanes=2, cards_per_cell=2,
         )
+        # _seed_board() already puts this label on every card it creates
+        # (#1223's labels coverage rides on that, same as attachments/
+        # checklist/movements above).
+        self.label = Label.objects.get(board=self.board)
         self.defs = [
             CustomFieldDefinition.objects.create(
                 board=self.board, name=f"F{i}", field_type="text", position=i,
@@ -372,6 +377,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
                     filename="g.txt", file="attachments/g.txt", size=1,
                 )
                 CardChecklist.objects.create(card=card, text="x", is_checked=True, position=0)
+                card.labels.add(self.label)
                 self._add_custom_values(card)
 
     def _assert_constant(self, fn, label):
@@ -381,8 +387,8 @@ class ParkedPrefetchQueryCountTests(TestCase):
         self.assertEqual(
             before, after,
             f"{label} query count grew from {before} to {after} when cards with "
-            "attachments/checklist/movements/custom fields were added — a reader "
-            "is bypassing the to_attr-parked prefetch (#1212).",
+            "attachments/checklist/movements/custom fields/labels were added — "
+            "a reader is bypassing the to_attr-parked prefetch (#1212, #1223).",
         )
 
     def _get_full(self):
@@ -398,6 +404,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
         self.assertEqual((card["checklist_total"], card["checklist_done"]), (2, 1))
         self.assertIsNotNone(card["last_moved_at"])
         self.assertEqual(len(card["custom_field_values"]), 2)
+        self.assertEqual([lb["id"] for lb in card["labels"]], [self.label.id])
         self.assertLessEqual(
             len(ctx), self.FULL_QUERIES,
             f"full/ used {len(ctx)} queries — expected at most {self.FULL_QUERIES}.",
@@ -437,6 +444,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
         "_prefetched_checklist_items",
         "_prefetched_movements",
         "_prefetched_custom_field_values",
+        "_prefetched_labels",
     )
 
     def test_card_queryset_parks_relations_on_plain_lists(self):
@@ -490,6 +498,126 @@ class ParkedPrefetchQueryCountTests(TestCase):
             [v["field_definition"] for v in data["custom_field_values"]],
             [d.id for d in self.defs],
         )
+        self.assertEqual([lb["id"] for lb in data["labels"]], [self.label.id])
+
+    def test_update_does_not_leave_a_stale_parked_labels_list(self):
+        """A card read through ``_card_queryset`` (so it carries a parked
+        labels list), then updated in place via the serializer, must not go
+        on serving the pre-write list (#1223) — the same failure class
+        ``CardSerializer._apply_custom_field_values`` guards against for
+        custom field rows (#1212). In production every mutation response is
+        re-fetched fresh through ``_refetch_card_data`` regardless, so this
+        would not surface as a visible bug today, but it is exactly the trap
+        the accessor pattern invites for the next caller that reads the same
+        instance twice.
+        """
+        from boards.serializers import CardSerializer, _card_labels, _card_queryset
+
+        new_label = Label.objects.create(board=self.board, name="New", color="#0F0")
+        card = _card_queryset(Card.objects.filter(board=self.board)).first()
+        # Sanity: the queryset really did park the pre-write labels.
+        self.assertEqual([lb.id for lb in _card_labels(card)], [self.label.id])
+
+        serializer = CardSerializer(
+            card, data={"label_ids": [new_label.id]}, partial=True,
+            context={"board": self.board},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.assertEqual([lb.id for lb in _card_labels(card)], [new_label.id])
+
+
+class SwimlaneParkedPrefetchQueryCountTests(TestCase):
+    """The ``to_attr``-parked swimlane custom field value prefetch must stay
+    query-free (#1223, the swimlane twin of ``ParkedPrefetchQueryCountTests``
+    above, #1212).
+
+    ``_swimlane_custom_field_prefetch()`` (shared by ``BoardFullSerializer.
+    get_swimlanes``, ``SwimlaneViewSet``, and the board export) parks each
+    swimlane's row-field values on a plain list attribute. Any reader that
+    goes back to ``swimlane.custom_field_values.all()`` misses that list and
+    issues one query **per swimlane**.
+    """
+
+    def setUp(self):
+        from boards.models import SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue
+
+        self.SwimlaneCustomFieldValue = SwimlaneCustomFieldValue
+        self.user = User.objects.create_user(username="swparked", password="x")
+        self.board, self.cols, self.lanes = _seed_board(
+            self.user, n_cols=2, n_lanes=3, cards_per_cell=1,
+        )
+        self.defs = [
+            SwimlaneCustomFieldDefinition.objects.create(
+                board=self.board, name=f"R{i}", field_type="text", position=i,
+            )
+            for i in range(2)
+        ]
+        for lane in self.lanes:
+            for d in self.defs:
+                SwimlaneCustomFieldValue.objects.create(
+                    swimlane=lane, field_definition=d, value="v",
+                )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def _get_full(self):
+        return self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+
+    def test_full_query_count_constant_across_more_swimlanes(self):
+        """Adding swimlanes with row-field values must not add queries."""
+        before = _query_count(self._get_full)
+        for i in range(3):
+            lane = Swimlane.objects.create(board=self.board, name=f"extra{i}", position=100 + i)
+            for d in self.defs:
+                self.SwimlaneCustomFieldValue.objects.create(
+                    swimlane=lane, field_definition=d, value="v",
+                )
+        after = _query_count(self._get_full)
+        self.assertEqual(
+            before, after,
+            f"full/ query count grew from {before} to {after} when swimlanes with "
+            "row-field values were added — a reader is bypassing the "
+            "to_attr-parked swimlane custom field prefetch (#1223).",
+        )
+
+    def test_full_response_carries_every_swimlane_value(self):
+        r = self._get_full()
+        self.assertEqual(r.status_code, 200)
+        lane = r.data["swimlanes"][0]
+        self.assertEqual(len(lane["custom_field_values"]), 2)
+
+    def test_swimlane_queryset_parks_values_on_plain_list(self):
+        from boards.serializers import _swimlane_custom_field_prefetch
+
+        lanes = list(
+            Swimlane.objects.filter(board=self.board)
+            .prefetch_related(_swimlane_custom_field_prefetch())
+        )
+        self.assertTrue(lanes)
+        for lane in lanes:
+            self.assertIsInstance(
+                lane.__dict__.get("_prefetched_swimlane_custom_field_values"), list,
+                "_swimlane_custom_field_prefetch() no longer parks values with "
+                "to_attr — readers fall back to the manager's per-call queryset "
+                "clone (#1223).",
+            )
+
+    def test_swimlane_serializer_cold_path_falls_back_to_manager(self):
+        """A swimlane not read through ``_swimlane_custom_field_prefetch()``
+        has no parked list; the field must fall back to the manager rather
+        than raise or render an empty list.
+
+        ``SwimlaneAdminSerializer`` (not the public ``SwimlaneSerializer``)
+        because the fixture's definitions default to ``is_admin_only=True``,
+        which the public serializer filters out regardless of prefetch state.
+        """
+        from boards.serializers import SwimlaneAdminSerializer
+
+        lane = Swimlane.objects.filter(board=self.board).first()
+        data = SwimlaneAdminSerializer(lane).data
+        self.assertEqual(len(data["custom_field_values"]), 2)
 
 
 class SummaryQueryCountTests(TestCase):
@@ -1204,6 +1332,39 @@ class CardMutationQueryCountTests(TestCase):
                 format="json",
             )
         self._assert_budget(ctx, self.BUDGET_UPDATE, "PATCH cards/{id}/", 200, r.status_code)
+
+    def test_update_query_count_is_exact(self):
+        """Pins the exact PATCH /cards/{id}/ query count (#1223), not just a
+        budget with headroom.
+
+        BUDGET_UPDATE's `measured + 3` slack exists to absorb framework noise,
+        but that same slack means a *constant* +1 regression — like
+        `boards.services.cards.update_card()` falling back from the
+        to_attr-parked labels list to `card.labels.all()` — sails straight
+        through it. It would also sail through
+        `test_update_query_count_constant_across_label_count` below: that test
+        only checks the count is stable *across* label counts, and a reader
+        that always falls back to the manager costs the same one extra query
+        regardless of how many labels the card has, so "constant" is true
+        either way. Only an exact count, measured once and moved deliberately
+        (matching this file's `measured + 3` convention above, just without
+        the +3), catches this class of regression.
+        """
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.patch(
+                self._card_url(),
+                {"title": "renamed", "priority": "high", "label_ids": [self.label.id]},
+                format="json",
+            )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(
+            len(ctx), 31,
+            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 31. "
+            "If this grew by exactly one, check for a reader that fell back "
+            "from a to_attr-parked list to the manager's .all() (#1223); if "
+            "it is a legitimate change, re-measure and move this number in "
+            "the same commit, with the reason.",
+        )
 
     def test_move_column_change_within_query_budget(self):
         with CaptureQueriesContext(connection) as ctx:

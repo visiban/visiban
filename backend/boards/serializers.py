@@ -324,10 +324,15 @@ class SwimlaneCustomFieldValuesField(serializers.Field):
         return instance
 
     def to_representation(self, swimlane):
-        # .all() reads the prefetch cache populated by the read paths in
-        # BoardFullSerializer/SwimlaneViewSet; .filter()/.order_by() here would
-        # bypass it and issue one query per swimlane.
-        rows = swimlane.custom_field_values.all()
+        # Reads the list _swimlane_custom_field_prefetch() parks with to_attr
+        # (#1223, same pattern as _card_custom_field_values, #1212): a plain
+        # .all() on the related manager re-clones a QuerySet on every call,
+        # even on a prefetch-cache hit — see the "Parked prefetches" comment
+        # further down this module. The accessor falls back to the manager
+        # for a swimlane that did not come through a prefetched read path
+        # (still correct, just one query for that row); .filter()/.order_by()
+        # here would bypass both and issue one query per swimlane.
+        rows = _swimlane_custom_field_values(swimlane)
         return [
             {"field_definition": row.field_definition_id, "value": row.value}
             for row in rows
@@ -416,12 +421,19 @@ def _swimlane_custom_field_prefetch():
     Ordering belongs here and not in ``SwimlaneCustomFieldValue.Meta.ordering``
     so only the read path pays for the join — the same trade ``_card_queryset``
     makes for card values.
+
+    Parked on a plain list attribute with ``to_attr`` (#1223, same pattern as
+    ``_card_queryset``'s custom_field_values prefetch, #1212) — read the result
+    through ``_swimlane_custom_field_values()``, never
+    ``swimlane.custom_field_values.all()``, which would miss the parked list
+    once this Prefetch is applied and query once per swimlane.
     """
     return Prefetch(
         "custom_field_values",
         queryset=SwimlaneCustomFieldValue.objects.select_related(
             "field_definition"
         ).order_by("field_definition__position", "field_definition_id"),
+        to_attr=_PARKED_SWIMLANE_CUSTOM_FIELD_VALUES,
     )
 
 
@@ -1608,6 +1620,14 @@ _PARKED_ATTACHMENTS = "_prefetched_attachments"
 _PARKED_CHECKLIST_ITEMS = "_prefetched_checklist_items"
 _PARKED_MOVEMENTS = "_prefetched_movements"
 _PARKED_CUSTOM_FIELD_VALUES = "_prefetched_custom_field_values"
+_PARKED_LABELS = "_prefetched_labels"
+#: Swimlane's own parked attr (#1223) — distinct name from the card one above
+#: even though both are "custom field values", because SwimlaneSerializer and
+#: CardSerializer are read through completely different call paths and a
+#: shared attr name would risk one accessor reading the other model's rows if
+#: a future caller ever mixed them (e.g. passed a swimlane through a
+#: card-shaped helper by mistake) instead of raising an AttributeError.
+_PARKED_SWIMLANE_CUSTOM_FIELD_VALUES = "_prefetched_swimlane_custom_field_values"
 
 
 def _parked_or_manager(card, to_attr, relation):
@@ -1636,6 +1656,32 @@ def _card_custom_field_values(card):
     return _parked_or_manager(card, _PARKED_CUSTOM_FIELD_VALUES, "custom_field_values")
 
 
+def _card_labels(card):
+    """Labels list _card_queryset() parks with to_attr (#1223).
+
+    Same rationale as the other ``_card_*`` accessors above: ``card.labels``
+    is an M2M manager, and ``.all()`` on it re-clones a QuerySet on every call
+    even when the relation was prefetched — see the "Parked prefetches"
+    comment at the top of this section. Falls back to the manager for a card
+    that did not come through ``_card_queryset()`` (single-card create/update
+    responses that build a ``CardSerializer`` from a bare instance, and any
+    other caller with its own plain ``labels`` prefetch or none at all).
+    """
+    return _parked_or_manager(card, _PARKED_LABELS, "labels")
+
+
+def _swimlane_custom_field_values(swimlane):
+    """Rows ``_swimlane_custom_field_prefetch()`` parks with to_attr (#1223).
+
+    The swimlane twin of ``_card_custom_field_values`` above — same reasoning,
+    a different model. Falls back to the manager for a swimlane read through a
+    path that does not apply ``_swimlane_custom_field_prefetch()``.
+    """
+    return _parked_or_manager(
+        swimlane, _PARKED_SWIMLANE_CUSTOM_FIELD_VALUES, "custom_field_values"
+    )
+
+
 class ParkedCustomFieldValueListSerializer(serializers.ListSerializer):
     """``many=True`` list of :class:`CustomFieldValueSerializer` rows that reads
     the parked ``custom_field_values`` prefetch (#1212).
@@ -1649,6 +1695,22 @@ class ParkedCustomFieldValueListSerializer(serializers.ListSerializer):
 
     def get_attribute(self, instance):
         return _card_custom_field_values(instance)
+
+
+class ParkedLabelListSerializer(serializers.ListSerializer):
+    """``many=True`` list of :class:`LabelSerializer` rows that reads the
+    parked ``labels`` prefetch (#1223, same pattern as
+    :class:`ParkedCustomFieldValueListSerializer` above, #1212).
+
+    A plain ``LabelSerializer(many=True)`` resolves its source to the M2M
+    manager and calls ``.all()`` on it — which, once ``_card_queryset`` parks
+    the rows with ``to_attr``, would miss the cache and issue one query per
+    card. Only ``get_attribute`` is overridden, so the rendered shape and the
+    generated OpenAPI schema are unchanged.
+    """
+
+    def get_attribute(self, instance):
+        return _card_labels(instance)
 
 
 #: Sentinel for "key not supplied" — distinct from an explicit ``null``.
@@ -1665,11 +1727,11 @@ def _card_queryset(qs, stale_cutoff=None):
     that need the most-recent movement can use ``_card_movements(card)[0]``
     without issuing an additional ORDER BY + LIMIT 1 query per card.
 
-    attachments, checklist_items, movements and custom_field_values are parked
-    on plain list attributes with ``to_attr`` (#1212) — read them through the
-    ``_card_*`` accessors above, never ``card.<relation>.all()``, which would
-    miss the parked list and query once per card. See the "Parked prefetches"
-    comment above for why.
+    labels, attachments, checklist_items, movements and custom_field_values
+    are parked on plain list attributes with ``to_attr`` (#1212, labels added
+    #1223) — read them through the ``_card_*`` accessors above, never
+    ``card.<relation>.all()``, which would miss the parked list and query once
+    per card. See the "Parked prefetches" comment above for why.
 
     When ``stale_cutoff`` is provided, an ``is_stale`` boolean annotation is
     added at the SQL level (one query, not one per card) so
@@ -1686,14 +1748,16 @@ def _card_queryset(qs, stale_cutoff=None):
         # query as a LEFT JOIN rather than costing a prefetch round-trip.
         .select_related("board", "column", "swimlane", "assignee", "created_by", "external_ref")
         .prefetch_related(
-            # `labels` is deliberately still a plain prefetch — deferred, not
-            # infeasible: its nested LabelSerializer(many=True) field could
-            # read a parked list the same way ParkedCustomFieldValueListSerializer
-            # does, but it is also the M2M the write path (label_ids) and
-            # services.cards re-prefetch by name, so converting it is kept out
-            # of #1212's scope. The four below are parked with to_attr (#1212)
-            # — see the "Parked prefetches" comment above _card_attachments().
-            "labels",
+            # labels (#1223, same pattern as the four below, #1212): parked on
+            # a plain list attribute with to_attr, read through _card_labels()
+            # via ParkedLabelListSerializer. This is a *separate* prefetch from
+            # the plain-string "labels" that boards.services.cards re-applies
+            # with prefetch_related_objects([card], "labels") after a write —
+            # to_attr does not touch the standard `_prefetched_objects_cache`
+            # that populates, so that write-path refresh and this read-path
+            # parking do not collide. See the "Parked prefetches" comment
+            # below _active_blockers_prefetch() for the general pattern.
+            Prefetch("labels", to_attr=_PARKED_LABELS),
             Prefetch("attachments", to_attr=_PARKED_ATTACHMENTS),
             Prefetch(
                 "checklist_items",
@@ -1780,7 +1844,13 @@ class ExternalRefSerializer(serializers.Serializer):
 
 
 class CardSerializer(serializers.ModelSerializer):
-    labels = LabelSerializer(many=True, read_only=True)
+    # ParkedLabelListSerializer (#1223, same pattern as custom_field_values
+    # below, #1212) reads the to_attr list _card_queryset() parks the labels
+    # on, instead of a plain LabelSerializer(many=True) resolving to the M2M
+    # manager and calling .all() on it. read_only=True is passed to the child
+    # too so it matches what many=True used to propagate — rendered shape and
+    # generated OpenAPI schema are unchanged either way.
+    labels = ParkedLabelListSerializer(child=LabelSerializer(read_only=True), read_only=True)
     label_ids = serializers.PrimaryKeyRelatedField(
         many=True, write_only=True, queryset=Label.objects.all(), source="labels", required=False
     )
@@ -1877,6 +1947,9 @@ class CardSerializer(serializers.ModelSerializer):
         pairs = validated_data.pop("custom_field_values", None)
         external_ref = validated_data.pop("external_ref", _OMITTED)
         card = super().create(validated_data)
+        # A brand-new instance never carries a parked labels list, but this
+        # keeps create() and update() symmetric with the pop below (#1223).
+        card.__dict__.pop(_PARKED_LABELS, None)
         self._apply_custom_field_values(card, pairs)
         self._apply_external_ref(card, external_ref)
         return card
@@ -1885,6 +1958,16 @@ class CardSerializer(serializers.ModelSerializer):
         pairs = validated_data.pop("custom_field_values", None)
         external_ref = validated_data.pop("external_ref", _OMITTED)
         card = super().update(instance, validated_data)
+        # super().update() sets the labels M2M directly (label_ids has
+        # source="labels"), which knows nothing about the to_attr list
+        # _card_queryset() may have parked on this instance (#1223) — drop it
+        # so a caller that reads _card_labels(card) again on this same
+        # instance falls back to a fresh manager query instead of the
+        # pre-write list. Same failure class _apply_custom_field_values guards
+        # against for custom field rows (#1212); labels aren't in `pairs`
+        # (label_ids validates through the model field, not the custom field
+        # pipeline), so this can't be folded into that method.
+        card.__dict__.pop(_PARKED_LABELS, None)
         self._apply_custom_field_values(card, pairs)
         self._apply_external_ref(card, external_ref)
         return card

@@ -34,8 +34,8 @@ from visiban.pagination import CardQueryCursorPagination
 from ..models import Card
 from ..serializers import (
     CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
-    ParkedCustomFieldValueListSerializer, _blocker_count, _card_attachments,
-    _card_checklist_items, _card_movements, _card_queryset,
+    ParkedCustomFieldValueListSerializer, ParkedLabelListSerializer, _blocker_count,
+    _card_attachments, _card_checklist_items, _card_movements, _card_queryset,
 )
 from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
 
@@ -72,7 +72,11 @@ class CardQuerySerializer(serializers.ModelSerializer):
     can_access_all_content for every role.
     """
 
-    labels = LabelSerializer(many=True, read_only=True)
+    # ParkedLabelListSerializer (#1223, same pattern as custom_field_values
+    # below, #1212) reads the to_attr list _card_queryset() parks the labels
+    # on; a plain LabelSerializer(many=True) would call .all() on the M2M
+    # manager, miss that list, and query once per card.
+    labels = ParkedLabelListSerializer(child=LabelSerializer(), read_only=True)
     # allow_null=True (#1172): Card.assignee is nullable (unassigned cards are
     # the common case) — without it drf-spectacular documents this field as
     # always an object, which is wrong for every unassigned card in the response.

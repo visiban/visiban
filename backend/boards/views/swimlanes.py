@@ -21,6 +21,7 @@ from ..models import Board, BoardMembership, Swimlane
 from ..permissions import SITE_ADMIN
 from ..serializers import (
     SwimlaneSerializer, SwimlaneAdminSerializer, _swimlane_custom_field_prefetch,
+    _PARKED_SWIMLANE_CUSTOM_FIELD_VALUES,
 )
 from ..services.custom_fields import apply_swimlane_custom_field_values
 from ._helpers import get_board_for_user, validate_full_reorder_order
@@ -145,6 +146,15 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                     apply_swimlane_custom_field_values(
                         swimlane=swimlane, pairs=field_pairs, actor=self.request.user
                     )
+                    # get_queryset() prefetches custom_field_values with
+                    # to_attr (#1223), and DRF's UpdateModelMixin.update()
+                    # only resets the *standard* `_prefetched_objects_cache`
+                    # after perform_update() returns — it knows nothing about
+                    # a to_attr list, which would otherwise go on serving the
+                    # pre-write values in this same request's response body
+                    # (the deferred broadcast below is unaffected: it already
+                    # re-fetches via _refetch_swimlane()).
+                    swimlane.__dict__.pop(_PARKED_SWIMLANE_CUSTOM_FIELD_VALUES, None)
                 # Same broadcast-safety constraint as perform_create.
                 swimlane_data = SwimlaneSerializer(_refetch_swimlane(swimlane)).data
                 board_id = swimlane.board_id
