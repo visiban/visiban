@@ -868,18 +868,20 @@ describe('CardDetail', () => {
   })
 
   describe('live refresh on socket event (#1310)', () => {
-    it('refetches comments, checklist, and attachments when refreshSignal increments', async () => {
+    it('refetches comments, checklist, attachments, and relations when refreshSignal increments', async () => {
       const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
       const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
       const mockGetAttachments = getCardAttachments as ReturnType<typeof vi.fn>
       mockGetComments.mockResolvedValue([])
       mockGetChecklist.mockResolvedValue([])
       mockGetAttachments.mockResolvedValue([])
+      mockGetCardRelations.mockResolvedValue([])
       const props = defaultProps()
       const { rerender } = render(<CardDetail {...props} refreshSignal={0} />)
       await waitFor(() => expect(mockGetComments).toHaveBeenCalledTimes(1))
       expect(mockGetChecklist).toHaveBeenCalledTimes(1)
       expect(mockGetAttachments).toHaveBeenCalledTimes(1)
+      expect(mockGetCardRelations).toHaveBeenCalledTimes(1)
 
       // Simulate another user's comment arriving via BoardView's socket handler
       // bumping cardDetailRefreshTick.
@@ -892,6 +894,7 @@ describe('CardDetail', () => {
       expect(mockGetComments).toHaveBeenCalledTimes(2)
       expect(mockGetChecklist).toHaveBeenCalledTimes(2)
       expect(mockGetAttachments).toHaveBeenCalledTimes(2)
+      expect(mockGetCardRelations).toHaveBeenCalledTimes(2)
     })
 
     it('does not refetch on mount beyond the initial load (refreshSignal defaults to 0)', async () => {

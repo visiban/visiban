@@ -233,6 +233,34 @@ describe('CardRelationsSection — load failure', () => {
   })
 })
 
+describe('CardRelationsSection — live refresh on socket event (#1310)', () => {
+  it('refetches relations when refreshSignal increments', async () => {
+    mockGet.mockResolvedValue([])
+    const { rerender } = renderSection({ refreshSignal: 0 })
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1))
+
+    mockGet.mockResolvedValue([makeRelation()])
+    rerender(
+      <CardRelationsSection
+        board={board}
+        card={makeCard()}
+        canEdit
+        onBlockerCountChange={vi.fn()}
+        refreshSignal={1}
+      />,
+    )
+
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('Blocker card')).toBeInTheDocument()
+  })
+
+  it('does not refetch on mount beyond the initial load (refreshSignal defaults to 0)', async () => {
+    renderSection()
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1))
+    expect(mockGet).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('CardRelationsSection — add flow', () => {
   const candidate = makeCard({ id: 42, title: 'Provision cluster', column: 11 })
 

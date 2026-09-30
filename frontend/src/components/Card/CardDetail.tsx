@@ -862,6 +862,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     blocker_count: Math.max(0, c.blocker_count + delta),
                   }))
                 }
+                refreshSignal={refreshSignal}
               />
 
               {/* MR/PR link (#352) — right after relations: both are "what this

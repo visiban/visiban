@@ -39,6 +39,14 @@ interface Props {
    * frontend change (ux-review, #1193).
    */
   demoMode?: boolean;
+  /**
+   * Bumped by CardDetail on a `card.updated` WebSocket event for the open
+   * card (#1310) — adding/removing a relation broadcasts `card.updated` for
+   * both ends of the relation the same way checklist/comment/attachment
+   * mutations do, so relations added or removed by another session need the
+   * same refetch nudge.
+   */
+  refreshSignal?: number;
 }
 
 /** Rendered top to bottom: what blocks me, what I block, loose associations. */
@@ -80,6 +88,7 @@ export default function CardRelationsSection({
   canEdit,
   onBlockerCountChange,
   demoMode = false,
+  refreshSignal = 0,
 }: Props) {
   const [relations, setRelations] = useState<CardRelation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +119,19 @@ export default function CardRelationsSection({
   }, [board.id, card.id]);
 
   useEffect(load, [load]);
+
+  // Refetch when another session adds/removes a relation on this card while
+  // the panel is open (#1310) — skips the initial mount, which the effect
+  // above already covers.
+  const skipInitialRefreshRef = useRef(true);
+  useEffect(() => {
+    if (skipInitialRefreshRef.current) {
+      skipInitialRefreshRef.current = false;
+      return;
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetches only in response to refreshSignal; `load` is already covered by the effect above
+  }, [refreshSignal]);
 
   // Priority 37, NOT useDropdownEscape (25). The card detail panel's own close
   // handler sits at 30, so anything below it would let Escape dismiss the whole
