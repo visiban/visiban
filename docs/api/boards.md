@@ -971,7 +971,12 @@ Delete a column. Requires board admin.
 ### `POST /api/v1/boards/{id}/columns/reorder/`
 Reorder columns. Requires board admin.
 
-**Request** `{ "order": [3, 1, 4, 2] }` — list of column IDs in new order.
+**Request** `{ "order": [3, 1, 4, 2] }` — `order` must be **exactly** this board's
+current column IDs: every column once, no duplicates, and no ID from another
+board. A partial list, a duplicate ID, an ID belonging to a different board, or
+(on a board that has columns) an empty list are all rejected with `400` and body
+`{"order": ["..."]}` rather than partially applied. *(Since 1.2, #1302 — same
+rule as checklist-item reorder, #1292.)*
 
 ---
 
@@ -1067,7 +1072,12 @@ A `swimlane.updated` WebSocket event is broadcast to all connected board clients
 ### `POST /api/v1/boards/{id}/swimlanes/reorder/`
 Reorder swimlanes. Requires board admin.
 
-**Request** `{ "order": [2, 1, 3] }`
+**Request** `{ "order": [2, 1, 3] }` — `order` must be **exactly** this board's
+current swimlane IDs: every swimlane once, no duplicates, and no ID from another
+board. A partial list, a duplicate ID, an ID belonging to a different board, or
+(on a board that has swimlanes) an empty list are all rejected with `400` and
+body `{"order": ["..."]}` rather than partially applied. *(Since 1.2, #1302 —
+same rule as checklist-item reorder, #1292.)*
 
 ---
 

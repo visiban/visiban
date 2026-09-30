@@ -64,7 +64,7 @@ class ColumnCRUDTests(TestCase):
         col2 = Column.objects.create(board=self.board, name="Col2", position=1)
         r = self.client.post(
             f"/api/v1/boards/{self.board.id}/columns/reorder/",
-            {"column_ids": [col2.id, self.col.id]},
+            {"order": [col2.id, self.col.id]},
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -141,6 +141,102 @@ class ColumnCRUDTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("order", r.json())
+
+    # -- #1302: order must be exactly this board's full set of column IDs --
+
+    def test_reorder_columns_with_partial_list_returns_400(self):
+        # #1302: a partial list previously either collided into an
+        # IntegrityError (unique_together(board, position)) or left a gap,
+        # depending on ordering — now rejected outright before any write.
+        # This shape omits the *last*-position column (col2), which pre-fix
+        # happened to no-op cleanly (200) rather than crash — see
+        # test_reorder_columns_with_non_last_column_omitted_returns_400_not_500
+        # below for the shape that pre-fix raised IntegrityError.
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/columns/reorder/",
+            {"order": [self.col.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.col.refresh_from_db()
+        col2.refresh_from_db()
+        self.assertEqual(self.col.position, 0)
+        self.assertEqual(col2.position, 1)
+
+    def test_reorder_columns_with_non_last_column_omitted_returns_400_not_500(self):
+        # #1302 completeness-check finding: omitting a column that is NOT the
+        # highest-position one is the shape that crashed pre-fix. With three
+        # columns at positions 0/1/2, omitting the middle one (position 1)
+        # from `order` made the old two-pass bulk_update reassign the two
+        # listed columns to positions 0 and 1 while the omitted column kept
+        # its original position 1 — colliding into
+        # unique_together(board, position) as an IntegrityError -> 500.
+        # Reproduced empirically against the pre-fix logic in isolation
+        # before writing this test. Must now be rejected with 400 before any
+        # write, same as every other order-mismatch shape.
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        col3 = Column.objects.create(board=self.board, name="Col3", position=2)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/columns/reorder/",
+            {"order": [col3.id, self.col.id]},  # omits col2 (middle position)
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.col.refresh_from_db()
+        col2.refresh_from_db()
+        col3.refresh_from_db()
+        self.assertEqual(self.col.position, 0)
+        self.assertEqual(col2.position, 1)
+        self.assertEqual(col3.position, 2)
+
+    def test_reorder_columns_with_duplicate_id_returns_400(self):
+        # #1302: a repeated ID previously silently accepted, with the last
+        # occurrence winning — now rejected outright before any write.
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/columns/reorder/",
+            {"order": [self.col.id, self.col.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.col.refresh_from_db()
+        col2.refresh_from_db()
+        self.assertEqual(self.col.position, 0)
+        self.assertEqual(col2.position, 1)
+
+    def test_reorder_columns_with_foreign_id_returns_400(self):
+        # #1302: an ID from another board's column set must be rejected, not
+        # silently dropped from the reorder.
+        other_admin = User.objects.create_user(username="other-admin", password="pass")
+        other_board, other_col, _ = _make_board(other_admin)
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/columns/reorder/",
+            {"order": [col2.id, other_col.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.col.refresh_from_db()
+        col2.refresh_from_db()
+        self.assertEqual(self.col.position, 0)
+        self.assertEqual(col2.position, 1)
+
+    def test_reorder_columns_with_empty_list_on_non_empty_board_returns_400(self):
+        # #1302: an empty order on a non-empty board must not silently no-op.
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/columns/reorder/",
+            {"order": []},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.col.refresh_from_db()
+        self.assertEqual(self.col.position, 0)
 
     # -- #1275: position must not be patchable outside the reorder endpoint --
 
@@ -243,7 +339,7 @@ class SwimlaneCRUDTests(TestCase):
         swim2 = Swimlane.objects.create(board=self.board, name="Swim2", position=1)
         r = self.client.post(
             f"/api/v1/boards/{self.board.id}/swimlanes/reorder/",
-            {"swimlane_ids": [swim2.id, self.swim.id]},
+            {"order": [swim2.id, self.swim.id]},
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -258,6 +354,72 @@ class SwimlaneCRUDTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("order", r.json())
+
+    # -- #1302: order must be exactly this board's full set of swimlane IDs --
+
+    def test_reorder_swimlanes_with_partial_list_returns_400(self):
+        # #1302: a partial list previously left the unlisted swimlane's
+        # `position` wherever it was, able to collide with a listed one's new
+        # position (Swimlane has no unique_together(board, position), so this
+        # silently produced two rows sharing a position rather than a 500).
+        swim2 = Swimlane.objects.create(board=self.board, name="Swim2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/swimlanes/reorder/",
+            {"order": [self.swim.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.swim.refresh_from_db()
+        swim2.refresh_from_db()
+        self.assertEqual(self.swim.position, 0)
+        self.assertEqual(swim2.position, 1)
+
+    def test_reorder_swimlanes_with_duplicate_id_returns_400(self):
+        # #1302: a repeated ID previously silently accepted, with the last
+        # occurrence winning — now rejected outright before any write.
+        swim2 = Swimlane.objects.create(board=self.board, name="Swim2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/swimlanes/reorder/",
+            {"order": [self.swim.id, self.swim.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.swim.refresh_from_db()
+        swim2.refresh_from_db()
+        self.assertEqual(self.swim.position, 0)
+        self.assertEqual(swim2.position, 1)
+
+    def test_reorder_swimlanes_with_foreign_id_returns_400(self):
+        # #1302: an ID from another board's swimlane set must be rejected, not
+        # silently dropped from the reorder.
+        other_admin = User.objects.create_user(username="other-admin-sl", password="pass")
+        other_board, _, other_swim = _make_board(other_admin)
+        swim2 = Swimlane.objects.create(board=self.board, name="Swim2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/swimlanes/reorder/",
+            {"order": [swim2.id, other_swim.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.swim.refresh_from_db()
+        swim2.refresh_from_db()
+        self.assertEqual(self.swim.position, 0)
+        self.assertEqual(swim2.position, 1)
+
+    def test_reorder_swimlanes_with_empty_list_on_non_empty_board_returns_400(self):
+        # #1302: an empty order on a non-empty board must not silently no-op.
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/swimlanes/reorder/",
+            {"order": []},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        self.swim.refresh_from_db()
+        self.assertEqual(self.swim.position, 0)
 
     def test_create_swimlane_duplicate_name_returns_400_not_500(self):
         # Reproduces #1276 (#1166 missed swimlanes): IntegrityError on

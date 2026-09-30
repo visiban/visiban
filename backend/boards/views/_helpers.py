@@ -26,7 +26,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import Coalesce
 from django_filters import DateTimeFilter, NumberFilter
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError as _DRFValidationError
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
 from ..permissions import (
@@ -251,3 +251,52 @@ def _refetched_card_data(card, request, board, *, member_ids=None, assignable_id
             "_board_labels_qs": labels_qs,
         },
     ).data
+
+
+def validate_full_reorder_order(order, existing_ids, *, item_label, scope_label):
+    """Validate a `reorder` action's ``order`` list against the full set it must match.
+
+    Every `reorder` action in this codebase (checklist items, columns,
+    swimlanes) takes the same contract: `order` must be exactly the scoped
+    resource's current full set of IDs, no more, no fewer, no duplicates.
+    A partial list left unlisted rows' `position` wherever the previous
+    write last put them — for columns (`unique_together(board, position)`)
+    that could collide into an IntegrityError, for swimlanes it left two
+    rows sharing a `position` silently. A duplicate ID meant the last
+    occurrence silently won. Rejecting any mismatch outright, before any
+    write, avoids all three (#1292 for checklist items; #1302 extends the
+    same rule to columns and swimlanes — a partial/duplicate/foreign/empty
+    list is invalid input, not something to filter and partially apply).
+
+    Returns the validated list of IDs as ints, in the submitted order.
+    Raises DRF ``ValidationError`` (naming the ``order`` field, same shape
+    for all three callers) on any mismatch. Callers must call this before
+    opening the write transaction (or, if the transaction is needed first to
+    lock a parent row against a concurrent add/delete race, before issuing
+    any write within it) so that a rejected request leaves every position
+    untouched.
+    """
+    try:
+        # Cast IDs to int — request JSON sends strings, DB PKs are ints. A
+        # non-integer entry (or a body where `order` isn't even a list)
+        # must surface as a 400 naming the field, not a 500 from int()
+        # reached unguarded mid-transaction.
+        order_ints = [int(iid) for iid in order]
+    except (TypeError, ValueError):
+        raise _DRFValidationError(
+            {"order": f"order must be a list of integer {item_label} IDs."}
+        ) from None
+    if len(order_ints) != len(set(order_ints)):
+        raise _DRFValidationError(
+            {"order": f"order must not contain duplicate {item_label} IDs."}
+        )
+    if set(order_ints) != existing_ids:
+        raise _DRFValidationError(
+            {
+                "order": (
+                    f"order must contain exactly {scope_label}'s {item_label} IDs, "
+                    "no more and no fewer."
+                )
+            }
+        )
+    return order_ints
