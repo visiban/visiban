@@ -26,6 +26,13 @@ turned on: its ``add_new_email`` treats *any* unverified row as the pending
 change and deletes it (the same inference problem as above), which would also delete (and blank ``User.email`` for)
 an account whose current primary address simply was never verified.
 
+A pending change can be withdrawn or its link re-sent from Settings (#1293):
+``DELETE /auth/me/pending-email/`` and ``POST /auth/me/pending-email/resend/``
+call ``cancel_email_change`` and ``resend_email_change`` below. An address
+another account has already verified can never be confirmed here
+(``ACCOUNT_UNIQUE_EMAIL``); the verify-email endpoint answers that with a 409
+to the link holder only (see ``accounts.views.VerifyEmailView``).
+
 Email addresses are personal data: nothing in this module logs one.
 """
 
@@ -91,14 +98,53 @@ def get_pending_email(user) -> str | None:
 def cancel_email_change(user) -> None:
     """Withdraw ``user``'s pending email change, if any.
 
-    Reached by PATCHing ``email`` back to the current address: the tracked row
-    is deleted (so its link stops working) and the pointer cleared.
+    Reached by PATCHing ``email`` back to the current address, or by
+    ``DELETE /auth/me/pending-email/`` (#1293): the tracked row is deleted (so
+    its link stops working) and the pointer cleared.
     """
     if user.pending_email_address_id is None:
         return
     with transaction.atomic():
         _drop_tracked_row(user)
         _set_pending_pointer(user, None)
+
+
+def _tracked_row(user):
+    """The still-unconfirmed ``EmailAddress`` row ``user``'s pending change tracks, or None.
+
+    Scoped to ``user`` and to unverified, non-primary rows — the same guard as
+    ``_drop_tracked_row`` — so a pointer that drifted onto a confirmed row, or
+    a row reassigned to another account, is never acted on.
+    """
+    from allauth.account.models import EmailAddress
+
+    if user.pending_email_address_id is None:
+        return None
+    return EmailAddress.objects.filter(
+        pk=user.pending_email_address_id, user_id=user.pk, verified=False, primary=False
+    ).first()
+
+
+def resend_email_change(request, user) -> bool | None:
+    """Send the confirmation link for ``user``'s pending email change again (#1293).
+
+    Returns None when no change is pending, True when a new email was sent,
+    and False when allauth's ``confirm_email`` rate limit (one per address per
+    ``ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN``, 3 minutes by default) skipped it.
+    This goes through allauth's own send, not a separate mailer, so the
+    cooldown is shared with the send that ``request_email_change`` made: a
+    resend cannot be used to mail an address more often than a change
+    request could. The earlier link keeps working either way — HMAC keys are
+    not invalidated by a resend.
+    """
+    from allauth.account.internal.flows.email_verification import (
+        send_verification_email_to_address,
+    )
+
+    row = _tracked_row(user)
+    if row is None:
+        return None
+    return bool(send_verification_email_to_address(request, row))
 
 
 def request_email_change(request, user, new_email: str) -> bool:

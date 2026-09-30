@@ -99,6 +99,67 @@ describe('ConfirmEmailPage', () => {
     expect(screen.getByText(/This confirmation link has expired/)).toBeInTheDocument()
   })
 
+  // #1293: a valid key for an address another account already verified.
+  it('shows the in-use state (not the expired-link one) on a 409 email_in_use', async () => {
+    mockVerifyEmail.mockRejectedValue({ response: { status: 409, data: { code: 'email_in_use' } } })
+    renderPage()
+
+    const heading = await screen.findByRole('heading', { name: 'Email address already in use' })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(screen.getByText(/already belongs to another account/)).toBeInTheDocument()
+    expect(screen.queryByText('Link expired or invalid')).not.toBeInTheDocument()
+    expect(screen.queryByText('Email verified')).not.toBeInTheDocument()
+  })
+
+  function renderInUse(isAuthenticated: boolean) {
+    mockVerifyEmail.mockRejectedValue({ response: { status: 409, data: { code: 'email_in_use' } } })
+    return render(
+      <MemoryRouter initialEntries={['/confirm-email/k']}>
+        <Routes>
+          <Route path="/confirm-email/:key" element={<ConfirmEmailPage isAuthenticated={isAuthenticated} />} />
+          <Route path="/settings" element={<div>settings-page</div>} />
+          <Route path="/" element={<div>login-page</div>} />
+        </Routes>
+      </MemoryRouter>
+    )
+  }
+
+  it('signed in (email change): in-use state points to Settings', async () => {
+    const user = userEvent.setup()
+    renderInUse(true)
+    await user.click(await screen.findByRole('button', { name: 'Go to Settings' }))
+    expect(screen.getByText('settings-page')).toBeInTheDocument()
+  })
+
+  it('signed in: in-use copy is about changing the address, not signing up', async () => {
+    renderInUse(true)
+    expect(await screen.findByText(/If you were changing your email address/)).toBeInTheDocument()
+    expect(screen.queryByText(/If you were signing up/)).not.toBeInTheDocument()
+  })
+
+  it('signed out (signup): in-use state offers sign in, never Settings', async () => {
+    const user = userEvent.setup()
+    renderInUse(false)
+    expect(await screen.findByText(/If you were signing up, sign up again with a different email address/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Go to Settings' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Go to sign in' }))
+    expect(screen.getByText('login-page')).toBeInTheDocument()
+  })
+
+  it('defaults to the signed-out in-use copy when isAuthenticated is omitted', async () => {
+    mockVerifyEmail.mockRejectedValue({ response: { status: 409, data: { code: 'email_in_use' } } })
+    renderPage()
+    expect(await screen.findByRole('button', { name: 'Go to sign in' })).toBeInTheDocument()
+  })
+
+  it('treats any other 409 as the generic error', async () => {
+    mockVerifyEmail.mockRejectedValue({ response: { status: 409, data: {} } })
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByText('Link expired or invalid')).toBeInTheDocument()
+    })
+  })
+
   it('"Go to sign in" button navigates to / on error state', async () => {
     const user = userEvent.setup()
     mockVerifyEmail.mockRejectedValue(new Error('bad key'))

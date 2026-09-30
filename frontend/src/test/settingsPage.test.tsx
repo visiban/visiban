@@ -26,11 +26,15 @@ vi.mock('../components/Layout/Navbar', () => ({
 const mockUpdateCurrentUser = vi.fn()
 const mockChangePassword = vi.fn()
 const mockResetTour = vi.fn()
+const mockCancelPendingEmailChange = vi.fn()
+const mockResendPendingEmailConfirmation = vi.fn()
 
 vi.mock('../api/auth', () => ({
   updateCurrentUser: (...args: unknown[]) => mockUpdateCurrentUser(...args),
   changePassword: (...args: unknown[]) => mockChangePassword(...args),
   resetTour: (...args: unknown[]) => mockResetTour(...args),
+  cancelPendingEmailChange: (...args: unknown[]) => mockCancelPendingEmailChange(...args),
+  resendPendingEmailConfirmation: (...args: unknown[]) => mockResendPendingEmailConfirmation(...args),
 }))
 
 const mockSetPreference = vi.fn()
@@ -330,6 +334,163 @@ describe('ProfileTab', () => {
     expect(await screen.findByRole('button', { name: 'Saving…' })).toBeDisabled()
     resolveUpdate(fakeUser)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument())
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ProfileTab — resend / cancel a pending email change (#1293)
+// ---------------------------------------------------------------------------
+
+describe('ProfileTab — pending email actions', () => {
+  const pendingUser: User = { ...fakeUser, pending_email: 'new@example.com' }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  function renderPending(onUserUpdated = vi.fn()) {
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <SettingsPage user={pendingUser} onLogout={vi.fn()} onUserUpdated={onUserUpdated} />
+      </MemoryRouter>,
+    )
+    return onUserUpdated
+  }
+
+  it('shows Resend link and Cancel change only while a change is pending', () => {
+    const { unmount } = renderSettings({ ...fakeUser, pending_email: null })
+    expect(screen.queryByRole('button', { name: 'Resend link' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel change' })).not.toBeInTheDocument()
+    unmount()
+    renderPending()
+    expect(screen.getByRole('button', { name: 'Resend link' })).toHaveAttribute('type', 'button')
+    expect(screen.getByRole('button', { name: 'Cancel change' })).toHaveAttribute('type', 'button')
+  })
+
+  it('keeps the actions out of the email input accessible name', () => {
+    renderPending()
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toHaveValue('j@example.com')
+  })
+
+  it('both actions are described by the pending note', () => {
+    renderPending()
+    for (const name of ['Resend link', 'Cancel change']) {
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-describedby', 'pending-email-note')
+    }
+  })
+
+  it('Resend link calls the API and announces success in the live region', async () => {
+    mockResendPendingEmailConfirmation.mockResolvedValueOnce({ detail: 'Confirmation email sent.' })
+    const user = userEvent.setup()
+    renderPending()
+    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    expect(mockResendPendingEmailConfirmation).toHaveBeenCalledTimes(1)
+    const status = screen.getByRole('status')
+    await waitFor(() =>
+      expect(status).toHaveTextContent('We sent a new confirmation link to new@example.com.'),
+    )
+    expect(status.querySelector('.text-success')).not.toBeNull()
+    // Still pending: the note and actions stay.
+    expect(screen.getByRole('button', { name: 'Resend link' })).toBeEnabled()
+    expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
+  })
+
+  it('shows the server cooldown message as a warning on 429', async () => {
+    mockResendPendingEmailConfirmation.mockRejectedValueOnce({
+      response: { status: 429, data: { detail: 'A confirmation email was sent to this address a moment ago.' } },
+    })
+    const user = userEvent.setup()
+    renderPending()
+    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    const status = screen.getByRole('status')
+    await waitFor(() =>
+      expect(status).toHaveTextContent('A confirmation email was sent to this address a moment ago.'),
+    )
+    expect(status.querySelector('.text-warning')).not.toBeNull()
+  })
+
+  it('clears the pending state when the server says nothing is pending (404)', async () => {
+    mockResendPendingEmailConfirmation.mockRejectedValueOnce({
+      response: { status: 404, data: { detail: 'No email change is waiting for confirmation.' } },
+    })
+    const user = userEvent.setup()
+    renderPending()
+    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(/no email change waiting for confirmation anymore/),
+    )
+    expect(screen.queryByRole('button', { name: 'Resend link' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('pending-email-note')).toBeEmptyDOMElement()
+  })
+
+  it('shows a generic error when resend fails otherwise', async () => {
+    mockResendPendingEmailConfirmation.mockRejectedValueOnce(new Error('network'))
+    const user = userEvent.setup()
+    renderPending()
+    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await waitFor(() =>
+      expect(screen.getByText("Couldn't resend the link. Please try again.")).toHaveClass('text-danger'),
+    )
+  })
+
+  it('disables both actions and Save while a resend is in flight', async () => {
+    let resolve!: (v: { detail: string }) => void
+    mockResendPendingEmailConfirmation.mockReturnValueOnce(new Promise((res) => { resolve = res }))
+    const user = userEvent.setup()
+    renderPending()
+    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    expect(await screen.findByRole('button', { name: 'Sending…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel change' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    resolve({ detail: 'ok' })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Resend link' })).toBeEnabled())
+  })
+
+  it('Cancel change withdraws the change, clears the note and moves focus to the field', async () => {
+    mockCancelPendingEmailChange.mockResolvedValueOnce({ ...fakeUser, pending_email: null })
+    const user = userEvent.setup()
+    const onUserUpdated = renderPending()
+    await user.click(screen.getByRole('button', { name: 'Cancel change' }))
+    expect(mockCancelPendingEmailChange).toHaveBeenCalledTimes(1)
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        "Email change canceled. Your email address hasn't changed.",
+      ),
+    )
+    expect(onUserUpdated).toHaveBeenCalledWith(expect.objectContaining({ pending_email: null }))
+    expect(screen.getByTestId('pending-email-note')).toBeEmptyDOMElement()
+    expect(screen.queryByRole('button', { name: 'Cancel change' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toHaveFocus()
+    // Cancelling is not a save: the page does not navigate away.
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('keeps the pending change and shows an error when cancel fails', async () => {
+    mockCancelPendingEmailChange.mockRejectedValueOnce(new Error('network'))
+    const user = userEvent.setup()
+    renderPending()
+    await user.click(screen.getByRole('button', { name: 'Cancel change' }))
+    await waitFor(() =>
+      expect(screen.getByText("Couldn't cancel the email change. Please try again.")).toHaveClass('text-danger'),
+    )
+    expect(screen.getByTestId('pending-email-note')).toHaveTextContent(/new@example\.com/)
+    expect(screen.getByRole('button', { name: 'Cancel change' })).toBeEnabled()
+  })
+
+  it('a later save replaces an action result instead of coexisting with it', async () => {
+    mockResendPendingEmailConfirmation.mockResolvedValueOnce({ detail: 'ok' })
+    mockUpdateCurrentUser.mockResolvedValueOnce(pendingUser)
+    const user = userEvent.setup()
+    renderPending()
+    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/We sent a new confirmation link/))
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Profile updated. Check your inbox to confirm your new email address.',
+      ),
+    )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/We sent a new confirmation link/)
   })
 })
 

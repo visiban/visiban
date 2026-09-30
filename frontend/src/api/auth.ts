@@ -36,6 +36,14 @@ export const confirmPasswordReset = (uid: string, token: string, new_password1: 
 export const verifyEmail = (key: string): Promise<void> =>
   client.post("/api/v1/auth/registration/verify-email/", { key }).then(() => undefined);
 
+// #1293: act on a pending email change (EMAIL_VERIFICATION=mandatory). Both
+// act only on the signed-in user's own pending address; neither takes one.
+export const cancelPendingEmailChange = () =>
+  client.delete<User>("/api/v1/auth/me/pending-email/").then((r) => r.data);
+
+export const resendPendingEmailConfirmation = () =>
+  client.post<{ detail: string }>("/api/v1/auth/me/pending-email/resend/").then((r) => r.data);
+
 export const chooseUsername = (username: string) =>
   client.post<User>("/api/v1/auth/choose-username/", { username }).then((r) => r.data);
 

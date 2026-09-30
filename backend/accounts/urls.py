@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     AuthProvidersView, ChangePasswordView, ChooseUsernameView, CurrentUserView,
+    PendingEmailResendView, PendingEmailView,
     PersonalAccessTokenDeleteView, PersonalAccessTokenListCreateView,
     SiteConfigView, UserSearchView, WSTicketView,
 )
@@ -17,6 +18,9 @@ urlpatterns = [
     path("auth/change-password/", ChangePasswordView.as_view()),
     path("auth/choose-username/", ChooseUsernameView.as_view()),
     path("auth/me/", CurrentUserView.as_view()),
+    # #1293: withdraw / resend a pending email change (EMAIL_VERIFICATION=mandatory).
+    path("auth/me/pending-email/", PendingEmailView.as_view()),
+    path("auth/me/pending-email/resend/", PendingEmailResendView.as_view()),
     path("auth/tokens/", PersonalAccessTokenListCreateView.as_view()),
     path("auth/tokens/<int:pk>/", PersonalAccessTokenDeleteView.as_view()),
     path("auth/ws-ticket/", WSTicketView.as_view()),

@@ -230,7 +230,8 @@ class MandatoryEmailChangeTests(TestCase):
         EmailAddress.objects.create(user=other, email="frank@example.com", verified=True, primary=True)
         self.client.patch("/api/v1/auth/me/", {"email": "frank@example.com"}, format="json")
         pending = EmailAddress.objects.get(user=self.user, email="frank@example.com")
-        self._confirm(pending)
+        # #1293: answered with a 409, not a misleading 200 "ok".
+        self.assertEqual(self._confirm(pending).status_code, status.HTTP_409_CONFLICT)
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "erin@old.example")
 
