@@ -147,16 +147,18 @@ budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5
 5. Flip `status` from `"provisional"` to `"ci-derived"` the first time this is done from a real
    scheduled pipeline run (see the note below).
 
-!!! warning "The baseline committed alongside #1082 is provisional"
-    `backend/nightly-load-test-baseline.json`'s numbers were measured locally — against a real
-    PostgreSQL 17 instance with the `pg_trgm` indexes active, using the same seed command and
-    the same `scripts/nightly_load_test.py` the CI job runs, so they are genuine measurements,
-    not invented — but on a development machine, not a GitLab CI runner. **A number measured on
-    a laptop is not a CI baseline**: runner CPU/IO characteristics differ, and this is exactly
-    the distinction the issue this job implements is about. Re-derive from the first real
-    scheduled `nightly-load-test` run after this lands, following the steps above, and flip
-    `status` to `"ci-derived"` at that point. Until then, treat every budget in that file as a
-    reasonable starting point, not a proven-tight one.
+!!! note "Re-derived from the first real CI run — #1233"
+    The baseline committed alongside #1082 was measured locally (a development machine, not a
+    GitLab CI runner) and stayed `"provisional"` until a real scheduled run existed to re-derive
+    it from — see #1213. That run happened 2026-09-29T03:00 UTC; `backend/nightly-load-test-baseline.json`
+    is now `"ci-derived"` from its artifact (job 16796708105), following the steps above. The very
+    next scheduled run (2026-09-30T03:00 UTC) failed against the *old* provisional budgets on
+    `board_full`/`card_timeline`/`notifications_unread` — its measured numbers pass comfortably
+    against the re-derived budgets, confirming the stale provisional file was the cause, not a new
+    regression. `board_full` is the most CPU-bound of the five endpoints (per-card DRF
+    serialization across ~2,388 cards, #1212) and shows the widest run-to-run variance on a
+    shared CI runner as a result — expect it to move more between runs than the lighter
+    endpoints.
 
 ## Failure notifications
 
