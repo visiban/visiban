@@ -1098,6 +1098,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#board-deletion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board deletion
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3666,6 +3677,10 @@
 <p>Archived cards are included in analytics for the period they were active. Dwell time in the final stage is calculated up to the archive timestamp, not the current date. See <a href="../analytics/#dwell-time-and-archived-cards">Analytics &amp; Summary</a> for details.</p>
 <h2 id="column-and-swimlane-deletion">Column and swimlane deletion<a class="headerlink" href="#column-and-swimlane-deletion" title="Permanent link">&para;</a></h2>
 <p>Deleting a column or swimlane also deletes all cards in it — including archived cards that were in that column or swimlane at the time of archiving. Both confirmation dialogs warn that any archived cards will also be permanently deleted.</p>
+<h2 id="board-deletion">Board deletion<a class="headerlink" href="#board-deletion" title="Permanent link">&para;</a></h2>
+<p>Deleting a board permanently deletes every card on it, including archived cards. Every board-delete confirmation — on the dashboard, in the board switcher, and in the <strong>Danger Zone</strong> of Board Settings — says so, and when the board has archived cards it tells you how many.</p>
+<p>Archived cards count toward the typed confirmation too: if a board holds any cards, active <strong>or</strong> archived, you must type the board's name before <strong>Delete</strong> is enabled. A board with no active cards but hundreds of archived ones can no longer be deleted with a single click. Only a board with no cards at all deletes without typing its name.</p>
+<p>The active card count shown elsewhere (for example on the dashboard) still excludes archived cards; the delete dialogs report the two numbers separately. <em>(Since 1.2, #1289.)</em></p>
 
 
 
