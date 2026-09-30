@@ -282,16 +282,16 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
             return True
 
         if mode == SiteSetting.RegistrationMode.CLOSED:
-            # Unlike the INVITE_ONLY failure branch below, this does not call
-            # _redirect_with_error: returning False here makes allauth raise
-            # SignupClosedException, which renders allauth's own stock
-            # "account/signup_closed" template in-process rather than
-            # redirecting to the frontend — a UX dead-end (not a
-            # duplicate-account risk, since that template has no form) of
-            # the same class as #1321's socialaccount_signup case. Tracked
-            # separately as #1323; not fixed here to keep #1321 scoped to
-            # the duplicate-account-creation risk it was opened for.
-            return False
+            # Redirect to the frontend instead of returning False directly:
+            # returning False makes allauth raise SignupClosedException,
+            # which renders allauth's own stock "account/signup_closed"
+            # template in-process rather than redirecting to the frontend —
+            # a UX dead-end (not a duplicate-account risk, since that
+            # template has no form) of the same class as #1321's
+            # socialaccount_signup case. Fixed for #1323, using the same
+            # pattern as the INVITE_ONLY failure branch below.
+            self._redirect_with_error(request, "signup_closed")
+            return False  # pragma: no cover — _redirect_with_error raises
 
         # INVITE_ONLY — check for a pending invite token in the session.
         raw_token = request.session.get(PENDING_INVITE_SESSION_KEY, "")

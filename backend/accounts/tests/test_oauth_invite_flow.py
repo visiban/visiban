@@ -242,10 +242,18 @@ class SocialRegistrationAdapterIsOpenTests(TestCase):
         request = self._request_with_session()
         self.assertTrue(self.adapter.is_open_for_signup(request, MagicMock()))
 
-    def test_closed_mode_blocks_signup(self):
+    def test_closed_mode_redirects(self):
+        # #1323: CLOSED mode must redirect to the frontend with
+        # auth_error=signup_closed instead of returning False directly —
+        # returning False lets allauth render its own stock
+        # "account/signup_closed" template in-process, a UX dead-end for
+        # the SPA (same class of bug as the INVITE_ONLY branches below).
         set_mode(SiteSetting.RegistrationMode.CLOSED)
         request = self._request_with_session()
-        self.assertFalse(self.adapter.is_open_for_signup(request, MagicMock()))
+        from allauth.core.exceptions import ImmediateHttpResponse
+        with self.assertRaises(ImmediateHttpResponse) as ctx:
+            self.adapter.is_open_for_signup(request, MagicMock())
+        self.assertIn("auth_error=signup_closed", ctx.exception.response.url)
 
     def test_invite_only_with_valid_token_allows_signup(self):
         set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
