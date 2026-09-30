@@ -721,6 +721,7 @@ describe('NotificationsTab', () => {
       'Someone @mentions me',
       'Due date approaching',
       'Card I\u2019m watching is moved',
+      'Comment on a watched card',
     ]) {
       expect(screen.getByRole('switch', { name: `Also send by email: ${label}` })).toBeInTheDocument()
     }
@@ -730,9 +731,6 @@ describe('NotificationsTab', () => {
     const user = userEvent.setup()
     renderSettings()
     await user.click(screen.getByText('Notifications'))
-    expect(
-      screen.queryByRole('switch', { name: 'Also send by email: Comment on a watched card' })
-    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('switch', { name: 'Also send by email: Card has gone stale' })
     ).not.toBeInTheDocument()
@@ -745,6 +743,35 @@ describe('NotificationsTab', () => {
     await user.click(screen.getByText('Notifications'))
     await user.click(screen.getByRole('switch', { name: 'Also send by email: Card assigned to me' }))
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ email_notif_card_assigned: true })
+  })
+
+  it('comment-on-watched-card email toggle sends email_notif_comment_added (#1295)', async () => {
+    const user = userEvent.setup()
+    mockUpdateCurrentUser.mockResolvedValueOnce({
+      ...fakeUser, notif_comment_added: true, email_notif_comment_added: true,
+    })
+    renderSettings({ ...fakeUser, notif_comment_added: true, email_notif_comment_added: false })
+    await user.click(screen.getByText('Notifications'))
+    const emailToggle = screen.getByRole('switch', {
+      name: 'Also send by email: Comment on a watched card',
+    })
+    expect(emailToggle).toHaveAttribute('aria-checked', 'false')
+    expect(emailToggle).not.toHaveAttribute('aria-disabled')
+    await user.click(emailToggle)
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ email_notif_comment_added: true })
+  })
+
+  it('comment-on-watched-card email toggle is inert while the in-app toggle is off', async () => {
+    const user = userEvent.setup()
+    // notif_comment_added defaults to false, like notif_card_moved.
+    renderSettings({ ...fakeUser, notif_comment_added: false })
+    await user.click(screen.getByText('Notifications'))
+    const emailToggle = screen.getByRole('switch', {
+      name: 'Also send by email: Comment on a watched card',
+    })
+    expect(emailToggle).toHaveAttribute('aria-disabled', 'true')
+    await user.click(emailToggle)
+    expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
   })
 
   it('email toggle is disabled and explained when the in-app toggle is off', async () => {

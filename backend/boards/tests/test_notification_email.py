@@ -146,7 +146,7 @@ class SignalExtensionPointTests(TestCase):
 
 @override_settings(NOTIFICATION_EMAIL_ASYNC=False)
 class EmailDeliveryPerEventTests(TestCase):
-    """Each of the four in-scope events sends mail when the user opted in."""
+    """Each in-scope event sends mail when the user opted in."""
 
     def setUp(self):
         self.actor = User.objects.create_user(username="mover", password="pass")
@@ -197,6 +197,28 @@ class EmailDeliveryPerEventTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("mentioned you", mail.outbox[0].subject)
+
+    def test_comment_on_watched_card_sends_email(self):
+        # #1295: the target is the card's assignee (an implicit watcher, #1277)
+        # and is not @mentioned, so this is a COMMENT_ADDED email, not MENTIONED.
+        # setUp opts the target in to every OTHER email preference; turn those
+        # off so only email_notif_comment_added can explain a sent email — a
+        # wrong EMAIL_PREFERENCE_BY_ACTION mapping must fail this test.
+        User.objects.filter(pk=self.target.pk).update(
+            notif_comment_added=True, email_notif_comment_added=True,
+            email_notif_card_assigned=False, email_notif_mentioned=False,
+            email_notif_due_soon=False, email_notif_card_moved=False,
+        )
+        Card.objects.filter(pk=self.card.pk).update(assignee=self.target)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
+                {"body": "no mention here"}, format="json",
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["target@example.test"])
+        self.assertIn("Deploy v2.3", mail.outbox[0].subject)
 
     def test_description_mention_sends_email(self):
         with self.captureOnCommitCallbacks(execute=True):
@@ -749,7 +771,8 @@ class PreferenceApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         for field in (
             "email_notif_card_assigned", "email_notif_mentioned",
-            "email_notif_due_soon", "email_notif_card_moved", "notif_stale",
+            "email_notif_due_soon", "email_notif_card_moved",
+            "email_notif_comment_added", "notif_stale",
         ):
             self.assertIn(field, response.data)
             self.assertFalse(response.data[field])
@@ -761,6 +784,22 @@ class PreferenceApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertTrue(self.user.email_notif_mentioned)
+
+    def test_comment_added_email_preference_round_trips(self):
+        # #1295
+        response = self.client.patch(
+            "/api/v1/auth/me/", {"email_notif_comment_added": True}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["email_notif_comment_added"])
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.email_notif_comment_added)
+        response = self.client.patch(
+            "/api/v1/auth/me/", {"email_notif_comment_added": False}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.email_notif_comment_added)
 
     def test_a_user_cannot_set_another_users_preference(self):
         """The endpoint is always scoped to request.user — no id is accepted."""
@@ -782,6 +821,7 @@ class PreferenceApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         for row in response.json():
             self.assertNotIn("email_notif_mentioned", row)
+            self.assertNotIn("email_notif_comment_added", row)
             self.assertNotIn("email", row)
 
 

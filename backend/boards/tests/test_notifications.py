@@ -832,10 +832,14 @@ class CommentAddedNotificationTests(TestCase):
             [Notification.ActionType.COMMENT_ADDED],
         )
 
-    def test_no_email_is_sent(self, _):
-        # Opt in to every email preference that exists: none covers this event.
-        User.objects.filter(pk__in=[self.creator.pk, self.assignee.pk]).update(
-            email="watcher@example.test",
+    def _set_watcher_emails(self, **prefs):
+        User.objects.filter(pk=self.creator.pk).update(email="creator@example.test", **prefs)
+        User.objects.filter(pk=self.assignee.pk).update(email="assignee@example.test", **prefs)
+
+    def test_no_email_without_comment_email_opt_in(self, _):
+        # #1295: every OTHER email preference is on, but email_notif_comment_added
+        # is left at its default (False) — none of the others covers this event.
+        self._set_watcher_emails(
             email_notif_card_assigned=True,
             email_notif_mentioned=True,
             email_notif_due_soon=True,
@@ -859,6 +863,32 @@ class CommentAddedNotificationTests(TestCase):
         self.assertEqual(len(received), 2)
         self.assertEqual(received[0]["context"]["comment_body"], "Shipping it")
         self.assertEqual(received[0]["context"]["comment_id"], resp.data["id"])
+
+    def test_email_is_sent_when_opted_in(self, _):
+        # #1295: email_notif_comment_added maps COMMENT_ADDED to email delivery.
+        self._set_watcher_emails(email_notif_comment_added=True)
+        mail.outbox = []
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self._post_comment("Shipping it")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(
+            sorted(addr for m in mail.outbox for addr in m.to),
+            ["assignee@example.test", "creator@example.test"],
+        )
+        for message in mail.outbox:
+            self.assertIn("Watched card", message.subject)
+            self.assertIn(f"?card={self.card.pk}", message.body)
+
+    def test_email_opt_in_is_inert_while_in_app_is_off(self, _):
+        # Email rides on the in-app row: with notif_comment_added off there is no
+        # COMMENT_ADDED notification, so nothing to email either.
+        self._set_watcher_emails(notif_comment_added=False, email_notif_comment_added=True)
+        mail.outbox = []
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self._post_comment("Shipping it")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(self._comment_rows().count(), 0)
+        self.assertEqual(mail.outbox, [])
 
     def test_500_character_title_still_creates_comment(self, _):
         card = self._card(created_by=self.creator, assignee=self.assignee, title="T" * 500)

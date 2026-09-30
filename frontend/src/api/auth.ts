@@ -7,7 +7,7 @@ export const getCurrentUser = () =>
 export const getVersion = () =>
   client.get<{ version: string }>("/api/v1/version/").then((r) => r.data.version);
 
-export const updateCurrentUser = (data: Partial<Pick<User, "display_name" | "first_name" | "last_name" | "email" | "username" | "timezone" | "date_format" | "time_format" | "number_locale" | "close_editor_on_enter" | "theme" | "notif_card_assigned" | "notif_mentioned" | "notif_due_soon" | "notif_card_moved" | "notif_comment_added" | "notif_board_invite" | "notif_stale" | "email_notif_card_assigned" | "email_notif_mentioned" | "email_notif_due_soon" | "email_notif_card_moved">>) =>
+export const updateCurrentUser = (data: Partial<Pick<User, "display_name" | "first_name" | "last_name" | "email" | "username" | "timezone" | "date_format" | "time_format" | "number_locale" | "close_editor_on_enter" | "theme" | "notif_card_assigned" | "notif_mentioned" | "notif_due_soon" | "notif_card_moved" | "notif_comment_added" | "notif_board_invite" | "notif_stale" | "email_notif_card_assigned" | "email_notif_mentioned" | "email_notif_due_soon" | "email_notif_card_moved" | "email_notif_comment_added">>) =>
   client.patch<User>("/api/v1/auth/user/", data).then((r) => r.data);
 
 export const logout = () => client.post("/api/v1/auth/logout/");

@@ -2,7 +2,7 @@
 
 Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
 
-Four of these events can also be **delivered by email** — see [Email notifications](#email-notifications) below.
+Five of these events can also be **delivered by email** — see [Email notifications](#email-notifications) below.
 
 ## Notification bell
 
@@ -23,7 +23,7 @@ Each user can enable or disable individual notification triggers in **Settings �
 | I am @mentioned | On | Yes | Off |
 | Due date approaching | Off | Yes | Off |
 | Card moved | Off | Yes | Off |
-| Comment on a watched card | Off | No | — |
+| Comment on a watched card | Off | Yes | Off |
 | Card has gone stale | Off | No | — |
 | Board invites | On | No | — |
 
@@ -110,7 +110,8 @@ This notification appears in the bell dropdown and includes a **View board →**
 
 > **Changed in 1.2**
 > Before 1.2 the **Comment on a watched card** toggle was saved but never
-> created a notification (#1277). It now works as described below.
+> created a notification (#1277). It now works as described below, and can
+> also be delivered by email (#1295).
 
 When someone comments on a card you are **watching**, you get a notification in
 the bell:
@@ -130,7 +131,10 @@ does not make you a watcher. Explicit watch/unwatch is planned (#229).
 - **Only while you can see the board.** If you created a card but have since
   been removed from the board, or your account is deactivated, you are not
   notified.
-- **In-app only.** This event is not delivered by email.
+- **Email is optional.** Turn on **Also send by email** under *Comment on a
+  watched card* to get a copy by email as well. It is off by default and, like
+  every email preference, inert while the in-app toggle is off. See
+  [Email notifications](#email-notifications).
 
 ## Staleness notifications
 
@@ -182,7 +186,7 @@ aggressively would make them send the same notification again.
 > **Added in 1.2**
 
 Team members who are not watching the board all day can have notifications
-delivered to their email address as well as the bell. Four events support it:
+delivered to their email address as well as the bell. Five events support it:
 
 | Event | Email preference |
 |---|---|
@@ -190,6 +194,7 @@ delivered to their email address as well as the bell. Four events support it:
 | Someone @mentions me | **Also send by email** under *Someone @mentions me* |
 | Due date approaching | **Also send by email** under *Due date approaching* |
 | Card I'm watching is moved | **Also send by email** under *Card I'm watching is moved* |
+| Comment on a watched card | **Also send by email** under *Comment on a watched card* |
 
 ### Turning it on
 

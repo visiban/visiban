@@ -8,13 +8,14 @@ Visiban creates notifications for board members when:
 - A card they own is due within 24 hours (`notif_due_soon`) — *added in 1.2*
 - A card they own has not moved within the configured staleness window (`notif_stale`) — *added in 1.2; previously gated on `notif_due_soon`*
 - They are invited to a board (`notif_board_invite`)
-- Someone else comments on a card they created or are assigned to (`notif_comment_added`) — *added in 1.2*; in-app only, and suppressed when the same comment @mentions them
+- Someone else comments on a card they created or are assigned to (`notif_comment_added`) — *added in 1.2*; suppressed when the same comment @mentions them
 
 Each notification preference can be toggled individually via `PATCH /api/v1/auth/me/`. See [Authentication](authentication.md).
 
-The first four events can also be delivered by email, controlled by a parallel set of
-fields on the same endpoint — `email_notif_card_assigned`, `email_notif_mentioned`,
-`email_notif_due_soon`, `email_notif_card_moved` — all of which default to `false`.
+Assignment, @mention, due-soon, card-moved, and comment-on-a-watched-card notifications
+can also be delivered by email, controlled by a parallel set of fields on the same
+endpoint — `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`,
+`email_notif_card_moved`, `email_notif_comment_added` — all of which default to `false`.
 An email is a copy of the in-app notification, so an `email_notif_*` field has no effect
 while its `notif_*` counterpart is `false`. See
 [Email notifications](../features/notifications.md#email-notifications).
