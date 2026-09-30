@@ -792,21 +792,28 @@ Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 
 > **Ownership gate:** Collaborators and members may only edit items they created. Admins and moderators may edit any item. Items created before the `created_by` field existed (migration 0044) have no recorded creator and are unrestricted. Non-moderator callers who did not create the item receive `403 Forbidden` with `{"detail": "You can only edit checklist items you created."}`.
 
+> **`position` cannot be changed via PATCH.** The field is present in the response, and echoing back the item's *current* `position` value is accepted (so a PUT-style client that round-trips the full representation still works). Submitting a *different* value is rejected with `400` and body `{"position": ["Changing a checklist item's position via PATCH is not allowed — ..."]}`. To reorder checklist items, use `POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/` (since 1.2, #1292).
+
 **Request** `{ "is_checked": true }`
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
 Delete a checklist item. **Minimum role: Collaborator.** Same ownership gate as `PATCH` above.
 
+### `POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/`
+Reorder checklist items on a card. **Minimum role: Collaborator.** Not ownership-gated — unlike `PATCH`/`DELETE` on a single item, reordering changes the whole list's display order rather than one item's content, so any collaborator+ may reorder regardless of who created each item. *(Since 1.2, #1292.)*
+
+**Request** `{ "order": [17, 21, 19] }` — `order` must be **exactly** this card's current checklist item IDs: every item once, no duplicates, and no ID from another card. A partial list, a duplicate ID, an ID belonging to a different card, or (on a card that has items) an empty list are all rejected with `400` and body `{"order": ["..."]}` rather than partially applied. Returns the reordered list (same shape as `GET`).
+
 **Checklist item response shape**
 
-All checklist endpoints (`GET`, `POST`, `PATCH`) return checklist item objects with the following fields:
+All checklist endpoints (`GET`, `POST`, `PATCH`, `POST .../reorder/`) return checklist item objects with the following fields:
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | integer | Checklist item database PK |
 | `text` | string | Item text |
 | `is_checked` | boolean | Whether the item is checked |
-| `position` | integer | Sort order within the checklist (0-based) |
+| `position` | integer | Sort order within the checklist (0-based); update via `reorder/` only — a `PATCH` that changes `position` returns `400 Bad Request` (since 1.2, #1292). Echoing the current value back is accepted. |
 | `created_by` | object / null | User who added the item — `{ id, username, display_name, avatar_url }`. `null` for items created before this field was added (migration 0044). |
 
 **Example response**
