@@ -1175,7 +1175,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                               {u.display_name || u.first_name || u.username}
                             </span>
                             {u.is_site_admin && (
-                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-info/20 text-info">
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-primary-emphasis/20 text-info">
                                 Admin
                               </span>
                             )}

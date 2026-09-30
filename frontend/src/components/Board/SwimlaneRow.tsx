@@ -396,7 +396,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                   style={{ width: cellWidth }}
                 >
                   {displayCount > 0 ? (
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${hasMatch ? "bg-info/20 text-info" : "bg-surface text-fg-tertiary"}`}>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${hasMatch ? "bg-primary-emphasis/20 text-info" : "bg-surface text-fg-tertiary"}`}>
                       {displayCount}
                     </span>
                   ) : null}

@@ -141,7 +141,7 @@ export default function SavedFiltersDropdown({
         </svg>
         <span className="text-xs">Saved</span>
         {savedFilters.length > 0 && (
-          <span className="bg-info/20 text-info rounded-full px-1.5 py-0.5 text-xs leading-none">
+          <span className="bg-primary-emphasis/20 text-info rounded-full px-2 py-0.5 text-xs leading-none">
             {savedFilters.length}
           </span>
         )}
