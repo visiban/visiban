@@ -75,6 +75,17 @@ Lists all accounts on the instance, paginated 50 per page. Use the search bar to
 
 ### Actions per user
 
+> **Changed in 1.2** — the less-frequent actions moved into a per-row overflow menu.
+
+Each row shows **Deactivate**/**Reactivate** and **Make admin**/**Remove admin** as inline
+text buttons — these are the actions admins reach for most often. The remaining, lower-frequency
+actions (**Grant all-content**/**Revoke all-content**, **Force password reset**, **Clear
+lockout**, and **Restart onboarding tour**, when each applies to that user) live behind the
+**More actions** (`⋮`) button at the end of the row. Open it with a click, or reach it with
+the keyboard (Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to
+close) — every item in the menu is a fully keyboard-navigable, screen-reader-labeled control,
+not just a mouse target.
+
 #### Add user
 
 Creates a local account directly. Fields:

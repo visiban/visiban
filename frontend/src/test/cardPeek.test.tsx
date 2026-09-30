@@ -101,6 +101,31 @@ describe('Card peek popover', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent('A description for the card peek popover.')
   })
 
+  // Regression guard (#1305): mouseleave/drag-start already clear peekTimer,
+  // but a card can also unmount directly while the timer is still pending
+  // (e.g. a WebSocket move/delete broadcast removes it from the board while
+  // the pointer rests on it). Unmounting must clear the timer too, not fire
+  // setPeekVisible/setAnchorRect against a torn-down component.
+  it('clears the pending peek timer on unmount, without throwing', async () => {
+    const { container, unmount } = render(<CardItem card={makeCard()} />)
+    const cardEl = getCardEl(container)
+
+    fireEvent.mouseEnter(cardEl)
+
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => unmount()).not.toThrow()
+    expect(clearSpy).toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+
+    // Advancing past the original 600ms delay after unmount must not throw.
+    expect(() => act(() => { vi.advanceTimersByTime(600) })).not.toThrow()
+    expect(errorSpy).not.toHaveBeenCalled()
+
+    clearSpy.mockRestore()
+    errorSpy.mockRestore()
+  })
+
   it('does not show the popover when mouseleave fires before 600 ms', async () => {
     const { container } = render(<CardItem card={makeCard()} />)
     const cardEl = getCardEl(container)

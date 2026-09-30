@@ -100,6 +100,24 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // activity feed shows a single net change (e.g. "Weight: 3 → 8") rather
   // than an entry per click.
   const weightSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // #1305 — cancel (not flush) a pending weight-save debounce on unmount.
+  // This matches the established precedent for this exact 600ms debounce
+  // class: CustomFieldValueInput's own comment says its text/number debounce
+  // "mirrors CardDetail's Weight field", and that component's unmount effect
+  // also cancels outright rather than flushing (see
+  // frontend/src/components/Card/CustomFieldValueInput.tsx). #1140 already
+  // established that a surface needing a *guaranteed* capture opts into
+  // `debounceMs={0}` (immediate commit) rather than relying on a
+  // flush-on-unmount safety net. Weight only changes via +/-1 button clicks,
+  // so a cancelled debounce loses at most a single increment the user can
+  // immediately redo — not a typed edit — so cancelling is the right choice
+  // here, unlike (say) a free-text field.
+  useEffect(() => {
+    return () => {
+      if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
+    };
+  }, []);
   const moveButtonRef = useRef<HTMLButtonElement>(null);
   const [showMovePopover, setShowMovePopover] = useState(false);
   const [movePopoverAnchor, setMovePopoverAnchor] = useState<{ top: number; left: number } | null>(null);

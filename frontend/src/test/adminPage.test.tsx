@@ -69,6 +69,13 @@ vi.mock('../api/auth', () => ({
   searchUsers: vi.fn(),
 }))
 
+// OffboardingModal's per-board member search bypasses ../api/auth and calls
+// the shared axios client directly (a dynamic import), so it needs its own mock.
+const mockClientGet = vi.fn()
+vi.mock('../api/client', () => ({
+  default: { get: (...args: unknown[]) => mockClientGet(...args) },
+}))
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -337,13 +344,21 @@ describe('AdminPage — Users tab', () => {
     expect(mockCreateAdminUser).not.toHaveBeenCalled()
   })
 
+  // Force reset, Restart onboarding tour, and Clear lockout all moved into
+  // each row's OverflowMenu (#1291) — open the row's "More actions" trigger
+  // before interacting with any of them.
+  async function openRowMenu(name: string) {
+    fireEvent.click(screen.getByRole('button', { name: `More actions for ${name}` }))
+    await screen.findByRole('menu')
+  }
+
   it('calls patchAdminUser on force reset click', async () => {
     mockPatchAdminUser.mockResolvedValue({ ...fakeAdminUsers[1], must_change_password: true })
     renderAdminPage()
     fireEvent.click(screen.getByText('Users'))
-    await waitFor(() => screen.getAllByText('Force reset'))
-    const resetBtns = screen.getAllByText('Force reset')
-    fireEvent.click(resetBtns[0])
+    await waitFor(() => screen.getByText('@alice'))
+    await openRowMenu('Admin User')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Force reset' }))
     await waitFor(() => {
       expect(mockPatchAdminUser).toHaveBeenCalledWith(
         expect.any(Number),
@@ -352,7 +367,7 @@ describe('AdminPage — Users tab', () => {
     })
   })
 
-  it('shows Restart onboarding tour only for a user who completed the tour, PATCHes has_completed_tour: false on click, disables the button while pending, and shows a success message (#1280)', async () => {
+  it('shows Restart onboarding tour only for a user who completed the tour, PATCHes has_completed_tour: false on click, disables the item while pending, and shows a success message (#1280)', async () => {
     const toured: AdminUser = { ...fakeAdminUsers[1], has_completed_tour: true }
     mockGetAdminUsers.mockResolvedValue({
       count: 2,
@@ -369,26 +384,31 @@ describe('AdminPage — Users tab', () => {
     await waitFor(() => screen.getByText('@alice'))
 
     // fakeAdminUsers[0] (admin) has no has_completed_tour set (falsy), so the
-    // action must not render for that row — only one button total.
-    const resetTourBtns = screen.getAllByText('Restart onboarding tour')
-    expect(resetTourBtns).toHaveLength(1)
+    // action must not appear in that row's menu.
+    await openRowMenu('Admin User')
+    expect(screen.queryByText('Restart onboarding tour')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Admin User' })) // close it again
 
-    fireEvent.click(resetTourBtns[0])
+    await openRowMenu(toured.display_name)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Restart onboarding tour' }))
     expect(mockPatchAdminUser).toHaveBeenCalledWith(toured.id, { has_completed_tour: false })
 
-    // In-flight guard: the button shows a pending label and is disabled, so a
-    // stray second click while the PATCH is outstanding can't fire a duplicate
+    // In-flight guard: OverflowMenu closes the panel on any select, so reopen
+    // it — the item now renders a pending label and is disabled, so a stray
+    // second click while the PATCH is outstanding can't fire a duplicate
     // request for the same user.
-    const pendingBtn = await screen.findByText('Restarting…')
-    expect(pendingBtn).toBeDisabled()
-    fireEvent.click(pendingBtn)
+    await openRowMenu(toured.display_name)
+    const pendingItem = await screen.findByRole('menuitem', { name: 'Restarting…' })
+    expect(pendingItem).toBeDisabled()
+    fireEvent.click(pendingItem)
     expect(mockPatchAdminUser).toHaveBeenCalledTimes(1)
 
     resolvePatch!({ ...toured, has_completed_tour: false })
 
     // After the update comes back with has_completed_tour: false, the action
-    // disappears — nothing left to reset — and an inline success message
-    // appears, mirroring the self-service confirmation in SettingsPage.
+    // disappears from the (still open) menu — nothing left to reset — and an
+    // inline success message appears, mirroring the self-service confirmation
+    // in SettingsPage.
     await waitFor(() => {
       expect(screen.queryByText('Restart onboarding tour')).not.toBeInTheDocument()
       expect(screen.queryByText('Restarting…')).not.toBeInTheDocument()
@@ -398,13 +418,12 @@ describe('AdminPage — Users tab', () => {
     ).toBeInTheDocument()
   })
 
-  it('ignores a second restart-tour click for the same user while its PATCH is in flight, independent of the disabled attribute (#1280)', async () => {
-    // The passing test above shows the button is `disabled` and a click is a
-    // no-op — but a native disabled button never dispatches click at all, so
-    // that alone doesn't prove the component's own `restartingTourIds` guard
-    // does anything. Here we clear the DOM `disabled` property by hand right
-    // before the second click, so the click *does* reach the onClick handler,
-    // and assert the handler's own early return still stops a duplicate PATCH.
+  it('ignores a second restart-tour click for the same user while its PATCH is in flight (#1280)', async () => {
+    // OverflowMenu closes its panel on select and re-renders its items from
+    // the parent on every open, so reopening it after the first click is what
+    // exercises both guards against a duplicate PATCH for the same in-flight
+    // user: OverflowMenu's own `item.disabled` check on the reopened item, and
+    // handleRestartTour's `restartingTourIds` guard underneath it.
     const toured: AdminUser = { ...fakeAdminUsers[1], has_completed_tour: true }
     mockGetAdminUsers.mockResolvedValue({
       count: 2,
@@ -417,13 +436,14 @@ describe('AdminPage — Users tab', () => {
     fireEvent.click(screen.getByText('Users'))
     await waitFor(() => screen.getByText('@alice'))
 
-    const button = screen.getByText('Restart onboarding tour') as HTMLButtonElement
-    fireEvent.click(button)
-    await waitFor(() => expect(button).toBeDisabled())
+    await openRowMenu(toured.display_name)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Restart onboarding tour' }))
     expect(mockPatchAdminUser).toHaveBeenCalledTimes(1)
 
-    button.disabled = false
-    fireEvent.click(button)
+    await openRowMenu(toured.display_name)
+    const pendingItem = await screen.findByRole('menuitem', { name: 'Restarting…' })
+    expect(pendingItem).toBeDisabled()
+    fireEvent.click(pendingItem)
 
     expect(mockPatchAdminUser).toHaveBeenCalledTimes(1)
   })
@@ -444,7 +464,8 @@ describe('AdminPage — Users tab', () => {
     const { unmount } = renderAdminPage()
     fireEvent.click(screen.getByText('Users'))
     await waitFor(() => screen.getByText('@alice'))
-    fireEvent.click(screen.getByText('Restart onboarding tour'))
+    await openRowMenu(toured.display_name)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Restart onboarding tour' }))
     await waitFor(() => {
       expect(
         screen.getByText(`Tour will restart for ${toured.display_name} on their next visit to a board.`)
@@ -464,9 +485,9 @@ describe('AdminPage — Users tab', () => {
     mockClearAdminUserLockout.mockResolvedValue(fakeAdminUsers[1])
     renderAdminPage()
     fireEvent.click(screen.getByText('Users'))
-    await waitFor(() => screen.getAllByText('Clear lockout'))
-    const clearBtns = screen.getAllByText('Clear lockout')
-    fireEvent.click(clearBtns[0])
+    await waitFor(() => screen.getByText('@alice'))
+    await openRowMenu('Admin User')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear lockout' }))
 
     // The action is confirm-gated — it must not fire before the dialog is confirmed.
     expect(mockClearAdminUserLockout).not.toHaveBeenCalled()
@@ -481,8 +502,9 @@ describe('AdminPage — Users tab', () => {
   it('does not call clearAdminUserLockout if the confirm dialog is canceled', async () => {
     renderAdminPage()
     fireEvent.click(screen.getByText('Users'))
-    await waitFor(() => screen.getAllByText('Clear lockout'))
-    fireEvent.click(screen.getAllByText('Clear lockout')[0])
+    await waitFor(() => screen.getByText('@alice'))
+    await openRowMenu('Admin User')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear lockout' }))
 
     const dialog = await screen.findByRole('dialog')
     fireEvent.click(within(dialog).getByText('Cancel'))
@@ -496,8 +518,9 @@ describe('AdminPage — Users tab', () => {
     })
     renderAdminPage()
     fireEvent.click(screen.getByText('Users'))
-    await waitFor(() => screen.getAllByText('Clear lockout'))
-    fireEvent.click(screen.getAllByText('Clear lockout')[0])
+    await waitFor(() => screen.getByText('@alice'))
+    await openRowMenu('Admin User')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear lockout' }))
 
     const dialog = await screen.findByRole('dialog')
     fireEvent.click(within(dialog).getByText('Confirm'))
@@ -511,8 +534,9 @@ describe('AdminPage — Users tab', () => {
     mockClearAdminUserLockout.mockRejectedValue(new Error('network error'))
     renderAdminPage()
     fireEvent.click(screen.getByText('Users'))
-    await waitFor(() => screen.getAllByText('Clear lockout'))
-    fireEvent.click(screen.getAllByText('Clear lockout')[0])
+    await waitFor(() => screen.getByText('@alice'))
+    await openRowMenu('Admin User')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear lockout' }))
 
     const dialog = await screen.findByRole('dialog')
     fireEvent.click(within(dialog).getByText('Confirm'))
@@ -520,6 +544,35 @@ describe('AdminPage — Users tab', () => {
     await waitFor(() => {
       expect(screen.getByText('Action failed. Please try again.')).toBeInTheDocument()
     })
+  })
+
+  it('keeps at most three inline row actions and moves the low-frequency actions into the overflow menu (#1291)', async () => {
+    // Alice (id 3, active, not site admin, not all-content, not
+    // must_change_password, tour not completed) exercises the full inline
+    // set (Deactivate, Make admin) plus the overflow trigger — three
+    // controls total — with the remaining actions folded into its menu.
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getByText('@alice'))
+
+    const aliceRow = screen.getByText('@alice').closest('tr') as HTMLElement
+    // Deactivate + Make admin + the overflow trigger itself — three controls
+    // in the row, at the acceptance-criteria cap.
+    const rowButtons = within(aliceRow).getAllByRole('button')
+    expect(rowButtons.length).toBeLessThanOrEqual(3)
+    expect(within(aliceRow).getByRole('button', { name: 'More actions for Alice' })).toBeInTheDocument()
+    expect(within(aliceRow).getByText('Deactivate')).toBeInTheDocument()
+    expect(within(aliceRow).getByText('Make admin')).toBeInTheDocument()
+    expect(within(aliceRow).queryByText('Grant all-content')).not.toBeInTheDocument()
+    expect(within(aliceRow).queryByText('Force reset')).not.toBeInTheDocument()
+    expect(within(aliceRow).queryByText('Clear lockout')).not.toBeInTheDocument()
+
+    fireEvent.click(within(aliceRow).getByRole('button', { name: 'More actions for Alice' }))
+    const menu = await screen.findByRole('menu', { name: 'More actions for Alice' })
+    expect(within(menu).getByRole('menuitem', { name: 'Grant all-content' })).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: 'Force reset' })).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: 'Clear lockout' })).toBeInTheDocument()
+    expect(within(menu).queryByRole('menuitem', { name: 'Restart onboarding tour' })).not.toBeInTheDocument()
   })
 
   it('clears the pending search debounce timer on unmount (#1304)', async () => {
@@ -536,6 +589,41 @@ describe('AdminPage — Users tab', () => {
     const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => unmount()).not.toThrow()
+    expect(clearSpy).toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+    clearSpy.mockRestore()
+    errorSpy.mockRestore()
+  })
+
+  // Regression guard (#1305): OffboardingModal's per-board member search
+  // (debounceRefs, one timer per owned board) had no unmount cleanup. Closing
+  // the modal mid-debounce must clear the pending timer(s), not fire
+  // setMemberResults against a torn-down modal.
+  it('clears the pending offboarding member-search debounce timer on unmount (#1305)', async () => {
+    const owner: AdminUser = {
+      ...fakeAdminUsers[1],
+      owned_boards: [{ id: 42, uid: 'boarduid00042', name: 'Owned Board' }],
+    }
+    mockGetAdminUsers.mockResolvedValue({
+      count: 2,
+      offset: 0,
+      page_size: 50,
+      results: [fakeAdminUsers[0], owner],
+    })
+    mockClientGet.mockReturnValue(new Promise(() => { /* never resolves */ }))
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getByText('@alice'))
+
+    fireEvent.click(screen.getByText('Deactivate'))
+    const searchInput = await screen.findByPlaceholderText('Search for a member…')
+    // Schedules the 300ms debounced client.get() call, but the modal unmounts
+    // before it fires.
+    fireEvent.change(searchInput, { target: { value: 'bo' } })
+
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    fireEvent.click(screen.getByText('Cancel'))
     expect(clearSpy).toHaveBeenCalled()
     expect(errorSpy).not.toHaveBeenCalled()
     clearSpy.mockRestore()

@@ -18,6 +18,7 @@ from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from dj_rest_auth.views import PasswordResetConfirmView as DjRestAuthPasswordResetConfirmView
 from dj_rest_auth.views import PasswordChangeView as DjRestAuthPasswordChangeView
 from dj_rest_auth.views import UserDetailsView as DjRestAuthUserDetailsView
+from rest_framework import serializers as drf_serializers
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -41,6 +42,7 @@ from .invite_utils import InviteTokenError, validate_invite_token, consume_invit
 from .validators import USERNAME_TAKEN_MESSAGE, is_username_taken, is_valid_username_format
 from .serializers import (
     CurrentUserSerializer,
+    PersonalAccessTokenCreateResponseSerializer,
     PersonalAccessTokenCreateSerializer,
     PersonalAccessTokenSerializer,
     PublicUserSerializer,
@@ -565,6 +567,31 @@ class SiteConfigView(APIView):
 
     permission_classes = [AllowAny]
 
+    # This view builds its response by hand rather than through a serializer
+    # (#1294) — the schema below documents exactly what `get()` returns so
+    # drf-spectacular stops falling back to "unable to guess serializer".
+    @extend_schema(
+        responses=inline_serializer(
+            name="SiteConfig",
+            fields={
+                "registration_open": drf_serializers.BooleanField(),
+                "registration_mode": drf_serializers.ChoiceField(
+                    choices=SiteSetting.RegistrationMode.choices,
+                ),
+                "demo_mode": drf_serializers.BooleanField(),
+                "demo_login": inline_serializer(
+                    name="SiteConfigDemoLogin",
+                    fields={
+                        "username": drf_serializers.CharField(),
+                        "password": drf_serializers.CharField(),
+                    },
+                    allow_null=True,
+                ),
+                "demo_reset_schedule": drf_serializers.CharField(required=False, allow_null=True),
+                "demo_next_reset_at": drf_serializers.DateTimeField(required=False, allow_null=True),
+            },
+        ),
+    )
     def get(self, request):
         setting = SiteSetting.get()
         return Response({
@@ -615,10 +642,25 @@ class PersonalAccessTokenListCreateView(APIView):
         TokenHasScope,
     ]
 
+    @extend_schema(responses=PersonalAccessTokenSerializer(many=True))
     def get(self, request):
         tokens = request.user.personal_access_tokens.all()
         return Response(PersonalAccessTokenSerializer(tokens, many=True).data)
 
+    @extend_schema(
+        # Parsed by hand below rather than through a serializer (only `scopes`
+        # is validated via PersonalAccessTokenCreateSerializer) — documented
+        # explicitly so drf-spectacular does not fall back to guessing.
+        request=inline_serializer(
+            name="PersonalAccessTokenCreateRequest",
+            fields={
+                "name": drf_serializers.CharField(),
+                "expires_at": drf_serializers.DateTimeField(required=False, allow_null=True),
+                "scopes": drf_serializers.ListField(child=drf_serializers.CharField(), required=False),
+            },
+        ),
+        responses={201: PersonalAccessTokenCreateResponseSerializer},
+    )
     def post(self, request):
         if request.user.personal_access_tokens.count() >= PAT_MAX_PER_USER:
             return Response(

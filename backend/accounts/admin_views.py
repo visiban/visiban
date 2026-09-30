@@ -8,6 +8,7 @@ from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, extend_schema_field, inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.throttling import UserRateThrottle
@@ -245,14 +246,48 @@ def _email_settings_payload(cfg) -> dict:
     return data
 
 
+class SiteEmailSettingsResponseSerializer(drf_serializers.Serializer):
+    """Read-only response shape for GET/PATCH /api/admin/email-settings/ (#1294).
+
+    Documents exactly what ``_email_settings_payload()`` above returns — the
+    writable SMTP fields plus what mail delivery is actually resolving to
+    right now. Never instantiated at runtime; it exists purely so
+    drf-spectacular can describe this endpoint's response instead of falling
+    back to "unable to guess serializer" (``SiteEmailSettingSerializer`` above
+    documents the PATCH request body, but its own ``.data`` is never what this
+    view returns).
+    """
+
+    config_source = drf_serializers.ChoiceField(choices=SiteEmailSetting.ConfigSource.choices)
+    host = drf_serializers.CharField()
+    port = drf_serializers.IntegerField()
+    username = drf_serializers.CharField()
+    use_tls = drf_serializers.BooleanField()
+    use_ssl = drf_serializers.BooleanField()
+    from_email = drf_serializers.EmailField()
+    timeout = drf_serializers.IntegerField()
+    password_set = drf_serializers.BooleanField()
+    password_decryptable = drf_serializers.BooleanField()
+    effective_source = drf_serializers.ChoiceField(
+        choices=list(SiteEmailSetting.ConfigSource.choices)
+        + [("env_backend_override", "Explicit EMAIL_BACKEND override")]
+    )
+    effective_host = drf_serializers.CharField()
+    effective_port = drf_serializers.IntegerField()
+    effective_from_email = drf_serializers.CharField()
+    effective_use_tls = drf_serializers.BooleanField()
+
+
 class AdminEmailSettingsView(APIView):
     """GET/PATCH the singleton SiteEmailSetting row (#306)."""
 
     permission_classes = _ADMIN_PERMISSIONS
 
+    @extend_schema(responses=SiteEmailSettingsResponseSerializer)
     def get(self, request):
         return Response(_email_settings_payload(SiteEmailSetting.get()))
 
+    @extend_schema(request=SiteEmailSettingSerializer, responses=SiteEmailSettingsResponseSerializer)
     def patch(self, request):
         # Materialize before locking — select_for_update has nothing to lock on
         # a first-boot instance where the row is absent.
@@ -439,6 +474,7 @@ class AdminUserSerializer(drf_serializers.ModelSerializer):
 
     owned_boards = drf_serializers.SerializerMethodField()
 
+    @extend_schema_field(OwnedBoardSummarySerializer(many=True))
     def get_owned_boards(self, obj):
         # Use the pre-built map injected by AdminUsersView.get() when available.
         # This allows the list endpoint to load owned boards in a single query
@@ -520,7 +556,7 @@ class InviteLinkSerializer(drf_serializers.Serializer):
     def get_status(self, obj):
         return obj.status
 
-    def get_created_by_username(self, obj):
+    def get_created_by_username(self, obj) -> str | None:
         return obj.created_by.username if obj.created_by else None
 
 
@@ -582,10 +618,12 @@ class AdminSettingsView(APIView):
     """GET/PATCH the singleton SiteSetting row."""
     permission_classes = _ADMIN_PERMISSIONS
 
+    @extend_schema(responses=SiteSettingSerializer)
     def get(self, request):
         setting = SiteSetting.get()
         return Response(SiteSettingSerializer(setting).data)
 
+    @extend_schema(request=SiteSettingSerializer, responses=SiteSettingSerializer)
     def patch(self, request):
         # Validation runs BEFORE the lock below, so a malformed request returns
         # 400 without ever holding a row lock on the singleton.
@@ -698,6 +736,17 @@ class AdminUsersView(APIView):
     permission_classes = _ADMIN_PERMISSIONS
     pagination_class = AdminUserPagination
 
+    @extend_schema(
+        responses=inline_serializer(
+            name="AdminUserList",
+            fields={
+                "count": drf_serializers.IntegerField(),
+                "offset": drf_serializers.IntegerField(),
+                "page_size": drf_serializers.IntegerField(),
+                "results": AdminUserSerializer(many=True),
+            },
+        ),
+    )
     def get(self, request):
         qs = User.objects.all().order_by("username")
         search = request.query_params.get("search", "").strip()
@@ -726,6 +775,7 @@ class AdminUsersView(APIView):
         serializer = AdminUserSerializer(page, many=True, context={"_owned_boards_map": owned_map})
         return paginator.get_paginated_response(serializer.data)
 
+    @extend_schema(request=AdminCreateUserSerializer, responses={201: AdminUserSerializer})
     @transaction.atomic
     def post(self, request):
         serializer = AdminCreateUserSerializer(data=request.data)
@@ -754,6 +804,7 @@ class AdminUserDetailView(APIView):
         except User.DoesNotExist:
             return None
 
+    @extend_schema(request=AdminPatchUserSerializer, responses=AdminUserSerializer)
     def patch(self, request, pk):
         target = self._get_user_or_404(pk)
         if target is None:
@@ -824,10 +875,12 @@ class AdminInviteLinkListCreateView(APIView):
     """
     permission_classes = _ADMIN_PERMISSIONS
 
+    @extend_schema(responses=InviteLinkSerializer(many=True))
     def get(self, request):
         links = InviteLink.objects.select_related("created_by").all()
         return Response(InviteLinkSerializer(links, many=True).data)
 
+    @extend_schema(request=InviteLinkCreateSerializer, responses={201: InviteLinkCreateResponseSerializer})
     @transaction.atomic
     def post(self, request):
         serializer = InviteLinkCreateSerializer(data=request.data)
@@ -879,6 +932,7 @@ class AdminInviteLinkRevokeView(APIView):
     """DELETE /api/admin/invite-links/{pk}/ — revoke an invite link."""
     permission_classes = _ADMIN_PERMISSIONS
 
+    @extend_schema(responses=InviteLinkSerializer)
     def delete(self, request, pk):
         try:
             link = InviteLink.objects.select_related("created_by").get(pk=pk)
@@ -969,6 +1023,7 @@ class AdminUserDeactivateView(APIView):
             )
         return None
 
+    @extend_schema(request=DeactivateSerializer, responses=AdminUserSerializer)
     @transaction.atomic
     def post(self, request, pk):
         try:
@@ -1052,6 +1107,7 @@ class AdminUserClearLockoutView(APIView):
 
     permission_classes = _ADMIN_PERMISSIONS
 
+    @extend_schema(request=None, responses=AdminUserSerializer)
     def post(self, request, pk):
         try:
             target = User.objects.get(pk=pk)

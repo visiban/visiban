@@ -1,4 +1,4 @@
-import React, { useRef, useState, useId, cloneElement } from "react";
+import React, { useRef, useState, useId, useEffect, cloneElement } from "react";
 import { createPortal } from "react-dom";
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any -- accepts any cloned child element; only cloneElement's shape matters here */
@@ -17,6 +17,15 @@ export default function Tooltip({ content, children, position = "bottom", delay 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const id = useId();
+
+  // #1305 — the trigger element (and this Tooltip along with it) can unmount
+  // while the hover-delay show timer is still pending, e.g. a card popped
+  // off the board by a WebSocket broadcast while the pointer rests on it.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const show = () => {
     timerRef.current = setTimeout(() => {
