@@ -188,6 +188,36 @@ def request_email_change(request, user, new_email: str) -> bool:
     return False
 
 
+def confirmation_would_collide(email_address) -> bool:
+    """Whether confirming this pending change would clash with another account (#1221).
+
+    ``PATCH /auth/me/`` skips the username/email cross-check under
+    ``mandatory`` so the requester gets no "taken" signal before proving
+    ownership. But proving ownership of a mailbox only rules out *takeover*:
+    another active account can still hold the same address in ``User.email``
+    unverified (admin-created, SSO-provisioned, or signed up under
+    ``optional``) — allauth's ``can_set_verified`` only looks for *verified*
+    rows. Promoting the address then leaves two active accounts sharing it,
+    and the login resolver fails closed on that, switching off email login
+    for the other account as well. So the check that was deferred at request
+    time runs here, at the point the address would reach ``User.email``.
+
+    Only the change this flow tracks is checked; a signup confirmation
+    doesn't write ``User.email`` (it was written at signup), so it is left
+    to allauth's own rules.
+    """
+    from django.contrib.auth import get_user_model
+
+    from .validators import email_collides_with_identifier
+
+    is_tracked = get_user_model().objects.filter(
+        pk=email_address.user_id, pending_email_address_id=email_address.pk
+    ).exists()
+    return is_tracked and email_collides_with_identifier(
+        email_address.email, exclude_pk=email_address.user_id
+    )
+
+
 def apply_confirmed_email_change(sender, request, email_address, **kwargs):
     """``email_confirmed`` receiver: make the confirmed pending address the account's email.
 
@@ -213,6 +243,12 @@ def apply_confirmed_email_change(sender, request, email_address, **kwargs):
             .first()
         )
         if user is None:
+            return
+        # Defense in depth for any confirmation that reaches here without going
+        # through VerifyEmailView's 409 (#1221): leave User.email alone. The
+        # pointer stays set so the change still reads as pending and can be
+        # withdrawn, exactly as a change blocked by the 409 does.
+        if not email_address.primary and confirmation_would_collide(email_address):
             return
         if not email_address.primary:
             previous_ids = list(

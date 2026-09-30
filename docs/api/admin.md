@@ -373,8 +373,8 @@ Create a new local account. Site admin only.
 
 | Field | Required | Notes |
 |---|---|---|
-| `username` | Yes | Must be unique on the instance (case-insensitive) |
-| `email` | Yes | Must be unique on the instance |
+| `username` | Yes | Must be unique on the instance (case-insensitive), and since 1.2 can't be another active user's email address (#1221) |
+| `email` | Yes | Must be unique on the instance, and since 1.2 can't be another active user's email or any user's username, compared ignoring case (#1221) |
 | `password` | Yes | Minimum 12 characters |
 | `force_password_reset` | No | Default `true` — the user must set a new password on first login |
 

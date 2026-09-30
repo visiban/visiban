@@ -25,13 +25,15 @@ lockout key, and the demo-mode carve-out so the three can never disagree:
    ``AuthenticationBackend`` does). A user whose email is ambiguous can still
    log in by username.
    Only *active* accounts are counted, so a deactivated duplicate does not
-   make a live account's email ambiguous. Known limitation: because rule 1
-   wins and usernames/emails are not cross-checked at signup, another account
-   can shadow (username equal to the address) or duplicate (profile email
-   set to the address) someone's email and so disable *their email login*.
-   That is a denial of the convenience path only — never a takeover, since
-   the other account's password is still required — and the victim can
-   always log in by username.
+   make a live account's email ambiguous. Because rule 1 wins, a username
+   equal to someone else's email (shadowing) or a second active account with
+   the same email (duplication) would disable *their email login* — a denial
+   of the convenience path, never a takeover. Since #1221 the write paths
+   refuse to create either state (``accounts.validators.
+   username_collides_with_email`` / ``email_collides_with_identifier``), but
+   rows written before that, or by operator tooling, can still collide, so
+   the fail-closed rule above stays; the affected user can always log in by
+   username.
 3. **Blank never matches** — a blank email is the "no email on file" value and
    must not resolve to every account without one.
 """
