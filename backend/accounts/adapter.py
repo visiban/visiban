@@ -189,6 +189,22 @@ class RegistrationAdapter(DefaultAccountAdapter):
             raise self.validation_error("username_taken")
         return username
 
+    # NOTE (#1312): the email-side collision check is deliberately NOT a
+    # clean_email() override here, unlike clean_username() above.
+    # RegistrationAdapter is the global ACCOUNT_ADAPTER (visiban/settings.py),
+    # and get_adapter().clean_email() is called from every allauth flow that
+    # collects a bare email address, not just signup: dj-rest-auth's
+    # AllAuthPasswordResetForm.clean_email (POST /api/v1/auth/password/reset/)
+    # and allauth's own AddEmailForm.clean_email (/accounts/email/) both go
+    # through it too. For password reset, "an active account already holds
+    # this email" is the expected, correct case, not a collision — rejecting
+    # it there broke every password-reset request for a real user's own
+    # address (caught by completeness-check before merge). The signup-only
+    # check instead lives on accounts.forms.VisibanSignupForm.clean_email
+    # (HTML signup, wired via ACCOUNT_FORMS) and
+    # RegistrationSerializer.validate_email (REST signup) — see those for the
+    # AddEmailForm carve-out rationale.
+
     def _get_login_attempts_cache_key(self, request, **credentials):
         """Key the per-account lockout on the ACCOUNT, not the typed identifier (#1206).
 

@@ -17,6 +17,7 @@ from accounts.views import (
     UserDetailsView,
     VerifyEmailThrottle,
     VerifyEmailView,
+    VisibanEmailView,
 )
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 
@@ -124,6 +125,11 @@ urlpatterns = [
         r"^accounts/confirm-email/(?P<key>[\w:\-]{1,200})/$",
         EmailConfirmRedirectView.as_view(),
     ),
+    # Same override technique as the confirm-email redirect above: registered
+    # BEFORE the allauth include so it wins the URL match. Adds the #1221
+    # collision check to the "Make Primary" action, which allauth's own
+    # EmailView has no hook for (#1312) — see accounts.views.VisibanEmailView.
+    path("accounts/email/", VisibanEmailView.as_view(), name="account_email"),
     path("accounts/", include("allauth.urls")),
     # All versioned API endpoints live under /api/v1/.
     # The v1 prefix is a literal path segment — not a captured kwarg — so view

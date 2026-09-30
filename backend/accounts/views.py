@@ -2,6 +2,7 @@ import re
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import get_user_model, password_validation, update_session_auth_hash
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -9,6 +10,8 @@ from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from allauth.account.adapter import get_adapter
+from allauth.account.views import EmailView as AllauthEmailView
 from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.registration.views import VerifyEmailView as DjRestAuthVerifyEmailView
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
@@ -964,3 +967,65 @@ class EmailConfirmRedirectView(APIView):
         if not self._KEY_RE.match(key):
             return HttpResponseRedirect(f"{frontend_url}/confirm-email/invalid")
         return HttpResponseRedirect(f"{frontend_url}/confirm-email/{key}")
+
+
+class VisibanEmailView(AllauthEmailView):
+    """allauth's manage-email page (``/accounts/email/``), plus: "Make Primary"
+    can't promote a secondary address that collides (#1221, #1312).
+
+    ``AddEmailForm`` (adding a secondary, unverified address — see
+    ``accounts.forms.VisibanSignupForm``'s docstring) is deliberately left
+    unchecked because it never writes ``User.email``. This view's
+    "Make Primary" action is the gap that observation depended on being
+    covered elsewhere and wasn't: ``flows.manage_email.mark_as_primary`` ->
+    ``EmailAddress.set_as_primary()`` -> ``user_email(user, email,
+    commit=True)`` writes ``User.email`` UNCONDITIONALLY once
+    ``can_mark_as_primary()`` passes — and ``can_mark_as_primary()`` allows
+    promoting an entirely UNVERIFIED address whenever the account has zero
+    verified emails, which is every fresh account under Visiban's default
+    ``EMAIL_VERIFICATION=optional``. Confirmed exploitable: create an account,
+    add an unverified secondary email equal to another account's username via
+    ``/accounts/email/`` (unchecked, by design), then POST ``action_primary``
+    — no collision check anywhere in that path.
+
+    This is a completely separate code path from
+    ``accounts.email_change.confirmation_would_collide`` (gated on
+    ``User.pending_email_address``, which ``mark_as_primary`` never touches;
+    also, under Visiban's ``ACCOUNT_CHANGE_EMAIL=False`` default, allauth's own
+    confirm-driven promotion never emits ``email_changed`` at all — see
+    ``allauth.account.internal.flows.email_verification.verify_email``, gated
+    on ``app_settings.CHANGE_EMAIL``). So a *pre-check* here, before
+    ``mark_as_primary`` runs, is the only point that reliably stops the write:
+    by the time allauth's own ``email_changed`` signal fires, ``User.email``
+    has already been saved, and reverting it back out synchronously inside a
+    signal receiver depends on execution-order details of code this project
+    doesn't own — the wrong place to put a security boundary. Overriding this
+    one method, instead, keeps allauth's rate limiting and ``login_required``
+    (both applied to ``EmailView.dispatch`` via class decorators, and
+    inherited unchanged here since this subclass doesn't override
+    ``dispatch``) exactly as allauth wired them.
+
+    No REST equivalent exists for "make an existing secondary address
+    primary" (searched accounts/views.py and admin_views.py) — this HTML
+    action is the only entry point.
+    """
+
+    def _action_primary(self, request, *args, **kwargs):
+        """Inlines allauth's ``_action_primary`` body (rather than pre-checking
+        then calling ``super()``) so the ``EmailAddress`` this method already
+        fetched for the collision check isn't looked up a second time —
+        perf-check, #1312 follow-up."""
+        from allauth.account.internal import flows
+
+        from .validators import EMAIL_TAKEN_MESSAGE, email_collides_with_identifier
+
+        email_address = self._get_email_address(request)
+        if email_address:
+            if email_collides_with_identifier(email_address.email, exclude_pk=request.user.pk):
+                get_adapter(request).add_message(
+                    request, messages.ERROR, message=EMAIL_TAKEN_MESSAGE
+                )
+                return HttpResponseRedirect(self.get_success_url())
+            if flows.manage_email.mark_as_primary(request, email_address):
+                return HttpResponseRedirect(self.get_success_url())
+        return None

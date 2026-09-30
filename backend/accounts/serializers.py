@@ -3,6 +3,7 @@ from dj_rest_auth.serializers import LoginSerializer as DjRestAuthLoginSerialize
 from dj_rest_auth.serializers import PasswordChangeSerializer as DjRestAuthPasswordChangeSerializer
 from dj_rest_auth.serializers import PasswordResetConfirmSerializer as DjRestAuthPasswordResetConfirmSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import EmailValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -117,8 +118,14 @@ class RegistrationSerializer(RegisterSerializer):
         that account's email login (the resolver fails closed on ambiguity).
         An address equal to another account's username is refused too: the
         username would always win at login, so it could never log in the new
-        account. allauth's own HTML signup form already refuses any existing
-        address; this brings the REST path in line.
+        account.
+
+        This check is scoped to the REST signup path deliberately (not
+        ``RegistrationAdapter.clean_email``, which every allauth flow that
+        cleans an email shares, including password reset — see the NOTE on
+        ``RegistrationAdapter`` in accounts/adapter.py, #1312). The HTML
+        signup form gets the equivalent check via
+        ``accounts.forms.VisibanSignupForm.clean_email``.
 
         Uses dj-rest-auth's own message, so the answer is identical to the one
         a verified address already gets and says nothing about which kind of
@@ -493,7 +500,14 @@ class UserSerializer(serializers.ModelSerializer):
             raise
 
         if pending_email is not None:
-            request_email_change(self.context.get("request"), instance, pending_email)
+            try:
+                request_email_change(self.context.get("request"), instance, pending_email)
+            except DjangoValidationError:
+                # #1312: the address is already verified for this account but
+                # collides with another account's username/email — see
+                # request_email_change's docstring for why this one branch
+                # checks (it bypasses confirmation entirely).
+                raise serializers.ValidationError({"email": [EMAIL_TAKEN_MESSAGE]})
             instance.refresh_from_db(fields=["email"])
         elif cancel_pending:
             cancel_email_change(instance)
