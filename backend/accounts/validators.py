@@ -39,6 +39,41 @@ def is_valid_username_format(value: str) -> bool:
     return bool(USERNAME_PATTERN.match(value)) and all(ord(char) <= 0xFFFF for char in value)
 
 
+USERNAME_TAKEN_MESSAGE = "That username is already taken."
+
+
+def is_username_taken(username: str, exclude_pk=None) -> bool:
+    """Whether another account already holds ``username``, ignoring case.
+
+    The one uniqueness rule for every endpoint where a user picks their own
+    username — ``POST /auth/choose-username/`` and ``PATCH /auth/me/`` (and
+    dj-rest-auth's ``/auth/user/``) — so the two can't drift (#1273: PATCH
+    once relied on the model's exact-match ``unique=True`` alone, which lets
+    ``Alice`` through next to ``alice`` until the ``unique_username_ci`` DB
+    index rejects it as an unhandled IntegrityError). ``exclude_pk`` is the
+    requesting user, so re-casing your own name (``alice`` -> ``Alice``) is
+    not a collision with yourself.
+    """
+    from django.contrib.auth import get_user_model  # deferred: app registry
+    from django.db.models import CharField, Value
+    from django.db.models.functions import Lower
+
+    # Compare on Lower(username), not ``username__iexact``: on PostgreSQL
+    # iexact compiles to UPPER(...) = UPPER(...), which cannot use the
+    # unique_username_ci functional index on Lower("username") (migration
+    # 0021) and would sequentially scan users on every profile save. The
+    # candidate is lowered by the database too (not Python's str.lower), so
+    # both sides use the same case mapping as the index itself.
+    qs = (
+        get_user_model()
+        .objects.annotate(username_lower=Lower("username"))
+        .filter(username_lower=Lower(Value(username, output_field=CharField())))
+    )
+    if exclude_pk is not None:
+        qs = qs.exclude(pk=exclude_pk)
+    return qs.exists()
+
+
 class UsernameFormatValidator:
     """DRF/Django field validator wrapping `is_valid_username_format`."""
 

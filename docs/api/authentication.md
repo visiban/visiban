@@ -616,7 +616,7 @@ Returns the authenticated user's profile.
 
 **Permission:** Requires authentication.
 
-**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, `demo_next_reset_at`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`.
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, `demo_next_reset_at`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`, `pending_email`.
 
 | Field | Type | Description |
 |---|---|---|
@@ -628,6 +628,7 @@ Returns the authenticated user's profile.
 | `maintenance_message` | string | The notice to show while `maintenance_mode` is `true`. Always non-empty in that case (the server substitutes a built-in default for a blank operator message), and `""` otherwise. Plain text — render it as text, never as HTML. Read-only. Added in 1.2. |
 | `demo_mode` | boolean | Whether the instance is a public hosted demo (`DEMO_MODE`). When `true`, unsafe requests outside a small allowlist return `403` with `code: "demo_read_only"` — see [Hosted demo instance](../administration/demo-data.md#hosted-demo-instance). Read-only. Added in 1.2. |
 | `demo_next_reset_at` | string (ISO 8601 UTC) or null | The next scheduled demo reset, computed server-side from `DEMO_RESET_SCHEDULE`. `null` unless `demo_mode` is `true`. Read-only. Added in 1.2. |
+| `pending_email` | string or null | An email change that is waiting for confirmation, or `null`. Only set on instances with `EMAIL_VERIFICATION=mandatory` — see [`PATCH /api/v1/auth/me/`](#patch-apiv1authme). While it is set, `email` still holds the current address. Read-only. Added in 1.2. |
 | `theme` | string | The user's preferred color scheme. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"`. |
 | `notif_stale` | boolean | Receive an in-app notification when a card you own has not moved within the board's staleness window. Defaults to `false`. Writable. Added in 1.2 (previously gated on `notif_due_soon`). |
 | `email_notif_card_assigned` | boolean | Also email the user when a card is assigned to them. No effect while `notif_card_assigned` is `false`. Defaults to `false`. Writable. Added in 1.2. |
@@ -654,17 +655,34 @@ Update the authenticated user's profile. All fields are optional.
 
 **Permission:** Requires authentication.
 
-**Writable fields:** `first_name`, `last_name`, `display_name`, `avatar_url`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`.
+**Writable fields:** `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`.
 
 **Request body fields**
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `username` | string | No | 1-150 characters; letters, digits, and `@/./+/-/_` only. Must not match another account's username **ignoring case** — the same rule as [`POST /api/v1/auth/choose-username/`](#post-apiv1authchoose-username). Re-casing your own username is allowed. A request that changes the username also counts against that endpoint's rate limit (the two share one per-user budget), and clears `must_change_username`. |
+| `email` | string | No | A valid email address, or `""` to clear it. On instances with `EMAIL_VERIFICATION=mandatory`, a **new** address doesn't take effect on this request (see below), and clearing an existing address is refused. |
 | `avatar_url` | string / null | No | URL of the user's avatar image. Accepts any absolute URL or `null` to clear. |
 | `theme` | string | No | Color scheme preference. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"` for new accounts. |
 | `default_board_id` | integer \| null | No | Board to redirect to after login. Must be a board the user is a member of, or `null` to clear. |
 
 **`default_board_id`** — set the board to redirect to after login. Accepts a board `id` (integer) or `null` to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns `400 Bad Request`. This prevents enumeration of boards the user has no access to.
+
+> **Changed in 1.2** (#1273) — `username` is now checked case-insensitively and rate-limited, and under `EMAIL_VERIFICATION=mandatory` a changed `email` needs confirmation before it takes effect. Both fields remain writable. Earlier releases stored either value directly.
+
+**Changing `email` when verification is mandatory** — when the instance sets `EMAIL_VERIFICATION=mandatory` and `email` differs from the current address (ignoring case), the request still returns `200 OK`, but:
+
+- `email` in the response (and on the account) is **unchanged**, so it's still the address used for login, password resets, and notification email.
+- `pending_email` in the response holds the new address, and a confirmation link is emailed to it.
+- The address switches when the link is confirmed through `POST /api/v1/auth/registration/verify-email/` (the link opens the SPA's `/confirm-email/<key>` page, which calls it). `pending_email` then returns to `null`, and the old address is removed from the account.
+- Requesting another address before confirming replaces the pending one, and the earlier link normally stops working (two `PATCH` requests racing each other can leave both links usable, and whichever is confirmed wins). Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works.
+- Sending `email` equal to the current address (ignoring case) while a change is pending **withdraws** it: `pending_email` returns to `null` and the pending link stops working. A `PATCH` that omits `email` leaves a pending change alone. A round-trip update, where a client GETs the profile, modifies it, and PATCHes or PUTs the full object back (including `PUT /api/v1/auth/user/`), sends the current `email` and therefore **also withdraws** a pending change. Clients should send `email` only when the user edited it.
+- Choosing an address that is already a verified address of your own account applies it immediately.
+- An address already verified by another account can't be confirmed.
+- `pending_email` only reflects a change requested through this endpoint. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never reported as pending, and they're not removed by a change request or its confirmation.
+
+With `optional` (the default) or `none`, `email` is written directly, as before (including `""` to clear it), and `pending_email` stays `null`.
 
 **Example — set theme**
 
@@ -686,6 +704,9 @@ PATCH /api/v1/auth/me/
 |---|---|
 | `400 Bad Request` | `theme` is not one of `"system"`, `"dark"`, or `"light"` — response body contains `{"theme": ["..."]}`  |
 | `400 Bad Request` | `default_board_id` refers to a board the user is not a member of |
+| `400 Bad Request` | `username` is taken by another account (compared ignoring case) — `{"username": ["That username is already taken."]}` |
+| `400 Bad Request` | `email` is `""` on an account that has an address, when the instance sets `EMAIL_VERIFICATION=mandatory` — `{"email": ["An email address is required."]}` |
+| `429 Too Many Requests` | Too many username changes — the request changed `username` and exhausted the per-user budget it shares with `POST /api/v1/auth/choose-username/` |
 | `401 Unauthorized` | Request is not authenticated |
 
 ---

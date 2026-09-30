@@ -17,7 +17,12 @@ from .models import (
     get_uploads_enabled,
 )
 from .forms import VisibanPasswordResetForm
-from .validators import UsernameFormatValidator, normalize_username_field_validators
+from .validators import (
+    USERNAME_TAKEN_MESSAGE,
+    UsernameFormatValidator,
+    is_username_taken,
+    normalize_username_field_validators,
+)
 
 
 @extend_schema_field({
@@ -342,7 +347,92 @@ class UserSerializer(serializers.ModelSerializer):
     def get_has_usable_password(self, obj) -> bool:
         return obj.has_usable_password()
 
-    validate_email = staticmethod(validate_optional_email_format)
+    def validate_email(self, value):
+        """Format check, plus: no blanking the address when verification is mandatory (#1273).
+
+        ``User.email`` is ``blank=True`` and a blank address stays valid under
+        ``optional``/``none``. Under ``mandatory`` an account is expected to hold
+        a verified address; writing ``""`` directly would leave the verified
+        primary ``EmailAddress`` row behind (so ``User.email`` and allauth
+        disagree) and a still-pending change could later "un-blank" it. Only a
+        change *to* blank is refused, so an account that already has no address
+        (e.g. SSO without an email claim) can still save the rest of its profile.
+        """
+        from .email_change import email_verification_mandatory
+
+        value = validate_optional_email_format(value)
+        if (
+            not value
+            and email_verification_mandatory()
+            and self.instance is not None
+            and self.instance.email
+        ):
+            raise serializers.ValidationError("An email address is required.")
+        return value
+
+    def validate_username(self, value):
+        """Case-insensitive uniqueness, the same rule as POST /auth/choose-username/ (#1273).
+
+        The auto-generated UniqueValidator only checks an exact match, so on its
+        own it let ``Alice`` through next to ``alice`` (then the
+        ``unique_username_ci`` index turned the save into a 500).
+        """
+        exclude_pk = self.instance.pk if self.instance is not None else None
+        if is_username_taken(value, exclude_pk=exclude_pk):
+            raise serializers.ValidationError(USERNAME_TAKEN_MESSAGE)
+        return value
+
+    def update(self, instance, validated_data):
+        """Apply a profile update, enforcing the username and email rules (#1273).
+
+        - A changed username satisfies a pending ``must_change_username``, exactly
+          as POST /auth/choose-username/ does: it has passed the same format and
+          case-insensitive uniqueness checks.
+        - A changed email under ``EMAIL_VERIFICATION=mandatory`` is not written to
+          ``User.email``; it becomes a pending change confirmed by email (see
+          accounts/email_change.py). Otherwise it is written directly, as before.
+        - Under ``mandatory``, sending the current address back while a change is
+          pending withdraws that change.
+        """
+        from django.db import IntegrityError, transaction
+
+        from .email_change import (
+            cancel_email_change,
+            email_verification_mandatory,
+            request_email_change,
+        )
+
+        new_username = validated_data.get("username")
+        if new_username is not None and new_username != instance.username:
+            validated_data["must_change_username"] = False
+
+        pending_email = None
+        cancel_pending = False
+        new_email = validated_data.get("email")
+        if new_email and email_verification_mandatory():
+            if new_email.lower() != (instance.email or "").lower():
+                pending_email = validated_data.pop("email")
+            elif instance.pending_email_address_id is not None:
+                # Setting the email back to the current address withdraws a
+                # change that is still awaiting confirmation.
+                cancel_pending = True
+
+        try:
+            with transaction.atomic():
+                instance = super().update(instance, validated_data)
+        except IntegrityError:
+            # unique_username_ci is the backstop for a concurrent rename racing
+            # validate_username (same TOCTOU handling as ChooseUsernameView).
+            if new_username is not None:
+                raise serializers.ValidationError({"username": [USERNAME_TAKEN_MESSAGE]})
+            raise
+
+        if pending_email is not None:
+            request_email_change(self.context.get("request"), instance, pending_email)
+            instance.refresh_from_db(fields=["email"])
+        elif cancel_pending:
+            cancel_email_change(instance)
+        return instance
 
     class Meta:
         model = User
@@ -398,6 +488,12 @@ class CurrentUserSerializer(UserSerializer):
     # demo_next_reset_at is null unless DEMO_MODE is on.
     demo_mode = serializers.SerializerMethodField()
     demo_next_reset_at = serializers.SerializerMethodField()
+    # #1273: an email change awaiting confirmation (EMAIL_VERIFICATION=mandatory),
+    # or null. ``email`` keeps the current, verified value until the link is
+    # followed, so this is how a client learns the PATCH was accepted but is not
+    # yet in effect. Only on the current-user serializer: it costs a query, and
+    # it is nobody else's business.
+    pending_email = serializers.SerializerMethodField()
 
     def get_uploads_enabled(self, obj) -> bool:
         return get_uploads_enabled()
@@ -436,6 +532,12 @@ class CurrentUserSerializer(UserSerializer):
 
         return demo_next_reset_at_iso()
 
+    @extend_schema_field(serializers.EmailField(allow_null=True, read_only=True))
+    def get_pending_email(self, obj) -> str | None:
+        from .email_change import get_pending_email
+
+        return get_pending_email(obj)
+
     class Meta(UserSerializer.Meta):
         fields = UserSerializer.Meta.fields + [
             "uploads_enabled",
@@ -444,6 +546,7 @@ class CurrentUserSerializer(UserSerializer):
             "maintenance_message",
             "demo_mode",
             "demo_next_reset_at",
+            "pending_email",
         ]
         read_only_fields = UserSerializer.Meta.read_only_fields + [
             "uploads_enabled",
@@ -452,6 +555,7 @@ class CurrentUserSerializer(UserSerializer):
             "maintenance_message",
             "demo_mode",
             "demo_next_reset_at",
+            "pending_email",
         ]
 
 

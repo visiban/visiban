@@ -4,7 +4,6 @@ from django.urls import path, include, re_path
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from dj_rest_auth.views import UserDetailsView
 from dj_rest_auth.registration.views import VerifyEmailView
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
@@ -16,6 +15,7 @@ from accounts.views import (
     ThrottledPasswordResetConfirmView,
     ThrottledPasswordResetView,
     TokenRevokingPasswordChangeView,
+    UserDetailsView,
     VerifyEmailThrottle,
 )
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView

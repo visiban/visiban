@@ -491,6 +491,21 @@ class User(AbstractUser):
         on_delete=models.SET_NULL,
         related_name="+",
     )
+    # #1273: the allauth EmailAddress row created (or adopted) by a self-service
+    # email change awaiting confirmation under EMAIL_VERIFICATION=mandatory.
+    # Tracked explicitly rather than inferred from "unverified and non-primary",
+    # because social signup and allauth's own /accounts/email/ page create rows
+    # of that shape that are not change requests. SET_NULL: if allauth removes
+    # the row the pending change is simply gone. db_index=False because the
+    # index is declared in Meta.indexes and built concurrently (migration 0032).
+    pending_email_address = models.ForeignKey(
+        "account.EmailAddress",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        db_index=False,
+    )
 
     class Meta:
         db_table = "users"
@@ -506,6 +521,13 @@ class User(AbstractUser):
                 fields=["can_access_all_content"],
                 name="user_can_access_all_idx",
                 condition=models.Q(can_access_all_content=True),
+            ),
+            # Serves the SET_NULL lookup Django runs whenever an EmailAddress is
+            # deleted. Partial: only accounts with a change in flight have a value.
+            models.Index(
+                fields=["pending_email_address"],
+                name="user_pending_email_addr_idx",
+                condition=models.Q(pending_email_address__isnull=False),
             ),
         ]
 

@@ -56,6 +56,9 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // #1273: on installs with EMAIL_VERIFICATION=mandatory a new address is held
+  // until confirmed from its inbox; `email` keeps the current one meanwhile.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(user.pending_email ?? null);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -66,8 +69,13 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
     setError(null);
     setSaved(false);
     try {
+      // Only send `email` when it was edited. On EMAIL_VERIFICATION=mandatory
+      // installs, sending the current address back withdraws a pending email
+      // change (#1273), so an unrelated profile save must not include it.
+      const { email, ...rest } = form;
       const updated = await updateCurrentUser({
-        ...form,
+        ...rest,
+        ...(email !== (user.email ?? "") ? { email } : {}),
         timezone: form.timezone || browserTimezone(),
         date_format: form.date_format,
         time_format: form.time_format,
@@ -75,9 +83,23 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
       });
       onUserUpdated(updated);
       setSaved(true);
-      setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
-    } catch {
-      setError("Failed to save changes. Please try again.");
+      const pending = updated.pending_email ?? null;
+      setPendingEmail(pending);
+      if (pending) {
+        // Stay on the page so the confirmation notice can be read, and show
+        // the address that is actually in effect in the field.
+        setForm((f) => ({ ...f, email: updated.email ?? "" }));
+      } else {
+        setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
+      }
+    } catch (err) {
+      const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      const usernameError = Array.isArray(data?.username) ? data.username[0] : null;
+      setError(
+        typeof usernameError === "string"
+          ? usernameError
+          : "Failed to save changes. Please try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -133,8 +155,16 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.email}
           onChange={set("email")}
           required
+          aria-describedby="pending-email-note"
           className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
+        {/* Reserved slot (frontend/CLAUDE.md § Inline status messages): the
+            container always renders so the form doesn't shift, and the
+            input's aria-describedby always has a stable target. */}
+        <span id="pending-email-note" data-testid="pending-email-note" className="block min-h-4 text-xs text-fg-muted">
+          {pendingEmail &&
+            `Waiting for confirmation: we sent a link to ${pendingEmail}. Your email address changes once you open it.`}
+        </span>
       </label>
 
       <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
@@ -184,9 +214,17 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         </div>
       </div>
 
-      <p className="text-xs h-4">
+      {/* Live region: with an email change pending the page stays here, so
+          this line is the terminal state of the save and must be announced. */}
+      <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
         {error && <span className="text-danger">{error}</span>}
-        {saved && !error && <span className="text-success">Changes saved.</span>}
+        {saved && !error && (
+          <span className="text-success">
+            {pendingEmail
+              ? "Profile updated. Check your inbox to confirm your new email address."
+              : "Changes saved."}
+          </span>
+        )}
       </p>
 
       <div>

@@ -224,6 +224,101 @@ describe('ProfileTab', () => {
     )
   })
 
+  // #1273: EMAIL_VERIFICATION=mandatory holds a new address until confirmed.
+  it('shows a pending-confirmation notice and stays on the page when the email change is pending', async () => {
+    vi.useFakeTimers()
+    mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, pending_email: 'new@example.com' })
+    renderSettings()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByText(/we sent a link to new@example\.com/)).toBeInTheDocument()
+    // The field shows the address still in effect, not the pending one.
+    expect(screen.getByDisplayValue('j@example.com')).toBeInTheDocument()
+    // State-specific result copy replaces the generic one; never both.
+    expect(
+      screen.getByText('Profile updated. Check your inbox to confirm your new email address.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument()
+    act(() => { vi.advanceTimersByTime(1500) })
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('omits an unchanged email from the save, so a pending change is not withdrawn', async () => {
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    const user = userEvent.setup()
+    renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
+    expect(mockUpdateCurrentUser.mock.calls[0][0]).not.toHaveProperty('email')
+  })
+
+  it('sends the email when it was edited', async () => {
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    const user = userEvent.setup()
+    renderSettings()
+    const emailInput = screen.getByDisplayValue('j@example.com')
+    await user.clear(emailInput)
+    await user.type(emailInput, 'other@example.com')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'other@example.com' }),
+    )
+  })
+
+  it('shows the pending-confirmation notice on load', () => {
+    renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
+    expect(screen.getByText(/we sent a link to new@example\.com/)).toBeInTheDocument()
+  })
+
+  it('reserves the pending-note slot and keeps aria-describedby stable when nothing is pending', () => {
+    renderSettings({ ...fakeUser, pending_email: null })
+    const note = screen.getByTestId('pending-email-note')
+    expect(note).toBeInTheDocument()
+    expect(note).toBeEmptyDOMElement()
+    expect(note).toHaveAttribute('id', 'pending-email-note')
+    expect(screen.getByDisplayValue('j@example.com')).toHaveAttribute(
+      'aria-describedby',
+      'pending-email-note',
+    )
+    expect(screen.queryByText(/we sent a link to/)).not.toBeInTheDocument()
+  })
+
+  it('aria-describedby points at the same note id while a change is pending', () => {
+    renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
+    expect(screen.getByDisplayValue('j@example.com')).toHaveAttribute(
+      'aria-describedby',
+      'pending-email-note',
+    )
+    expect(screen.getByTestId('pending-email-note')).toHaveTextContent(/new@example\.com/)
+  })
+
+  it('announces the save result through a polite, atomic live region', async () => {
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    const user = userEvent.setup()
+    renderSettings()
+    const status = screen.getByRole('status')
+    expect(status).toHaveAttribute('aria-live', 'polite')
+    expect(status).toHaveAttribute('aria-atomic', 'true')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(status).toHaveTextContent('Changes saved.'))
+  })
+
+  it('shows the server username error on a taken username', async () => {
+    mockUpdateCurrentUser.mockRejectedValueOnce({
+      response: { status: 400, data: { username: ['That username is already taken.'] } },
+    })
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(screen.getByText('That username is already taken.')).toBeInTheDocument(),
+    )
+  })
+
   it('shows "Saving…" button text while saving', async () => {
     let resolveUpdate!: (value: User) => void
     mockUpdateCurrentUser.mockReturnValueOnce(

@@ -14,6 +14,7 @@ from dj_rest_auth.views import LoginView as DjRestAuthLoginView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from dj_rest_auth.views import PasswordResetConfirmView as DjRestAuthPasswordResetConfirmView
 from dj_rest_auth.views import PasswordChangeView as DjRestAuthPasswordChangeView
+from dj_rest_auth.views import UserDetailsView as DjRestAuthUserDetailsView
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -34,7 +35,7 @@ from .models import (
     get_registration_mode,
 )
 from .invite_utils import InviteTokenError, validate_invite_token, consume_invite_token
-from .validators import is_valid_username_format
+from .validators import USERNAME_TAKEN_MESSAGE, is_username_taken, is_valid_username_format
 from .serializers import (
     CurrentUserSerializer,
     PersonalAccessTokenCreateSerializer,
@@ -221,7 +222,24 @@ class AuthProvidersView(APIView):
         })
 
 
-class CurrentUserView(APIView):
+class UsernameChangeThrottleMixin:
+    """Apply the choose-username rate limit to profile writes that rename the user.
+
+    ``PATCH /auth/me/`` and dj-rest-auth's ``PATCH /auth/user/`` both accept
+    ``username`` (a 1.0 API contract, so it stays writable), which made them a
+    way around ``ChooseUsernameThrottle`` for probing which names are taken
+    (#1273). The throttle is appended rather than set as ``throttle_classes`` so
+    the global user/anon rates still apply, and ``UsernameChangeThrottle``
+    only consumes its bucket when the request actually changes the username:
+    the SPA's profile form re-sends the unchanged username on every save, and
+    ordinary profile edits must not eat into the rename budget.
+    """
+
+    def get_throttles(self):
+        return [*super().get_throttles(), UsernameChangeThrottle()]
+
+
+class CurrentUserView(UsernameChangeThrottleMixin, APIView):
     """Retrieve or update the currently authenticated user's profile.
 
     Exempt from MustNotHavePendingPasswordChange and
@@ -322,6 +340,40 @@ class ChooseUsernameThrottle(UserRateThrottle):
     scope = "choose_username"
 
 
+class UsernameChangeThrottle(ChooseUsernameThrottle):
+    """``ChooseUsernameThrottle`` for the profile-update endpoints (#1273).
+
+    Same ``choose_username`` scope, so the per-user bucket is shared with
+    ``POST /auth/choose-username/`` — switching endpoints doesn't double the
+    probe rate. A request that doesn't change the username passes through
+    without being counted.
+    """
+
+    def allow_request(self, request, view):
+        if request.method not in ("PATCH", "PUT"):
+            return True
+        try:
+            new_username = request.data.get("username")
+        except AttributeError:  # non-dict body (e.g. a JSON list); the serializer rejects it
+            return True
+        if new_username is None:
+            return True
+        # Normalize like the serializer's CharField would: it accepts ints and
+        # floats too (``{"username": 1003}`` renames the account to "1003"), so
+        # only skipping str values let a numeric rename bypass the limit.
+        if str(new_username).strip() == getattr(request.user, "username", None):
+            return True
+        return super().allow_request(request, view)
+
+
+class UserDetailsView(UsernameChangeThrottleMixin, DjRestAuthUserDetailsView):
+    """dj-rest-auth's ``/auth/user/`` with the username-change throttle (#1273).
+
+    It writes through the same ``CurrentUserSerializer`` as ``/auth/me/``, so
+    the serializer-level checks already apply; this adds the rate limit.
+    """
+
+
 class ChooseUsernameView(APIView):
     """Let a user pick a new username after a forced rename.
 
@@ -360,9 +412,10 @@ class ChooseUsernameView(APIView):
             )
 
         # Case-insensitive uniqueness check, excluding the requesting user.
-        if User.objects.filter(username__iexact=username).exclude(pk=request.user.pk).exists():
+        # Shared with UserSerializer.validate_username (#1273).
+        if is_username_taken(username, exclude_pk=request.user.pk):
             return Response(
-                {"detail": "That username is already taken."},
+                {"detail": USERNAME_TAKEN_MESSAGE},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
