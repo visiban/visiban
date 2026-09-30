@@ -208,4 +208,81 @@ describe("CardItem — pinned custom field chips (#371)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Blocked: No/ }));
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it("selecting a different choice in the dropdown quick-edit popover issues an update via updateCard and calls onCardUpdated on success", async () => {
+    const updatedCard = makeCard({ custom_field_values: [{ field_definition: 5, value: "GA" }] });
+    vi.mocked(cardsApi.updateCard).mockResolvedValue(updatedCard);
+    const onCardUpdated = vi.fn();
+
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] })}
+        customFieldDefinitions={[makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["Beta", "GA"] })]}
+        boardId={7}
+        onCardUpdated={onCardUpdated}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stage: Beta/ }));
+    fireEvent.click(screen.getByRole("option", { name: "GA" }));
+
+    await waitFor(() => {
+      expect(cardsApi.updateCard).toHaveBeenCalledWith(
+        7,
+        1,
+        { custom_field_values: [{ field_definition: 5, value: "GA" }] },
+      );
+    });
+    await waitFor(() => expect(onCardUpdated).toHaveBeenCalledWith(updatedCard));
+  });
+
+  it('selecting "— No value —" in the dropdown quick-edit popover sends an empty value', async () => {
+    const updatedCard = makeCard({ custom_field_values: [{ field_definition: 5, value: "" }] });
+    vi.mocked(cardsApi.updateCard).mockResolvedValue(updatedCard);
+    const onCardUpdated = vi.fn();
+
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] })}
+        customFieldDefinitions={[makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["Beta", "GA"] })]}
+        boardId={7}
+        onCardUpdated={onCardUpdated}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stage: Beta/ }));
+    fireEvent.click(screen.getByRole("option", { name: "— No value —" }));
+
+    await waitFor(() => {
+      expect(cardsApi.updateCard).toHaveBeenCalledWith(
+        7,
+        1,
+        { custom_field_values: [{ field_definition: 5, value: "" }] },
+      );
+    });
+    await waitFor(() => expect(onCardUpdated).toHaveBeenCalledWith(updatedCard));
+  });
+
+  it("rolls back silently (no crash, no card mutation) when the dropdown quick-edit write fails", async () => {
+    vi.mocked(cardsApi.updateCard).mockRejectedValue(new Error("network error"));
+    const onCardUpdated = vi.fn();
+
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] })}
+        customFieldDefinitions={[makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["Beta", "GA"] })]}
+        boardId={7}
+        onCardUpdated={onCardUpdated}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stage: Beta/ }));
+    fireEvent.click(screen.getByRole("option", { name: "GA" }));
+
+    await waitFor(() => expect(cardsApi.updateCard).toHaveBeenCalled());
+    expect(onCardUpdated).not.toHaveBeenCalled();
+    // Card face still reflects the last-known-good server state — the click
+    // never optimistically mutated the `card` prop itself.
+    expect(screen.getByTitle("Stage: Beta")).toBeInTheDocument();
+  });
 });

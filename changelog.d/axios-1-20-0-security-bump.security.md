@@ -1,0 +1,1 @@
+Bumped `axios` to 1.20.0 (clears GHSA-3pq3-5fj3-cg6v, GHSA-542g-h47m-68v8, GHSA-c29m-xwm3-cm6r, GHSA-mghh-pgcx-3jjj, and GHSA-x97p-jq2g-jp4f — HTTP/2 adapter DNS/proxy bypass, HTTP/2 session DoS, `fromDataURI` ReDoS, `shouldBypassProxy` ReDoS, and a `toFormData` prototype-pollution gadget). These were blocking HIGH-severity `dep-scan-osv` findings.
