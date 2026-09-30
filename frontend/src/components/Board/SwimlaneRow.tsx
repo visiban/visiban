@@ -258,6 +258,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
               className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
               title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
+              aria-label={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-pressed={isFocused}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">

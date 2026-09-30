@@ -94,7 +94,15 @@ describe('AppSidebar', () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
-    expect(screen.getByTitle('Collapse sidebar')).toBeInTheDocument()
+    const toggle = screen.getByTitle('Collapse sidebar')
+    expect(toggle).toBeInTheDocument()
+    // title alone is not a reliable accessible name (Firefox/VoiceOver skip it); assert the
+    // attribute directly rather than via getByRole's computed name, since that resolution
+    // falls back to `title` and so can't distinguish "has aria-label" from "doesn't"
+    // when the two strings are identical.
+    expect(toggle).toHaveAttribute('aria-label', 'Collapse sidebar')
+    // persistent-mode toggle: aria-pressed exposes state to screen readers (frontend/CLAUDE.md § Toggle buttons)
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
     await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
   })
 
@@ -137,7 +145,9 @@ describe('AppSidebar', () => {
     const toggle = screen.getByTitle('Collapse sidebar')
     await userEvent.setup().click(toggle)
     expect(localStorage.getItem('sidebar-collapsed')).toBe('true')
-    expect(screen.getByTitle('Expand sidebar')).toBeInTheDocument()
+    const expanded = screen.getByTitle('Expand sidebar')
+    expect(expanded).toBeInTheDocument()
+    expect(expanded).toHaveAttribute('aria-label', 'Expand sidebar')
   })
 
   it('restores collapsed state from localStorage', async () => {
@@ -145,7 +155,9 @@ describe('AppSidebar', () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
-    expect(screen.getByTitle('Expand sidebar')).toBeInTheDocument()
+    const expanded = screen.getByTitle('Expand sidebar')
+    expect(expanded).toBeInTheDocument()
+    expect(expanded).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument())
   })
 
@@ -225,6 +237,10 @@ describe('AppSidebar', () => {
     vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.getByTitle('Favorites')).toBeInTheDocument())
+    // title alone is not a reliable accessible name (Firefox/VoiceOver skip it); assert the
+    // attribute directly since aria-label and title share the same text here, so getByRole's
+    // computed-name resolution would pass via the title fallback even without aria-label
+    expect(screen.getByTitle('Favorites')).toHaveAttribute('aria-label', 'Favorites')
     expect(screen.queryByTitle('Starred One')).not.toBeInTheDocument()
   })
 
@@ -295,6 +311,9 @@ describe('AppSidebar', () => {
     vi.mocked(listBoards).mockResolvedValue([personalBoard])
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.getByTitle('Personal boards')).toBeInTheDocument())
+    // assert the attribute directly — aria-label and title share the same text here, so
+    // getByRole's computed-name resolution would pass via the title fallback regardless
+    expect(screen.getByTitle('Personal boards')).toHaveAttribute('aria-label', 'Personal boards')
   })
 
   it('clicking Personal boards trigger opens flyout listing personal boards', async () => {
@@ -379,6 +398,9 @@ describe('AppSidebar', () => {
     localStorage.setItem('sidebar-collapsed', 'true')
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.getByTitle('Groups')).toBeInTheDocument())
+    // assert the attribute directly — aria-label and title share the same text here, so
+    // getByRole's computed-name resolution would pass via the title fallback regardless
+    expect(screen.getByTitle('Groups')).toHaveAttribute('aria-label', 'Groups')
     // Individual group names are not rendered as separate icons
     expect(screen.queryByTitle('Alpha')).not.toBeInTheDocument()
   })
@@ -543,6 +565,9 @@ describe('AppSidebar', () => {
     vi.mocked(listBoards).mockResolvedValue([fakeBoard])
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.getByTitle('Recent boards')).toBeInTheDocument())
+    // assert the attribute directly — aria-label and title share the same text here, so
+    // getByRole's computed-name resolution would pass via the title fallback regardless
+    expect(screen.getByTitle('Recent boards')).toHaveAttribute('aria-label', 'Recent boards')
   })
 
   it('clicking Recent trigger opens flyout listing recent boards', async () => {

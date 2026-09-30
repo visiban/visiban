@@ -34,7 +34,7 @@
 # No Ingress: try.visiban.com reaches the frontend Service through the node's
 # existing Cloudflare Tunnel (cloudflared), as a public hostname pointing at
 # http://<release>-visiban-frontend.<namespace>.svc.cluster.local:80. The
-# frontend NetworkPolicy admits port 80 from any peer, so the tunnel pod
+# frontend NetworkPolicy admits port 8080 from any peer, so the tunnel pod
 # reaches it; the backend and datastores admit only this release's own
 # components, so nothing else on the node (try.trueppm.com included) can reach
 # them. Expose ONLY the frontend Service — the backend Service has no business
