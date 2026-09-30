@@ -511,6 +511,10 @@ REST_FRAMEWORK = {
         # so the ceiling is generous — the limit exists to prevent log flooding and
         # cache-layer exhaustion, not token enumeration (#754).
         "email_confirm_redirect": "9999/hour" if DEBUG else "60/hour",
+        # Socialaccount-signup SPA redirect (#1321): same rationale as
+        # email_confirm_redirect above — no DB access happens here, so the
+        # ceiling bounds log/cache noise, not token enumeration.
+        "socialaccount_signup_redirect": "9999/hour" if DEBUG else "60/hour",
         # Admin SMTP test send (#306): each call opens an outbound SMTP
         # connection to an operator-supplied host, so the ceiling bounds both
         # mail-relay abuse and use of the endpoint as a network probe. Keyed on

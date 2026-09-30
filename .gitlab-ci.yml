@@ -824,10 +824,12 @@ backend-schema-fuzz:
       done
     - cd ..
   script:
-    # The two email-confirm endpoints only 302 to the SPA at FRONTEND_URL, which
-    # does not run in this job — following that redirect is a "Connection refused"
-    # NonFatalError, and any NonFatalError exits `st run` 1. Their redirect
-    # behavior is covered by accounts/tests/test_email_confirm.py instead.
+    # The two email-confirm endpoints and the 3rdparty/signup safety-net (#1321)
+    # only 302 to the SPA at FRONTEND_URL, which does not run in this job —
+    # following that redirect is a "Connection refused" NonFatalError, and any
+    # NonFatalError exits `st run` 1. Their redirect behavior is covered by
+    # accounts/tests/test_email_confirm.py and
+    # accounts/tests/test_social_signup_redirect.py instead.
     # Fresh seed per run for coverage, but recorded up front (a crash before
     # st's own summary would otherwise lose it) and pinned via FUZZ_SEED to replay.
     - echo "${FUZZ_SEED:-$(python3 -c 'import secrets; print(secrets.randbits(64))')}" > /tmp/fuzz_seed
@@ -836,7 +838,7 @@ backend-schema-fuzz:
       st run http://localhost:8000/api/schema/ \
         --seed "$(cat /tmp/fuzz_seed)" \
         -H "Authorization: Token $(cat ${VISIBAN_FUZZ_TOKEN_FILE})" \
-        --exclude-path-regex 'confirm-email' \
+        --exclude-path-regex 'confirm-email|3rdparty/signup' \
         --checks response_schema_conformance,status_code_conformance,content_type_conformance \
         --phases examples,fuzzing \
         --max-examples 10 \

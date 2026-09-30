@@ -441,6 +441,18 @@ Returns the list of configured OAuth providers. No authentication required. Used
 - `oidc` — `true` if a generic OIDC provider is configured.
 - `oidc_name` — display name for the SSO button (e.g. `"Okta"`), or `null` when `oidc` is `false`.
 
+### Auth error redirects
+
+A failed OAuth (or invite-gated registration) flow redirects the browser back to the frontend with an `?auth_error=<code>` query parameter instead of rendering anything server-side. The SPA's login page reads this parameter and shows a message, then strips it from the URL.
+
+| Code | Meaning |
+|---|---|
+| `invite_required` | Invite-only mode is enabled and no invite token was present. |
+| `invite_invalid` | The invite token is malformed or unknown. |
+| `invite_expired` | The invite token has expired. |
+| `signup_closed` | Reserved for "registration is closed for this instance." Not currently emitted by any backend code path — OAuth signup in CLOSED registration mode instead falls through to allauth's own stock `signup_closed.html` template today (tracked separately as #1323, not part of #1321's fix). |
+| `oauth_failed` | **Added in 1.2** (#1321) — generic fallback for an OAuth signup that could not complete automatically: the provider's email collided with an existing account, or the provider returned no email at all (e.g. GitHub with a private email, since email is a required signup field). Both cases previously fell through to allauth's own unstyled HTML signup form at `accounts/3rdparty/signup/` — which pre-filled the colliding email in an editable field, allowing a second account to be created under a different one. That view is now overridden to redirect here instead. |
+
 ---
 
 ## Forgot password
