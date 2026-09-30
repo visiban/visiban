@@ -867,6 +867,69 @@ describe('CardDetail', () => {
     })
   })
 
+  describe('live refresh on socket event (#1310)', () => {
+    it('refetches comments, checklist, attachments, and relations when refreshSignal increments', async () => {
+      const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
+      const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
+      const mockGetAttachments = getCardAttachments as ReturnType<typeof vi.fn>
+      mockGetComments.mockResolvedValue([])
+      mockGetChecklist.mockResolvedValue([])
+      mockGetAttachments.mockResolvedValue([])
+      mockGetCardRelations.mockResolvedValue([])
+      const props = defaultProps()
+      const { rerender } = render(<CardDetail {...props} refreshSignal={0} />)
+      await waitFor(() => expect(mockGetComments).toHaveBeenCalledTimes(1))
+      expect(mockGetChecklist).toHaveBeenCalledTimes(1)
+      expect(mockGetAttachments).toHaveBeenCalledTimes(1)
+      expect(mockGetCardRelations).toHaveBeenCalledTimes(1)
+
+      // Simulate another user's comment arriving via BoardView's socket handler
+      // bumping cardDetailRefreshTick.
+      mockGetComments.mockResolvedValue([
+        { id: 1, author: fakeUser, body: 'From another session', created_at: new Date().toISOString(), updated_at: '' },
+      ])
+      rerender(<CardDetail {...props} refreshSignal={1} />)
+
+      await waitFor(() => expect(screen.getByText('From another session')).toBeInTheDocument())
+      expect(mockGetComments).toHaveBeenCalledTimes(2)
+      expect(mockGetChecklist).toHaveBeenCalledTimes(2)
+      expect(mockGetAttachments).toHaveBeenCalledTimes(2)
+      expect(mockGetCardRelations).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not refetch on mount beyond the initial load (refreshSignal defaults to 0)', async () => {
+      const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
+      render(<CardDetail {...defaultProps()} />)
+      await waitFor(() => expect(mockGetComments).toHaveBeenCalledTimes(1))
+      // No further calls fire without a refreshSignal change.
+      expect(mockGetComments).toHaveBeenCalledTimes(1)
+    })
+
+    it('preserves a collapsed checklist section across a refresh-triggered refetch', async () => {
+      const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
+      mockGetChecklist.mockResolvedValue([
+        { id: 1, text: 'Item A', is_checked: false, position: 0 },
+      ])
+      const props = defaultProps()
+      const { rerender } = render(<CardDetail {...props} refreshSignal={0} />)
+      await waitFor(() => expect(screen.getByText('Item A')).toBeInTheDocument())
+      await userEvent.setup().click(screen.getByText('Checklist'))
+      expect(screen.queryByText('Item A')).not.toBeInTheDocument()
+
+      mockGetChecklist.mockResolvedValue([
+        { id: 1, text: 'Item A', is_checked: false, position: 0 },
+        { id: 2, text: 'Item B', is_checked: false, position: 1 },
+      ])
+      rerender(<CardDetail {...props} refreshSignal={1} />)
+
+      // The refetch happened (new item is in the data), but the section stays
+      // collapsed — a background refresh must not snap it back open.
+      await waitFor(() => expect(getChecklist as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(2))
+      expect(screen.queryByText('Item A')).not.toBeInTheDocument()
+      expect(screen.queryByText('Item B')).not.toBeInTheDocument()
+    })
+  })
+
   describe('Move to popover', () => {
     beforeEach(() => {
       localStorage.clear()

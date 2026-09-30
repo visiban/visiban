@@ -404,7 +404,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // card.moved payload is { card, movement } — consistent with the REST response
       onCardUpdated((d as unknown as { card: Card }).card);
     } else if (event.event === "card.updated") {
-      onCardUpdated(d as unknown as Card);
+      const updatedCard = d as unknown as Card;
+      onCardUpdated(updatedCard);
+      // card.updated also fires for comment/checklist/attachment mutations
+      // (they don't touch the card row itself, so there's no narrower signal
+      // to key off) — nudge the open CardDetail panel to refetch those
+      // collections when this is the card it has open (#1310).
+      if (selectedCardIdRef.current === updatedCard.id) {
+        setCardDetailRefreshTick((t) => t + 1);
+      }
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
@@ -606,6 +614,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  // Bumped whenever a `card.updated` socket event arrives for the currently
+  // open card, so CardDetail can refetch its comments/checklist/attachments
+  // without the whole panel remounting (#1310).
+  const [cardDetailRefreshTick, setCardDetailRefreshTick] = useState(0);
+  // Mirrors selectedCard's id into a ref so handleSocketEvent (defined above,
+  // before selectedCard exists) can consult it without joining the callback's
+  // dependency array — the same forward-reference pattern focusedSwimlaneIdRef
+  // uses below for the "e" shortcut handler.
+  const selectedCardIdRef = useRef<number | null>(null);
+  selectedCardIdRef.current = selectedCard?.id ?? null;
   const [highlightedCardId, setHighlightedCardId] = useState<number | null>(null);
   // Refs for the two card-lookup timers (fade + not-found banner). Cleaned up on
   // unmount so setState never runs after teardown (#870).
@@ -1788,6 +1806,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             userTimezone={userTimezone}
             currentUser={currentUser}
             closeEditorOnEnter={closeEditorOnEnter}
+            refreshSignal={cardDetailRefreshTick}
           />
         )}
       </div>
@@ -2463,6 +2482,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             userTimezone={userTimezone}
             currentUser={currentUser}
             closeEditorOnEnter={closeEditorOnEnter}
+            refreshSignal={cardDetailRefreshTick}
           />
         </SectionErrorBoundary>
       )}
