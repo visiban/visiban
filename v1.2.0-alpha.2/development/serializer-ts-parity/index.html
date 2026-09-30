@@ -3534,9 +3534,9 @@ change.</strong></p>
 <td>Field <strong>names</strong>, both directions</td>
 </tr>
 <tr>
-<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209 + #1282, this page)</td>
+<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209 + #1282 + #1294, this page)</td>
 <td>The <strong>generated OpenAPI document</strong></td>
-<td><strong>30</strong> pairs — every pair that has a schema component</td>
+<td><strong>44</strong> pairs — every pair that has a schema component</td>
 <td>Names, <strong>types</strong>, nullability, enum membership</td>
 </tr>
 </tbody>
@@ -3652,6 +3652,11 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>yes</td>
 </tr>
 <tr>
+<td><code>AdminUser</code></td>
+<td><code>AdminUser</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>BoardExportLog</code></td>
 <td><code>BoardExportLogEntry</code></td>
 <td>no</td>
@@ -3665,6 +3670,11 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td><code>BoardMembership</code></td>
 <td><code>BoardMembership</code></td>
 <td>yes</td>
+</tr>
+<tr>
+<td><code>BoardTemplate</code></td>
+<td><code>BoardTemplate</code></td>
+<td>no</td>
 </tr>
 <tr>
 <td><code>BoardUser</code></td>
@@ -3704,6 +3714,11 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <tr>
 <td><code>CardRelation</code></td>
 <td><code>CardRelation</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>CardTimelineEntry</code></td>
+<td><code>CardTimelineEntry</code></td>
 <td>no</td>
 </tr>
 <tr>
@@ -3747,8 +3762,28 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>no</td>
 </tr>
 <tr>
+<td><code>GroupInviteLink</code></td>
+<td><code>GroupInviteLink</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>GroupLabel</code></td>
 <td><code>GroupLabel</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>GroupMembership</code></td>
+<td><code>GroupMembership</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>InviteLink</code></td>
+<td><code>AdminInviteLink</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>InviteLinkCreateResponse</code></td>
+<td><code>CreatedAdminInviteLink</code></td>
 <td>no</td>
 </tr>
 <tr>
@@ -3767,6 +3802,21 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>no</td>
 </tr>
 <tr>
+<td><code>OwnedBoardSummary</code></td>
+<td><code>OwnedBoardSummary</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>PersonalAccessToken</code></td>
+<td><code>PersonalAccessToken</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>PersonalAccessTokenCreateResponse</code></td>
+<td><code>CreatedPersonalAccessToken</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>PublicAssignee</code></td>
 <td><code>PublicAssignee</code></td>
 <td>no</td>
@@ -3782,8 +3832,28 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>no</td>
 </tr>
 <tr>
+<td><code>SavedFilter</code></td>
+<td><code>SavedFilter</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>ShareBoardResponse</code></td>
 <td><code>ShareActionResponse</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>SiteConfig</code></td>
+<td><code>SiteConfig</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>SiteEmailSettingsResponse</code></td>
+<td><code>SiteEmailSettings</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>SiteSetting</code></td>
+<td><code>SiteSettings</code></td>
 <td>no</td>
 </tr>
 <tr>
@@ -3834,6 +3904,48 @@ documentation error, not a structural gap, and #1282 fixed the record and mapped
 this gate's array check compares only the outer <code>array</code> family and does not recurse into item
 shapes, so that looseness produces no finding and needed no suppression — see <code>PublicSwimlane</code>
 below for the honest accounting of that specific gap, tracked in #1296.</p>
+<h1 id="1294-closed-the-structural-gap-the-reverse-sweep-found-see">1294 closed the structural gap the reverse sweep found (see<a class="headerlink" href="#1294-closed-the-structural-gap-the-reverse-sweep-found-see" title="Permanent link">&para;</a></h1>
+<p><a href="#what-is-not-covered-and-why">What is not covered, and why</a> below): twelve of the thirteen
+pairs listed there had no schema component only because nothing in their view ever called
+<code>@extend_schema</code> or set <code>serializer_class</code>. Adding that annotation — never a runtime, queryset,
+or permission change — gave each one a real component, now mapped above:
+<code>AdminUser</code>, <code>BoardTemplate</code>, <code>CardTimelineEntry</code>, <code>GroupInviteLink</code>, <code>GroupMembership</code>,
+<code>InviteLink</code>/<code>InviteLinkCreateResponse</code> (→ <code>AdminInviteLink</code>/<code>CreatedAdminInviteLink</code>),
+<code>OwnedBoardSummary</code>, <code>PersonalAccessToken</code>/<code>PersonalAccessTokenCreateResponse</code> (→
+<code>PersonalAccessToken</code>/<code>CreatedPersonalAccessToken</code>), <code>SavedFilter</code>, <code>SiteConfig</code>, and
+<code>SiteEmailSettingsResponse</code>/<code>SiteSetting</code> (→ <code>SiteEmailSettings</code>/<code>SiteSettings</code>). Mapping them
+surfaced findings of every kind this gate exists to catch, all fixed at the schema-annotation
+level with no behavior change:</p>
+<ul>
+<li><strong>A parser gap, not drift.</strong> <code>CreatedAdminInviteLink extends AdminInviteLink</code> and
+  <code>CreatedPersonalAccessToken extends PersonalAccessToken</code> are the only two TypeScript
+  interfaces in the codebase that use <code>extends</code>, and <code>parse_ts_interfaces()</code> was dropping the
+  base interface's fields entirely — reporting nine and eight <code>missing_in_ts</code> findings that were
+  not real drift, just a parser that had never needed to resolve inheritance before. Fixed by
+  merging a derived interface's inherited fields into its own during parsing.</li>
+<li><strong><code>untyped_schema</code></strong> on three plain <code>JSONField</code>/<code>DictField</code>-backed properties that had never
+  been checked before: <code>BoardTemplate.columns_json</code>, <code>PersonalAccessToken.scopes</code>, and
+  <code>SavedFilter.state_json</code>. All three are read-only in every path that reaches these serializers
+  today, so each was given an explicit <code>ListField</code>/<code>DictField</code> declaration matching its real
+  shape — documentation only, not a validation change.</li>
+<li><strong><code>nullability</code></strong> on <code>InviteLink.created_by_username</code> (an undecorated <code>SerializerMethodField</code>
+  gained a <code>-&gt; str | None</code> return annotation) and <code>GroupInviteLink.created_by_username</code> (a
+  declared <code>CharField</code> with a traversing <code>source</code> over a nullable FK gained <code>allow_null=True</code>) —
+  the same two patterns #1139 already documented under
+  <a href="#when-the-gate-fails">When the gate fails</a>, just not previously reachable because neither
+  pair had a component to check. <code>GroupMembership.id</code> got the same treatment: the <code>members</code>
+  action sets <code>id=None</code> on inherited rows with no real membership behind them, which the
+  auto-generated (non-nullable) PK field could not describe, so <code>id</code> is now declared explicitly
+  with <code>allow_null=True</code>.</li>
+<li>A genuine <strong>TypeScript-only field</strong>: <code>GroupInviteLink.token</code> is appended to
+  <code>GroupInviteLinkSerializer(...).data</code> by hand, once, only on the creation response — the same
+  shape as <code>AdminInviteLink</code>/<code>CreatedAdminInviteLink</code>, but without a second interface, so
+  <code>GroupInviteLink.token</code> is optional and now listed in <code>TS_ONLY_FIELDS</code> rather than treated as
+  drift.</li>
+</ul>
+<p>The thirteenth, <code>LensConnection</code>, stays excluded — see
+<a href="#what-is-not-covered-and-why">What is not covered, and why</a> for the reason, which is
+structural rather than something a decorator can fix.</p>
 <h3 id="what-is-not-covered-and-why">What is not covered, and why<a class="headerlink" href="#what-is-not-covered-and-why" title="Permanent link">&para;</a></h3>
 <p>Until #1209, two pairs #821 name-checks were absent here for a structural reason: the schema
 had no component to diff against, so there was nothing this gate could compare. <code>CardActivity</code>
@@ -3843,106 +3955,42 @@ to the viewset's default <code>CardSerializer</code> with no dedicated response 
 endpoints real <code>@extend_schema</code> response annotations, so both are now mapped and checked (see
 <a href="#coverage">Coverage</a>). The same issue also wired <code>NotificationListView</code> and <code>ShareBoardView</code>
 for the first time, adding <code>Notification</code> and <code>PublicCard</code> to the map.</p>
-<p>More pairs remain absent for that same structural reason than #1282's first pass found. That
+<p>More pairs remained absent for that same structural reason than #1282's first pass found. That
 pass swept <code>COMPONENT_MAP</code> forward — every key in it against the generated schema — which by
 construction cannot see an interface whose serializer never reaches the schema at all. The
 correct sweep runs the other direction: every <code>export interface</code> in
 <code>frontend/src/types/index.ts</code>, checked against <code>COMPONENT_MAP</code>'s values and the "opposite
-reason" table below. That reverse sweep turns up sixteen TypeScript interfaces across thirteen
-pairs, each backed by a real serializer (or, for <code>SiteConfig</code>, a view that builds its response
-by hand) that
-<code>drf-spectacular</code> never publishes a component for — because nothing in their view ever calls
-<code>@extend_schema</code> or sets <code>serializer_class</code>, the two things spectacular actually introspects.
-An interface with <strong>no</strong> backing serializer at all — <code>FieldDefinitionShape</code> (a structural
-subtype satisfied by two already-mapped interfaces, not its own shape),
-<code>SwimlaneCustomFieldValue</code> (carried inside <code>Swimlane.custom_field_values</code>, not its own
-component — see <code>_DRIFT_PAIRS</code>' comment in <code>test_ts_serializer_drift.py</code>), and the <code>Lens*</code> /
-<code>TrelloImport*</code> interfaces (plain dataclasses serialized by hand, not DRF serializers) — is not
-this bug class and is not listed here:</p>
+reason" table below. That reverse sweep turned up sixteen TypeScript interfaces across thirteen
+pairs, each backed by a real serializer (or, for <code>SiteConfig</code>, a view that built its response by
+hand) that <code>drf-spectacular</code> published no component for — because nothing in their view called
+<code>@extend_schema</code> or set <code>serializer_class</code>, the two things spectacular actually introspects. An
+interface with <strong>no</strong> backing serializer at all — <code>FieldDefinitionShape</code> (a structural subtype
+satisfied by two already-mapped interfaces, not its own shape), <code>SwimlaneCustomFieldValue</code>
+(carried inside <code>Swimlane.custom_field_values</code>, not its own component — see <code>_DRIFT_PAIRS</code>'
+comment in <code>test_ts_serializer_drift.py</code>), and the <code>Lens*</code> / <code>TrelloImport*</code> interfaces (plain
+dataclasses serialized by hand, not DRF serializers) was not this bug class and was never listed
+here.</p>
+<p><strong>#1294 closed twelve of those thirteen pairs</strong> by adding the missing <code>@extend_schema</code>
+annotation (or, for <code>SiteConfig</code> and the two <code>Created*</code> creation responses, an <code>inline_serializer</code>
+/ subclass documenting the hand-built response) to each view — annotation only, no runtime,
+queryset, or permission change. All twelve are now mapped; see
+<a href="#coverage">Coverage</a> and the note above it for the drift each one surfaced and how it was fixed.</p>
+<p>The thirteenth stays excluded, for a reason that is structural rather than something a decorator
+can fix:</p>
 <table>
 <thead>
 <tr>
-<th>TypeScript interface(s)</th>
-<th>Serializer</th>
-<th>Location</th>
+<th>Pair</th>
+<th>Why excluded</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>CardTimelineEntry</code></td>
-<td><code>CardTimelineEntrySerializer</code></td>
-<td><code>backend/boards/views/cards.py:899</code>, backing the <code>timeline</code> action (<code>views/cards.py:737</code>)</td>
-</tr>
-<tr>
-<td><code>AdminUser</code></td>
-<td><code>AdminUserSerializer</code></td>
-<td><code>backend/accounts/admin_views.py:437</code></td>
-</tr>
-<tr>
-<td><code>AdminInviteLink</code>, <code>CreatedAdminInviteLink</code></td>
-<td><code>InviteLinkSerializer</code></td>
-<td><code>backend/accounts/admin_views.py:507</code></td>
-</tr>
-<tr>
-<td><code>PersonalAccessToken</code>, <code>CreatedPersonalAccessToken</code></td>
-<td><code>PersonalAccessTokenSerializer</code></td>
-<td><code>backend/accounts/serializers.py:458</code></td>
-</tr>
-<tr>
-<td><code>SiteConfig</code></td>
-<td>— (<code>SiteConfigView</code> builds the response directly)</td>
-<td><code>backend/accounts/views.py:388</code></td>
-</tr>
-<tr>
-<td><code>SiteSettings</code></td>
-<td><code>SiteSettingSerializer</code></td>
-<td><code>backend/accounts/admin_views.py:76</code></td>
-</tr>
-<tr>
-<td><code>SiteEmailSettings</code></td>
-<td><code>SiteEmailSettingSerializer</code></td>
-<td><code>backend/accounts/admin_views.py:95</code></td>
-</tr>
-<tr>
-<td><code>BoardTemplate</code>, <code>BoardTemplateColumn</code></td>
-<td><code>BoardTemplateSerializer</code></td>
-<td><code>backend/boards/serializers.py:34</code></td>
-</tr>
-<tr>
-<td><code>OwnedBoardSummary</code></td>
-<td><code>OwnedBoardSummarySerializer</code></td>
-<td><code>backend/accounts/admin_views.py:431</code></td>
-</tr>
-<tr>
-<td><code>GroupMembership</code></td>
-<td><code>GroupMembershipSerializer</code></td>
-<td><code>backend/groups/serializers.py:304</code></td>
-</tr>
-<tr>
-<td><code>GroupInviteLink</code></td>
-<td><code>GroupInviteLinkSerializer</code></td>
-<td><code>backend/groups/serializers.py:340</code></td>
-</tr>
-<tr>
-<td><code>SavedFilter</code></td>
-<td><code>SavedFilterSerializer</code></td>
-<td><code>backend/boards/serializers.py:2658</code></td>
-</tr>
-<tr>
-<td><code>LensConnection</code></td>
-<td><code>LensConnectionSerializer</code></td>
-<td><code>backend/git_lens/serializers.py:20</code></td>
+<td><code>LensConnection</code> (<code>LensConnectionSerializer</code>, <code>LensConnectionView</code>, <code>backend/git_lens/</code>)</td>
+<td>The <code>git_lens</code> app — and every one of its URLs, including <code>LensConnectionView</code> — is only installed/routed when <code>GIT_LENS_ENABLED=true</code> (<code>visiban/urls.py</code>, <code>visiban/settings.py</code>). Neither <code>serializer-ts-parity</code> nor <code>backend-schema-validate</code> sets that flag (only the dedicated <code>backend-test-git-lens</code> job does, "and nowhere else" per its own comment in <code>.gitlab-ci.yml</code>), so the schema those jobs generate never contains a <code>LensConnection</code> component to diff against — mapping it would make the gate fail in CI even though nothing is wrong. <code>LensConnectionView.get</code>/<code>.put</code> do now carry <code>@extend_schema</code> (#1294), so the component exists and is accurate whenever the schema <em>is</em> generated with the flag on (local dev, or a future CI job that sets it) — only the always-on parity job's environment is the blocker. Tracked in #1306.</td>
 </tr>
 </tbody>
 </table>
-<p>Every one of these endpoints is live and reachable — each serializer is instantiated inside a
-real view method and its <code>.data</code> returned in a real <code>Response(...)</code> — so this is not dead code
-needing deletion, only response schemas <code>drf-spectacular</code> was never told to publish.</p>
-<p>All thirteen are tracked in <strong>#1294</strong>, which adds the missing <code>@extend_schema</code> (or
-<code>serializer_class</code>/<code>GenericAPIView</code> wiring, whichever fits each view) so each of these pairs
-can be added to <code>COMPONENT_MAP</code> and actually checked. Deliberately not done here: #1282 is a
-CI-tooling fix, and annotating thirteen views to change what they publish is a real API-surface
-change that belongs in its own reviewed branch, not folded into a parity-gate correction.</p>
 <p>Three pairs are absent for the opposite reason — the schema has a component but there is no
 TypeScript interface to diff it against. Confirmed by grepping all of <code>frontend/src</code> (not just
 <code>types/index.ts</code> — the <code>api/*.ts</code> call sites are where a renamed interface would actually be
@@ -4112,11 +4160,15 @@ carries 34 separate <code>*Request</code> / <code>Patched*Request</code> compone
 This gate compares <strong>response</strong> components only. A write-only field whose type drifts triggers
 the job (it is still a <code>backend/**/*</code> change) but produces no finding. If the frontend grows
 explicit request-body interfaces, mapping them is the natural extension.</p>
-<p><strong>Nothing else.</strong> Every schema component that has a matching TypeScript interface is mapped as
-of <a href="https://gitlab.com/visiban/visiban/-/issues/1139">#1139</a>, so a green <code>serializer-ts-parity</code>
-run now means "the published response components and the interfaces agree", not "five of them
-do". If you add a serializer <em>and</em> an interface, add the pair to <code>COMPONENT_MAP</code> in the same MR —
-the gate does not discover pairs on its own, and an unmapped pair is unchecked silently.</p>
+<p><strong>Nothing else, with one standing exception.</strong> Every schema component that has a matching
+TypeScript interface <em>and reaches the schema this gate's own environment generates</em> is mapped as
+of <a href="https://gitlab.com/visiban/visiban/-/issues/1294">#1294</a>, so a green <code>serializer-ts-parity</code>
+run means "the published response components and the interfaces agree", not "thirty of them do".
+<code>LensConnection</code> is the sole component this job cannot see at all, for the feature-flag reason in
+<a href="#what-is-not-covered-and-why">What is not covered, and why</a> — not a gap in <code>COMPONENT_MAP</code>, a
+gap in what the job's own schema generation includes. If you add a serializer <em>and</em> an
+interface, add the pair to <code>COMPONENT_MAP</code> in the same MR — the gate does not discover pairs on
+its own, and an unmapped pair is unchecked silently.</p>
 
 
 
