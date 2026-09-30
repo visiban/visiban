@@ -205,16 +205,25 @@ class ColumnSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         "name": "A column with this name already exists on this board."
                     })
-            # Position is only checked on update: on create the viewset always
-            # overrides it with the next free slot (see ColumnViewSet.perform_create),
-            # so a client-supplied value there is discarded before it can collide.
-            if instance is not None and "position" in attrs:
-                position = attrs["position"]
-                clash = Column.objects.filter(board=board, position=position).exclude(pk=instance.pk)
-                if clash.exists():
-                    raise serializers.ValidationError({
-                        "position": "A column already occupies this position on this board."
-                    })
+            # Position is writable only through the dedicated reorder endpoint
+            # (#1275) — a plain PATCH/PUT changing it bypasses the two-pass
+            # position-shift ColumnViewSet.reorder() relies on to keep
+            # unique_together(board, position) satisfied mid-reorder, and
+            # produces no reorder broadcast. Echoing the current value back is
+            # still accepted so a full-object round-trip keeps working (1.0
+            # backward-compat contract) — same rule CardSerializer applies to
+            # column/swimlane changes (#1106). Only checked on update: on
+            # create the viewset always overrides position with the next free
+            # slot (see ColumnViewSet.perform_create), so a client-supplied
+            # value there is discarded before it can collide or matter.
+            if instance is not None and "position" in attrs and attrs["position"] != instance.position:
+                raise serializers.ValidationError({
+                    "position": (
+                        "Changing a column's position via PATCH/PUT is not allowed — it "
+                        "bypasses the reorder broadcast and position bookkeeping. Use "
+                        f"POST /api/v1/boards/{board.pk}/columns/reorder/ instead."
+                    )
+                })
         return attrs
 
 
@@ -428,6 +437,22 @@ class SwimlaneSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         "name": "A swimlane with this name already exists on this board."
                     })
+            # Position is writable only through the dedicated reorder endpoint
+            # (#1275) — a plain PATCH/PUT changing it bypasses the position
+            # bookkeeping SwimlaneViewSet.reorder() applies and produces no
+            # reorder broadcast. Echoing the current value back is still
+            # accepted so a full-object round-trip keeps working (1.0
+            # backward-compat contract) — same rule CardSerializer applies to
+            # column/swimlane changes (#1106) and ColumnSerializer now applies
+            # to its own position.
+            if instance is not None and "position" in attrs and attrs["position"] != instance.position:
+                raise serializers.ValidationError({
+                    "position": (
+                        "Changing a swimlane's position via PATCH/PUT is not allowed — it "
+                        "bypasses the reorder broadcast and position bookkeeping. Use "
+                        f"POST /api/v1/boards/{board.pk}/swimlanes/reorder/ instead."
+                    )
+                })
         return attrs
 
 

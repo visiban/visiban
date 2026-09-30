@@ -345,8 +345,8 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
     decides three things that a diff of the saved row cannot: which ownership
     denial message applies, whether an omitted ``title``/``description`` should
     produce an activity row, and whether the caller is trying to change
-    ``column``/``swimlane`` (which belongs on the move transition — see
-    :class:`~boards.services.errors.UseMoveEndpoint`). Pass an empty mapping,
+    ``column``/``swimlane``/``position`` (which belong on the move transition —
+    see :class:`~boards.services.errors.UseMoveEndpoint`). Pass an empty mapping,
     never ``None``, when the caller has no notion of a partial body.
 
     ``apply()`` performs the validated write; the HTTP adapter passes a closure
@@ -376,21 +376,34 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
         ),
     )
 
-    # Reject a change of `column` or `swimlane` — same-board or cross-board
-    # (#1106). Either bypasses WIP/weight enforcement and the CardMovement audit
-    # trail, which only the move transition evaluates. Echoing back the card's
-    # *current* value is still accepted so a client that round-trips the full
-    # representation it was given keeps working (required by the 1.0 backward-
-    # compatibility contract). The submitted value is compared as a string
-    # rather than resolved, so the API never needs to tell the caller whether a
-    # foreign id it guessed happens to exist on another board. `None` is left to
-    # field validation rather than treated as a no-op here, since column and
-    # swimlane are non-nullable FKs and the current id can therefore never
-    # legitimately be None.
-    for field_name, current_id in (("column", card.column_id), ("swimlane", card.swimlane_id)):
+    # Reject a change of `column`, `swimlane`, or `position` — same-board or
+    # cross-board (#1106, #1275). All three bypass WIP/weight enforcement and
+    # the CardMovement audit trail, which only the move transition evaluates.
+    # Echoing back the card's *current* value is still accepted so a client
+    # that round-trips the full representation it was given keeps working
+    # (required by the 1.0 backward-compatibility contract). Both sides are
+    # normalized to int before comparing rather than resolved against the DB,
+    # so the API never needs to tell the caller whether a foreign id it
+    # guessed happens to exist on another board — and so an unchanged value
+    # sent in a different JSON representation (`5.0`, `"5"`) is not
+    # misreported as a real change (security-review finding on #1275). A
+    # value that fails to coerce to int is left to the serializer's own field
+    # validation rather than raised here as a move-endpoint bypass. `None` is
+    # likewise left to field validation rather than treated as a no-op, since
+    # column, swimlane, and position are all non-nullable and the current
+    # value can therefore never legitimately be None.
+    for field_name, current_value in (
+        ("column", card.column_id), ("swimlane", card.swimlane_id), ("position", card.position),
+    ):
         if field_name in submitted:
             raw_value = submitted.get(field_name)
-            if raw_value is not None and str(raw_value) != str(current_id):
+            if raw_value is None:
+                continue
+            try:
+                raw_normalized = int(float(raw_value))
+            except (TypeError, ValueError):
+                continue
+            if raw_normalized != int(current_value):
                 raise UseMoveEndpoint(field_name, board_pk=board.pk, card_pk=card.pk)
 
     board_id = card.board_id

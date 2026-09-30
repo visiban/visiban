@@ -549,8 +549,9 @@ class CardViewSet(viewsets.ModelViewSet):
             "Moves a card, creating a CardMovement audit record when the column or "
             "swimlane changes. Enforces per-column WIP/weight limits and optimistic "
             "concurrency control (OCC) via the optional `version` field. This is the "
-            "only endpoint that may change a card's `column`/`swimlane` — PATCH/PUT on "
-            "the card detail endpoint rejects such changes with `use_move_endpoint`."
+            "only endpoint that may change a card's `column`/`swimlane`/`position` — "
+            "PATCH/PUT on the card detail endpoint rejects such changes with "
+            "`use_move_endpoint`."
         ),
         parameters=[
             OpenApiParameter(

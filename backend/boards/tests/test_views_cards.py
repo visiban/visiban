@@ -795,6 +795,65 @@ class CardBoardScopingTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # -- #1275: position must not be patchable outside the move endpoint --
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_changed_position_rejected(self, _):
+        """A PATCH changing `position` must be rejected — reordering bypasses
+        WIP/weight limits and the CardMovement audit trail, same as #1106 for
+        column/swimlane."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"position": 5},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(r.json().get("code"), "use_move_endpoint")
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.position, 0)
+        self.assertEqual(CardMovement.objects.filter(card=self.card).count(), 0)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_echoing_current_position_accepted(self, _):
+        """PUT clients that round-trip the current position must keep working
+        (1.0 backward-compat contract) — same as #1106 for column/swimlane."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"position": self.card.position, "title": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.title, "Renamed")
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_echoing_current_position_as_float_accepted(self, _):
+        """An unchanged position sent as `5.0` (a different JSON encoding of the
+        same value, e.g. `0.0` here) must not be misreported as a real change
+        — the comparison normalizes both sides to int (security-review finding
+        on #1275)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"position": float(self.card.position), "title": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.title, "Renamed")
+
+    @patch(PATCH_BROADCAST)
+    def test_move_endpoint_still_changes_position(self, _):
+        """The dedicated move endpoint must still be able to change position —
+        only the plain PATCH/PUT bypass is closed."""
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/move/",
+            {"column_id": self.col.id, "swimlane_id": self.swim.id, "position": 3},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.position, 3)
+
     @patch(PATCH_BROADCAST)
     def test_create_card_with_cross_board_column_rejected(self, _):
         r = self.client.post(

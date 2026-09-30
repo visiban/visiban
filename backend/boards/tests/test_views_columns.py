@@ -118,8 +118,11 @@ class ColumnCRUDTests(TestCase):
 
     @patch(PATCH_BROADCAST)
     def test_update_column_duplicate_position_returns_400_not_500(self, _):
-        # Reproduces #1166: IntegrityError on unique_together(board, position) at
-        # perform_update previously reached the database unguarded.
+        # Originally reproduced #1166 (IntegrityError on unique_together(board,
+        # position) at perform_update reaching the database unguarded). #1275's
+        # blanket "position can only change via reorder/" rule now rejects this
+        # one field earlier for a different reason, but the 400-not-500 outcome
+        # this test pins still holds either way, so it is kept as-is.
         col2 = Column.objects.create(board=self.board, name="Col2", position=1)
         r = self.client.patch(
             f"/api/v1/boards/{self.board.id}/columns/{col2.id}/",
@@ -138,6 +141,66 @@ class ColumnCRUDTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("order", r.json())
+
+    # -- #1275: position must not be patchable outside the reorder endpoint --
+
+    @patch(PATCH_BROADCAST)
+    def test_update_column_with_changed_position_rejected(self, _):
+        """A PATCH changing `position` must be rejected — it bypasses the
+        two-pass position-shift bookkeeping and the reorder broadcast."""
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/columns/{self.col.id}/",
+            {"position": col2.position},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("position", r.json())
+        self.col.refresh_from_db()
+        self.assertEqual(self.col.position, 0)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_column_echoing_current_position_accepted(self, _):
+        """A full-object round-trip that echoes the current position back must
+        keep working (1.0 backward-compat contract)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/columns/{self.col.id}/",
+            {"position": self.col.position, "name": "Renamed"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.col.refresh_from_db()
+        self.assertEqual(self.col.name, "Renamed")
+
+    @patch(PATCH_BROADCAST)
+    def test_update_column_echoing_current_position_as_float_accepted(self, _):
+        """An unchanged position sent as `5.0` must be accepted. DRF's
+        IntegerField coerces the submitted value to `int` before
+        ColumnSerializer.validate() ever compares it, so — unlike the raw
+        string/int comparison update_card() needed to normalize (#1275) —
+        this pins existing behavior rather than requiring a code change."""
+        col = Column.objects.create(board=self.board, name="Col5", position=5)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/columns/{col.id}/",
+            {"position": 5.0, "name": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        col.refresh_from_db()
+        self.assertEqual(col.name, "Renamed")
+        self.assertEqual(col.position, 5)
+
+    @patch(PATCH_BROADCAST)
+    def test_reorder_endpoint_still_changes_column_position(self, _):
+        """The dedicated reorder endpoint must still be able to change
+        position — only the plain PATCH/PUT bypass is closed."""
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/columns/reorder/",
+            {"order": [col2.id, self.col.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.col.refresh_from_db()
+        self.assertEqual(self.col.position, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +282,66 @@ class SwimlaneCRUDTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("name", r.json())
+
+    # -- #1275: position must not be patchable outside the reorder endpoint --
+
+    @patch(PATCH_BROADCAST)
+    def test_update_swimlane_with_changed_position_rejected(self, _):
+        """A PATCH changing `position` must be rejected — it bypasses the
+        reorder bookkeeping and broadcast."""
+        swim2 = Swimlane.objects.create(board=self.board, name="Swim2", position=1)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/swimlanes/{self.swim.id}/",
+            {"position": swim2.position},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("position", r.json())
+        self.swim.refresh_from_db()
+        self.assertEqual(self.swim.position, 0)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_swimlane_echoing_current_position_accepted(self, _):
+        """A full-object round-trip that echoes the current position back must
+        keep working (1.0 backward-compat contract)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/swimlanes/{self.swim.id}/",
+            {"position": self.swim.position, "name": "Renamed"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.swim.refresh_from_db()
+        self.assertEqual(self.swim.name, "Renamed")
+
+    @patch(PATCH_BROADCAST)
+    def test_update_swimlane_echoing_current_position_as_float_accepted(self, _):
+        """An unchanged position sent as `5.0` must be accepted. DRF's
+        IntegerField coerces the submitted value to `int` before
+        SwimlaneSerializer.validate() ever compares it, so — unlike the raw
+        string/int comparison update_card() needed to normalize (#1275) —
+        this pins existing behavior rather than requiring a code change."""
+        swim = Swimlane.objects.create(board=self.board, name="Swim5", position=5)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/swimlanes/{swim.id}/",
+            {"position": 5.0, "name": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        swim.refresh_from_db()
+        self.assertEqual(swim.name, "Renamed")
+        self.assertEqual(swim.position, 5)
+
+    @patch(PATCH_BROADCAST)
+    def test_reorder_endpoint_still_changes_swimlane_position(self, _):
+        """The dedicated reorder endpoint must still be able to change
+        position — only the plain PATCH/PUT bypass is closed."""
+        swim2 = Swimlane.objects.create(board=self.board, name="Swim2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/swimlanes/reorder/",
+            {"order": [swim2.id, self.swim.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.swim.refresh_from_db()
+        self.assertEqual(self.swim.position, 1)
 
 
 # ---------------------------------------------------------------------------
