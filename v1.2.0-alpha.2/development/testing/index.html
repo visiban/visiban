@@ -3956,7 +3956,11 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Backend tests run in the <code>backend-test</code> job (3 parallel shards) on every MR that touches <code>backend/**/*</code> or <code>requirements*.txt</code></li>
-<li>Frontend unit tests run in <code>frontend-test</code></li>
+<li>Frontend unit tests run in <code>frontend-test</code>. Unlike <code>backend-schema-fuzz</code> below, a single
+  failed test retries once automatically under CI (<code>vitest.config.ts</code>'s <code>test.retry</code>, gated
+  on <code>process.env.CI</code> so local runs stay strict) before failing the job — a mitigation for
+  known intermittent flakes (#1304), not a signal that a red <code>frontend-test</code> run should be
+  assumed innocent. A test that still fails after its retry is a real failure.</li>
 <li>Playwright E2E runs in <code>playwright-e2e</code> — starts its own Vite dev server, no separate build step needed. It's <code>allow_failure: true</code> during rollout; promotion to blocking is tracked separately.</li>
 <li><code>backend-schema-validate</code> checks the generated OpenAPI document is well-formed;
   <code>backend-schema-fuzz</code> goes further and fuzzes a real, running instance with
