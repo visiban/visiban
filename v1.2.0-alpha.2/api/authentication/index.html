@@ -2091,6 +2091,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#auth-error-redirects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auth error redirects
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4615,6 +4626,38 @@
 <li><code>oidc</code> — <code>true</code> if a generic OIDC provider is configured.</li>
 <li><code>oidc_name</code> — display name for the SSO button (e.g. <code>"Okta"</code>), or <code>null</code> when <code>oidc</code> is <code>false</code>.</li>
 </ul>
+<h3 id="auth-error-redirects">Auth error redirects<a class="headerlink" href="#auth-error-redirects" title="Permanent link">&para;</a></h3>
+<p>A failed OAuth (or invite-gated registration) flow redirects the browser back to the frontend with an <code>?auth_error=&lt;code&gt;</code> query parameter instead of rendering anything server-side. The SPA's login page reads this parameter and shows a message, then strips it from the URL.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invite_required</code></td>
+<td>Invite-only mode is enabled and no invite token was present.</td>
+</tr>
+<tr>
+<td><code>invite_invalid</code></td>
+<td>The invite token is malformed or unknown.</td>
+</tr>
+<tr>
+<td><code>invite_expired</code></td>
+<td>The invite token has expired.</td>
+</tr>
+<tr>
+<td><code>signup_closed</code></td>
+<td>Reserved for "registration is closed for this instance." Not currently emitted by any backend code path — OAuth signup in CLOSED registration mode instead falls through to allauth's own stock <code>signup_closed.html</code> template today (tracked separately as #1323, not part of #1321's fix).</td>
+</tr>
+<tr>
+<td><code>oauth_failed</code></td>
+<td><strong>Added in 1.2</strong> (#1321) — generic fallback for an OAuth signup that could not complete automatically: the provider's email collided with an existing account, or the provider returned no email at all (e.g. GitHub with a private email, since email is a required signup field). Both cases previously fell through to allauth's own unstyled HTML signup form at <code>accounts/3rdparty/signup/</code> — which pre-filled the colliding email in an editable field, allowing a second account to be created under a different one. That view is now overridden to redirect here instead.</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="forgot-password">Forgot password<a class="headerlink" href="#forgot-password" title="Permanent link">&para;</a></h2>
 <h3 id="post-apiv1authpasswordreset"><code>POST /api/v1/auth/password/reset/</code><a class="headerlink" href="#post-apiv1authpasswordreset" title="Permanent link">&para;</a></h3>
