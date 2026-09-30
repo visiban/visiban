@@ -657,7 +657,8 @@ type EmailPrefKey =
   | "email_notif_card_assigned"
   | "email_notif_mentioned"
   | "email_notif_due_soon"
-  | "email_notif_card_moved";
+  | "email_notif_card_moved"
+  | "email_notif_comment_added";
 
 type NotifPrefs = Record<NotifPrefKey, boolean> & Record<EmailPrefKey, boolean>;
 
@@ -674,7 +675,7 @@ const NOTIF_ROWS: NotifRowSpec[] = [
   { key: "notif_mentioned", label: "Someone @mentions me", description: "When you are mentioned in a comment", emailKey: "email_notif_mentioned" },
   { key: "notif_due_soon", label: "Due date approaching", description: "24h warning before a card you own is due", emailKey: "email_notif_due_soon" },
   { key: "notif_card_moved", label: "Card I\u2019m watching is moved", description: "When a watched card changes column", emailKey: "email_notif_card_moved" },
-  { key: "notif_comment_added", label: "Comment on a watched card", description: "When someone comments on a card you\u2019re watching" },
+  { key: "notif_comment_added", label: "Comment on a watched card", description: "When someone comments on a card you\u2019re watching", emailKey: "email_notif_comment_added" },
   { key: "notif_stale", label: "Card has gone stale", description: "When a card you own has not moved for a while" },
 ];
 
@@ -792,6 +793,7 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
     email_notif_mentioned: user.email_notif_mentioned ?? false,
     email_notif_due_soon: user.email_notif_due_soon ?? false,
     email_notif_card_moved: user.email_notif_card_moved ?? false,
+    email_notif_comment_added: user.email_notif_comment_added ?? false,
   };
 
   const toggle = async (field: NotifPrefKey | EmailPrefKey) => {

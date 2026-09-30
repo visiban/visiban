@@ -26,13 +26,14 @@ User
  ├── notif_mentioned (bool, default true — notify on @mention in card description)
  ├── notif_due_soon (bool, default false — notify when a card's due date is approaching)
  ├── notif_card_moved (bool, default false — notify when a card is moved)
- ├── notif_comment_added (bool, default false — notify when someone else comments on a card you created or are assigned to; in-app only)
+ ├── notif_comment_added (bool, default false — notify when someone else comments on a card you created or are assigned to)
  ├── notif_board_invite (bool, default true — notify when added to a board)
  ├── notif_stale (bool, default false — notify when an owned card has gone stale; split from notif_due_soon in 1.2)
  ├── email_notif_card_assigned (bool, default false — also email the assignment notification)
  ├── email_notif_mentioned (bool, default false — also email the @mention notification)
  ├── email_notif_due_soon (bool, default false — also email the due-date notification)
  ├── email_notif_card_moved (bool, default false — also email the card-moved notification)
+ ├── email_notif_comment_added (bool, default false — also email the comment-on-a-watched-card notification)
  ├── has_completed_tour (bool, default false — whether the user has completed the onboarding tour)
  ├── PersonalAccessToken  (name, prefix, token_hash, expires_at, scopes, last_used_scope)
  └── InviteLink created_by / redemptions, GroupInviteLink created_by (see below)
@@ -285,7 +286,7 @@ Notifications are created by the backend when a relevant event occurs (card assi
 The `board_invite` action type is created when a user is added to a board via invite link or directly by an admin. The notification links to the board rather than a card; the `card` FK is null for this action type.
 
 Every notification is created through `boards.services.notifications.create_notifications`,
-which after the transaction commits delivers OSS email for the four events that support it
+which after the transaction commits delivers OSS email for the five events that support it
 and then sends the `post_notification_created` signal once per row. The funnel exists
 because three of the creation sites use `bulk_create`, which sends no `post_save` — so a
 per-model signal would have been invisible to half the events. See

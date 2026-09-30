@@ -452,6 +452,7 @@ class UserSerializer(serializers.ModelSerializer):
             # start emailing anyone.
             "email_notif_card_assigned", "email_notif_mentioned",
             "email_notif_due_soon", "email_notif_card_moved",
+            "email_notif_comment_added",
             "default_board_id",
         ]
         read_only_fields = ["id", "is_site_admin", "can_access_all_content", "must_change_password", "must_change_username", "has_usable_password"]

@@ -63,6 +63,7 @@ export interface User {
   email_notif_mentioned?: boolean;
   email_notif_due_soon?: boolean;
   email_notif_card_moved?: boolean;
+  email_notif_comment_added?: boolean;
   close_editor_on_enter?: boolean;
   has_completed_tour?: boolean;
   /**

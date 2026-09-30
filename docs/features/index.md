@@ -106,7 +106,7 @@ Visiban surfaces two types of alerts in the notification bell:
 
 Stale cards show an amber tint overlay with reduced opacity on the board so they're impossible to miss at a glance.
 
-Four of these events — assigned to me, @mentioned, due date approaching, and a watched card moved — can also be **delivered by email**, off by default, once an administrator configures outgoing SMTP and you turn the per-event toggle on in Settings → Notifications.
+Five of these events — assigned to me, @mentioned, due date approaching, a watched card moved, and a comment on a watched card — can also be **delivered by email**, off by default, once an administrator configures outgoing SMTP and you turn the per-event toggle on in Settings → Notifications.
 
 → [Notifications](notifications.md) · [Email notifications](notifications.md#email-notifications)
 

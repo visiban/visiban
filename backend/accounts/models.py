@@ -454,9 +454,10 @@ class User(AbstractUser):
     notif_stale = models.BooleanField(default=False)
 
     # --- Email notification preferences (#356) ----------------------------
-    # Outbound email for the same four events, opted into per event per user.
+    # Outbound email for the in-app events above that support it (four from #356,
+    # plus comment_added from #1295), opted into per event per user.
     #
-    # All four default to False, and that is the whole safety story for the
+    # All of them default to False, and that is the whole safety story for the
     # feature: an existing install that upgrades and already has SMTP configured
     # must not suddenly start mailing every member of every board. Nothing is
     # sent until a user turns one of these on for themselves. The asymmetry with
@@ -470,6 +471,10 @@ class User(AbstractUser):
     email_notif_mentioned = models.BooleanField(default=False)
     email_notif_due_soon = models.BooleanField(default=False)
     email_notif_card_moved = models.BooleanField(default=False)
+    # Added by #1295 for the #1277 COMMENT_ADDED notification. Same default-False
+    # rule as the four above, for the same reason: an upgrade must not start
+    # mailing card watchers about every comment.
+    email_notif_comment_added = models.BooleanField(default=False)
     date_format = models.CharField(max_length=16, blank=True, default="MM/DD/YYYY")
     time_format = models.CharField(max_length=4, blank=True, default="12h")
     number_locale = models.CharField(max_length=16, blank=True, default="en-US")

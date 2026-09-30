@@ -404,6 +404,7 @@ class CurrentUserSerializerWritableFieldsTests(TestCase):
             "email_notif_mentioned",
             "email_notif_due_soon",
             "email_notif_card_moved",
+            "email_notif_comment_added",
             "default_board_id",
         }
 

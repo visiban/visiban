@@ -616,7 +616,7 @@ Returns the authenticated user's profile.
 
 **Permission:** Requires authentication.
 
-**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, `demo_next_reset_at`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`, `pending_email`.
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, `demo_next_reset_at`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `email_notif_comment_added`, `default_board_id`, `theme`, `pending_email`.
 
 | Field | Type | Description |
 |---|---|---|
@@ -635,6 +635,7 @@ Returns the authenticated user's profile.
 | `email_notif_mentioned` | boolean | Also email the user when they are @mentioned. No effect while `notif_mentioned` is `false`. Defaults to `false`. Writable. Added in 1.2. |
 | `email_notif_due_soon` | boolean | Also email the user when a card they own is due within 24 hours. No effect while `notif_due_soon` is `false`. Defaults to `false`. Writable. Added in 1.2. |
 | `email_notif_card_moved` | boolean | Also email the user when a card they own is moved. No effect while `notif_card_moved` is `false`. Defaults to `false`. Writable. Added in 1.2. |
+| `email_notif_comment_added` | boolean | Also email the user when someone else comments on a card they created or are assigned to. No effect while `notif_comment_added` is `false`. Defaults to `false`. Writable. Added in 1.2. |
 
 **Example response (excerpt)**
 
@@ -655,7 +656,7 @@ Update the authenticated user's profile. All fields are optional.
 
 **Permission:** Requires authentication.
 
-**Writable fields:** `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`.
+**Writable fields:** `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `email_notif_comment_added`, `default_board_id`, `theme`.
 
 **Request body fields**
 

@@ -2,8 +2,8 @@
 
 Scope
 -----
-OSS ships SMTP delivery for four events: card assigned, @mention, due date
-within 24 hours, and card moved. ``stale`` and ``board_invite`` notifications
+OSS ships SMTP delivery for five events: card assigned, @mention, due date
+within 24 hours, card moved, and comment on a watched card (#1295). ``stale`` and ``board_invite`` notifications
 are created through the same funnel and do fire
 ``post_notification_created`` — they simply have no email preference, so this
 module skips them. Richer channels (Slack, Teams, webhooks) are enterprise and
@@ -46,16 +46,15 @@ from .models import Notification
 logger = logging.getLogger(__name__)
 
 # action_type -> the User field that opts the recipient in to email for it.
-# An action_type absent from this map is never emailed by OSS. All four fields
-# default to False: see the model docstring for why an upgrade must not start
+# An action_type absent from this map is never emailed by OSS. Every field
+# defaults to False: see the model docstring for why an upgrade must not start
 # emailing anybody.
 EMAIL_PREFERENCE_BY_ACTION = {
     Notification.ActionType.ASSIGNED: "email_notif_card_assigned",
     Notification.ActionType.MENTIONED: "email_notif_mentioned",
     Notification.ActionType.DUE_SOON: "email_notif_due_soon",
     Notification.ActionType.CARD_MOVED: "email_notif_card_moved",
-    # COMMENT_ADDED (#1277) is deliberately absent: in-app only, there is no
-    # email_notif_comment_added column.
+    Notification.ActionType.COMMENT_ADDED: "email_notif_comment_added",  # #1295
 }
 
 # Mail headers must not contain a newline. Django raises BadHeaderError on one,
