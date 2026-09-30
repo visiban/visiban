@@ -229,6 +229,231 @@ for its GIN indexes; read it for a worked example already in the tree.
 
 ---
 
+## Adding a foreign key
+
+A foreign key is a constraint, and PostgreSQL validates a constraint — scanning the
+referencing column against the referenced table — while holding a lock on *both* tables for
+the length of the scan. Everything above already covers this for a `CheckConstraint`. A
+`ForeignKey` needs its own recipe because `AddConstraintNotValid` explicitly rejects
+anything that is not a `CheckConstraint`:
+
+```pycon
+>>> AddConstraintNotValid(model_name="card", constraint=models.UniqueConstraint(...))
+TypeError: AddConstraintNotValid.constraint must be a check constraint.
+```
+
+`check_migration_concurrency` does not look at foreign-key validation either way — see
+below — so which recipe applies is a judgment call the check cannot make for you. It comes
+down to whether the column being constrained already holds data.
+
+### A new, nullable column on an existing table
+
+If the column is brand new, every row gets `NULL` the instant it is added, and PostgreSQL
+does not validate a foreign key against a `NULL` — there is nothing for the constraint to
+check. A plain `AddField` is safe inline, constraint included:
+
+```python
+# backend/boards/migrations/00XX_card_reviewer.py
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("boards", "0051_board_card_density"),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name="card",
+            name="reviewer",
+            field=models.ForeignKey(
+                blank=True,
+                db_index=False,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="+",
+                to=settings.AUTH_USER_MODEL,
+            ),
+        ),
+    ]
+```
+
+`boards/0044_cardchecklist_created_by` and `accounts/0031_user_pending_email_address`
+(#1273) are the precedents in the tree — both add a nullable `ForeignKey` to an existing
+table in one plain `AddField`, no `NOT VALID` split needed.
+
+`db_index=False` is the part worth not skipping. `ForeignKey` builds a b-tree index on the
+column by default — same as an explicit `db_index=True` on any other field — and that index
+build *does* scan the whole table under `ACCESS EXCLUSIVE`, whether the new column's values
+are `NULL` or not; only the constraint validation is free for a new column, not the index
+build. `accounts/0031` splits it out for exactly this reason: `db_index=False` here, then a
+separate `AddIndexConcurrently` in `accounts/0032_user_pending_email_addr_idx`. Follow that
+shape for new work — `boards/0044` predates the split and left its default index inline,
+which was only harmless because `cardchecklist` was small at the time.
+
+### A foreign key on a column that already holds data
+
+Once the column already has real, non-`NULL` values — an existing plain integer column being
+turned into a proper `ForeignKey`, or a nullable one already backfilled with real
+references — PostgreSQL cannot skip the scan, and a plain `AddField` / `AlterField` /
+`AddConstraint` validates the whole table under `ACCESS EXCLUSIVE` for as long as the scan
+takes. The safe path is the same shape as a check constraint — add `NOT VALID`, validate
+later, under a weaker lock — but reached by hand, because there is no
+`AddConstraintNotValid` for a `ForeignKey`:
+
+```python
+# backend/boards/migrations/00XX_card_reviewer_fk_not_valid.py
+from django.db import migrations
+
+
+def add_not_valid(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+    # NOT VALID is catalog-only: it takes ACCESS EXCLUSIVE, but only long enough to
+    # write the constraint, not to scan `cards`.
+    schema_editor.execute(
+        "ALTER TABLE cards "
+        "ADD CONSTRAINT card_reviewer_id_fk_users_id "
+        "FOREIGN KEY (reviewer_id) REFERENCES users (id) "
+        "NOT VALID"
+    )
+
+
+def drop_not_valid(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+    schema_editor.execute(
+        "ALTER TABLE cards DROP CONSTRAINT IF EXISTS card_reviewer_id_fk_users_id"
+    )
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [("boards", "0051_board_card_reviewer_backfilled")]
+
+    operations = [
+        # The field itself must already declare db_constraint=False (see below) so
+        # Django never tries to add its own FK constraint on top of this one.
+        migrations.RunPython(add_not_valid, drop_not_valid),
+    ]
+```
+
+```python
+# backend/boards/migrations/00XX_card_reviewer_fk_validate.py
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+from visiban.db_operations import ValidateConstraint
+
+
+class Migration(migrations.Migration):
+    # ValidateConstraint scans the whole table; running it inside the default
+    # transaction would hold the constraint's ACCESS EXCLUSIVE catalog lock until
+    # commit, across the whole scan — the same reasoning as the check-constraint pair
+    # above.
+    atomic = False
+
+    dependencies = [("boards", "0052_card_reviewer_fk_not_valid")]
+
+    operations = [
+        # ValidateConstraint only needs the table and the constraint name — it has no
+        # opinion on what kind of constraint it is, so the same wrapper used for
+        # check constraints works here unmodified.
+        ValidateConstraint(model_name="card", name="card_reviewer_id_fk_users_id"),
+        # database_operations=[] on purpose: the constraint already exists in the
+        # database from the NOT VALID migration. This only tells Django's state that
+        # the field is now backed by a real DB constraint, so a future
+        # makemigrations does not try to add one.
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AlterField(
+                    model_name="card",
+                    name="reviewer",
+                    field=models.ForeignKey(
+                        blank=True,
+                        db_constraint=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+            ],
+        ),
+    ]
+```
+
+The field itself must carry `db_constraint=False` from the moment the column is added (and
+until the validate migration above flips it back) — that is what stops Django's own
+`AddField`/`AlterField` from emitting a second, competing `FOREIGN KEY` clause on top of the
+one added by hand. `db_constraint=False` does not remove `on_delete` behavior at the Python
+level; it only means PostgreSQL is not enforcing it, which is exactly the gap the `NOT VALID`
+migration closes.
+
+**Neither checker flags the `RunPython` in the first migration.**
+`check_migration_concurrency`'s raw-SQL scan only matches `CREATE INDEX` text
+(`RAW_CREATE_INDEX`), never `ADD CONSTRAINT`, so an `ALTER TABLE ... ADD CONSTRAINT ...
+FOREIGN KEY ... NOT VALID` inside `RunPython`/`RunSQL` needs no `# concurrency-exempt:`
+comment — the checker has no rule that would fire on it in the first place.
+`check_migration_constraint_safety` does not scan raw SQL string content at all, so it is
+silent on that migration too.
+
+**The second migration does not get the same protection a check constraint's does — verify
+this shape against `check_migration_constraint_safety.py` yourself before trusting it.**
+`ValidateConstraint` is the operation the checker watches for a `CheckConstraint`, by name,
+regardless of what kind of constraint it validates — but it is exempted whenever the
+migration's own `dependencies` names another migration, in the same app, whose operations
+list contains a top-level `RunPython`/`RunSQL` (the "adjacent migration" rule: a migration
+depending on a dedicated repair migration is assumed already safe). The exemption checks
+only that such an operation exists in the dependency, never what it does. Migration 1 above
+*is* a top-level `RunPython` — it just happens to add a constraint, not repair a row — and
+migration 2 depends on it directly, so this recipe's shape trips the exemption every time:
+`ValidateConstraint` in migration 2 is silently waved through whether or not `reviewer_id`
+holds a single orphaned reference. Writing migration 1 as `RunSQL` instead makes no
+difference; the checker treats the two names identically.
+
+This is a genuine gap in the checker, not a design choice, and there is no way to add a
+hand-written `NOT VALID` constraint without a `RunPython`/`RunSQL` operation to carry it — so
+the gap is unavoidable with this recipe, not a mistake to fix by restructuring the
+migrations. Judge the need for a repair step the same way you would with the check turned
+off: if `reviewer_id` could hold a value that does not point at an existing row — data
+written before an application-level guard existed, a row deleted out from under a reference,
+anything restored from an old backup — add a real `RunPython` repair step ahead of
+`ValidateConstraint` before relying on it, because CI will not catch a missing one here. The
+`# constraint-safe:` comment convention used elsewhere on this page does not help either: the
+violation this shape would otherwise raise is suppressed by the adjacent-migration exemption
+before the scanner ever reaches the point where it would look for that comment, so writing
+one on `ValidateConstraint` in migration 2 has no effect.
+
+`VALIDATE CONSTRAINT` itself takes `SHARE UPDATE EXCLUSIVE` — the same weak lock a check
+constraint's validation takes, which is the whole reason the two-step split is worth doing.
+
+### Teaching the checker to see this
+
+Optional follow-up, out of scope for this page:
+
+- `check_migration_concurrency` could flag an `AddField`/`AlterField` that adds a
+  `ForeignKey` with `db_constraint` left at its default (`True`) against an app's
+  non-initial migration, the same way it already flags `db_index=True`.
+- `check_migration_constraint_safety`'s adjacent-migration exemption cannot tell a genuine
+  data-repair `RunPython` from a schema-only one like the `NOT VALID` step above — both
+  satisfy `has_top_level_repair()` by name alone. Narrowing that exemption would need the
+  scanner to look at what the dependency's `RunPython`/`RunSQL` actually does, not just that
+  one exists, which the rest of both checkers deliberately avoid doing (see "The scan does
+  not verify a repair step touches the *right* rows" above) — so this is a real trade-off to
+  work out, not a one-line fix.
+
+No issue is currently filed for either; file one before picking either up rather than
+inferring scope from this paragraph.
+
+---
+
 ## SQLite
 
 Visiban supports a SQLite configuration for local development and small single-user installs,
