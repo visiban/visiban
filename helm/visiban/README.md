@@ -71,8 +71,8 @@ misspelled or invented key is rejected by `helm install` instead of being
 silently accepted and doing nothing. Blocks handed to a subchart or to `toYaml`
 — `global`, `postgresql`, `ingress.annotations`, `*.resources`,
 `backend.securityContext.pod` / `.container`, `postgresql.securityContext.pod`
-/ `.container` — stay open, because the chart is not the authority on what is
-valid inside them.
+/ `.container`, `frontend.securityContext.pod` / `.container` — stay open,
+because the chart is not the authority on what is valid inside them.
 `valkey` also stays open, so a values file written for the Bitnami subchart the
 chart used before 0.5.0 still upgrades; see [Bundled Valkey](#bundled-valkey).
 
@@ -108,23 +108,29 @@ edge before Django could return a message naming the real limit.
 
 Every long-running or scheduled workload the chart renders — the backend
 Deployment (its migrate/collectstatic/bootstrap init containers included), the
-bundled PostgreSQL and Valkey StatefulSets, the scheduledJobs CronJobs, and the
-demo seed Job/CronJob — runs as a non-root user with a read-only root
-filesystem, `seccompProfile: RuntimeDefault`, no privilege escalation, every
-Linux capability dropped, and no mounted ServiceAccount token. Scratch space
-each image needs to write (`/tmp`, PostgreSQL's `/var/run/postgresql`, the
-backend's `STATIC_ROOT`) is an `emptyDir`, never the root filesystem.
+frontend (nginx) Deployment, the bundled PostgreSQL and Valkey StatefulSets,
+the scheduledJobs CronJobs, and the demo seed Job/CronJob — runs as a non-root
+user with a read-only root filesystem, `seccompProfile: RuntimeDefault`, no
+privilege escalation, every Linux capability dropped, and no mounted
+ServiceAccount token. Scratch space each image needs to write (`/tmp`,
+PostgreSQL's `/var/run/postgresql`, the backend's `STATIC_ROOT`, nginx's
+`/var/cache/nginx` and `/run`) is an `emptyDir`, never the root filesystem.
 
 The Valkey StatefulSet's hardening (#1200) is not overridable. The backend
-Deployment's and the bundled PostgreSQL StatefulSet's are, via
-`backend.securityContext.pod` / `.container` and
-`postgresql.securityContext.pod` / `.container` (#1210) — for an operator on a
+Deployment's, the bundled PostgreSQL StatefulSet's, and the frontend
+Deployment's are, via `backend.securityContext.pod` / `.container`,
+`postgresql.securityContext.pod` / `.container` (#1210), and
+`frontend.securityContext.pod` / `.container` (#1224) — for an operator on a
 base image that cannot run as the chart's numeric UID, or that needs a
 writable root filesystem. `scripts/helm-structure-check.sh` asserts
-`runAsNonRoot` and a full capability drop on every workload except the
-frontend (nginx) Deployment, which does not carry this hardening yet — its
-base image's default user and writable paths have not been audited for it,
-and it is tracked separately in #1224.
+`runAsNonRoot` and a full capability drop on every rendered workload, with no
+exclusions.
+
+As a non-root user, the frontend container cannot bind a port below 1024
+(`CAP_NET_BIND_SERVICE` is not usable here — see
+[Pod security](../../docs/getting-started/kubernetes.md#pod-security)), so it
+listens on 8080 internally; the frontend **Service** still fronts port 80 by
+default (`frontend.service.port`), unaffected.
 
 ## Scheduled jobs
 

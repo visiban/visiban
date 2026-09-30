@@ -13,7 +13,12 @@ data:
     }
 
     server {
-        listen 80;
+        # Non-privileged port — the frontend container runs as a non-root
+        # user (#1224) that cannot bind <1024. The Service's own port (80 by
+        # default, frontend.service.port) is unaffected: templates/
+        # frontend-service.yaml targets this by the container's named `http`
+        # port, not this number.
+        listen 8080;
         server_name _;
         root /usr/share/nginx/html;
         index index.html;

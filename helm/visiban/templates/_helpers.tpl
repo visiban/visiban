@@ -257,9 +257,9 @@ backend scheduler{{ if include "visiban.demoEnabled" . }} demo-seed{{ end }}
 {{- end }}
 
 {{/*
-Hardened pod/container securityContext defaults (#1210), with a hardcoded
-fallback for the case where the whole block is absent from .Values rather
-than merely unset at a field level.
+Hardened pod/container securityContext defaults (#1210, frontend added in
+#1224), with a hardcoded fallback for the case where the whole block is
+absent from .Values rather than merely unset at a field level.
 
 Helm's own values coalescing (chartutil.CoalesceValues) already deep-merges
 any `-f`/`--set`/`--reuse-values` override with the CURRENT chart's
@@ -316,6 +316,29 @@ seccompProfile:
 {{- end }}
 
 {{- define "visiban.postgresql.securityContext.container" -}}
+{{- if kindIs "invalid" .container -}}
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+capabilities:
+  drop: ["ALL"]
+{{- else -}}
+{{- toYaml .container }}
+{{- end -}}
+{{- end }}
+
+{{- define "visiban.frontend.securityContext.pod" -}}
+{{- if kindIs "invalid" .pod -}}
+runAsNonRoot: true
+runAsUser: 101
+runAsGroup: 101
+seccompProfile:
+  type: RuntimeDefault
+{{- else -}}
+{{- toYaml .pod }}
+{{- end -}}
+{{- end }}
+
+{{- define "visiban.frontend.securityContext.container" -}}
 {{- if kindIs "invalid" .container -}}
 allowPrivilegeEscalation: false
 readOnlyRootFilesystem: true
