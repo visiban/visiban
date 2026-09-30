@@ -42,6 +42,12 @@ LOGIN_URL = "/api/v1/auth/login/"
 # the signup squat rejection must be indistinguishable from an ordinary clash.
 SIGNUP_USERNAME_TAKEN = "A user with that username already exists."
 SIGNUP_EMAIL_TAKEN = "User is already registered with this e-mail address."
+# allauth's own "email_taken" text (RegistrationAdapter.clean_email, #1312):
+# dj-rest-auth's RegisterSerializer.validate_email calls get_adapter().clean_email()
+# BEFORE its own is_verified() duplicate check, so any collision that
+# email_collides_with_identifier catches surfaces this message first —
+# SIGNUP_EMAIL_TAKEN above is now unreachable for the #1221 collision cases.
+ADAPTER_EMAIL_TAKEN = "A user is already registered with this email address."
 
 
 class CollisionHelperTests(TestCase):
@@ -115,18 +121,20 @@ class SignupCollisionTests(TestCase):
 
     def test_email_equal_to_another_active_unverified_email_is_rejected(self):
         # dj-rest-auth alone only refuses a *verified* address; the victim's
-        # address here has no verified EmailAddress row at all.
+        # address here has no verified EmailAddress row at all. Caught by
+        # RegistrationAdapter.clean_email (#1312) before dj-rest-auth's own
+        # is_verified() check ever runs.
         self.assertFalse(EmailAddress.objects.filter(email__iexact="victim@example.com").exists())
         r = self._register(email="VICTIM@example.com")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(r.json()["email"], [SIGNUP_EMAIL_TAKEN])
+        self.assertEqual(r.json()["email"], [ADAPTER_EMAIL_TAKEN])
         self.assertEqual(User.objects.filter(email__iexact="victim@example.com").count(), 1)
 
     def test_email_equal_to_another_accounts_username_is_rejected(self):
         User.objects.create_user(username="owner@example.com", email="", password=PASSWORD)
         r = self._register(email="owner@example.com")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(r.json()["email"], [SIGNUP_EMAIL_TAKEN])
+        self.assertEqual(r.json()["email"], [ADAPTER_EMAIL_TAKEN])
 
     def test_email_of_inactive_account_is_allowed(self):
         self.victim.is_active = False
@@ -161,6 +169,76 @@ class AdapterCleanUsernameTests(TestCase):
         self.adapter.populate_username(None, user)
         self.assertNotIn("@", user.username)
         self.assertFalse(username_collides_with_email(user.username))
+
+
+class AdapterCleanEmailTests(TestCase):
+    """The allauth hook the HTML signup form's own uniqueness check runs after (#1312).
+
+    allauth's ``BaseSignupForm.clean_email`` calls ``get_adapter().clean_email()``
+    before its own ``validate_unique_email`` — this is the one place every
+    allauth-driven signup that collects an email goes through, including
+    ``/accounts/signup/`` (allauth's HTML form), which dj-rest-auth's
+    ``RegisterSerializer.validate_email`` (covered by ``SignupCollisionTests``
+    above) never touches.
+    """
+
+    def setUp(self):
+        User.objects.create_user(username="victim", email="victim@example.com", password=PASSWORD)
+        self.adapter = RegistrationAdapter()
+
+    def test_collision_with_another_accounts_username_raises(self):
+        with self.assertRaises(ValidationError):
+            self.adapter.clean_email("Victim")
+
+    def test_collision_ignores_case_and_whitespace(self):
+        with self.assertRaises(ValidationError):
+            self.adapter.clean_email("  VICTIM  ")
+
+    def test_non_colliding_email_passes_through(self):
+        self.assertEqual(self.adapter.clean_email("newbie@example.com"), "newbie@example.com")
+
+    def test_collision_with_another_accounts_active_email_also_raises(self):
+        # clean_email has no notion of "the account being changed" (signup has
+        # no existing account yet) — unlike username_collides_with_email's
+        # exclude_pk, every match here is necessarily with someone else's
+        # account. email_collides_with_identifier also catches an ordinary
+        # duplicate active email, not just a username collision.
+        with self.assertRaises(ValidationError):
+            self.adapter.clean_email("victim@example.com")
+
+
+class HtmlSignupEmailCollisionTests(TestCase):
+    """`/accounts/signup/` is allauth's HTML form — a live, unauthenticated route
+    that bypasses dj-rest-auth's ``RegisterSerializer`` entirely (#1312)."""
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        # A username that is itself email-shaped, so an EmailField-valid
+        # submission can equal it (mirrors SignupCollisionTests's REST-path
+        # equivalent, test_email_equal_to_another_accounts_username_is_rejected).
+        self.owner = User.objects.create_user(
+            username="owner@example.com", email="", password=PASSWORD
+        )
+
+    def test_email_equal_to_another_accounts_username_is_rejected(self):
+        r = self.client.post(
+            "/accounts/signup/",
+            {"email": "Owner@Example.com", "password1": "Sup3rS3cr3t!xyz", "password2": "Sup3rS3cr3t!xyz"},
+        )
+        # allauth re-renders the signup form (200) rather than redirecting on
+        # a validation failure.
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn(ADAPTER_EMAIL_TAKEN, r.content.decode())
+        self.assertFalse(User.objects.filter(email__iexact="owner@example.com").exists())
+
+    def test_non_colliding_signup_still_succeeds(self):
+        r = self.client.post(
+            "/accounts/signup/",
+            {"email": "newbie@example.com", "password1": "Sup3rS3cr3t!xyz", "password2": "Sup3rS3cr3t!xyz"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_302_FOUND)
+        self.assertTrue(User.objects.filter(email="newbie@example.com").exists())
 
 
 class ProfileCollisionTests(TestCase):

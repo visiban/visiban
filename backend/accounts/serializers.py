@@ -107,29 +107,15 @@ class RegistrationSerializer(RegisterSerializer):
     # The inherited validate_username goes through
     # RegistrationAdapter.clean_username, which rejects a username equal to
     # another active account's email (#1221) — see accounts/adapter.py.
-
-    def validate_email(self, email):
-        """dj-rest-auth's check, plus: no email another account already answers to (#1221).
-
-        dj-rest-auth only refuses an address some account has *verified*, so
-        REST signup could create a second account with an existing account's
-        unverified ``User.email`` — making it ambiguous, which switches off
-        that account's email login (the resolver fails closed on ambiguity).
-        An address equal to another account's username is refused too: the
-        username would always win at login, so it could never log in the new
-        account. allauth's own HTML signup form already refuses any existing
-        address; this brings the REST path in line.
-
-        Uses dj-rest-auth's own message, so the answer is identical to the one
-        a verified address already gets and says nothing about which kind of
-        match it was.
-        """
-        email = super().validate_email(email)
-        if email_collides_with_identifier(email):
-            raise serializers.ValidationError(
-                "User is already registered with this e-mail address."
-            )
-        return email
+    #
+    # The inherited validate_email (dj-rest-auth's RegisterSerializer) calls
+    # get_adapter().clean_email() before its own is_verified() duplicate
+    # check, which goes through RegistrationAdapter.clean_email — rejecting an
+    # email equal to another account's username, or an existing (even
+    # unverified) active account's email (#1221, #1312) — see
+    # accounts/adapter.py. A local override here duplicating that check was
+    # removed in #1312: it could never fire, since clean_email always raises
+    # first for the same inputs.
 
 
 class LoginSerializer(DjRestAuthLoginSerializer):
