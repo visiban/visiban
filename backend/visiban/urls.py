@@ -10,6 +10,7 @@ from accounts.permissions import TokenHasScope
 from accounts.views import (
     EmailConfirmRedirectView,
     InviteRegisterView,
+    SocialSignupRedirectView,
     ThrottledLoginView,
     ThrottledPasswordResetConfirmView,
     ThrottledPasswordResetView,
@@ -130,6 +131,17 @@ urlpatterns = [
     # collision check to the "Make Primary" action, which allauth's own
     # EmailView has no hook for (#1312) — see accounts.views.VisibanEmailView.
     path("accounts/email/", VisibanEmailView.as_view(), name="account_email"),
+    # Safety-net: allauth's socialaccount_signup view (accounts/3rdparty/signup/)
+    # renders allauth's own stock signup.html — Visiban ships no allauth
+    # templates, but APP_DIRS=True means allauth's bundled templates still
+    # resolve, unlike the confirm-email case above (#1321). Registered BEFORE
+    # the allauth include, same technique, so this redirect wins the match
+    # instead of the stock, unstyled form with an editable pre-filled email
+    # (a duplicate-account risk — see SocialSignupRedirectView's docstring).
+    re_path(
+        r"^accounts/3rdparty/signup/$",
+        SocialSignupRedirectView.as_view(),
+    ),
     path("accounts/", include("allauth.urls")),
     # All versioned API endpoints live under /api/v1/.
     # The v1 prefix is a literal path segment — not a captured kwarg — so view

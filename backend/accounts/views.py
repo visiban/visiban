@@ -181,6 +181,17 @@ class EmailConfirmRedirectThrottle(AnonRateThrottle):
     scope = "email_confirm_redirect"
 
 
+class SocialSignupRedirectThrottle(AnonRateThrottle):
+    """Rate limit for the socialaccount-signup safety-net redirect endpoint.
+
+    Like EmailConfirmRedirectThrottle above, this view only pops a session key
+    and issues a 302 (no DB access), so the ceiling exists to bound log/cache
+    noise rather than to stop meaningful abuse.
+    """
+
+    scope = "socialaccount_signup_redirect"
+
+
 class UserSearchView(APIView):
     """Search users by display name, email, or username; requires at least 2 characters."""
 
@@ -967,6 +978,62 @@ class EmailConfirmRedirectView(APIView):
         if not self._KEY_RE.match(key):
             return HttpResponseRedirect(f"{frontend_url}/confirm-email/invalid")
         return HttpResponseRedirect(f"{frontend_url}/confirm-email/{key}")
+
+
+class SocialSignupRedirectView(APIView):
+    """Safety-net for allauth's ``socialaccount_signup`` view (#1321).
+
+    Unlike EmailConfirmRedirectView above, the dead-end this guards against
+    is NOT a crash: allauth 65.14.3 ships its own
+    ``socialaccount/signup.html`` and Visiban's ``TEMPLATES`` has
+    ``APP_DIRS=True``, so ``GET /accounts/3rdparty/signup/`` renders
+    allauth's stock, unstyled signup form instead of raising
+    ImproperlyConfigured. That form pre-fills the OAuth-provided email in a
+    plain, editable ``forms.EmailField`` (``allauth.socialaccount.forms.
+    SignupForm`` / ``allauth.account.forms.BaseSignupForm``) —
+    ``validate_unique_email`` only rejects resubmitting the exact same
+    colliding address, so nothing stops the field being edited to a
+    different email and the form being submitted, creating a second
+    account for the same OAuth identity. Confirmed by manual repro — see
+    this MR's description.
+
+    allauth reaches this view via ``redirect_to_signup``
+    (``allauth.socialaccount.internal.flows.signup``) in two cases, both
+    after ``is_open_for_signup`` has already passed:
+      1. The OAuth-provided email collides with an existing account
+         (``process_auto_signup_email`` -> ``assess_unique_email`` is
+         False).
+      2. The provider returned no email at all (e.g. GitHub with a private
+         email) while ``ACCOUNT_SIGNUP_FIELDS`` requires ``email*``.
+
+    Registered ahead of ``include("allauth.urls")`` in visiban/urls.py, same
+    override technique as EmailConfirmRedirectView, so this view wins the
+    match. Clears the pending SocialLogin allauth stashed in the session
+    (mirrors allauth's own ``clear_pending_signup``) so a stale login can't
+    be resumed from this session, then bounces to the frontend with a
+    generic ``oauth_failed`` code — the SPA has no page that could render
+    allauth's HTML form fields, and both trigger cases are rare enough that
+    a single fallback message is not worth a richer error taxonomy.
+
+    Not a duplicate of #1312: that issue is a ``clean_email`` gap on the
+    plain HTML password-signup form (``/accounts/signup/``, wired via
+    ``ACCOUNT_FORMS``/``VisibanSignupForm``) and has no bearing on this
+    view's OAuth path, which allauth routes through a completely separate
+    form class (``allauth.socialaccount.forms.SignupForm``, gated by the
+    unset ``SOCIALACCOUNT_FORMS``) — #1312's fix does not, and could not,
+    cover this one. They share only a surface theme (an email-collision gap
+    in a signup form) — see this MR's ``## Notes`` for the full comparison.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [SocialSignupRedirectThrottle]
+
+    def get(self, request):
+        request.session.pop("socialaccount_sociallogin", None)
+        frontend_url = getattr(settings, "LOGIN_REDIRECT_URL", None) or "http://localhost:5173"
+        separator = "&" if "?" in frontend_url else "?"
+        return HttpResponseRedirect(f"{frontend_url}{separator}auth_error=oauth_failed")
 
 
 class VisibanEmailView(AllauthEmailView):
