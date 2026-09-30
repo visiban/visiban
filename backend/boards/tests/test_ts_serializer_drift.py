@@ -30,6 +30,7 @@ from pathlib import Path
 from django.test import SimpleTestCase
 
 from boards.serializers import (
+    BoardExportLogSerializer,
     BoardFullSerializer,
     BoardMembershipSerializer,
     BoardSerializer,
@@ -39,14 +40,19 @@ from boards.serializers import (
     CardCommentSerializer,
     CardMovementSerializer,
     CardSerializer,
+    CardTimelineEntrySerializer,
     ColumnSerializer,
+    CustomFieldDefinitionSerializer,
+    CustomFieldValueSerializer,
+    EffectiveBoardMemberSerializer,
     ExternalRefSerializer,
     LabelSerializer,
+    SavedFilterSerializer,
     SwimlaneAdminSerializer,
     SwimlaneCustomFieldDefinitionSerializer,
     SwimlaneSerializer,
 )
-from accounts.serializers import BoardUserSerializer
+from accounts.serializers import BoardUserSerializer, CurrentUserSerializer, UserSerializer
 
 
 _FRONTEND_TYPES = (
@@ -82,6 +88,47 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     (BoardUserSerializer, "BoardUser", set()),
     # Card MR/PR link (#352) — nested under Card.external_ref.
     (ExternalRefSerializer, "CardExternalRef", set()),
+    # Card custom fields (#371) — schema half + per-card value half. The value
+    # shape is also covered by BoardFull.custom_field_definitions for the
+    # schema, and values ride along on Card (see CardSerializer above).
+    (CustomFieldDefinitionSerializer, "CustomFieldDefinition", set()),
+    (CustomFieldValueSerializer, "CustomFieldValue", set()),
+    # /full/'s effective roster row (#1137) — distinct from BoardMembership,
+    # see EffectiveBoardMemberSerializer's docstring for why.
+    (EffectiveBoardMemberSerializer, "EffectiveBoardMember", set()),
+    # Board export audit history (#842/#980).
+    (BoardExportLogSerializer, "BoardExportLogEntry", set()),
+    # Unified card timeline (movements + activities) entry envelope.
+    (CardTimelineEntrySerializer, "CardTimelineEntry", set()),
+    # User-scoped saved filter presets on a board.
+    (SavedFilterSerializer, "SavedFilter", set()),
+    # UserSerializer (/full/ nested contexts and profile forms) and
+    # CurrentUserSerializer (GET /auth/user/, a strict superset — see its
+    # docstring) both map onto the one `User` TS interface, which already
+    # marks every CurrentUser-only field (uploads_enabled, git_lens_enabled,
+    # maintenance_mode, maintenance_message, demo_mode, demo_next_reset_at,
+    # pending_email) optional for exactly this reason.
+    (UserSerializer, "User", set()),
+    (CurrentUserSerializer, "User", set()),
+    # NOT registered: BoardEventSerializer (#1114, change-feed contract). The
+    # `/boards/<id>/events/` endpoint has no frontend consumer today — it
+    # exists for an external process to replay missed WebSocket frames over
+    # HTTP (see test_board_events.py) — so there is no TS interface in
+    # frontend/src/types/index.ts to pair it with. `useBoardSocket.ts`
+    # declares an unrelated `BoardEvent` type for the live `{event, data}`
+    # socket frame; that is a same-named but different shape (no `id`,
+    # `actor_id`, or `created_at`) and pairing against it would be a false
+    # match, not real coverage. Coverage today is `test_board_events.py`
+    # (model/write-path/endpoint/retention) plus `backend-schema-fuzz`.
+    # Tracked as a follow-up in #1315: add both the TS interface and this
+    # pair in that MR if/when a frontend consumer of the feed endpoint ships.
+    #
+    # NOT registered: the Trello import response (import_export.py's
+    # `import_trello` action). It is built from hand-rolled dicts rather than
+    # a serializer, so there is no serializer class to point _DRIFT_PAIRS at.
+    # This is the non-registration #1242 itself sanctions (see that issue's
+    # item 2) — intentional, issue-authorized scope, not silently dropped.
+    # Covered by manual review and backend-schema-fuzz only.
 ]
 
 

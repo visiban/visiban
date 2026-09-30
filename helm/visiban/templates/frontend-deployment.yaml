@@ -15,18 +15,48 @@ spec:
       labels:
         {{- include "visiban.frontend.selectorLabels" . | nindent 8 }}
     spec:
+      # Hardening to match the bundled Valkey StatefulSet (templates/valkey.yaml,
+      # #1200) and the backend/postgresql pods (#1210) — see #1224. Overridable:
+      # an operator on a base image that cannot run as this numeric UID, or
+      # needs a writable root filesystem, sets frontend.securityContext.pod /
+      # .container in their values.
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "visiban.frontend.securityContext.pod" (.Values.frontend.securityContext | default dict) | nindent 8 }}
       containers:
         - name: frontend
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          securityContext:
+            {{- include "visiban.frontend.securityContext.container" (.Values.frontend.securityContext | default dict) | nindent 12 }}
           ports:
+            # Non-privileged: nginx cannot bind <1024 as this non-root user
+            # without CAP_NET_BIND_SERVICE, which is not usable here (#1224,
+            # see the note on frontend.securityContext in values.yaml). The
+            # frontend Service's targetPort is the named port below, so its
+            # own port (80 by default) is unaffected by this number.
             - name: http
-              containerPort: 80
+              containerPort: 8080
               protocol: TCP
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/default.conf
               subPath: nginx.conf
+            # Scratch space nginx needs to write now that the root filesystem
+            # is read-only: its client/proxy/fastcgi/uwsgi/scgi buffering temp
+            # dirs (all under /var/cache/nginx by this image's compile-time
+            # --http-*-temp-path defaults) and /run for nginx.pid and
+            # nginx.lock (/var/run is a symlink to /run in nginx:1.27-alpine).
+            # The access/error logs are pre-symlinked to /dev/stdout /
+            # /dev/stderr by the base image, so /var/log/nginx itself needs no
+            # writable mount. /tmp is empty otherwise, kept for parity with
+            # every other hardened pod in this chart.
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /run
+            - name: tmp
+              mountPath: /tmp
           livenessProbe:
             httpGet:
               path: /
@@ -45,3 +75,9 @@ spec:
         - name: nginx-config
           configMap:
             name: {{ include "visiban.fullname" . }}-nginx
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

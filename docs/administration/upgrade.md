@@ -442,7 +442,8 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     `global`, `postgresql`, `valkey`, `ingress.annotations`,
     `backend.resources`, `frontend.resources`, `backend.securityContext.pod` /
     `.container`, `postgresql.securityContext.pod` / `.container` (chart
-    0.6.0, #1210).
+    0.6.0, #1210), `frontend.securityContext.pod` / `.container` (chart
+    0.7.0, #1224).
 
 !!! note "Helm: migrations now run in an init container, not a hook Job"
     Database migrations moved from a `pre-install`/`pre-upgrade` hook Job to a `migrate` init
@@ -666,6 +667,55 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     `null` explicitly (`--set postgresql.securityContext.container.foo=null`);
     an override file that simply omits a key leaves the chart default in
     place, it does not clear it.
+
+!!! warning "Helm: frontend (nginx) pod now runs hardened, and listens on 8080 internally (chart 0.7.0)"
+    Chart 0.7.0 brings the frontend (nginx) Deployment up to the same
+    hardening the bundled Valkey StatefulSet (#1200) and the backend/
+    PostgreSQL pods (#1210) already run with: a non-root user,
+    `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, a
+    **read-only root filesystem**, every Linux capability dropped, and no
+    mounted ServiceAccount token (#1224). See
+    [Pod security](../getting-started/kubernetes.md#pod-security) for the full
+    list and the values that control it.
+
+    **This is a default change for existing installs, not an opt-in.** A
+    `helm upgrade` to chart 0.7.0 replaces the frontend pod with one running
+    under the new `securityContext` — no values change required to pick it up.
+
+    **The frontend container's internal listen port also changes, from 80 to
+    8080.** A non-root user cannot bind a port below 1024 without
+    `CAP_NET_BIND_SERVICE`, and that capability cannot actually be used here
+    (see the note in [Pod security](../getting-started/kubernetes.md#pod-security)),
+    so nginx now listens on the non-privileged 8080 instead. **The frontend
+    Service's own port is unchanged** (`frontend.service.port`, `80` by
+    default) — it targets the container by its named `http` port, which moves
+    with it automatically, so `helm install`/`helm upgrade`,
+    `kubectl port-forward svc/<release>-visiban-frontend`, and the Ingress all
+    need no changes. The one place this is visible: a `kubectl port-forward
+    <frontend-pod-name> 8080:80` run directly against the pod (bypassing the
+    Service) must become `8080:8080` — the NOTES printed after `helm
+    install`/`helm upgrade` already show the updated command, but a script or
+    shell alias built from an older NOTES output needs updating by hand.
+
+    **What could break:** a custom frontend image built on something other
+    than `nginx:1.27-alpine`, or one that writes somewhere other than
+    `/var/cache/nginx`, `/run` or `/tmp`, may fail to start under a read-only
+    root filesystem or may not have the `101:101` `nginx` user/group this
+    chart defaults to. Verify an overridden `frontend.image` against a staging
+    release first.
+
+    **If your image cannot run under this hardening**, relax just the field
+    that conflicts — for example, to keep a writable root filesystem on a
+    custom frontend image:
+
+    ```bash
+    helm upgrade visiban helm/visiban --reuse-values \
+      --set frontend.securityContext.container.readOnlyRootFilesystem=false
+    ```
+
+    As with `backend.securityContext` and `postgresql.securityContext`, Helm
+    deep-merges nested maps, so a single-leaf `--set` keeps the chart's other
+    `frontend.securityContext.container` defaults in place.
 
 !!! note "Scheduled jobs ship in 1.2 — off by default"
     1.2 adds a scheduler for `notify_due_soon`, `notify_stale_cards`,

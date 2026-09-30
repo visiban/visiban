@@ -55,4 +55,10 @@ FROM ${BASE_REGISTRY}/nginx:1.27-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-EXPOSE 80
+# 8080, not 80: the Helm chart runs this image as a non-root user (#1224),
+# which cannot bind a port below 1024 without CAP_NET_BIND_SERVICE — not
+# usable here (see helm/visiban/values.yaml's frontend.securityContext
+# comment). The chart's own nginx.conf (templates/frontend-configmap.yaml)
+# listens on 8080 to match; docker-compose.yml never builds this stage (it
+# uses the `dev` target), so nothing else references this port number.
+EXPOSE 8080
