@@ -3,6 +3,7 @@ from dj_rest_auth.serializers import LoginSerializer as DjRestAuthLoginSerialize
 from dj_rest_auth.serializers import PasswordChangeSerializer as DjRestAuthPasswordChangeSerializer
 from dj_rest_auth.serializers import PasswordResetConfirmSerializer as DjRestAuthPasswordResetConfirmSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import EmailValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -499,7 +500,14 @@ class UserSerializer(serializers.ModelSerializer):
             raise
 
         if pending_email is not None:
-            request_email_change(self.context.get("request"), instance, pending_email)
+            try:
+                request_email_change(self.context.get("request"), instance, pending_email)
+            except DjangoValidationError:
+                # #1312: the address is already verified for this account but
+                # collides with another account's username/email — see
+                # request_email_change's docstring for why this one branch
+                # checks (it bypasses confirmation entirely).
+                raise serializers.ValidationError({"email": [EMAIL_TAKEN_MESSAGE]})
             instance.refresh_from_db(fields=["email"])
         elif cancel_pending:
             cancel_email_change(instance)

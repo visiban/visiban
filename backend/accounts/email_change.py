@@ -37,6 +37,7 @@ Email addresses are personal data: nothing in this module logs one.
 """
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 
@@ -159,16 +160,33 @@ def request_email_change(request, user, new_email: str) -> bool:
     working. If the account already has an unverified row for exactly this
     address (e.g. imported by a social login), that row is adopted as the
     pending change rather than duplicated — (user, email) is unique.
+
+    Raises ``django.core.exceptions.ValidationError`` for the immediate-effect
+    branch when the address collides with another account's username or
+    active email (#1221, #1312) — the same defense-in-depth check
+    ``confirmation_would_collide`` applies to the pending-confirmation branch
+    below, needed here too because this branch skips confirmation entirely
+    (the address is already verified for THIS account) and calls
+    ``set_as_primary()`` directly, bypassing that function. Not an
+    enumeration leak: the caller (``CurrentUserSerializer.update``) only
+    reaches this branch for an address the requester has already proven they
+    own, so a rejection here reveals nothing about a THIRD party's account
+    that "no signal about whether an address is taken" (see ``validate_email``
+    above) was written to hide.
     """
     from allauth.account.internal.flows.email_verification import (
         send_verification_email_to_address,
     )
     from allauth.account.models import EmailAddress
 
+    from .validators import EMAIL_TAKEN_MESSAGE, email_collides_with_identifier
+
     new_email = new_email.lower()
     with transaction.atomic():
         existing = EmailAddress.objects.filter(user=user, email=new_email).first()
         if existing is not None and existing.verified:
+            if email_collides_with_identifier(existing.email, exclude_pk=user.pk):
+                raise ValidationError(EMAIL_TAKEN_MESSAGE)
             # Switching to an address this account has already verified.
             existing.set_as_primary()
             _drop_tracked_row(user, keep_pk=existing.pk)

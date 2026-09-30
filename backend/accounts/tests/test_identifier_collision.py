@@ -245,12 +245,11 @@ class AddSecondaryEmailDoesNotRunSignupCollisionCheckTests(TestCase):
     """Deliberate scope decision (#1312): adding a secondary email is not signup.
 
     ``/accounts/email/`` (allauth's ``AddEmailForm``, logged-in users adding a
-    non-primary address to their own account) is left unchecked. It never
-    writes ``User.email`` — the field ``resolve_login_user`` reads — so it
-    cannot by itself create the state #1221 guards against; the promotion
-    path that WOULD write ``User.email`` already runs this check (see
-    ``accounts.email_change.confirmation_would_collide``). Pinned here so the
-    decision is a tested fact, not just a comment.
+    non-primary address to their own account) is left unchecked. Adding the
+    row alone never writes ``User.email`` — the field ``resolve_login_user``
+    reads — so it cannot by itself create the state #1221 guards against.
+    ``MakePrimaryCollisionTests`` below covers the action on this same page
+    that CAN write ``User.email`` (``action_primary``).
     """
 
     def setUp(self):
@@ -268,6 +267,62 @@ class AddSecondaryEmailDoesNotRunSignupCollisionCheckTests(TestCase):
         self.assertTrue(
             EmailAddress.objects.filter(user=self.user, email__iexact="owner@example.com").exists()
         )
+
+
+class MakePrimaryCollisionTests(TestCase):
+    """#1312 follow-up: ``/accounts/email/``'s "Make Primary" action, not just "Add".
+
+    Reproduces the vulnerability security-review found in the first version of
+    this fix: ``flows.manage_email.mark_as_primary`` ->
+    ``EmailAddress.set_as_primary()`` -> ``user_email(user, email,
+    commit=True)`` writes ``User.email`` unconditionally once
+    ``can_mark_as_primary()`` passes, and ``can_mark_as_primary()`` allows
+    promoting an entirely UNVERIFIED address whenever the account has zero
+    verified emails — true of every fresh account under Visiban's default
+    ``EMAIL_VERIFICATION=optional``. No prior EmailAddress verification, no
+    elevated privilege: two POSTs to standard allauth HTML endpoints.
+    ``accounts.views.VisibanEmailView`` closes this with a pre-check.
+    """
+
+    def setUp(self):
+        cache.clear()
+        # The victim's username is email-shaped so an EmailField-valid address
+        # can equal it — same requirement as the signup-side tests.
+        User.objects.create_user(username="victim@example.com", email="", password=PASSWORD)
+        self.attacker = User.objects.create_user(
+            username="attacker", email="attacker@example.com", password=PASSWORD
+        )
+        self.client = Client()
+        self.client.force_login(self.attacker)
+
+    def _add_secondary(self, email):
+        r = self.client.post("/accounts/email/", {"email": email, "action_add": ""})
+        self.assertNotEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        address = EmailAddress.objects.get(user=self.attacker, email__iexact=email)
+        self.assertFalse(address.verified)  # never confirmed — the exploit needs no mailbox access
+        return address
+
+    def test_make_primary_on_unverified_colliding_address_is_rejected(self):
+        self._add_secondary("victim@example.com")
+        r = self.client.post(
+            "/accounts/email/", {"email": "victim@example.com", "action_primary": ""}
+        )
+        # No exception, no 500 — a clean redirect back to the same page.
+        self.assertEqual(r.status_code, status.HTTP_302_FOUND)
+        self.attacker.refresh_from_db()
+        self.assertEqual(self.attacker.email, "attacker@example.com")
+        self.assertFalse(
+            EmailAddress.objects.get(user=self.attacker, email__iexact="victim@example.com").primary
+        )
+
+    def test_make_primary_on_non_colliding_address_still_succeeds(self):
+        self._add_secondary("second@example.com")
+        r = self.client.post(
+            "/accounts/email/", {"email": "second@example.com", "action_primary": ""}
+        )
+        self.assertEqual(r.status_code, status.HTTP_302_FOUND)
+        self.attacker.refresh_from_db()
+        self.assertEqual(self.attacker.email, "second@example.com")
 
 
 class HtmlSignupEmailCollisionTests(TestCase):
@@ -583,3 +638,47 @@ class MandatoryConfirmationCollisionTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "erin@old.example")
         self.assertEqual(self.user.pending_email_address_id, pending.pk)
+
+
+@override_settings(ACCOUNT_EMAIL_VERIFICATION="mandatory")
+class MandatoryChangeToOwnVerifiedCollidingSecondaryTests(TestCase):
+    """``request_email_change``'s immediate-effect branch (#1312 follow-up).
+
+    Found alongside the ``MakePrimaryCollisionTests`` vulnerability while
+    auditing every ``EmailAddress.set_as_primary()`` call site:
+    ``request_email_change`` calls it directly — bypassing
+    ``confirmation_would_collide`` entirely — whenever the requested address
+    is ALREADY a verified ``EmailAddress`` of this same account (e.g. added
+    and confirmed earlier via ``/accounts/email/``). Narrower than the
+    Make-Primary bug (requires ``EMAIL_VERIFICATION=mandatory`` and a
+    previously-verified secondary address), but the same bug class, so it
+    gets the same check.
+    """
+
+    def setUp(self):
+        cache.clear()
+        User.objects.create_user(username="owner@example.com", email="", password=PASSWORD)
+        self.user = User.objects.create_user(
+            username="erin", email="erin@old.example", password=PASSWORD
+        )
+        EmailAddress.objects.create(user=self.user, email="erin@old.example", verified=True, primary=True)
+        # Already verified for THIS account — the immediate-effect branch.
+        EmailAddress.objects.create(
+            user=self.user, email="owner@example.com", verified=True, primary=False
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_switching_to_own_verified_colliding_address_is_rejected(self):
+        r = self.client.patch("/api/v1/auth/me/", {"email": "owner@example.com"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(r.json()["email"], [EMAIL_TAKEN_MESSAGE])
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "erin@old.example")
+
+    def test_switching_to_own_verified_non_colliding_address_still_succeeds(self):
+        EmailAddress.objects.create(user=self.user, email="new@example.com", verified=True, primary=False)
+        r = self.client.patch("/api/v1/auth/me/", {"email": "new@example.com"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "new@example.com")
