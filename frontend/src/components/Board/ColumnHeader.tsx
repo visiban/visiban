@@ -167,6 +167,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
             className="text-fg-muted hover:text-fg-secondary transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
             title="Collapse column"
+            aria-label="Collapse column"
           >
             ◀
           </button>

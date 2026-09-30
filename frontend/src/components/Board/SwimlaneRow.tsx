@@ -248,6 +248,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 onClick={() => setEditing(true)}
                 className="transition text-xs text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                 title="Edit swimlane"
+                aria-label="Edit swimlane"
               >
                 ✎
               </button>

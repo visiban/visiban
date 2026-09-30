@@ -532,8 +532,8 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
           {def.show_on_card ? "Pinned" : `Pin (${pinnedFields.length} of ${PIN_CAP})`}
         </button>
         <span className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition shrink-0">
-          <button onClick={onEdit} className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" title={`Edit ${def.name}`}>✎</button>
-          <button onClick={onDelete} className="text-xs text-fg-tertiary hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded" title={`Delete ${def.name}`}>✕</button>
+          <button onClick={onEdit} className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" title={`Edit ${def.name}`} aria-label={`Edit ${def.name}`}>✎</button>
+          <button onClick={onDelete} className="text-xs text-fg-tertiary hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded" title={`Delete ${def.name}`} aria-label={`Delete ${def.name}`}>✕</button>
         </span>
       </div>
       {swapPromptOpen && (
