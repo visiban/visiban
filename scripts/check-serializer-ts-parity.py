@@ -74,12 +74,59 @@ For each mapped (schema component, TypeScript interface) pair:
                      (a JSONField or a bare Field reaches the client as `unknown`)
   nullability        one side admits null and the other does not
   enum_members       both sides resolve to a set of string values, and the sets differ
+  array_item_type    both sides are arrays, the schema's `items` is a `$ref` to a
+                     component this map itself covers, and the TypeScript side
+                     names a *different* mapped interface as the element type
 
 A check is skipped, never guessed, when either side cannot be classified with
 confidence — an unresolvable TypeScript alias produces no finding rather than a
 false one. Deliberately not an AST parse: field names, one type expression per
 field, and rough optionality are all this needs, and a regex extractor keeps the
 gate dependency-free.
+
+ARRAY ITEM TYPES (#1296)
+-------------------------
+Every check above reduces an array field to the single family `array` on both
+sides and stops — it never looked inside at what the array actually holds. That
+missed real drift: `BoardPublic.swimlanes` was typed `Swimlane[]` while the
+serializer's `items` schema was a `$ref` to `PublicSwimlane`, a deliberately
+narrower shape (#1140) that drops `custom_field_values`, `contact_email`, and
+`notes`. Every array-typed field on all 44 mapped pairs had this blind spot.
+
+The rule, deliberately narrow rather than a general structural recursion:
+
+  * The schema's `items` must resolve to a **direct `$ref`** (optionally through
+    one level of `allOf` wrapping, the same nullable-nested-ref shape
+    `_unwrap_schema` already handles elsewhere) to a component name. An inline
+    item schema (`items: {"type": "object", ...}`) or a primitive item
+    (`items: {"type": "string"}`) has no name to compare and is left alone —
+    the outer `array` vs `array` family check already covers those.
+  * That component name is looked up in `COMPONENT_MAP` — the same map this
+    whole gate is keyed on, so "what TypeScript interface *should* this item
+    be" never needs a second table. If the item's component **is** mapped, the
+    TypeScript element type must name that same interface, or it is
+    `array_item_type` drift.
+  * If the item's component is **not** in `COMPONENT_MAP` (no hand-maintained
+    TypeScript interface exists for it, or nobody has mapped it yet), the check
+    is silently skipped rather than guessed — the same "skip, don't guess" rule
+    every other check in this gate follows. This is a real, narrower gap than
+    the general "unmapped pair" one described in `docs/development/
+    serializer-ts-parity.md` ("What is not covered, and why"): an array field
+    whose item component has no mapping gets no `array_item_type` finding at
+    all, silently, for as long as that item component stays unmapped. Adding
+    the item component to `COMPONENT_MAP` (which requires it to have a real,
+    hand-maintained TypeScript interface — see that doc's "opposite reason"
+    table) closes the gap immediately, with no change needed here.
+  * On the TypeScript side, only a bare capitalised identifier before the
+    `[]` (or inside `Array<...>`) counts as a named element type. An inline
+    object literal element (`{ id: number }[]`) or a primitive element
+    (`string[]`) has nothing to compare against a schema `$ref`, so it is
+    treated the same as an unmapped schema item: skipped, not guessed.
+
+This is why `PublicSwimlane` is now mapped in `COMPONENT_MAP` even though
+`docs/development/serializer-ts-parity.md` used to list it under "pairs with a
+component but no TypeScript interface" — this check gave the public swimlane
+shape a reason to have its own interface, and it now does.
 
 TYPESCRIPT-ONLY OPTIONAL FIELDS
 -------------------------------
@@ -241,14 +288,26 @@ EXIT_USAGE = 2
 # which was never true — `BoardPublic` in `frontend/src/types/index.ts` is
 # exactly that shape, just under a renamed (not identical) name, the same
 # pattern as `CurrentUser`/`User`. #1282 corrected the documentation error and
-# mapped it here. `BoardPublic.swimlanes` is typed `Swimlane[]` rather than a
-# dedicated `PublicSwimlane[]` — the wider authenticated shape reused for the
-# narrower public one — but this gate's array check only compares the outer
-# family (`array` vs `array`); it does not recurse into item shapes, so that
-# looseness produces no finding here and needed no `TS_ONLY_FIELDS` entry or
-# other suppression. It is a real type gap, tracked in #1296, that only a
-# recursive array-item check would catch — see `PublicSwimlane` in "What is
-# not covered, and why" for the honest accounting of it.
+# mapped it here.
+#
+# `PublicSwimlane` (`PublicSwimlaneSerializer`, nested on
+# `PublicBoardSerializer.swimlanes`) is mapped as of #1296. It was excluded
+# until then for the same "opposite reason" as `CardQuery` above — the schema
+# has a component but TypeScript had no dedicated interface — because
+# `BoardPublic.swimlanes` was typed `Swimlane[]`, the wider authenticated
+# shape, reused for the narrower public one. That reuse was invisible to this
+# gate: the array checks that existed before #1296 compared only the outer
+# `array` vs `array` family and never looked at what the array held, so a
+# `PublicSwimlane[]` field typed as `Swimlane[]` — three fields (
+# `custom_field_values`, `contact_email`, `notes`) too wide, per #1140 —
+# produced no finding. #1296 added an `array_item_type` check that follows a
+# schema array's `items` `$ref` and compares it against the TypeScript
+# element type (see the module docstring's "ARRAY ITEM TYPES" section), which
+# only works once the item component itself is mapped — so closing the
+# blind spot required giving `PublicSwimlane` its own interface and mapping
+# it here, not just widening the check. `frontend/src/types/index.ts` now
+# declares `PublicSwimlane` matching `PublicSwimlaneSerializer` exactly, and
+# `BoardPublic.swimlanes` is `PublicSwimlane[]`.
 COMPONENT_MAP = {
     "AdminUser": "AdminUser",
     "Board": "Board",
@@ -287,6 +346,7 @@ COMPONENT_MAP = {
     "PublicAssignee": "PublicAssignee",
     "PublicBoard": "BoardPublic",
     "PublicCard": "PublicCard",
+    "PublicSwimlane": "PublicSwimlane",
     "SavedFilter": "SavedFilter",
     "ShareBoardResponse": "ShareActionResponse",
     "SiteConfig": "SiteConfig",
@@ -305,6 +365,7 @@ TYPE_FAMILY = "type_family"
 UNTYPED_SCHEMA = "untyped_schema"
 NULLABILITY = "nullability"
 ENUM_MEMBERS = "enum_members"
+ARRAY_ITEM_TYPE = "array_item_type"
 
 
 @dataclass(frozen=True)
@@ -331,6 +392,7 @@ class Finding:
             UNTYPED_SCHEMA: f"    schema declares no type at all; TypeScript says {self.ts_repr}",
             NULLABILITY: f"    schema {self.schema_repr}; TypeScript {self.ts_repr}",
             ENUM_MEMBERS: f"    schema allows {self.schema_repr}; TypeScript allows {self.ts_repr}",
+            ARRAY_ITEM_TYPE: f"    schema items are {self.schema_repr}; TypeScript items are {self.ts_repr}",
         }[self.kind]
         return f"  {head}\n{body}"
 
@@ -713,6 +775,13 @@ class TypeInfo:
     nullable: bool = False
     enum: frozenset[str] | None = None
     repr: str = UNKNOWN
+    # Set only when family == "array" and the element type is a *named* type:
+    # the schema component name an `items` `$ref` points at (schema side), or
+    # the bare capitalised identifier before `[]`/inside `Array<...>` (TS
+    # side). `None` means "array of something with no name to compare" — an
+    # inline object literal, a primitive, or an item schema this gate does not
+    # attempt to resolve — and the array_item_type check is skipped for it.
+    item: str | None = None
 
 
 _SCHEMA_FAMILIES = {
@@ -750,7 +819,32 @@ def classify_schema(prop: dict, components: dict) -> TypeInfo:
             return TypeInfo("object", nullable, enum, "object")
         return TypeInfo(UNKNOWN, nullable, enum, "no type")
     family = _SCHEMA_FAMILIES.get(raw, UNKNOWN)
-    return TypeInfo(family, nullable, enum, family if family != UNKNOWN else "no type")
+    item = _item_ref_name(node.get("items")) if family == "array" else None
+    return TypeInfo(family, nullable, enum, family if family != UNKNOWN else "no type", item)
+
+
+def _item_ref_name(items: object) -> str | None:
+    """The schema component name a JSON Schema array's `items` names, if any.
+
+    Only a direct `$ref`, or a `$ref` wrapped in a single `allOf` (the same
+    nullable-nested-ref shape `_unwrap_schema` follows for a plain field), has
+    a name worth comparing. An inline item schema (`{"type": "object", ...}`),
+    a primitive item (`{"type": "string"}`), or an `items` that is itself a
+    `oneOf`/list-of-schemas (`prefixItems`, tuple-typed arrays — not something
+    drf-spectacular emits here) has nothing to compare a TypeScript element
+    type against, so this deliberately does not recurse further than one
+    `allOf` level and returns `None` for all of those rather than guessing.
+    """
+    if not isinstance(items, dict):
+        return None
+    if "$ref" in items:
+        ref = items["$ref"]
+        prefix = "#/components/schemas/"
+        return ref[len(prefix):] if ref.startswith(prefix) else None
+    allof = items.get("allOf")
+    if isinstance(allof, list) and len(allof) == 1:
+        return _item_ref_name(allof[0])
+    return None
 
 
 def _clean_enum(enum: frozenset[str] | None) -> frozenset[str] | None:
@@ -809,6 +903,24 @@ _TS_PRIMITIVES = {
 }
 
 
+def _ts_item_name(array_type: str) -> str | None:
+    """The bare named interface a TypeScript array type's element is, if any.
+
+    `Foo[]` -> `"Foo"`, `Array<Foo>` -> `"Foo"`. An inline object literal
+    (`{ id: number }[]`) or a primitive element (`string[]`) has no name to
+    compare against a schema `$ref`'s component name, so both return `None` —
+    the array_item_type check skips rather than guesses, same as everywhere
+    else in this gate.
+    """
+    if array_type.endswith("[]"):
+        inner = array_type[:-2].strip()
+    elif array_type.startswith("Array<") and array_type.endswith(">"):
+        inner = array_type[len("Array<"):-1].strip()
+    else:
+        return None
+    return inner if re.fullmatch(r"[A-Z]\w*", inner) else None
+
+
 def classify_ts(type_text: str, unions: dict[str, frozenset[str]]) -> TypeInfo:
     parts = [p.strip() for p in _split_union(type_text)]
     nullable = any(p in ("null", "undefined") for p in parts)
@@ -825,7 +937,7 @@ def classify_ts(type_text: str, unions: dict[str, frozenset[str]]) -> TypeInfo:
         if one in unions:
             return TypeInfo("string", nullable, unions[one], "string")
         if one.endswith("[]") or one.startswith("Array<"):
-            return TypeInfo("array", nullable, None, "array")
+            return TypeInfo("array", nullable, None, "array", _ts_item_name(one))
         if one in _TS_PRIMITIVES:
             return TypeInfo(_TS_PRIMITIVES[one], nullable, None, _TS_PRIMITIVES[one])
         if one.startswith("{") or one.startswith("Record<") or one.startswith("Partial<"):
@@ -922,6 +1034,19 @@ def compare(schema: dict, interfaces: dict[str, dict[str, TsField]], unions: dic
                     ENUM_MEMBERS, comp_name, iface_name, prop_name,
                     "|".join(sorted(s.enum)), "|".join(sorted(t.enum)), ts_field.line,
                 ))
+            # Array item types (#1296). Only fires when the schema's `items`
+            # names a component that COMPONENT_MAP itself maps — otherwise
+            # there is no known-correct TypeScript name to compare against,
+            # and this stays silent rather than guessing (see the module
+            # docstring's "ARRAY ITEM TYPES" section for why that is a real,
+            # separately-documented gap rather than an oversight here).
+            if s.family == "array" and t.family == "array" and s.item is not None:
+                expected_iface = COMPONENT_MAP.get(s.item)
+                if expected_iface is not None and t.item is not None and t.item != expected_iface:
+                    findings.append(Finding(
+                        ARRAY_ITEM_TYPE, comp_name, iface_name, prop_name,
+                        f"{s.item}[]", f"{t.item}[]", ts_field.line,
+                    ))
 
         for ts_name, ts_field in sorted(iface.items()):
             if ts_name not in props:
@@ -1118,6 +1243,18 @@ export interface Widget {
   extra_only_in_ts: string;
   optional_only_in_ts?: string;
   untyped: string;
+  items_match: Thing[];
+  items_mismatch: Thing[];
+  items_unmapped_schema: Thing[];
+  items_ts_unnamed: { id: number }[];
+}
+
+export interface Thing {
+  id: number;
+}
+
+export interface OtherThing {
+  id: number;
 }
 
 /* A function-typed field must not eat the fields after it: the `>` of `=>` is
@@ -1149,6 +1286,7 @@ _SELF_TEST_SCHEMA = {
     "components": {
         "schemas": {
             "Thing": {"type": "object", "properties": {"id": {"type": "integer"}}},
+            "OtherThing": {"type": "object", "properties": {"id": {"type": "integer"}}},
             "RoleEnum": {"type": "string", "enum": ["admin", "viewer", "owner"]},
             "Widget": {
                 "type": "object",
@@ -1163,6 +1301,19 @@ _SELF_TEST_SCHEMA = {
                     "role": {"$ref": "#/components/schemas/RoleEnum"},
                     "untyped": {"description": "a JSONField reaches the client as unknown"},
                     "only_in_schema": {"type": "string"},
+                    # array_item_type (#1296): items_match's schema item ($ref
+                    # Thing, mapped -> "Thing") agrees with the TS element type.
+                    "items_match": {"type": "array", "items": {"$ref": "#/components/schemas/Thing"}},
+                    # items_mismatch's schema item ($ref OtherThing, mapped ->
+                    # "OtherThing") disagrees with the TS element type ("Thing").
+                    "items_mismatch": {"type": "array", "items": {"$ref": "#/components/schemas/OtherThing"}},
+                    # items_unmapped_schema's item ($ref UnmappedThing) names a
+                    # component COMPONENT_MAP does not cover — skip, don't guess.
+                    "items_unmapped_schema": {"type": "array", "items": {"$ref": "#/components/schemas/UnmappedThing"}},
+                    # items_ts_unnamed's schema item is a mapped $ref (Thing),
+                    # but the TS element is an inline object literal with no
+                    # name to compare — skip, don't guess.
+                    "items_ts_unnamed": {"type": "array", "items": {"$ref": "#/components/schemas/Thing"}},
                 },
             },
         }
@@ -1187,7 +1338,12 @@ def self_test() -> int:
 
     global COMPONENT_MAP
     original_map = COMPONENT_MAP
-    COMPONENT_MAP = {"Widget": "Widget"}
+    # Thing/OtherThing are mapped too (not just Widget) so the array_item_type
+    # fixture below can exercise a real "schema item component is mapped" hit.
+    # UnmappedThing is deliberately never added here or to the schema
+    # components — it exists only as a $ref name, to prove an unmapped item
+    # component is skipped rather than guessed.
+    COMPONENT_MAP = {"Widget": "Widget", "Thing": "Thing", "OtherThing": "OtherThing"}
     try:
         interfaces = parse_ts_interfaces(_SELF_TEST_TS)
         unions = parse_ts_string_unions(_SELF_TEST_TS)
@@ -1196,7 +1352,20 @@ def self_test() -> int:
         w = interfaces.get("Widget", {})
         check("nested object literal did not leak its inner fields",
               "a" not in w and "b" not in w and "nested" in w)
-        check("comment braces did not corrupt parsing", len(w) == 11)
+        check("comment braces did not corrupt parsing", len(w) == 15)
+
+        # ── array item types (#1296) ────────────────────────────────────────
+        check("_item_ref_name resolves a direct $ref",
+              _item_ref_name({"$ref": "#/components/schemas/Thing"}) == "Thing")
+        check("_item_ref_name resolves a single allOf-wrapped $ref",
+              _item_ref_name({"allOf": [{"$ref": "#/components/schemas/Thing"}]}) == "Thing")
+        check("_item_ref_name returns None for an inline item schema",
+              _item_ref_name({"type": "object"}) is None)
+        check("_ts_item_name resolves Foo[]", _ts_item_name("Thing[]") == "Thing")
+        check("_ts_item_name resolves Array<Foo>", _ts_item_name("Array<Thing>") == "Thing")
+        check("_ts_item_name returns None for a primitive element", _ts_item_name("string[]") is None)
+        check("_ts_item_name returns None for an inline object element",
+              _ts_item_name("{ id: number }[]") is None)
         check("resolved the Role string union", unions.get("Role") == frozenset({"admin", "viewer"}))
 
         # A leading-pipe alias must resolve. When it did not, `classify_ts` fell
@@ -1252,6 +1421,17 @@ def self_test() -> int:
         check("detects an enum membership mismatch", (ENUM_MEMBERS, "role") in kinds)
         check("does not flag matching fields", not any(f.field in ("id", "name", "tags") for f in findings))
 
+        # Array item types (#1296): the schema's items $ref names a mapped
+        # component, and the TS element type must name the SAME mapped
+        # interface, not merely "some interface".
+        check("detects an array item type mismatch", (ARRAY_ITEM_TYPE, "items_mismatch") in kinds)
+        check("does not flag a matching array item type",
+              not any(f.field == "items_match" for f in findings))
+        check("does not flag an array item type when the schema item component is unmapped",
+              not any(f.field == "items_unmapped_schema" for f in findings))
+        check("does not flag an array item type when the TypeScript item has no name",
+              not any(f.field == "items_ts_unnamed" for f in findings))
+
         # A suppression matching a real finding silences exactly that finding.
         count_finding = next((f for f in findings if f.key() == (TYPE_FAMILY, "Widget", "count")), None)
         check("found the count finding to suppress", count_finding is not None)
@@ -1302,7 +1482,10 @@ def self_test() -> int:
         check("an allowance for a property the schema now has is stale",
               not allowed_c and len(stale_c) == 1)
 
-        # A clean pair produces nothing.
+        # A clean pair produces nothing. Narrowed to just Widget: COMPONENT_MAP
+        # also carries Thing/OtherThing for the array_item_type fixture above,
+        # and both of these fixtures deliberately omit them.
+        COMPONENT_MAP = {"Widget": "Widget"}
         clean_schema = {"components": {"schemas": {"Widget": {"properties": {"id": {"type": "integer"}}}}}}
         clean_ts = parse_ts_interfaces("export interface Widget {\n  id: number;\n}\n")
         clean_findings, clean_errors = compare(clean_schema, clean_ts, {})
