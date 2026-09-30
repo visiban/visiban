@@ -54,6 +54,8 @@ EMAIL_PREFERENCE_BY_ACTION = {
     Notification.ActionType.MENTIONED: "email_notif_mentioned",
     Notification.ActionType.DUE_SOON: "email_notif_due_soon",
     Notification.ActionType.CARD_MOVED: "email_notif_card_moved",
+    # COMMENT_ADDED (#1277) is deliberately absent: in-app only, there is no
+    # email_notif_comment_added column.
 }
 
 # Mail headers must not contain a newline. Django raises BadHeaderError on one,

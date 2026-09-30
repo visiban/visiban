@@ -1,13 +1,18 @@
 import datetime
 from unittest.mock import patch
 
+from django.core import mail
 from django.core.management import call_command
-from django.test import TestCase
+from django.db import connection
+from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, BoardMembership, Column, Swimlane, Card, CardMovement, Notification
+from boards.services.notifications import card_watcher_ids, quoted_card_verb
+from boards.signals import post_notification_created
 
 
 def make_board(owner):
@@ -675,3 +680,229 @@ class BoardInviteNotificationTests(TestCase):
             ).count(),
             1,
         )
+
+
+# ---------------------------------------------------------------------------
+# #1277 — "Comment on a watched card" (COMMENT_ADDED) notifications
+# ---------------------------------------------------------------------------
+
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+@patch("boards.broadcast.broadcast_board_event")
+class CommentAddedNotificationTests(TestCase):
+    """A comment notifies the card's implicit watchers: creator + assignee.
+
+    v1 has no CardWatcher model (#229 adds one in 1.4); ``card_watcher_ids`` is
+    the seam. Every recipient rule the docs promise has a test here.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        # The commenter is the board owner; the watchers are plain members.
+        self.commenter = User.objects.create_user(
+            username="commenter", password="pass", notif_comment_added=True
+        )
+        self.client.force_authenticate(self.commenter)
+        self.board, self.col_a, _, self.swim = make_board(self.commenter)
+        self.creator = self._member("creator")
+        self.assignee = self._member("assignee")
+        self.card = self._card(created_by=self.creator, assignee=self.assignee)
+
+    def _member(self, username, **prefs):
+        prefs.setdefault("notif_comment_added", True)
+        user = User.objects.create_user(username=username, password="pass", **prefs)
+        BoardMembership.objects.create(board=self.board, user=user, role=BoardMembership.Role.MEMBER)
+        return user
+
+    def _card(self, created_by, assignee=None, title="Watched card"):
+        return Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title=title, created_by=created_by, assignee=assignee, position=0,
+        )
+
+    def _post_comment(self, body="Looks good to me", card=None):
+        card = card or self.card
+        return self.client.post(
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/comments/",
+            {"body": body}, format="json",
+        )
+
+    def _comment_rows(self, **filters):
+        return Notification.objects.filter(
+            action_type=Notification.ActionType.COMMENT_ADDED, **filters
+        )
+
+    def test_assignee_is_notified(self, _):
+        card = self._card(created_by=None, assignee=self.assignee)
+        resp = self._post_comment(card=card)
+        self.assertEqual(resp.status_code, 201)
+        rows = list(self._comment_rows(card=card))
+        self.assertEqual([n.recipient_id for n in rows], [self.assignee.pk])
+        n = rows[0]
+        self.assertEqual(n.actor_id, self.commenter.pk)
+        self.assertEqual(n.board_id, self.board.pk)
+        self.assertEqual(n.verb, 'commenter commented on "Watched card"')
+
+    def test_creator_is_notified(self, _):
+        card = self._card(created_by=self.creator, assignee=None)
+        self.assertEqual(self._post_comment(card=card).status_code, 201)
+        self.assertEqual(
+            list(self._comment_rows(card=card).values_list("recipient_id", flat=True)),
+            [self.creator.pk],
+        )
+
+    def test_creator_and_assignee_are_both_notified(self, _):
+        self.assertEqual(self._post_comment().status_code, 201)
+        self.assertEqual(
+            set(self._comment_rows(card=self.card).values_list("recipient_id", flat=True)),
+            {self.creator.pk, self.assignee.pk},
+        )
+
+    def test_creator_who_is_also_assignee_gets_exactly_one_row(self, _):
+        card = self._card(created_by=self.creator, assignee=self.creator)
+        self.assertEqual(self._post_comment(card=card).status_code, 201)
+        self.assertEqual(self._comment_rows(card=card, recipient=self.creator).count(), 1)
+        self.assertEqual(self._comment_rows(card=card).count(), 1)
+
+    def test_commenter_is_not_notified_of_own_comment(self, _):
+        # The commenter created and is assigned the card, and has the toggle on.
+        card = self._card(created_by=self.commenter, assignee=self.commenter)
+        self.assertEqual(self._post_comment(card=card).status_code, 201)
+        self.assertEqual(self._comment_rows(card=card).count(), 0)
+
+    def test_watcher_commenting_does_not_notify_themselves_but_notifies_the_other(self, _):
+        self.client.force_authenticate(self.assignee)
+        self.assertEqual(self._post_comment().status_code, 201)
+        self.assertEqual(
+            list(self._comment_rows(card=self.card).values_list("recipient_id", flat=True)),
+            [self.creator.pk],
+        )
+
+    def test_toggle_off_creates_no_row(self, _):
+        User.objects.filter(pk__in=[self.creator.pk, self.assignee.pk]).update(
+            notif_comment_added=False
+        )
+        self.assertEqual(self._post_comment().status_code, 201)
+        self.assertEqual(self._comment_rows().count(), 0)
+
+    def test_toggle_defaults_off(self, _):
+        # Upgrading must not start notifying anybody who never opted in.
+        watcher = User.objects.create_user(username="default_prefs", password="pass")
+        BoardMembership.objects.create(board=self.board, user=watcher, role=BoardMembership.Role.MEMBER)
+        card = self._card(created_by=watcher, assignee=watcher)
+        self.assertEqual(self._post_comment(card=card).status_code, 201)
+        self.assertEqual(self._comment_rows(card=card).count(), 0)
+
+    def test_watcher_removed_from_board_is_not_notified(self, _):
+        BoardMembership.objects.filter(board=self.board, user=self.creator).delete()
+        self.assertEqual(self._post_comment().status_code, 201)
+        self.assertEqual(
+            list(self._comment_rows(card=self.card).values_list("recipient_id", flat=True)),
+            [self.assignee.pk],
+        )
+
+    def test_inactive_watcher_is_skipped(self, _):
+        User.objects.filter(pk=self.assignee.pk).update(is_active=False)
+        self.assertEqual(self._post_comment().status_code, 201)
+        self.assertEqual(
+            list(self._comment_rows(card=self.card).values_list("recipient_id", flat=True)),
+            [self.creator.pk],
+        )
+
+    def test_mentioned_watcher_gets_mention_only(self, _):
+        self.assertEqual(self._post_comment("@assignee can you check?").status_code, 201)
+        assignee_rows = Notification.objects.filter(recipient=self.assignee, card=self.card)
+        self.assertEqual(
+            list(assignee_rows.values_list("action_type", flat=True)),
+            [Notification.ActionType.MENTIONED],
+        )
+        # The un-mentioned watcher still hears about the comment.
+        self.assertEqual(self._comment_rows(recipient=self.creator).count(), 1)
+
+    def test_watcher_with_mentions_off_still_gets_comment_added(self, _):
+        # No MENTIONED row was created, so there is nothing to de-duplicate
+        # against: the watcher must not fall through both nets.
+        User.objects.filter(pk=self.assignee.pk).update(notif_mentioned=False)
+        self.assertEqual(self._post_comment("@assignee can you check?").status_code, 201)
+        self.assertEqual(
+            list(
+                Notification.objects.filter(recipient=self.assignee).values_list(
+                    "action_type", flat=True
+                )
+            ),
+            [Notification.ActionType.COMMENT_ADDED],
+        )
+
+    def test_no_email_is_sent(self, _):
+        # Opt in to every email preference that exists: none covers this event.
+        User.objects.filter(pk__in=[self.creator.pk, self.assignee.pk]).update(
+            email="watcher@example.test",
+            email_notif_card_assigned=True,
+            email_notif_mentioned=True,
+            email_notif_due_soon=True,
+            email_notif_card_moved=True,
+        )
+        mail.outbox = []
+        received = []
+
+        def _receiver(sender, **kwargs):
+            received.append(kwargs)
+
+        post_notification_created.connect(_receiver, dispatch_uid="test_1277")
+        self.addCleanup(post_notification_created.disconnect, dispatch_uid="test_1277")
+        # Without executing on_commit callbacks the outbox assertion is vacuous.
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self._post_comment("Shipping it")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(self._comment_rows().count(), 2)
+        self.assertEqual(mail.outbox, [])
+        # The delivery seam still fires, with the documented context keys.
+        self.assertEqual(len(received), 2)
+        self.assertEqual(received[0]["context"]["comment_body"], "Shipping it")
+        self.assertEqual(received[0]["context"]["comment_id"], resp.data["id"])
+
+    def test_500_character_title_still_creates_comment(self, _):
+        card = self._card(created_by=self.creator, assignee=self.assignee, title="T" * 500)
+        resp = self._post_comment("@creator see this", card=card)
+        self.assertEqual(resp.status_code, 201)
+        max_len = Notification._meta.get_field("verb").max_length
+        rows = Notification.objects.filter(card=card)
+        # One MENTIONED (creator) and one COMMENT_ADDED (assignee), both clipped.
+        self.assertEqual(rows.count(), 2)
+        for n in rows:
+            self.assertLessEqual(len(n.verb), max_len)
+            self.assertTrue(n.verb.endswith('…"'), n.verb)
+
+    def test_query_count_is_constant_in_watchers(self, _):
+        # Fixed cost for the watcher path: one SELECT for the recipients and one
+        # bulk INSERT, regardless of how many watchers there are. Pin the whole
+        # request so a per-watcher query shows up as a failure.
+        card_one = self._card(created_by=self.creator, assignee=None)
+        # Warm-up: the first request of a test fills process-level caches.
+        self.assertEqual(self._post_comment(card=card_one).status_code, 201)
+        with CaptureQueriesContext(connection) as one_watcher:
+            self.assertEqual(self._post_comment(card=card_one).status_code, 201)
+        with self.assertNumQueries(len(one_watcher.captured_queries)):
+            self.assertEqual(self._post_comment().status_code, 201)
+        self.assertEqual(self._comment_rows(card=self.card).count(), 2)
+
+
+class CardWatcherIdsTests(TestCase):
+    """``card_watcher_ids`` is the seam #229 replaces; pin its contract."""
+
+    def test_creator_and_assignee_without_none(self):
+        self.assertEqual(card_watcher_ids(Card(created_by_id=1, assignee_id=2)), {1, 2})
+        self.assertEqual(card_watcher_ids(Card(created_by_id=1, assignee_id=1)), {1})
+        self.assertEqual(card_watcher_ids(Card(created_by_id=None, assignee_id=None)), set())
+
+
+class QuotedCardVerbTests(TestCase):
+    def test_short_title_is_untouched(self):
+        self.assertEqual(quoted_card_verb("a commented on", "Fix login"), 'a commented on "Fix login"')
+
+    def test_long_title_is_clipped_to_verb_max_length(self):
+        max_len = Notification._meta.get_field("verb").max_length
+        lead = "u" * 150 + " commented on"
+        verb = quoted_card_verb(lead, "x" * 500)
+        self.assertEqual(len(verb), max_len)
+        self.assertTrue(verb.startswith(lead + ' "'))
+        self.assertTrue(verb.endswith('\u2026"'))
