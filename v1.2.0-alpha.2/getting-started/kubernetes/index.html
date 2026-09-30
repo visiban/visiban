@@ -4172,9 +4172,9 @@ use an <a href="#external-database-and-valkey">external Valkey</a> with the pass
 <h2 id="pod-security">Pod security<a class="headerlink" href="#pod-security" title="Permanent link">&para;</a></h2>
 <p>Every long-running or scheduled workload the chart renders — the backend
 Deployment (its <code>migrate</code>, <code>collectstatic</code> and <code>bootstrap</code> init containers
-included), the bundled PostgreSQL and Valkey StatefulSets, the
-<a href="#scheduled-jobs">scheduled jobs</a> CronJobs, and the demo seed Job/CronJob —
-runs:</p>
+included), the frontend (nginx) Deployment, the bundled PostgreSQL and Valkey
+StatefulSets, the <a href="#scheduled-jobs">scheduled jobs</a> CronJobs, and the demo
+seed Job/CronJob — runs:</p>
 <ul>
 <li>as a non-root user (<code>runAsNonRoot: true</code>, a numeric <code>runAsUser</code>/<code>runAsGroup</code>)</li>
 <li>with <code>seccompProfile: RuntimeDefault</code></li>
@@ -4184,14 +4184,16 @@ runs:</p>
 <li>with no mounted ServiceAccount token (<code>automountServiceAccountToken: false</code>)</li>
 </ul>
 <p>Scratch space each image still needs to write — <code>/tmp</code> on the backend's four
-containers and on PostgreSQL, PostgreSQL's <code>/var/run/postgresql</code> socket
-directory, and the backend's <code>collectstatic</code> output (<code>STATIC_ROOT</code>) — is an
-<code>emptyDir</code> volume, never the read-only root filesystem itself. (The bundled
-Valkey needs no <code>/tmp</code> mount — it only ever writes to <code>/data</code> and
-<code>/etc/valkey</code>, both already <code>emptyDir</code>/<code>ConfigMap</code> mounts from #1200.)</p>
+containers, on PostgreSQL and on the frontend; PostgreSQL's
+<code>/var/run/postgresql</code> socket directory; the backend's <code>collectstatic</code> output
+(<code>STATIC_ROOT</code>); and nginx's <code>/var/cache/nginx</code> (its client/proxy/fastcgi
+buffering temp dirs) and <code>/run</code> (<code>nginx.pid</code>, <code>nginx.lock</code>) — is an <code>emptyDir</code>
+volume, never the read-only root filesystem itself. (The bundled Valkey needs
+no <code>/tmp</code> mount — it only ever writes to <code>/data</code> and <code>/etc/valkey</code>, both
+already <code>emptyDir</code>/<code>ConfigMap</code> mounts from #1200.)</p>
 <p>The bundled Valkey's hardening (chart 0.5.0, #1200) is fixed. The backend
-Deployment's and the bundled PostgreSQL StatefulSet's (chart 0.6.0, #1210) are
-overridable:</p>
+Deployment's, the bundled PostgreSQL StatefulSet's (chart 0.6.0, #1210), and
+the frontend Deployment's (chart 0.7.0, #1224) are overridable:</p>
 <table>
 <thead>
 <tr>
@@ -4221,12 +4223,22 @@ overridable:</p>
 <td><code>allowPrivilegeEscalation: false</code>, <code>readOnlyRootFilesystem: true</code>, <code>capabilities.drop: [ALL]</code></td>
 <td>Container-level <code>securityContext</code> for the <code>postgresql</code> container.</td>
 </tr>
+<tr>
+<td><code>frontend.securityContext.pod</code></td>
+<td><code>runAsNonRoot: true</code>, <code>runAsUser</code>/<code>runAsGroup: 101</code>, <code>seccompProfile: RuntimeDefault</code></td>
+<td>Pod-level <code>securityContext</code> for the frontend (nginx) Deployment. <code>101</code> is <code>nginx:1.27-alpine</code>'s built-in <code>nginx</code> user/group.</td>
+</tr>
+<tr>
+<td><code>frontend.securityContext.container</code></td>
+<td><code>allowPrivilegeEscalation: false</code>, <code>readOnlyRootFilesystem: true</code>, <code>capabilities.drop: [ALL]</code></td>
+<td>Container-level <code>securityContext</code> for the <code>frontend</code> container.</td>
+</tr>
 </tbody>
 </table>
-<p>Both blocks are passed through with <code>toYaml</code>, like <code>backend.resources</code> — the
-chart does not validate their contents, so an operator running a base image
-that cannot run as the chart's numeric UID, or that needs a writable root
-filesystem, can override either block wholesale. For example, to run the
+<p>All three blocks are passed through with <code>toYaml</code>, like <code>backend.resources</code> —
+the chart does not validate their contents, so an operator running a base
+image that cannot run as the chart's numeric UID, or that needs a writable
+root filesystem, can override any block wholesale. For example, to run the
 bundled PostgreSQL with a writable root filesystem on an image that writes
 somewhere this chart does not mount an <code>emptyDir</code> for:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># values.override.yaml</span>
@@ -4239,14 +4251,25 @@ somewhere this chart does not mount an <code>emptyDir</code> for:</p>
 <a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">        </span><span class="nt">drop</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"ALL"</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p><code>scripts/helm-structure-check.sh</code> asserts <code>runAsNonRoot</code> and a full capability
-drop on every rendered pod except the frontend (nginx) Deployment.</p>
+drop on every rendered pod, with no exclusions.</p>
 <div class="admonition note">
-<p class="admonition-title">The frontend (nginx) Deployment is not hardened yet</p>
-<p>Unlike the other workloads above, the frontend Deployment carries no
-pod- or container-level <code>securityContext</code>. Its base image's default user
-and the paths nginx writes to at runtime have not been audited for a
-read-only root filesystem, so bringing it up to the same bar is tracked
-separately in #1224 rather than folded into #1210.</p>
+<p class="admonition-title">The frontend container listens on 8080, not 80 (chart 0.7.0)</p>
+<p><code>nginx:1.27-alpine</code> cannot bind a port below 1024 as the non-root
+<code>frontend.securityContext.pod.runAsUser</code> without <code>CAP_NET_BIND_SERVICE</code> —
+and that capability is not usable here either: Docker/containerd's
+runc-based container runtimes do not add a capability to an already
+non-root process's effective/ambient set from <code>capabilities.add</code> alone
+(verified empirically against <code>nginx:1.27-alpine</code>, #1224), so the process
+can never actually use it. The frontend container's own listen port moved
+to 8080 to sidestep this entirely — a non-privileged port needs no
+capability. This does <strong>not</strong> change the frontend <strong>Service</strong>'s port
+(<code>frontend.service.port</code>, <code>80</code> by default): the Service targets the
+container by its named <code>http</code> port, which follows automatically. The one
+place this is user-visible is a <code>kubectl port-forward &lt;frontend-pod&gt;
+8080:80</code> run directly against the pod (bypassing the Service) — the NOTES
+printed after <code>helm install</code>/<code>helm upgrade</code> already reflect the new
+<code>8080:8080</code>, but a script or alias built from an older NOTES output needs
+updating.</p>
 </div>
 <h2 id="network-policies">Network policies<a class="headerlink" href="#network-policies" title="Permanent link">&para;</a></h2>
 <p>Enable network policies to restrict pod-to-pod traffic to only the paths Visiban needs:</p>
@@ -4257,7 +4280,9 @@ separately in #1224 rather than folded into #1210.</p>
 </code></pre></div>
 <p>This creates policies that allow:</p>
 <ul>
-<li>Ingress controller → frontend (port 80)</li>
+<li>Ingress controller → frontend (port 8080 — the frontend container's own
+  listen port, #1224; the frontend Service itself still fronts port 80 by
+  default)</li>
 <li>Frontend (and the <code>helm test</code> probe) → backend (port 8000)</li>
 <li>Backend → PostgreSQL (port 5432)</li>
 <li>Backend → Valkey (port 6379)</li>

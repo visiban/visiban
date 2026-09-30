@@ -4129,7 +4129,9 @@
 <h3 id="network-policies">Network policies<a class="headerlink" href="#network-policies" title="Permanent link">&para;</a></h3>
 <p>When <code>networkPolicy.enabled: true</code>, the chart creates a default-deny ingress policy and explicit allowlists:</p>
 <ul>
-<li>Ingress controller → frontend (port 80)</li>
+<li>Ingress controller → frontend (port 8080 — the frontend container's own
+  listen port, #1224; the frontend Service itself still fronts port 80 by
+  default)</li>
 <li>Frontend → backend (port 8000)</li>
 <li>Backend → PostgreSQL (port 5432)</li>
 <li>Backend → Valkey (port 6379)</li>
