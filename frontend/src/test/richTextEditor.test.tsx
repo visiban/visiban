@@ -236,6 +236,23 @@ describe('RichTextEditor', () => {
       expect(colorButton).toHaveAttribute('aria-label', 'Text color')
       expect(colorButton.querySelector('span')).toHaveAttribute('aria-hidden', 'true')
     })
+
+    it('flips aria-expanded on the text color button when the swatch panel opens and closes', () => {
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+      const colorButton = screen.getByTitle('Text color')
+      expect(colorButton).toHaveAttribute('aria-expanded', 'false')
+
+      // The trigger toggles on mousedown (with preventDefault to keep editor
+      // focus), not click — see RichTextEditor.tsx's ColorPicker.
+      fireEvent.mouseDown(colorButton)
+      expect(colorButton).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getByTitle('Default')).toBeInTheDocument() // swatch panel open
+
+      fireEvent.mouseDown(colorButton)
+      expect(colorButton).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByTitle('Default')).not.toBeInTheDocument()
+    })
   })
 })
 
