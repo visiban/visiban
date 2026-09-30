@@ -23,7 +23,11 @@ re-verify these by hand; run the release and read what the gate says.
 - `scripts/release.sh <version>` rewrites the version-bearing files, including the
   `docs/index.md` banner: the release-candidate banner for RC tags, a pre-release banner for
   alpha/beta tags, and the stable "Latest release" banner for GA tags. It then runs the docs
-  gate as a cross-check and warns if it fails.
+  gate as a cross-check, plus its own consistency checks against `.env.example`,
+  `frontend/package.json`, `README.md`, the `docs/getting-started/` pages,
+  `docker-compose.prod.yml`, and the Helm chart — and **aborts the release** (rolling the
+  branch back to `main`, no partial commit) if any of them fail, rather than merely warning
+  (#1269).
 - CI job `docs-version-accuracy` (script `scripts/check-docs-version-accuracy.sh`) runs on
   MRs, `main`, and tag pipelines. It reads the current version from `frontend/package.json`
   and fails on: a `Coming in X` / `Ships in X` / `Lands in X` / `Planned for X` claim naming
