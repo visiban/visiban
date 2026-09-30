@@ -832,6 +832,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <button
                       onClick={() => setMovingBoard(b)}
                       title="Move to another group"
+                      aria-label={`Move ${b.name} to another group`}
                       className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-info p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

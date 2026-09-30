@@ -68,6 +68,8 @@ describe('BoardSelector', () => {
     render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
     await screen.findByText('My Board')
     expect(screen.getByTitle('Delete board')).toBeInTheDocument()
+    // title alone is not a reliable accessible name (Firefox/VoiceOver skip it)
+    expect(screen.getByRole('button', { name: 'Delete My Board' })).toBeInTheDocument()
   })
 
   it('shows delete confirmation dialog', async () => {

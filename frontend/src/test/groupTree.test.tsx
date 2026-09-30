@@ -79,6 +79,18 @@ describe('GroupTree', () => {
     expect(screen.getByText('Design')).toBeInTheDocument()
   })
 
+  it('gives the add-subgroup button an accessible name beyond title alone', () => {
+    const nodes = buildGroupTree([makeGroup({ id: 1, name: 'Engineering' })])
+    render(
+      <MemoryRouter>
+        <GroupTree nodes={nodes} onGroupCreated={vi.fn()} />
+      </MemoryRouter>
+    )
+    // assert the attribute directly — aria-label and title share the same text here, so
+    // getByRole's computed-name resolution would pass via the title fallback regardless
+    expect(screen.getByTitle('Add subgroup to Engineering')).toHaveAttribute('aria-label', 'Add subgroup to Engineering')
+  })
+
   it('renders stats for groups', () => {
     const nodes = buildGroupTree([makeGroup({ board_count: 3, member_count: 5 })])
     render(

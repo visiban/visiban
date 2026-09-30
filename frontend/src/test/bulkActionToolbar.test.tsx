@@ -159,7 +159,12 @@ describe('BulkActionToolbar', () => {
         onClearSelection={onClear}
       />
     )
-    await userEvent.setup().click(screen.getByTitle('Deselect all (Esc)'))
+    const deselect = screen.getByTitle('Deselect all (Esc)')
+    // title alone is not a reliable accessible name (Firefox/VoiceOver skip it); assert the
+    // attribute directly since aria-label and title share the same text here, so getByRole's
+    // computed-name resolution would pass via the title fallback even without aria-label
+    expect(deselect).toHaveAttribute('aria-label', 'Deselect all (Esc)')
+    await userEvent.setup().click(deselect)
     expect(onClear).toHaveBeenCalledOnce()
   })
 

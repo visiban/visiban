@@ -150,6 +150,22 @@ describe('GroupDetail', () => {
     expect(await screen.findByText('Members')).toBeInTheDocument()
   })
 
+  it('gives the move-board button an accessible name beyond title alone', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([
+      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '' },
+    ])
+    renderGroupDetail()
+
+    expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
+    // title alone is not a reliable accessible name (Firefox/VoiceOver skip it)
+    expect(screen.getByRole('button', { name: 'Move Sprint Board to another group' })).toBeInTheDocument()
+  })
+
   it('shows delete group button for admin', async () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([

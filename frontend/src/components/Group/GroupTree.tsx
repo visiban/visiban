@@ -94,6 +94,7 @@ function GroupNode({
         <button
           onClick={(e) => { e.stopPropagation(); setAddingSubgroup(true); }}
           title={`Add subgroup to ${group.name}`}
+          aria-label={`Add subgroup to ${group.name}`}
           className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-fg-faint hover:text-info hover:bg-surface-active opacity-0 group-hover/row:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis transition"
         >
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
