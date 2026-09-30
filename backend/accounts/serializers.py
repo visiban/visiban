@@ -560,6 +560,14 @@ class CurrentUserSerializer(UserSerializer):
 
 
 class PersonalAccessTokenSerializer(serializers.ModelSerializer):
+    # Declared explicitly, rather than left to the auto-generated JSONField,
+    # so drf-spectacular publishes an array-of-strings schema instead of an
+    # untyped one (#1294) — read_only/allow_null match the model field
+    # (null=True means "legacy token, full authority"; see the class
+    # docstring). Documentation only: this field is already read_only via
+    # Meta.read_only_fields below, so representation is unaffected.
+    scopes = serializers.ListField(child=serializers.CharField(), read_only=True, allow_null=True)
+
     class Meta:
         model = PersonalAccessToken
         fields = [
@@ -580,6 +588,23 @@ class PersonalAccessTokenSerializer(serializers.ModelSerializer):
             "expires_at",
             "scopes",
         ]
+
+
+class PersonalAccessTokenCreateResponseSerializer(PersonalAccessTokenSerializer):
+    """Documents the creation response only (#1294) — extends
+    ``PersonalAccessTokenSerializer`` with the raw token, included once at
+    creation only. Never instantiated: ``PersonalAccessTokenListCreateView.post``
+    builds this exact shape by hand (``PersonalAccessTokenSerializer(pat).data``
+    plus an injected ``token`` key) so the raw value is never persisted or
+    reachable again; this class exists purely so drf-spectacular can describe
+    that response.
+    """
+
+    token = serializers.CharField(read_only=True)
+
+    class Meta(PersonalAccessTokenSerializer.Meta):
+        fields = PersonalAccessTokenSerializer.Meta.fields + ["token"]
+        read_only_fields = PersonalAccessTokenSerializer.Meta.read_only_fields + ["token"]
 
 
 class PersonalAccessTokenCreateSerializer(serializers.Serializer):

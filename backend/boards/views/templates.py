@@ -1,5 +1,6 @@
 """BoardTemplateListView — returns available board templates."""
 
+from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -33,6 +34,7 @@ class BoardTemplateListView(APIView):
         TokenHasScope,
     ]
 
+    @extend_schema(responses=BoardTemplateSerializer(many=True))
     def get(self, request):
         templates = BoardTemplate.objects.filter(is_active=True).order_by("sort_order", "name")
         return Response(BoardTemplateSerializer(templates, many=True).data)
