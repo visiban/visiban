@@ -4339,7 +4339,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <td>integer</td>
 <td>no</td>
 <td>no</td>
-<td>Sort order within the column/swimlane cell (0-based)</td>
+<td>Sort order within the column/swimlane cell (0-based); update via the <a href="#move">move endpoint</a> only — a <code>PATCH</code>/<code>PUT</code> that changes <code>position</code> returns <code>400 Bad Request</code> (since 1.2, #1275). Echoing the current value back is accepted.</td>
 </tr>
 <tr>
 <td><code>created_by</code></td>
@@ -4563,7 +4563,7 @@ and write:</p>
 <p>A non-object value (other than <code>null</code>) returns
 <code>{ "external_ref": { "non_field_errors": ["..."] } }</code>.</p>
 <blockquote>
-<p><strong><code>column</code> and <code>swimlane</code> cannot be changed via PATCH/PUT.</strong> These fields are present in the serializer response, and echoing back the card's <em>current</em> <code>column</code>/<code>swimlane</code> value is accepted (so a PUT client that round-trips the full representation still works). Submitting a <em>different</em> value — same board or another board — is rejected with <code>400</code> and body <code>{"code": "use_move_endpoint", "detail": "..."}</code>. To move a card, always use <code>POST /api/v1/boards/{board_id}/cards/{id}/move/</code>, which enforces WIP/weight limits and writes the <code>CardMovement</code> audit trail.</p>
+<p><strong><code>column</code>, <code>swimlane</code>, and <code>position</code> cannot be changed via PATCH/PUT.</strong> These fields are present in the serializer response, and echoing back the card's <em>current</em> <code>column</code>/<code>swimlane</code>/<code>position</code> value is accepted (so a PUT client that round-trips the full representation still works). Submitting a <em>different</em> value — same board or another board — is rejected with <code>400</code> and body <code>{"code": "use_move_endpoint", "detail": "..."}</code>. To move a card, always use <code>POST /api/v1/boards/{board_id}/cards/{id}/move/</code>, which enforces WIP/weight limits and writes the <code>CardMovement</code> audit trail.</p>
 <p><code>column</code> and <code>swimlane</code> are also rejected on <strong>create</strong> (<code>POST</code>) when they reference a column/swimlane belonging to a different board — <code>400</code>, not <code>404</code>.</p>
 <p><code>uid</code> is not patchable — any <code>uid</code> value sent in the request body is silently ignored.</p>
 </blockquote>

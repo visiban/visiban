@@ -6018,7 +6018,7 @@ caller below <code>admin</code> — the same role gate this export already appli
 <tr>
 <td><code>position</code></td>
 <td>integer</td>
-<td>Display order (0-based)</td>
+<td>Display order (0-based); update via <code>reorder/</code> only — a <code>PATCH</code>/<code>PUT</code> that changes <code>position</code> returns <code>400 Bad Request</code> (since 1.2, #1275). Echoing the current value back is accepted.</td>
 </tr>
 <tr>
 <td><code>color</code></td>
@@ -6097,7 +6097,7 @@ caller below <code>admin</code> — the same role gate this export already appli
 <tr>
 <td><code>position</code></td>
 <td>integer</td>
-<td>Display order (0-based)</td>
+<td>Display order (0-based); update via <code>reorder/</code> only — a <code>PATCH</code>/<code>PUT</code> that changes <code>position</code> returns <code>400 Bad Request</code> (since 1.2, #1275). Echoing the current value back is accepted.</td>
 </tr>
 <tr>
 <td><code>color</code></td>
