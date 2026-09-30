@@ -210,6 +210,34 @@ class GitHubFetchTests(SimpleTestCase):
             providers.github_fetch("tok", "o/r", LensConfig(), LensFilters())
 
     @patch("git_lens.providers.requests.get")
+    def test_401_raises_auth_error(self, mock_get):
+        mock_get.return_value = _resp({}, status=401)
+        with self.assertRaises(providers.LensAuthError) as cm:
+            providers.github_fetch("tok", "o/r", LensConfig(), LensFilters())
+        # LensAuthError subclasses LensError; pin the exact type so a future
+        # branch reorder that degrades this to the generic LensError can't
+        # pass vacuously.
+        self.assertIs(type(cm.exception), providers.LensAuthError)
+
+    @patch("git_lens.providers.requests.get")
+    def test_403_without_rate_limit_header_raises_rate_limited(self, mock_get):
+        # No X-RateLimit-Remaining header at all → secondary/abuse rate limit,
+        # distinct from the primary rate-limit shape already covered above.
+        mock_get.return_value = _resp({}, status=403)
+        with self.assertRaises(providers.LensRateLimited) as cm:
+            providers.github_fetch("tok", "o/r", LensConfig(), LensFilters())
+        self.assertIs(type(cm.exception), providers.LensRateLimited)
+
+    @patch("git_lens.providers.requests.get")
+    def test_generic_error_status_raises_lens_error(self, mock_get):
+        mock_get.return_value = _resp({}, status=500)
+        with self.assertRaises(providers.LensError) as cm:
+            providers.github_fetch("tok", "o/r", LensConfig(), LensFilters())
+        # Must be the base LensError itself, not one of its subclasses, or a
+        # broadened `except LensError` in a test would mask a regression here.
+        self.assertIs(type(cm.exception), providers.LensError)
+
+    @patch("git_lens.providers.requests.get")
     def test_label_color_default_when_missing(self, mock_get):
         mock_get.return_value = _resp([
             {"number": 1, "title": "t", "html_url": "u", "state": "open",
@@ -240,6 +268,36 @@ class GitLabFetchTests(SimpleTestCase):
         mock_get.return_value = _resp({}, status=404)
         with self.assertRaises(providers.LensNotFound):
             providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
+
+    @patch("git_lens.providers.requests.get")
+    def test_401_raises_auth_error(self, mock_get):
+        mock_get.return_value = _resp({}, status=401)
+        with self.assertRaises(providers.LensAuthError) as cm:
+            providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
+        self.assertIs(type(cm.exception), providers.LensAuthError)
+
+    @patch("git_lens.providers.requests.get")
+    def test_403_raises_auth_error(self, mock_get):
+        mock_get.return_value = _resp({}, status=403)
+        with self.assertRaises(providers.LensAuthError) as cm:
+            providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
+        self.assertIs(type(cm.exception), providers.LensAuthError)
+
+    @patch("git_lens.providers.requests.get")
+    def test_429_raises_rate_limited_with_retry_after(self, mock_get):
+        mock_get.return_value = _resp({}, status=429, headers={"Retry-After": "42"})
+        with self.assertRaises(providers.LensRateLimited) as cm:
+            providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
+        self.assertIs(type(cm.exception), providers.LensRateLimited)
+        self.assertEqual(cm.exception.retry_after, "42")
+
+    @patch("git_lens.providers.requests.get")
+    def test_generic_error_status_raises_lens_error(self, mock_get):
+        mock_get.return_value = _resp({}, status=500)
+        with self.assertRaises(providers.LensError) as cm:
+            providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
+        # Must be the base LensError itself, not one of its subclasses.
+        self.assertIs(type(cm.exception), providers.LensError)
 
 
 class RegistryTests(SimpleTestCase):
