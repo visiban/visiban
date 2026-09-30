@@ -102,7 +102,11 @@ If the board has no custom fields defined, this section doesn't appear at all.
 
 Hovering a card for 600 ms opens the existing [card peek popover](board.md#card-peek). Alongside weight, attachment count, and last-moved information, the peek now lists any **non-pinned** custom field values that have data — so a field's value is never hidden just because it isn't one of the board's 2 pinned slots.
 
-The list is capped at 6 entries; beyond that, a `+N more` marker summarizes the rest. Pinned fields aren't repeated here since they already show on the card face.
+Custom fields get their own line in the peek, separate from weight and attachments. Pinned fields aren't repeated there since they already show on the card face. When the board pins at least one field, the line starts with **Other fields —** so it's clear these are different fields from the chips on the card, not a second value for the same field. For example, a card showing `SA: Glenda` on its face peeks as `Other fields — AE: Bob`.
+
+Field names are often abbreviated, so hovering an entry in the peek shows the value in full plus the field's help text, if set. Setting help text on a short-named field (for example, `SA` → "Solutions Architect") gives everyone a way to read what the abbreviation means.
+
+The list is capped at 6 entries; beyond that, a `+N more` marker summarizes the rest. Hovering the marker lists the names of the hidden fields.
 
 ---
 
