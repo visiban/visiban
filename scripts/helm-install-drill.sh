@@ -264,16 +264,32 @@ if [ -n "${DOCKERHUB_MIRROR:-}" ]; then
 
   # In-cluster datastore images the chart's own defaults pull: the built-in
   # PostgreSQL StatefulSet's `postgresql.image` (values.yaml, official image —
-  # postgresql.subchartEnabled is false) and the bundled bitnami/valkey
-  # subchart's default (valkey.enabled: true). Kept in sync with those
-  # defaults by hand; both set pullPolicy: IfNotPresent, so kind-loading the
-  # exact reference here means kubelet never attempts a live pull.
+  # postgresql.subchartEnabled is false) and the built-in Valkey StatefulSet's
+  # `valkey.image.{repository,tag}` (values.yaml, official image — #1200).
+  # Both set pullPolicy: IfNotPresent, so kind-loading the exact reference here
+  # means kubelet never attempts a live pull.
+  #
+  # The Valkey reference is READ from values.yaml rather than hardcoded a
+  # second time: #1231 found this pre-pull step still pinned to the pre-#1200
+  # `bitnami/valkey:latest` months after the chart itself moved off it, because
+  # nothing tied the two together. templates/valkey.yaml renders the image as
+  # a bare "{{ .Values.valkey.image.repository }}:{{ .Values.valkey.image.tag }}"
+  # (no registry prefix — unlike the old bitnami subchart's rendered
+  # reference), so the pulled/tagged/loaded string below must stay bare too,
+  # the same way postgres:17 does, or kind-loading it won't match what the pod
+  # spec actually requests and kubelet will attempt a live pull anyway.
+  VALKEY_VALUES_BLOCK="$(sed -n '/^valkey:/,/^[a-zA-Z]/p' "$CHART/values.yaml")"
+  VALKEY_REPO="$(printf '%s\n' "$VALKEY_VALUES_BLOCK" | grep -m1 '^[[:space:]]*repository:' | sed -E 's/^[[:space:]]*repository:[[:space:]]*"?([^"[:space:]]*)"?.*/\1/')"
+  VALKEY_TAG="$(printf '%s\n' "$VALKEY_VALUES_BLOCK" | grep -m1 '^[[:space:]]*tag:' | sed -E 's/^[[:space:]]*tag:[[:space:]]*"?([^"[:space:]]*)"?.*/\1/')"
+  [ -n "$VALKEY_REPO" ] && [ -n "$VALKEY_TAG" ] ||
+    die "could not derive valkey.image.{repository,tag} from $CHART/values.yaml (helm/visiban chart layout changed?)"
+  VALKEY_IMAGE="${VALKEY_REPO}:${VALKEY_TAG}"
   docker pull -q "${DOCKERHUB_MIRROR}/postgres:17"
   docker tag "${DOCKERHUB_MIRROR}/postgres:17" "postgres:17"
-  docker pull -q "${DOCKERHUB_MIRROR}/bitnami/valkey:latest"
-  docker tag "${DOCKERHUB_MIRROR}/bitnami/valkey:latest" "registry-1.docker.io/bitnami/valkey:latest"
-  EXTRA_LOAD_IMAGES=("postgres:17" "registry-1.docker.io/bitnami/valkey:latest")
-  ok "kindest/node, postgres, valkey pulled via the Dependency Proxy"
+  docker pull -q "${DOCKERHUB_MIRROR}/${VALKEY_IMAGE}"
+  docker tag "${DOCKERHUB_MIRROR}/${VALKEY_IMAGE}" "${VALKEY_IMAGE}"
+  EXTRA_LOAD_IMAGES=("postgres:17" "$VALKEY_IMAGE")
+  ok "kindest/node, postgres, valkey ($VALKEY_IMAGE) pulled via the Dependency Proxy"
 fi
 
 # ---------------------------------------------------------------------------
