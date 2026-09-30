@@ -645,6 +645,10 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 # django-allauth
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
+# HTML signup form (/accounts/signup/) with the #1221/#1312 email collision
+# check — see accounts.forms.VisibanSignupForm for why this lives on the
+# form, not on RegistrationAdapter.clean_email.
+ACCOUNT_FORMS = {"signup": "accounts.forms.VisibanSignupForm"}
 # EMAIL_VERIFICATION is the canonical env var name (added in 1.0).
 # Warn operators still setting the pre-1.1 ACCOUNT_EMAIL_VERIFICATION alias —
 # it is no longer read, so it silently has no effect (#894, #1047).

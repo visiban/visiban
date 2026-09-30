@@ -19,12 +19,13 @@ from unittest.mock import patch
 from allauth.account.models import EmailAddress
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.adapter import RegistrationAdapter
 from accounts.backends import resolve_login_user
+from accounts.forms import VisibanSignupForm
 from accounts.models import User
 from accounts.validators import (
     EMAIL_TAKEN_MESSAGE,
@@ -42,11 +43,10 @@ LOGIN_URL = "/api/v1/auth/login/"
 # the signup squat rejection must be indistinguishable from an ordinary clash.
 SIGNUP_USERNAME_TAKEN = "A user with that username already exists."
 SIGNUP_EMAIL_TAKEN = "User is already registered with this e-mail address."
-# allauth's own "email_taken" text (RegistrationAdapter.clean_email, #1312):
-# dj-rest-auth's RegisterSerializer.validate_email calls get_adapter().clean_email()
-# BEFORE its own is_verified() duplicate check, so any collision that
-# email_collides_with_identifier catches surfaces this message first —
-# SIGNUP_EMAIL_TAKEN above is now unreachable for the #1221 collision cases.
+# allauth's own "email_taken" text, raised directly via get_adapter().validation_error()
+# from VisibanSignupForm.clean_email (accounts/forms.py, #1312) — the HTML
+# signup path's message, distinct from RegistrationSerializer's REST-path
+# message (SIGNUP_EMAIL_TAKEN) above.
 ADAPTER_EMAIL_TAKEN = "A user is already registered with this email address."
 
 
@@ -122,19 +122,19 @@ class SignupCollisionTests(TestCase):
     def test_email_equal_to_another_active_unverified_email_is_rejected(self):
         # dj-rest-auth alone only refuses a *verified* address; the victim's
         # address here has no verified EmailAddress row at all. Caught by
-        # RegistrationAdapter.clean_email (#1312) before dj-rest-auth's own
-        # is_verified() check ever runs.
+        # RegistrationSerializer.validate_email's own email_collides_with_identifier
+        # check (#1221) after dj-rest-auth's own is_verified() check passes.
         self.assertFalse(EmailAddress.objects.filter(email__iexact="victim@example.com").exists())
         r = self._register(email="VICTIM@example.com")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(r.json()["email"], [ADAPTER_EMAIL_TAKEN])
+        self.assertEqual(r.json()["email"], [SIGNUP_EMAIL_TAKEN])
         self.assertEqual(User.objects.filter(email__iexact="victim@example.com").count(), 1)
 
     def test_email_equal_to_another_accounts_username_is_rejected(self):
         User.objects.create_user(username="owner@example.com", email="", password=PASSWORD)
         r = self._register(email="owner@example.com")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(r.json()["email"], [ADAPTER_EMAIL_TAKEN])
+        self.assertEqual(r.json()["email"], [SIGNUP_EMAIL_TAKEN])
 
     def test_email_of_inactive_account_is_allowed(self):
         self.victim.is_active = False
@@ -171,40 +171,103 @@ class AdapterCleanUsernameTests(TestCase):
         self.assertFalse(username_collides_with_email(user.username))
 
 
-class AdapterCleanEmailTests(TestCase):
-    """The allauth hook the HTML signup form's own uniqueness check runs after (#1312).
+class VisibanSignupFormCleanEmailTests(TestCase):
+    """The HTML signup form's own hook — deliberately NOT on the shared adapter (#1312).
 
-    allauth's ``BaseSignupForm.clean_email`` calls ``get_adapter().clean_email()``
-    before its own ``validate_unique_email`` — this is the one place every
-    allauth-driven signup that collects an email goes through, including
-    ``/accounts/signup/`` (allauth's HTML form), which dj-rest-auth's
-    ``RegisterSerializer.validate_email`` (covered by ``SignupCollisionTests``
-    above) never touches.
+    See ``accounts.forms.VisibanSignupForm`` for why this check lives on the
+    form rather than on ``RegistrationAdapter.clean_email``: that hook is
+    shared with password reset and the add-secondary-email form, where "an
+    active account already holds this email" is not a collision.
     """
 
     def setUp(self):
         User.objects.create_user(username="victim", email="victim@example.com", password=PASSWORD)
-        self.adapter = RegistrationAdapter()
+        # Email-shaped so a value equal to it also passes EmailField's own
+        # format validation (a plain "victim" would be rejected as an invalid
+        # email before clean_email ever runs).
+        User.objects.create_user(username="owner@example.com", email="", password=PASSWORD)
+
+    def _form(self, email):
+        return VisibanSignupForm(
+            data={"email": email, "password1": "Sup3rS3cr3t!xyz", "password2": "Sup3rS3cr3t!xyz"}
+        )
 
     def test_collision_with_another_accounts_username_raises(self):
-        with self.assertRaises(ValidationError):
-            self.adapter.clean_email("Victim")
-
-    def test_collision_ignores_case_and_whitespace(self):
-        with self.assertRaises(ValidationError):
-            self.adapter.clean_email("  VICTIM  ")
-
-    def test_non_colliding_email_passes_through(self):
-        self.assertEqual(self.adapter.clean_email("newbie@example.com"), "newbie@example.com")
+        form = self._form("Owner@Example.com")
+        self.assertFalse(form.is_valid())
+        self.assertIn(ADAPTER_EMAIL_TAKEN, form.errors["email"])
 
     def test_collision_with_another_accounts_active_email_also_raises(self):
-        # clean_email has no notion of "the account being changed" (signup has
-        # no existing account yet) — unlike username_collides_with_email's
-        # exclude_pk, every match here is necessarily with someone else's
+        # Unlike username_collides_with_email's exclude_pk, clean_email has no
+        # notion of "the account being changed" (signup has no existing
+        # account yet) — every match here is necessarily with someone else's
         # account. email_collides_with_identifier also catches an ordinary
         # duplicate active email, not just a username collision.
-        with self.assertRaises(ValidationError):
-            self.adapter.clean_email("victim@example.com")
+        form = self._form("victim@example.com")
+        self.assertFalse(form.is_valid())
+        self.assertIn(ADAPTER_EMAIL_TAKEN, form.errors["email"])
+
+    def test_non_colliding_email_passes_through(self):
+        form = self._form("newbie@example.com")
+        # May still be False over other fields (e.g. password validators);
+        # what matters here is that "email" carries no error.
+        form.is_valid()
+        self.assertNotIn("email", form.errors)
+
+
+class PasswordResetDoesNotRunSignupCollisionCheckTests(TestCase):
+    """Regression pin (#1312): the shared adapter hook must stay untouched.
+
+    A prior version of this fix put the #1221 check on
+    ``RegistrationAdapter.clean_email`` — the adapter is the global
+    ``ACCOUNT_ADAPTER``, and that hook is also called by
+    ``AllAuthPasswordResetForm.clean_email``, so every password-reset request
+    for an existing user's OWN email (exactly what a reset request always
+    names) was rejected as "already registered". Caught before merge; this
+    test exists so a future change can't silently reintroduce it by moving
+    the check back onto the adapter.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="alice", email="alice@example.com", password=PASSWORD
+        )
+
+    def test_reset_request_for_own_registered_email_succeeds(self):
+        with patch("accounts.forms.VisibanPasswordResetForm.save", return_value=None):
+            r = self.client.post("/api/v1/auth/password/reset/", {"email": "alice@example.com"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+
+class AddSecondaryEmailDoesNotRunSignupCollisionCheckTests(TestCase):
+    """Deliberate scope decision (#1312): adding a secondary email is not signup.
+
+    ``/accounts/email/`` (allauth's ``AddEmailForm``, logged-in users adding a
+    non-primary address to their own account) is left unchecked. It never
+    writes ``User.email`` — the field ``resolve_login_user`` reads — so it
+    cannot by itself create the state #1221 guards against; the promotion
+    path that WOULD write ``User.email`` already runs this check (see
+    ``accounts.email_change.confirmation_would_collide``). Pinned here so the
+    decision is a tested fact, not just a comment.
+    """
+
+    def setUp(self):
+        cache.clear()
+        User.objects.create_user(username="owner@example.com", email="", password=PASSWORD)
+        self.user = User.objects.create_user(
+            username="mallory", email="mallory@example.com", password=PASSWORD
+        )
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_adding_email_equal_to_another_accounts_username_is_allowed(self):
+        r = self.client.post("/accounts/email/", {"email": "owner@example.com", "action_add": ""})
+        self.assertNotEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(
+            EmailAddress.objects.filter(user=self.user, email__iexact="owner@example.com").exists()
+        )
 
 
 class HtmlSignupEmailCollisionTests(TestCase):
