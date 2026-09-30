@@ -7,10 +7,10 @@
  * can dispatch synthetic WebSocket events and assert which prop was called.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, screen } from '@testing-library/react'
 import BoardView from '../components/Board/BoardView'
 import type { BoardEvent } from '../hooks/useBoardSocket'
-import type { BoardFull, Column, Label, BoardMembership, Swimlane, User } from '../types'
+import type { BoardFull, Card, Column, Label, BoardMembership, Swimlane, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
 
 // ---------------------------------------------------------------------------
@@ -73,7 +73,11 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
   default: ({ swimlane, onExitFocus: _onExitFocus, compact: _compact }: { swimlane: { name: string }; onExitFocus?: () => void; compact?: boolean }) => <div>{swimlane.name}</div>,
 }))
 vi.mock('../components/Card/CardItem', () => ({ default: () => <div /> }))
-vi.mock('../components/Card/CardDetail', () => ({ default: () => <div /> }))
+vi.mock('../components/Card/CardDetail', () => ({
+  default: ({ refreshSignal }: { refreshSignal?: number }) => (
+    <div data-testid="card-detail" data-refresh-signal={refreshSignal ?? 0} />
+  ),
+}))
 vi.mock('../components/Board/AddColumnModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/BoardSettingsModal', () => ({ default: () => <div /> }))
@@ -150,6 +154,18 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     capabilities: { movement_export: false },
     share_token: null,
     share_token_expires_at: null,
+    ...overrides,
+  }
+}
+
+function makeCard(overrides: Partial<Card> = {}): Card {
+  return {
+    id: 1, uid: 'crd001', column: 10, swimlane: 20, title: 'Test Card', description: '',
+    priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
+    position: 0, created_by: fakeUser, created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z', last_moved_at: null,
+    attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
+    version: 1, custom_field_values: [], blocker_count: 0, external_ref: null,
     ...overrides,
   }
 }
@@ -500,5 +516,49 @@ describe('BoardView socket event routing — new event types', () => {
     await act(async () => {})
     act(() => { getOnEvent.dispatch({ event: 'board.star_changed', data: { uid: 'board-uid-1', user_id: 999, is_starred: true } }) })
     expect(ctx.mergeBoardState).not.toHaveBeenCalled()
+  })
+})
+
+describe('BoardView — CardDetail live refresh on card.updated (#1310)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('bumps refreshSignal when card.updated matches the open card, so its comments/checklist/attachments refetch', async () => {
+    const card = makeCard({ id: 1, uid: 'crd001' })
+    mockBoardContextValue = makeContext({ board: makeBoard({ cards: [card] }) })
+    render(<BoardView />)
+    await act(async () => {})
+
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:open-card', { detail: { cardId: 1 } })) })
+    expect(screen.getByTestId('card-detail')).toHaveAttribute('data-refresh-signal', '0')
+
+    // Another session added a comment/checklist item/attachment to this card.
+    act(() => { getOnEvent.dispatch({ event: 'card.updated', data: { ...card, checklist_total: 1 } as unknown as Record<string, unknown> }) })
+    expect(screen.getByTestId('card-detail')).toHaveAttribute('data-refresh-signal', '1')
+  })
+
+  it('does not bump refreshSignal when card.updated is for a different card', async () => {
+    const openCard = makeCard({ id: 1, uid: 'crd001' })
+    const otherCard = makeCard({ id: 2, uid: 'crd002' })
+    mockBoardContextValue = makeContext({ board: makeBoard({ cards: [openCard, otherCard] }) })
+    render(<BoardView />)
+    await act(async () => {})
+
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:open-card', { detail: { cardId: 1 } })) })
+    expect(screen.getByTestId('card-detail')).toHaveAttribute('data-refresh-signal', '0')
+
+    act(() => { getOnEvent.dispatch({ event: 'card.updated', data: { ...otherCard, checklist_total: 1 } as unknown as Record<string, unknown> }) })
+    expect(screen.getByTestId('card-detail')).toHaveAttribute('data-refresh-signal', '0')
+  })
+
+  it('does not render CardDetail (or bump anything) when no card is open', async () => {
+    const card = makeCard({ id: 1, uid: 'crd001' })
+    mockBoardContextValue = makeContext({ board: makeBoard({ cards: [card] }) })
+    render(<BoardView />)
+    await act(async () => {})
+    expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
+    // Should not throw with no card open.
+    act(() => { getOnEvent.dispatch({ event: 'card.updated', data: { ...card, checklist_total: 1 } as unknown as Record<string, unknown> }) })
   })
 })

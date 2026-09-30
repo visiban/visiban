@@ -36,6 +36,13 @@ interface Props {
   userTimezone?: string;
   currentUser?: User | null;
   closeEditorOnEnter?: boolean;
+  // Bumped by BoardView whenever a `card.updated` WebSocket event arrives for
+  // this card (e.g. another user added a comment, toggled a checklist item,
+  // or uploaded an attachment). The card's own fields (title, description,
+  // etc.) are intentionally NOT live-synced here — see the `key`-based
+  // remount note in BoardView — but comments/checklist/attachments are
+  // fetched collections with no in-progress-edit risk, so they refetch.
+  refreshSignal?: number;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, used by tests and co-located with the component for cohesion
@@ -59,7 +66,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0 }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -138,6 +145,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setChecklistOpen(data.length > 0);
     });
   }, [board.id, card.id]);
+
+  // Refetch comments/checklist/attachments when another session mutates this
+  // card while the panel is open (#1310 — none of these live-update without a
+  // manual refresh otherwise). Skips the initial mount, which the effect
+  // above already covers; deliberately does not touch the *Open collapse
+  // state, so a background refresh never snaps a collapsed section back open.
+  const skipInitialRefreshRef = useRef(true);
+  useEffect(() => {
+    if (skipInitialRefreshRef.current) {
+      skipInitialRefreshRef.current = false;
+      return;
+    }
+    getCardComments(board.id, card.id).then(setComments);
+    getCardAttachments(board.id, card.id).then(setAttachments);
+    getChecklist(board.id, card.id).then(setChecklist);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetches only in response to refreshSignal; board.id/card.id are stable for this instance's lifetime (BoardView remounts CardDetail via `key={selectedCard.id}` on card change)
+  }, [refreshSignal]);
 
   // Dismiss confirm overlay before closing the panel so Escape has two stages:
   // first press dismisses the confirm, second press closes the panel.
