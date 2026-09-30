@@ -64,4 +64,11 @@ describe('FilterChip', () => {
     // Avatar renders initials or img — check it rendered inside the chip
     expect(container.querySelector('.rounded-full')).toBeInTheDocument()
   })
+
+  it('renders avatar initials at the text-xs typography floor, not a sub-12px override (#1311)', () => {
+    render(<FilterChip label="Jane Doe" avatarUser={fakeUser} onDismiss={vi.fn()} />)
+    const avatar = screen.getByText('JD')
+    expect(avatar.className).toMatch(/\btext-xs\b/)
+    expect(avatar.className).not.toMatch(/text-\[(8|9|10|11)px\]/)
+  })
 })
