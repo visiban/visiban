@@ -4781,7 +4781,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <code>CurrentUserSerializer</code>. This section documents the fields once, under <code>/auth/me/</code>.</p>
 </div>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>default_board_id</code>, <code>theme</code>.</p>
+<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>default_board_id</code>, <code>theme</code>, <code>pending_email</code>.</p>
 <table>
 <thead>
 <tr>
@@ -4832,6 +4832,11 @@ actually bootstraps from) returns the identical shape — both are served by
 <td>The next scheduled demo reset, computed server-side from <code>DEMO_RESET_SCHEDULE</code>. <code>null</code> unless <code>demo_mode</code> is <code>true</code>. Read-only. Added in 1.2.</td>
 </tr>
 <tr>
+<td><code>pending_email</code></td>
+<td>string or null</td>
+<td>An email change that is waiting for confirmation, or <code>null</code>. Only set on instances with <code>EMAIL_VERIFICATION=mandatory</code> — see <a href="#patch-apiv1authme"><code>PATCH /api/v1/auth/me/</code></a>. While it is set, <code>email</code> still holds the current address. Read-only. Added in 1.2.</td>
+</tr>
+<tr>
 <td><code>theme</code></td>
 <td>string</td>
 <td>The user's preferred color scheme. One of <code>"system"</code>, <code>"dark"</code>, or <code>"light"</code>. Defaults to <code>"system"</code>.</td>
@@ -4877,7 +4882,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <h3 id="patch-apiv1authme"><code>PATCH /api/v1/auth/me/</code><a class="headerlink" href="#patch-apiv1authme" title="Permanent link">&para;</a></h3>
 <p>Update the authenticated user's profile. All fields are optional.</p>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Writable fields:</strong> <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>default_board_id</code>, <code>theme</code>.</p>
+<p><strong>Writable fields:</strong> <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>default_board_id</code>, <code>theme</code>.</p>
 <p><strong>Request body fields</strong></p>
 <table>
 <thead>
@@ -4889,6 +4894,18 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>username</code></td>
+<td>string</td>
+<td>No</td>
+<td>1-150 characters; letters, digits, and <code>@/./+/-/_</code> only. Must not match another account's username <strong>ignoring case</strong> — the same rule as <a href="#post-apiv1authchoose-username"><code>POST /api/v1/auth/choose-username/</code></a>. Re-casing your own username is allowed. A request that changes the username also counts against that endpoint's rate limit (the two share one per-user budget), and clears <code>must_change_username</code>.</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>string</td>
+<td>No</td>
+<td>A valid email address, or <code>""</code> to clear it. On instances with <code>EMAIL_VERIFICATION=mandatory</code>, a <strong>new</strong> address doesn't take effect on this request (see below), and clearing an existing address is refused.</td>
+</tr>
 <tr>
 <td><code>avatar_url</code></td>
 <td>string / null</td>
@@ -4910,6 +4927,21 @@ actually bootstraps from) returns the identical shape — both are served by
 </tbody>
 </table>
 <p><strong><code>default_board_id</code></strong> — set the board to redirect to after login. Accepts a board <code>id</code> (integer) or <code>null</code> to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns <code>400 Bad Request</code>. This prevents enumeration of boards the user has no access to.</p>
+<blockquote>
+<p><strong>Changed in 1.2</strong> (#1273) — <code>username</code> is now checked case-insensitively and rate-limited, and under <code>EMAIL_VERIFICATION=mandatory</code> a changed <code>email</code> needs confirmation before it takes effect. Both fields remain writable. Earlier releases stored either value directly.</p>
+</blockquote>
+<p><strong>Changing <code>email</code> when verification is mandatory</strong> — when the instance sets <code>EMAIL_VERIFICATION=mandatory</code> and <code>email</code> differs from the current address (ignoring case), the request still returns <code>200 OK</code>, but:</p>
+<ul>
+<li><code>email</code> in the response (and on the account) is <strong>unchanged</strong>, so it's still the address used for login, password resets, and notification email.</li>
+<li><code>pending_email</code> in the response holds the new address, and a confirmation link is emailed to it.</li>
+<li>The address switches when the link is confirmed through <code>POST /api/v1/auth/registration/verify-email/</code> (the link opens the SPA's <code>/confirm-email/&lt;key&gt;</code> page, which calls it). <code>pending_email</code> then returns to <code>null</code>, and the old address is removed from the account.</li>
+<li>Requesting another address before confirming replaces the pending one, and the earlier link normally stops working (two <code>PATCH</code> requests racing each other can leave both links usable, and whichever is confirmed wins). Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works.</li>
+<li>Sending <code>email</code> equal to the current address (ignoring case) while a change is pending <strong>withdraws</strong> it: <code>pending_email</code> returns to <code>null</code> and the pending link stops working. A <code>PATCH</code> that omits <code>email</code> leaves a pending change alone. A round-trip update, where a client GETs the profile, modifies it, and PATCHes or PUTs the full object back (including <code>PUT /api/v1/auth/user/</code>), sends the current <code>email</code> and therefore <strong>also withdraws</strong> a pending change. Clients should send <code>email</code> only when the user edited it.</li>
+<li>Choosing an address that is already a verified address of your own account applies it immediately.</li>
+<li>An address already verified by another account can't be confirmed.</li>
+<li><code>pending_email</code> only reflects a change requested through this endpoint. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never reported as pending, and they're not removed by a change request or its confirmation.</li>
+</ul>
+<p>With <code>optional</code> (the default) or <code>none</code>, <code>email</code> is written directly, as before (including <code>""</code> to clear it), and <code>pending_email</code> stays <code>null</code>.</p>
 <p><strong>Example — set theme</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
 <a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="w"> </span><span class="p">}</span>
@@ -4934,6 +4966,18 @@ actually bootstraps from) returns the identical shape — both are served by
 <tr>
 <td><code>400 Bad Request</code></td>
 <td><code>default_board_id</code> refers to a board the user is not a member of</td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>username</code> is taken by another account (compared ignoring case) — <code>{"username": ["That username is already taken."]}</code></td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>email</code> is <code>""</code> on an account that has an address, when the instance sets <code>EMAIL_VERIFICATION=mandatory</code> — <code>{"email": ["An email address is required."]}</code></td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td>Too many username changes — the request changed <code>username</code> and exhausted the per-user budget it shares with <code>POST /api/v1/auth/choose-username/</code></td>
 </tr>
 <tr>
 <td><code>401 Unauthorized</code></td>

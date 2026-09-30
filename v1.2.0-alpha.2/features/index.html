@@ -3717,6 +3717,8 @@
 </tr>
 </tbody>
 </table>
+<p>Usernames are unique regardless of case: if someone is already <code>alice</code>, you can't become <code>Alice</code>, though you can re-case your own username. Renaming yourself is rate-limited the same way as the forced username change.</p>
+<p><strong>Changing your email address</strong> — on an instance that requires verified email addresses (<code>EMAIL_VERIFICATION=mandatory</code>), a new address doesn't take effect when you save it. Visiban sends a confirmation link to the new address and shows <em>Waiting for confirmation</em> under the field; your current address stays in use (for sign-in, password resets, and notification email) until you open the link. If you save another new address before confirming, the most recent request replaces the earlier one. You also can't remove your email address on such an instance. On instances with the default <code>optional</code> policy, the new address takes effect immediately, as before.</p>
 <p><strong>Appearance</strong> — theme switcher: System (follows OS preference), Dark, or Light. Applied immediately and synced to your account, so it follows you to your other browsers and devices on their next load. See <a href="appearance/">Appearance</a> for the full behavior.</p>
 <p><strong>Notifications</strong> — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added).</p>
 <p><strong>Behavior</strong> — card editor preferences:</p>
