@@ -881,7 +881,7 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
           onClick={handleResetTour}
           className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
-          {resetting ? "Resetting…" : "Restart onboarding tour"}
+          {resetting ? "Restarting…" : "Restart onboarding tour"}
         </button>
         <p className="text-xs h-4 mt-1">
           {resetConfirmed && <span className="text-success">Tour will restart on your next visit to a board.</span>}

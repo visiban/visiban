@@ -122,7 +122,7 @@ export const createAdminUser = (data: {
 
 export const patchAdminUser = (
   id: number,
-  data: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "must_change_password">>
+  data: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "must_change_password" | "has_completed_tour">>
 ) =>
   client.patch<AdminUser>(`/api/v1/admin/users/${id}/`, data).then((r) => r.data);
 
