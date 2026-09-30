@@ -10,7 +10,7 @@ change.**
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
 | `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **15** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
-| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282, this page) | The **generated OpenAPI document** | **30** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
+| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282 + #1294, this page) | The **generated OpenAPI document** | **44** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
 
 Neither supersedes the other, and a green run of one says nothing about the other. Through
 #1139 the coverage gap was a structural one — #821 reached two pairs this gate could not,
@@ -82,9 +82,11 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | Schema component | TypeScript interface | Also name-checked by #821 |
 |---|---|---|
 | `Board` | `Board` | yes |
+| `AdminUser` | `AdminUser` | no |
 | `BoardExportLog` | `BoardExportLogEntry` | no |
 | `BoardFull` | `BoardFull` | yes |
 | `BoardMembership` | `BoardMembership` | yes |
+| `BoardTemplate` | `BoardTemplate` | no |
 | `BoardUser` | `BoardUser` | yes |
 | `Card` | `Card` | yes |
 | `CardActivity` | `CardActivity` | yes |
@@ -93,6 +95,7 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `CardComment` | `CardComment` | yes |
 | `CardMovement` | `CardMovement` | yes |
 | `CardRelation` | `CardRelation` | no |
+| `CardTimelineEntry` | `CardTimelineEntry` | no |
 | `Column` | `Column` | yes |
 | `CurrentUser` | `User` | no |
 | `CustomFieldDefinition` | `CustomFieldDefinition` | no |
@@ -101,14 +104,25 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `ExternalRef` | `CardExternalRef` | yes |
 | `Group` | `Group` | no |
 | `GroupBrief` | `GroupBrief` | no |
+| `GroupInviteLink` | `GroupInviteLink` | no |
 | `GroupLabel` | `GroupLabel` | no |
+| `GroupMembership` | `GroupMembership` | no |
+| `InviteLink` | `AdminInviteLink` | no |
+| `InviteLinkCreateResponse` | `CreatedAdminInviteLink` | no |
 | `Label` | `Label` | yes |
 | `LinkedCard` | `RelatedCardRef` | no |
 | `Notification` | `Notification` | no |
+| `OwnedBoardSummary` | `OwnedBoardSummary` | no |
+| `PersonalAccessToken` | `PersonalAccessToken` | no |
+| `PersonalAccessTokenCreateResponse` | `CreatedPersonalAccessToken` | no |
 | `PublicAssignee` | `PublicAssignee` | no |
 | `PublicBoard` | `BoardPublic` | no |
 | `PublicCard` | `PublicCard` | no |
+| `SavedFilter` | `SavedFilter` | no |
 | `ShareBoardResponse` | `ShareActionResponse` | no |
+| `SiteConfig` | `SiteConfig` | no |
+| `SiteEmailSettingsResponse` | `SiteEmailSettings` | no |
+| `SiteSetting` | `SiteSettings` | no |
 | `Swimlane` | `Swimlane` | yes |
 | `SwimlaneCustomFieldDefinition` | `SwimlaneCustomFieldDefinition` | yes |
 
@@ -151,6 +165,49 @@ this gate's array check compares only the outer `array` family and does not recu
 shapes, so that looseness produces no finding and needed no suppression — see `PublicSwimlane`
 below for the honest accounting of that specific gap, tracked in #1296.
 
+#1294 closed the structural gap the reverse sweep found (see
+[What is not covered, and why](#what-is-not-covered-and-why) below): twelve of the thirteen
+pairs listed there had no schema component only because nothing in their view ever called
+`@extend_schema` or set `serializer_class`. Adding that annotation — never a runtime, queryset,
+or permission change — gave each one a real component, now mapped above:
+`AdminUser`, `BoardTemplate`, `CardTimelineEntry`, `GroupInviteLink`, `GroupMembership`,
+`InviteLink`/`InviteLinkCreateResponse` (→ `AdminInviteLink`/`CreatedAdminInviteLink`),
+`OwnedBoardSummary`, `PersonalAccessToken`/`PersonalAccessTokenCreateResponse` (→
+`PersonalAccessToken`/`CreatedPersonalAccessToken`), `SavedFilter`, `SiteConfig`, and
+`SiteEmailSettingsResponse`/`SiteSetting` (→ `SiteEmailSettings`/`SiteSettings`). Mapping them
+surfaced findings of every kind this gate exists to catch, all fixed at the schema-annotation
+level with no behavior change:
+
+- **A parser gap, not drift.** `CreatedAdminInviteLink extends AdminInviteLink` and
+  `CreatedPersonalAccessToken extends PersonalAccessToken` are the only two TypeScript
+  interfaces in the codebase that use `extends`, and `parse_ts_interfaces()` was dropping the
+  base interface's fields entirely — reporting nine and eight `missing_in_ts` findings that were
+  not real drift, just a parser that had never needed to resolve inheritance before. Fixed by
+  merging a derived interface's inherited fields into its own during parsing.
+- **`untyped_schema`** on three plain `JSONField`/`DictField`-backed properties that had never
+  been checked before: `BoardTemplate.columns_json`, `PersonalAccessToken.scopes`, and
+  `SavedFilter.state_json`. All three are read-only in every path that reaches these serializers
+  today, so each was given an explicit `ListField`/`DictField` declaration matching its real
+  shape — documentation only, not a validation change.
+- **`nullability`** on `InviteLink.created_by_username` (an undecorated `SerializerMethodField`
+  gained a `-> str | None` return annotation) and `GroupInviteLink.created_by_username` (a
+  declared `CharField` with a traversing `source` over a nullable FK gained `allow_null=True`) —
+  the same two patterns #1139 already documented under
+  [When the gate fails](#when-the-gate-fails), just not previously reachable because neither
+  pair had a component to check. `GroupMembership.id` got the same treatment: the `members`
+  action sets `id=None` on inherited rows with no real membership behind them, which the
+  auto-generated (non-nullable) PK field could not describe, so `id` is now declared explicitly
+  with `allow_null=True`.
+- A genuine **TypeScript-only field**: `GroupInviteLink.token` is appended to
+  `GroupInviteLinkSerializer(...).data` by hand, once, only on the creation response — the same
+  shape as `AdminInviteLink`/`CreatedAdminInviteLink`, but without a second interface, so
+  `GroupInviteLink.token` is optional and now listed in `TS_ONLY_FIELDS` rather than treated as
+  drift.
+
+The thirteenth, `LensConnection`, stays excluded — see
+[What is not covered, and why](#what-is-not-covered-and-why) for the reason, which is
+structural rather than something a decorator can fix.
+
 ### What is not covered, and why
 
 Until #1209, two pairs #821 name-checks were absent here for a structural reason: the schema
@@ -162,48 +219,34 @@ endpoints real `@extend_schema` response annotations, so both are now mapped and
 [Coverage](#coverage)). The same issue also wired `NotificationListView` and `ShareBoardView`
 for the first time, adding `Notification` and `PublicCard` to the map.
 
-More pairs remain absent for that same structural reason than #1282's first pass found. That
+More pairs remained absent for that same structural reason than #1282's first pass found. That
 pass swept `COMPONENT_MAP` forward — every key in it against the generated schema — which by
 construction cannot see an interface whose serializer never reaches the schema at all. The
 correct sweep runs the other direction: every `export interface` in
 `frontend/src/types/index.ts`, checked against `COMPONENT_MAP`'s values and the "opposite
-reason" table below. That reverse sweep turns up sixteen TypeScript interfaces across thirteen
-pairs, each backed by a real serializer (or, for `SiteConfig`, a view that builds its response
-by hand) that
-`drf-spectacular` never publishes a component for — because nothing in their view ever calls
-`@extend_schema` or sets `serializer_class`, the two things spectacular actually introspects.
-An interface with **no** backing serializer at all — `FieldDefinitionShape` (a structural
-subtype satisfied by two already-mapped interfaces, not its own shape),
-`SwimlaneCustomFieldValue` (carried inside `Swimlane.custom_field_values`, not its own
-component — see `_DRIFT_PAIRS`' comment in `test_ts_serializer_drift.py`), and the `Lens*` /
-`TrelloImport*` interfaces (plain dataclasses serialized by hand, not DRF serializers) — is not
-this bug class and is not listed here:
+reason" table below. That reverse sweep turned up sixteen TypeScript interfaces across thirteen
+pairs, each backed by a real serializer (or, for `SiteConfig`, a view that built its response by
+hand) that `drf-spectacular` published no component for — because nothing in their view called
+`@extend_schema` or set `serializer_class`, the two things spectacular actually introspects. An
+interface with **no** backing serializer at all — `FieldDefinitionShape` (a structural subtype
+satisfied by two already-mapped interfaces, not its own shape), `SwimlaneCustomFieldValue`
+(carried inside `Swimlane.custom_field_values`, not its own component — see `_DRIFT_PAIRS`'
+comment in `test_ts_serializer_drift.py`), and the `Lens*` / `TrelloImport*` interfaces (plain
+dataclasses serialized by hand, not DRF serializers) was not this bug class and was never listed
+here.
 
-| TypeScript interface(s) | Serializer | Location |
-|---|---|---|
-| `CardTimelineEntry` | `CardTimelineEntrySerializer` | `backend/boards/views/cards.py:899`, backing the `timeline` action (`views/cards.py:737`) |
-| `AdminUser` | `AdminUserSerializer` | `backend/accounts/admin_views.py:437` |
-| `AdminInviteLink`, `CreatedAdminInviteLink` | `InviteLinkSerializer` | `backend/accounts/admin_views.py:507` |
-| `PersonalAccessToken`, `CreatedPersonalAccessToken` | `PersonalAccessTokenSerializer` | `backend/accounts/serializers.py:458` |
-| `SiteConfig` | — (`SiteConfigView` builds the response directly) | `backend/accounts/views.py:388` |
-| `SiteSettings` | `SiteSettingSerializer` | `backend/accounts/admin_views.py:76` |
-| `SiteEmailSettings` | `SiteEmailSettingSerializer` | `backend/accounts/admin_views.py:95` |
-| `BoardTemplate`, `BoardTemplateColumn` | `BoardTemplateSerializer` | `backend/boards/serializers.py:34` |
-| `OwnedBoardSummary` | `OwnedBoardSummarySerializer` | `backend/accounts/admin_views.py:431` |
-| `GroupMembership` | `GroupMembershipSerializer` | `backend/groups/serializers.py:304` |
-| `GroupInviteLink` | `GroupInviteLinkSerializer` | `backend/groups/serializers.py:340` |
-| `SavedFilter` | `SavedFilterSerializer` | `backend/boards/serializers.py:2658` |
-| `LensConnection` | `LensConnectionSerializer` | `backend/git_lens/serializers.py:20` |
+**#1294 closed twelve of those thirteen pairs** by adding the missing `@extend_schema`
+annotation (or, for `SiteConfig` and the two `Created*` creation responses, an `inline_serializer`
+/ subclass documenting the hand-built response) to each view — annotation only, no runtime,
+queryset, or permission change. All twelve are now mapped; see
+[Coverage](#coverage) and the note above it for the drift each one surfaced and how it was fixed.
 
-Every one of these endpoints is live and reachable — each serializer is instantiated inside a
-real view method and its `.data` returned in a real `Response(...)` — so this is not dead code
-needing deletion, only response schemas `drf-spectacular` was never told to publish.
+The thirteenth stays excluded, for a reason that is structural rather than something a decorator
+can fix:
 
-All thirteen are tracked in **#1294**, which adds the missing `@extend_schema` (or
-`serializer_class`/`GenericAPIView` wiring, whichever fits each view) so each of these pairs
-can be added to `COMPONENT_MAP` and actually checked. Deliberately not done here: #1282 is a
-CI-tooling fix, and annotating thirteen views to change what they publish is a real API-surface
-change that belongs in its own reviewed branch, not folded into a parity-gate correction.
+| Pair | Why excluded |
+|---|---|
+| `LensConnection` (`LensConnectionSerializer`, `LensConnectionView`, `backend/git_lens/`) | The `git_lens` app — and every one of its URLs, including `LensConnectionView` — is only installed/routed when `GIT_LENS_ENABLED=true` (`visiban/urls.py`, `visiban/settings.py`). Neither `serializer-ts-parity` nor `backend-schema-validate` sets that flag (only the dedicated `backend-test-git-lens` job does, "and nowhere else" per its own comment in `.gitlab-ci.yml`), so the schema those jobs generate never contains a `LensConnection` component to diff against — mapping it would make the gate fail in CI even though nothing is wrong. `LensConnectionView.get`/`.put` do now carry `@extend_schema` (#1294), so the component exists and is accurate whenever the schema *is* generated with the flag on (local dev, or a future CI job that sets it) — only the always-on parity job's environment is the blocker. Tracked in #1306. |
 
 Three pairs are absent for the opposite reason — the schema has a component but there is no
 TypeScript interface to diff it against. Confirmed by grepping all of `frontend/src` (not just
@@ -385,8 +428,12 @@ This gate compares **response** components only. A write-only field whose type d
 the job (it is still a `backend/**/*` change) but produces no finding. If the frontend grows
 explicit request-body interfaces, mapping them is the natural extension.
 
-**Nothing else.** Every schema component that has a matching TypeScript interface is mapped as
-of [#1139](https://gitlab.com/visiban/visiban/-/issues/1139), so a green `serializer-ts-parity`
-run now means "the published response components and the interfaces agree", not "five of them
-do". If you add a serializer *and* an interface, add the pair to `COMPONENT_MAP` in the same MR —
-the gate does not discover pairs on its own, and an unmapped pair is unchecked silently.
+**Nothing else, with one standing exception.** Every schema component that has a matching
+TypeScript interface *and reaches the schema this gate's own environment generates* is mapped as
+of [#1294](https://gitlab.com/visiban/visiban/-/issues/1294), so a green `serializer-ts-parity`
+run means "the published response components and the interfaces agree", not "thirty of them do".
+`LensConnection` is the sole component this job cannot see at all, for the feature-flag reason in
+[What is not covered, and why](#what-is-not-covered-and-why) — not a gap in `COMPONENT_MAP`, a
+gap in what the job's own schema generation includes. If you add a serializer *and* an
+interface, add the pair to `COMPONENT_MAP` in the same MR — the gate does not discover pairs on
+its own, and an unmapped pair is unchecked silently.
