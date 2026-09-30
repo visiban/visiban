@@ -2645,6 +2645,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#adding-a-foreign-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a foreign key
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Adding a foreign key">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-new-nullable-column-on-an-existing-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A new, nullable column on an existing table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-foreign-key-on-a-column-that-already-holds-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A foreign key on a column that already holds data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#teaching-the-checker-to-see-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Teaching the checker to see this
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sqlite" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3944,6 +3994,206 @@ constraint to it, which is a catalog-only operation:</p>
 <p>Migration <code>0030_card_trigram_search_indexes</code> uses this same <code>SeparateDatabaseAndState</code> shape
 for its GIN indexes; read it for a worked example already in the tree.</p>
 <hr />
+<h2 id="adding-a-foreign-key">Adding a foreign key<a class="headerlink" href="#adding-a-foreign-key" title="Permanent link">&para;</a></h2>
+<p>A foreign key is a constraint, and PostgreSQL validates a constraint — scanning the
+referencing column against the referenced table — while holding a lock on <em>both</em> tables for
+the length of the scan. Everything above already covers this for a <code>CheckConstraint</code>. A
+<code>ForeignKey</code> needs its own recipe because <code>AddConstraintNotValid</code> explicitly rejects
+anything that is not a <code>CheckConstraint</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">AddConstraintNotValid</span><span class="p">(</span><span class="n">model_name</span><span class="o">=</span><span class="s2">"card"</span><span class="p">,</span> <span class="n">constraint</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">UniqueConstraint</span><span class="p">(</span><span class="o">...</span><span class="p">))</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">TypeError: AddConstraintNotValid.constraint must be a check constraint.</span>
+</code></pre></div>
+<p><code>check_migration_concurrency</code> does not look at foreign-key validation either way — see
+below — so which recipe applies is a judgment call the check cannot make for you. It comes
+down to whether the column being constrained already holds data.</p>
+<h3 id="a-new-nullable-column-on-an-existing-table">A new, nullable column on an existing table<a class="headerlink" href="#a-new-nullable-column-on-an-existing-table" title="Permanent link">&para;</a></h3>
+<p>If the column is brand new, every row gets <code>NULL</code> the instant it is added, and PostgreSQL
+does not validate a foreign key against a <code>NULL</code> — there is nothing for the constraint to
+check. A plain <code>AddField</code> is safe inline, constraint included:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># backend/boards/migrations/00XX_card_reviewer.py</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">django.db.models.deletion</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.conf</span><span class="w"> </span><span class="kn">import</span> <span class="n">settings</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">migrations</span><span class="p">,</span> <span class="n">models</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">Migration</span><span class="p">(</span><span class="n">migrations</span><span class="o">.</span><span class="n">Migration</span><span class="p">):</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">dependencies</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>        <span class="p">(</span><span class="s2">"boards"</span><span class="p">,</span> <span class="s2">"0051_board_card_density"</span><span class="p">),</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="n">migrations</span><span class="o">.</span><span class="n">swappable_dependency</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">AUTH_USER_MODEL</span><span class="p">),</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="p">]</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="n">operations</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>        <span class="n">migrations</span><span class="o">.</span><span class="n">AddField</span><span class="p">(</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>            <span class="n">model_name</span><span class="o">=</span><span class="s2">"card"</span><span class="p">,</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>            <span class="n">name</span><span class="o">=</span><span class="s2">"reviewer"</span><span class="p">,</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>            <span class="n">field</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>                <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>                <span class="n">db_index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>                <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a>                <span class="n">on_delete</span><span class="o">=</span><span class="n">django</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">deletion</span><span class="o">.</span><span class="n">SET_NULL</span><span class="p">,</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>                <span class="n">related_name</span><span class="o">=</span><span class="s2">"+"</span><span class="p">,</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>                <span class="n">to</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">AUTH_USER_MODEL</span><span class="p">,</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a>            <span class="p">),</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a>        <span class="p">),</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a>    <span class="p">]</span>
+</code></pre></div>
+<p><code>boards/0044_cardchecklist_created_by</code> and <code>accounts/0031_user_pending_email_address</code>
+(#1273) are the precedents in the tree — both add a nullable <code>ForeignKey</code> to an existing
+table in one plain <code>AddField</code>, no <code>NOT VALID</code> split needed.</p>
+<p><code>db_index=False</code> is the part worth not skipping. <code>ForeignKey</code> builds a b-tree index on the
+column by default — same as an explicit <code>db_index=True</code> on any other field — and that index
+build <em>does</em> scan the whole table under <code>ACCESS EXCLUSIVE</code>, whether the new column's values
+are <code>NULL</code> or not; only the constraint validation is free for a new column, not the index
+build. <code>accounts/0031</code> splits it out for exactly this reason: <code>db_index=False</code> here, then a
+separate <code>AddIndexConcurrently</code> in <code>accounts/0032_user_pending_email_addr_idx</code>. Follow that
+shape for new work — <code>boards/0044</code> predates the split and left its default index inline,
+which was only harmless because <code>cardchecklist</code> was small at the time.</p>
+<h3 id="a-foreign-key-on-a-column-that-already-holds-data">A foreign key on a column that already holds data<a class="headerlink" href="#a-foreign-key-on-a-column-that-already-holds-data" title="Permanent link">&para;</a></h3>
+<p>Once the column already has real, non-<code>NULL</code> values — an existing plain integer column being
+turned into a proper <code>ForeignKey</code>, or a nullable one already backfilled with real
+references — PostgreSQL cannot skip the scan, and a plain <code>AddField</code> / <code>AlterField</code> /
+<code>AddConstraint</code> validates the whole table under <code>ACCESS EXCLUSIVE</code> for as long as the scan
+takes. The safe path is the same shape as a check constraint — add <code>NOT VALID</code>, validate
+later, under a weaker lock — but reached by hand, because there is no
+<code>AddConstraintNotValid</code> for a <code>ForeignKey</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># backend/boards/migrations/00XX_card_reviewer_fk_not_valid.py</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">migrations</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_not_valid</span><span class="p">(</span><span class="n">apps</span><span class="p">,</span> <span class="n">schema_editor</span><span class="p">):</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="k">if</span> <span class="n">schema_editor</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">vendor</span> <span class="o">!=</span> <span class="s2">"postgresql"</span><span class="p">:</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="k">return</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="c1"># NOT VALID is catalog-only: it takes ACCESS EXCLUSIVE, but only long enough to</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="c1"># write the constraint, not to scan `cards`.</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="n">schema_editor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="s2">"ALTER TABLE cards "</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        <span class="s2">"ADD CONSTRAINT card_reviewer_id_fk_users_id "</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="s2">"FOREIGN KEY (reviewer_id) REFERENCES users (id) "</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="s2">"NOT VALID"</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="p">)</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="k">def</span><span class="w"> </span><span class="nf">drop_not_valid</span><span class="p">(</span><span class="n">apps</span><span class="p">,</span> <span class="n">schema_editor</span><span class="p">):</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>    <span class="k">if</span> <span class="n">schema_editor</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">vendor</span> <span class="o">!=</span> <span class="s2">"postgresql"</span><span class="p">:</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>        <span class="k">return</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>    <span class="n">schema_editor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>        <span class="s2">"ALTER TABLE cards DROP CONSTRAINT IF EXISTS card_reviewer_id_fk_users_id"</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>    <span class="p">)</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="k">class</span><span class="w"> </span><span class="nc">Migration</span><span class="p">(</span><span class="n">migrations</span><span class="o">.</span><span class="n">Migration</span><span class="p">):</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>    <span class="n">dependencies</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">"boards"</span><span class="p">,</span> <span class="s2">"0051_board_card_reviewer_backfilled"</span><span class="p">)]</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>    <span class="n">operations</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>        <span class="c1"># The field itself must already declare db_constraint=False (see below) so</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>        <span class="c1"># Django never tries to add its own FK constraint on top of this one.</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>        <span class="n">migrations</span><span class="o">.</span><span class="n">RunPython</span><span class="p">(</span><span class="n">add_not_valid</span><span class="p">,</span> <span class="n">drop_not_valid</span><span class="p">),</span>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>    <span class="p">]</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># backend/boards/migrations/00XX_card_reviewer_fk_validate.py</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">django.db.models.deletion</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.conf</span><span class="w"> </span><span class="kn">import</span> <span class="n">settings</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">migrations</span><span class="p">,</span> <span class="n">models</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">visiban.db_operations</span><span class="w"> </span><span class="kn">import</span> <span class="n">ValidateConstraint</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">Migration</span><span class="p">(</span><span class="n">migrations</span><span class="o">.</span><span class="n">Migration</span><span class="p">):</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="c1"># ValidateConstraint scans the whole table; running it inside the default</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="c1"># transaction would hold the constraint's ACCESS EXCLUSIVE catalog lock until</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="c1"># commit, across the whole scan — the same reasoning as the check-constraint pair</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="c1"># above.</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="n">atomic</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="n">dependencies</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">"boards"</span><span class="p">,</span> <span class="s2">"0052_card_reviewer_fk_not_valid"</span><span class="p">)]</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>    <span class="n">operations</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>        <span class="c1"># ValidateConstraint only needs the table and the constraint name — it has no</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>        <span class="c1"># opinion on what kind of constraint it is, so the same wrapper used for</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>        <span class="c1"># check constraints works here unmodified.</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>        <span class="n">ValidateConstraint</span><span class="p">(</span><span class="n">model_name</span><span class="o">=</span><span class="s2">"card"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"card_reviewer_id_fk_users_id"</span><span class="p">),</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>        <span class="c1"># database_operations=[] on purpose: the constraint already exists in the</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>        <span class="c1"># database from the NOT VALID migration. This only tells Django's state that</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>        <span class="c1"># the field is now backed by a real DB constraint, so a future</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>        <span class="c1"># makemigrations does not try to add one.</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>        <span class="n">migrations</span><span class="o">.</span><span class="n">SeparateDatabaseAndState</span><span class="p">(</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a>            <span class="n">database_operations</span><span class="o">=</span><span class="p">[],</span>
+<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a>            <span class="n">state_operations</span><span class="o">=</span><span class="p">[</span>
+<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a>                <span class="n">migrations</span><span class="o">.</span><span class="n">AlterField</span><span class="p">(</span>
+<a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a>                    <span class="n">model_name</span><span class="o">=</span><span class="s2">"card"</span><span class="p">,</span>
+<a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a>                    <span class="n">name</span><span class="o">=</span><span class="s2">"reviewer"</span><span class="p">,</span>
+<a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a>                    <span class="n">field</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+<a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a>                        <span class="n">blank</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a>                        <span class="n">db_constraint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a>                        <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a>                        <span class="n">on_delete</span><span class="o">=</span><span class="n">django</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">deletion</span><span class="o">.</span><span class="n">SET_NULL</span><span class="p">,</span>
+<a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a>                        <span class="n">related_name</span><span class="o">=</span><span class="s2">"+"</span><span class="p">,</span>
+<a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a>                        <span class="n">to</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">AUTH_USER_MODEL</span><span class="p">,</span>
+<a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a>                    <span class="p">),</span>
+<a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a>                <span class="p">),</span>
+<a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a>            <span class="p">],</span>
+<a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a>        <span class="p">),</span>
+<a id="__codelineno-8-44" name="__codelineno-8-44" href="#__codelineno-8-44"></a>    <span class="p">]</span>
+</code></pre></div>
+<p>The field itself must carry <code>db_constraint=False</code> from the moment the column is added (and
+until the validate migration above flips it back) — that is what stops Django's own
+<code>AddField</code>/<code>AlterField</code> from emitting a second, competing <code>FOREIGN KEY</code> clause on top of the
+one added by hand. <code>db_constraint=False</code> does not remove <code>on_delete</code> behavior at the Python
+level; it only means PostgreSQL is not enforcing it, which is exactly the gap the <code>NOT VALID</code>
+migration closes.</p>
+<p><strong>Neither checker flags the <code>RunPython</code> in the first migration.</strong>
+<code>check_migration_concurrency</code>'s raw-SQL scan only matches <code>CREATE INDEX</code> text
+(<code>RAW_CREATE_INDEX</code>), never <code>ADD CONSTRAINT</code>, so an <code>ALTER TABLE ... ADD CONSTRAINT ...
+FOREIGN KEY ... NOT VALID</code> inside <code>RunPython</code>/<code>RunSQL</code> needs no <code># concurrency-exempt:</code>
+comment — the checker has no rule that would fire on it in the first place.
+<code>check_migration_constraint_safety</code> does not scan raw SQL string content at all, so it is
+silent on that migration too.</p>
+<p><strong>The second migration does not get the same protection a check constraint's does — verify
+this shape against <code>check_migration_constraint_safety.py</code> yourself before trusting it.</strong>
+<code>ValidateConstraint</code> is the operation the checker watches for a <code>CheckConstraint</code>, by name,
+regardless of what kind of constraint it validates — but it is exempted whenever the
+migration's own <code>dependencies</code> names another migration, in the same app, whose operations
+list contains a top-level <code>RunPython</code>/<code>RunSQL</code> (the "adjacent migration" rule: a migration
+depending on a dedicated repair migration is assumed already safe). The exemption checks
+only that such an operation exists in the dependency, never what it does. Migration 1 above
+<em>is</em> a top-level <code>RunPython</code> — it just happens to add a constraint, not repair a row — and
+migration 2 depends on it directly, so this recipe's shape trips the exemption every time:
+<code>ValidateConstraint</code> in migration 2 is silently waved through whether or not <code>reviewer_id</code>
+holds a single orphaned reference. Writing migration 1 as <code>RunSQL</code> instead makes no
+difference; the checker treats the two names identically.</p>
+<p>This is a genuine gap in the checker, not a design choice, and there is no way to add a
+hand-written <code>NOT VALID</code> constraint without a <code>RunPython</code>/<code>RunSQL</code> operation to carry it — so
+the gap is unavoidable with this recipe, not a mistake to fix by restructuring the
+migrations. Judge the need for a repair step the same way you would with the check turned
+off: if <code>reviewer_id</code> could hold a value that does not point at an existing row — data
+written before an application-level guard existed, a row deleted out from under a reference,
+anything restored from an old backup — add a real <code>RunPython</code> repair step ahead of
+<code>ValidateConstraint</code> before relying on it, because CI will not catch a missing one here. The
+<code># constraint-safe:</code> comment convention used elsewhere on this page does not help either: the
+violation this shape would otherwise raise is suppressed by the adjacent-migration exemption
+before the scanner ever reaches the point where it would look for that comment, so writing
+one on <code>ValidateConstraint</code> in migration 2 has no effect.</p>
+<p><code>VALIDATE CONSTRAINT</code> itself takes <code>SHARE UPDATE EXCLUSIVE</code> — the same weak lock a check
+constraint's validation takes, which is the whole reason the two-step split is worth doing.</p>
+<h3 id="teaching-the-checker-to-see-this">Teaching the checker to see this<a class="headerlink" href="#teaching-the-checker-to-see-this" title="Permanent link">&para;</a></h3>
+<p>Optional follow-up, out of scope for this page:</p>
+<ul>
+<li><code>check_migration_concurrency</code> could flag an <code>AddField</code>/<code>AlterField</code> that adds a
+  <code>ForeignKey</code> with <code>db_constraint</code> left at its default (<code>True</code>) against an app's
+  non-initial migration, the same way it already flags <code>db_index=True</code>.</li>
+<li><code>check_migration_constraint_safety</code>'s adjacent-migration exemption cannot tell a genuine
+  data-repair <code>RunPython</code> from a schema-only one like the <code>NOT VALID</code> step above — both
+  satisfy <code>has_top_level_repair()</code> by name alone. Narrowing that exemption would need the
+  scanner to look at what the dependency's <code>RunPython</code>/<code>RunSQL</code> actually does, not just that
+  one exists, which the rest of both checkers deliberately avoid doing (see "The scan does
+  not verify a repair step touches the <em>right</em> rows" above) — so this is a real trade-off to
+  work out, not a one-line fix.</li>
+</ul>
+<p>No issue is currently filed for either; file one before picking either up rather than
+inferring scope from this paragraph.</p>
+<hr />
 <h2 id="sqlite">SQLite<a class="headerlink" href="#sqlite" title="Permanent link">&para;</a></h2>
 <p>Visiban supports a SQLite configuration for local development and small single-user installs,
 and those installs run <code>migrate</code> too. Every operation in <code>django.contrib.postgres.operations</code>
@@ -3961,14 +4211,14 @@ above.</p>
 <h2 id="the-escape-hatch">The escape hatch<a class="headerlink" href="#the-escape-hatch" title="Permanent link">&para;</a></h2>
 <p>Some tables genuinely do not need the ceremony — most often a table created in the same
 migration, which no session can be reading yet. Add an inline comment naming the reason:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">operations</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">migrations</span><span class="o">.</span><span class="n">CreateModel</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"CardReminder"</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">]),</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="c1"># concurrency-exempt: table created in this same migration, no rows and no readers</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">migrations</span><span class="o">.</span><span class="n">AddIndex</span><span class="p">(</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="n">model_name</span><span class="o">=</span><span class="s2">"cardreminder"</span><span class="p">,</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="n">index</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"card"</span><span class="p">,</span> <span class="s2">"remind_at"</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">"reminder_card_at_idx"</span><span class="p">),</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="p">),</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">operations</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">migrations</span><span class="o">.</span><span class="n">CreateModel</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"CardReminder"</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">]),</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="c1"># concurrency-exempt: table created in this same migration, no rows and no readers</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">migrations</span><span class="o">.</span><span class="n">AddIndex</span><span class="p">(</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="n">model_name</span><span class="o">=</span><span class="s2">"cardreminder"</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="n">index</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"card"</span><span class="p">,</span> <span class="s2">"remind_at"</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">"reminder_card_at_idx"</span><span class="p">),</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="p">),</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">]</span>
 </code></pre></div>
 <p>The comment must sit on the operation's own line or within the four lines above it, and the
 reason after the colon is mandatory — a bare <code># concurrency-exempt:</code> still fails the check.
@@ -3984,8 +4234,8 @@ migration partially applies, the deploying pod's migrate step errors, health che
 the deploy is stuck in a crash-loop until someone intervenes by hand. That is a worse outcome
 than a migration that simply refuses to run (#1098).</p>
 <p>The CI <code>migration-check</code> job also fails the pipeline for this:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>check_migration_constraint_safety
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">cd</span><span class="w"> </span>backend
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>check_migration_constraint_safety
 </code></pre></div>
 <p>It is a second, independent scan alongside <code>check_migration_concurrency</code> — same syntactic
 AST approach, same job, different rule. The two overlap in which operations they watch but
@@ -4086,15 +4336,15 @@ is the point; auditing that the repair is correct is still a human review job.</
 <p>Some operations are safe for reasons the scan cannot see — most commonly, a constraint whose
 default values make every pre-existing row comply without any repair step at all. Add an
 inline comment naming the reason:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">operations</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="c1"># constraint-safe: verified against a prod snapshot — no row violates this today</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">migrations</span><span class="o">.</span><span class="n">AddConstraint</span><span class="p">(</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>        <span class="n">model_name</span><span class="o">=</span><span class="s2">"card"</span><span class="p">,</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="n">constraint</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">CheckConstraint</span><span class="p">(</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>            <span class="n">condition</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">Q</span><span class="p">(</span><span class="n">position__gte</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">"card_position_non_negative"</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="p">),</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="p">),</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">operations</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="c1"># constraint-safe: verified against a prod snapshot — no row violates this today</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="n">migrations</span><span class="o">.</span><span class="n">AddConstraint</span><span class="p">(</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>        <span class="n">model_name</span><span class="o">=</span><span class="s2">"card"</span><span class="p">,</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>        <span class="n">constraint</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">CheckConstraint</span><span class="p">(</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>            <span class="n">condition</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">Q</span><span class="p">(</span><span class="n">position__gte</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">"card_position_non_negative"</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>        <span class="p">),</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="p">),</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="p">]</span>
 </code></pre></div>
 <p>Same convention as <code># concurrency-exempt:</code> — the comment must sit on the operation's own
 line or within the four lines above it, and the reason after the colon is mandatory.</p>
@@ -4111,7 +4361,7 @@ unsafe <code>AddField</code>, but from <code>accounts</code>' second-ever migrat
 empty <code>users</code> table on every install that has run it, including every fresh install today.</p>
 <h3 id="-self-test"><code>--self-test</code><a class="headerlink" href="#-self-test" title="Permanent link">&para;</a></h3>
 <p>Every bespoke gate script ships a self-test that proves it still fires (#1093):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>check_migration_constraint_safety<span class="w"> </span>--self-test
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>check_migration_constraint_safety<span class="w"> </span>--self-test
 </code></pre></div>
 <p>It runs the scanner against known-bad and known-good fixture migrations built in memory —
 no files touched, no database, no real migration tree — and fails if a known-bad fixture is
@@ -4259,17 +4509,17 @@ before the instance serves any traffic: the lock is real and contended by nobody
 restoring a large pre-1.1 dump into a 1.2 binary and then running <code>migrate</code> to catch up — a
 deliberate, offline maintenance operation. For them the answer is not a code change but a
 procedure: build the index by hand first, then tell Django it is done.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 1. Build the index concurrently, with the application still serving traffic.</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>psql<span class="w"> </span><span class="s2">"</span><span class="nv">$DATABASE_URL</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span><span class="s2">"CREATE INDEX CONCURRENTLY checklist_card_pos_idx</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="s2">                         ON card_checklist_items (card_id, position);"</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># 2. Confirm it is valid — an interrupted CONCURRENTLY build leaves an INVALID index</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1">#    that serves no queries.</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>psql<span class="w"> </span><span class="s2">"</span><span class="nv">$DATABASE_URL</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span><span class="s2">"SELECT indisvalid FROM pg_index</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="s2">                         WHERE indexrelid = 'checklist_card_pos_idx'::regclass;"</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="c1"># 3. Record the migration as applied without re-running its DDL.</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>boards<span class="w"> </span><span class="m">0047</span><span class="w"> </span>--fake
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># 1. Build the index concurrently, with the application still serving traffic.</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>psql<span class="w"> </span><span class="s2">"</span><span class="nv">$DATABASE_URL</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span><span class="s2">"CREATE INDEX CONCURRENTLY checklist_card_pos_idx</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="s2">                         ON card_checklist_items (card_id, position);"</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="c1"># 2. Confirm it is valid — an interrupted CONCURRENTLY build leaves an INVALID index</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="c1">#    that serves no queries.</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>psql<span class="w"> </span><span class="s2">"</span><span class="nv">$DATABASE_URL</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span><span class="s2">"SELECT indisvalid FROM pg_index</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="s2">                         WHERE indexrelid = 'checklist_card_pos_idx'::regclass;"</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># 3. Record the migration as applied without re-running its DDL.</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>boards<span class="w"> </span><span class="m">0047</span><span class="w"> </span>--fake
 </code></pre></div>
 <p>Use the exact index name and definition from the migration — <code>--fake</code> tells Django the schema
 matches, and it is on you to make that true.</p>
