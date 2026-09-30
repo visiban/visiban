@@ -496,6 +496,16 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
   const [error, setError] = useState<string | null>(null);
   const debounceRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
+  // #1305 — found via the timer-ref audit: this per-board search debounce
+  // had no unmount cleanup, so closing the offboarding modal mid-debounce
+  // could run setMemberResults after teardown.
+  useEffect(() => {
+    const refs = debounceRefs.current;
+    return () => {
+      Object.values(refs).forEach((t) => clearTimeout(t));
+    };
+  }, []);
+
   const handleMemberSearch = (boardId: number, query: string) => {
     setMemberSearch((prev) => ({ ...prev, [boardId]: query }));
     setTransfers((prev) => ({ ...prev, [boardId]: null }));

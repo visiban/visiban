@@ -169,6 +169,16 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // Ref to the peek timer so we can clear it on mouseleave / drag start.
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // #1305 — mouseleave/drag-start already clear this timer during normal
+  // interaction, but a card can also unmount directly out from under a
+  // pending hover (e.g. a WebSocket move/delete broadcast while the pointer
+  // is still resting on it), which neither of those handlers would see.
+  useEffect(() => {
+    return () => {
+      if (peekTimer.current !== null) clearTimeout(peekTimer.current);
+    };
+  }, []);
+
   // Combine dnd-kit's setNodeRef with our own cardRef using a stable callback ref.
   // setNodeRef is stable for the lifetime of the draggable hook instance.
   const compositeRef = useCallback(
