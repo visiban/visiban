@@ -3540,7 +3540,11 @@ re-verify these by hand; run the release and read what the gate says.</p>
 <li><code>scripts/release.sh &lt;version&gt;</code> rewrites the version-bearing files, including the
   <code>docs/index.md</code> banner: the release-candidate banner for RC tags, a pre-release banner for
   alpha/beta tags, and the stable "Latest release" banner for GA tags. It then runs the docs
-  gate as a cross-check and warns if it fails.</li>
+  gate as a cross-check, plus its own consistency checks against <code>.env.example</code>,
+  <code>frontend/package.json</code>, <code>README.md</code>, the <code>docs/getting-started/</code> pages,
+  <code>docker-compose.prod.yml</code>, and the Helm chart — and <strong>aborts the release</strong> (rolling the
+  branch back to <code>main</code>, no partial commit) if any of them fail, rather than merely warning
+  (#1269).</li>
 <li>CI job <code>docs-version-accuracy</code> (script <code>scripts/check-docs-version-accuracy.sh</code>) runs on
   MRs, <code>main</code>, and tag pipelines. It reads the current version from <code>frontend/package.json</code>
   and fails on: a <code>Coming in X</code> / <code>Ships in X</code> / <code>Lands in X</code> / <code>Planned for X</code> claim naming
