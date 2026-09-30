@@ -2403,6 +2403,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsboard_idcardsidchecklistreorder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5261,12 +5272,16 @@ complete card payload. See <a href="../websockets/">WebSockets</a>.</p>
 <p>Update an item (e.g. check/uncheck). <strong>Minimum role: Collaborator.</strong></p>
 <blockquote>
 <p><strong>Ownership gate:</strong> Collaborators and members may only edit items they created. Admins and moderators may edit any item. Items created before the <code>created_by</code> field existed (migration 0044) have no recorded creator and are unrestricted. Non-moderator callers who did not create the item receive <code>403 Forbidden</code> with <code>{"detail": "You can only edit checklist items you created."}</code>.</p>
+<p><strong><code>position</code> cannot be changed via PATCH.</strong> The field is present in the response, and echoing back the item's <em>current</em> <code>position</code> value is accepted (so a PUT-style client that round-trips the full representation still works). Submitting a <em>different</em> value is rejected with <code>400</code> and body <code>{"position": ["Changing a checklist item's position via PATCH is not allowed — ..."]}</code>. To reorder checklist items, use <code>POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/</code> (since 1.2, #1292).</p>
 </blockquote>
 <p><strong>Request</strong> <code>{ "is_checked": true }</code></p>
 <h3 id="delete-apiv1boardsboard_idcardsidchecklistitem_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidchecklistitem_id" title="Permanent link">&para;</a></h3>
 <p>Delete a checklist item. <strong>Minimum role: Collaborator.</strong> Same ownership gate as <code>PATCH</code> above.</p>
+<h3 id="post-apiv1boardsboard_idcardsidchecklistreorder"><code>POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchecklistreorder" title="Permanent link">&para;</a></h3>
+<p>Reorder checklist items on a card. <strong>Minimum role: Collaborator.</strong> Not ownership-gated — unlike <code>PATCH</code>/<code>DELETE</code> on a single item, reordering changes the whole list's display order rather than one item's content, so any collaborator+ may reorder regardless of who created each item. <em>(Since 1.2, #1292.)</em></p>
+<p><strong>Request</strong> <code>{ "order": [17, 21, 19] }</code> — <code>order</code> must be <strong>exactly</strong> this card's current checklist item IDs: every item once, no duplicates, and no ID from another card. A partial list, a duplicate ID, an ID belonging to a different card, or (on a card that has items) an empty list are all rejected with <code>400</code> and body <code>{"order": ["..."]}</code> rather than partially applied. Returns the reordered list (same shape as <code>GET</code>).</p>
 <p><strong>Checklist item response shape</strong></p>
-<p>All checklist endpoints (<code>GET</code>, <code>POST</code>, <code>PATCH</code>) return checklist item objects with the following fields:</p>
+<p>All checklist endpoints (<code>GET</code>, <code>POST</code>, <code>PATCH</code>, <code>POST .../reorder/</code>) return checklist item objects with the following fields:</p>
 <table>
 <thead>
 <tr>
@@ -5294,7 +5309,7 @@ complete card payload. See <a href="../websockets/">WebSockets</a>.</p>
 <tr>
 <td><code>position</code></td>
 <td>integer</td>
-<td>Sort order within the checklist (0-based)</td>
+<td>Sort order within the checklist (0-based); update via <code>reorder/</code> only — a <code>PATCH</code> that changes <code>position</code> returns <code>400 Bad Request</code> (since 1.2, #1292). Echoing the current value back is accepted.</td>
 </tr>
 <tr>
 <td><code>created_by</code></td>
