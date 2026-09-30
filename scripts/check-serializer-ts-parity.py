@@ -192,8 +192,66 @@ EXIT_USAGE = 2
 # allowance for a schema-only field, and adding one for a single unused pair
 # is not worth the gate's own complexity. Revisit once a frontend consumer of
 # `GET /api/v1/cards/` exists and needs its own interface (#1172).
+#
+# `ExternalRef` (`ExternalRefSerializer`, the `Card.external_ref` MR/PR link,
+# #352) was missing from this map entirely until #1282, even though it is one
+# of the fifteen pairs #821's name check reaches — a coverage hole matching
+# the same shape #1139 closed for the other name-checked pairs, just missed at
+# the time because `ExternalRefSerializer` is a plain `serializers.Serializer`
+# nested on `Card`, not a top-level `ModelSerializer`, so it did not show up
+# next to the other viewset-backed components when the map was built. The
+# schema component is `ExternalRef` (`drf-spectacular` strips `Serializer`
+# from the class name); the TypeScript interface is `CardExternalRef` because
+# the frontend names it after the field's role on `Card`, not after the
+# serializer. Diffing the two once mapped found no drift.
+#
+# #1282's follow-up completeness-check found the same hole in four more
+# places, none of them among #821's fifteen (that test only reaches
+# `ModelSerializer`/`Serializer` subclasses imported into its own
+# `_DRIFT_PAIRS`, so a component this gate can see but #821 cannot is not on
+# its own evidence that nothing is missing):
+#
+#   - `PublicAssignee` (`PublicAssigneeSerializer`, the minimal
+#     display-name-only user on a public share-link card) had the identical
+#     name on both sides and was still unmapped — the same class of miss as
+#     `ExternalRef` above, just without even a name change to explain it.
+#   - `LinkedCard` (`LinkedCardSerializer`, the compact card reference on a
+#     `CardRelation`, #449) maps to `RelatedCardRef` — a renamed pair the same
+#     shape as `CardChecklist`/`CardChecklistItem` and `CurrentUser`/`User`
+#     above.
+#   - `BoardExportLog` (`BoardExportLogSerializer`, the export-history audit
+#     row, #842/#980) maps to `BoardExportLogEntry` — another renamed pair of
+#     the same shape, found only by widening the audit past #821's own list.
+#   - `ShareBoardResponse` (an `inline_serializer` in
+#     `boards/views/boards.py`, backing `POST .../share/`) maps to
+#     `ShareActionResponse`, the interface `enableBoardSharing()` actually
+#     imports and reads in `frontend/src/api/boards.ts`. Its sibling
+#     `UnshareBoardResponse` component is intentionally NOT mapped here even
+#     though it is structurally identical — see "What is not covered, and
+#     why" in `docs/development/serializer-ts-parity.md`, because
+#     `disableBoardSharing()` never reads a typed response body, so there is
+#     no TypeScript interface on the other end to diff against.
+#
+# Diffing all four once mapped found no real drift.
+#
+# `PublicBoard` (`PublicBoardSerializer`, the outer `{uid, name, columns,
+# swimlanes, labels, cards}` shape at `GET /api/share/{token}/`) was wrongly
+# *documented* rather than mapped: an earlier pass of this same audit recorded
+# it in "What is not covered, and why" as having no TypeScript interface,
+# which was never true — `BoardPublic` in `frontend/src/types/index.ts` is
+# exactly that shape, just under a renamed (not identical) name, the same
+# pattern as `CurrentUser`/`User`. #1282 corrected the documentation error and
+# mapped it here. `BoardPublic.swimlanes` is typed `Swimlane[]` rather than a
+# dedicated `PublicSwimlane[]` — the wider authenticated shape reused for the
+# narrower public one — but this gate's array check only compares the outer
+# family (`array` vs `array`); it does not recurse into item shapes, so that
+# looseness produces no finding here and needed no `TS_ONLY_FIELDS` entry or
+# other suppression. It is a real type gap, tracked in #1296, that only a
+# recursive array-item check would catch — see `PublicSwimlane` in "What is
+# not covered, and why" for the honest accounting of it.
 COMPONENT_MAP = {
     "Board": "Board",
+    "BoardExportLog": "BoardExportLogEntry",
     "BoardFull": "BoardFull",
     "BoardMembership": "BoardMembership",
     "BoardUser": "BoardUser",
@@ -209,12 +267,17 @@ COMPONENT_MAP = {
     "CustomFieldDefinition": "CustomFieldDefinition",
     "CustomFieldValue": "CustomFieldValue",
     "EffectiveBoardMember": "EffectiveBoardMember",
+    "ExternalRef": "CardExternalRef",
     "Group": "Group",
     "GroupBrief": "GroupBrief",
     "GroupLabel": "GroupLabel",
     "Label": "Label",
+    "LinkedCard": "RelatedCardRef",
     "Notification": "Notification",
+    "PublicAssignee": "PublicAssignee",
+    "PublicBoard": "BoardPublic",
     "PublicCard": "PublicCard",
+    "ShareBoardResponse": "ShareActionResponse",
     "Swimlane": "Swimlane",
     "SwimlaneCustomFieldDefinition": "SwimlaneCustomFieldDefinition",
 }
