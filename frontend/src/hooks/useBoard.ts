@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
-import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { BoardFull, BoardMembership, Card, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 export type MoveBlockedError =
   | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number }
@@ -17,6 +17,19 @@ interface PendingMove {
   columnId: number;
   swimlaneId: number;
   position: number;
+}
+
+/**
+ * Replace a member row with an incoming `member.*` frame, keeping the
+ * previously known `is_site_admin` when the frame omits it (#1290). The field
+ * is sent only to admin subscribers and the socket resolves the subscriber's
+ * role at connect time, so a frame can lack it even though the row had it.
+ * A membership change never changes the member's instance-level flag, so the
+ * known value stays correct.
+ */
+function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership): EffectiveBoardMember {
+  if ("is_site_admin" in incoming || prev.is_site_admin === undefined) return incoming;
+  return { ...incoming, is_site_admin: prev.is_site_admin };
 }
 
 export function useBoard() {
@@ -274,13 +287,13 @@ export function useBoard() {
       if (!b) return b;
       const exists = b.members.some((m) => m.user.id === membership.user.id);
       return exists
-        ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? membership : m) }
+        ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership) : m) }
         : { ...b, members: [...b.members, membership] };
     });
   }, []);
 
   const updateMember = useCallback((membership: BoardMembership) => {
-    setBoard((b) => b ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? membership : m) } : b);
+    setBoard((b) => b ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership) : m) } : b);
   }, []);
 
   const removeMember = useCallback((userId: number) => {

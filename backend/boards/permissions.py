@@ -19,8 +19,9 @@ SITE_ADMIN = "site_admin"
 # case silently regresses to the old #920 behavior (#1191).
 ROLES_WITH_MODERATOR_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
-# Event types whose payload carries ``is_moderator``. Kept beside the role tuple
-# so adding a new member event forces a look at the gate that protects it.
+# Event types whose payload carries ``is_moderator`` (and, since #1290,
+# ``is_site_admin``). Kept beside the role tuple so adding a new member event
+# forces a look at the gates that protect it.
 MODERATOR_BEARING_EVENTS = (EVT_MEMBER_ADDED, EVT_MEMBER_UPDATED)
 
 
@@ -59,6 +60,31 @@ def moderator_field_visible(role, viewer_user_id, subject_user_id):
         and subject_user_id is not None
         and viewer_user_id == subject_user_id
     )
+
+
+# Roles that may see a ``member.*`` row's ``is_site_admin`` flag (#1290).
+ROLES_WITH_SITE_ADMIN_FLAG_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
+
+
+def site_admin_field_visible(role):
+    """Return True if a ``member.*`` row's ``is_site_admin`` may be shown.
+
+    The flag exists so the member-management UI can lock a row's role and
+    remove controls on exactly the rows the members endpoints refuse to touch
+    (a site-admin target, unless the caller is a site admin too) — the server
+    keys that check on ``User.is_site_admin``, not on the resolved board role,
+    so the UI needs the same signal (#1290). Only board admins and site admins
+    render those controls, so only they receive the flag; for everyone else
+    it stays private, like it is on ``BoardUserSerializer``. There is no
+    self-row exception: a user's own site-admin status comes from
+    ``/auth/me/``.
+
+    Called by the same four surfaces as ``moderator_field_visible()`` (the
+    ``/full/`` members array, the members POST response, the WS consumer, and
+    the change feed), which is why it lives beside it. An unknown role
+    (``None``) fails closed.
+    """
+    return role in ROLES_WITH_SITE_ADMIN_FLAG_VISIBILITY
 
 # Maximum number of ancestor levels walked during group-based permission checks.
 # The cap exists to prevent unbounded query chains on deeply nested group trees

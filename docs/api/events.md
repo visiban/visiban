@@ -137,6 +137,9 @@ Two consequences worth knowing:
   which always carries the field (#1191, mirroring the `/full/` self-row
   exception from #1173). Replaying from the feed cannot surface a field the
   socket withheld from that same reader.
+- `is_site_admin` is stripped from the same payloads for readers below
+  `admin`, with no self-row exception, matching the WebSocket consumer (since
+  1.2). An unknown reader role strips it.
 - `is_starred`, on `board.*` payloads, reflects the **actor's** state at the time
   of the event, not the reader's. This matches the WebSocket surface, where the
   same payload is fanned out to every subscriber. Read a board's own

@@ -61,6 +61,10 @@ interface Props {
    *  fence for every caller, a site admin included — admin controls render
    *  inert with one shared reason. */
   demoMode?: boolean;
+  /** The requesting user's own `is_site_admin` (#1290). The member endpoints
+   *  let only a site admin change or remove a member who is a site admin, so
+   *  the Members tab locks those rows for everyone else. */
+  currentUserIsSiteAdmin?: boolean;
 }
 
 const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
@@ -94,7 +98,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
@@ -441,7 +445,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               {members.map((m) => {
                 const isRemoving = pendingRemove === m.user.id;
                 const isDisabled = saving === m.user.id;
-                const canRemove = isAdmin && m.id !== null;
+                // Lock on the member's real site-admin flag, the same signal
+                // the member endpoints enforce — not on `role`, whose
+                // "site_admin" value reflects all-content access (#1290). When
+                // a row lacks the field (e.g. a frame received before the
+                // viewer became an admin), fall back to the role so the lock
+                // fails closed rather than offering an edit that is refused.
+                const isLocked = (m.is_site_admin ?? m.role === "site_admin") && !currentUserIsSiteAdmin;
+                const canManage = isAdmin && !isLocked;
+                const canRemove = canManage && m.id !== null;
 
                 return (
                   <div key={m.user.id} className="py-2.5 border-b border-line/60 last:border-0">
@@ -454,16 +466,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        {m.role === "site_admin" ? (
+                        {isLocked || (!isAdmin && m.role === "site_admin") ? (
                           <span className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded" title="Site administrator — role managed at the instance level">
-                            site admin
+                            {m.role === "site_admin" ? "site admin" : m.role}
                           </span>
-                        ) : isAdmin ? (
+                        ) : canManage ? (
                           <SelectDropdown
                             value={m.role as BoardRole}
                             disabled={isDisabled}
                             onChange={(v) => handleRoleChange(m.user.id, v)}
                             options={ROLE_OPTIONS}
+                            placeholder={m.role === "site_admin" ? "Site admin" : undefined}
                             size="xs"
                           />
                         ) : (
@@ -488,7 +501,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     </div>
 
-                    {isAdmin && m.role !== "site_admin" && (
+                    {canManage && m.role !== "site_admin" && (
                       <div className="mt-1 pl-9 flex items-center gap-2">
                         {m.role === "admin" ? (
                           // Admins implicitly have full moderator rights — show as checked+disabled

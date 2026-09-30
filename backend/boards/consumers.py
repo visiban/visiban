@@ -8,6 +8,7 @@ from .permissions import (
     MODERATOR_BEARING_EVENTS,
     get_board_role,
     moderator_field_visible,
+    site_admin_field_visible,
 )
 
 # How often (in seconds) the server sends a keepalive ping to each client.
@@ -103,10 +104,17 @@ class BoardConsumer(AsyncWebsocketConsumer):
             # (a malformed payload must fail closed, not raise).
             subject = data.get("user")
             subject_user_id = subject.get("id") if isinstance(subject, dict) else None
+            hidden = set()
             if "is_moderator" in data and not moderator_field_visible(
                 self._role, self.scope["user"].id, subject_user_id
             ):
-                payload = {**payload, "data": {k: v for k, v in data.items() if k != "is_moderator"}}
+                hidden.add("is_moderator")
+            # `is_site_admin` drives the admin member-controls lock (#1290);
+            # only admin/site_admin subscribers get it, with no self-row case.
+            if "is_site_admin" in data and not site_admin_field_visible(self._role):
+                hidden.add("is_site_admin")
+            if hidden:
+                payload = {**payload, "data": {k: v for k, v in data.items() if k not in hidden}}
         await self.send(text_data=json.dumps(payload))
 
     @database_sync_to_async

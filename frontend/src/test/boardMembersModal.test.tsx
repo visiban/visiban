@@ -133,12 +133,14 @@ describe('BoardMembersModal', () => {
     expect(onMembersChanged).toHaveBeenCalled()
   })
 
-  it('site_admin member shows "site admin" badge instead of role dropdown', () => {
+  // #1290 — the lock keys on the member's real is_site_admin flag (what the
+  // server enforces) plus the caller's own, not on the resolved role.
+  it('site admin member shows static role text instead of role dropdown', () => {
     const boardWithSiteAdmin: BoardFull = {
       ...fakeBoard,
       members: [
         { id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },
-        { id: 3, user: { id: 3, username: 'sysadmin', display_name: 'Sys Admin', avatar_url: '' }, role: 'site_admin', is_moderator: false, joined_at: '' },
+        { id: 3, user: { id: 3, username: 'sysadmin', display_name: 'Sys Admin', avatar_url: '' }, role: 'site_admin', is_moderator: false, is_site_admin: true, joined_at: '' },
       ],
     }
     render(<BoardMembersModal board={boardWithSiteAdmin} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
@@ -146,5 +148,61 @@ describe('BoardMembersModal', () => {
     // Only one combobox: the admin member's dropdown; site_admin has no dropdown
     const combos = screen.getAllByRole('combobox')
     expect(combos).toHaveLength(1)
+  })
+
+  it('locks a site admin whose row has an explicit non-site-admin role, and hides remove', () => {
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },
+        { id: 3, user: { id: 3, username: 'root', display_name: 'Root Admin', avatar_url: '' }, role: 'member', is_moderator: false, is_site_admin: true, joined_at: '' },
+      ],
+    }
+    render(<BoardMembersModal board={board} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getByTitle('Site administrator — role managed at the instance level')).toHaveTextContent('member')
+    // The first row is treated as self and never has remove; the locked row
+    // has none either.
+    expect(screen.queryAllByTitle('Remove direct board role')).toHaveLength(0)
+  })
+
+  it('leaves an all-content member (role "site_admin", not a site admin) editable', () => {
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },
+        { id: null, user: { id: 4, username: 'auditor', display_name: 'Audit Reader', avatar_url: '' }, role: 'site_admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+      ],
+    }
+    render(<BoardMembersModal board={board} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
+    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    expect(screen.getByText('Site admin')).toBeInTheDocument()
+  })
+
+  it('falls back to the role and stays locked when a row has no is_site_admin key', () => {
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },
+        { id: 3, user: { id: 3, username: 'legacy', display_name: 'Legacy Admin', avatar_url: '' }, role: 'site_admin', is_moderator: false, joined_at: '' },
+      ],
+    }
+    render(<BoardMembersModal board={board} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getByText('site admin')).toBeInTheDocument()
+    expect(screen.queryAllByTitle('Remove direct board role')).toHaveLength(0)
+  })
+
+  it('unlocks a site admin member when the caller is a site admin', () => {
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },
+        { id: 3, user: { id: 3, username: 'root', display_name: 'Root Admin', avatar_url: '' }, role: 'member', is_moderator: false, is_site_admin: true, joined_at: '' },
+      ],
+    }
+    render(<BoardMembersModal board={board} onClose={vi.fn()} onMembersChanged={vi.fn()} currentUserIsSiteAdmin />)
+    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
   })
 })

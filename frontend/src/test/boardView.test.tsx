@@ -135,8 +135,13 @@ vi.mock('../components/Board/AddColumnModal', () => ({
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
   default: () => <div data-testid="add-swimlane-modal">Add Swimlane Modal</div>,
 }))
+// Captures the props BoardView hands the settings modal (#1290).
+let capturedSettingsProps: { currentUserIsSiteAdmin?: boolean } = {}
 vi.mock('../components/Board/BoardSettingsModal', () => ({
-  default: () => <div data-testid="settings-modal">Settings Modal</div>,
+  default: (props: { currentUserIsSiteAdmin?: boolean }) => {
+    capturedSettingsProps = props
+    return <div data-testid="settings-modal">Settings Modal</div>
+  },
 }))
 // Capture props passed into FilterBar so tests can assert on `scope` and `onScopeChange`
 // without rendering the real component (kept mocked to avoid touching dropdown/avatar
@@ -435,6 +440,17 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByLabelText('Board settings'))
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+  })
+
+  it("passes the current user's own is_site_admin to the settings modal (#1290)", async () => {
+    const { unmount } = render(<BoardView currentUser={{ ...fakeUser, is_site_admin: true }} />)
+    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    expect(capturedSettingsProps.currentUserIsSiteAdmin).toBe(true)
+    unmount()
+
+    render(<BoardView currentUser={fakeUser} />)
+    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    expect(capturedSettingsProps.currentUserIsSiteAdmin).toBe(false)
   })
 
   it('renders board density stats in the corner cell', () => {

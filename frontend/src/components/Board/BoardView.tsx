@@ -2490,6 +2490,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onFieldsUpdated={onCustomFieldDefinitionsApplied}
           onSwimlaneFieldsUpdated={onSwimlaneFieldDefinitionsApplied}
           demoMode={currentUser?.demo_mode === true}
+          currentUserIsSiteAdmin={currentUser?.is_site_admin === true}
         />
       )}
 

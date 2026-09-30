@@ -10,6 +10,9 @@ interface Props {
   board: BoardFull;
   onClose: () => void;
   onMembersChanged: (members: EffectiveBoardMember[]) => void;
+  /** The requesting user's own `is_site_admin` (#1290) — only a site admin may
+   *  change or remove a member who is a site admin. */
+  currentUserIsSiteAdmin?: boolean;
 }
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
@@ -24,7 +27,7 @@ const ROLE_OPTIONS = ROLES.map((r) => ({
   label: r.label,
 }));
 
-export default function BoardMembersModal({ board, onClose, onMembersChanged }: Props) {
+export default function BoardMembersModal({ board, onClose, onMembersChanged, currentUserIsSiteAdmin = false }: Props) {
   const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<number | null>(null);
@@ -73,15 +76,19 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
         {members.map((m) => {
           const isSelf = m.user.id === board.members.find(() => true)?.user.id;
           const isDisabled = saving === m.user.id;
+          // Keyed on the member's real site-admin flag, as the server is — not
+          // on `role`, whose "site_admin" value reflects all-content access (#1290).
+          // A row without the field falls back to the role, failing closed.
+          const isLocked = (m.is_site_admin ?? m.role === "site_admin") && !currentUserIsSiteAdmin;
           return (
             <div key={m.user.id} className="flex items-center justify-between gap-3 py-2 border-b border-line last:border-0">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-fg truncate">{userDisplayName(m.user)}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {m.role === "site_admin" ? (
+                {isLocked ? (
                   <span className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded" title="Site administrator — role managed at the instance level">
-                    site admin
+                    {m.role === "site_admin" ? "site admin" : m.role}
                   </span>
                 ) : (
                 <SelectDropdown
@@ -89,10 +96,11 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
                   disabled={isDisabled}
                   onChange={(v) => handleRoleChange(m.user.id, v)}
                   options={ROLE_OPTIONS}
+                  placeholder={m.role === "site_admin" ? "Site admin" : undefined}
                   size="xs"
                 />
                 )}
-                {!isSelf && m.id !== null && (
+                {!isSelf && !isLocked && m.id !== null && (
                   confirmRemoveUserId === m.user.id ? (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="text-[11px] text-fg-tertiary">Remove?</span>

@@ -228,6 +228,8 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 !!! note "`is_moderator` is filtered per-recipient"
     On `member.added` and `member.updated`, the `is_moderator` field is stripped from the broadcast payload for non-`admin` / non-`site_admin` subscribers (consistent with the REST response filtering, #978) — **except on the row that is the subscriber's own membership**, which always carries the field so a member promoted to moderator sees their own entitlement over the socket (#1191, mirroring the `/full/` self-row exception from #1173). Every other row stays stripped for a non-admin subscriber.
 
+    `is_site_admin` (since 1.2) is sent only to `admin` / `site_admin` subscribers, with no self-row exception — see [Members](boards.md#members).
+
     The [change feed](events.md) applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.
 
 ### Git Lens events (since 1.2)

@@ -106,6 +106,8 @@ See [Board Permissions — Moderator entitlement](../permissions.md#moderator-en
 
 Site admins can't be demoted or removed by anyone but another site admin. A role-change or remove-member call on a group or board that **targets a user with `is_site_admin=True`** returns `403 Forbidden` unless the caller is also a site admin.
 
+The board **Members** settings follow the same rule: for a board admin who is not a site admin, a member with `is_site_admin=True` shows their role as plain text, with no role dropdown and no remove button. A member who has only `can_access_all_content` (listed with the **Site admin** board role) can still be assigned a board role, but their effective access stays full for as long as they have `can_access_all_content`. *(Since 1.2.)*
+
 **Watch out:** manage `is_site_admin` and `can_access_all_content` together (the `set_site_admin` command does this for you). Separate them only when you have a specific reason — see the tip below.
 
 Users with `can_access_all_content` see all boards and groups regardless of explicit membership — this is the flag that controls board-level omniscience. `is_site_admin` alone doesn't grant it.

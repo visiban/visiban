@@ -580,6 +580,27 @@ describe('useBoard', () => {
     act(() => { result.current.removeLabel('lbluid000001') })
     expect(result.current.board!.labels).toHaveLength(0)
   })
+
+  // #1290 — a member.* frame can arrive without is_site_admin (sent to admin
+  // subscribers only); the known value must survive the row replacement.
+  it('updateMember / addMember keep the known is_site_admin when a frame omits it', async () => {
+    const root = { id: 3, username: 'root', display_name: 'Root', avatar_url: '' }
+    mockGetBoardFull.mockResolvedValue(makeBoard({
+      members: [{ id: 30, user: root, role: 'member', is_moderator: false, is_site_admin: true, joined_at: '' }],
+    }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.updateMember({ id: 30, user: root, role: 'viewer', joined_at: '' }) })
+    expect(result.current.board!.members[0]).toMatchObject({ role: 'viewer', is_site_admin: true })
+
+    act(() => { result.current.addMember({ id: 30, user: root, role: 'admin', joined_at: '' }) })
+    expect(result.current.board!.members[0]).toMatchObject({ role: 'admin', is_site_admin: true })
+
+    // A frame that does carry the field wins.
+    act(() => { result.current.updateMember({ id: 30, user: root, role: 'admin', is_site_admin: false, joined_at: '' }) })
+    expect(result.current.board!.members[0].is_site_admin).toBe(false)
+  })
 })
 
 describe('useBoard — maintenance mode (#783)', () => {
