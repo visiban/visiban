@@ -23,7 +23,7 @@ from ..serializers import (
     SwimlaneSerializer, SwimlaneAdminSerializer, _swimlane_custom_field_prefetch,
 )
 from ..services.custom_fields import apply_swimlane_custom_field_values
-from ._helpers import get_board_for_user
+from ._helpers import get_board_for_user, validate_full_reorder_order
 
 
 def _refetch_swimlane(swimlane):
@@ -227,13 +227,20 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Reorder swimlanes",
-        description="Admin only. Accepts the full set of swimlane IDs in the desired order and returns the reordered list.",
+        description=(
+            "Admin only. Accepts this board's full set of swimlane IDs, with no "
+            "duplicates, in the desired order, and returns the reordered list. "
+            "`order` must be exactly this board's current swimlane IDs — a "
+            "partial list, a duplicate, an ID from another board, or an empty "
+            "list on a non-empty board is rejected with `400` (#1302, same rule "
+            "as checklist-item reorder, #1292)."
+        ),
         request=inline_serializer(
             name="SwimlaneReorderRequest",
             fields={
                 "order": serializers.ListField(
                     child=serializers.IntegerField(),
-                    help_text="Swimlane IDs for this board, in the desired display order.",
+                    help_text="This board's swimlane IDs, all of them, no duplicates, in the desired display order.",
                 ),
             },
         ),
@@ -243,36 +250,30 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=["post"], pagination_class=None)
     def reorder(self, request, board_pk=None):
-        """Reorder swimlanes by accepting a list of swimlane IDs in the desired order (admin only)."""
+        """Reorder swimlanes by accepting the full list of swimlane IDs in the desired order (admin only)."""
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         order = request.data.get("order", [])
-        try:
-            # Cast IDs to int — request JSON sends strings, DB PKs are ints. Done
-            # before opening the transaction: a non-integer entry (or a body where
-            # `order` isn't even a list) previously reached int() unguarded and
-            # surfaced as a 500 instead of a 400 naming the field.
-            order_ints = [int(sid) for sid in order]
-        except (TypeError, ValueError):
-            raise ValidationError(
-                {"order": "order must be a list of integer swimlane IDs."}
-            ) from None
         with transaction.atomic():
-            # Lock the board row before updating positions to prevent two
-            # concurrent reorder requests from interleaving their UPDATE
-            # statements and producing an inconsistent position sequence.
-            # Single-pass update is safe here: Swimlane has unique_together on
-            # (board, name), NOT (board, position), so mid-update position
-            # collisions cannot cause an IntegrityError.  Contrast with
-            # ColumnViewSet.reorder which requires a two-pass approach because
-            # Column has unique_together = ["board", "position"].
+            # Lock the board row before reading the current swimlane set and
+            # updating positions, so a concurrent create/delete/reorder can't
+            # slip in between the full-set check below and the position writes
+            # it authorizes, and so two concurrent reorder requests can't
+            # interleave their UPDATE statements into an inconsistent position
+            # sequence (#1302).
             Board.objects.select_for_update().get(pk=board.pk)
+            existing_ids = set(Swimlane.objects.filter(board=board).values_list("id", flat=True))
+            order_ints = validate_full_reorder_order(
+                order, existing_ids, item_label="swimlane", scope_label="this board",
+            )
             # bulk_update replaces N single-row UPDATEs with one query regardless of
             # swimlane count.  Swimlane has no unique_together on position so a single
             # pass is safe (contrast with ColumnViewSet.reorder which needs two passes).
             lanes = list(Swimlane.objects.filter(board=board, pk__in=order_ints).only("id", "position"))
             id_to_lane = {sl.pk: sl for sl in lanes}
+            # The `if swimlane_id in id_to_lane` guard is belt-and-braces, not
+            # load-bearing — see the matching comment in ColumnViewSet.reorder.
             for pos, swimlane_id in enumerate(order_ints):
                 if swimlane_id in id_to_lane:
                     id_to_lane[swimlane_id].position = pos

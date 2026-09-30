@@ -11,7 +11,7 @@ from django.db.models import Count, Prefetch, Q, Window
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from drf_spectacular.utils import (
@@ -46,6 +46,7 @@ from ..serializers import (
 )
 from ._helpers import (
     BoundedIdFilter, get_board_for_user, _can_modify_others_content, _refetched_card_data,
+    validate_full_reorder_order,
 )
 
 logger = logging.getLogger(__name__)
@@ -1341,36 +1342,16 @@ class CardViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(_PERM_DENIED)
         card = get_object_or_404(Card, pk=pk, board=board)
         order = request.data.get("order", [])
-        try:
-            # Cast IDs to int — request JSON sends strings, DB PKs are ints. Done
-            # before opening the transaction, same as ColumnViewSet.reorder: a
-            # non-integer entry should surface as a 400 naming the field, not a
-            # 500 from int() reached unguarded mid-transaction.
-            order_ints = [int(iid) for iid in order]
-        except (TypeError, ValueError):
-            raise ValidationError(
-                {"order": "order must be a list of integer checklist item IDs."}
-            ) from None
-        # completeness-check on #1292: `order` must be exactly this card's full set
-        # of checklist item IDs, no duplicates, no IDs from another card. A partial
-        # or padded list left the missing items' `position` wherever bulk_update's
-        # enumerate() last put it rather than where the request said, producing
-        # duplicate positions (e.g. two items both left at position 1). A silent
-        # filter of foreign/unknown IDs combined with a full-set requirement would
-        # be self-contradictory, so any mismatch — missing, extra, duplicate, or
-        # foreign-card — is rejected outright rather than partially applied.
-        # NOTE: ColumnViewSet.reorder / SwimlaneViewSet.reorder have this same
-        # partial-list hole and do NOT enforce this — left alone here, flagged
-        # separately, since fixing them is out of this branch's scope.
-        if len(order_ints) != len(set(order_ints)):
-            raise ValidationError(
-                {"order": "order must not contain duplicate checklist item IDs."}
-            )
+        # `order` must be exactly this card's full set of checklist item IDs, no
+        # duplicates, no IDs from another card (#1292). See
+        # validate_full_reorder_order's docstring for why any mismatch — missing,
+        # extra, duplicate, or foreign — is rejected outright rather than
+        # partially applied. #1302 extends this same helper to
+        # ColumnViewSet.reorder / SwimlaneViewSet.reorder, which had the same hole.
         existing_ids = set(card.checklist_items.values_list("id", flat=True))
-        if set(order_ints) != existing_ids:
-            raise ValidationError(
-                {"order": "order must contain exactly this card's checklist item IDs, no more and no fewer."}
-            )
+        order_ints = validate_full_reorder_order(
+            order, existing_ids, item_label="checklist item", scope_label="this card",
+        )
         with transaction.atomic():
             # Single-pass bulk_update suffices here — unlike Column/Swimlane,
             # CardChecklist has no unique_together(card, position) to violate

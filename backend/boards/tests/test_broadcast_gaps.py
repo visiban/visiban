@@ -295,6 +295,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 resp = self.client.post(
                     f"/api/v1/boards/{self.board.pk}/columns/reorder/",
                     {"order": [self.col2.pk, self.col.pk]},
+                    format="json",
                 )
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
@@ -307,6 +308,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 self.client.post(
                     f"/api/v1/boards/{self.board.pk}/columns/reorder/",
                     {"order": [self.col2.pk, self.col.pk]},
+                    format="json",
                 )
                 mock_broadcast.assert_not_called()
 
@@ -316,6 +318,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 resp = self.client.post(
                     f"/api/v1/boards/{self.board.pk}/swimlanes/reorder/",
                     {"order": [self.swim2.pk, self.swim.pk]},
+                    format="json",
                 )
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
@@ -328,6 +331,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 self.client.post(
                     f"/api/v1/boards/{self.board.pk}/swimlanes/reorder/",
                     {"order": [self.swim2.pk, self.swim.pk]},
+                    format="json",
                 )
                 mock_broadcast.assert_not_called()
 

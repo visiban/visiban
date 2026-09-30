@@ -19,7 +19,7 @@ from .. import broadcast as _broadcast
 from ..models import Board, BoardMembership, Column
 from ..permissions import SITE_ADMIN
 from ..serializers import ColumnSerializer
-from ._helpers import get_board_for_user
+from ._helpers import get_board_for_user, validate_full_reorder_order
 
 
 class ColumnViewSet(viewsets.ModelViewSet):
@@ -119,13 +119,20 @@ class ColumnViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Reorder columns",
-        description="Admin only. Accepts the full set of column IDs in the desired order and returns the reordered list.",
+        description=(
+            "Admin only. Accepts this board's full set of column IDs, with no "
+            "duplicates, in the desired order, and returns the reordered list. "
+            "`order` must be exactly this board's current column IDs — a partial "
+            "list, a duplicate, an ID from another board, or an empty list on a "
+            "non-empty board is rejected with `400` (#1302, same rule as "
+            "checklist-item reorder, #1292)."
+        ),
         request=inline_serializer(
             name="ColumnReorderRequest",
             fields={
                 "order": serializers.ListField(
                     child=serializers.IntegerField(),
-                    help_text="Column IDs for this board, in the desired display order.",
+                    help_text="This board's column IDs, all of them, no duplicates, in the desired display order.",
                 ),
             },
         ),
@@ -133,30 +140,37 @@ class ColumnViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=["post"], pagination_class=None)
     def reorder(self, request, board_pk=None):
-        """Reorder columns by accepting a list of column IDs in the desired order (admin only)."""
+        """Reorder columns by accepting the full list of column IDs in the desired order (admin only)."""
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         order = request.data.get("order", [])  # list of column IDs in new order
-        try:
-            # Cast IDs to int — request JSON sends strings, DB PKs are ints. Done
-            # before opening the transaction: a non-integer entry (or a body where
-            # `order` isn't even a list) previously reached int() unguarded and
-            # surfaced as a 500 instead of a 400 naming the field.
-            order_ints = [int(cid) for cid in order]
-        except (TypeError, ValueError):
-            raise ValidationError(
-                {"order": "order must be a list of integer column IDs."}
-            ) from None
         with transaction.atomic():
+            # Lock the board row before reading the current column set, same as
+            # perform_create/perform_update, so a concurrent create/delete can't
+            # slip in between the full-set check below and the position writes
+            # it authorizes (#1302).
+            Board.objects.select_for_update().get(pk=board.pk)
+            existing_ids = set(Column.objects.filter(board=board).values_list("id", flat=True))
+            order_ints = validate_full_reorder_order(
+                order, existing_ids, item_label="column", scope_label="this board",
+            )
             # Two-pass bulk_update to avoid unique_together(board, position) violations.
             # First pass: shift all positions to high values so no two columns share a
             # position mid-update.  Second pass: assign final positions.
             # Using bulk_update reduces 2N single-row UPDATEs to 2 queries regardless
-            # of column count.
-            count = board.columns.count()
+            # of column count. `count` is len(order_ints), not a separate query — the
+            # full-set check above already guarantees it equals the board's column count.
+            count = len(order_ints)
             cols = list(Column.objects.filter(board=board, pk__in=order_ints).only("id", "position"))
             id_to_col = {c.pk: c for c in cols}
+            # The `if col_id in id_to_col` guards below are belt-and-braces, not load-
+            # bearing: validate_full_reorder_order already guarantees order_ints is
+            # exactly this board's column IDs. They only matter if a column is deleted
+            # in the narrow window between the read above and this write (the board
+            # lock closes that window for another *reorder* request, not for every
+            # possible concurrent write) — cheap insurance against a KeyError/500 in
+            # that edge case rather than a case this branch expects to hit.
             for i, col_id in enumerate(order_ints):
                 if col_id in id_to_col:
                     id_to_col[col_id].position = count + i
