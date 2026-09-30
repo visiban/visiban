@@ -309,6 +309,12 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
     # drf-spectacular generates an accurate schema for the members endpoint.
     is_inherited = serializers.BooleanField(read_only=True, required=False)
     inherited_from = serializers.CharField(read_only=True, required=False, allow_null=True)
+    # An inherited row (see is_inherited above) has no real membership behind
+    # it, so the members action sets id=None for those entries (#1294). The
+    # auto-generated PK field is otherwise non-nullable, which would
+    # understate the real response — declared here for the same
+    # schema-accuracy reason as is_inherited/inherited_from above.
+    id = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = GroupMembership
@@ -344,7 +350,14 @@ class GroupInviteLinkSerializer(serializers.ModelSerializer):
     # group admins can see who created an invite link, parity with the
     # admin-level invite UI.  Use a CharField with source so we don't have
     # to nest a User serializer for one string.
-    created_by_username = serializers.CharField(source="created_by.username", read_only=True, default=None)
+    # allow_null=True (#1294): created_by is a nullable FK (null when the
+    # creator was deactivated and their User row was anonymized — see
+    # GroupInviteLink.created_by_username in frontend/src/types/index.ts),
+    # and a declared CharField traversing a nullable source does not inherit
+    # that nullability the way an auto-generated ModelSerializer field would.
+    created_by_username = serializers.CharField(
+        source="created_by.username", read_only=True, default=None, allow_null=True,
+    )
 
     class Meta:
         model = GroupInviteLink
