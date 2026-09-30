@@ -17,7 +17,6 @@ from allauth.socialaccount.adapter import get_adapter
 from allauth.socialaccount.internal.flows.signup import (
     get_pending_signup,
     process_auto_signup_email,
-    process_signup,
     redirect_to_signup,
 )
 from allauth.socialaccount.models import SocialAccount, SocialLogin
