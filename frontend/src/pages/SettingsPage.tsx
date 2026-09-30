@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import type { Location } from "react-router-dom";
-import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour } from "../api/auth";
+import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
 import type { User, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
 import { useTheme } from "../context/ThemeContext";
@@ -59,6 +59,14 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
   // #1273: on installs with EMAIL_VERIFICATION=mandatory a new address is held
   // until confirmed from its inbox; `email` keeps the current one meanwhile.
   const [pendingEmail, setPendingEmail] = useState<string | null>(user.pending_email ?? null);
+  // #1293: the Resend link / Cancel change actions on a pending email change.
+  // Their result is announced through the same live region as a save, and a
+  // new action or save replaces it, so no two results ever coexist.
+  const [pendingAction, setPendingAction] = useState<"resend" | "cancel" | null>(null);
+  const [emailNotice, setEmailNotice] = useState<{ tone: "success" | "warning" | "danger"; text: string } | null>(null);
+  // The action buttons unmount once nothing is pending; move focus to the
+  // field they belonged to rather than letting it fall to <body>.
+  const emailInputRef = useRef<HTMLInputElement>(null);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -68,6 +76,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
     setSaving(true);
     setError(null);
     setSaved(false);
+    setEmailNotice(null);
     try {
       // Only send `email` when it was edited. On EMAIL_VERIFICATION=mandatory
       // installs, sending the current address back withdraws a pending email
@@ -104,6 +113,58 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
       setSaving(false);
     }
   };
+
+  const startEmailAction = (action: "resend" | "cancel") => {
+    setPendingAction(action);
+    setError(null);
+    setSaved(false);
+    setEmailNotice(null);
+  };
+
+  const handleResend = async () => {
+    const address = pendingEmail;
+    startEmailAction("resend");
+    try {
+      await resendPendingEmailConfirmation();
+      setEmailNotice({ tone: "success", text: `We sent a new confirmation link to ${address}.` });
+    } catch (err) {
+      const response = (err as { response?: { status?: number; data?: { detail?: unknown } } })?.response;
+      const detail = typeof response?.data?.detail === "string" ? response.data.detail : null;
+      if (response?.status === 429) {
+        // allauth's per-address cooldown: nothing is broken, the user is just
+        // early. The server owns the wording (and the wait it implies).
+        setEmailNotice({ tone: "warning", text: detail ?? "A link was sent recently. Wait a few minutes before asking again." });
+      } else if (response?.status === 404) {
+        // Confirmed or canceled elsewhere (another tab, the link itself).
+        setPendingEmail(null);
+        emailInputRef.current?.focus();
+        setEmailNotice({ tone: "warning", text: "There's no email change waiting for confirmation anymore. Reload the page to see your current address." });
+      } else {
+        setEmailNotice({ tone: "danger", text: "Couldn't resend the link. Please try again." });
+      }
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleCancelChange = async () => {
+    startEmailAction("cancel");
+    try {
+      const updated = await cancelPendingEmailChange();
+      onUserUpdated(updated);
+      setPendingEmail(updated.pending_email ?? null);
+      setForm((f) => ({ ...f, email: updated.email ?? "" }));
+      emailInputRef.current?.focus();
+      setEmailNotice({ tone: "success", text: "Email change canceled. Your email address hasn't changed." });
+    } catch {
+      setEmailNotice({ tone: "danger", text: "Couldn't cancel the email change. Please try again." });
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const emailActionClass =
+    "text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover rounded px-1.5 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed";
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
@@ -148,16 +209,19 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-        Email address
-        <input
-          type="email"
-          value={form.email}
-          onChange={set("email")}
-          required
-          aria-describedby="pending-email-note"
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-        />
+      <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
+        <label className="flex flex-col gap-1">
+          Email address
+          <input
+            ref={emailInputRef}
+            type="email"
+            value={form.email}
+            onChange={set("email")}
+            required
+            aria-describedby="pending-email-note"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
+          />
+        </label>
         {/* Reserved slot (frontend/CLAUDE.md § Inline status messages): the
             container always renders so the form doesn't shift, and the
             input's aria-describedby always has a stable target. */}
@@ -165,7 +229,32 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           {pendingEmail &&
             `Waiting for confirmation: we sent a link to ${pendingEmail}. Your email address changes once you open it.`}
         </span>
-      </label>
+        {/* #1293: outside the <label> so the buttons don't become part of the
+            input's accessible name. Only while a change is pending; the note
+            above says what they act on. */}
+        {pendingEmail && (
+          <div className="flex items-center gap-3 -ml-1.5">
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={pendingAction !== null || saving}
+              aria-describedby="pending-email-note"
+              className={emailActionClass}
+            >
+              {pendingAction === "resend" ? "Sending…" : "Resend link"}
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelChange}
+              disabled={pendingAction !== null || saving}
+              aria-describedby="pending-email-note"
+              className={emailActionClass}
+            >
+              {pendingAction === "cancel" ? "Canceling…" : "Cancel change"}
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
         Timezone
@@ -218,7 +307,20 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           this line is the terminal state of the save and must be announced. */}
       <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
         {error && <span className="text-danger">{error}</span>}
-        {saved && !error && (
+        {emailNotice && !error && (
+          <span
+            className={
+              emailNotice.tone === "success"
+                ? "text-success"
+                : emailNotice.tone === "warning"
+                  ? "text-warning"
+                  : "text-danger"
+            }
+          >
+            {emailNotice.text}
+          </span>
+        )}
+        {saved && !error && !emailNotice && (
           <span className="text-success">
             {pendingEmail
               ? "Profile updated. Check your inbox to confirm your new email address."
@@ -230,7 +332,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
       <div>
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || pendingAction !== null}
           className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Saving…" : "Save changes"}

@@ -4,7 +4,6 @@ from django.urls import path, include, re_path
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from dj_rest_auth.registration.views import VerifyEmailView
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from accounts.permissions import TokenHasScope
@@ -17,6 +16,7 @@ from accounts.views import (
     TokenRevokingPasswordChangeView,
     UserDetailsView,
     VerifyEmailThrottle,
+    VerifyEmailView,
 )
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 
@@ -186,7 +186,8 @@ urlpatterns = [
         EmailConfirmRedirectView.as_view(),
     ),
     # Override verify-email with a throttled subclass for consistency with the
-    # rest of the anonymous auth surface. Registered before the include() so
+    # rest of the anonymous auth surface. The view is our own subclass that
+    # answers 409 instead of a false 200 when confirmation is blocked (#1293). Registered before the include() so
     # this pattern wins; the include still handles resend-email/.
     path(
         "api/v1/auth/registration/verify-email/",

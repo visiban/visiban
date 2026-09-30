@@ -10,6 +10,9 @@ from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from dj_rest_auth.registration.views import RegisterView
+from dj_rest_auth.registration.views import VerifyEmailView as DjRestAuthVerifyEmailView
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers
 from dj_rest_auth.views import LoginView as DjRestAuthLoginView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from dj_rest_auth.views import PasswordResetConfirmView as DjRestAuthPasswordResetConfirmView
@@ -259,6 +262,125 @@ class CurrentUserView(UsernameChangeThrottleMixin, APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+PENDING_EMAIL_NONE_MESSAGE = "No email change is waiting for confirmation."
+PENDING_EMAIL_RESENT_MESSAGE = "Confirmation email sent."
+PENDING_EMAIL_COOLDOWN_MESSAGE = (
+    "A confirmation email was sent to this address a moment ago. Wait a few "
+    "minutes before asking again. The link already sent still works."
+)
+
+
+class PendingEmailView(APIView):
+    """Withdraw the requesting user's pending email change (#1293).
+
+    ``DELETE /auth/me/pending-email/``. The same effect as PATCHing ``email``
+    back to the current address (#1273), as an explicit action the Settings
+    page can offer. Idempotent: with nothing pending it is a no-op, so a
+    double-click or a retry after a lost response still answers 200.
+
+    Acts only on ``request.user`` — there is no address or id in the request —
+    so there is no object to look up and nothing to IDOR. Keeps the default
+    permission chain (including the forced password/username-change gates):
+    unlike ``/auth/me/`` itself this is not part of the flow that clears them.
+    """
+
+    @extend_schema(request=None, responses={200: CurrentUserSerializer})
+    def delete(self, request):
+        from .email_change import cancel_email_change
+
+        cancel_email_change(request.user)
+        return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
+
+
+class PendingEmailResendView(APIView):
+    """Send the confirmation link for the requesting user's pending email change again (#1293).
+
+    ``POST /auth/me/pending-email/resend/``. Sends through allauth's own
+    verification mail and its ``confirm_email`` rate limit (see
+    ``email_change.resend_email_change``); a send skipped by that limit is a
+    429 rather than a silent 200, so the UI can say so instead of claiming it
+    sent something. The address is never taken from the request — only the
+    row the user's own pending change tracks can be mailed — so this cannot
+    be pointed at an arbitrary inbox.
+    """
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="PendingEmailResendResponse", fields={"detail": serializers.CharField()}
+            ),
+        },
+    )
+    def post(self, request):
+        from .email_change import resend_email_change
+
+        sent = resend_email_change(request, request.user)
+        if sent is None:
+            return Response(
+                {"detail": PENDING_EMAIL_NONE_MESSAGE}, status=status.HTTP_404_NOT_FOUND
+            )
+        if not sent:
+            return Response(
+                {"detail": PENDING_EMAIL_COOLDOWN_MESSAGE},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        return Response({"detail": PENDING_EMAIL_RESENT_MESSAGE})
+
+
+EMAIL_IN_USE_MESSAGE = (
+    "This email address is already in use by another account, so it can't be "
+    "confirmed for this one."
+)
+
+
+class VerifyEmailView(DjRestAuthVerifyEmailView):
+    """dj-rest-auth's verify-email, answering 409 when confirmation is blocked (#1293).
+
+    With ``ACCOUNT_UNIQUE_EMAIL`` (allauth's default) an address that another
+    account has already verified cannot be verified again. allauth's
+    ``verify_email`` then quietly does nothing, and dj-rest-auth still answers
+    ``200 {"detail": "ok"}`` — so a user confirming an email change saw
+    "Email verified" while nothing changed, and their change stayed pending
+    forever with no explanation.
+
+    Enumeration: this reveals that the address belongs to some account, but
+    only to a caller holding a valid confirmation key, and a key is only ever
+    delivered to that address's inbox. Whoever controls the inbox can already
+    learn the same thing (e.g. from a password-reset email arriving), so
+    nothing new is disclosed. The account that *requested* the change learns
+    nothing: its pending state looks the same whether confirmation was
+    blocked or simply not attempted yet — deliberately, since that account
+    need not control the inbox.
+    """
+
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                name="VerifyEmailResponse", fields={"detail": serializers.CharField()}
+            ),
+            409: OpenApiResponse(
+                description="The address is already verified on another account.",
+                response=inline_serializer(
+                    name="VerifyEmailConflict",
+                    fields={"detail": serializers.CharField(), "code": serializers.CharField()},
+                ),
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.kwargs["key"] = serializer.validated_data["key"]
+        address = self.get_object().email_address
+        if not address.verified and not address.can_set_verified():
+            return Response(
+                {"detail": EMAIL_IN_USE_MESSAGE, "code": "email_in_use"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return super().post(request, *args, **kwargs)
 
 
 def finalize_password_change(user):

@@ -676,10 +676,10 @@ Update the authenticated user's profile. All fields are optional.
 - `email` in the response (and on the account) is **unchanged**, so it's still the address used for login, password resets, and notification email.
 - `pending_email` in the response holds the new address, and a confirmation link is emailed to it.
 - The address switches when the link is confirmed through `POST /api/v1/auth/registration/verify-email/` (the link opens the SPA's `/confirm-email/<key>` page, which calls it). `pending_email` then returns to `null`, and the old address is removed from the account.
-- Requesting another address before confirming replaces the pending one, and the earlier link normally stops working (two `PATCH` requests racing each other can leave both links usable, and whichever is confirmed wins). Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works.
-- Sending `email` equal to the current address (ignoring case) while a change is pending **withdraws** it: `pending_email` returns to `null` and the pending link stops working. A `PATCH` that omits `email` leaves a pending change alone. A round-trip update, where a client GETs the profile, modifies it, and PATCHes or PUTs the full object back (including `PUT /api/v1/auth/user/`), sends the current `email` and therefore **also withdraws** a pending change. Clients should send `email` only when the user edited it.
+- Requesting another address before confirming replaces the pending one, and the earlier link normally stops working (two `PATCH` requests racing each other can leave both links usable, and whichever is confirmed wins). Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works. To resend the link without re-submitting the form, use [`POST /api/v1/auth/me/pending-email/resend/`](#post-apiv1authmepending-emailresend).
+- Sending `email` equal to the current address (ignoring case) while a change is pending **withdraws** it: `pending_email` returns to `null` and the pending link stops working ([`DELETE /api/v1/auth/me/pending-email/`](#delete-apiv1authmepending-email) does the same thing explicitly). A `PATCH` that omits `email` leaves a pending change alone. A round-trip update, where a client GETs the profile, modifies it, and PATCHes or PUTs the full object back (including `PUT /api/v1/auth/user/`), sends the current `email` and therefore **also withdraws** a pending change. Clients should send `email` only when the user edited it.
 - Choosing an address that is already a verified address of your own account applies it immediately.
-- An address already verified by another account can't be confirmed.
+- An address already verified by another account can't be confirmed. Following its link answers `409` with `code: "email_in_use"` (see [Verify email](#post-apiv1authregistrationverify-email)); `pending_email` stays set until the change is withdrawn or replaced.
 - `pending_email` only reflects a change requested through this endpoint. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never reported as pending, and they're not removed by a change request or its confirmation.
 
 With `optional` (the default) or `none`, `email` is written directly, as before (including `""` to clear it), and `pending_email` stays `null`.
@@ -708,6 +708,48 @@ PATCH /api/v1/auth/me/
 | `400 Bad Request` | `email` is `""` on an account that has an address, when the instance sets `EMAIL_VERIFICATION=mandatory` — `{"email": ["An email address is required."]}` |
 | `429 Too Many Requests` | Too many username changes — the request changed `username` and exhausted the per-user budget it shares with `POST /api/v1/auth/choose-username/` |
 | `401 Unauthorized` | Request is not authenticated |
+
+### `DELETE /api/v1/auth/me/pending-email/`
+
+Withdraw the authenticated user's pending email change (see [Changing `email` when verification is mandatory](#patch-apiv1authme)). The unconfirmed address is removed from the account, so the link already sent stops working, and `email` is unchanged. Added in 1.2 (#1293).
+
+Only the address the pending change tracks is removed. In the rare case where two `PATCH` requests raced (see above), the losing request's unconfirmed address is indistinguishable from other unconfirmed addresses on the account, such as ones imported by a social login, so it is left in place. Its link can still verify it as an additional address, but it never changes `email`.
+
+**Permission:** Requires authentication. Acts only on the caller's own pending change; the request takes no address or id. Blocked while the account has a forced password or username change pending, like other profile endpoints except `GET`/`PATCH /api/v1/auth/me/`.
+
+**Request body:** none.
+
+**Response** `200 OK` — the updated profile, the same shape as [`GET /api/v1/auth/me/`](#get-apiv1authme), with `pending_email: null`.
+
+Idempotent: with no change pending it changes nothing and still returns `200`. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never removed.
+
+| Status | Reason |
+|---|---|
+| `401 Unauthorized` | Request is not authenticated |
+| `403 Forbidden` | A forced password or username change is pending |
+
+### `POST /api/v1/auth/me/pending-email/resend/`
+
+Email the confirmation link for the authenticated user's pending email change again. The address is always the pending one; the request can't choose it. Added in 1.2 (#1293).
+
+**Permission:** Requires authentication. Same gating as `DELETE /api/v1/auth/me/pending-email/`.
+
+**Request body:** none (any body is ignored).
+
+**Response** `200 OK`
+
+```json
+{ "detail": "Confirmation email sent." }
+```
+
+The link is sent through the same confirmation email as the original request and shares its rate limit: at most one email per address every 3 minutes, counting the email sent by the `PATCH` that started the change. Links already sent keep working.
+
+| Status | Reason |
+|---|---|
+| `404 Not Found` | No email change is pending — `{"detail": "No email change is waiting for confirmation."}` |
+| `429 Too Many Requests` | A confirmation email went to this address within the cooldown, so none was sent. The `detail` says so; the earlier link still works. |
+| `401 Unauthorized` | Request is not authenticated |
+| `403 Forbidden` | A forced password or username change is pending |
 
 ---
 
@@ -811,6 +853,25 @@ When `registration_mode` is `"invite_only"`, an additional `invite_token` field 
 | `400 Bad Request` | Email already registered, passwords do not match, or password too short |
 | `403 Forbidden` | Registration is `"closed"` — no new accounts can be created |
 | `409 Conflict` (`invite_already_redeemed`, 1.1+) | The same email previously redeemed this multi-use invite link | Use a different invite link or contact the link's creator |
+
+### `POST /api/v1/auth/registration/verify-email/`
+
+Confirm an email address from the key in a confirmation link. The link in the email opens the SPA's `/confirm-email/<key>` page, which calls this endpoint. Used both for signup confirmation and for confirming an [email change](#patch-apiv1authme).
+
+**Permission:** None — public endpoint, possession of the key is the credential. IP-throttled (`verify_email` scope).
+
+**Request body:** `{ "key": "<key from the link>" }`
+
+**Response** `200 OK` — `{ "detail": "ok" }`
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | `key` is missing |
+| `404 Not Found` | The key is invalid or expired, or the address it names no longer exists (for example, a withdrawn or replaced email change) |
+| `409 Conflict` | `{"detail": "...", "code": "email_in_use"}` — the key is valid, but another account has already verified this address, so it can't be confirmed for this one. Nothing is changed. Applies to signup confirmations too (for example, two accounts that signed up with the same address before either confirmed it). |
+| `429 Too Many Requests` | Too many requests from this IP (`verify_email` throttle scope) |
+
+> **Changed in 1.2** (#1293) — the `409` case used to answer `200 {"detail": "ok"}` without confirming anything. It's only returned to someone holding a valid key, which is only ever emailed to that address, so it reveals nothing the inbox's owner can't already find out. The account that requested the change sees no difference: its `pending_email` stays set either way.
 
 ---
 

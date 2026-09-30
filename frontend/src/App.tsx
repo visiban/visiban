@@ -112,7 +112,7 @@ export default function App() {
       {/* Public — accessible regardless of auth */}
       <Route path="/join/:token" element={<JoinPage user={user} onLogin={handleLogin} />} />
       <Route path="/share/:token" element={<ShareBoardPage />} />
-      <Route path="/confirm-email/:key" element={<ConfirmEmailPage />} />
+      <Route path="/confirm-email/:key" element={<ConfirmEmailPage isAuthenticated={!!user} />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password/:uid/:token" element={<ResetPasswordPage />} />
 

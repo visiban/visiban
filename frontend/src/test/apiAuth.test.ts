@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -127,6 +127,25 @@ describe('auth API', () => {
     mockDelete.mockResolvedValue({})
     await revokeToken(42)
     expect(mockDelete).toHaveBeenCalledWith('/api/v1/auth/tokens/42/')
+  })
+})
+
+describe('pending email change API (#1293)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('cancelPendingEmailChange calls DELETE /api/v1/auth/me/pending-email/ and returns the user', async () => {
+    const user = { id: 1, username: 'jdoe', pending_email: null }
+    mockDelete.mockResolvedValue({ data: user })
+    const result = await cancelPendingEmailChange()
+    expect(mockDelete).toHaveBeenCalledWith('/api/v1/auth/me/pending-email/')
+    expect(result).toEqual(user)
+  })
+
+  it('resendPendingEmailConfirmation calls POST /api/v1/auth/me/pending-email/resend/ with no body', async () => {
+    mockPost.mockResolvedValue({ data: { detail: 'Confirmation email sent.' } })
+    const result = await resendPendingEmailConfirmation()
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/auth/me/pending-email/resend/')
+    expect(result).toEqual({ detail: 'Confirmation email sent.' })
   })
 })
 
