@@ -114,6 +114,44 @@ class AllowedPrioritiesValidationTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
         self.assertEqual(response.json()["allowed_priorities"], ["low"])
 
+    def test_length_cap_boundary(self):
+        # #1186: the exact off-by-one boundary of the shared cap — a list one
+        # entry over the cap must be rejected, and exactly at the cap must be
+        # accepted. (test_oversized_list_rejected_before_iteration and
+        # test_list_at_cap_still_accepted above cover the same shape with a
+        # far-oversized list; this pins the precise boundary the shared
+        # ``visiban.utils.MAX_ALLOWED_PRIORITIES_LENGTH`` / boards' identical
+        # cap must agree on.)
+        from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH
+
+        over = self.client.post(
+            "/api/v1/groups/",
+            {"name": "G-over", "allowed_priorities": ["low"] * (MAX_ALLOWED_PRIORITIES_LENGTH + 1)},
+            format="json",
+        )
+        self.assertEqual(over.status_code, status.HTTP_400_BAD_REQUEST, over.content)
+        self.assertIn("at most", str(over.json()["allowed_priorities"]))
+
+        at_cap = self.client.post(
+            "/api/v1/groups/",
+            {"name": "G-at-cap", "allowed_priorities": ["low"] * MAX_ALLOWED_PRIORITIES_LENGTH},
+            format="json",
+        )
+        self.assertEqual(at_cap.status_code, status.HTTP_201_CREATED, at_cap.content)
+
+    def test_cap_shared_with_board_serializer(self):
+        # #1186: GroupSerializer and BoardSerializer independently duplicated
+        # this cap after #1169 with nothing keeping the two in sync. Both now
+        # source it from visiban.utils.MAX_ALLOWED_PRIORITIES_LENGTH, so this
+        # asserts they haven't drifted apart again (e.g. via a local
+        # override reintroduced in either app).
+        from boards.serializers import _MAX_ALLOWED_PRIORITIES_LENGTH as boards_cap
+        from groups.serializers import _MAX_ALLOWED_PRIORITIES_LENGTH as groups_cap
+        from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH
+
+        self.assertEqual(groups_cap, MAX_ALLOWED_PRIORITIES_LENGTH)
+        self.assertEqual(boards_cap, MAX_ALLOWED_PRIORITIES_LENGTH)
+
     def test_invalid_value_echoed_is_truncated(self):
         # #1169 L2: an invalid string used to be echoed back in full (up to
         # ~20MB) in the 400 body. It must now be truncated.

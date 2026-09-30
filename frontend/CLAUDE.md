@@ -716,6 +716,7 @@ Icon-only buttons that toggle a persistent mode (e.g. focus mode, collapse) must
 - `aria-label` reflecting the current state (e.g. `isFocused ? "Exit focus" : \`Focus on ${name}\``) — an icon-only toggle's SVG is `aria-hidden`, so `title` alone is **not** a reliable accessible name (Firefox/VoiceOver skip it). Always pair the state-reflecting `title` with a matching `aria-label`
 - Updated `title` attribute when active (e.g. `isFocused ? "Exit focus" : \`Focus on ${name}\``) — tooltip text must reflect the current action, not the initial one
 - The active visual treatment (e.g. `text-info !opacity-100`) is sufficient for sighted users; `aria-pressed` covers the rest
+- A glyph, letter, or symbol child (e.g. `◀`, `B`, `✕`, `A`) is **not** a substitute for `aria-label`, even though it produces some accessible name — screen readers announce the bare character ("bee", "ex"), not the action. `aria-label` must describe the action (e.g. `aria-label="Bold"`, not relying on the visible "B"). This applies to every icon/glyph-only button, not only toggles (#1240)
 
 ## User preference persistence
 
