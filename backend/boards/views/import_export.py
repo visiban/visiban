@@ -31,7 +31,10 @@ from ..models import (
 )
 from .. import broadcast as _broadcast
 from ..permissions import SITE_ADMIN
-from ..serializers import BoardExportLogSerializer, BoardSerializer, ExternalRefSerializer
+from ..serializers import (
+    BoardExportLogSerializer, BoardSerializer, ExternalRefSerializer,
+    _swimlane_custom_field_values,
+)
 from ..services import trello_import as _trello
 from ._helpers import get_board_for_user
 
@@ -1319,9 +1322,12 @@ class BoardImportExportMixin:
             filtered to the definitions the exporter may see.
             """
             visible = _visible_swimlane_field_ids
+            # _swimlane_custom_field_values() reads the to_attr list the
+            # Prefetch below parks the rows on (#1223); .all() would miss it
+            # and issue one query per swimlane once that Prefetch is applied.
             return {
                 row.field_definition.name: row.value
-                for row in swimlane.custom_field_values.all()
+                for row in _swimlane_custom_field_values(swimlane)
                 if row.field_definition_id in visible
             }
 
