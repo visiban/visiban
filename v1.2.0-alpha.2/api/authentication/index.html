@@ -4650,7 +4650,7 @@
 </tr>
 <tr>
 <td><code>signup_closed</code></td>
-<td>Reserved for "registration is closed for this instance." Not currently emitted by any backend code path — OAuth signup in CLOSED registration mode instead falls through to allauth's own stock <code>signup_closed.html</code> template today (tracked separately as #1323, not part of #1321's fix).</td>
+<td>Registration is closed for this instance. Emitted when an OAuth signup attempt is made while registration mode is <code>CLOSED</code> (#1323) — redirects to the frontend instead of rendering allauth's stock <code>signup_closed.html</code> template.</td>
 </tr>
 <tr>
 <td><code>oauth_failed</code></td>
