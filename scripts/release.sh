@@ -595,7 +595,9 @@ fi
 # through .env"). The fix for the mutable-`latest` default is instead
 # fail-closed `${APP_VERSION:?...}` in docker-compose.prod.yml itself; see the
 # consistency check below, which now guards THAT instead of a release-tag pin
-# that was never actually happening.
+# that was never actually happening. That check (like the rest of the
+# version-consistency block below) now aborts the release on failure — it is
+# no longer a review-time-only warning (#1269).
 TMP=$(mktemp)
 pin_helm_tags helm/visiban/values.yaml "$TAG" > "$TMP" && mv "$TMP" helm/visiban/values.yaml
 
@@ -706,8 +708,29 @@ if ! grep -q "^appVersion: \"${VERSION}\"" helm/visiban/Chart.yaml; then
   ERRORS=$((ERRORS + 1))
 fi
 
+# Fail closed — do not let a drifted version reference reach a commit, an MR,
+# or a tag. This used to only print a summary line and let ERRORS accumulate
+# past it, so `git add`/`commit`/`push` ran regardless of how many checks
+# failed; #1268's stale Chart.yaml appVersion shipped exactly that way, past a
+# WARN this block printed and nobody blocked on. No override: every check
+# above is expected to pass on every release (the RC/alpha-beta/GA docs/index.md
+# checks are mutually exclusive by construction, so exactly one of them
+# applies per release and none of them legitimately fires alongside a pass).
+#
+# Nothing has been committed yet at this point (the branch was only checked
+# out and its working tree edited), so `abort_release_branch` fully undoes
+# every rewrite this script made above — .env.example, frontend/package.json,
+# README.md, CHANGELOG.md, docs/index.md, docs/getting-started/installation.md,
+# docs/getting-started/kubernetes.md, helm/visiban/values.yaml,
+# helm/visiban/Chart.yaml, and any changelog.d/ fragments assemble-changelog.sh
+# deleted — via `git reset --hard`, back to `main`, release branch deleted.
 if [[ "$ERRORS" -gt 0 ]]; then
-  echo "  ${ERRORS} version consistency warning(s) — review before committing" >&2
+  echo "" >&2
+  echo "Error: ${ERRORS} version consistency check(s) failed (see WARN lines above)." >&2
+  echo "Refusing to commit, push, or tag a release with drifted version references." >&2
+  echo "Rolling back: resetting the working tree, deleting ${RELEASE_BRANCH}, and returning to main. No files were left modified — nothing to git checkout by hand." >&2
+  abort_release_branch
+  exit 1
 fi
 
 # Commit and push branch
