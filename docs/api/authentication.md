@@ -24,7 +24,7 @@ Log in to get your API token. The token is permanent until you log out or it is 
     - An email address shared by more than one active account logs into **none** of them — it fails with the same generic error as a wrong password. Those users can still log in by username. Deactivated accounts don't count toward the match.
     - Failed attempts by username and by email count toward one lockout for the account. A deliberate consequence: someone who already knows an account's username and has locked it out can tell whether a candidate email belongs to that same account, because it gets the "Too many failed login attempts" error instead of the generic one. This is the accepted cost of not letting an attacker double their guesses by switching identifiers, and it is still bounded by the per-IP rate.
     - Accounts created via the web registration form have auto-generated usernames (derived from the email address); either identifier works for them.
-    - **Known limitation** (tracked in #1221): usernames and emails are not cross-checked against each other. Because a username match always wins, another account can register a username equal to someone's email address (or set its own profile email to it) and disable *that person's email login* — the affected person can still always log in with their own username, and the other account never gains access to theirs. This is a denial of the convenience path only, never an account takeover.
+    - Usernames and emails are cross-checked so one account can't switch off another's email login (**changed in 1.2**, #1221). A new or changed username can't equal another active account's email, and a new or changed email can't equal another active account's email or any account's username (all compared ignoring case and surrounding spaces). This applies to registration, [`PATCH /api/v1/auth/me/`](#patch-apiv1authme), `POST /api/v1/auth/choose-username/`, and admin-created accounts. Only a *change* is checked, so an account that already collides from before 1.2 can still save the rest of its profile. Social/SSO signup whose IdP username collides gets a generated username instead of an error. With `EMAIL_VERIFICATION=mandatory`, a profile email change is checked when it's confirmed rather than when it's requested, so the request itself doesn't reveal whether an address is in use. A colliding confirmation answers `409` (`email_in_use`) and the email isn't changed. Rows that still collide, from before 1.2 or created outside the API, keep the rules above: the username wins, and a shared email logs into none of them.
 
 === "curl"
     ```bash
@@ -590,7 +590,7 @@ account during the uniqueness enforcement migration.
 ```
 
 - Username must be 1-150 characters; only letters, digits, and `@/./ +/-/_`
-- Uniqueness is checked case-insensitively (`iexact`)
+- Uniqueness is checked case-insensitively (`iexact`), and since 1.2 (#1221) the username also can't be another active account's email address. Both failures return the same `"That username is already taken."`
 - On success, `must_change_username` is cleared
 
 **Response** `200 OK` with the updated user object on success; `400 Bad Request` with `detail` on failure.
@@ -662,8 +662,8 @@ Update the authenticated user's profile. All fields are optional.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `username` | string | No | 1-150 characters; letters, digits, and `@/./+/-/_` only. Must not match another account's username **ignoring case** — the same rule as [`POST /api/v1/auth/choose-username/`](#post-apiv1authchoose-username). Re-casing your own username is allowed. A request that changes the username also counts against that endpoint's rate limit (the two share one per-user budget), and clears `must_change_username`. |
-| `email` | string | No | A valid email address, or `""` to clear it. On instances with `EMAIL_VERIFICATION=mandatory`, a **new** address doesn't take effect on this request (see below), and clearing an existing address is refused. |
+| `username` | string | No | 1-150 characters; letters, digits, and `@/./+/-/_` only. Must not match another account's username **ignoring case** — the same rule as [`POST /api/v1/auth/choose-username/`](#post-apiv1authchoose-username) — or another active account's email address (1.2+, #1221). Re-casing your own username is allowed, and so is a username equal to your own email. A request that changes the username also counts against that endpoint's rate limit (the two share one per-user budget), and clears `must_change_username`. |
+| `email` | string | No | A valid email address, or `""` to clear it. A **new** address must not match another active account's email or any account's username, ignoring case (1.2+, #1221). A request that changes `email` counts against the same per-user budget as a username change. On instances with `EMAIL_VERIFICATION=mandatory`, a new address doesn't take effect on this request (see below) and is checked against other accounts only when the link is confirmed (a collision then answers `409`, see below), and clearing an existing address is refused. |
 | `avatar_url` | string / null | No | URL of the user's avatar image. Accepts any absolute URL or `null` to clear. |
 | `theme` | string | No | Color scheme preference. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"` for new accounts. |
 | `default_board_id` | integer \| null | No | Board to redirect to after login. Must be a board the user is a member of, or `null` to clear. |
@@ -680,7 +680,7 @@ Update the authenticated user's profile. All fields are optional.
 - Requesting another address before confirming replaces the pending one, and the earlier link normally stops working (two `PATCH` requests racing each other can leave both links usable, and whichever is confirmed wins). Resending to the same pending address is subject to the confirmation-email rate limit; if a resend is skipped, the link already sent still works. To resend the link without re-submitting the form, use [`POST /api/v1/auth/me/pending-email/resend/`](#post-apiv1authmepending-emailresend).
 - Sending `email` equal to the current address (ignoring case) while a change is pending **withdraws** it: `pending_email` returns to `null` and the pending link stops working ([`DELETE /api/v1/auth/me/pending-email/`](#delete-apiv1authmepending-email) does the same thing explicitly). A `PATCH` that omits `email` leaves a pending change alone. A round-trip update, where a client GETs the profile, modifies it, and PATCHes or PUTs the full object back (including `PUT /api/v1/auth/user/`), sends the current `email` and therefore **also withdraws** a pending change. Clients should send `email` only when the user edited it.
 - Choosing an address that is already a verified address of your own account applies it immediately.
-- An address already verified by another account can't be confirmed. Following its link answers `409` with `code: "email_in_use"` (see [Verify email](#post-apiv1authregistrationverify-email)); `pending_email` stays set until the change is withdrawn or replaced.
+- An address already verified by another account, or (1.2+, #1221) already held by another active account (even unverified) or used as another account's username, can't be confirmed. Following its link answers `409` with `code: "email_in_use"` (see [Verify email](#post-apiv1authregistrationverify-email)); `pending_email` stays set until the change is withdrawn or replaced.
 - `pending_email` only reflects a change requested through this endpoint. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never reported as pending, and they're not removed by a change request or its confirmation.
 
 With `optional` (the default) or `none`, `email` is written directly, as before (including `""` to clear it), and `pending_email` stays `null`.
@@ -705,9 +705,10 @@ PATCH /api/v1/auth/me/
 |---|---|
 | `400 Bad Request` | `theme` is not one of `"system"`, `"dark"`, or `"light"` — response body contains `{"theme": ["..."]}`  |
 | `400 Bad Request` | `default_board_id` refers to a board the user is not a member of |
-| `400 Bad Request` | `username` is taken by another account (compared ignoring case) — `{"username": ["That username is already taken."]}` |
+| `400 Bad Request` | `username` is taken by another account, or is another active account's email (compared ignoring case) — `{"username": ["That username is already taken."]}` |
+| `400 Bad Request` | `email` changed to another active account's email or any account's username (compared ignoring case; under `EMAIL_VERIFICATION=mandatory` this is checked when the change is confirmed instead) — `{"email": ["That email address is already in use."]}` |
 | `400 Bad Request` | `email` is `""` on an account that has an address, when the instance sets `EMAIL_VERIFICATION=mandatory` — `{"email": ["An email address is required."]}` |
-| `429 Too Many Requests` | Too many username changes — the request changed `username` and exhausted the per-user budget it shares with `POST /api/v1/auth/choose-username/` |
+| `429 Too Many Requests` | Too many username or email changes — the request changed `username` or `email` and exhausted the per-user budget it shares with `POST /api/v1/auth/choose-username/` |
 | `401 Unauthorized` | Request is not authenticated |
 
 ### `DELETE /api/v1/auth/me/pending-email/`
@@ -800,7 +801,7 @@ When `registration_mode` is `"open"`, no invite token is required.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `email` | string | Yes | Must be unique on the instance. A username is auto-derived from the email address. |
+| `email` | string | Yes | Must be unique on the instance: not another active account's email or any account's username, compared ignoring case (1.2+, #1221; earlier releases only refused an address another account had verified). A username is auto-derived from the email address. An optional `username` field is also accepted; it can't be another active account's email. |
 | `password1` | string | Yes | The desired password (minimum 12 characters). |
 | `password2` | string | Yes | Password confirmation — must match `password1`. |
 
@@ -869,7 +870,7 @@ Confirm an email address from the key in a confirmation link. The link in the em
 |---|---|
 | `400 Bad Request` | `key` is missing |
 | `404 Not Found` | The key is invalid or expired, or the address it names no longer exists (for example, a withdrawn or replaced email change) |
-| `409 Conflict` | `{"detail": "...", "code": "email_in_use"}` — the key is valid, but another account has already verified this address, so it can't be confirmed for this one. Nothing is changed. Applies to signup confirmations too (for example, two accounts that signed up with the same address before either confirmed it). |
+| `409 Conflict` | `{"detail": "...", "code": "email_in_use"}` — the key is valid, but another account has already verified this address, so it can't be confirmed for this one. For a pending email change (1.2+, #1221), also returned when another active account holds the address unverified or uses it as its username. Nothing is changed. Applies to signup confirmations too (for example, two accounts that signed up with the same address before either confirmed it). |
 | `429 Too Many Requests` | Too many requests from this IP (`verify_email` throttle scope) |
 
 > **Changed in 1.2** (#1293) — the `409` case used to answer `200 {"detail": "ok"}` without confirming anything. It's only returned to someone holding a valid key, which is only ever emailed to that address, so it reveals nothing the inbox's owner can't already find out. The account that requested the change sees no difference: its `pending_email` stays set either way.

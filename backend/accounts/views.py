@@ -39,7 +39,12 @@ from .models import (
     get_registration_mode,
 )
 from .invite_utils import InviteTokenError, validate_invite_token, consume_invite_token
-from .validators import USERNAME_TAKEN_MESSAGE, is_username_taken, is_valid_username_format
+from .validators import (
+    USERNAME_TAKEN_MESSAGE,
+    is_username_taken,
+    is_valid_username_format,
+    username_collides_with_email,
+)
 from .serializers import (
     CurrentUserSerializer,
     PersonalAccessTokenCreateResponseSerializer,
@@ -235,9 +240,10 @@ class UsernameChangeThrottleMixin:
     way around ``ChooseUsernameThrottle`` for probing which names are taken
     (#1273). The throttle is appended rather than set as ``throttle_classes`` so
     the global user/anon rates still apply, and ``UsernameChangeThrottle``
-    only consumes its bucket when the request actually changes the username:
-    the SPA's profile form re-sends the unchanged username on every save, and
-    ordinary profile edits must not eat into the rename budget.
+    only consumes its bucket when the request actually changes the username
+    (or, since #1221, the email): the SPA's profile form re-sends the unchanged
+    values on every save, and ordinary profile edits must not eat into the
+    rename budget.
     """
 
     def get_throttles(self):
@@ -364,7 +370,10 @@ class VerifyEmailView(DjRestAuthVerifyEmailView):
                 name="VerifyEmailResponse", fields={"detail": serializers.CharField()}
             ),
             409: OpenApiResponse(
-                description="The address is already verified on another account.",
+                description=(
+                    "The address is already verified on another account, or (for a "
+                    "pending email change) another account already uses it."
+                ),
                 response=inline_serializer(
                     name="VerifyEmailConflict",
                     fields={"detail": serializers.CharField(), "code": serializers.CharField()},
@@ -376,8 +385,16 @@ class VerifyEmailView(DjRestAuthVerifyEmailView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.kwargs["key"] = serializer.validated_data["key"]
+        from .email_change import confirmation_would_collide
+
         address = self.get_object().email_address
-        if not address.verified and not address.can_set_verified():
+        # #1221: a pending email change is also refused when another active
+        # account already holds the address (even unverified) or uses it as a
+        # username — see confirmation_would_collide. Same 409 and message as
+        # the verified-elsewhere case, so the link holder learns nothing more.
+        if not address.verified and (
+            not address.can_set_verified() or confirmation_would_collide(address)
+        ):
             return Response(
                 {"detail": EMAIL_IN_USE_MESSAGE, "code": "email_in_use"},
                 status=status.HTTP_409_CONFLICT,
@@ -469,8 +486,14 @@ class UsernameChangeThrottle(ChooseUsernameThrottle):
 
     Same ``choose_username`` scope, so the per-user bucket is shared with
     ``POST /auth/choose-username/`` — switching endpoints doesn't double the
-    probe rate. A request that doesn't change the username passes through
-    without being counted.
+    probe rate. A request that changes neither the username nor the email
+    passes through without being counted.
+
+    #1221: an email change counts too. ``UserSerializer.validate_email`` now
+    answers "already in use" when the address is another account's email or
+    username, which is the same kind of probe as "username taken" — so it
+    draws on the same budget rather than being an unmetered way to test
+    which addresses have accounts.
     """
 
     def allow_request(self, request, view):
@@ -478,14 +501,24 @@ class UsernameChangeThrottle(ChooseUsernameThrottle):
             return True
         try:
             new_username = request.data.get("username")
+            new_email = request.data.get("email")
         except AttributeError:  # non-dict body (e.g. a JSON list); the serializer rejects it
-            return True
-        if new_username is None:
             return True
         # Normalize like the serializer's CharField would: it accepts ints and
         # floats too (``{"username": 1003}`` renames the account to "1003"), so
         # only skipping str values let a numeric rename bypass the limit.
-        if str(new_username).strip() == getattr(request.user, "username", None):
+        renames = new_username is not None and str(new_username).strip() != getattr(
+            request.user, "username", None
+        )
+        # Compared ignoring case, as UserSerializer does: re-sending the
+        # current address in another case is not a change and is not counted
+        # (the SPA re-sends the unchanged email on every profile save).
+        changes_email = (
+            new_email is not None
+            and str(new_email).strip().lower()
+            != (getattr(request.user, "email", "") or "").lower()
+        )
+        if not (renames or changes_email):
             return True
         return super().allow_request(request, view)
 
@@ -537,7 +570,16 @@ class ChooseUsernameView(APIView):
 
         # Case-insensitive uniqueness check, excluding the requesting user.
         # Shared with UserSerializer.validate_username (#1273).
-        if is_username_taken(username, exclude_pk=request.user.pk):
+        # #1221: a username equal to another active account's email would
+        # shadow that account's email login, so it counts as taken too — with
+        # the same message, so this reveals no more than "taken" already does.
+        # Skipped when the name is only a re-casing of the current one: that
+        # changes nothing the login resolver sees, so a pre-existing collision
+        # must not block it.
+        if is_username_taken(username, exclude_pk=request.user.pk) or (
+            username.lower() != (request.user.username or "").lower()
+            and username_collides_with_email(username, exclude_pk=request.user.pk)
+        ):
             return Response(
                 {"detail": USERNAME_TAKEN_MESSAGE},
                 status=status.HTTP_400_BAD_REQUEST,

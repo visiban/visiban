@@ -74,6 +74,83 @@ def is_username_taken(username: str, exclude_pk=None) -> bool:
     return qs.exists()
 
 
+EMAIL_TAKEN_MESSAGE = "That email address is already in use."
+
+
+def _other_accounts(exclude_pk):
+    from django.contrib.auth import get_user_model  # deferred: app registry
+
+    qs = get_user_model().objects.all()
+    if exclude_pk is not None:
+        qs = qs.exclude(pk=exclude_pk)
+    return qs
+
+
+def username_collides_with_email(username, exclude_pk=None) -> bool:
+    """Whether ``username`` equals another ACTIVE account's email, ignoring case (#1221).
+
+    Why this exists: the login backend (``accounts.backends.resolve_login_user``)
+    tries an exact username match before a case-insensitive email match, so an
+    account whose username is someone else's email address intercepts that
+    person's email login (denial of the email-login path, never a takeover).
+    Every path where a username is chosen calls this so that state can't be
+    created.
+
+    Mirrors the resolver so the check can't be sidestepped: surrounding
+    whitespace is ignored (DRF's ``CharField`` strips the login identifier
+    before it reaches the backend), case is ignored (``email__iexact``, which
+    uses the ``user_email_upper_idx`` index on PostgreSQL), a blank email never
+    matches, and only active accounts count — an inactive account's email is
+    never resolved by the backend, so there is nothing to protect there.
+    ``exclude_pk`` is the account being changed: a username equal to your
+    *own* email (very common) is not a collision.
+    """
+    value = (username or "").strip()
+    if not value:
+        return False
+    return (
+        _other_accounts(exclude_pk)
+        .filter(is_active=True, email__iexact=value)
+        .exclude(email="")
+        .exists()
+    )
+
+
+def email_collides_with_identifier(email, exclude_pk=None) -> bool:
+    """Whether ``email`` equals another account's username or active email, ignoring case (#1221).
+
+    The email-side counterpart of ``username_collides_with_email``:
+
+    - Another ACTIVE account holding the same email makes it ambiguous, and
+      the resolver fails closed on an ambiguous email — so writing a
+      duplicate would switch off the existing holder's email login (or, if
+      that holder is later reactivated, both). Inactive holders are ignored,
+      exactly as the resolver ignores them.
+    - Another account's username equal to this email always wins in the
+      resolver (rule 1 checks usernames of every account, active or not), so
+      this address could never log in *this* account either. Rejecting it
+      keeps usernames and emails one namespace.
+
+    Whitespace and case are normalized the same way as the resolver sees
+    them; ``exclude_pk`` is the account being changed.
+    """
+    from django.db.models import CharField, Q, Value
+    from django.db.models.functions import Lower
+
+    value = (email or "").strip()
+    if not value:
+        return False
+    return (
+        _other_accounts(exclude_pk)
+        .annotate(username_lower=Lower("username"))
+        .filter(
+            Q(username_lower=Lower(Value(value, output_field=CharField())))
+            | (Q(is_active=True, email__iexact=value) & ~Q(email=""))
+        )
+        .exists()
+    )
+
+
 class UsernameFormatValidator:
     """DRF/Django field validator wrapping `is_valid_username_format`."""
 

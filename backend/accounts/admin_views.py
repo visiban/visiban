@@ -41,7 +41,11 @@ from .models import (
     snapshot_site_setting,
 )
 from .permissions import IsSiteAdmin, TokenHasScope
-from .validators import UsernameFormatValidator
+from .validators import (
+    UsernameFormatValidator,
+    email_collides_with_identifier,
+    username_collides_with_email,
+)
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -516,14 +520,28 @@ class AdminCreateUserSerializer(drf_serializers.Serializer):
     password = drf_serializers.CharField(min_length=settings.PASSWORD_MIN_LENGTH, write_only=True)
     force_password_reset = drf_serializers.BooleanField(default=True)
 
+    # #1221: admin-created accounts get the same username/email cross-check as
+    # self-service signup. A site admin is trusted, so this isn't about abuse —
+    # it stops an operator from accidentally creating an account that switches
+    # off an existing user's email login (see accounts.validators). Unlike the
+    # self-service paths, the messages say what clashed: site admins can
+    # already list every account's username and email, so there is nothing
+    # to hide from them, and a precise message saves a support round trip.
+
     def validate_username(self, value):
         if User.objects.filter(username__iexact=value).exists():
             raise drf_serializers.ValidationError("A user with that username already exists.")
+        if username_collides_with_email(value):
+            raise drf_serializers.ValidationError("That username is another user's email address.")
         return value
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise drf_serializers.ValidationError("A user with that email already exists.")
+        if email_collides_with_identifier(value):
+            raise drf_serializers.ValidationError(
+                "That email address is already another user's username or email."
+            )
         return value
 
     def validate_password(self, value):

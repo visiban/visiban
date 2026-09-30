@@ -18,10 +18,13 @@ from .models import (
 )
 from .forms import VisibanPasswordResetForm
 from .validators import (
+    EMAIL_TAKEN_MESSAGE,
     USERNAME_TAKEN_MESSAGE,
     UsernameFormatValidator,
+    email_collides_with_identifier,
     is_username_taken,
     normalize_username_field_validators,
+    username_collides_with_email,
 )
 
 
@@ -100,6 +103,33 @@ class RegistrationSerializer(RegisterSerializer):
         required=False,
         validators=[UsernameFormatValidator()],
     )
+
+    # The inherited validate_username goes through
+    # RegistrationAdapter.clean_username, which rejects a username equal to
+    # another active account's email (#1221) — see accounts/adapter.py.
+
+    def validate_email(self, email):
+        """dj-rest-auth's check, plus: no email another account already answers to (#1221).
+
+        dj-rest-auth only refuses an address some account has *verified*, so
+        REST signup could create a second account with an existing account's
+        unverified ``User.email`` — making it ambiguous, which switches off
+        that account's email login (the resolver fails closed on ambiguity).
+        An address equal to another account's username is refused too: the
+        username would always win at login, so it could never log in the new
+        account. allauth's own HTML signup form already refuses any existing
+        address; this brings the REST path in line.
+
+        Uses dj-rest-auth's own message, so the answer is identical to the one
+        a verified address already gets and says nothing about which kind of
+        match it was.
+        """
+        email = super().validate_email(email)
+        if email_collides_with_identifier(email):
+            raise serializers.ValidationError(
+                "User is already registered with this e-mail address."
+            )
+        return email
 
 
 class LoginSerializer(DjRestAuthLoginSerializer):
@@ -368,6 +398,30 @@ class UserSerializer(serializers.ModelSerializer):
             and self.instance.email
         ):
             raise serializers.ValidationError("An email address is required.")
+        # #1221: an address another account answers to at login (its active
+        # email, or its username) would switch off that account's email login
+        # — see accounts.validators.email_collides_with_identifier. Checked only
+        # when the address actually changes (ignoring case, like update()):
+        # accounts that already collide from before this check existed must
+        # keep saving the rest of their profile, and a client that round-trips
+        # the full object re-sends the current email on every save. The
+        # message doesn't say which account or which kind of match.
+        #
+        # Not under EMAIL_VERIFICATION=mandatory: there a changed address is
+        # never written to User.email (the only field the login resolver
+        # reads) until it is confirmed from that mailbox, so nobody can take
+        # over another person's address without owning it, and #1293
+        # deliberately gives the requester no signal about whether an address
+        # is taken. Rejecting here would add exactly that signal.
+        current = (self.instance.email if self.instance is not None else "") or ""
+        if (
+            value
+            and value.strip().lower() != current.strip().lower()
+            and not email_verification_mandatory()
+        ):
+            exclude_pk = self.instance.pk if self.instance is not None else None
+            if email_collides_with_identifier(value, exclude_pk=exclude_pk):
+                raise serializers.ValidationError(EMAIL_TAKEN_MESSAGE)
         return value
 
     def validate_username(self, value):
@@ -379,6 +433,17 @@ class UserSerializer(serializers.ModelSerializer):
         """
         exclude_pk = self.instance.pk if self.instance is not None else None
         if is_username_taken(value, exclude_pk=exclude_pk):
+            raise serializers.ValidationError(USERNAME_TAKEN_MESSAGE)
+        # #1221: a username equal to another active account's email would
+        # intercept that account's email login. Reported as "taken" — the same
+        # answer as an ordinary clash, naming no account. Only checked when the
+        # username actually changes (a re-casing is not a change to the
+        # resolver's case-insensitive view): a pre-existing collision must not
+        # make every later profile save fail.
+        current = self.instance.username if self.instance is not None else ""
+        if value.lower() != (current or "").lower() and username_collides_with_email(
+            value, exclude_pk=exclude_pk
+        ):
             raise serializers.ValidationError(USERNAME_TAKEN_MESSAGE)
         return value
 

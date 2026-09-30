@@ -159,6 +159,36 @@ class RegistrationAdapter(DefaultAccountAdapter):
             raise PermissionDenied("Registration is closed.")
         return super().save_user(request, user, form, commit)
 
+    def clean_username(self, username, shallow=False):
+        """allauth's checks, plus: not another active account's email (#1221).
+
+        The login resolver lets an exact username win over an email match, so
+        a username equal to someone else's email address would intercept that
+        person's email login. This is the one hook every allauth-driven signup
+        goes through: dj-rest-auth's ``RegisterSerializer.validate_username``
+        (REST signup, including invite signup), allauth's own signup form, and
+        social signup.
+
+        Social/SSO signup is deliberately *auto-adjusted*, not rejected:
+        allauth's auto-signup calls this with the IdP-supplied username and,
+        on a ``ValidationError``, blanks it and generates a fresh one (which
+        never contains ``@``, so it can't collide with an email). The IdP user
+        still gets an account and can still log in through the IdP; only the
+        colliding name is refused — the same thing that already happens to an
+        IdP username that is simply taken.
+
+        Raised as allauth's own ``username_taken`` so the answer is identical
+        to an ordinary clash and names no account. ``shallow`` calls (allauth's
+        username generation, which must not hit the database per candidate)
+        are left alone, as allauth leaves its own uniqueness check.
+        """
+        from .validators import username_collides_with_email
+
+        username = super().clean_username(username, shallow=shallow)
+        if not shallow and username_collides_with_email(username):
+            raise self.validation_error("username_taken")
+        return username
+
     def _get_login_attempts_cache_key(self, request, **credentials):
         """Key the per-account lockout on the ACCOUNT, not the typed identifier (#1206).
 
