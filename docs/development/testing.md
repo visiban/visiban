@@ -224,7 +224,11 @@ Before committing a new spec:
 ## CI
 
 - Backend tests run in the `backend-test` job (3 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
-- Frontend unit tests run in `frontend-test`
+- Frontend unit tests run in `frontend-test`. Unlike `backend-schema-fuzz` below, a single
+  failed test retries once automatically under CI (`vitest.config.ts`'s `test.retry`, gated
+  on `process.env.CI` so local runs stay strict) before failing the job — a mitigation for
+  known intermittent flakes (#1304), not a signal that a red `frontend-test` run should be
+  assumed innocent. A test that still fails after its retry is a real failure.
 - Playwright E2E runs in `playwright-e2e` — starts its own Vite dev server, no separate build step needed. It's `allow_failure: true` during rollout; promotion to blocking is tracked separately.
 - `backend-schema-validate` checks the generated OpenAPI document is well-formed;
   `backend-schema-fuzz` goes further and fuzzes a real, running instance with
