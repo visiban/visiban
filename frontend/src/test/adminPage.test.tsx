@@ -69,6 +69,13 @@ vi.mock('../api/auth', () => ({
   searchUsers: vi.fn(),
 }))
 
+// OffboardingModal's per-board member search bypasses ../api/auth and calls
+// the shared axios client directly (a dynamic import), so it needs its own mock.
+const mockClientGet = vi.fn()
+vi.mock('../api/client', () => ({
+  default: { get: (...args: unknown[]) => mockClientGet(...args) },
+}))
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -536,6 +543,41 @@ describe('AdminPage — Users tab', () => {
     const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => unmount()).not.toThrow()
+    expect(clearSpy).toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+    clearSpy.mockRestore()
+    errorSpy.mockRestore()
+  })
+
+  // Regression guard (#1305): OffboardingModal's per-board member search
+  // (debounceRefs, one timer per owned board) had no unmount cleanup. Closing
+  // the modal mid-debounce must clear the pending timer(s), not fire
+  // setMemberResults against a torn-down modal.
+  it('clears the pending offboarding member-search debounce timer on unmount (#1305)', async () => {
+    const owner: AdminUser = {
+      ...fakeAdminUsers[1],
+      owned_boards: [{ id: 42, uid: 'boarduid00042', name: 'Owned Board' }],
+    }
+    mockGetAdminUsers.mockResolvedValue({
+      count: 2,
+      offset: 0,
+      page_size: 50,
+      results: [fakeAdminUsers[0], owner],
+    })
+    mockClientGet.mockReturnValue(new Promise(() => { /* never resolves */ }))
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getByText('@alice'))
+
+    fireEvent.click(screen.getByText('Deactivate'))
+    const searchInput = await screen.findByPlaceholderText('Search for a member…')
+    // Schedules the 300ms debounced client.get() call, but the modal unmounts
+    // before it fires.
+    fireEvent.change(searchInput, { target: { value: 'bo' } })
+
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    fireEvent.click(screen.getByText('Cancel'))
     expect(clearSpy).toHaveBeenCalled()
     expect(errorSpy).not.toHaveBeenCalled()
     clearSpy.mockRestore()

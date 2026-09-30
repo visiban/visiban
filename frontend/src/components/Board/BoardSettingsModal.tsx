@@ -220,6 +220,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // #1305 — found via the timer-ref audit: the invite-search debounce below
+  // had no unmount cleanup, so closing the modal mid-debounce (or mid-flight
+  // on the async searchUsers() call it schedules) could run setSuggestions /
+  // setDropdownAnchor after teardown.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     // Strip a leading @ so users can type "@alice" and get the same results as "alice"
