@@ -3942,7 +3942,31 @@ and shipped the preference toggle, but nothing ever created the notification.</p
 </blockquote>
 <p>This notification appears in the bell dropdown and includes a <strong>View board →</strong> link, making it clear that clicking will navigate to the board. Users can disable board invite notifications in <strong>Settings → Notifications</strong> by toggling the <strong>Board invites</strong> preference.</p>
 <h2 id="comment-added-notifications">Comment added notifications<a class="headerlink" href="#comment-added-notifications" title="Permanent link">&para;</a></h2>
-<p>When a comment is posted on a card, the card's assignee is notified (unless they posted the comment themselves).</p>
+<blockquote>
+<p><strong>Changed in 1.2</strong>
+Before 1.2 the <strong>Comment on a watched card</strong> toggle was saved but never
+created a notification (#1277). It now works as described below.</p>
+</blockquote>
+<p>When someone comments on a card you are <strong>watching</strong>, you get a notification in
+the bell:</p>
+<blockquote>
+<p>"{username} commented on "{card title}""</p>
+</blockquote>
+<p>For now, you are watching a card when you <strong>created it</strong> or <strong>are assigned to
+it</strong>. There is no separate watch or unwatch control yet, and commenting on a card
+does not make you a watcher. Explicit watch/unwatch is planned (#229).</p>
+<ul>
+<li><strong>Off by default.</strong> Turn on <strong>Comment on a watched card</strong> in
+  <strong>Settings → Notifications</strong> to receive these.</li>
+<li><strong>Never for your own comment.</strong> Commenting on a card you created or are
+  assigned to does not notify you.</li>
+<li><strong>One notification per comment.</strong> If the same comment @mentions you, you get
+  only the @mention notification, not this one as well.</li>
+<li><strong>Only while you can see the board.</strong> If you created a card but have since
+  been removed from the board, or your account is deactivated, you are not
+  notified.</li>
+<li><strong>In-app only.</strong> This event is not delivered by email.</li>
+</ul>
 <h2 id="staleness-notifications">Staleness notifications<a class="headerlink" href="#staleness-notifications" title="Permanent link">&para;</a></h2>
 <p>Cards that haven't moved between columns in a configurable number of days are considered <strong>stale</strong>. The <code>notify_stale_cards</code> management command scans all boards and creates notifications for assignees and board admins of stale cards, for those who have the <strong>Card has gone stale</strong> preference on (it was <strong>Due date approaching</strong> before 1.2 — see the note in <a href="#notification-preferences">Notification preferences</a>).</p>
 <h3 id="staleness-threshold">Staleness threshold<a class="headerlink" href="#staleness-threshold" title="Permanent link">&para;</a></h3>

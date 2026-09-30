@@ -3606,6 +3606,7 @@
 <li>A card they own is due within 24 hours (<code>notif_due_soon</code>) — <em>added in 1.2</em></li>
 <li>A card they own has not moved within the configured staleness window (<code>notif_stale</code>) — <em>added in 1.2; previously gated on <code>notif_due_soon</code></em></li>
 <li>They are invited to a board (<code>notif_board_invite</code>)</li>
+<li>Someone else comments on a card they created or are assigned to (<code>notif_comment_added</code>) — <em>added in 1.2</em>; in-app only, and suppressed when the same comment @mentions them</li>
 </ul>
 <p>Each notification preference can be toggled individually via <code>PATCH /api/v1/auth/me/</code>. See <a href="../authentication/">Authentication</a>.</p>
 <p>The first four events can also be delivered by email, controlled by a parallel set of
@@ -3687,7 +3688,7 @@ while its <code>notif_*</code> counterpart is <code>false</code>. See
 <tr>
 <td><code>action_type</code></td>
 <td>string</td>
-<td>Machine-readable event type. One of: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code> (<code>due_soon</code> added in 1.2). Use this for programmatic filtering or i18n instead of parsing <code>verb</code>. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render <code>verb</code> as-is) rather than erroring.</td>
+<td>Machine-readable event type. One of: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code>, <code>comment_added</code> (<code>due_soon</code> and <code>comment_added</code> added in 1.2). Use this for programmatic filtering or i18n instead of parsing <code>verb</code>. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render <code>verb</code> as-is) rather than erroring.</td>
 </tr>
 <tr>
 <td><code>read</code></td>
