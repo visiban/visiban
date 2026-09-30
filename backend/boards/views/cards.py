@@ -384,6 +384,12 @@ class CardViewSet(viewsets.ModelViewSet):
             render_many=self._batch_card_payloads,
         )
 
+    @extend_schema(
+        summary="Get a card's archived state",
+        responses=inline_serializer(
+            name="CardStatus", fields={"archived": serializers.BooleanField()}
+        ),
+    )
     @action(detail=True, methods=["get"], url_path="status")
     def card_status(self, request, board_pk=None, pk=None):
         """GET /api/boards/{board_pk}/cards/{pk}/status/
@@ -460,6 +466,18 @@ class CardViewSet(viewsets.ModelViewSet):
 
     _ARCHIVED_PAGE_SIZE = 50
 
+    @extend_schema(
+        summary="List archived cards for a board with offset pagination",
+        responses=inline_serializer(
+            name="ArchivedCardsPage",
+            fields={
+                "count": serializers.IntegerField(),
+                "offset": serializers.IntegerField(),
+                "page_size": serializers.IntegerField(),
+                "results": CardSerializer(many=True),
+            },
+        ),
+    )
     @action(detail=False, methods=["get"], url_path="archived")
     def archived(self, request, board_pk=None):
         """List archived cards for this board, newest first.
@@ -695,6 +713,10 @@ class CardViewSet(viewsets.ModelViewSet):
         )
         return Response(result.payload)
 
+    @extend_schema(
+        summary="List the full movement history for a card",
+        responses=CardMovementSerializer(many=True),
+    )
     @action(detail=True, methods=["get"])
     def movements(self, request, board_pk=None, pk=None):
         """Return the full movement history for a card."""
@@ -1258,6 +1280,13 @@ class CardViewSet(viewsets.ModelViewSet):
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        summary="Update a checklist item",
+        methods=["PATCH"],
+        request=CardChecklistSerializer,
+        responses=CardChecklistSerializer,
+    )
+    @extend_schema(summary="Delete a checklist item", methods=["DELETE"], responses={204: None})
     @action(detail=True, methods=["patch", "delete"], url_path=r"checklist/(?P<item_pk>[0-9]+)")
     def checklist_item(self, request, board_pk=None, pk=None, item_pk=None):
         """Update (PATCH) or delete a single checklist item."""
