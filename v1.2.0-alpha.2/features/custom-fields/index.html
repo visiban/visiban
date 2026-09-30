@@ -3865,7 +3865,9 @@
 <hr />
 <h2 id="hover-peek">Hover peek<a class="headerlink" href="#hover-peek" title="Permanent link">&para;</a></h2>
 <p>Hovering a card for 600 ms opens the existing <a href="../board/#card-peek">card peek popover</a>. Alongside weight, attachment count, and last-moved information, the peek now lists any <strong>non-pinned</strong> custom field values that have data — so a field's value is never hidden just because it isn't one of the board's 2 pinned slots.</p>
-<p>The list is capped at 6 entries; beyond that, a <code>+N more</code> marker summarizes the rest. Pinned fields aren't repeated here since they already show on the card face.</p>
+<p>Custom fields get their own line in the peek, separate from weight and attachments. Pinned fields aren't repeated there since they already show on the card face. When the board pins at least one field, the line starts with <strong>Other fields —</strong> so it's clear these are different fields from the chips on the card, not a second value for the same field. For example, a card showing <code>SA: Glenda</code> on its face peeks as <code>Other fields — AE: Bob</code>.</p>
+<p>Field names are often abbreviated, so hovering an entry in the peek shows the value in full plus the field's help text, if set. Setting help text on a short-named field (for example, <code>SA</code> → "Solutions Architect") gives everyone a way to read what the abbreviation means.</p>
+<p>The list is capped at 6 entries; beyond that, a <code>+N more</code> marker summarizes the rest. Hovering the marker lists the names of the hidden fields.</p>
 <hr />
 <h2 id="filtering-by-custom-fields">Filtering by custom fields<a class="headerlink" href="#filtering-by-custom-fields" title="Permanent link">&para;</a></h2>
 <p>The board's filter bar shows one filter control per <strong>pinned</strong> custom field by default — matching what's visible on the card face. Click <strong>+ Custom fields</strong> in the filter bar to add or remove filter controls for any other field on the board.</p>
