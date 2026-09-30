@@ -18,7 +18,6 @@ from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from dj_rest_auth.views import PasswordResetConfirmView as DjRestAuthPasswordResetConfirmView
 from dj_rest_auth.views import PasswordChangeView as DjRestAuthPasswordChangeView
 from dj_rest_auth.views import UserDetailsView as DjRestAuthUserDetailsView
-from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
