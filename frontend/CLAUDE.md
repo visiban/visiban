@@ -111,6 +111,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - **One shared admin-only padlock component — never a second hand-rolled copy (#1140).** The `is_admin_only` padlock (`w-3 h-3 text-fg-faint` inline SVG, `role="img"`, `aria-label="Admin-only field"`) is rendered from `components/Common/AdminOnlyFieldGlyph.tsx` and imported everywhere it appears — the row chip, `SwimlaneFieldEditRow`, `SwimlaneFieldsPopover`, and the Board Settings → Swimlane fields list. Do not re-inline the `<rect>`/`<path>` markup at a new call site. This is the same drift the codebase already guards against for `toolbarIcons.tsx` and `relativeTime()`, and it had already happened here: the glyph shipped as four inline copies and one of them announced `aria-label="Admin only"` while the other three said `"Admin-only field"`, silently splitting the accessible name across surfaces the rule above requires to say one thing.
 - Filter active-count badge: `bg-primary-emphasis/20 text-info` — always use the `primary-emphasis` token for the fill so the badge tracks the active theme
 - Consistent badge sizing: `px-2 py-0.5 text-xs rounded-full`
+- Active filter chip (`FilterChip.tsx`, the dismissible tag shown per applied filter in the filter row): `bg-primary-emphasis/20 text-info` fill with a `border border-primary-emphasis/40` border — same fill/text token pair as the badges above, plus the border so it reads as removable rather than a plain count/state indicator (#1239)
 
 ## Top chrome — two-row composition
 

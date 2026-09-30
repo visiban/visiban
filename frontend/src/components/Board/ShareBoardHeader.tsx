@@ -30,7 +30,7 @@ export default function ShareBoardHeader({ boardName }: Props) {
       </span>
 
       {/* View only badge */}
-      <span className="bg-info/20 text-info text-xs px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+      <span className="bg-primary-emphasis/20 text-info text-xs px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
         View only
       </span>
 
