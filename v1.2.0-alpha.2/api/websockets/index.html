@@ -4248,6 +4248,7 @@ needs no special handling for either case.</p>
 <div class="admonition note">
 <p class="admonition-title"><code>is_moderator</code> is filtered per-recipient</p>
 <p>On <code>member.added</code> and <code>member.updated</code>, the <code>is_moderator</code> field is stripped from the broadcast payload for non-<code>admin</code> / non-<code>site_admin</code> subscribers (consistent with the REST response filtering, #978) — <strong>except on the row that is the subscriber's own membership</strong>, which always carries the field so a member promoted to moderator sees their own entitlement over the socket (#1191, mirroring the <code>/full/</code> self-row exception from #1173). Every other row stays stripped for a non-admin subscriber.</p>
+<p><code>is_site_admin</code> (since 1.2) is sent only to <code>admin</code> / <code>site_admin</code> subscribers, with no self-row exception — see <a href="../boards/#members">Members</a>.</p>
 <p>The <a href="../events/">change feed</a> applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.</p>
 </div>
 <h3 id="git-lens-events-since-12">Git Lens events (since 1.2)<a class="headerlink" href="#git-lens-events-since-12" title="Permanent link">&para;</a></h3>
