@@ -184,16 +184,28 @@ if [ -n "${DOCKERHUB_MIRROR:-}" ]; then
   docker tag "${DOCKERHUB_MIRROR}/kindest/node:${KINDEST_NODE_TAG}" "kindest/node:${KINDEST_NODE_TAG}"
   KIND_IMAGE_ARGS=(--image "kindest/node:${KINDEST_NODE_TAG}")
 
-  # In-cluster images: the chart's own postgres/valkey defaults (see
-  # helm-install-drill.sh), plus this drill's own busybox probe pods below.
+  # In-cluster images: the chart's own postgres/valkey defaults, plus this
+  # drill's own busybox probe pods below. The Valkey reference is READ from
+  # values.yaml rather than hardcoded a second time — see helm-install-drill.sh
+  # for the full #1231 rationale (the old bitnami/valkey:latest copy here
+  # outlived #1200's move off it because nothing tied the two together, and
+  # the bare "repo:tag" form, no registry prefix, must match what
+  # templates/valkey.yaml actually renders or kind-loading it won't satisfy
+  # kubelet's pull check).
+  VALKEY_VALUES_BLOCK="$(sed -n '/^valkey:/,/^[a-zA-Z]/p' "$CHART/values.yaml")"
+  VALKEY_REPO="$(printf '%s\n' "$VALKEY_VALUES_BLOCK" | grep -m1 '^[[:space:]]*repository:' | sed -E 's/^[[:space:]]*repository:[[:space:]]*"?([^"[:space:]]*)"?.*/\1/')"
+  VALKEY_TAG="$(printf '%s\n' "$VALKEY_VALUES_BLOCK" | grep -m1 '^[[:space:]]*tag:' | sed -E 's/^[[:space:]]*tag:[[:space:]]*"?([^"[:space:]]*)"?.*/\1/')"
+  [ -n "$VALKEY_REPO" ] && [ -n "$VALKEY_TAG" ] ||
+    die "could not derive valkey.image.{repository,tag} from $CHART/values.yaml (helm/visiban chart layout changed?)"
+  VALKEY_IMAGE="${VALKEY_REPO}:${VALKEY_TAG}"
   docker pull -q "${DOCKERHUB_MIRROR}/postgres:17"
   docker tag "${DOCKERHUB_MIRROR}/postgres:17" "postgres:17"
-  docker pull -q "${DOCKERHUB_MIRROR}/bitnami/valkey:latest"
-  docker tag "${DOCKERHUB_MIRROR}/bitnami/valkey:latest" "registry-1.docker.io/bitnami/valkey:latest"
+  docker pull -q "${DOCKERHUB_MIRROR}/${VALKEY_IMAGE}"
+  docker tag "${DOCKERHUB_MIRROR}/${VALKEY_IMAGE}" "${VALKEY_IMAGE}"
   docker pull -q "${DOCKERHUB_MIRROR}/${PROBE_IMAGE}"
   docker tag "${DOCKERHUB_MIRROR}/${PROBE_IMAGE}" "${PROBE_IMAGE}"
-  EXTRA_LOAD_IMAGES=("postgres:17" "registry-1.docker.io/bitnami/valkey:latest" "${PROBE_IMAGE}")
-  ok "kindest/node, postgres, valkey, busybox pulled via the Dependency Proxy"
+  EXTRA_LOAD_IMAGES=("postgres:17" "$VALKEY_IMAGE" "${PROBE_IMAGE}")
+  ok "kindest/node, postgres, valkey ($VALKEY_IMAGE), busybox pulled via the Dependency Proxy"
 fi
 
 # ---------------------------------------------------------------------------
