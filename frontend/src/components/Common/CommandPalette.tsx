@@ -269,7 +269,7 @@ export default function CommandPalette({
             role="combobox"
             aria-expanded={results.length > 0}
           />
-          <kbd className="text-[10px] px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted shrink-0">
+          <kbd className="text-xs px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted shrink-0">
             esc
           </kbd>
         </div>
@@ -313,7 +313,7 @@ export default function CommandPalette({
             return (
               <div key={item.key}>
                 {showHeader && (
-                  <div className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wide text-fg-muted select-none">
+                  <div className="px-3 pt-2 pb-0.5 text-xs uppercase tracking-wide text-fg-muted select-none">
                     {sectionLabel}
                   </div>
                 )}
@@ -349,7 +349,7 @@ export default function CommandPalette({
                     </span>
                   )}
                   {item.kind === "action" && item.action?.hint && (
-                    <kbd className="text-[10px] px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted ml-auto shrink-0">
+                    <kbd className="text-xs px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted ml-auto shrink-0">
                       {item.action.hint}
                     </kbd>
                   )}
@@ -360,7 +360,7 @@ export default function CommandPalette({
         </div>
 
         {/* Footer hints */}
-        <div className="px-3 py-2 border-t border-line text-[11px] text-fg-muted flex items-center gap-3 shrink-0">
+        <div className="px-3 py-2 border-t border-line text-xs text-fg-muted flex items-center gap-3 shrink-0">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span>⌘↵ new tab</span>
