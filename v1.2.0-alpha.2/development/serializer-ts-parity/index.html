@@ -3534,10 +3534,10 @@ change.</strong></p>
 <td>Field <strong>names</strong>, both directions</td>
 </tr>
 <tr>
-<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209 + #1282 + #1294, this page)</td>
+<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209 + #1282 + #1294 + #1296, this page)</td>
 <td>The <strong>generated OpenAPI document</strong></td>
-<td><strong>44</strong> pairs — every pair that has a schema component</td>
-<td>Names, <strong>types</strong>, nullability, enum membership</td>
+<td><strong>45</strong> pairs — every pair that has a schema component</td>
+<td>Names, <strong>types</strong>, nullability, enum membership, <strong>array item types</strong></td>
 </tr>
 </tbody>
 </table>
@@ -3596,7 +3596,7 @@ internally consistent, with no third thing checking that they agree.</p>
 <p>The job regenerates the OpenAPI schema with <code>drf-spectacular</code> — the same command
 <code>backend-schema-validate</code> runs, and for the same reason it needs no database — and compares
 its components against the hand-written interfaces.</p>
-<p>Six kinds of mismatch are reported:</p>
+<p>Seven kinds of mismatch are reported:</p>
 <table>
 <thead>
 <tr>
@@ -3629,14 +3629,39 @@ its components against the hand-written interfaces.</p>
 <td><code>enum_members</code></td>
 <td>Both resolve to a set of string values and the sets differ</td>
 </tr>
+<tr>
+<td><code>array_item_type</code></td>
+<td>Both sides are arrays, the schema's <code>items</code> is a <code>$ref</code> to a component <code>COMPONENT_MAP</code> itself maps, and the TypeScript element type names a <em>different</em> mapped interface (#1296)</td>
+</tr>
 </tbody>
 </table>
 <p>A check is <strong>skipped, never guessed</strong>, when either side cannot be classified confidently. An
 unresolvable TypeScript alias produces no finding rather than a false one. Optional fields
 (<code>x?: T</code>) are exempt from the nullability check, because in this codebase <code>?</code> already carries
 the "only present under some conditions" meaning — an <code>?expand=</code> payload, for instance.</p>
+<p><code>array_item_type</code> is deliberately narrow, not a general structural recursion into array
+elements. Every check above reduced an array field to the single family <code>array</code> on both sides
+and stopped, which missed real drift: <code>BoardPublic.swimlanes</code> was typed <code>Swimlane[]</code> while the
+serializer's <code>items</code> schema was a <code>$ref</code> to <code>PublicSwimlane</code>, a narrower shape (#1140) that
+deliberately drops <code>custom_field_values</code>, <code>contact_email</code>, and <code>notes</code>. Every array-typed field
+on all 44 pairs mapped before #1296 had this blind spot. The check only fires when <em>both</em> sides
+name something comparable:</p>
+<ul>
+<li>The schema's <code>items</code> must resolve to a direct <code>$ref</code> (optionally through one level of <code>allOf</code>
+  wrapping — the same shape <code>_unwrap_schema</code> already follows for a plain field). An inline item
+  schema or a primitive item has no name to compare and is left to the outer <code>array</code>-vs-<code>array</code>
+  check.</li>
+<li>That <code>$ref</code>'s component name must itself be a <code>COMPONENT_MAP</code> key — the same map the whole
+  gate is keyed on, so there is no second table for "what should this item be". If the item's
+  component is <strong>not</strong> mapped, the check is silently skipped, the same "skip, don't guess" rule
+  every other check here follows — see <a href="#what-is-not-covered-and-why">What is not covered, and why</a>
+  for what that specific gap means in practice.</li>
+<li>On the TypeScript side, only a bare capitalised identifier before <code>[]</code> (or inside
+  <code>Array&lt;...&gt;</code>) counts as a named element type; an inline object literal or a primitive element
+  is skipped the same way an unmapped schema item is.</li>
+</ul>
 <h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
-<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1282 it is:</p>
+<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1296 it is:</p>
 <table>
 <thead>
 <tr>
@@ -3832,6 +3857,11 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>no</td>
 </tr>
 <tr>
+<td><code>PublicSwimlane</code></td>
+<td><code>PublicSwimlane</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>SavedFilter</code></td>
 <td><code>SavedFilter</code></td>
 <td>no</td>
@@ -3900,10 +3930,17 @@ never been added to the map:</p>
 not covered, and why" below — but <code>BoardPublic</code> in <code>frontend/src/types/index.ts</code> is exactly
 that shape, just under a renamed name, the same pattern as <code>CurrentUser</code>/<code>User</code>. That was a
 documentation error, not a structural gap, and #1282 fixed the record and mapped the pair.
-<code>BoardPublic.swimlanes</code> is typed <code>Swimlane[]</code> rather than a dedicated <code>PublicSwimlane[]</code>, but
-this gate's array check compares only the outer <code>array</code> family and does not recurse into item
-shapes, so that looseness produces no finding and needed no suppression — see <code>PublicSwimlane</code>
-below for the honest accounting of that specific gap, tracked in #1296.</p>
+<code>BoardPublic.swimlanes</code> was typed <code>Swimlane[]</code> rather than a dedicated <code>PublicSwimlane[]</code> at the
+time, and this gate's array check then compared only the outer <code>array</code> family and did not
+recurse into item shapes, so that looseness produced no finding and needed no suppression.</p>
+<h1 id="1296-closed-the-gap-on-both-sides-it-added-an-array_item_type-check-see">1296 closed the gap on both sides: it added an <code>array_item_type</code> check (see<a class="headerlink" href="#1296-closed-the-gap-on-both-sides-it-added-an-array_item_type-check-see" title="Permanent link">&para;</a></h1>
+<p><a href="#what-it-checks">What it checks</a>) that follows a schema array's <code>items</code> <code>$ref</code> and compares it
+against the TypeScript element type, and it gave the public swimlane shape its own
+<code>PublicSwimlane</code> interface (matching <code>PublicSwimlaneSerializer</code> exactly — see
+<a href="#what-is-not-covered-and-why">What is not covered, and why</a> for why that pair was excluded
+before) so <code>BoardPublic.swimlanes</code> could be correctly typed <code>PublicSwimlane[]</code> and the new check
+had something correct to compare it against. <code>PublicSwimlane</code> is now mapped in
+<a href="#coverage">Coverage</a> above.</p>
 <h1 id="1294-closed-the-structural-gap-the-reverse-sweep-found-see">1294 closed the structural gap the reverse sweep found (see<a class="headerlink" href="#1294-closed-the-structural-gap-the-reverse-sweep-found-see" title="Permanent link">&para;</a></h1>
 <p><a href="#what-is-not-covered-and-why">What is not covered, and why</a> below): twelve of the thirteen
 pairs listed there had no schema component only because nothing in their view ever called
@@ -3991,10 +4028,10 @@ can fix:</p>
 </tr>
 </tbody>
 </table>
-<p>Three pairs are absent for the opposite reason — the schema has a component but there is no
+<p>Two pairs are absent for the opposite reason — the schema has a component but there is no
 TypeScript interface to diff it against. Confirmed by grepping all of <code>frontend/src</code> (not just
 <code>types/index.ts</code> — the <code>api/*.ts</code> call sites are where a renamed interface would actually be
-consumed) for each of these three; none turned up a renamed or differently-named interface the
+consumed) for each of these two; neither turned up a renamed or differently-named interface the
 way <code>PublicBoard</code>/<code>BoardPublic</code> turned out to be one:</p>
 <table>
 <thead>
@@ -4009,15 +4046,20 @@ way <code>PublicBoard</code>/<code>BoardPublic</code> turned out to be one:</p>
 <td>No TypeScript interface exists — <code>frontend/src/api/cards.ts</code> has no caller of this endpoint yet. Mapping it to the closest interface, <code>Card</code>, would not work: <code>CardQuery</code> sends every <code>Card</code> field plus <code>board</code> by design (a cross-board list must say which board each row is on), so the pair would report a permanent <code>missing_in_ts: board</code> finding that is not real drift. Revisit once a frontend consumer exists and needs its own interface (#1172).</td>
 </tr>
 <tr>
-<td><code>PublicSwimlane</code> (<code>PublicSwimlaneSerializer</code>, nested on <code>PublicBoardSerializer.swimlanes</code>, <code>GET /api/share/{token}/</code>)</td>
-<td>No dedicated TypeScript interface exists — <code>BoardPublic.swimlanes</code> in <code>frontend/src/types/index.ts</code> reuses the full <code>Swimlane[]</code> interface instead (grepped <code>frontend/src</code> for any other name; there is no <code>PublicSwimlane</code>-named or otherwise dedicated type). Mapping <code>PublicSwimlane</code> to <code>Swimlane</code> would not detect real drift: <code>PublicSwimlaneSerializer</code> deliberately drops <code>custom_field_values</code>, <code>contact_email</code>, and <code>notes</code> (#1140), so the pair would report a permanent <code>missing_in_ts</code> finding for each of those that is not a bug — the same shape as the <code>CardQuery</code>/<code>Card</code> case above. Revisit if the frontend ever gives the public swimlane shape its own interface; until then, reusing <code>Swimlane</code> means the TypeScript type is wider than what a share-link visitor actually receives, which this gate cannot see.</td>
-</tr>
-<tr>
 <td><code>UnshareBoardResponse</code> (an <code>inline_serializer</code> in <code>boards/views/boards.py</code>, backing <code>DELETE /api/v1/boards/{id}/share/</code>)</td>
 <td>No TypeScript interface exists — <code>disableBoardSharing()</code> in <code>frontend/src/api/boards.ts</code> calls <code>client.delete(...)</code> with no generic type argument at all, so it never reads a typed response body. Structurally identical to <code>ShareBoardResponse</code> (mapped above, to <code>ShareActionResponse</code>), but with no TypeScript consumer to diff it against.</td>
 </tr>
 </tbody>
 </table>
+<p><code>PublicSwimlane</code> (<code>PublicSwimlaneSerializer</code>, nested on <code>PublicBoardSerializer.swimlanes</code>,
+<code>GET /api/share/{token}/</code>) was in this table until #1296. It used to have the same shape as
+<code>CardQuery</code> above — no dedicated TypeScript interface, with <code>BoardPublic.swimlanes</code> reusing the
+wider <code>Swimlane[]</code> instead — but #1296's <code>array_item_type</code> check (see
+<a href="#what-it-checks">What it checks</a>) needed a correct, dedicated interface to compare the array's
+element type against, so the frontend now declares <code>PublicSwimlane</code> matching
+<code>PublicSwimlaneSerializer</code> exactly (<code>id</code>, <code>uid</code>, <code>name</code>, <code>position</code>, <code>color</code>, <code>is_collapsed</code>,
+<code>created_at</code> — no <code>custom_field_values</code>, <code>contact_email</code>, or <code>notes</code>), and the pair is mapped in
+<a href="#coverage">Coverage</a>.</p>
 <p><code>PublicBoard</code> was removed from this table by #1282: it does have a TypeScript interface —
 <code>BoardPublic</code> — and is now mapped in <a href="#coverage">Coverage</a> instead. The entry above was wrong
 from the day it was written, not something that went stale later; see the note under
@@ -4153,8 +4195,9 @@ serializer — a different shape that merely shares a name. Mapping the WebSocke
 would assert a correspondence that does not exist. That union stays hand-maintained;
 <a href="https://gitlab.com/visiban/visiban/-/issues/1078">#1078</a> covers WebSocket event reachability
 separately.</p>
-<p><strong>Pairs with a component but no TypeScript interface.</strong> <code>CardQuery</code>, <code>PublicSwimlane</code>, and
-<code>UnshareBoardResponse</code> — see <a href="#what-is-not-covered-and-why">What is not covered, and why</a>.</p>
+<p><strong>Pairs with a component but no TypeScript interface.</strong> <code>CardQuery</code> and <code>UnshareBoardResponse</code>
+— see <a href="#what-is-not-covered-and-why">What is not covered, and why</a>. (<code>PublicSwimlane</code> was in
+this category until #1296 gave it a dedicated interface.)</p>
 <p><strong>Request bodies.</strong> <code>SPECTACULAR_SETTINGS</code> sets <code>COMPONENT_SPLIT_REQUEST: True</code>, so the schema
 carries 34 separate <code>*Request</code> / <code>Patched*Request</code> components describing what you may <em>send</em>.
 This gate compares <strong>response</strong> components only. A write-only field whose type drifts triggers
@@ -4163,7 +4206,7 @@ explicit request-body interfaces, mapping them is the natural extension.</p>
 <p><strong>Nothing else, with one standing exception.</strong> Every schema component that has a matching
 TypeScript interface <em>and reaches the schema this gate's own environment generates</em> is mapped as
 of <a href="https://gitlab.com/visiban/visiban/-/issues/1294">#1294</a>, so a green <code>serializer-ts-parity</code>
-run means "the published response components and the interfaces agree", not "thirty of them do".
+run means "the published response components and the interfaces agree", not "forty-five of them do".
 <code>LensConnection</code> is the sole component this job cannot see at all, for the feature-flag reason in
 <a href="#what-is-not-covered-and-why">What is not covered, and why</a> — not a gap in <code>COMPONENT_MAP</code>, a
 gap in what the job's own schema generation includes. If you add a serializer <em>and</em> an
