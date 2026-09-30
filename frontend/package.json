@@ -20,7 +20,7 @@
     "@tiptap/extensions": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
-    "axios": "1.18.0",
+    "axios": "1.20.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
@@ -56,7 +56,7 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
-    "axios": "1.18.0",
+    "axios": "1.20.0",
     "follow-redirects": "1.16.0",
     "markdown-it": "14.3.1"
   }
