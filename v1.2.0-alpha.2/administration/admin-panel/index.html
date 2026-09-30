@@ -3145,6 +3145,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#restart-onboarding-tour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restart onboarding tour
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#clear-lockout" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3971,6 +3982,11 @@ the departing user created.</p>
 </div>
 <h4 id="force-password-reset">Force password reset<a class="headerlink" href="#force-password-reset" title="Permanent link">&para;</a></h4>
 <p>Sets <code>must_change_password = true</code> on the user. The next time they log in, they are presented with a password-change dialog before accessing the application. Useful after a suspected credential compromise.</p>
+<h4 id="restart-onboarding-tour">Restart onboarding tour<a class="headerlink" href="#restart-onboarding-tour" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Clears <code>has_completed_tour</code> for a user, so they see the <a href="../../getting-started/onboarding-tour/">onboarding tour</a> again the next time they open a board — the admin-initiated equivalent of the self-service <strong>Restart onboarding tour</strong> button in Settings → Behavior. Only shown when the user has already completed the tour — there is nothing to reset otherwise. No data is changed beyond the flag.</p>
 <h4 id="clear-lockout">Clear lockout<a class="headerlink" href="#clear-lockout" title="Permanent link">&para;</a></h4>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
