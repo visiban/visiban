@@ -4409,12 +4409,12 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 <tr>
 <td><code>username</code></td>
 <td>Yes</td>
-<td>Must be unique on the instance (case-insensitive)</td>
+<td>Must be unique on the instance (case-insensitive), and since 1.2 can't be another active user's email address (#1221)</td>
 </tr>
 <tr>
 <td><code>email</code></td>
 <td>Yes</td>
-<td>Must be unique on the instance</td>
+<td>Must be unique on the instance, and since 1.2 can't be another active user's email or any user's username, compared ignoring case (#1221)</td>
 </tr>
 <tr>
 <td><code>password</code></td>
