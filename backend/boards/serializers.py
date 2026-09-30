@@ -33,6 +33,16 @@ from .models import (
 
 
 class BoardTemplateSerializer(serializers.ModelSerializer):
+    # Declared explicitly, rather than left to the auto-generated JSONField,
+    # so drf-spectacular publishes an array-of-objects schema instead of an
+    # untyped one (#1294). This view is read-only in practice
+    # (BoardTemplateListView.get is the only caller), so the override changes
+    # documentation only, never behavior.
+    columns_json = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="Ordered list of column dicts: [{name, color, position}].",
+    )
+
     class Meta:
         model = BoardTemplate
         fields = [
@@ -2788,6 +2798,16 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _STATE_V1_KEYS = {"search", "assigneeIds", "labelIds", "priorities", "dueDate"}
     _STATE_V1_DUE_DATE = {"overdue", "today", "this_week", "none"}
     _STATE_V1_PRIORITIES = {"low", "medium", "high", "urgent"}
+
+    # Declared explicitly, rather than left to the auto-generated JSONField,
+    # so drf-spectacular publishes an object schema instead of an untyped one
+    # (#1294). Documentation only: BoardViewSet.saved_filters never runs this
+    # serializer's own validation cycle (it calls validate_state_json()
+    # standalone and creates the row directly), so this does not change what
+    # is accepted or returned.
+    state_json = serializers.DictField(
+        help_text="Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate}.",
+    )
 
     class Meta:
         model = SavedFilter

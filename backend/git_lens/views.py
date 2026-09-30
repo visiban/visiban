@@ -8,7 +8,8 @@ from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -425,6 +426,15 @@ class LensConnectionView(APIView):
 
     permission_classes = _BOARD_PERMISSIONS
 
+    @extend_schema(
+        responses={
+            200: LensConnectionSerializer,
+            404: OpenApiResponse(
+                description="No lens configured for this board.",
+                response=inline_serializer(name="LensConnectionNotFound", fields={"detail": serializers.CharField()}),
+            ),
+        },
+    )
     def get(self, request, board_id):
         board, _role = get_board_for_user(board_id, request.user, slim=True)
         # select_related avoids a second query to render the nested created_by user.
@@ -437,6 +447,7 @@ class LensConnectionView(APIView):
             return Response({"detail": "No lens configured for this board."}, status=404)
         return Response(LensConnectionSerializer(conn).data)
 
+    @extend_schema(responses=LensConnectionSerializer)
     def put(self, request, board_id):
         board, role = get_board_for_user(board_id, request.user, slim=True)
         _require_board_admin(role)

@@ -266,6 +266,7 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Members
     # ------------------------------------------------------------------
 
+    @extend_schema(responses=GroupMembershipSerializer(many=True))
     @action(detail=True, methods=["get"])
     def members(self, request, pk=None):
         group = self.get_object()
@@ -321,6 +322,8 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         return Response(result)
 
+    @extend_schema(summary="Update a member's role", methods=["PATCH"], responses=GroupMembershipSerializer)
+    @extend_schema(summary="Remove a member", methods=["DELETE"], responses={204: None})
     @action(detail=True, methods=["patch", "delete"], url_path=r"members/(?P<user_id>[^/.]+)")
     def update_member(self, request, pk=None, user_id=None):
         from accounts.models import User
@@ -815,6 +818,16 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Invite links
     # ------------------------------------------------------------------
 
+    @extend_schema(summary="List invite links for a group", methods=["GET"], responses=GroupInviteLinkSerializer(many=True))
+    @extend_schema(
+        summary="Create an invite link for a group",
+        methods=["POST"],
+        request=GroupInviteLinkCreateSerializer,
+        # The raw token is appended to GroupInviteLinkSerializer's own fields
+        # by hand below (never persisted) — GroupInviteLink.token in
+        # frontend/src/types/index.ts is optional for exactly this reason.
+        responses={201: GroupInviteLinkSerializer},
+    )
     @action(detail=True, methods=["get", "post"], url_path="invite-links")
     def invite_links(self, request, pk=None):
         group = self.get_object()

@@ -736,6 +736,18 @@ class CardViewSet(viewsets.ModelViewSet):
         "system": ["archived", "reactivated"],
     }
 
+    @extend_schema(
+        summary="Unified, paginated timeline of card movements and field-change activities",
+        responses=inline_serializer(
+            name="CardTimelinePage",
+            fields={
+                "count": serializers.IntegerField(),
+                "next": serializers.CharField(allow_null=True),
+                "previous": serializers.CharField(allow_null=True),
+                "results": CardTimelineEntrySerializer(many=True),
+            },
+        ),
+    )
     @action(detail=True, methods=["get"])
     def timeline(self, request, board_pk=None, pk=None):
         """Return a unified, paginated timeline of card movements and field-change activities.

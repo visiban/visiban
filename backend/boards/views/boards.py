@@ -642,6 +642,16 @@ class BoardViewSet(
             "next": next_cursor,
         })
 
+    @extend_schema(
+        summary="List saved filter presets on a board",
+        methods=["GET"],
+        responses=SavedFilterSerializer(many=True),
+    )
+    @extend_schema(
+        summary="Create a saved filter preset on a board",
+        methods=["POST"],
+        responses={201: SavedFilterSerializer},
+    )
     @action(detail=True, methods=["get", "post"], url_path="saved-filters")
     def saved_filters(self, request, pk=None):
         """List or create saved filter presets for the requesting user on this board.
