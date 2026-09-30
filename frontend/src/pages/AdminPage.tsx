@@ -16,6 +16,7 @@ import {
 import Avatar from "../components/Common/Avatar";
 import EmailSettingsSection from "../components/Admin/EmailSettingsSection";
 import Navbar from "../components/Layout/Navbar";
+import OverflowMenu, { type OverflowItem } from "../components/Layout/OverflowMenu";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import { Toggle } from "../components/Common/Toggle";
 import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
@@ -1116,6 +1117,57 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     }
   };
 
+  // Low-frequency support actions live in the row's OverflowMenu (#1291) —
+  // only Deactivate/Reactivate and Make/Demote admin stay inline. Built per
+  // row rather than memoized: the row set already re-renders on every users
+  // update, and these arrays are cheap (at most 4 items).
+  const buildOverflowItems = (u: AdminUser): OverflowItem[] => {
+    const items: OverflowItem[] = [];
+
+    items.push(
+      u.can_access_all_content
+        ? {
+            id: "revoke-all-content",
+            label: "Revoke all-content",
+            onSelect: () => handleRevokeContentAccess(u),
+          }
+        : {
+            id: "grant-all-content",
+            label: "Grant all-content",
+            onSelect: () => handleGrantContentAccess(u),
+          }
+    );
+
+    if (!u.must_change_password) {
+      items.push({
+        id: "force-reset",
+        label: "Force reset",
+        onSelect: () => applyPatch(u.id, { must_change_password: true }),
+      });
+    }
+
+    items.push({
+      id: "clear-lockout",
+      label: "Clear lockout",
+      onSelect: () => handleClearLockout(u),
+    });
+
+    // Restart onboarding tour (#1280) — hidden once the user is already in
+    // the target state (tour not completed), since there's nothing left to
+    // reset. See handleRestartTour for the shared-copy rule.
+    if (u.has_completed_tour) {
+      const restarting = restartingTourIds.has(u.id);
+      items.push({
+        id: "restart-tour",
+        label: restarting ? "Restarting…" : "Restart onboarding tour",
+        disabled: restarting,
+        onSelect: () => handleRestartTour(u),
+      });
+    }
+
+    return items;
+  };
+
   const totalPages = Math.ceil(total / pageSize);
   const currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 1;
 
@@ -1208,7 +1260,8 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                        {/* Deactivate / Reactivate */}
+                        {/* Deactivate / Reactivate — kept inline as the
+                            highest-frequency row action (#1291). */}
                         {u.id !== currentUser.id && (
                           u.is_active ? (
                             <button
@@ -1227,7 +1280,8 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           )
                         )}
 
-                        {/* Promote / Demote site admin */}
+                        {/* Promote / Demote site admin — kept inline as the
+                            second highest-frequency row action (#1291). */}
                         {u.id !== currentUser.id && (
                           u.is_site_admin ? (
                             <button
@@ -1249,64 +1303,21 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           )
                         )}
 
-                        {/* Can access all content */}
-                        {u.can_access_all_content ? (
-                          <button
-                            onClick={() => handleRevokeContentAccess(u)}
-                            title="Revoke access to all boards and groups"
-                            className="text-xs text-fg-tertiary hover:text-warning transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                          >
-                            Revoke all-content
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleGrantContentAccess(u)}
-                            title="Grants read/write access to all boards and groups regardless of membership"
-                            className="text-xs text-fg-tertiary hover:text-accent-violet transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                          >
-                            Grant all-content
-                          </button>
-                        )}
-
-                        {/* Force password reset */}
-                        {!u.must_change_password && (
-                          <button
-                            onClick={() => applyPatch(u.id, { must_change_password: true })}
-                            className="text-xs text-fg-tertiary hover:text-warning transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                          >
-                            Force reset
-                          </button>
-                        )}
-
-                        {/* Restart onboarding tour (#1280) — mirrors the Force
-                            reset pattern above: hidden once the user is
-                            already in the target state (tour not completed),
-                            since there's nothing left to reset. Copy matches
-                            the self-service "Restart onboarding tour" button
-                            in SettingsPage.tsx, per the shared-copy rule in
-                            frontend/CLAUDE.md. */}
-                        {u.has_completed_tour && (
-                          <button
-                            onClick={() => handleRestartTour(u)}
-                            disabled={restartingTourIds.has(u.id)}
-                            title="Show the onboarding tour again the next time this user opens a board"
-                            className="text-xs text-fg-tertiary hover:text-info transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            {restartingTourIds.has(u.id) ? "Restarting…" : "Restart onboarding tour"}
-                          </button>
-                        )}
-
-                        {/* Clear login lockout (#1203) — always available; a
-                            no-op server-side if the account isn't currently
-                            locked out, so there's no lockout-state field to
-                            gate this on. */}
-                        <button
-                          onClick={() => handleClearLockout(u)}
-                          title="Clear this user's login lockout, if they have one, so they can log in immediately"
-                          className="text-xs text-fg-tertiary hover:text-info transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                        >
-                          Clear lockout
-                        </button>
+                        {/* Low-frequency support actions (Grant/Revoke
+                            all-content, Force reset, Clear lockout, Restart
+                            onboarding tour) live behind this overflow menu
+                            rather than as inline text buttons (#1291) — with
+                            #1280's tour-restart action added, up to six
+                            conditional buttons no longer fit a no-wrap row on
+                            narrow viewports. OverflowMenu itself renders
+                            nothing when a row has no applicable actions
+                            (buildOverflowItems always includes Clear lockout,
+                            so that never happens today, but the component
+                            stays correct if that changes). */}
+                        <OverflowMenu
+                          items={buildOverflowItems(u)}
+                          ariaLabel={`More actions for ${u.display_name || u.username}`}
+                        />
                       </div>
                     </td>
                   </tr>
