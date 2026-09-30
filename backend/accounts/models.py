@@ -7,7 +7,7 @@ from django.core.cache import cache
 from django.core.validators import MaxLengthValidator
 from django.db import models, transaction
 from django.db.models import UniqueConstraint
-from django.db.models.functions import Lower
+from django.db.models.functions import Lower, Upper
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -529,6 +529,19 @@ class User(AbstractUser):
                 name="user_pending_email_addr_idx",
                 condition=models.Q(pending_email_address__isnull=False),
             ),
+            # #1222: serves the email-login resolution path
+            # (accounts.backends.resolve_login_user), which does
+            # ``email__iexact=identifier``. On PostgreSQL Django's ``iexact``
+            # lookup compiles to ``UPPER(email) = UPPER(%s)`` (see
+            # DatabaseOperations.lookup_cast in
+            # django/db/backends/postgresql/operations.py), NOT
+            # ``LOWER(email) = ...`` — a ``Lower(email)`` index would never be
+            # selected by the planner for this query. The expression here must
+            # match that compilation exactly, verified via EXPLAIN rather than
+            # assumed (see the migration and its test for the confirmation).
+            # Built concurrently (migration 0033) since ``users`` is a
+            # populated table.
+            models.Index(Upper("email"), name="user_email_upper_idx"),
         ]
 
 
