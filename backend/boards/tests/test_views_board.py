@@ -455,6 +455,29 @@ class AllowedPrioritiesValidationTests(TestCase):
         self.board.refresh_from_db()
         self.assertEqual(self.board.allowed_priorities, ["low"])
 
+    @patch(PATCH_BROADCAST)
+    def test_length_cap_boundary(self, _):
+        # #1186: the exact off-by-one boundary of the shared cap — one entry
+        # over must be rejected, exactly at the cap must be accepted. Mirrors
+        # groups/tests/test_allowed_priorities_validation.py::
+        # test_length_cap_boundary for the twin GroupSerializer check.
+        from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH
+
+        over = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": ["low"] * (MAX_ALLOWED_PRIORITIES_LENGTH + 1)},
+            format="json",
+        )
+        self.assertEqual(over.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("at most", str(over.data))
+
+        at_cap = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": ["low"] * MAX_ALLOWED_PRIORITIES_LENGTH},
+            format="json",
+        )
+        self.assertEqual(at_cap.status_code, status.HTTP_200_OK, at_cap.content)
+
     def test_unhashable_nested_item_rejected_not_500_on_patch(self):
         # #1185: a nested list/dict item is unhashable, so `v not in valid`
         # crashed with an unhandled TypeError ('unhashable type: ...') instead
