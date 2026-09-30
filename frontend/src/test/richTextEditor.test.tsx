@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { Element as HastElement, Root } from 'hast'
+import { useEditor } from '@tiptap/react'
 import RichTextEditor from '../components/Card/RichTextEditor'
 
 // Tiptap uses ProseMirror which requires a real browser DOM; mock it for unit tests.
@@ -174,6 +175,66 @@ describe('RichTextEditor', () => {
     it('does not render toolbar in view mode', () => {
       render(<RichTextEditor value="text" onSave={onSave} />)
       expect(screen.queryByTitle('Bold (Ctrl+B)')).not.toBeInTheDocument()
+    })
+
+    // #1240 — glyph-only toolbar buttons (B, I, </>, ≡, 1., H, ") must expose an
+    // aria-label describing the action, not rely on a bare letter/symbol as the
+    // accessible name.
+    it('gives every toolbar button an aria-label matching its title', () => {
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+      for (const title of [
+        'Bold (Ctrl+B)',
+        'Italic (Ctrl+I)',
+        'Inline code',
+        'Bullet list',
+        'Numbered list',
+        'Heading',
+        'Blockquote',
+      ]) {
+        const button = screen.getByTitle(title)
+        expect(button).toHaveAttribute('aria-label', title)
+      }
+    })
+
+    it('defaults aria-pressed to false when no mark is active', () => {
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+      expect(screen.getByTitle('Bold (Ctrl+B)')).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('sets aria-pressed to true on the toolbar button for the active mark', () => {
+      // mockReturnValue (not Once): the component calls useEditor() on every
+      // render, including the initial isEditing=false mount, so a One-shot
+      // value gets consumed before the toolbar (which only renders once
+      // isEditing flips true) ever reads it.
+      vi.mocked(useEditor).mockReturnValue({
+        isActive: (name: string) => name === 'bold',
+        getAttributes: () => ({}),
+        storage: { markdown: { getMarkdown: () => 'text' } },
+        chain: () => ({ focus: () => ({ toggleBold: () => ({ run: () => {} }) }) }),
+        commands: { focus: () => {}, setContent: () => {} },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- minimal fake editor surface for this one test
+      } as any)
+      try {
+        const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+        fireEvent.click(container.firstChild as Element)
+        expect(screen.getByTitle('Bold (Ctrl+B)')).toHaveAttribute('aria-pressed', 'true')
+        expect(screen.getByTitle('Italic (Ctrl+I)')).toHaveAttribute('aria-pressed', 'false')
+      } finally {
+        // Restore the module-level default so later tests in this file see a
+        // null editor again.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the mocked module types useEditor as always returning Editor; the real mock returns null
+        vi.mocked(useEditor).mockReturnValue(null as any)
+      }
+    })
+
+    it('gives the text color button an accessible name and marks its glyph decorative', () => {
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+      const colorButton = screen.getByTitle('Text color')
+      expect(colorButton).toHaveAttribute('aria-label', 'Text color')
+      expect(colorButton.querySelector('span')).toHaveAttribute('aria-hidden', 'true')
     })
   })
 })

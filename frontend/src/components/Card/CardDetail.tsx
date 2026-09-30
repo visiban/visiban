@@ -486,6 +486,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             title="Close"
+            aria-label="Close"
           >×</button>
         </div>
 
@@ -605,6 +606,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }).catch(() => {}); }}
                           className="text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           title="Clear due date"
+                          aria-label="Clear due date"
                         >
                           ✕
                         </button>
@@ -892,6 +894,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                               onClick={() => handleDeleteChecklistItem(item.id)}
                               className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                               title="Remove item"
+                              aria-label="Remove item"
                             >
                               ✕
                             </button>
@@ -1030,6 +1033,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                               onClick={() => handleDeleteAttachment(a.id)}
                               className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                               title="Delete"
+                              aria-label={`Delete attachment ${a.filename}`}
                             >✕</button>
                           )
                         )}
