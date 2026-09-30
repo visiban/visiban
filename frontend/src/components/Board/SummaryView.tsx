@@ -78,17 +78,22 @@ export default function SummaryView({ boardId, columns }: Props) {
                       const count = row.stage_distribution[col] ?? 0;
                       const pct = (count / total) * 100;
                       const initials = col.slice(0, 2).toUpperCase();
+                      // text-xs (12px) needs more horizontal room than the old text-[8px]
+                      // did, so the reveal threshold moves up too — below it the segment
+                      // stays unlabeled (title still carries the "{column}: {count}" name)
+                      // rather than clipping bold initials against the segment edge.
+                      const showInitials = pct >= 12;
                       return (
                         <div
                           key={col}
                           title={`${col}: ${count}`}
-                          className="bg-primary-soft first:rounded-l last:rounded-r overflow-hidden flex items-center justify-center text-[8px] font-bold text-on-primary/80 leading-none"
+                          className="bg-primary-soft first:rounded-l last:rounded-r overflow-hidden flex items-center justify-center text-xs font-bold text-on-primary/80 leading-none"
                           style={{
                             width: `${pct}%`,
                             opacity: 0.4 + (idx / columns.length) * 0.6,
                           }}
                         >
-                          {pct >= 8 ? initials : ""}
+                          {showInitials ? initials : ""}
                         </div>
                       );
                     })}

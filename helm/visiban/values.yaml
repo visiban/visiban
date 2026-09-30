@@ -179,6 +179,38 @@ frontend:
       cpu: 200m
       memory: 128Mi
 
+  # Pod- and container-level securityContext for the frontend (nginx)
+  # Deployment (#1224), matching the hardening in templates/valkey.yaml
+  # (#1200) and backend.securityContext / postgresql.securityContext (#1210).
+  # Passed straight through with toYaml (open, like backend.resources above),
+  # so an operator on a base image that cannot run as this numeric UID, or
+  # that needs a writable root filesystem, can relax either block without
+  # forking the chart.
+  #
+  # nginx:1.27-alpine cannot bind its own listen port as this non-root user
+  # without CAP_NET_BIND_SERVICE, which Docker/containerd's runc-based
+  # runtimes do not grant an already-non-root process (the capability stays
+  # out of the effective/ambient set — verified empirically, #1224). Rather
+  # than add that capability back, the container listens on 8080 (see
+  # templates/frontend-configmap.yaml and the frontend Service's named
+  # `http` targetPort, which follows it automatically) — a non-privileged
+  # port needs no capability at all. The Service's own port (80 by default,
+  # frontend.service.port) is unaffected.
+  securityContext:
+    pod:
+      runAsNonRoot: true
+      # nginx:1.27-alpine's `nginx` user/group. Numeric because the kubelet
+      # cannot verify runAsNonRoot against a user NAME.
+      runAsUser: 101
+      runAsGroup: 101
+      seccompProfile:
+        type: RuntimeDefault
+    container:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+
 ingress:
   enabled: true
   className: "nginx"

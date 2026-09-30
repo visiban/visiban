@@ -332,9 +332,9 @@ use an [external Valkey](#external-database-and-valkey) with the password in
 
 Every long-running or scheduled workload the chart renders — the backend
 Deployment (its `migrate`, `collectstatic` and `bootstrap` init containers
-included), the bundled PostgreSQL and Valkey StatefulSets, the
-[scheduled jobs](#scheduled-jobs) CronJobs, and the demo seed Job/CronJob —
-runs:
+included), the frontend (nginx) Deployment, the bundled PostgreSQL and Valkey
+StatefulSets, the [scheduled jobs](#scheduled-jobs) CronJobs, and the demo
+seed Job/CronJob — runs:
 
 - as a non-root user (`runAsNonRoot: true`, a numeric `runAsUser`/`runAsGroup`)
 - with `seccompProfile: RuntimeDefault`
@@ -344,15 +344,17 @@ runs:
 - with no mounted ServiceAccount token (`automountServiceAccountToken: false`)
 
 Scratch space each image still needs to write — `/tmp` on the backend's four
-containers and on PostgreSQL, PostgreSQL's `/var/run/postgresql` socket
-directory, and the backend's `collectstatic` output (`STATIC_ROOT`) — is an
-`emptyDir` volume, never the read-only root filesystem itself. (The bundled
-Valkey needs no `/tmp` mount — it only ever writes to `/data` and
-`/etc/valkey`, both already `emptyDir`/`ConfigMap` mounts from #1200.)
+containers, on PostgreSQL and on the frontend; PostgreSQL's
+`/var/run/postgresql` socket directory; the backend's `collectstatic` output
+(`STATIC_ROOT`); and nginx's `/var/cache/nginx` (its client/proxy/fastcgi
+buffering temp dirs) and `/run` (`nginx.pid`, `nginx.lock`) — is an `emptyDir`
+volume, never the read-only root filesystem itself. (The bundled Valkey needs
+no `/tmp` mount — it only ever writes to `/data` and `/etc/valkey`, both
+already `emptyDir`/`ConfigMap` mounts from #1200.)
 
 The bundled Valkey's hardening (chart 0.5.0, #1200) is fixed. The backend
-Deployment's and the bundled PostgreSQL StatefulSet's (chart 0.6.0, #1210) are
-overridable:
+Deployment's, the bundled PostgreSQL StatefulSet's (chart 0.6.0, #1210), and
+the frontend Deployment's (chart 0.7.0, #1224) are overridable:
 
 | Key | Default | Purpose |
 |---|---|---|
@@ -360,11 +362,13 @@ overridable:
 | `backend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext`, applied to every backend container (init and app). |
 | `postgresql.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup`/`fsGroup: 999`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the bundled PostgreSQL StatefulSet. Not read when `postgresql.subchartEnabled` is true. |
 | `postgresql.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `postgresql` container. |
+| `frontend.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup: 101`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the frontend (nginx) Deployment. `101` is `nginx:1.27-alpine`'s built-in `nginx` user/group. |
+| `frontend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `frontend` container. |
 
-Both blocks are passed through with `toYaml`, like `backend.resources` — the
-chart does not validate their contents, so an operator running a base image
-that cannot run as the chart's numeric UID, or that needs a writable root
-filesystem, can override either block wholesale. For example, to run the
+All three blocks are passed through with `toYaml`, like `backend.resources` —
+the chart does not validate their contents, so an operator running a base
+image that cannot run as the chart's numeric UID, or that needs a writable
+root filesystem, can override any block wholesale. For example, to run the
 bundled PostgreSQL with a writable root filesystem on an image that writes
 somewhere this chart does not mount an `emptyDir` for:
 
@@ -380,14 +384,25 @@ postgresql:
 ```
 
 `scripts/helm-structure-check.sh` asserts `runAsNonRoot` and a full capability
-drop on every rendered pod except the frontend (nginx) Deployment.
+drop on every rendered pod, with no exclusions.
 
-!!! note "The frontend (nginx) Deployment is not hardened yet"
-    Unlike the other workloads above, the frontend Deployment carries no
-    pod- or container-level `securityContext`. Its base image's default user
-    and the paths nginx writes to at runtime have not been audited for a
-    read-only root filesystem, so bringing it up to the same bar is tracked
-    separately in #1224 rather than folded into #1210.
+!!! note "The frontend container listens on 8080, not 80 (chart 0.7.0)"
+    `nginx:1.27-alpine` cannot bind a port below 1024 as the non-root
+    `frontend.securityContext.pod.runAsUser` without `CAP_NET_BIND_SERVICE` —
+    and that capability is not usable here either: Docker/containerd's
+    runc-based container runtimes do not add a capability to an already
+    non-root process's effective/ambient set from `capabilities.add` alone
+    (verified empirically against `nginx:1.27-alpine`, #1224), so the process
+    can never actually use it. The frontend container's own listen port moved
+    to 8080 to sidestep this entirely — a non-privileged port needs no
+    capability. This does **not** change the frontend **Service**'s port
+    (`frontend.service.port`, `80` by default): the Service targets the
+    container by its named `http` port, which follows automatically. The one
+    place this is user-visible is a `kubectl port-forward <frontend-pod>
+    8080:80` run directly against the pod (bypassing the Service) — the NOTES
+    printed after `helm install`/`helm upgrade` already reflect the new
+    `8080:8080`, but a script or alias built from an older NOTES output needs
+    updating.
 
 ## Network policies
 
@@ -402,7 +417,9 @@ helm install visiban helm/visiban \
 
 This creates policies that allow:
 
-- Ingress controller → frontend (port 80)
+- Ingress controller → frontend (port 8080 — the frontend container's own
+  listen port, #1224; the frontend Service itself still fronts port 80 by
+  default)
 - Frontend (and the `helm test` probe) → backend (port 8000)
 - Backend → PostgreSQL (port 5432)
 - Backend → Valkey (port 6379)

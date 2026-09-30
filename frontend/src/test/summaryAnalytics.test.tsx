@@ -83,6 +83,57 @@ describe('SummaryView', () => {
     // At least the avg_cycle_days, active_cards and done_30d cells show —
     expect(dashes.length).toBeGreaterThanOrEqual(3)
   })
+
+  it('stage-distribution segment initials use the text-xs typography floor, not text-[8px] (#1311)', async () => {
+    mockGetBoardSummary.mockResolvedValue({
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A', color: '#3B82F6', total_cards: 100,
+          stage_distribution: { 'To Do': 20, 'Done': 80 },
+          velocity_7d: 0, velocity_30d: 0,
+          active_cards: 0, done_30d: 0, avg_cycle_days: null,
+        },
+      ],
+    })
+    const { container } = render(<SummaryView boardId={1} columns={['To Do', 'Done']} />)
+    await screen.findByText('Customer A')
+
+    const todoSegment = container.querySelector('[title="To Do: 20"]') as HTMLElement
+    const doneSegment = container.querySelector('[title="Done: 80"]') as HTMLElement
+    expect(todoSegment).toBeInTheDocument()
+    expect(doneSegment).toBeInTheDocument()
+    // Both segments are wide enough (>=12%) to show initials at the new size
+    expect(todoSegment.textContent).toBe('TO')
+    expect(doneSegment.textContent).toBe('DO')
+    for (const segment of [todoSegment, doneSegment]) {
+      expect(segment.className).toMatch(/\btext-xs\b/)
+      expect(segment.className).not.toMatch(/text-\[(8|9|10|11)px\]/)
+    }
+  })
+
+  it('hides stage-distribution initials on a segment too narrow to fit them, keeping the title intact (#1311)', async () => {
+    mockGetBoardSummary.mockResolvedValue({
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A', color: '#3B82F6', total_cards: 100,
+          stage_distribution: { 'To Do': 5, 'Done': 95 },
+          velocity_7d: 0, velocity_30d: 0,
+          active_cards: 0, done_30d: 0, avg_cycle_days: null,
+        },
+      ],
+    })
+    const { container } = render(<SummaryView boardId={1} columns={['To Do', 'Done']} />)
+    await screen.findByText('Customer A')
+
+    // Too narrow at 5% — no visible initials, but the accessible title survives
+    const todoSegment = container.querySelector('[title="To Do: 5"]') as HTMLElement
+    expect(todoSegment).toBeInTheDocument()
+    expect(todoSegment.textContent).toBe('')
+
+    // Wide enough at 95% — initials still render
+    const doneSegment = container.querySelector('[title="Done: 95"]') as HTMLElement
+    expect(doneSegment.textContent).toBe('DO')
+  })
 })
 
 describe('AnalyticsView', () => {

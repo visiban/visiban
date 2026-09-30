@@ -296,6 +296,8 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
           onClick={() => setCollapsed((v) => !v)}
           className={`text-fg-tertiary hover:text-fg transition rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${collapsed ? "flex items-center justify-center h-8 w-10 mx-auto my-0.5" : "p-1"}`}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-pressed={collapsed}
         >
           {collapsed ? (
             <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -394,6 +396,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                 onClick={openFavorites}
                 onMouseDown={(e) => { if (favoritesAnchor) e.stopPropagation(); }}
                 title="Favorites"
+                aria-label="Favorites"
                 aria-haspopup="true"
                 aria-expanded={favoritesAnchor !== null}
                 className={`flex items-center justify-center h-8 w-10 mx-auto my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
@@ -498,6 +501,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                 onClick={openRecent}
                 onMouseDown={(e) => { if (recentAnchor) e.stopPropagation(); }}
                 title="Recent boards"
+                aria-label="Recent boards"
                 aria-haspopup="true"
                 aria-expanded={recentAnchor !== null}
                 className={`flex items-center justify-center h-8 w-10 mx-auto my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
@@ -521,6 +525,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                 onClick={openGroups}
                 onMouseDown={(e) => { if (groupsAnchor) e.stopPropagation(); }}
                 title="Groups"
+                aria-label="Groups"
                 aria-haspopup="true"
                 aria-expanded={groupsAnchor !== null}
                 className={`flex items-center justify-center h-8 w-10 mx-auto my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
@@ -565,6 +570,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                 onClick={openPersonal}
                 onMouseDown={(e) => { if (personalAnchor) e.stopPropagation(); }}
                 title="Personal boards"
+                aria-label="Personal boards"
                 aria-haspopup="true"
                 aria-expanded={personalAnchor !== null}
                 className={`flex items-center justify-center h-8 w-10 mx-auto my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${

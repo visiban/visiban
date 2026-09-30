@@ -193,6 +193,23 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTitle('Focus on Customer A')).toBeInTheDocument()
   })
 
+  it('focus button has an accessible name that does not depend on title alone', () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    // title alone is not a reliable accessible name (Firefox/VoiceOver skip it); assert the
+    // attribute directly since aria-label and title share the same text here, so getByRole's
+    // computed-name resolution would pass via the title fallback even without aria-label
+    expect(screen.getByTitle('Focus on Customer A')).toHaveAttribute('aria-label', 'Focus on Customer A')
+  })
+
+  it('isFocused=true gives the focus button an "Exit focus" accessible name', () => {
+    const props = defaultProps()
+    props.isFocused = true
+    render(<SwimlaneRow {...props} />)
+    // assert the attribute directly — aria-label and title share the same text here, so
+    // getByRole's computed-name resolution would pass via the title fallback regardless
+    expect(screen.getByTitle('Exit focus')).toHaveAttribute('aria-label', 'Exit focus')
+  })
+
   it('clicking focus button calls onFocus with swimlane id when not focused', async () => {
     const props = defaultProps()
     render(<SwimlaneRow {...props} />)
