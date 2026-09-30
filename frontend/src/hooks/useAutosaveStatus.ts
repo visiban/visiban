@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -16,6 +16,14 @@ export function useAutosaveStatus(): {
     if (fadeTimer.current) clearTimeout(fadeTimer.current);
     if (resetTimer.current) clearTimeout(resetTimer.current);
   };
+
+  // #1305 — the actual save (the promise passed to runSave) has already been
+  // fired by the caller before these timers are scheduled; they only drive
+  // the "Saved" → fade → idle visual sequence. Cancelling them on unmount is
+  // therefore always safe (no data loss, unlike CardDetail's weightSaveTimer
+  // debounce) and prevents a setState call on an unmounted consumer
+  // (CardDetail, CustomFieldEditRow, SwimlaneFieldEditRow).
+  useEffect(() => clearTimers, []);
 
   const runSave = async (p: Promise<void>) => {
     clearTimers();

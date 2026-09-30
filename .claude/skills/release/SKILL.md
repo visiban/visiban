@@ -117,8 +117,15 @@ The script will automatically:
    `---` divider behind)
 5. Update `.env.example`, `frontend/package.json`, `README.md`, and the docs pages with the
    new version
-6. Commit and push the branch
-7. Create an MR targeting `main`, then **poll the MR's own pipeline status directly** until
+6. Verify version consistency across those files, `docker-compose.prod.yml`, and the Helm
+   chart, and **abort the release if any check fails** — `git reset --hard`, checkout `main`,
+   delete the release branch, same cleanup as step 3's abort path. Nothing is committed yet at
+   this point, so the abort leaves no partial state and no file for you to `git checkout`
+   by hand. If this happens, the printed `WARN` lines name which file drifted; fix the
+   underlying cause (e.g. an anchor in `scripts/release.sh` no longer matching) rather than
+   re-running the script hoping it passes (#1269)
+7. Commit and push the branch
+8. Create an MR targeting `main`, then **poll the MR's own pipeline status directly** until
    it reaches `success` (not `glab mr merge --when-pipeline-succeeds`, which asks GitLab to
    watch for us and has 405'd when fired before GitLab had created the pipeline object yet).
    **Write the poll loop as `while true; do …; if [ "$s" = success ] || [ "$s" = failed ]; then
@@ -128,12 +135,12 @@ The script will automatically:
    then "completes" immediately regardless of the pipeline's real state, and a background
    watcher's "finished" notification carries no information. Read the pipeline's actual
    status after the loop returns; don't trust that it returned.
-8. Merge the MR only once that pipeline is confirmed green
-9. **Confirm the pipeline at the merge commit itself** — on `main`, at that exact SHA — is
+9. Merge the MR only once that pipeline is confirmed green
+10. **Confirm the pipeline at the merge commit itself** — on `main`, at that exact SHA — is
    also green before tagging. A merge-request pipeline going green is not the same promise
    as the subsequent `push` pipeline on `main`, which can run a different job set
-10. Tag the merge commit and push the tag
-11. Create a GitLab release with notes from the CHANGELOG (the same notes approved in Step 1c)
+11. Tag the merge commit and push the tag
+12. Create a GitLab release with notes from the CHANGELOG (the same notes approved in Step 1c)
 
 Do not interrupt the script. If it fails, read the error output before taking any action —
 each failure mode above prints what to check or do manually. The tag pipeline itself (not

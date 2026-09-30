@@ -286,6 +286,32 @@ describe('CardDetail', () => {
     })
   })
 
+  // Regression guard (#1305): the weight +/- buttons debounce their PATCH by
+  // 600ms (weightSaveTimer). Unmounting (e.g. the modal is closed) before the
+  // timer fires must clear it, not fire the save against a torn-down
+  // component. Deliberately cancels rather than flushes here — see the
+  // comment on weightSaveTimer's cleanup effect in CardDetail.tsx.
+  it('clears the pending weight-save debounce timer on unmount, without throwing or saving', async () => {
+    const { unmount } = render(<CardDetail {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('+'))
+    // Debounced — the PATCH has not fired yet.
+    expect(mockUpdateCard).not.toHaveBeenCalled()
+
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => unmount()).not.toThrow()
+    expect(clearSpy).toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+
+    // The debounce is cancelled, not flushed: wait past the original 600ms
+    // delay and confirm the save never happened.
+    await new Promise((r) => setTimeout(r, 700))
+    expect(mockUpdateCard).not.toHaveBeenCalled()
+
+    clearSpy.mockRestore()
+    errorSpy.mockRestore()
+  })
+
   it('discards unsaved edits when remounted for a different card (#449)', () => {
     // BoardView passes `key={selectedCard.id}`, so opening a different card
     // from a relation row remounts rather than re-renders. That matters

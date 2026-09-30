@@ -625,6 +625,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         clearTimeout(cardNotFoundTimerRef.current);
         cardNotFoundTimerRef.current = null;
       }
+      // #1305 — found via the timer-ref audit: this one's callback only nulls
+      // itself out (no setState), so it was never a setState-after-unmount
+      // risk, but it's still a dangling timer left running past teardown.
+      if (dndHoverThrottleRef.current !== null) {
+        clearTimeout(dndHoverThrottleRef.current);
+        dndHoverThrottleRef.current = null;
+      }
     };
   }, []);
 

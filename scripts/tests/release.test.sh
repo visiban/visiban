@@ -60,5 +60,52 @@ if [ "$RC" -ne 0 ] && grep -qi "not valid semver" <<<"$OUT"; then pass=$((pass +
   fail=$((fail + 1))
 fi
 
+
+# Version-consistency checks must fail closed (#1269): a broken check must
+# exit non-zero BEFORE any commit/push/tag, and must leave the working tree
+# fully rolled back (git reset --hard / checkout main / release branch
+# deleted) rather than partially mutated. Exercised against an isolated local
+# clone of this repo so the real branch/commit/rollback machinery runs for
+# real without touching this checkout or any real remote — `origin` on the
+# clone is this on-disk repo, not GitLab, so nothing here reaches the network.
+TMPCLONE="$(mktemp -d)"
+git clone --quiet "$REPO_ROOT" "$TMPCLONE/repo"
+(
+  cd "$TMPCLONE/repo"
+  # Simulate bump_chart_app_version's anchor (`^appVersion: `) silently no
+  # longer matching a future Chart.yaml reformat — the exact failure mode
+  # #1269 is guarding against — by quoting the key so the line no longer
+  # starts with `appVersion: `.
+  sed -i.bak 's/^appVersion: /"appVersion": /' helm/visiban/Chart.yaml
+  rm -f helm/visiban/Chart.yaml.bak
+  git -c user.email=t@t -c user.name=t commit -aqm "test: break appVersion anchor"
+)
+set +e
+OUT="$(cd "$TMPCLONE/repo" && RELEASE_ASSUME_YES=1 bash scripts/release.sh 9.9.9-test.1 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -ne 0 ] && grep -q "version consistency check(s) failed" <<<"$OUT"; then
+  pass=$((pass + 1))
+else
+  echo "  FAIL: a broken version-consistency check should exit non-zero and report why (rc=$RC)"
+  echo "${OUT}" | sed 's/^/    /'
+  fail=$((fail + 1))
+fi
+
+# No commit was made and the release branch was rolled back: back on main,
+# the release branch is gone, and the working tree is clean — not left with
+# the file rewrites this run made (Chart.yaml, .env.example, etc.) sitting
+# uncommitted for the operator to clean up by hand.
+STRAY_BRANCH=$(cd "$TMPCLONE/repo" && git branch --list "chore/release-9.9.9-test.1")
+CURRENT_BRANCH=$(cd "$TMPCLONE/repo" && git branch --show-current)
+DIRTY=$(cd "$TMPCLONE/repo" && git status --porcelain)
+if [ -z "$STRAY_BRANCH" ] && [ "$CURRENT_BRANCH" = "main" ] && [ -z "$DIRTY" ]; then
+  pass=$((pass + 1))
+else
+  echo "  FAIL: a failed version-consistency check should roll the release branch back completely (stray branch='${STRAY_BRANCH}' current branch='${CURRENT_BRANCH}' dirty='${DIRTY}')"
+  fail=$((fail + 1))
+fi
+rm -rf "$TMPCLONE"
+
 echo "release.test.sh: ${pass} passed, ${fail} failed"
 [ "$fail" -eq 0 ]

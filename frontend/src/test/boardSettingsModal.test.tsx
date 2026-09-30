@@ -440,6 +440,35 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     await waitFor(() => { expect(mockSearchUsers).toHaveBeenCalledWith('al') })
   })
 
+  // Regression guard (#1305): the invite-search debounce (300ms) had no
+  // unmount cleanup. Closing the modal mid-debounce must clear the timer,
+  // not fire setSuggestions/setDropdownAnchor against a torn-down component.
+  it('clears the pending invite-search debounce timer on unmount, without throwing', async () => {
+    const { unmount } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+
+    const input = screen.getByPlaceholderText(/search by name or email/i)
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+      setter?.call(input, 'al')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    // Debounced — searchUsers has not fired yet.
+    expect(mockSearchUsers).not.toHaveBeenCalled()
+
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => unmount()).not.toThrow()
+    expect(clearSpy).toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+
+    // Advancing past the original 300ms delay after unmount must not throw.
+    expect(() => { vi.advanceTimersByTime(300) }).not.toThrow()
+    expect(errorSpy).not.toHaveBeenCalled()
+
+    clearSpy.mockRestore()
+    errorSpy.mockRestore()
+  })
+
   it('clicking a suggestion adds it to the staged list', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)

@@ -250,10 +250,12 @@ EXIT_USAGE = 2
 # recursive array-item check would catch — see `PublicSwimlane` in "What is
 # not covered, and why" for the honest accounting of it.
 COMPONENT_MAP = {
+    "AdminUser": "AdminUser",
     "Board": "Board",
     "BoardExportLog": "BoardExportLogEntry",
     "BoardFull": "BoardFull",
     "BoardMembership": "BoardMembership",
+    "BoardTemplate": "BoardTemplate",
     "BoardUser": "BoardUser",
     "Card": "Card",
     "CardActivity": "CardActivity",
@@ -262,6 +264,7 @@ COMPONENT_MAP = {
     "CardComment": "CardComment",
     "CardMovement": "CardMovement",
     "CardRelation": "CardRelation",
+    "CardTimelineEntry": "CardTimelineEntry",
     "Column": "Column",
     "CurrentUser": "User",
     "CustomFieldDefinition": "CustomFieldDefinition",
@@ -270,14 +273,25 @@ COMPONENT_MAP = {
     "ExternalRef": "CardExternalRef",
     "Group": "Group",
     "GroupBrief": "GroupBrief",
+    "GroupInviteLink": "GroupInviteLink",
     "GroupLabel": "GroupLabel",
+    "GroupMembership": "GroupMembership",
+    "InviteLink": "AdminInviteLink",
+    "InviteLinkCreateResponse": "CreatedAdminInviteLink",
     "Label": "Label",
     "LinkedCard": "RelatedCardRef",
     "Notification": "Notification",
+    "OwnedBoardSummary": "OwnedBoardSummary",
+    "PersonalAccessToken": "PersonalAccessToken",
+    "PersonalAccessTokenCreateResponse": "CreatedPersonalAccessToken",
     "PublicAssignee": "PublicAssignee",
     "PublicBoard": "BoardPublic",
     "PublicCard": "PublicCard",
+    "SavedFilter": "SavedFilter",
     "ShareBoardResponse": "ShareActionResponse",
+    "SiteConfig": "SiteConfig",
+    "SiteEmailSettingsResponse": "SiteEmailSettings",
+    "SiteSetting": "SiteSettings",
     "Swimlane": "Swimlane",
     "SwimlaneCustomFieldDefinition": "SwimlaneCustomFieldDefinition",
 }
@@ -418,6 +432,13 @@ TS_ONLY_FIELDS: tuple[TsOnlyField, ...] = (
     # `GroupDetail` inherits the rest of the shape from it.
     TsOnlyField("Group", "ancestors",
                 "GroupDetailSerializer only — omitted from the list serializer to avoid an N+1"),
+    # GroupInviteLinkSerializer never declares `token` — GroupViewSet.invite_links
+    # appends the raw value to its `.data` by hand, once, only on the POST
+    # response (#1294), the same shape as AdminInviteLink/CreatedAdminInviteLink
+    # but without a second TypeScript interface: `GroupInviteLink.token` is
+    # optional for exactly this reason.
+    TsOnlyField("GroupInviteLink", "token",
+                "appended by GroupViewSet.invite_links() POST only — never a serializer field"),
 )
 
 
@@ -474,7 +495,7 @@ def strip_ts_comments(src: str) -> str:
     return "".join(out)
 
 
-_INTERFACE_RE = re.compile(r"\bexport\s+interface\s+(\w+)\s*(?:extends\s+[^{]+?)?\{")
+_INTERFACE_RE = re.compile(r"\bexport\s+interface\s+(\w+)\s*(?:extends\s+(\w+)[^{]*?)?\{")
 _FIELD_RE = re.compile(r"^\s*(?:readonly\s+)?([A-Za-z_$][\w$]*)\s*(\?)?\s*:\s*(.+?)\s*$", re.S)
 
 
@@ -484,11 +505,21 @@ def parse_ts_interfaces(src: str) -> dict[str, dict[str, TsField]]:
     Brace-depth aware, so a nested object literal (`ancestors?: { id: number }[]`)
     contributes one field named `ancestors` rather than leaking `id` into the
     parent interface.
+
+    `extends` is resolved (#1294): a derived interface inherits every field of
+    its base that it does not itself redeclare. Without this, a pair like
+    ``CreatedAdminInviteLink extends AdminInviteLink { raw_token: string }``
+    would appear to the gate as an interface with exactly one field, and every
+    field the base actually carries would report as a spurious
+    ``missing_in_ts`` finding — not real drift, just a parser that only ever
+    looked at one interface's own body.
     """
     clean = strip_ts_comments(src)
     result: dict[str, dict[str, TsField]] = {}
+    bases: dict[str, str] = {}
     for m in _INTERFACE_RE.finditer(clean):
         name = m.group(1)
+        base = m.group(2)
         body_start = m.end()
         depth, i, n = 1, body_start, len(clean)
         while i < n and depth:
@@ -501,6 +532,21 @@ def parse_ts_interfaces(src: str) -> dict[str, dict[str, TsField]]:
             i += 1
         body = clean[body_start:i]
         result[name] = _parse_interface_body(body, clean.count("\n", 0, body_start) + 1)
+        if base:
+            bases[name] = base
+
+    for name, base in bases.items():
+        seen = {name}
+        chain = [base]
+        while chain:
+            cur = chain.pop(0)
+            if cur in seen or cur not in result:
+                break
+            seen.add(cur)
+            for field_name, field in result[cur].items():
+                result[name].setdefault(field_name, field)
+            if cur in bases:
+                chain.append(bases[cur])
     return result
 
 
