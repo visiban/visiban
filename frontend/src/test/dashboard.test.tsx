@@ -167,6 +167,8 @@ describe('Dashboard', () => {
     await screen.findByText('Sprint Board')
     // Delete button should exist (hidden by CSS, but in DOM)
     expect(screen.getByTitle('Delete board')).toBeInTheDocument()
+    // accessible name must not depend on title alone (Firefox/VoiceOver skip it)
+    expect(screen.getByRole('button', { name: 'Delete Sprint Board' })).toBeInTheDocument()
   })
 
   it('shows delete confirmation on delete click', async () => {
@@ -187,6 +189,7 @@ describe('Dashboard', () => {
     renderDashboard()
     await screen.findByText('Sprint Board')
     expect(screen.getByTitle('Move to group')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Move Sprint Board to group' })).toBeInTheDocument()
   })
 
   it('renders groups when available', async () => {
