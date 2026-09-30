@@ -7,7 +7,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, CardActivity, CardComment,
+    Board, BoardMembership, Card, CardActivity, CardChecklist, CardComment,
     CardMovement, Column, Swimlane, Label, Notification,
 )
 
@@ -391,6 +391,155 @@ class CardChecklistTests(TestCase):
                 card=self.card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED
             ).exists()
         )
+
+    # -- #1292: position must not be patchable outside the reorder endpoint --
+
+    @patch(PATCH_BROADCAST)
+    def test_update_checklist_item_with_changed_position_rejected(self, _):
+        """A PATCH changing `position` must be rejected — it bypasses the
+        reorder broadcast, same class of bug as #1275 for cards/columns/
+        swimlanes."""
+        item = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        CardChecklist.objects.create(card=self.card, text="Step 2", position=1)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/{item.id}/",
+            {"position": 1},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("position", r.json())
+        item.refresh_from_db()
+        self.assertEqual(item.position, 0)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_checklist_item_echoing_current_position_accepted(self, _):
+        """A full-object round-trip that echoes the current position back must
+        keep working (1.0 backward-compat contract)."""
+        item = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/{item.id}/",
+            {"position": item.position, "text": "Renamed"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        item.refresh_from_db()
+        self.assertEqual(item.text, "Renamed")
+
+    @patch(PATCH_BROADCAST)
+    def test_checklist_reorder_endpoint_changes_position(self, _):
+        """The dedicated reorder endpoint must still be able to change
+        position — only the plain PATCH bypass is closed."""
+        item1 = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        item2 = CardChecklist.objects.create(card=self.card, text="Step 2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+            {"order": [item2.id, item1.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        item1.refresh_from_db()
+        item2.refresh_from_db()
+        self.assertEqual(item2.position, 0)
+        self.assertEqual(item1.position, 1)
+        self.assertEqual([row["id"] for row in r.json()], [item2.id, item1.id])
+
+    @patch(PATCH_BROADCAST)
+    def test_checklist_reorder_endpoint_rejects_non_integer_order(self, _):
+        item = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+            {"order": ["not-an-id"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        item.refresh_from_db()
+        self.assertEqual(item.position, 0)
+
+    def test_checklist_reorder_endpoint_denied_for_viewer(self):
+        """Viewers are excluded from the allow-list, same as add/edit/delete."""
+        viewer = User.objects.create_user(username="viewer", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=viewer, role=BoardMembership.Role.VIEWER
+        )
+        item = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        client = APIClient()
+        client.force_authenticate(viewer)
+        r = client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+            {"order": [item.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    # -- completeness-check on #1292: `order` must be exactly the full set --
+
+    @patch(PATCH_BROADCAST)
+    def test_checklist_reorder_rejects_partial_order(self, _):
+        """A partial `order` (missing an existing item) must be rejected — the
+        omitted item's position would otherwise collide with whatever
+        bulk_update's enumerate() left it at."""
+        item1 = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        item2 = CardChecklist.objects.create(card=self.card, text="Step 2", position=1)
+        item3 = CardChecklist.objects.create(card=self.card, text="Step 3", position=2)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+            {"order": [item3.id, item1.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        item1.refresh_from_db()
+        item2.refresh_from_db()
+        item3.refresh_from_db()
+        self.assertEqual((item1.position, item2.position, item3.position), (0, 1, 2))
+
+    @patch(PATCH_BROADCAST)
+    def test_checklist_reorder_rejects_duplicate_ids(self, _):
+        item1 = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        item2 = CardChecklist.objects.create(card=self.card, text="Step 2", position=1)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+            {"order": [item1.id, item1.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        item1.refresh_from_db()
+        item2.refresh_from_db()
+        self.assertEqual((item1.position, item2.position), (0, 1))
+
+    @patch(PATCH_BROADCAST)
+    def test_checklist_reorder_rejects_foreign_card_id(self, _):
+        """An ID belonging to another card's checklist must be rejected, not
+        silently filtered out — a silent filter combined with the full-set
+        requirement would be self-contradictory."""
+        item1 = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        item2 = CardChecklist.objects.create(card=self.card, text="Step 2", position=1)
+        other_card = _make_card(self.board, self.col, self.swim, self.user, title="Other")
+        foreign_item = CardChecklist.objects.create(card=other_card, text="Foreign", position=0)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+            {"order": [item2.id, foreign_item.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        item1.refresh_from_db()
+        item2.refresh_from_db()
+        foreign_item.refresh_from_db()
+        self.assertEqual((item1.position, item2.position, foreign_item.position), (0, 1, 0))
+
+    @patch(PATCH_BROADCAST)
+    def test_checklist_reorder_rejects_empty_order_when_items_exist(self, _):
+        item = CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+            {"order": []},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+        item.refresh_from_db()
+        self.assertEqual(item.position, 0)
 
 
 class CardFilterTests(TestCase):

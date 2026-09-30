@@ -136,3 +136,22 @@ class ChecklistOwnershipGateTests(TestCase):
         self.client.force_authenticate(self.collab)
         r = self.client.delete(self._item_url(item.pk))
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+
+    @patch(PATCH_BROADCAST)
+    def test_collab_can_reorder_items_created_by_others(self, _):
+        """#1292: reorder is deliberately not ownership-gated — it changes the
+        whole list's display order, not one item's content, unlike PATCH/DELETE
+        on a single item above."""
+        item1 = _make_item(self.card, self.other, text="Item 1")
+        item2 = _make_item(self.card, self.other, text="Item 2")
+        self.client.force_authenticate(self.collab)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+            {"order": [item2.pk, item1.pk]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        item1.refresh_from_db()
+        item2.refresh_from_db()
+        self.assertEqual(item2.position, 0)
+        self.assertEqual(item1.position, 1)

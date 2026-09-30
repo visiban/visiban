@@ -1252,6 +1252,31 @@ class CardChecklistSerializer(serializers.ModelSerializer):
         model = CardChecklist
         fields = ["id", "text", "is_checked", "position", "created_by"]
 
+    def validate(self, attrs):
+        # Position is writable only through the dedicated reorder endpoint
+        # (#1292) — a plain PATCH changing it bypasses the reorder broadcast,
+        # same rule ColumnSerializer/SwimlaneSerializer apply to their own
+        # position field (#1275). Lower severity here: CardChecklist has no
+        # (card, position) uniqueness constraint, no audit row, and no WIP/
+        # weight invariant to protect — position is display order only — but
+        # the "use the endpoint that broadcasts a reorder" contract still
+        # applies so drag-reorder produces one board event instead of N.
+        # Echoing the current value back is still accepted so a full-object
+        # round-trip keeps working (1.0 backward-compat contract). Only
+        # checked on update: on create the view always assigns position to
+        # the next free slot (see CardViewSet.checklist), so a client-
+        # supplied value there is discarded before it can matter.
+        if self.instance is not None and "position" in attrs and attrs["position"] != self.instance.position:
+            card = self.instance.card
+            raise serializers.ValidationError({
+                "position": (
+                    "Changing a checklist item's position via PATCH is not allowed — it "
+                    "bypasses the reorder broadcast. Use POST "
+                    f"/api/v1/boards/{card.board_id}/cards/{card.pk}/checklist/reorder/ instead."
+                )
+            })
+        return attrs
+
 
 class LinkedCardSerializer(serializers.ModelSerializer):
     """The other end of a card relation, rendered as a compact reference (#449).

@@ -11,7 +11,7 @@ from django.db.models import Count, Prefetch, Q, Window
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from drf_spectacular.utils import (
@@ -1257,6 +1257,94 @@ class CardViewSet(viewsets.ModelViewSet):
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(serializer.data)
+
+    @extend_schema(
+        summary="Reorder checklist items on a card",
+        description=(
+            "Accepts this card's full set of checklist item IDs, with no duplicates, in the "
+            "desired order, and returns the reordered list. `order` must be exactly this "
+            "card's current checklist item IDs — a partial list, a duplicate, or an ID from "
+            "another card is rejected with `400`. This is the only way to change a checklist "
+            "item's `position` — PATCH on the checklist item endpoint rejects such changes "
+            "(#1292, same rule as `move`/`reorder` for cards, columns, and swimlanes)."
+        ),
+        request=inline_serializer(
+            name="ChecklistReorderRequest",
+            fields={
+                "order": serializers.ListField(
+                    child=serializers.IntegerField(),
+                    help_text="This card's checklist item IDs, all of them, no duplicates, in the desired display order.",
+                ),
+            },
+        ),
+        responses=CardChecklistSerializer(many=True),
+    )
+    @action(detail=True, methods=["post"], url_path="checklist/reorder")
+    def checklist_reorder(self, request, board_pk=None, pk=None):
+        """Reorder checklist items on a card by accepting the full list of item IDs in the desired order."""
+        board, role = self._board_and_role()
+        # Same allow-list as checklist/checklist_item above: collaborator, member,
+        # admin, and site_admin may reorder; only viewers are blocked. Deliberately
+        # not ownership-gated like PATCH/DELETE on a single item — reordering
+        # touches the whole list's display order, not one item's content, so it
+        # doesn't fit the "only the creator" model the way editing text does.
+        if role not in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied(_PERM_DENIED)
+        card = get_object_or_404(Card, pk=pk, board=board)
+        order = request.data.get("order", [])
+        try:
+            # Cast IDs to int — request JSON sends strings, DB PKs are ints. Done
+            # before opening the transaction, same as ColumnViewSet.reorder: a
+            # non-integer entry should surface as a 400 naming the field, not a
+            # 500 from int() reached unguarded mid-transaction.
+            order_ints = [int(iid) for iid in order]
+        except (TypeError, ValueError):
+            raise ValidationError(
+                {"order": "order must be a list of integer checklist item IDs."}
+            ) from None
+        # completeness-check on #1292: `order` must be exactly this card's full set
+        # of checklist item IDs, no duplicates, no IDs from another card. A partial
+        # or padded list left the missing items' `position` wherever bulk_update's
+        # enumerate() last put it rather than where the request said, producing
+        # duplicate positions (e.g. two items both left at position 1). A silent
+        # filter of foreign/unknown IDs combined with a full-set requirement would
+        # be self-contradictory, so any mismatch — missing, extra, duplicate, or
+        # foreign-card — is rejected outright rather than partially applied.
+        # NOTE: ColumnViewSet.reorder / SwimlaneViewSet.reorder have this same
+        # partial-list hole and do NOT enforce this — left alone here, flagged
+        # separately, since fixing them is out of this branch's scope.
+        if len(order_ints) != len(set(order_ints)):
+            raise ValidationError(
+                {"order": "order must not contain duplicate checklist item IDs."}
+            )
+        existing_ids = set(card.checklist_items.values_list("id", flat=True))
+        if set(order_ints) != existing_ids:
+            raise ValidationError(
+                {"order": "order must contain exactly this card's checklist item IDs, no more and no fewer."}
+            )
+        with transaction.atomic():
+            # Single-pass bulk_update suffices here — unlike Column/Swimlane,
+            # CardChecklist has no unique_together(card, position) to violate
+            # mid-update, so there's no need for the two-pass high-then-final
+            # shift those reorder actions use to avoid a constraint clash. Safe to
+            # index id_to_item directly below (no `if item_id in id_to_item` guard
+            # needed): the set-equality check above already guarantees every id in
+            # order_ints was just fetched into it.
+            items = list(CardChecklist.objects.filter(card=card, pk__in=order_ints).only("id", "position"))
+            id_to_item = {i.pk: i for i in items}
+            for pos, item_id in enumerate(order_ints):
+                id_to_item[item_id].position = pos
+            CardChecklist.objects.bulk_update(list(id_to_item.values()), ["position"])
+            # select_related("created_by") avoids an N+1: CardChecklistSerializer
+            # nests a user serializer per item (#995 follow-up), same as the GET
+            # path above in the `checklist` action.
+            items_data = CardChecklistSerializer(
+                card.checklist_items.select_related("created_by").order_by("position"), many=True
+            ).data
+            card_data = self._refetch_card_data(card)
+            board_id = board.id
+            _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+        return Response(items_data)
 
     # -- card relations (#449) ----------------------------------------------
 
