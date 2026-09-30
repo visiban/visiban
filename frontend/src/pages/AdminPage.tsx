@@ -964,7 +964,10 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    return () => { if (actionMessageTimerRef.current) clearTimeout(actionMessageTimerRef.current); };
+    return () => {
+      if (actionMessageTimerRef.current) clearTimeout(actionMessageTimerRef.current);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   const fetchUsers = useCallback(

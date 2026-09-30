@@ -521,6 +521,26 @@ describe('AdminPage — Users tab', () => {
       expect(screen.getByText('Action failed. Please try again.')).toBeInTheDocument()
     })
   })
+
+  it('clears the pending search debounce timer on unmount (#1304)', async () => {
+    const { unmount } = renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    const search = await waitFor(() =>
+      screen.getByPlaceholderText('Search by name, email, or username…')
+    )
+    // Schedules the 400ms debounced fetchUsers call, but the component
+    // unmounts before it fires — without the cleanup effect, this timer
+    // would fire against an unmounted component's setters.
+    fireEvent.change(search, { target: { value: 'ali' } })
+
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => unmount()).not.toThrow()
+    expect(clearSpy).toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+    clearSpy.mockRestore()
+    errorSpy.mockRestore()
+  })
 })
 
 // ---------------------------------------------------------------------------
