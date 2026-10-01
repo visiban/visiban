@@ -4671,7 +4671,7 @@
 <tbody>
 <tr>
 <td><code>invite_required</code></td>
-<td>Invite-only mode is enabled and no invite token was present.</td>
+<td>Invite-only mode is enabled and no invite token was present. Also sent for any visit or form submission at <code>/accounts/signup/</code> in invite-only mode (#1324), since an invite link is the only way to register.</td>
 </tr>
 <tr>
 <td><code>invite_invalid</code></td>
@@ -4683,7 +4683,7 @@
 </tr>
 <tr>
 <td><code>signup_closed</code></td>
-<td>Registration is closed for this instance. Emitted when an OAuth signup attempt is made while registration mode is <code>CLOSED</code> (#1323) — redirects to the frontend instead of rendering allauth's stock <code>signup_closed.html</code> template.</td>
+<td>Registration is closed for this instance. Emitted when an OAuth signup attempt (#1323), or a visit or form submission at <code>/accounts/signup/</code> (#1324), is made while registration mode is <code>CLOSED</code> — redirects to the frontend instead of rendering allauth's stock <code>signup_closed.html</code> template.</td>
 </tr>
 <tr>
 <td><code>oauth_failed</code></td>
