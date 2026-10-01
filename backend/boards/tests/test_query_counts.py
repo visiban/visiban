@@ -29,7 +29,7 @@ from accounts.models import User, get_maintenance_state
 from boards.models import (
     Board, BoardMembership, Card, CardAttachment, CardChecklist,
     CardMovement, Column, CustomFieldDefinition, Label, Swimlane,
-    SwimlaneCustomFieldDefinition,
+    SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
 )
 
 
@@ -84,6 +84,27 @@ def _query_count(fn):
     with CaptureQueriesContext(connection) as ctx:
         fn()
     return len(ctx)
+
+
+def _add_lanes_with_cards_and_values(board, owner, cols, defs, start, count):
+    """Add ``count`` swimlanes that each hold cards and custom field values.
+
+    Unlike the empty lanes in ``SwimlaneParkedPrefetchQueryCountTests``, every
+    lane here carries one card per column (so per-lane card grouping runs) and
+    a value for each of ``defs`` -- which must mix ``is_admin_only`` True and
+    False so the per-value definition lookup is exercised (#1335).
+    """
+    for i in range(start, start + count):
+        lane = Swimlane.objects.create(board=board, name=f"Extra {i}", position=i)
+        for col in cols:
+            Card.objects.create(
+                board=board, column=col, swimlane=lane,
+                title=f"lane-{i}", created_by=owner, position=0,
+            )
+        for d in defs:
+            SwimlaneCustomFieldValue.objects.create(
+                swimlane=lane, field_definition=d, value="v",
+            )
 
 
 # ── tests ─────────────────────────────────────────────────────────────────────
@@ -199,6 +220,33 @@ class BoardFullQueryCountTests(TestCase):
             "were added — N+1 regression detected.",
         )
 
+    def test_full_budget_scales_with_swimlanes(self):
+        """Adding more swimlanes must not increase the query count (#1335).
+
+        Differs from the #1223 test in SwimlaneParkedPrefetchQueryCountTests:
+        the added lanes contain cards and carry values for both an
+        ``is_admin_only`` and a non-admin-only definition, so per-lane card
+        grouping and per-value ``is_admin_only`` resolution are exercised.
+        """
+        defs = [
+            SwimlaneCustomFieldDefinition.objects.get(board=self.board, name="Owner"),
+            SwimlaneCustomFieldDefinition.objects.create(
+                board=self.board, name="Public", field_type="text",
+                position=1, is_admin_only=False,
+            ),
+        ]
+        _add_lanes_with_cards_and_values(self.board, self.user, self.cols, defs, 5, 3)
+        baseline = _query_count(self._get_full)
+
+        _add_lanes_with_cards_and_values(self.board, self.user, self.cols, defs, 8, 7)
+        more = _query_count(self._get_full)
+        self.assertEqual(
+            baseline, more,
+            f"full/ query count grew from {baseline} to {more} when swimlanes "
+            "(with cards and admin-only values) were added — per-swimlane "
+            "query regression (#1335).",
+        )
+
 
 class BoardFullGroupInheritedQueryCountTests(TestCase):
     """GET /api/boards/{id}/full/ must not issue per-card queries even when
@@ -297,6 +345,34 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
             "when cards were added — N+1 regression detected (#490).",
         )
 
+
+    def test_full_with_group_budget_scales_with_swimlanes(self):
+        """Adding more swimlanes must not increase the query count (#1335).
+
+        Group-inherited twin of ``BoardFullQueryCountTests``: the role is
+        resolved through the group ancestor chain, a separate path from the
+        direct-membership one. Lanes hold cards and values for both an
+        ``is_admin_only`` and a non-admin-only definition, unlike the empty
+        lanes in the #1223 test.
+        """
+        defs = [
+            SwimlaneCustomFieldDefinition.objects.get(board=self.board, name="Owner"),
+            SwimlaneCustomFieldDefinition.objects.create(
+                board=self.board, name="Public", field_type="text",
+                position=1, is_admin_only=False,
+            ),
+        ]
+        _add_lanes_with_cards_and_values(self.board, self.owner, self.cols, defs, 3, 3)
+        baseline = _query_count(self._get_full)
+
+        _add_lanes_with_cards_and_values(self.board, self.owner, self.cols, defs, 6, 7)
+        more = _query_count(self._get_full)
+        self.assertEqual(
+            baseline, more,
+            f"full/ (group board) query count grew from {baseline} to {more} "
+            "when swimlanes (with cards and admin-only values) were added — "
+            "per-swimlane query regression (#1335).",
+        )
 
 class BoardForUserPrefetchTests(TestCase):
     """get_board_for_user() must prefetch custom_field_definitions and
