@@ -175,7 +175,7 @@ kubectl get pods -n visiban -l app.kubernetes.io/component=backend \
 
 # Check readiness directly against a new pod
 kubectl exec -n visiban <new-pod-name> -- \
-  python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/api/health/readiness/').read().decode())"
+  python -c "import urllib.request as u; print(u.urlopen(u.Request('http://localhost:8000/api/health/readiness/', headers={'Host': '<your host>'})).read().decode())"
 ```
 
 !!! note "This checkpoint is approximate, not a guaranteed 50%"

@@ -1198,13 +1198,14 @@ check_allowed_hosts_not_widened() {
   # (a) pass ALLOWED_HOSTS through verbatim and (b) hand the probes a Host that
   # Django's own matcher accepts -- a leading-dot entry matches the bare domain
   # and its subdomains, "*" matches anything.
-  local shape want_probe out probe_hosts ph allowed ok
+  local shape want_probe out probe_hosts ph allowed ok errf
+  errf="$(mktemp)"
   for shape in 'a.com,b.com|a.com' '.a.com|a.com' '*|localhost'; do
     allowed="${shape%%|*}"; want_probe="${shape##*|}"
     out="$(mktemp)"
     if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
-          --set-string "backend.settings.allowedHosts=${allowed//,/\\,}" > "$out" 2>/tmp/helm-ah-err.txt; then
-      fail "allowedHosts='$allowed' does not render: $(head -2 /tmp/helm-ah-err.txt | tr '\n' ' ')"
+          --set-string "backend.settings.allowedHosts=${allowed//,/\\,}" > "$out" 2>"$errf"; then
+      fail "allowedHosts='$allowed' does not render: $(head -2 "$errf" | tr '\n' ' ')"
       bad=1; rm -f "$out"; continue
     fi
     got="$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$")))
@@ -1222,6 +1223,8 @@ check_allowed_hosts_not_widened() {
     [ "$ok" -eq 1 ] || { fail "allowedHosts='$allowed': probe Host '$probe_hosts' would be rejected by Django"; bad=1; }
     rm -f "$out"
   done
+
+  rm -f "$errf"
 
   # Empty value: the render-time guard must refuse it.
   if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
