@@ -7,13 +7,13 @@ Visiban has been deployed!
   export POD=$(kubectl get pods -n {{ .Release.Namespace }} -l "{{ include "visiban.frontend.selectorArg" . }}" -o jsonpath="{.items[0].metadata.name}")
   kubectl port-forward $POD 8080:8080
   # Then open http://localhost:8080
-  # NOTE: ALLOWED_HOSTS holds only backend.settings.allowedHosts (no localhost),
-  # so the backend answers 400 to Host: localhost. For a port-forward, add
-  # localhost to backend.settings.allowedHosts (comma-separated) or send
-  # `curl -H "Host: {{ include "visiban.probeHost" . }}" http://localhost:8080/`.
 {{- end }}
 
 2. Backend API is available under /api/ (proxied through the frontend Nginx).
+   NOTE: ALLOWED_HOSTS holds only backend.settings.allowedHosts (no localhost).
+   Reaching the app or backend through `kubectl port-forward` needs `localhost`
+   in backend.settings.allowedHosts (comma-separated), or send
+   `curl -H "Host: {{ include "visiban.probeHost" . }}" http://localhost:<port>/`.
 
 3. Database migrations run automatically, in the backend pod's `migrate` init
    container, before the application container starts. Follow them with:
@@ -23,6 +23,7 @@ Visiban has been deployed!
 
 4. Django admin — by default restricted to loopback only. Either:
    - Port-forward: kubectl port-forward svc/{{ include "visiban.fullname" . }}-backend 8000:8000
+     (needs `localhost` in backend.settings.allowedHosts, or a real Host header)
    - Or set backend.settings.adminAllowedIPs to a comma-separated CIDR list.
 
 {{- if .Values.backend.mediaPersistence.enabled }}

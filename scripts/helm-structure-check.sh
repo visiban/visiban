@@ -1194,6 +1194,42 @@ check_allowed_hosts_not_widened() {
     esac
   done <<< "$hosts"
 
+  # Value shapes beyond the single host: each is rendered on its own and must
+  # (a) pass ALLOWED_HOSTS through verbatim and (b) hand the probes a Host that
+  # Django's own matcher accepts -- a leading-dot entry matches the bare domain
+  # and its subdomains, "*" matches anything.
+  local shape want_probe out probe_hosts ph allowed ok
+  for shape in 'a.com,b.com|a.com' '.a.com|a.com' '*|localhost'; do
+    allowed="${shape%%|*}"; want_probe="${shape##*|}"
+    out="$(mktemp)"
+    if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
+          --set-string "backend.settings.allowedHosts=${allowed//,/\\,}" > "$out" 2>/tmp/helm-ah-err.txt; then
+      fail "allowedHosts='$allowed' does not render: $(head -2 /tmp/helm-ah-err.txt | tr '\n' ' ')"
+      bad=1; rm -f "$out"; continue
+    fi
+    got="$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$")))
+               | .spec.template.spec.containers[] | select(.name == "backend")
+               | .env[] | select(.name == "ALLOWED_HOSTS") | .value' "$out")"
+    [ "$got" = "$allowed" ] || { fail "allowedHosts='$allowed' renders ALLOWED_HOSTS='$got', want it verbatim"; bad=1; }
+    probe_hosts="$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$")))
+               | .spec.template.spec.containers[].readinessProbe.httpGet.httpHeaders[]?
+               | select(.name == "Host") | .value' "$out")"
+    [ "$probe_hosts" = "$want_probe" ] || { fail "allowedHosts='$allowed': probe Host is '$probe_hosts', want '$want_probe'"; bad=1; }
+    ok=0
+    [ "$allowed" = "*" ] && ok=1
+    case ",$allowed," in *",$probe_hosts,"*) ok=1 ;; esac
+    case ",$allowed," in *",.$probe_hosts,"*) ok=1 ;; esac
+    [ "$ok" -eq 1 ] || { fail "allowedHosts='$allowed': probe Host '$probe_hosts' would be rejected by Django"; bad=1; }
+    rm -f "$out"
+  done
+
+  # Empty value: the render-time guard must refuse it.
+  if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
+       --set-string 'backend.settings.allowedHosts= ' >/dev/null 2>&1; then
+    fail "an empty/blank allowedHosts rendered -- Django would reject every request and no pod would become ready"
+    bad=1
+  fi
+
   [ "$bad" -eq 0 ] && pass "ALLOWED_HOSTS is exactly the configured hosts and every backend probe sends one of them"
 }
 
@@ -1295,6 +1331,8 @@ self_test() {
     "14 ALLOWED_HOSTS widened with localhost|templates/_backend-env.tpl|s/value: {{ \$ctx.Values.backend.settings.allowedHosts | quote }}/value: {{ printf \"%s,127.0.0.1,localhost\" \$ctx.Values.backend.settings.allowedHosts | quote }}/"
     # 14: the probes send a Host ALLOWED_HOSTS does not accept.
     "14 probe Host not in ALLOWED_HOSTS|templates/backend-deployment.yaml|s/value: {{ include \"visiban.probeHost\" . | quote }}/value: localhost/"
+    # 14: the empty-allowedHosts render guard stops firing.
+    "14 empty allowedHosts guard removed|templates/_validate.tpl|s/{{- if eq (trim (toString .Values.backend.settings.allowedHosts)) \"\" }}/{{- if false }}/"
   )
 
   for fixture in "${fixtures[@]}"; do
