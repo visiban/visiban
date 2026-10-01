@@ -1225,7 +1225,15 @@ helm-template:
   <<: *rules-helm
   variables:
     KUBECONFORM_VERSION: "0.6.7"
-    YQ_VERSION: "4.44.3"
+    # 4.44.3 has a confirmed upstream bug (fixed by 4.53.3): a yq expression of
+    # the shape `select(cond) | field // default` run against a multi-document
+    # stream emits a result for EVERY document, not just the ones matching
+    # `select`, whenever the post-select pipe hits a `//` fallback. This is
+    # exactly scripts/helm-structure-check.sh's shape in check_valkey_auth's
+    # server_ref/server_cmd queries (section 11b), so under 4.44.3 the single
+    # expected secretKeyRef line arrives buried in ~24 extra blank "/" lines —
+    # a false-positive FAIL, not a real chart defect (#1211, !1096).
+    YQ_VERSION: "4.53.3"
   before_script:
     - apk add --no-cache bash curl tar findutils grep sed
     - curl -sSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xz -C /usr/local/bin kubeconform
