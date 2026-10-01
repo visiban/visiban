@@ -3768,7 +3768,7 @@
 <p>The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does <strong>not</strong> proxy <code>/api/</code> requests. Access the <a href="../../api/openapi/">OpenAPI schema</a> at <code>http://localhost:8000/api/schema/swagger-ui/</code> — the schema endpoints require an authenticated session or PAT, to avoid exposing the full API surface to anonymous callers.</p>
 <p>For a production-oriented Docker Compose stack (nginx, TLS via certbot, a <code>scheduler</code> service for daily notification jobs, no bind-mounted source), see <code>docker-compose.prod.yml</code> and <a href="../../getting-started/installation/">Installation</a>.</p>
 <h2 id="production-docker-images">Production Docker images<a class="headerlink" href="#production-docker-images" title="Permanent link">&para;</a></h2>
-<p>Pre-built images are published to the GitLab container registry automatically by CI on every merge to <code>main</code>:</p>
+<p>Pre-built images are published to the GitLab container registry automatically by CI. Every merge to <code>main</code> pushes an amd64-only <code>:latest</code> and short-SHA tag; multi-arch (linux/amd64 + linux/arm64) <code>:latest</code> and release tags come from release-tag pipelines:</p>
 <table>
 <thead>
 <tr>
@@ -3788,6 +3788,10 @@
 </tbody>
 </table>
 <p>Each merge also pushes a short-SHA tag (e.g. <code>registry.gitlab.com/visiban/visiban/backend:a1b2c3d4</code>) for rollback.</p>
+<div class="admonition warning">
+<p class="admonition-title">GitLab-registry <code>:latest</code> is amd64-only between releases</p>
+<p>The GitLab-registry <code>:latest</code> and short-SHA tags built on <code>main</code> are <strong>linux/amd64 only</strong>. <code>:latest</code> is multi-arch (linux/amd64 + linux/arm64) only right after a release tag's pipeline runs, and the next <code>main</code> merge overwrites it with an amd64-only image again. On arm64 hosts (Apple Silicon, Graviton, Raspberry Pi), pull a pinned release tag (for example <code>v1.2.0</code>) or GHCR's <code>ghcr.io/visiban/visiban/backend:latest</code> / <code>frontend:latest</code>, which only release tags update and which stay multi-arch. See <a href="../../administration/container-image-retention/#gitlab-registry-latest-is-amd64-only-between-releases">Container image retention</a>.</p>
+</div>
 <p>To build images manually:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>backend/Dockerfile<span class="w"> </span>-t<span class="w"> </span>registry.gitlab.com/visiban/visiban/backend:latest<span class="w"> </span>backend/
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>frontend/Dockerfile<span class="w"> </span>-t<span class="w"> </span>registry.gitlab.com/visiban/visiban/frontend:latest<span class="w"> </span>frontend/

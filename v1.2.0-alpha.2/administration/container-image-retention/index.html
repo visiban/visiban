@@ -3770,6 +3770,42 @@ release on both registries, not just restore the specific <code>:&lt;tag&gt;</co
 that's intended — or restore the missing tag by other means (e.g. re-pushing the specific
 digest, if still available on the other registry) — before re-running the chain for anything
 other than the current newest release.</p>
+<h2 id="gitlab-registry-latest-is-amd64-only-between-releases">GitLab-registry <code>:latest</code> is amd64-only between releases<a class="headerlink" href="#gitlab-registry-latest-is-amd64-only-between-releases" title="Permanent link">&para;</a></h2>
+<p>The two registries do not behave the same for <code>:latest</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Registry</th>
+<th>What updates <code>:latest</code></th>
+<th>Architectures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GHCR</td>
+<td>Release tags only (<code>backend-manifest</code> / <code>frontend-manifest</code>)</td>
+<td>linux/amd64 + linux/arm64, persistently, until the next release</td>
+</tr>
+<tr>
+<td>GitLab</td>
+<td>Release tags (multi-arch manifest) <strong>and</strong> every <code>main</code>-branch merge (<code>backend-docker-push</code> / <code>frontend-docker-push</code>, via kaniko)</td>
+<td>Multi-arch right after a release tag, then <strong>amd64 only</strong> after the next <code>main</code> merge</td>
+</tr>
+</tbody>
+</table>
+<p>The native arm64 legs (<code>*-docker-push-arm64</code>), <code>arm64-runner-preflight</code>, and the manifest jobs
+all have release-tag-only <code>rules:</code>. A <code>main</code> merge therefore pushes an amd64-only <code>:latest</code>
+and <code>:&lt;short-sha&gt;</code> to the GitLab registry, overwriting the multi-arch <code>:latest</code> from the last
+release.</p>
+<p><strong>This is an accepted tradeoff (#1208).</strong> Building arm64 on every <code>main</code> merge would serialize
+each merge through the single dedicated Apple Silicon runner (<code>Max1-Runner-Visiban</code>), and that
+throughput cost has not been evaluated. GHCR is unaffected, so there is a persistently
+multi-arch <code>:latest</code> available.</p>
+<p><strong>Guidance for arm64 self-hosters:</strong> pin a release tag (<code>:v1.2.0</code>) rather than <code>:latest</code>, or use
+GHCR's <code>:latest</code>. Do not pull the GitLab-registry <code>:latest</code> or a short-SHA tag on arm64 between
+releases; it may resolve to an amd64-only image. If this tradeoff stops being acceptable, the
+fix is to run the arm64 leg and manifest assembly on <code>main</code> merges, which means changing those
+jobs' <code>rules:</code> in <code>.gitlab-ci.yml</code>.</p>
 <h2 id="digest-pinning">Digest pinning<a class="headerlink" href="#digest-pinning" title="Permanent link">&para;</a></h2>
 <p>Both <code>docker-compose.prod.yml</code> and the Helm chart select images by <strong>tag</strong> (<code>APP_VERSION</code> /
 <code>values.yaml</code>'s <code>tag:</code>). A tag is a mutable pointer — even a <code>v1.1.0</code> tag that is never
