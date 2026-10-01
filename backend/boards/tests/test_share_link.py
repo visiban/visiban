@@ -10,13 +10,16 @@ Covers:
 """
 
 import json
+from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane, Card, CardComment
+from boards.models import Board, BoardMembership, Column, Label, Swimlane, Card, CardComment
 
 
 def _make_board(owner, name="Test Board"):
@@ -250,6 +253,130 @@ class PublicBoardEndpointTests(TestCase):
         # New token must work
         r_new = self.anon.get(self._url(new_token))
         self.assertEqual(r_new.status_code, status.HTTP_200_OK)
+
+
+class PublicCardLabelsTests(TestCase):
+    """#1333: PublicCardSerializer.labels via the to_attr-parked prefetch.
+
+    Mirrors ``ParkedPrefetchQueryCountTests`` in ``test_query_counts.py``
+    (same rationale: ``.all()`` on the labels M2M manager re-clones a
+    QuerySet on every call even when prefetched, #1212/#1223) but scoped
+    here to the share-link endpoint specifically, since this branch must not
+    touch the ``BoardFull*`` classes in that file (a separate open MR edits
+    them). The re-clone cost #1212/#1223/#1333 all fix is a Python-level
+    cost, not an extra SQL query — see
+    ``test_label_query_count_does_not_grow_with_card_count`` and
+    ``test_public_get_cards_parks_labels_on_plain_list`` below for which
+    test actually proves which half of that.
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="label_admin", password="pass")
+        self.board = _make_board(self.admin, name="Label Board")
+        self.col = Column.objects.create(board=self.board, name="Todo", position=0)
+        self.lane = Swimlane.objects.create(board=self.board, name="Lane", position=0)
+        self.label_a = Label.objects.create(board=self.board, name="Bug", color="#ff0000")
+        self.label_b = Label.objects.create(board=self.board, name="Urgent", color="#00ff00")
+
+        admin_client = APIClient()
+        admin_client.force_authenticate(self.admin)
+        r = admin_client.post(f"/api/v1/boards/{self.board.id}/share/")
+        self.token = r.data["share_token"]
+        self.anon = APIClient()
+
+    def _url(self):
+        return f"/api/share/{self.token}/"
+
+    def _make_card(self, title, position, labels=()):
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.lane,
+            title=title, created_by=self.admin, position=position,
+        )
+        for label in labels:
+            card.labels.add(label)
+        return card
+
+    def test_card_labels_shape_and_contents_unchanged(self):
+        """Public API contract (visiban/CLAUDE.md "Backward compatibility"):
+        the response shape must be unchanged by the to_attr conversion, and
+        each card's labels must still be correct and in insertion order."""
+        self._make_card("Labeled card", 0, labels=[self.label_a, self.label_b])
+        self._make_card("No labels", 1)
+
+        r = self.anon.get(self._url())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+        labeled = next(c for c in r.data["cards"] if c["title"] == "Labeled card")
+        unlabeled = next(c for c in r.data["cards"] if c["title"] == "No labels")
+
+        self.assertEqual(
+            [lb["id"] for lb in labeled["labels"]],
+            [self.label_a.id, self.label_b.id],
+        )
+        for lb in labeled["labels"]:
+            self.assertEqual(set(lb.keys()), {"id", "uid", "name", "color"})
+        self.assertEqual(unlabeled["labels"], [])
+
+    def test_label_query_count_does_not_grow_with_card_count(self):
+        """Flat-SQL-query-count regression guard, not a to_attr proof.
+
+        #1333's actual bug (``.all()`` re-cloning a RelatedManager queryset
+        once per card) is a Python-level cost, not an extra SQL query, so
+        this test alone would stay green against the unfixed code — it only
+        catches the labels relation losing its prefetch *entirely* (e.g. the
+        ``Prefetch("labels", ...)`` being dropped from
+        ``PublicBoardSerializer.get_cards()``), which would turn into a real
+        N+1. ``test_public_get_cards_parks_labels_on_plain_list`` below is
+        the test that actually proves the to_attr conversion happened."""
+        for i in range(3):
+            self._make_card(f"Card {i}", i, labels=[self.label_a])
+
+        with CaptureQueriesContext(connection) as before_ctx:
+            r = self.anon.get(self._url())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        before = len(before_ctx)
+
+        for i in range(3, 13):
+            self._make_card(f"Card {i}", i, labels=[self.label_a, self.label_b])
+
+        with CaptureQueriesContext(connection) as after_ctx:
+            r2 = self.anon.get(self._url())
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+        after = len(after_ctx)
+
+        self.assertEqual(
+            before, after,
+            f"query count grew from {before} to {after} when cards with "
+            "labels were added — the labels relation on "
+            "PublicCardSerializer is no longer prefetched at all (#1333).",
+        )
+
+    def test_public_get_cards_parks_labels_on_plain_list(self):
+        """Pins that PublicBoardSerializer.get_cards() actually applies
+        Prefetch("labels", to_attr=_PARKED_LABELS) (#1333) rather than
+        relying on a plain-prefetch fallback that would stay green even if
+        the to_attr kwarg were removed."""
+        from boards import serializers as board_serializers
+
+        self._make_card("Card", 0, labels=[self.label_a])
+
+        captured = {}
+        real = board_serializers.PublicCardSerializer
+
+        def spy(qs, *args, **kwargs):
+            captured["cards"] = list(qs)
+            return real(captured["cards"], *args, **kwargs)
+
+        with patch.object(board_serializers, "PublicCardSerializer", side_effect=spy):
+            board_serializers.PublicBoardSerializer(self.board).data
+
+        self.assertTrue(captured["cards"])
+        for card in captured["cards"]:
+            self.assertIsInstance(
+                card.__dict__.get("_prefetched_labels"), list,
+                "PublicBoardSerializer.get_cards() no longer parks "
+                "_prefetched_labels with to_attr (#1333).",
+            )
 
 
 class ShareTokenInBoardFullTests(TestCase):
