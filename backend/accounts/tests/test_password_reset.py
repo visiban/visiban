@@ -160,6 +160,21 @@ class OAuthOnlyPasswordResetTests(TestCase):
             mock_super_save.assert_called_once()
 
 
+def _redeem_via_allauth_html_page(uid, token, password="NewPassword9876"):
+    """Redeem a uid/token pair on allauth's own HTML page.
+
+    GET stashes a valid key in the session and redirects to the set-password
+    URL, which the POST then submits. A token the page refuses renders the
+    "bad token" page (200, ``token_fail``) without redirecting; that response
+    is returned as-is.
+    """
+    client = Client()
+    r = client.get(f"/accounts/password/reset/key/{uid}-{token}/")
+    if r.status_code != 302:
+        return r
+    return client.post(r["Location"], {"password1": password, "password2": password})
+
+
 class PasswordlessRecoveryEndToEndTests(TestCase):
     """#1314 "genuinely stuck" path end to end: a verified, password-less
     account requests a reset, gets a working link, and sets a password."""
@@ -234,11 +249,10 @@ class PasswordlessRecoveryEndToEndTests(TestCase):
 
     def _post_allauth_html_reset(self, uid, token):
         """allauth's own HTML page redeems the same uid/token pair: GET stashes
-        the key in the session and redirects to its set-password URL."""
-        client = Client()
-        r = client.get(f"/accounts/password/reset/key/{uid}-{token}/")
-        self.assertEqual(r.status_code, 302)
-        return client.post(r["Location"], {"password1": "NewPassword9876", "password2": "NewPassword9876"})
+        the key in the session and redirects to its set-password URL. A token
+        the page refuses outright renders its "bad token" page (200) instead
+        of redirecting; that response is returned as-is."""
+        return _redeem_via_allauth_html_page(uid, token)
 
     def test_allauth_html_reset_page_applies_the_same_recheck(self):
         """#1314: the alternate redemption URL must not bypass the re-check."""
@@ -248,7 +262,8 @@ class PasswordlessRecoveryEndToEndTests(TestCase):
 
         r = self._post_allauth_html_reset(uid, token)
 
-        self.assertEqual(r.status_code, 200)  # form re-rendered with the error
+        # Refused either as a bad token (#1337) or by the form's re-check (#1314).
+        self.assertEqual(r.status_code, 200)
         user.refresh_from_db()
         self.assertFalse(user.has_usable_password())
 
@@ -319,6 +334,243 @@ class PasswordlessRecoveryEndToEndTests(TestCase):
             "new_password1": "NewPassword9876", "new_password2": "NewPassword9876",
         })
         self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+
+class ResetLinkBoundToAddressTests(TestCase):
+    """#1337: a password-less account's reset link is valid only while *the
+    address it was sent to* is still verified on the account — another
+    verified address on the same account does not keep it alive. Both
+    redemption entry points check the same token generator."""
+
+    REST_CONFIRM = "/api/v1/auth/password/reset/confirm/"
+
+    def setUp(self):
+        cache.clear()
+
+    def _passwordless_two_verified(self):
+        """Password-less account with two verified addresses, A (primary) and B."""
+        from allauth.account.models import EmailAddress
+
+        user = User.objects.create_user(username="bound", email="a@example.com")
+        user.set_unusable_password()
+        user.save()
+        a = EmailAddress.objects.create(user=user, email="a@example.com", verified=True, primary=True)
+        b = EmailAddress.objects.create(user=user, email="b@example.com", verified=True, primary=False)
+        return user, a, b
+
+    def _request_link_for(self, email):
+        """Request a link through the REST endpoint; return the token it mailed."""
+        from django.core import mail
+
+        r = APIClient().post("/api/v1/auth/password/reset/", {"email": email})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        # Mailed URL: {FRONTEND_URL}/reset-password/{uid}/{token}
+        body = mail.outbox[0].body
+        path = body[body.index("/reset-password/"):].split()[0]
+        _, _, uid, token = path.rstrip("/").split("/")[:4]
+        mail.outbox.clear()
+        return uid, token
+
+    def _confirm_rest(self, uid, token):
+        return APIClient().post(self.REST_CONFIRM, {
+            "uid": uid, "token": token,
+            "new_password1": "NewPassword9876", "new_password2": "NewPassword9876",
+        })
+
+    # --- the address the link was sent to stops being verified ---------------
+
+    def test_rest_refuses_link_after_its_address_is_unverified(self):
+        user, a, _b = self._passwordless_two_verified()
+        uid, token = self._request_link_for("a@example.com")
+
+        a.verified = False
+        a.save()
+
+        r = self._confirm_rest(uid, token)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("token", r.json())
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    def test_rest_refuses_link_after_its_address_is_removed(self):
+        user, a, b = self._passwordless_two_verified()
+        uid, token = self._request_link_for("a@example.com")
+
+        # As allauth's email page does it: make B primary, then remove A.
+        a.primary = False
+        a.save()
+        b.primary = True
+        b.save()
+        user.email = "b@example.com"
+        user.save()
+        a.delete()
+
+        r = self._confirm_rest(uid, token)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    def test_html_page_refuses_link_after_its_address_is_unverified(self):
+        user, a, _b = self._passwordless_two_verified()
+        uid, token = self._request_link_for("a@example.com")
+
+        a.verified = False
+        a.save()
+
+        r = _redeem_via_allauth_html_page(uid, token)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context["token_fail"])
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    def test_html_page_refuses_when_address_is_unverified_between_open_and_submit(self):
+        """The set-password POST re-checks the token, so unverifying the address
+        after the page was opened still refuses the submit."""
+        user, a, _b = self._passwordless_two_verified()
+        uid, token = self._request_link_for("a@example.com")
+
+        client = Client()
+        r = client.get(f"/accounts/password/reset/key/{uid}-{token}/")
+        self.assertEqual(r.status_code, 302)
+        a.verified = False
+        a.save()
+        r = client.post(r["Location"], {"password1": "NewPassword9876", "password2": "NewPassword9876"})
+
+        self.assertEqual(r.status_code, 200)
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    # --- controls: the link works while its address is verified --------------
+
+    def test_rest_accepts_link_while_its_address_is_verified(self):
+        user, _a, _b = self._passwordless_two_verified()
+        uid, token = self._request_link_for("a@example.com")
+
+        r = self._confirm_rest(uid, token)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewPassword9876"))
+
+    def test_html_page_accepts_link_while_its_address_is_verified(self):
+        user, _a, _b = self._passwordless_two_verified()
+        uid, token = self._request_link_for("a@example.com")
+
+        r = _redeem_via_allauth_html_page(uid, token)
+        self.assertEqual(r.status_code, 302)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewPassword9876"))
+
+    def test_fresh_link_after_the_change_works(self):
+        """The refusal is per-link: a link requested after the change, to an
+        address still verified, works normally."""
+        user, a, _b = self._passwordless_two_verified()
+        stale_uid, stale_token = self._request_link_for("a@example.com")
+        a.verified = False
+        a.save()
+        self.assertEqual(self._confirm_rest(stale_uid, stale_token).status_code, 400)
+
+        uid, token = self._request_link_for("b@example.com")
+        r = self._confirm_rest(uid, token)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewPassword9876"))
+
+    # --- tampering ------------------------------------------------------------
+
+    def test_token_not_bound_to_verified_addresses_is_refused(self):
+        """A token minted without the verified-address binding — allauth's stock
+        generator, i.e. the pre-#1337 format — is refused for a password-less
+        account at both entry points, so the binding cannot be skipped."""
+        from allauth.account.forms import EmailAwarePasswordResetTokenGenerator
+
+        user, _a, _b = self._passwordless_two_verified()
+        uid = user_pk_to_url_str(user)
+        unbound = EmailAwarePasswordResetTokenGenerator().make_token(user)
+
+        self.assertEqual(self._confirm_rest(uid, unbound).status_code, 400)
+        r = _redeem_via_allauth_html_page(uid, unbound)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context["token_fail"])
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    def test_tampered_token_is_refused(self):
+        user, _a, _b = self._passwordless_two_verified()
+        uid, token = self._request_link_for("a@example.com")
+        ts, digest = token.split("-")
+        tampered = f"{ts}-{digest[:-1]}{'0' if digest[-1] != '0' else '1'}"
+
+        self.assertEqual(self._confirm_rest(uid, tampered).status_code, 400)
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    # --- accounts with a usable password are unaffected ----------------------
+
+    def test_usable_password_token_is_identical_to_allauths(self):
+        """Links already in inboxes for accounts with a password were minted by
+        allauth's stock generator; they must still validate, so the hash for
+        these accounts has to be byte-identical."""
+        from allauth.account.forms import EmailAwarePasswordResetTokenGenerator
+        from allauth.account.models import EmailAddress
+
+        from accounts.tokens import VisibanPasswordResetTokenGenerator
+
+        user = User.objects.create_user(username="haspw2", email="haspw2@example.com", password="oldpassword12")
+        EmailAddress.objects.create(user=user, email="haspw2@example.com", verified=True, primary=True)
+        stock = EmailAwarePasswordResetTokenGenerator()
+        ours = VisibanPasswordResetTokenGenerator()
+
+        self.assertEqual(ours._make_hash_value(user, 12345), stock._make_hash_value(user, 12345))
+        self.assertTrue(ours.check_token(user, stock.make_token(user)))
+
+    def test_usable_password_pre_existing_link_still_works_at_both_entry_points(self):
+        from allauth.account.forms import EmailAwarePasswordResetTokenGenerator
+        from allauth.account.models import EmailAddress
+
+        user = User.objects.create_user(username="haspw3", email="haspw3@example.com", password="oldpassword12")
+        EmailAddress.objects.create(user=user, email="haspw3@example.com", verified=True, primary=True)
+        uid = user_pk_to_url_str(user)
+        legacy = EmailAwarePasswordResetTokenGenerator().make_token(user)
+
+        r = _redeem_via_allauth_html_page(uid, legacy, password="HtmlPassword9876")
+        self.assertEqual(r.status_code, 302)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("HtmlPassword9876"))
+
+        legacy = EmailAwarePasswordResetTokenGenerator().make_token(user)
+        r = self._confirm_rest(uid, legacy)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewPassword9876"))
+
+    def test_usable_password_link_survives_unverifying_an_address(self):
+        """Verified-address changes move no trust boundary for an account that
+        already has a password, so they do not void its link."""
+        from allauth.account.models import EmailAddress
+
+        user = User.objects.create_user(username="haspw4", email="haspw4@example.com", password="oldpassword12")
+        address = EmailAddress.objects.create(user=user, email="haspw4@example.com", verified=True, primary=True)
+        uid, token = self._request_link_for("haspw4@example.com")
+
+        address.verified = False
+        address.save()
+
+        r = self._confirm_rest(uid, token)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    # --- wiring ---------------------------------------------------------------
+
+    def test_every_entry_point_uses_the_binding_generator(self):
+        """Both request forms and both redemption paths read allauth's
+        default_token_generator (dj-rest-auth imports it at call time), and
+        allauth's HTML key page reads UserTokenForm.token_generator."""
+        from allauth.account import forms as allauth_forms
+
+        from accounts.tokens import VisibanPasswordResetTokenGenerator
+
+        self.assertIsInstance(allauth_forms.default_token_generator, VisibanPasswordResetTokenGenerator)
+        self.assertIsInstance(allauth_forms.UserTokenForm.token_generator, VisibanPasswordResetTokenGenerator)
 
 
 class PasswordResetEndpointTests(TestCase):

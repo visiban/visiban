@@ -40,7 +40,7 @@ Users with a password-based account can reset their own password from the login 
 
 **OAuth-only accounts** — if the email belongs to an account that has never set a password (signed up via Google, GitHub, GitLab, or OIDC and never used "Change password"):
 
-- If the address is **verified** on that account, Visiban sends a normal reset link, and following it sets the account's first password. This is the recovery path for someone who can no longer sign in with the provider they signed up with. *Changed in 1.2 (#1314)* — earlier versions never issued a link to these accounts. The address must still be verified when the link is used; otherwise the link is refused.
+- If the address is **verified** on that account, Visiban sends a normal reset link, and following it sets the account's first password. This is the recovery path for someone who can no longer sign in with the provider they signed up with. *Changed in 1.2 (#1314)* — earlier versions never issued a link to these accounts. The link is tied to the address it was sent to: if that address is unverified or removed before the link is used, the link is refused, even if another address on the account is still verified (*1.2, #1337*). Any change to which of the account's addresses are verified voids its outstanding links, so the user requests a new one.
 - If the address was never verified, Visiban sends an alternate email explaining that no password is set and directing the user to sign in with their provider. No reset token is issued, because mail reaching an unverified address proves nothing about who owns the account.
 
 **Rate limiting** — the reset-request endpoint (`POST /api/v1/auth/password/reset/`) is rate-limited per IP to prevent it from being used as a bulk email-sending vector.

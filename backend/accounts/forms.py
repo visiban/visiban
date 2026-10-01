@@ -89,6 +89,12 @@ def password_reset_still_allowed(user) -> bool:
     The one rule for every place a reset token is redeemed: the REST confirm
     endpoint (``VisibanPasswordResetConfirmSerializer``) and allauth's own HTML
     page (``VisibanResetPasswordKeyForm``) — both accept the same uid/token.
+
+    The stricter rule — the link's *own* address must still be verified, not
+    just some address — is enforced by the token itself (#1337, see
+    ``accounts.tokens.VisibanPasswordResetTokenGenerator``), which both entry
+    points check before reaching this. This remains as a direct, generator-
+    independent statement of the #1314 minimum.
     """
     from allauth.account.models import EmailAddress
 
