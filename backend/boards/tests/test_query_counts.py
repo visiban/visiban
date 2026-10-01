@@ -106,6 +106,14 @@ def _add_lanes_with_cards_and_values(board, owner, cols, defs, start, count):
                 swimlane=lane, field_definition=d, value="v",
             )
 
+def _query_count_and_response(fn):
+    """Like ``_query_count`` but also returns the response, so a test can
+    assert it is a 200 -- an unauthorized/404 response issues the same few
+    queries on every call and would otherwise make an equality check vacuous."""
+    with CaptureQueriesContext(connection) as ctx:
+        response = fn()
+    return len(ctx), response
+
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
@@ -236,10 +244,13 @@ class BoardFullQueryCountTests(TestCase):
             ),
         ]
         _add_lanes_with_cards_and_values(self.board, self.user, self.cols, defs, 5, 3)
-        baseline = _query_count(self._get_full)
+        baseline, r1 = _query_count_and_response(self._get_full)
 
         _add_lanes_with_cards_and_values(self.board, self.user, self.cols, defs, 8, 7)
-        more = _query_count(self._get_full)
+        more, r2 = _query_count_and_response(self._get_full)
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(len(r2.data["swimlanes"]), len(r1.data["swimlanes"]) + 7)
         self.assertEqual(
             baseline, more,
             f"full/ query count grew from {baseline} to {more} when swimlanes "
@@ -345,34 +356,77 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
             "when cards were added — N+1 regression detected (#490).",
         )
 
-
-    def test_full_with_group_budget_scales_with_swimlanes(self):
-        """Adding more swimlanes must not increase the query count (#1335).
-
-        Group-inherited twin of ``BoardFullQueryCountTests``: the role is
-        resolved through the group ancestor chain, a separate path from the
-        direct-membership one. Lanes hold cards and values for both an
-        ``is_admin_only`` and a non-admin-only definition, unlike the empty
-        lanes in the #1223 test.
-        """
-        defs = [
+    def _swimlane_defs(self):
+        return [
             SwimlaneCustomFieldDefinition.objects.get(board=self.board, name="Owner"),
             SwimlaneCustomFieldDefinition.objects.create(
                 board=self.board, name="Public", field_type="text",
                 position=1, is_admin_only=False,
             ),
         ]
+
+    def test_full_with_group_budget_scales_with_swimlanes(self):
+        """Adding more swimlanes must not increase the query count (#1335).
+
+        Group-inherited twin of ``BoardFullQueryCountTests``, viewed as the
+        board admin (``SwimlaneAdminSerializer`` path). Lanes hold cards and
+        values for both an ``is_admin_only`` and a non-admin-only definition,
+        unlike the empty lanes in the #1223 test.
+        """
+        defs = self._swimlane_defs()
         _add_lanes_with_cards_and_values(self.board, self.owner, self.cols, defs, 3, 3)
-        baseline = _query_count(self._get_full)
+        baseline, r1 = _query_count_and_response(self._get_full)
 
         _add_lanes_with_cards_and_values(self.board, self.owner, self.cols, defs, 6, 7)
-        more = _query_count(self._get_full)
+        more, r2 = _query_count_and_response(self._get_full)
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(len(r2.data["swimlanes"]), len(r1.data["swimlanes"]) + 7)
         self.assertEqual(
             baseline, more,
             f"full/ (group board) query count grew from {baseline} to {more} "
             "when swimlanes (with cards and admin-only values) were added — "
             "per-swimlane query regression (#1335).",
         )
+
+    def test_full_with_group_budget_scales_with_swimlanes_non_admin_viewer(self):
+        """Same as above but viewed by a non-admin group-inherited member
+        (``group_user1``, parent-group ``member``, no direct board membership),
+        so the public ``SwimlaneSerializer`` path -- which filters
+        ``is_admin_only`` values per row -- is the one that must stay flat (#1335).
+        """
+        client = APIClient()
+        client.force_authenticate(self.group_user1)
+
+        def get_full():
+            return client.get(f"/api/v1/boards/{self.board.id}/full/")
+
+        defs = self._swimlane_defs()
+        admin_def = defs[0]
+        _add_lanes_with_cards_and_values(self.board, self.owner, self.cols, defs, 3, 3)
+        baseline, r1 = _query_count_and_response(get_full)
+
+        _add_lanes_with_cards_and_values(self.board, self.owner, self.cols, defs, 6, 7)
+        more, r2 = _query_count_and_response(get_full)
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(len(r2.data["swimlanes"]), len(r1.data["swimlanes"]) + 7)
+        # Prove the non-admin path was taken: lanes carry values, but none
+        # for the admin-only definition; the public one is still present.
+        seen = [
+            v["field_definition"]
+            for lane in r2.data["swimlanes"] for v in lane["custom_field_values"]
+        ]
+        self.assertTrue(seen)
+        self.assertNotIn(admin_def.id, seen)
+        self.assertIn(defs[1].id, seen)
+        self.assertEqual(
+            baseline, more,
+            f"full/ (group board, non-admin viewer) query count grew from "
+            f"{baseline} to {more} when swimlanes were added — per-swimlane "
+            "query regression (#1335).",
+        )
+
 
 class BoardForUserPrefetchTests(TestCase):
     """get_board_for_user() must prefetch custom_field_definitions and
