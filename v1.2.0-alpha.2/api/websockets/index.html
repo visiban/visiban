@@ -4378,7 +4378,7 @@ sees it appear or disappear without a reload.</p>
 </tr>
 <tr>
 <td><code>member.removed</code></td>
-<td>User removed from this group. Fires alongside the board-channel <code>member.removed</code> sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it</td>
+<td>User removed from this group. Fires alongside the board-channel <code>member.removed</code> sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329)</td>
 <td><code>{ "user_id": &lt;int&gt; }</code></td>
 </tr>
 <tr>
