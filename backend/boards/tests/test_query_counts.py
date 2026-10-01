@@ -28,7 +28,8 @@ from rest_framework.test import APIClient
 from accounts.models import User, get_maintenance_state
 from boards.models import (
     Board, BoardMembership, Card, CardAttachment, CardChecklist,
-    CardMovement, Column, Label, Swimlane,
+    CardMovement, Column, CustomFieldDefinition, Label, Swimlane,
+    SwimlaneCustomFieldDefinition,
 )
 
 
@@ -141,11 +142,29 @@ class CardListQueryCountTests(TestCase):
 class BoardFullQueryCountTests(TestCase):
     """GET /api/boards/{id}/full/ must not issue per-card queries."""
 
-    BUDGET = 20  # ~12 measured; 20 gives headroom for middleware
+    # 17 measured with one board-level + one swimlane-level custom field
+    # definition in the fixture (#1334); 19 gives a little headroom for
+    # middleware. Note: get_board_for_user()'s custom_field_definitions /
+    # swimlane_custom_field_definitions prefetch does NOT lower this number —
+    # for a single-board fetch Django issues exactly one query per relation
+    # whether it is prefetched or read lazily off the instance (prefetch only
+    # saves queries across N>1 parent rows), and neither relation is read a
+    # second time anywhere in this serialization. The budget here cannot
+    # detect a regression of that prefetch being removed; BoardForUserPrefetchTests
+    # below asserts the prefetch cache directly for that reason.
+    BUDGET = 19
 
     def setUp(self):
         self.user = User.objects.create_user(username="u2", password="x")
         self.board, self.cols, self.lanes = _seed_board(self.user, n_cols=5, n_lanes=5, cards_per_cell=2)
+        # One board-level and one swimlane-level custom field definition so
+        # the /full/ response actually exercises both relations (#1334).
+        CustomFieldDefinition.objects.create(
+            board=self.board, name="Priority", field_type="text", position=0,
+        )
+        SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Owner", field_type="text", position=0,
+        )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
@@ -190,7 +209,10 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
     triggering 2-8 DB queries to walk the group ancestor chain (#490).
     """
 
-    BUDGET = 25  # group-inherited membership adds a few queries; 25 is generous headroom
+    # 21 measured with one board-level + one swimlane-level custom field
+    # definition in the fixture (#1334); 23 is generous headroom for
+    # middleware and the group-inherited membership walk.
+    BUDGET = 23
 
     def setUp(self):
         from groups.models import Group, GroupMembership
@@ -208,6 +230,14 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
         # Board belongs to the child group — effective members come from both levels.
         self.board = Board.objects.create(name="GroupBoard", owner=self.owner, group=self.child_group)
         BoardMembership.objects.create(board=self.board, user=self.owner, role="admin")
+        # One board-level and one swimlane-level custom field definition —
+        # same reasoning as BoardFullQueryCountTests above (#1334).
+        CustomFieldDefinition.objects.create(
+            board=self.board, name="Priority", field_type="text", position=0,
+        )
+        SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Owner", field_type="text", position=0,
+        )
 
         # Seed cards
         label = Label.objects.create(board=self.board, name="l", color="#000")
@@ -266,6 +296,63 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
             f"full/ (group board) query count grew from {baseline} to {doubled} "
             "when cards were added — N+1 regression detected (#490).",
         )
+
+
+class BoardForUserPrefetchTests(TestCase):
+    """get_board_for_user() must prefetch custom_field_definitions and
+    swimlane_custom_field_definitions for the /full/ load, and must NOT
+    prefetch them for any other caller (#1334).
+
+    A query-count budget on /full/ cannot catch a regression of this specific
+    prefetch: get_board_for_user() always returns exactly one board, and
+    Django issues exactly one query per relation whether it is prefetched or
+    read lazily off a single instance — the prefetch's savings only appear
+    across N>1 parent rows. Assert directly on
+    ``board._prefetched_objects_cache`` instead, which is what actually
+    distinguishes "prefetched" from "will issue a live query on first
+    access" for both relations.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="pf_user", password="x")
+        self.board = _make_board(self.user)
+        CustomFieldDefinition.objects.create(
+            board=self.board, name="Priority", field_type="text", position=0,
+        )
+        SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Owner", field_type="text", position=0,
+        )
+
+    def test_full_load_prefetches_both_definition_relations(self):
+        from boards.views._helpers import get_board_for_user
+
+        board, _role = get_board_for_user(
+            self.board.id, self.user, with_archived_card_count=True,
+        )
+        cache = getattr(board, "_prefetched_objects_cache", {})
+        self.assertIn(
+            "custom_field_definitions", cache,
+            "get_board_for_user(with_archived_card_count=True) no longer "
+            "prefetches custom_field_definitions — BoardFullSerializer would "
+            "fall back to a live query on every /full/ request (#1334).",
+        )
+        self.assertIn(
+            "swimlane_custom_field_definitions", cache,
+            "get_board_for_user(with_archived_card_count=True) no longer "
+            "prefetches swimlane_custom_field_definitions (#1334).",
+        )
+
+    def test_non_full_caller_does_not_pay_for_the_prefetch(self):
+        """The many RBAC-only callers (cards/columns/swimlanes/labels/
+        custom-fields views) pass no with_archived_card_count kwarg and must
+        not acquire these two prefetches — they never serialize either
+        relation, so the extra queries would be pure waste (#1334)."""
+        from boards.views._helpers import get_board_for_user
+
+        board, _role = get_board_for_user(self.board.id, self.user)
+        cache = getattr(board, "_prefetched_objects_cache", {})
+        self.assertNotIn("custom_field_definitions", cache)
+        self.assertNotIn("swimlane_custom_field_definitions", cache)
 
 
 class BoardFullColdCacheAncestorTests(TestCase):
