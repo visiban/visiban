@@ -89,6 +89,17 @@ class ExportMinRoleGateTests(TestCase):
         self.assertEqual(self._get(self.member).status_code, status.HTTP_200_OK)
         self.assertEqual(self._get(self.admin).status_code, status.HTTP_200_OK)
 
+    def test_collaborator_threshold_allows_collab_and_above(self):
+        """export_min_role='collaborator': viewer is blocked, collaborator and above pass."""
+        self.board.export_min_role = "collaborator"
+        self.board.save(update_fields=["export_min_role"])
+        r_viewer = self._get(self.viewer)
+        self.assertEqual(r_viewer.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(r_viewer.json()["min_role"], "collaborator")
+        self.assertEqual(self._get(self.collab).status_code, status.HTTP_200_OK)
+        self.assertEqual(self._get(self.member).status_code, status.HTTP_200_OK)
+        self.assertEqual(self._get(self.admin).status_code, status.HTTP_200_OK)
+
     def test_owner_bypasses_admin_threshold(self):
         """Even if the threshold is ``admin`` and the owner has no explicit
         admin membership (edge case), the owner can still export."""

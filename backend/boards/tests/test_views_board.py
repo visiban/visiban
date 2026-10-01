@@ -588,6 +588,39 @@ class CardDensityValidationTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("card_density", r.data)
 
+    def test_non_admin_cannot_set_card_density(self):
+        """Members and viewers must receive 403 when attempting to change card_density."""
+        for role in (BoardMembership.Role.MEMBER, BoardMembership.Role.VIEWER):
+            user = User.objects.create_user(username=f"density_{role}", password="pass")
+            BoardMembership.objects.create(board=self.board, user=user, role=role)
+            c = APIClient()
+            c.force_authenticate(user)
+            r = c.patch(
+                f"/api/v1/boards/{self.board.id}/",
+                {"card_density": "standard"},
+                format="json",
+            )
+            self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN, f"role={role} should be blocked")
+            self.board.refresh_from_db()
+            self.assertEqual(self.board.card_density, "comfortable")
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_round_trip_back_to_comfortable(self, _):
+        """Setting card_density to 'dense' then patching back to 'comfortable' must persist."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/", {"card_density": "dense"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.card_density, "dense")
+
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/", {"card_density": "comfortable"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.card_density, "comfortable")
+
 
 class ShowWipAtLimitTests(TestCase):
     """#973: board-level `show_wip_at_limit` setting — default, round-trip, and
