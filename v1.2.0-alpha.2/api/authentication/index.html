@@ -2259,6 +2259,39 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#delete-apiv1authmepending-connect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/auth/me/pending-connect/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1authmeconnected-accounts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/auth/me/connected-accounts/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1authmeconnected-accountsprovider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/auth/me/connected-accounts/&lt;provider&gt;/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#post-apiv1authmepending-emailresend" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4654,10 +4687,19 @@
 </tr>
 <tr>
 <td><code>oauth_failed</code></td>
-<td><strong>Added in 1.2</strong> (#1321) — generic fallback for an OAuth signup that could not complete automatically: the provider's email collided with an existing account, or the provider returned no email at all (e.g. GitHub with a private email, since email is a required signup field). Both cases previously fell through to allauth's own unstyled HTML signup form at <code>accounts/3rdparty/signup/</code> — which pre-filled the colliding email in an editable field, allowing a second account to be created under a different one. That view is now overridden to redirect here instead.</td>
+<td><strong>Added in 1.2</strong> (#1321) — generic fallback for an OAuth signup that could not complete automatically: the provider's email collided with an existing account, or the provider returned no email at all (e.g. GitHub with a private email, since email is a required signup field). Both cases previously fell through to allauth's own unstyled HTML signup form at <code>accounts/3rdparty/signup/</code> — which pre-filled the colliding email in an editable field, allowing a second account to be created under a different one. That view is now overridden to redirect here instead. Since #1314, an email collision with an <em>active</em> account gets <code>account_exists</code> / <code>account_exists_provider</code> instead; <code>oauth_failed</code> remains for a missing email and for a collision with a deactivated account (never revealed as such).</td>
+</tr>
+<tr>
+<td><code>account_exists</code></td>
+<td><strong>Added in 1.2</strong> (#1314) — the provider's email (compared ignoring case only) already belongs to an active account. Also carries <code>provider=&lt;id&gt;</code>, the provider that was tried. The user signs in normally, then is offered to connect <code>provider</code> (see <code>pending_connect_provider</code>). Takes priority over the <code>invite_*</code> codes and over closed registration.</td>
+</tr>
+<tr>
+<td><code>account_exists_provider</code></td>
+<td><strong>Added in 1.2</strong> (#1314) — as <code>account_exists</code>, but the account has no password and signs in with another provider, named by <code>via=&lt;id&gt;</code>. Only sent when the provider verified the email and exactly one account matches; otherwise <code>account_exists</code> is sent.</td>
 </tr>
 </tbody>
 </table>
+<p>A connect round trip (see <a href="#connected-accounts">Connected accounts</a>) reports back to the SPA's <code>/settings</code> page instead: <code>?connected=&lt;provider&gt;</code> on success, <code>?connect_error=provider_already_connected&amp;provider=&lt;provider&gt;</code> when that provider identity is already connected to a different account, or <code>?connect_error=connect_identity_mismatch&amp;provider=&lt;provider&gt;</code> when a connect for a provider with a pending prompt comes back with a different provider account than the one that tried to sign in (nothing is connected, and the prompt is cleared).</p>
 <hr />
 <h2 id="forgot-password">Forgot password<a class="headerlink" href="#forgot-password" title="Permanent link">&para;</a></h2>
 <h3 id="post-apiv1authpasswordreset"><code>POST /api/v1/auth/password/reset/</code><a class="headerlink" href="#post-apiv1authpasswordreset" title="Permanent link">&para;</a></h3>
@@ -4668,7 +4710,9 @@
 <ul>
 <li>The response is always <code>200 OK</code> regardless of whether the email matches a registered account — this prevents user enumeration.</li>
 <li>If the email belongs to an account with a usable password, a reset link is emailed. The link points to the frontend route <code>/reset-password/{uid}/{token}</code>.</li>
-<li>If the email belongs to an <strong>OAuth-only</strong> account (no password set), an alternate email is sent directing the user back to their OAuth provider instead.</li>
+<li>If the email belongs to an <strong>OAuth-only</strong> account (no password set) and the address is verified on that account, the same reset link is emailed; confirming it sets the account's first password. <em>Changed in 1.2 (#1314).</em></li>
+<li>The link is checked again when it's used: if the OAuth-only account no longer has a verified address by then, <code>POST /api/v1/auth/password/reset/confirm/</code> refuses it with <code>400 {"token": ["Invalid value"]}</code> and no password is set. allauth's own pages at <code>/accounts/password/reset/</code> and <code>/accounts/password/reset/key/&lt;uid&gt;-&lt;token&gt;/</code> apply the same rules.</li>
+<li>If the email belongs to an OAuth-only account whose address was never verified, an alternate email is sent directing the user back to their OAuth provider instead, and no reset token is issued.</li>
 <li><strong>Rate limited</strong> — 5 requests per hour per IP in production (unlimited in debug mode). Exceeding the limit returns <code>429 Too Many Requests</code>.</li>
 </ul>
 <p><strong>Response</strong> <code>200 OK { "detail": "Password reset e-mail has been sent." }</code></p>
@@ -4857,7 +4901,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <code>CurrentUserSerializer</code>. This section documents the fields once, under <code>/auth/me/</code>.</p>
 </div>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>email_notif_comment_added</code>, <code>default_board_id</code>, <code>theme</code>, <code>pending_email</code>.</p>
+<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>email_notif_comment_added</code>, <code>default_board_id</code>, <code>theme</code>, <code>pending_email</code>, <code>pending_connect_provider</code>, <code>pending_connect_identity</code>.</p>
 <table>
 <thead>
 <tr>
@@ -4911,6 +4955,16 @@ actually bootstraps from) returns the identical shape — both are served by
 <td><code>pending_email</code></td>
 <td>string or null</td>
 <td>An email change that is waiting for confirmation, or <code>null</code>. Only set on instances with <code>EMAIL_VERIFICATION=mandatory</code> — see <a href="#patch-apiv1authme"><code>PATCH /api/v1/auth/me/</code></a>. While it is set, <code>email</code> still holds the current address. Read-only. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>pending_connect_provider</code></td>
+<td>string or null</td>
+<td>A provider this session tried to sign in with whose email matched this account (see <code>account_exists</code> under <a href="#auth-error-redirects">Auth error redirects</a>), or <code>null</code>. While set, the SPA offers once to connect it. Expires after 10 minutes, and is cleared by <a href="#delete-apiv1authmepending-connect"><code>DELETE /api/v1/auth/me/pending-connect/</code></a>, by any connect attempt for that provider, or once the provider is connected. Only reported to the account(s) the attempt matched: a sign-in by any other account in the same browser, or a sign-out, discards it. Read-only. Added in 1.2 (#1314).</td>
+</tr>
+<tr>
+<td><code>pending_connect_identity</code></td>
+<td>string or null</td>
+<td>How the provider names the account that tried — its username where it has one, else its email — so the SPA's prompt can show which account it would connect. <code>null</code> whenever <code>pending_connect_provider</code> is. Read-only. Added in 1.2 (#1314).</td>
 </tr>
 <tr>
 <td><code>theme</code></td>
@@ -5095,12 +5149,86 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
+<h3 id="delete-apiv1authmepending-connect"><code>DELETE /api/v1/auth/me/pending-connect/</code><a class="headerlink" href="#delete-apiv1authmepending-connect" title="Permanent link">&para;</a></h3>
+<p>Dismiss the one-time "Connect {Provider}?" prompt: clears <code>pending_connect_provider</code> for this session. Added in 1.2 (#1314).</p>
+<p><strong>Permission:</strong> Requires authentication. Acts only on the caller's own session.</p>
+<p><strong>Request body:</strong> none.</p>
+<p><strong>Response</strong> <code>200 OK</code> — the updated profile, the same shape as <a href="#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a>, with <code>pending_connect_provider: null</code>. Idempotent.</p>
+<p><a id="connected-accounts"></a></p>
+<h3 id="get-apiv1authmeconnected-accounts"><code>GET /api/v1/auth/me/connected-accounts/</code><a class="headerlink" href="#get-apiv1authmeconnected-accounts" title="Permanent link">&para;</a></h3>
+<p>List the sign-in providers the caller has connected. One row per provider configured on the instance, plus any provider the caller is still connected to that the operator has since removed. Added in 1.2 (#1314).</p>
+<p><strong>Permission:</strong> Requires authentication. Only the caller's own accounts are listed.</p>
+<p><strong>Response</strong> <code>200 OK</code></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">[</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">"provider"</span><span class="p">:</span><span class="w"> </span><span class="s2">"google"</span><span class="p">,</span><span class="w"> </span><span class="nt">"connected"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice@gmail.com"</span><span class="p">,</span><span class="w"> </span><span class="nt">"connected_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-30T12:00:00Z"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">"provider"</span><span class="p">:</span><span class="w"> </span><span class="s2">"github"</span><span class="p">,</span><span class="w"> </span><span class="nt">"connected"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="p">]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td><code>google</code>, <code>github</code>, <code>gitlab</code>, or <code>oidc</code>.</td>
+</tr>
+<tr>
+<td><code>connected</code></td>
+<td>boolean</td>
+<td>Whether the caller has this provider connected.</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>string or null</td>
+<td>The email the provider reported, when connected and known. Omitted when not connected.</td>
+</tr>
+<tr>
+<td><code>connected_at</code></td>
+<td>string (ISO 8601)</td>
+<td>When the provider was connected. Omitted when not connected.</td>
+</tr>
+</tbody>
+</table>
+<p>Connecting is not an API call: the browser POSTs (with the CSRF token) to <code>/accounts/&lt;provider&gt;/login/?process=connect</code> — <code>/accounts/oidc/oidc/login/?process=connect</code> for generic OIDC — and returns to <code>/settings</code> as described under <a href="#auth-error-redirects">Auth error redirects</a>.</p>
+<h3 id="delete-apiv1authmeconnected-accountsprovider"><code>DELETE /api/v1/auth/me/connected-accounts/&lt;provider&gt;/</code><a class="headerlink" href="#delete-apiv1authmeconnected-accountsprovider" title="Permanent link">&para;</a></h3>
+<p>Disconnect a provider from the caller's account. Added in 1.2 (#1314).</p>
+<p><strong>Permission:</strong> Requires authentication. Only the caller's own accounts can be named.</p>
+<p><strong>Request body:</strong> none.</p>
+<p><strong>Response</strong> <code>200 OK</code> — the refreshed list, same shape as <code>GET /api/v1/auth/me/connected-accounts/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>Disconnecting would leave no way to sign in (no password and no other provider, or — under <code>EMAIL_VERIFICATION=mandatory</code> — no verified email). <code>{"detail": "..."}</code></td>
+</tr>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>Request is not authenticated</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>The caller has no account connected for that provider</td>
+</tr>
+</tbody>
+</table>
 <h3 id="post-apiv1authmepending-emailresend"><code>POST /api/v1/auth/me/pending-email/resend/</code><a class="headerlink" href="#post-apiv1authmepending-emailresend" title="Permanent link">&para;</a></h3>
 <p>Email the confirmation link for the authenticated user's pending email change again. The address is always the pending one; the request can't choose it. Added in 1.2 (#1293).</p>
 <p><strong>Permission:</strong> Requires authentication. Same gating as <code>DELETE /api/v1/auth/me/pending-email/</code>.</p>
 <p><strong>Request body:</strong> none (any body is ignored).</p>
 <p><strong>Response</strong> <code>200 OK</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Confirmation email sent."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Confirmation email sent."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>The link is sent through the same confirmation email as the original request and shares its rate limit: at most one email per address every 3 minutes, counting the email sent by the <code>PATCH</code> that started the change. Links already sent keep working.</p>
 <table>
@@ -5134,14 +5262,14 @@ actually bootstraps from) returns the identical shape — both are served by
 <h3 id="get-apiv1authsite-config"><code>GET /api/v1/auth/site-config/</code><a class="headerlink" href="#get-apiv1authsite-config" title="Permanent link">&para;</a></h3>
 <p>Returns site-level configuration. This endpoint is public — no authentication required.</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span>
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="w">  </span><span class="nt">"demo_reset_schedule"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">  </span><span class="nt">"demo_reset_schedule"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -5230,14 +5358,14 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span>
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>The returned <code>key</code> is an API token that can be used immediately in the <code>Authorization: Token &lt;key&gt;</code> header.</p>
 <h4 id="invite-only-mode">Invite-only mode<a class="headerlink" href="#invite-only-mode" title="Permanent link">&para;</a></h4>
@@ -5279,12 +5407,12 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="p">{</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="w">  </span><span class="nt">"invite_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"</span>
-<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="p">{</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="w">  </span><span class="nt">"invite_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"</span>
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code> — same shape as open mode: <code>{ "key": "&lt;token&gt;" }</code>.</p>
 <p><strong>Errors</strong></p>

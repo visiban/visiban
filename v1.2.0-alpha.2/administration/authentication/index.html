@@ -3125,6 +3125,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="OAuth (Google, GitHub, GitLab)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connected-accounts-and-email-collisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connected accounts and email collisions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3743,7 +3760,11 @@ accounts setting their first one), revokes all of the user's
 <li>Visiban sends a reset link to the address. The link expires after 3 days (Django's default <code>PASSWORD_RESET_TIMEOUT</code>).</li>
 <li>The user clicks the link, sets a new password (minimum 12 characters), and is redirected to the login page.</li>
 </ol>
-<p><strong>OAuth-only accounts</strong> — if the email belongs to an account that has never set a password (signed up via Google, GitHub, GitLab, or OIDC and never used "Change password"), Visiban sends an alternate email explaining that no password is set and directing the user to log in via their OAuth provider. No reset token is issued.</p>
+<p><strong>OAuth-only accounts</strong> — if the email belongs to an account that has never set a password (signed up via Google, GitHub, GitLab, or OIDC and never used "Change password"):</p>
+<ul>
+<li>If the address is <strong>verified</strong> on that account, Visiban sends a normal reset link, and following it sets the account's first password. This is the recovery path for someone who can no longer sign in with the provider they signed up with. <em>Changed in 1.2 (#1314)</em> — earlier versions never issued a link to these accounts. The address must still be verified when the link is used; otherwise the link is refused.</li>
+<li>If the address was never verified, Visiban sends an alternate email explaining that no password is set and directing the user to sign in with their provider. No reset token is issued, because mail reaching an unverified address proves nothing about who owns the account.</li>
+</ul>
 <p><strong>Rate limiting</strong> — the reset-request endpoint (<code>POST /api/v1/auth/password/reset/</code>) is rate-limited per IP to prevent it from being used as a bulk email-sending vector.</p>
 <p><strong>SMTP requirement</strong> — password reset emails require outbound email to be configured. See <code>EMAIL_HOST</code> and related settings in <a href="../configuration/">Configuration</a>. If email is not configured, reset emails are silently dropped (no error is shown to the user). In that case, administrators can reset passwords manually:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>&lt;username&gt;
@@ -3751,6 +3772,15 @@ accounts setting their first one), revokes all of the user's
 <p>For API details, see <a href="../../api/authentication/#forgot-password">Authentication API — Forgot password</a>.</p>
 <h2 id="oauth-google-github-gitlab">OAuth (Google, GitHub, GitLab)<a class="headerlink" href="#oauth-google-github-gitlab" title="Permanent link">&para;</a></h2>
 <p>See the <a href="../../getting-started/oauth/">OAuth Setup</a> guide for step-by-step configuration of each provider.</p>
+<h3 id="connected-accounts-and-email-collisions">Connected accounts and email collisions<a class="headerlink" href="#connected-accounts-and-email-collisions" title="Permanent link">&para;</a></h3>
+<p><em>Added in 1.2 (#1314).</em></p>
+<p>Visiban never attaches a provider to an existing account automatically just because the emails match — a provider can report an address it never verified. Instead:</p>
+<ul>
+<li><strong>Someone signs in with a provider whose email already belongs to an account.</strong> The login page says "You already have a Visiban account" and asks them to sign in the way they normally do: with their password, or — when the provider verified the email and the account has no password — with the provider the account already uses ("Continue with GitHub"). Once they're signed in, a one-time <strong>Connect {Provider}?</strong> prompt offers to connect the provider they first tried. The prompt names the provider account that tried (for example its GitHub username), so someone on a shared computer who doesn't recognize it can decline. The offer lasts 10 minutes and is shown once; choosing <strong>Not now</strong> dismisses it for good. It is discarded if anyone else signs in on that browser, or on sign-out. <strong>Connect</strong> only connects the same provider account that tried to sign in; if a different account of that provider is signed in on the browser, nothing is connected.</li>
+<li><strong>The matching account is deactivated.</strong> The user sees the generic sign-in error; the account is never revealed or offered.</li>
+<li><strong>Email matching</strong> ignores case only. <code>alice+work@example.com</code> and <code>a.lice@gmail.com</code> are treated as different addresses from <code>alice@example.com</code> and <code>alice@gmail.com</code>.</li>
+</ul>
+<p>Users manage their providers in <strong>Settings → Security → Connected accounts</strong>, where they can connect any provider configured on the instance or disconnect one. Visiban won't let anyone remove their last way to sign in: a user without a password must keep at least one connected provider. A provider that's already connected to a different Visiban account can't be connected a second time.</p>
 <p><a id="generic-oidc"></a></p>
 <h2 id="generic-oidc-beta">Generic OIDC <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span><a class="headerlink" href="#generic-oidc-beta" title="Permanent link">&para;</a></h2>
 <div class="admonition info">
