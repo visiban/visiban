@@ -69,6 +69,13 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
   // The action buttons unmount once nothing is pending; move focus to the
   // field they belonged to rather than letting it fall to <body>.
   const emailInputRef = useRef<HTMLInputElement>(null);
+  // The post-save "return to where you came from" timer. Cleared on unmount:
+  // if the user leaves Settings (or switches tab) within the delay, a stale
+  // timer must not yank them to another page afterwards.
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+  }, []);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -101,7 +108,8 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         // the address that is actually in effect in the field.
         setForm((f) => ({ ...f, email: updated.email ?? "" }));
       } else {
-        setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
+        if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+        leaveTimerRef.current = setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
       }
     } catch (err) {
       const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;

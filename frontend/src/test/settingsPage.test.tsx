@@ -458,6 +458,22 @@ describe('ProfileTab — pending email actions', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Resend link' })).toBeEnabled())
   })
 
+  it('the post-save navigation timer does not fire after the page unmounts', async () => {
+    // Regression: the 1.5 s "return after save" timer outlived the page, so a
+    // save in one test navigated during a later one (and, in the app, could
+    // navigate a user who had already left Settings).
+    vi.useFakeTimers()
+    mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, pending_email: null })
+    const { unmount } = renderSettings()
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await act(async () => { await Promise.resolve() })
+    expect(mockUpdateCurrentUser).toHaveBeenCalled()
+    unmount()
+    act(() => { vi.advanceTimersByTime(2000) })
+    expect(mockNavigate).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
   it('Cancel change withdraws the change, clears the note and moves focus to the field', async () => {
     mockCancelPendingEmailChange.mockResolvedValueOnce({ ...fakeUser, pending_email: null })
     const user = userEvent.setup()
