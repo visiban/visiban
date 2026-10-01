@@ -191,12 +191,11 @@ Enterprise features are things like: SAML, SCIM (directory sync / JIT provisioni
 - **Never** apply the ELv2 header to files outside `enterprise/` — OSS files are Apache 2.0 only
 - **Never** apply Apache 2.0 headers to files inside `enterprise/` — they are ELv2 only
 
-## Contributor License Agreement
+## Contribution licensing
 
-- All external contributors must agree to the CLA before their MR can be merged — see `CLA.md`
-- The default MR template (`.gitlab/merge_request_templates/Default.md`) includes a CLA checkbox; do not remove it
-- The CLA grants Visiban the right to use contributions in both the OSS (Apache 2.0) and enterprise (ELv2) products — this is intentional and must not be weakened
-- Core team members (employees/contractors with a signed agreement) are exempt from the CLA checkbox
+- There is no CLA (removed 2026-10-01). Contributions are accepted under Apache 2.0 inbound=outbound (license Section 5); the enterprise mirror carries them under the same terms
+- The default MR template (`.gitlab/merge_request_templates/Default.md`) carries an Apache 2.0 acknowledgment checkbox instead; do not remove it
+- Without a CLA, the OSS core cannot be relicensed without consent of every outside contributor — do not assume unilateral relicensing is possible for outside code
 
 ## Frontend UI conventions
 
