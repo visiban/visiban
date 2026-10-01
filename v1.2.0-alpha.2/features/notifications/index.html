@@ -4115,7 +4115,7 @@ modifying any file in this repository. See
 <p>Each notification stores structured metadata alongside the human-readable <code>verb</code> string:</p>
 <ul>
 <li><strong><code>actor</code></strong> — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.</li>
-<li><strong><code>action_type</code></strong> — a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code> <em>(added in 1.2)</em>. Useful for filtering or grouping notifications programmatically. Values are added over time, so a client that switches on this field must fall through to a generic rendering for one it does not recognize.</li>
+<li><strong><code>action_type</code></strong> — a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code>, <code>comment_added</code> <em>(<code>due_soon</code> and <code>comment_added</code> added in 1.2)</em>. Useful for filtering or grouping notifications programmatically. Values are added over time, so a client that switches on this field must fall through to a generic rendering for one it does not recognize.</li>
 </ul>
 <h2 id="notification-api">Notification API<a class="headerlink" href="#notification-api" title="Permanent link">&para;</a></h2>
 <table>
@@ -4159,7 +4159,7 @@ modifying any file in this repository. See
 <a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-27T14:00:00Z"</span>
 <a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">}</span>
 </code></pre></div>
-<p>The <code>action_type</code> field is a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code> <em>(added in 1.2)</em>, or <code>""</code> (empty string for legacy notifications created before action types were introduced). New values are additive; treat an unrecognized one as generic rather than as an error.</p>
+<p>The <code>action_type</code> field is a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code>, <code>comment_added</code> <em>(<code>due_soon</code> and <code>comment_added</code> added in 1.2)</em>, or <code>""</code> (empty string for legacy notifications created before action types were introduced). New values are additive; treat an unrecognized one as generic rather than as an error.</p>
 <div class="admonition note">
 <p class="admonition-title">Added in 1.1</p>
 <p>The <code>actor</code> field (the user who triggered the notification) is included in the API response as a slim user object (#1007). It is <code>null</code> for system-generated notifications such as staleness alerts.</p>

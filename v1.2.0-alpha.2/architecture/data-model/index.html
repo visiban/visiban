@@ -3951,7 +3951,7 @@ in). A fourth, <code>git_lens</code>, adds one model but is off by default — s
 <a id="__codelineno-0-148" name="__codelineno-0-148" href="#__codelineno-0-148"></a>Notification
 <a id="__codelineno-0-149" name="__codelineno-0-149" href="#__codelineno-0-149"></a> ├── recipient → User
 <a id="__codelineno-0-150" name="__codelineno-0-150" href="#__codelineno-0-150"></a> ├── actor → User (nullable — the user who triggered the notification)
-<a id="__codelineno-0-151" name="__codelineno-0-151" href="#__codelineno-0-151"></a> ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite | due_soon)
+<a id="__codelineno-0-151" name="__codelineno-0-151" href="#__codelineno-0-151"></a> ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite | due_soon | comment_added)
 <a id="__codelineno-0-152" name="__codelineno-0-152" href="#__codelineno-0-152"></a> ├── verb (str — human-readable summary)
 <a id="__codelineno-0-153" name="__codelineno-0-153" href="#__codelineno-0-153"></a> ├── card → Card (nullable)
 <a id="__codelineno-0-154" name="__codelineno-0-154" href="#__codelineno-0-154"></a> ├── board → Board (nullable)
@@ -4028,7 +4028,7 @@ previously valid card writes fail, so it needs a release note, not a quiet chang
 <h3 id="savedfilter">SavedFilter<a class="headerlink" href="#savedfilter" title="Permanent link">&para;</a></h3>
 <p>Saved filters are private to the owning user — there is no sharing across board members. Each filter stores the full frontend <code>FilterState</code> object as JSON. The schema is intentionally unvalidated at the model layer; the frontend validates on load.</p>
 <h3 id="notification">Notification<a class="headerlink" href="#notification" title="Permanent link">&para;</a></h3>
-<p>Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite). The <code>verb</code> field stores a human-readable summary. The <code>actor</code> and <code>action_type</code> fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.</p>
+<p>Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite, due date approaching, comment added). The <code>verb</code> field stores a human-readable summary. The <code>actor</code> and <code>action_type</code> fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.</p>
 <p>The <code>board_invite</code> action type is created when a user is added to a board via invite link or directly by an admin. The notification links to the board rather than a card; the <code>card</code> FK is null for this action type.</p>
 <p>Every notification is created through <code>boards.services.notifications.create_notifications</code>,
 which after the transaction commits delivers OSS email for the five events that support it
