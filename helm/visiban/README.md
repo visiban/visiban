@@ -219,6 +219,12 @@ The try.visiban.com runbook, with the preconditions CI cannot check, is
 | `helm-netpol` | The NetworkPolicies are actually enforced on Calico, allow exactly the intended clients, and deny the rest; in demo mode, the backend and seed pods cannot reach anything outside the pod network |
 | `helm-publish` | On a release tag: `appVersion` matches the tag, and the chart is pushed to GHCR and Cosign-signed |
 
+`appVersion` is bumped by `scripts/release.sh` (bare release version, no `v`), so a
+maintainer never edits it at tag time; it is also what the pod's `APP_VERSION` env var, and
+therefore `GET /api/v1/version/`, reports on Helm installs. `version:` (the chart's own
+packaging version) is deliberately *not* moved by a release: bump it by hand, in the MR, when
+the chart's templates or values change.
+
 Run the static ones locally:
 
 ```bash

@@ -136,8 +136,11 @@ The script will automatically:
 4. Rotate `CHANGELOG.md` — moves `[Unreleased]` to `[vX.Y.Z] — YYYY-MM-DD`, prepends a fresh
    `[Unreleased]` block, in a single pass (no intermediate state that could leave a stray
    `---` divider behind)
-5. Update `.env.example`, `frontend/package.json`, `README.md`, and the docs pages with the
-   new version
+5. Update `.env.example`, `frontend/package.json`, `README.md`, the docs pages, and
+   `helm/visiban/Chart.yaml`'s top-level `appVersion` (bare version, no `v`; the helm-publish
+   job hard-fails at tag time if it differs from the tag) with the new version. The chart's own
+   `version:` is **not** touched — it is the chart packaging version, bumped by hand only when
+   the chart's templates/values change (#1194)
 6. Verify version consistency across those files, `docker-compose.prod.yml`, and the Helm
    chart, and **abort the release if any check fails** — `git reset --hard`, checkout `main`,
    delete the release branch, same cleanup as step 3's abort path. Nothing is committed yet at
