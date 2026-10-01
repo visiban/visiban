@@ -3899,6 +3899,9 @@
 <h2 id="production-deployment">Production deployment<a class="headerlink" href="#production-deployment" title="Permanent link">&para;</a></h2>
 <h3 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h3>
 <p>Create a server-side <code>.env</code> file alongside <code>docker-compose.prod.yml</code>:</p>
+<blockquote>
+<p>Secret values (<code>DJANGO_SECRET_KEY</code>, OAuth/OIDC client IDs and secrets, <code>EMAIL_HOST_PASSWORD</code>, <code>DEMO_ADMIN_PASSWORD</code>, <code>DEMO_MEMBER_PASSWORD</code>) are used verbatim, including when they start with <code>$</code>; they are never treated as references to other variables.</p>
+</blockquote>
 <table>
 <thead>
 <tr>
