@@ -212,6 +212,17 @@ class OAuthInviteTokenMiddlewareTests(TestCase):
                 f"Failed for provider {provider}",
             )
 
+    def test_works_for_generic_oidc_nested_path(self):
+        """allauth serves OIDC apps at /accounts/oidc/<provider_id>/login/ (#1314)."""
+        request = self._make_request("/accounts/oidc/oidc/login/", "invite_token=vbnl_oidc1")
+        self.middleware(request)
+        self.assertEqual(request.session.get(PENDING_INVITE_SESSION_KEY), "vbnl_oidc1")
+
+    def test_ignores_generic_oidc_callback_path(self):
+        request = self._make_request("/accounts/oidc/oidc/login/callback/", "invite_token=vbnl_oidc1")
+        self.middleware(request)
+        self.assertNotIn(PENDING_INVITE_SESSION_KEY, request.session)
+
     def test_no_token_param_is_noop(self):
         request = self._make_request("/accounts/google/login/", "process=login")
         self.middleware(request)

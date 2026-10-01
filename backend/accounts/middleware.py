@@ -32,9 +32,13 @@ class OAuthInviteTokenMiddleware:
     @staticmethod
     def _is_oauth_login_path(path: str) -> bool:
         """Return True for allauth social login paths like /accounts/google/login/."""
-        # Pattern: /accounts/<provider>/login/
+        # Patterns: /accounts/<provider>/login/, and generic OIDC's
+        # /accounts/oidc/<provider_id>/login/ (allauth nests OIDC apps under
+        # an ``oidc/`` prefix — #1314 pointed the SPA's SSO button there).
         # We match broadly and let allauth handle 404s for invalid providers.
         parts = path.strip("/").split("/")
+        if len(parts) == 4 and parts[1] == "oidc":
+            parts = [parts[0], parts[2], parts[3]]
         return (
             len(parts) == 3
             and parts[0] == "accounts"

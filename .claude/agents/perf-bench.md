@@ -28,6 +28,8 @@ This measures query counts for:
 
 If any endpoint **exceeds its budget**, that is a confirmed N+1. Do not proceed to the next step until you understand why.
 
+A non-2xx response from `full/` or `summary/` (e.g. a rejected request) is a hard failure — the command raises `CommandError` and exits non-zero rather than reporting a false "✅ OK" with a bogus query count (#1330). The command also scopes `testserver` onto `ALLOWED_HOSTS` for just its own requests, so it works unmodified under a restrictive `ALLOWED_HOSTS` such as the dev container's `localhost,127.0.0.1` — no workaround needed.
+
 ---
 
 ### 2. Run the query-count regression tests

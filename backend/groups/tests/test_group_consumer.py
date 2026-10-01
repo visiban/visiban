@@ -73,6 +73,34 @@ class GroupConsumerAuthTests(TestCase):
 
         asyncio.run(run())
 
+    def test_group_event_member_removed_closes_connection(self):
+        """group_event() should close the socket when the current user is removed (#1329)."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 42
+
+        payload = {"event": "member.removed", "data": {"user_id": 42}}
+
+        async def run():
+            await consumer.group_event({"payload": payload})
+            consumer.close.assert_called_once()
+            consumer.send.assert_not_called()
+
+        asyncio.run(run())
+
+    def test_group_event_member_removed_other_user_not_closed(self):
+        """group_event() should NOT close when a *different* user is removed (#1329)."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 42
+
+        payload = {"event": "member.removed", "data": {"user_id": 7}}
+
+        async def run():
+            await consumer.group_event({"payload": payload})
+            consumer.close.assert_not_called()
+            consumer.send.assert_called_once_with(text_data=json.dumps(payload))
+
+        asyncio.run(run())
+
     def test_disconnect_cancels_ping_task(self):
         consumer = self._make_consumer()
 

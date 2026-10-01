@@ -115,6 +115,31 @@ export interface User {
    * until the user follows the link mailed to the new one. Read-only.
    */
   pending_email?: string | null;
+  /**
+   * A provider this session tried to sign in with whose email matched this
+   * account, while the one-time "Connect {Provider}?" prompt is still owed,
+   * or null (#1314). Server-owned: cleared by DELETE /auth/me/pending-connect/
+   * or any connect attempt, expires after 10 minutes. Read-only.
+   */
+  pending_connect_provider?: string | null;
+  /**
+   * How the provider names the account that tried (its username, else its
+   * email), shown in the connect prompt so an unfamiliar account can be
+   * declined (#1314). Null whenever pending_connect_provider is.
+   */
+  pending_connect_identity?: string | null;
+}
+
+/** A sign-in provider id, as the backend reports it (#1314). */
+export type ProviderId = "google" | "github" | "gitlab" | "oidc";
+
+/** One row of GET /auth/me/connected-accounts/ (#1314). Mirrors
+ *  ConnectedAccountSerializer; `email`/`connected_at` only when connected. */
+export interface ConnectedAccount {
+  provider: string;
+  connected: boolean;
+  email?: string | null;
+  connected_at?: string;
 }
 
 /** A scope a personal access token can carry. Strictly non-hierarchical — no
@@ -996,7 +1021,8 @@ export interface LensConnection {
   repo_slug: string;
   column_dim: string;
   swimlane_dim: string;
-  created_by: BoardUser;
+  /** Null once the user who configured the lens is deleted (SET_NULL FK, #1331). */
+  created_by: BoardUser | null;
   created_at: string;
   updated_at: string;
 }
