@@ -61,6 +61,8 @@ Add these in **Settings → CI/CD → Variables**. The pipeline will fail or pro
 
 Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 
+> Secret values (`DJANGO_SECRET_KEY`, OAuth/OIDC client IDs and secrets, `EMAIL_HOST_PASSWORD`, `DEMO_ADMIN_PASSWORD`, `DEMO_MEMBER_PASSWORD`) are used verbatim, including when they start with `$`; they are never treated as references to other variables.
+
 | Variable | Description |
 |---|---|
 | `APP_VERSION` | Image tag to pull, e.g. `v1.1.0`. **Required** — the compose file fails to start if unset; it no longer falls back to the mutable `latest` tag (see [Container image retention](container-image-retention.md)). `.env.example` ships a pinned value. The backend strips only a leading `v` before serving it back — `GET /api/v1/version/` reports bare semver (e.g. `1.1.0`) when `APP_VERSION` is pinned to a release tag; a non-release value such as `latest` or `dev` is served back verbatim (see [Version API](../api/version.md)). |

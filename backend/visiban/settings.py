@@ -145,7 +145,25 @@ _env_file = BASE_DIR / ".env"
 if _env_file.exists():
     environ.Env.read_env(_env_file)
 
-SECRET_KEY = env("DJANGO_SECRET_KEY")
+
+def _secret_env(name, default=None):
+    """Read a secret-backed env var verbatim, bypassing django-environ's proxy rule.
+
+    ``env()`` treats a value starting with ``$`` as a reference to another
+    variable and silently substitutes that variable's value (or ""), mangling
+    any secret that merely begins with ``$`` (#1362; same class as #1211's
+    REDIS_URL_PASSWORD). Reading ``os.environ`` directly uses the value as-is.
+    With no default a missing variable raises, matching ``env()``.
+    """
+    try:
+        return os.environ[name]
+    except KeyError:
+        if default is None:
+            raise ImproperlyConfigured(f"Set the {name} environment variable") from None
+        return default
+
+
+SECRET_KEY = _secret_env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 
 # Reject placeholder secret keys in production. This guard fires at startup so a
@@ -161,10 +179,10 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # Resolve OIDC env vars early so INSTALLED_APPS and SOCIALACCOUNT_PROVIDERS
 # both reference the same computed flag instead of calling env() twice.
-_OIDC_CLIENT_ID = env("OIDC_CLIENT_ID", default="")
+_OIDC_CLIENT_ID = _secret_env("OIDC_CLIENT_ID", default="")
 # OIDC_CLIENT_SECRET is the canonical name (consistent with GOOGLE_CLIENT_SECRET,
 # GITHUB_CLIENT_SECRET, etc.).
-_OIDC_CLIENT_SECRET = env("OIDC_CLIENT_SECRET", default="")
+_OIDC_CLIENT_SECRET = _secret_env("OIDC_CLIENT_SECRET", default="")
 # Warn operators still setting the pre-1.1 alias: the old name is no longer
 # read, so an unrenamed OIDC_SECRET silently deactivates SSO (#894, #1047).
 _warn_deprecated_env_alias("OIDC_SECRET", "OIDC_CLIENT_SECRET")
@@ -812,22 +830,22 @@ SOCIALACCOUNT_PROVIDERS = {
         "SCOPE": ["profile", "email"],
         "AUTH_PARAMS": {"access_type": "online"},
         "APP": {
-            "client_id": env("GOOGLE_CLIENT_ID", default=""),
-            "secret": env("GOOGLE_CLIENT_SECRET", default=""),
+            "client_id": _secret_env("GOOGLE_CLIENT_ID", default=""),
+            "secret": _secret_env("GOOGLE_CLIENT_SECRET", default=""),
         },
     },
     "github": {
         "SCOPE": ["read:user", "user:email"],
         "APP": {
-            "client_id": env("GITHUB_CLIENT_ID", default=""),
-            "secret": env("GITHUB_CLIENT_SECRET", default=""),
+            "client_id": _secret_env("GITHUB_CLIENT_ID", default=""),
+            "secret": _secret_env("GITHUB_CLIENT_SECRET", default=""),
         },
     },
     "gitlab": {
         "SCOPE": ["read_user", "openid", "email"],
         "APP": {
-            "client_id": env("GITLAB_CLIENT_ID", default=""),
-            "secret": env("GITLAB_CLIENT_SECRET", default=""),
+            "client_id": _secret_env("GITLAB_CLIENT_ID", default=""),
+            "secret": _secret_env("GITLAB_CLIENT_SECRET", default=""),
         },
     },
     # Generic OIDC — only populated when all three env vars are set so that
@@ -926,9 +944,9 @@ DEMO_LOGIN_PASSWORD = env("DEMO_LOGIN_PASSWORD", default="")
 # The demo site admin's own password. Never published — the fence refuses
 # every admin write anyway, but the credential that is printed on the login
 # page must not be one that holds site-wide authority.
-DEMO_ADMIN_PASSWORD = env("DEMO_ADMIN_PASSWORD", default="")
+DEMO_ADMIN_PASSWORD = _secret_env("DEMO_ADMIN_PASSWORD", default="")
 # Password for the two seeded member accounts. Not published anywhere.
-DEMO_MEMBER_PASSWORD = env("DEMO_MEMBER_PASSWORD", default="")
+DEMO_MEMBER_PASSWORD = _secret_env("DEMO_MEMBER_PASSWORD", default="")
 # Cron expression of the demo reset (#1180 renders the CronJob and this value
 # from one Helm value). Drives `demo_next_reset_at`, the countdown the login
 # page and the in-app demo bar show. Validated at boot only while DEMO_MODE is
@@ -980,7 +998,7 @@ EMAIL_BACKEND = env("EMAIL_BACKEND", default="visiban.mail.DatabaseAwareEmailBac
 EMAIL_HOST = env("EMAIL_HOST", default="localhost")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_HOST_PASSWORD = _secret_env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 # Added in 1.2 alongside #306 so the environment and the database express the
 # same set of settings. Purely additive, and both defaults reproduce exactly what
@@ -1040,7 +1058,7 @@ NOTIFICATION_EMAIL_ASYNC = env.bool("NOTIFICATION_EMAIL_ASYNC", default=True)
 # key is derived from SECRET_KEY — see visiban/crypto.py for why that is the
 # default rather than a mandatory variable. Validated eagerly so a malformed
 # value fails at boot rather than at the first password save.
-SECRET_ENCRYPTION_KEY = env("VISIBAN_SECRET_ENCRYPTION_KEY", default="")
+SECRET_ENCRYPTION_KEY = _secret_env("VISIBAN_SECRET_ENCRYPTION_KEY", default="")
 if SECRET_ENCRYPTION_KEY:
     import base64 as _b64
 
