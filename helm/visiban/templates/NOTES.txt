@@ -7,6 +7,10 @@ Visiban has been deployed!
   export POD=$(kubectl get pods -n {{ .Release.Namespace }} -l "{{ include "visiban.frontend.selectorArg" . }}" -o jsonpath="{.items[0].metadata.name}")
   kubectl port-forward $POD 8080:8080
   # Then open http://localhost:8080
+  # NOTE: ALLOWED_HOSTS holds only backend.settings.allowedHosts (no localhost),
+  # so the backend answers 400 to Host: localhost. For a port-forward, add
+  # localhost to backend.settings.allowedHosts (comma-separated) or send
+  # `curl -H "Host: {{ include "visiban.probeHost" . }}" http://localhost:8080/`.
 {{- end }}
 
 2. Backend API is available under /api/ (proxied through the frontend Nginx).

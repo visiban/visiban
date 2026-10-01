@@ -27,8 +27,17 @@ Invocation: {{ include "visiban.backendEnv" . }}
       key: database-url
 - name: DEBUG
   value: {{ $ctx.Values.backend.settings.debug | quote }}
+{{- /*
+Operator-configured hosts ONLY (#1230). The frontend nginx is a catch-all
+(`server_name _`) that forwards the client's Host header, so appending
+localhost/127.0.0.1 here would let any client reaching the frontend Service
+directly send `Host: localhost` and be accepted -- defeating the pin to the
+public domain (Host-header poisoning of password-reset links, cache keys).
+In-pod callers (probes, helm tests) send an explicit Host instead; see the
+`visiban.probeHost` helper.
+*/}}
 - name: ALLOWED_HOSTS
-  value: {{ printf "%s,127.0.0.1,localhost" $ctx.Values.backend.settings.allowedHosts | quote }}
+  value: {{ $ctx.Values.backend.settings.allowedHosts | quote }}
 - name: CORS_ALLOWED_ORIGINS
   value: {{ $ctx.Values.backend.settings.corsAllowedOrigins | quote }}
 - name: FRONTEND_URL

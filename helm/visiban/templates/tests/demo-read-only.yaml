@@ -103,7 +103,7 @@ spec:
           cookies = {}
 
           def call(method, path, body=None, headers=None):
-              h = {"Host": "localhost", "Accept": "application/json"}
+              h = {"Host": {{ include "visiban.probeHost" . | quote }}, "Accept": "application/json"}
               if cookies:
                   h["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
               if "csrftoken" in cookies:

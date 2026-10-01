@@ -1153,6 +1153,50 @@ VALUES
   [ "$bad" -eq 0 ] && pass "database-url percent-encodes the username and password on the bundled and external branches"
 }
 
+# ---------------------------------------------------------------------------
+# 14. ALLOWED_HOSTS holds operator-configured hosts only (#1230).
+# ---------------------------------------------------------------------------
+# The frontend nginx is a catch-all (`server_name _`) that forwards the client's
+# Host header, so a localhost/127.0.0.1 entry appended by the chart lets any
+# client that reaches the frontend Service directly (NodePort/LoadBalancer,
+# host-less Ingress) send `Host: localhost` and be accepted -- defeating the pin
+# to the public domain. The in-pod callers that used to need it (kubelet probes,
+# helm tests) send an explicit Host instead, so this section also proves every
+# backend probe's Host is one ALLOWED_HOSTS accepts: removing the widening
+# without moving the callers would take every pod out of rotation.
+check_allowed_hosts_not_widened() {
+  section "14. ALLOWED_HOSTS is operator-configured hosts only"
+
+  local expected="structure-check.visiban.local" got bad=0
+  got="$(doc Deployment 'backend$' \
+    | yq '.spec.template.spec.containers[] | select(.name == "backend")
+          | .env[] | select(.name == "ALLOWED_HOSTS") | .value')"
+  if [ "$got" != "$expected" ]; then
+    fail "ALLOWED_HOSTS renders '$got', want exactly the configured '$expected' -- the chart must not append localhost/127.0.0.1 behind a catch-all nginx that forwards the client Host"
+    bad=1
+  fi
+
+  local hosts h
+  hosts="$(doc Deployment 'backend$' \
+    | yq '.spec.template.spec.containers[].livenessProbe.httpGet.httpHeaders[]?
+            | select(.name == "Host") | .value,
+          .spec.template.spec.containers[].readinessProbe.httpGet.httpHeaders[]?
+            | select(.name == "Host") | .value')"
+  if [ -z "$hosts" ]; then
+    fail "backend probes send no explicit Host header -- kubelet would send <podIP>:<port>, which ALLOWED_HOSTS rejects"
+    bad=1
+  fi
+  while IFS= read -r h; do
+    [ -z "$h" ] && continue
+    case ",$got," in
+      *",$h,"*) ;;
+      *) fail "backend probe sends Host '$h', which is not in ALLOWED_HOSTS ('$got') -- every pod would fail its probe"; bad=1 ;;
+    esac
+  done <<< "$hosts"
+
+  [ "$bad" -eq 0 ] && pass "ALLOWED_HOSTS is exactly the configured hosts and every backend probe sends one of them"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -1167,6 +1211,7 @@ run_all_checks() {
   check_image_pins
   check_pod_hardening
   check_database_url_encoding
+  check_allowed_hosts_not_widened
 }
 
 # ---------------------------------------------------------------------------
@@ -1246,6 +1291,10 @@ self_test() {
     "13 database credentials spliced raw|templates/_helpers.tpl|s/{{- . | urlquery | replace \"+\" \"%20\" }}/{{- . }}/"
     # 13: the space rewrite is dropped, so a space decodes as a literal "+".
     "13 space left as + in database-url|templates/_helpers.tpl|s/ | replace \"+\" \"%20\" }}/ }}/"
+    # 14 (#1230): the localhost/127.0.0.1 widening comes back.
+    "14 ALLOWED_HOSTS widened with localhost|templates/_backend-env.tpl|s/value: {{ \$ctx.Values.backend.settings.allowedHosts | quote }}/value: {{ printf \"%s,127.0.0.1,localhost\" \$ctx.Values.backend.settings.allowedHosts | quote }}/"
+    # 14: the probes send a Host ALLOWED_HOSTS does not accept.
+    "14 probe Host not in ALLOWED_HOSTS|templates/backend-deployment.yaml|s/value: {{ include \"visiban.probeHost\" . | quote }}/value: localhost/"
   )
 
   for fixture in "${fixtures[@]}"; do

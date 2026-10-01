@@ -430,6 +430,21 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     upgrade, and nginx (which waits on it) does not start. Check that
     `ALLOWED_HOSTS` in `.env` contains `DOMAIN` before running `up -d`.
 
+!!! warning "Helm: `ALLOWED_HOSTS` no longer includes `localhost` / `127.0.0.1`"
+    The chart used to append `127.0.0.1,localhost` to `backend.settings.allowedHosts`.
+    The frontend nginx accepts any `Host` and forwards it, so that let any client
+    reaching the frontend Service directly (NodePort, LoadBalancer, or a host-less
+    Ingress rule) send `Host: localhost` and be accepted, which defeats pinning
+    `ALLOWED_HOSTS` to your public domain. The rendered `ALLOWED_HOSTS` is now
+    exactly `backend.settings.allowedHosts`. The chart's own probes and `helm test`
+    pods now send the first configured host as their `Host` header, so they need
+    no change. One thing you may notice: reaching the app through
+    `kubectl port-forward` and browsing `http://localhost:...` returns HTTP 400
+    (`DisallowedHost`). To keep doing that, opt back in explicitly with a
+    comma-separated list, for example
+    `--set backend.settings.allowedHosts=boards.example.com\,localhost`, or send
+    the real host: `curl -H "Host: boards.example.com" http://localhost:8080/`.
+
 !!! warning "Helm: give `externalDatabase.password` verbatim"
     The chart now percent-encodes the database username and password when it
     builds the connection URL, so a password containing `/` no longer breaks it.

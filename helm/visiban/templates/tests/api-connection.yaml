@@ -85,7 +85,7 @@ spec:
             label="$1"; url="$2"
             echo "probing ${label} -> ${url} ..."
             code="$(curl -sS --retry "${retries}" --retry-delay 2 --retry-all-errors \
-              -H 'Host: localhost' -o /dev/null -w '%{http_code}' "${url}" || echo 000)"
+              -H 'Host: {{ include "visiban.probeHost" . }}' -o /dev/null -w '%{http_code}' "${url}" || echo 000)"
             if [ "$code" != "200" ]; then
               echo "FAIL: ${label} returned ${code}, expected 200"
               return 1

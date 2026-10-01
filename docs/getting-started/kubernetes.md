@@ -539,6 +539,7 @@ The Django admin panel (`/admin/`) is restricted to loopback at both the Nginx a
 ```bash
 kubectl port-forward -n visiban svc/visiban-backend 8000:8000
 # Then open http://localhost:8000/admin/
+# (needs `localhost` in backend.settings.allowedHosts; the chart no longer adds it)
 ```
 
 **IP allowlist** — for persistent access from a bastion or VPN host, set `backend.settings.adminAllowedIPs` to a comma-separated list of IPs and/or CIDR ranges:

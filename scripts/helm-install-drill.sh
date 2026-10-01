@@ -365,8 +365,8 @@ step "3b. Django admin static assets resolve (#1228)"
 # The `collectstatic` init container's output only reaches the running
 # `backend` process if they share a volume for STATIC_ROOT — Kubernetes
 # containers never share a root filesystem without one. Hit the backend
-# directly (same Host: localhost the liveness/readiness probes use, always
-# appended to ALLOWED_HOSTS by _backend-env.tpl) rather than going through
+# directly (same configured-host Host header the liveness/readiness probes
+# send; ALLOWED_HOSTS no longer carries localhost, #1230) rather than going through
 # nginx, so a broken static mount fails HERE and not somewhere the ingress
 # path could mask it. Two assertions: /admin/login/ itself must not 500
 # (whitenoise.storage.CompressedManifestStaticFilesStorage raises ValueError
@@ -377,7 +377,7 @@ STATIC_CHECK_OUT="$(kubectl -n "$NAMESPACE" exec "$BACKEND_POD" -c backend -- py
 import re, urllib.error, urllib.request
 
 def fetch(path):
-    req = urllib.request.Request("http://localhost:8000" + path, headers={"Host": "localhost"})
+    req = urllib.request.Request("http://localhost:8000" + path, headers={"Host": "drill.visiban.local"})
     try:
         resp = urllib.request.urlopen(req, timeout=10)
         return resp.status, resp.read().decode("utf-8", "replace")

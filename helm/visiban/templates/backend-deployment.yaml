@@ -200,7 +200,7 @@ spec:
               port: http
               httpHeaders:
                 - name: Host
-                  value: localhost
+                  value: {{ include "visiban.probeHost" . | quote }}
             initialDelaySeconds: 15
             periodSeconds: 20
           readinessProbe:
@@ -209,7 +209,7 @@ spec:
               port: http
               httpHeaders:
                 - name: Host
-                  value: localhost
+                  value: {{ include "visiban.probeHost" . | quote }}
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
