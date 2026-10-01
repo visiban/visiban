@@ -152,16 +152,27 @@ class EmailCollisionRoutingTests(TestCase):
 
         self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
 
-    def test_unverified_idp_email_gets_no_connect_offer(self):
-        """The issue's rule: an unverified IdP email is treated as unknown — the
-        user is told the account exists, but no connect prompt is stashed."""
-        User.objects.create_user(username="erin", email="erin@example.com", password="pw-123456789")
+    def test_unverified_idp_email_still_gets_connect_offer(self):
+        """GitLab-shaped data: allauth's GitLab provider never marks the email
+        verified. The login page must not name a via provider (account_exists
+        only), but the post-login connect offer is still stashed — it is shown
+        only after the user signs in to the matched account."""
+        user = User.objects.create_user(username="erin", email="erin@example.com")
+        user.set_unusable_password()
+        user.save()
+        SocialAccount.objects.create(user=user, provider="google", uid="g-erin", extra_data={})
         request = _request()
+        sociallogin = _sociallogin(request, "erin@example.com", verified=False, provider="gitlab", uid="gl-7")
+        sociallogin.account.extra_data = {"username": "erin-gl", "email": "erin@example.com"}
 
-        _, params = self._run(request, _sociallogin(request, "erin@example.com", verified=False))
+        _, params = self._run(request, sociallogin)
 
-        self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
-        self.assertNotIn(PENDING_CONNECT_SESSION_KEY, request.session)
+        self.assertEqual(params, {"auth_error": "account_exists", "provider": "gitlab"})
+        pending = request.session[PENDING_CONNECT_SESSION_KEY]
+        self.assertEqual(pending["provider"], "gitlab")
+        self.assertEqual(pending["identity"], "erin-gl")
+        self.assertEqual(pending["uid"], "gl-7")
+        self.assertEqual(pending["user_ids"], [user.pk])
 
     def test_passwordless_account_with_no_other_provider_gets_account_exists(self):
         user = User.objects.create_user(username="dan", email="dan@example.com")
