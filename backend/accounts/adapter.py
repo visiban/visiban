@@ -393,9 +393,11 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
           would disclose it to anyone who controls a lax IdP.
         - Anything else: ``account_exists``.
 
-        Either ``account_exists*`` outcome stashes the attempted provider so
-        the SPA can offer to connect it once the user has proven they own the
-        account (``social_connect.stash_pending_connect``). The pending invite
+        When the IdP verified the email, either ``account_exists*`` outcome
+        stashes the attempted provider so the SPA can offer to connect it once
+        the user has proven they own the account
+        (``social_connect.stash_pending_connect``); an unverified email gets no
+        such offer. The pending invite
         token (``PENDING_INVITE_SESSION_KEY``) is deliberately left in the
         session, and the SPA keeps its own invite/join state, so an
         in-flight invite survives the detour through the login page.
@@ -424,13 +426,19 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
             self._redirect_with_error(request, "oauth_failed")
 
         provider = sociallogin.account.provider
-        stash_pending_connect(
-            request, provider, [user.pk for user in active],
-            identity=self._provider_identity(sociallogin, email),
-            uid=str(sociallogin.account.uid or ""),
-        )
+        idp_verified = bool(getattr(first, "verified", False))
+        if idp_verified:
+            # Only an IdP-verified email earns the post-login connect offer.
+            # An unverified one is treated as unknown (the issue's rule): the
+            # user still gets account_exists, and can connect the provider
+            # themselves from Settings once signed in.
+            stash_pending_connect(
+                request, provider, [user.pk for user in active],
+                identity=self._provider_identity(sociallogin, email),
+                uid=str(sociallogin.account.uid or ""),
+            )
 
-        if getattr(first, "verified", False) and len(active) == 1 and not active[0].has_usable_password():
+        if idp_verified and len(active) == 1 and not active[0].has_usable_password():
             via = (
                 active[0].socialaccount_set.exclude(provider=provider)
                 .order_by("date_joined", "pk")

@@ -653,6 +653,10 @@ SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
 # check — see accounts.forms.VisibanSignupForm for why this lives on the
 # form, not on RegistrationAdapter.clean_email.
 #
+# reset_password: allauth's own HTML reset-request page applies the same
+# rule as the REST endpoint for who gets a link (#1314) — see
+# accounts.forms._ResetLinkGateMixin.
+#
 # reset_password_from_key: allauth's own HTML reset page
 # (/accounts/password/reset/key/<uid>-<key>/) redeems the very same uid/token
 # pair the SPA's reset email carries, so it must apply the same use-time
@@ -660,6 +664,7 @@ SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
 # accounts.forms.password_reset_still_allowed.
 ACCOUNT_FORMS = {
     "signup": "accounts.forms.VisibanSignupForm",
+    "reset_password": "accounts.forms.VisibanResetPasswordForm",
     "reset_password_from_key": "accounts.forms.VisibanResetPasswordKeyForm",
 }
 # EMAIL_VERIFICATION is the canonical env var name (added in 1.0).

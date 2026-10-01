@@ -152,6 +152,17 @@ class EmailCollisionRoutingTests(TestCase):
 
         self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
 
+    def test_unverified_idp_email_gets_no_connect_offer(self):
+        """The issue's rule: an unverified IdP email is treated as unknown — the
+        user is told the account exists, but no connect prompt is stashed."""
+        User.objects.create_user(username="erin", email="erin@example.com", password="pw-123456789")
+        request = _request()
+
+        _, params = self._run(request, _sociallogin(request, "erin@example.com", verified=False))
+
+        self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
+        self.assertNotIn(PENDING_CONNECT_SESSION_KEY, request.session)
+
     def test_passwordless_account_with_no_other_provider_gets_account_exists(self):
         user = User.objects.create_user(username="dan", email="dan@example.com")
         user.set_unusable_password()
@@ -231,7 +242,7 @@ class SharedBrowserTests(TestCase):
         """Run a real collision through the adapter, then copy the resulting
         session into a test client — the browser the attempt was made in."""
         request = _request()
-        sociallogin = _sociallogin(request, "victim@example.com", verified=False)
+        sociallogin = _sociallogin(request, "victim@example.com", verified=True)
         sociallogin.account.extra_data = {"login": "attacker-gh"}
         with self.assertRaises(ImmediateHttpResponse):
             pre_social_login(request, sociallogin)

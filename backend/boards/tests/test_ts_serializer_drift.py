@@ -112,7 +112,8 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     # docstring) both map onto the one `User` TS interface, which already
     # marks every CurrentUser-only field (uploads_enabled, git_lens_enabled,
     # maintenance_mode, maintenance_message, demo_mode, demo_next_reset_at,
-    # pending_email, pending_connect_provider) optional for exactly this reason.
+    # pending_email, pending_connect_provider, pending_connect_identity)
+    # optional for exactly this reason.
     (UserSerializer, "User", set()),
     (CurrentUserSerializer, "User", set()),
     # GET /auth/me/connected-accounts/ rows (#1314).

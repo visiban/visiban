@@ -9,6 +9,8 @@ from django.test import Client, TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from dj_rest_auth.forms import AllAuthPasswordResetForm
+
 from accounts.forms import VisibanPasswordResetForm, _frontend_url_generator
 from accounts.models import User
 
@@ -94,7 +96,7 @@ class OAuthOnlyPasswordResetTests(TestCase):
             seen_users.extend(this.users)
 
         with patch("accounts.forms.get_adapter", return_value=mock_adapter), patch.object(
-            VisibanPasswordResetForm.__bases__[0], "save", autospec=True, side_effect=fake_super_save
+            AllAuthPasswordResetForm, "save", autospec=True, side_effect=fake_super_save
         ):
             form.save(MagicMock())
         return mock_adapter, seen_users
@@ -152,7 +154,7 @@ class OAuthOnlyPasswordResetTests(TestCase):
         request = MagicMock()
         # super().save() is the actual AllAuthPasswordResetForm.save() — mock it
         with patch.object(
-            VisibanPasswordResetForm.__bases__[0], "save", return_value=None
+            AllAuthPasswordResetForm, "save", return_value=None
         ) as mock_super_save:
             form.save(request)
             mock_super_save.assert_called_once()
@@ -260,6 +262,53 @@ class PasswordlessRecoveryEndToEndTests(TestCase):
         self.assertEqual(r.status_code, 302)
         user.refresh_from_db()
         self.assertTrue(user.check_password("NewPassword9876"))
+
+    def _passwordless_with_two_addresses(self):
+        from allauth.account.models import EmailAddress
+
+        user = User.objects.create_user(username="twoaddr", email="owner@example.com")
+        user.set_unusable_password()
+        user.save()
+        EmailAddress.objects.create(user=user, email="owner@example.com", verified=True, primary=True)
+        EmailAddress.objects.create(user=user, email="second@example.com", verified=False, primary=False)
+        return user
+
+    def test_reset_request_page_requires_verified_address(self):
+        """#1314: allauth's HTML reset-request page applies the same rule as the
+        REST endpoint — a password-less account gets a link only for an address
+        that is verified on it."""
+        from django.core import mail
+
+        self._passwordless_with_two_addresses()
+
+        r = Client().post("/accounts/password/reset/", {"email": "second@example.com"})
+
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn("/password/reset/key/", mail.outbox[0].body)
+        self.assertNotIn("/reset-password/", mail.outbox[0].body)
+        self.assertIn("doesn't have a", mail.outbox[0].body)
+
+    def test_reset_request_page_sends_link_for_verified_address(self):
+        """Control for the test above: the verified address does get a link."""
+        from django.core import mail
+
+        self._passwordless_with_two_addresses()
+
+        Client().post("/accounts/password/reset/", {"email": "owner@example.com"})
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("/password/reset/key/", mail.outbox[0].body)
+
+    def test_rest_reset_requires_verified_address_too(self):
+        from django.core import mail
+
+        self._passwordless_with_two_addresses()
+
+        APIClient().post("/api/v1/auth/password/reset/", {"email": "second@example.com"})
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn("/reset-password/", mail.outbox[0].body)
 
     def test_password_account_reset_unaffected_by_unverified_address(self):
         """Accounts that already have a password keep the ordinary reset."""

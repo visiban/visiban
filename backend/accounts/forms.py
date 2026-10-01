@@ -2,7 +2,7 @@ from django import forms
 from django.conf import settings
 
 from allauth.account.adapter import get_adapter
-from allauth.account.forms import ResetPasswordKeyForm, SignupForm
+from allauth.account.forms import ResetPasswordForm, ResetPasswordKeyForm, SignupForm
 from allauth.account.utils import user_pk_to_url_str
 from dj_rest_auth.forms import AllAuthPasswordResetForm
 
@@ -109,35 +109,29 @@ class VisibanResetPasswordKeyForm(ResetPasswordKeyForm):
         return cleaned
 
 
-class VisibanPasswordResetForm(AllAuthPasswordResetForm):
-    """Password reset form that:
-    - Uses FRONTEND_URL instead of reversing a Django auth URL.
-    - Sends a real set-password link to an account with no usable password
-      whose address is *verified* (#1314). This is the "genuinely stuck"
-      recovery path: someone who signed up with a provider they can no longer
-      reach proves they own the inbox, sets a password, and logs in. Before
-      #1314 such accounts only ever got the "sign in with your provider"
-      email, which left that person with no way back in at all.
-    - Still sends that alternate email (and no link) to a password-less
-      account whose address was never verified: there, receiving mail at the
-      address proves nothing about who owns the account — an IdP can assert
-      an address it never checked — so a link would hand the account to
-      whoever controls that inbox.
+class _ResetLinkGateMixin:
+    """Who may receive a real reset link — one rule for every reset-request form.
+
+    Shared by the REST form (``VisibanPasswordResetForm``) and allauth's own
+    HTML reset-request page (``VisibanResetPasswordForm``) so the two can never
+    apply different rules:
+
+    - An account with a usable password gets the normal reset link.
+    - An account with no usable password gets a real set-password link only
+      when *the requested address* is verified on it (#1314). This is the
+      recovery path for someone who can no longer reach the provider they
+      signed up with.
+    - Any other password-less account gets the alternate "sign in with your
+      provider" email and no link.
     """
 
-    def save(self, request, **kwargs):
-        kwargs.setdefault("url_generator", _frontend_url_generator)
-
-        email = self.cleaned_data["email"]
+    def _gate_reset_users(self, request, email):
+        """Send the alternate email where due; return the users who get a link."""
         adapter = get_adapter(request)
-
-        # Partition users: those with a usable password — or a verified
-        # address — get the standard reset email; the rest get an alternate
-        # email that directs them back to their OAuth provider.
-        users_with_password = []
+        link_users = []
         for user in self.users:
             if user.has_usable_password() or _has_verified_email(user, email):
-                users_with_password.append(user)
+                link_users.append(user)
             else:
                 provider_names = [
                     _PROVIDER_LABELS.get(sa.provider, sa.provider)
@@ -149,11 +143,45 @@ class VisibanPasswordResetForm(AllAuthPasswordResetForm):
                     email,
                     {"user": user, "provider": provider_label},
                 )
+        return link_users
 
-        # Replace self.users so that super().save() only processes accounts
-        # with usable passwords.
+
+class VisibanPasswordResetForm(_ResetLinkGateMixin, AllAuthPasswordResetForm):
+    """REST reset-request form (``POST /api/v1/auth/password/reset/``).
+
+    Uses FRONTEND_URL instead of reversing a Django auth URL, and decides who
+    gets a link with ``_ResetLinkGateMixin``.
+    """
+
+    def save(self, request, **kwargs):
+        kwargs.setdefault("url_generator", _frontend_url_generator)
+        email = self.cleaned_data["email"]
+        # Replace self.users so that super().save() only mails a link to the
+        # accounts the gate allows.
         original_users = self.users
-        self.users = users_with_password
+        self.users = self._gate_reset_users(request, email)
+        try:
+            return super().save(request, **kwargs)
+        finally:
+            self.users = original_users
+
+
+class VisibanResetPasswordForm(_ResetLinkGateMixin, ResetPasswordForm):
+    """allauth's own HTML reset-request page (``/accounts/password/reset/``).
+
+    Wired via ``ACCOUNT_FORMS["reset_password"]`` so this page applies the same
+    verified-address rule as the REST endpoint (#1314).
+    """
+
+    def save(self, request, **kwargs):
+        email = self.cleaned_data["email"]
+        original_users = self.users
+        link_users = self._gate_reset_users(request, email)
+        if original_users and not link_users:
+            # Every matching account got the alternate email. Don't fall
+            # through to allauth's "no account with this address" mail.
+            return email
+        self.users = link_users
         try:
             return super().save(request, **kwargs)
         finally:
