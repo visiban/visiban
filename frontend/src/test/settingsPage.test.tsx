@@ -749,6 +749,13 @@ describe('SecurityTab — connected accounts', () => {
     expect(mockNavigate).toHaveBeenCalledWith('.', expect.objectContaining({ replace: true }))
   })
 
+  it('?connect_error=connect_identity_mismatch explains nothing was connected', async () => {
+    await open(fakeUser, '/settings?connect_error=connect_identity_mismatch&provider=github')
+    expect(screen.getByTestId('connected-account-github')).toHaveTextContent(
+      "That isn't the GitHub account that tried to sign in, so nothing was connected.",
+    )
+  })
+
   it('an unknown ?connect_error= code shows fixed copy, never the raw value', async () => {
     await open(fakeUser, '/settings?connect_error=Call%20555-0100%20for%20help&provider=github')
     expect(screen.getByTestId('connected-account-github')).toHaveTextContent("Couldn't connect GitHub. Please try again.")

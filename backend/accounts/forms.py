@@ -1,7 +1,8 @@
+from django import forms
 from django.conf import settings
 
 from allauth.account.adapter import get_adapter
-from allauth.account.forms import SignupForm
+from allauth.account.forms import ResetPasswordKeyForm, SignupForm
 from allauth.account.utils import user_pk_to_url_str
 from dj_rest_auth.forms import AllAuthPasswordResetForm
 
@@ -73,6 +74,39 @@ def _has_verified_email(user, email: str) -> bool:
     from allauth.account.models import EmailAddress
 
     return EmailAddress.objects.filter(user=user, email__iexact=email, verified=True).exists()
+
+
+def password_reset_still_allowed(user) -> bool:
+    """Whether a reset link may set ``user``'s password *now* (#1314).
+
+    A password-less account only ever gets a real reset link because it had a
+    verified address (``VisibanPasswordResetForm``). Links stay valid for days,
+    so that must still hold when the link is used — otherwise setting a
+    password would hand the account to whoever holds a mailbox the account no
+    longer vouches for. Accounts with a password are unaffected (resetting it
+    moves no trust boundary).
+
+    The one rule for every place a reset token is redeemed: the REST confirm
+    endpoint (``VisibanPasswordResetConfirmSerializer``) and allauth's own HTML
+    page (``VisibanResetPasswordKeyForm``) — both accept the same uid/token.
+    """
+    from allauth.account.models import EmailAddress
+
+    if user is None or user.has_usable_password():
+        return True
+    return EmailAddress.objects.filter(user=user, verified=True).exists()
+
+
+class VisibanResetPasswordKeyForm(ResetPasswordKeyForm):
+    """allauth's HTML set-new-password form, with the #1314 use-time re-check."""
+
+    def clean(self):
+        cleaned = super().clean()
+        if not password_reset_still_allowed(self.user):
+            raise forms.ValidationError(
+                "This password reset link is no longer valid. Request a new one."
+            )
+        return cleaned
 
 
 class VisibanPasswordResetForm(AllAuthPasswordResetForm):

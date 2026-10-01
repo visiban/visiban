@@ -455,7 +455,7 @@ A failed OAuth (or invite-gated registration) flow redirects the browser back to
 | `account_exists` | **Added in 1.2** (#1314) — the provider's email (compared ignoring case only) already belongs to an active account. Also carries `provider=<id>`, the provider that was tried. The user signs in normally, then is offered to connect `provider` (see `pending_connect_provider`). Takes priority over the `invite_*` codes and over closed registration. |
 | `account_exists_provider` | **Added in 1.2** (#1314) — as `account_exists`, but the account has no password and signs in with another provider, named by `via=<id>`. Only sent when the provider verified the email and exactly one account matches; otherwise `account_exists` is sent. |
 
-A connect round trip (see [Connected accounts](#connected-accounts)) reports back to the SPA's `/settings` page instead: `?connected=<provider>` on success, or `?connect_error=provider_already_connected&provider=<provider>` when that provider identity is already connected to a different account.
+A connect round trip (see [Connected accounts](#connected-accounts)) reports back to the SPA's `/settings` page instead: `?connected=<provider>` on success, `?connect_error=provider_already_connected&provider=<provider>` when that provider identity is already connected to a different account, or `?connect_error=connect_identity_mismatch&provider=<provider>` when a connect for a provider with a pending prompt comes back with a different provider account than the one that tried to sign in (nothing is connected, and the prompt is cleared).
 
 ---
 
@@ -472,7 +472,7 @@ Request a password reset email. **No authentication required.**
 - The response is always `200 OK` regardless of whether the email matches a registered account — this prevents user enumeration.
 - If the email belongs to an account with a usable password, a reset link is emailed. The link points to the frontend route `/reset-password/{uid}/{token}`.
 - If the email belongs to an **OAuth-only** account (no password set) and the address is verified on that account, the same reset link is emailed; confirming it sets the account's first password. *Changed in 1.2 (#1314).*
-- The link is checked again when it's used: if the OAuth-only account no longer has a verified address by then, `POST /api/v1/auth/password/reset/confirm/` refuses it with `400 {"token": ["Invalid value"]}` and no password is set.
+- The link is checked again when it's used: if the OAuth-only account no longer has a verified address by then, `POST /api/v1/auth/password/reset/confirm/` refuses it with `400 {"token": ["Invalid value"]}` and no password is set. allauth's own page at `/accounts/password/reset/key/<uid>-<token>/` applies the same check.
 - If the email belongs to an OAuth-only account whose address was never verified, an alternate email is sent directing the user back to their OAuth provider instead, and no reset token is issued.
 - **Rate limited** — 5 requests per hour per IP in production (unlimited in debug mode). Exceeding the limit returns `429 Too Many Requests`.
 

@@ -79,7 +79,9 @@ def find_accounts_for_email(email: str):
     )
 
 
-def stash_pending_connect(request, provider: str, user_ids: list[int], identity: str = "") -> None:
+def stash_pending_connect(
+    request, provider: str, user_ids: list[int], identity: str = "", uid: str = ""
+) -> None:
     """Remember that a collided OAuth attempt wanted to use ``provider``.
 
     ``user_ids`` are the active accounts the attempt collided with: the prompt
@@ -87,10 +89,14 @@ def stash_pending_connect(request, provider: str, user_ids: list[int], identity:
     for the shared-browser case). ``identity`` is how the provider names the
     account that tried (its username, else its email) — the prompt shows it,
     so someone who sees an account they don't recognize can decline.
+    ``uid`` is that provider account's id: the connect the prompt starts must
+    come back with the *same* account (see ``pre_social_login``), so a
+    different provider session live in a shared browser can't be attached.
     """
     request.session[PENDING_CONNECT_SESSION_KEY] = {
         "provider": provider,
         "identity": identity,
+        "uid": uid,
         "user_ids": list(user_ids),
         "expires_at": time.time() + PENDING_CONNECT_TTL_SECONDS,
     }
@@ -125,7 +131,7 @@ def clear_pending_connect_on_logout(sender, request, user=None, **kwargs) -> Non
         clear_pending_connect(request)
 
 
-def _pending_connect_data(request, user) -> dict | None:
+def get_pending_connect_data(request, user) -> dict | None:
     """The live stash for ``user``, or None.
 
     None when nothing is stashed, the stash expired (a closed tab just lets it
@@ -152,13 +158,13 @@ def _pending_connect_data(request, user) -> dict | None:
 
 def get_pending_connect_provider(request, user) -> str | None:
     """The provider to offer ``user`` a connect prompt for, or None."""
-    data = _pending_connect_data(request, user)
+    data = get_pending_connect_data(request, user)
     return data["provider"] if data else None
 
 
 def get_pending_connect(request, user) -> tuple[str, str] | tuple[None, None]:
     """``(provider, identity)`` for the prompt, or ``(None, None)``."""
-    data = _pending_connect_data(request, user)
+    data = get_pending_connect_data(request, user)
     if not data:
         return None, None
     identity = data.get("identity")

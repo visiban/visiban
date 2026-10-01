@@ -340,7 +340,7 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         """
         from allauth.socialaccount.providers.base import AuthProcess
 
-        from .social_connect import clear_pending_connect, get_pending_connect_provider
+        from .social_connect import get_pending_connect_data, clear_pending_connect
 
         process = sociallogin.state.get("process")
         provider = sociallogin.account.provider
@@ -350,9 +350,19 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
                 # allauth would bounce this to the connect redirect, which
                 # would then claim "Connected." once someone signs in.
                 self._redirect_with_error(request, "oauth_failed")
-            if get_pending_connect_provider(request, request.user) == provider:
+            pending = get_pending_connect_data(request, request.user)
+            if pending and pending.get("provider") == provider:
                 # The prompt is answered either way this attempt ends.
                 clear_pending_connect(request)
+                # While the prompt is pending, the only account of this
+                # provider that may be connected is the one that tried to sign
+                # in: on a shared browser, whatever provider session is live
+                # when "Connect" is clicked may be someone else's (#1314).
+                stashed_uid = pending.get("uid")
+                if stashed_uid and str(sociallogin.account.uid) != str(stashed_uid):
+                    raise ImmediateHttpResponse(HttpResponseRedirect(
+                        self._settings_url(connect_error="connect_identity_mismatch", provider=provider)
+                    ))
             if sociallogin.is_existing and sociallogin.user.pk != request.user.pk:
                 raise ImmediateHttpResponse(HttpResponseRedirect(
                     self._settings_url(connect_error="provider_already_connected", provider=provider)
@@ -417,6 +427,7 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         stash_pending_connect(
             request, provider, [user.pk for user in active],
             identity=self._provider_identity(sociallogin, email),
+            uid=str(sociallogin.account.uid or ""),
         )
 
         if getattr(first, "verified", False) and len(active) == 1 and not active[0].has_usable_password():

@@ -357,6 +357,9 @@ function connectErrorMessage(code: string, label: string): string {
   if (code === "provider_already_connected") {
     return `That ${label} account is taken — it's already connected to a different Visiban account. Sign in with ${label} to use that account, or disconnect it there first.`;
   }
+  if (code === "connect_identity_mismatch") {
+    return `That isn't the ${label} account that tried to sign in, so nothing was connected. Check which ${label} account you're signed in to, then connect again if you meant to.`;
+  }
   return `Couldn't connect ${label}. Please try again.`;
 }
 

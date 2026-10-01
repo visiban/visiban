@@ -246,6 +246,7 @@ class SharedBrowserTests(TestCase):
         client = self._client_with_collision_stash()
         pending = client.session[PENDING_CONNECT_SESSION_KEY]
         self.assertEqual(pending["identity"], "attacker-gh")
+        self.assertEqual(pending["uid"], "gh-1")
 
     def test_stash_is_dropped_when_a_different_user_logs_in(self):
         """The attempt never completes; someone else signs in next in the same
@@ -385,6 +386,39 @@ class ConnectProcessTests(TestCase):
             pre_social_login(request, _sociallogin(request, "x@example.com", process="connect"))
 
         self.assertNotIn(PENDING_CONNECT_SESSION_KEY, request.session)
+
+    def test_prompt_connect_must_return_the_account_that_tried(self):
+        """Shared browser: the prompt was stashed for gh-attempt, but a different
+        GitHub session is live when Connect is clicked — refuse, link nothing."""
+        request = _request(self.alice)
+        stash_pending_connect(request, "github", [self.alice.pk], identity="alice-gh", uid="gh-attempt")
+
+        with self.assertRaises(ImmediateHttpResponse) as ctx:
+            pre_social_login(request, _sociallogin(request, "x@example.com", uid="gh-other", process="connect"))
+
+        path, params = _query(ctx.exception.response)
+        self.assertEqual(path, "/settings")
+        self.assertEqual(params, {"connect_error": "connect_identity_mismatch", "provider": "github"})
+        self.assertNotIn(PENDING_CONNECT_SESSION_KEY, request.session)
+        self.assertFalse(SocialAccount.objects.filter(user=self.alice).exists())
+
+    def test_prompt_connect_with_the_same_account_proceeds(self):
+        request = _request(self.alice)
+        stash_pending_connect(request, "github", [self.alice.pk], identity="alice-gh", uid="gh-attempt")
+
+        self.assertIsNone(
+            pre_social_login(request, _sociallogin(request, "x@example.com", uid="gh-attempt", process="connect"))
+        )
+
+    def test_mismatch_clears_the_prompt_so_a_settings_retry_works(self):
+        request = _request(self.alice)
+        stash_pending_connect(request, "github", [self.alice.pk], uid="gh-attempt")
+        with self.assertRaises(ImmediateHttpResponse):
+            pre_social_login(request, _sociallogin(request, "x@example.com", uid="gh-other", process="connect"))
+
+        self.assertIsNone(
+            pre_social_login(request, _sociallogin(request, "x@example.com", uid="gh-other", process="connect"))
+        )
 
     def test_anonymous_connect_is_refused(self):
         request = _request()

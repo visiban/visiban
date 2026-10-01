@@ -266,13 +266,12 @@ class VisibanPasswordResetConfirmSerializer(DjRestAuthPasswordResetConfirmSerial
         the account no longer vouches for. Accounts that already have a
         password are unaffected (resetting it changes no trust boundary).
         """
-        from allauth.account.models import EmailAddress
         from rest_framework.exceptions import ValidationError as DRFValidationError
 
+        from .forms import password_reset_still_allowed
+
         attrs = super().validate(attrs)
-        if not self.user.has_usable_password() and not EmailAddress.objects.filter(
-            user=self.user, verified=True
-        ).exists():
+        if not password_reset_still_allowed(self.user):
             raise DRFValidationError({"token": ["Invalid value"]})
         return attrs
 

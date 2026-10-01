@@ -220,6 +220,47 @@ class PasswordlessRecoveryEndToEndTests(TestCase):
         user.refresh_from_db()
         self.assertFalse(user.has_usable_password())
 
+    def _stale_link_user(self):
+        from allauth.account.models import EmailAddress
+
+        user = User.objects.create_user(username="stalehtml", email="stalehtml@example.com")
+        user.set_unusable_password()
+        user.save()
+        address = EmailAddress.objects.create(user=user, email="stalehtml@example.com", verified=True, primary=True)
+        token = default_token_generator.make_token(user)
+        return user, address, user_pk_to_url_str(user), token
+
+    def _post_allauth_html_reset(self, uid, token):
+        """allauth's own HTML page redeems the same uid/token pair: GET stashes
+        the key in the session and redirects to its set-password URL."""
+        client = Client()
+        r = client.get(f"/accounts/password/reset/key/{uid}-{token}/")
+        self.assertEqual(r.status_code, 302)
+        return client.post(r["Location"], {"password1": "NewPassword9876", "password2": "NewPassword9876"})
+
+    def test_allauth_html_reset_page_applies_the_same_recheck(self):
+        """#1314: the alternate redemption URL must not bypass the re-check."""
+        user, address, uid, token = self._stale_link_user()
+        address.verified = False
+        address.save()
+
+        r = self._post_allauth_html_reset(uid, token)
+
+        self.assertEqual(r.status_code, 200)  # form re-rendered with the error
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    def test_allauth_html_reset_page_still_works_while_verified(self):
+        """Control: the same request succeeds when the address is still verified,
+        so the test above depends on the re-check, not a broken request."""
+        user, _address, uid, token = self._stale_link_user()
+
+        r = self._post_allauth_html_reset(uid, token)
+
+        self.assertEqual(r.status_code, 302)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewPassword9876"))
+
     def test_password_account_reset_unaffected_by_unverified_address(self):
         """Accounts that already have a password keep the ordinary reset."""
         user = User.objects.create_user(username="haspw", email="haspw@example.com", password="oldpassword12")
