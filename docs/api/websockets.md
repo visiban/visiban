@@ -230,6 +230,8 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 
     `is_site_admin` (since 1.2) is sent only to `admin` / `site_admin` subscribers, with no self-row exception — see [Members](boards.md#members).
 
+    The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a `member.added` or `member.updated` frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving `is_moderator` and `is_site_admin` on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no `member.*` frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect on the next reconnect.
+
     The [change feed](events.md) applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.
 
 ### Git Lens events (since 1.2)
@@ -240,7 +242,7 @@ sees it appear or disappear without a reload.
 
 | Event | Trigger | `data` shape |
 |---|---|---|
-| `lens_connection.configured` | Lens connection created or reconfigured on this board (admin only) | Full `LensConnectionSerializer` object |
+| `lens_connection.configured` | Lens connection created or reconfigured on this board (admin only) | Full `LensConnectionSerializer` object (its `created_by` is `null` if the configuring user has since been deleted) |
 | `lens_connection.removed` | Lens connection deleted from this board (admin only) | `{ "board_id": <int> }` |
 
 ### Keepalive
@@ -282,7 +284,7 @@ Authentication uses the same two mechanisms as the board channel — session coo
 | `group.label.deleted` | Group shared label deleted | `{ "id": <int> }` |
 | `member.added` | User joined this group via an invite link. Named to mirror the board channel's `member.added` so one frontend socket layer handles both | Full `GroupMembershipSerializer` object |
 | `member.updated` | Group membership role changed. Mirrors the board channel's `member.updated` | Full `GroupMembershipSerializer` object |
-| `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it | `{ "user_id": <int> }` |
+| `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329) | `{ "user_id": <int> }` |
 | `invite_link.revoked` | An invite link for this group was revoked | `{ "id": <int> }` |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 

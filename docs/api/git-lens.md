@@ -24,7 +24,7 @@ Represents the saved mapping between a Visiban board and a remote issue tracker 
 | `repo_slug` | string | Repository in `owner/repo` format (e.g. `"acme/backend"`) |
 | `column_dim` | string | Dimension used to map issues to board columns. One of `"status"`, `"state"`, `"pipeline"` |
 | `swimlane_dim` | string | Dimension used to map issues to swimlanes. One of `"milestone"`, `"assignee"`, `"label"` |
-| `created_by` | object | User who created the connection — `{ id, username, display_name, avatar_url }` |
+| `created_by` | object \| null | User who created the connection — `{ id, username, display_name, avatar_url }`, or `null` if that user has since been deleted (the connection itself is kept) |
 | `created_at` | string | ISO 8601 creation timestamp |
 | `updated_at` | string | ISO 8601 timestamp of last update |
 

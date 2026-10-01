@@ -163,6 +163,60 @@ class LensConnectionRBACTests(TestCase):
         )
 
 
+class LensConnectionCreatedByNullabilityTests(TestCase):
+    """#1331: LensConnection.created_by is a SET_NULL FK — once its creator is
+    deleted the connection survives with `created_by: null`, so the published
+    contract (OpenAPI and the `lens_connection.configured` WS payload) must
+    declare it nullable.
+
+    The live-response test alone would pass with or without the fix (DRF nulls
+    a None attribute on a read_only field regardless of allow_null), so the
+    schema and field-instance assertions are what actually guard a revert —
+    same lesson as #1192.
+    """
+
+    def setUp(self):
+        self.owner = _make_user("owner")
+        self.creator = _make_user("creator")
+        self.board = _make_board(self.owner)
+        BoardMembership.objects.create(
+            board=self.board, user=self.creator, role=BoardMembership.Role.ADMIN
+        )
+        self.url = f"/api/v1/git-lens/connections/{self.board.id}/"
+
+    def test_deleted_creator_serializes_as_null(self):
+        conn = LensConnection.objects.create(
+            board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.creator
+        )
+        self.creator.delete()
+        conn.refresh_from_db()
+        self.assertIsNone(conn.created_by_id)
+        c = APIClient()
+        c.force_authenticate(self.owner)
+        resp = c.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("created_by", resp.data)
+        self.assertIsNone(resp.data["created_by"])
+
+    def test_created_by_field_allows_null(self):
+        from git_lens.serializers import LensConnectionSerializer
+
+        self.assertTrue(LensConnectionSerializer().fields["created_by"].allow_null)
+
+    def test_created_by_is_nullable_in_published_schema(self):
+        from drf_spectacular.generators import SchemaGenerator
+
+        components = SchemaGenerator().get_schema(request=None, public=True)[
+            "components"
+        ]["schemas"]
+        self.assertIn("LensConnection", components)
+        prop = components["LensConnection"]["properties"]["created_by"]
+        self.assertTrue(
+            prop.get("nullable"),
+            "LensConnection.created_by must be nullable: the FK is SET_NULL with null=True",
+        )
+
+
 class LensBoardRenderTests(TestCase):
     def setUp(self):
         cache.clear()

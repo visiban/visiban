@@ -267,6 +267,9 @@ class BoardConsumerPingTests(TestCase):
         consumer = self._make_consumer()
         consumer.scope["user"].id = 7
         consumer._role = "viewer"
+        # A self-subject frame re-resolves the role (#1332); pin the result so
+        # this test stays about the self-row exception, not the refresh.
+        consumer._refresh_role = AsyncMock(return_value="viewer")
 
         payload = {
             "event": "member.updated",

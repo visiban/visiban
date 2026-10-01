@@ -319,17 +319,175 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
 
         return True
 
+    def pre_social_login(self, request, sociallogin):
+        """Route an OAuth callback before allauth decides login vs. signup (#1314).
+
+        This hook — not the signup path — is where the email-collision case is
+        handled: allauth calls it for every callback, *before*
+        ``is_open_for_signup``. So "you already have an account" wins over
+        ``invite_expired`` / ``invite_required`` / signup-closed for free: a
+        person who already has an account is never told they need an invite
+        to create one.
+
+        Two processes are handled; allauth's ``redirect`` process is left alone:
+
+        - ``connect`` (an authenticated user adding a provider from Settings or
+          the post-login prompt): refuse an identity that already belongs to a
+          different account with ``provider_already_connected``. allauth itself
+          would only add an invisible Django message and redirect.
+        - ``login`` for an identity no account has yet, whose IdP email already
+          belongs to one: see ``_handle_email_collision``.
+        """
+        from allauth.socialaccount.providers.base import AuthProcess
+
+        from .social_connect import get_pending_connect_data, clear_pending_connect
+
+        process = sociallogin.state.get("process")
+        provider = sociallogin.account.provider
+
+        if process == AuthProcess.CONNECT:
+            if not request.user.is_authenticated:
+                # allauth would bounce this to the connect redirect, which
+                # would then claim "Connected." once someone signs in.
+                self._redirect_with_error(request, "oauth_failed")
+            pending = get_pending_connect_data(request, request.user)
+            if pending and pending.get("provider") == provider:
+                # The prompt is answered either way this attempt ends.
+                clear_pending_connect(request)
+                # While the prompt is pending, the only account of this
+                # provider that may be connected is the one that tried to sign
+                # in: on a shared browser, whatever provider session is live
+                # when "Connect" is clicked may be someone else's (#1314).
+                stashed_uid = pending.get("uid")
+                if stashed_uid and str(sociallogin.account.uid) != str(stashed_uid):
+                    raise ImmediateHttpResponse(HttpResponseRedirect(
+                        self._settings_url(connect_error="connect_identity_mismatch", provider=provider)
+                    ))
+            if sociallogin.is_existing and sociallogin.user.pk != request.user.pk:
+                raise ImmediateHttpResponse(HttpResponseRedirect(
+                    self._settings_url(connect_error="provider_already_connected", provider=provider)
+                ))
+            return
+
+        if process == AuthProcess.REDIRECT or sociallogin.is_existing:
+            return
+
+        self._handle_email_collision(request, sociallogin)
+
+    def _handle_email_collision(self, request, sociallogin):
+        """Send a new OAuth identity whose email is already taken back to login.
+
+        Without this, allauth routes the collision to its HTML signup form,
+        which #1321 could only turn into a generic ``oauth_failed``. The
+        outcomes, in the order they are decided:
+
+        - No account matches, or the IdP sent no email: return, and let allauth
+          carry on (signup, or #1321's no-email fallback).
+        - Every match is deactivated: generic ``oauth_failed``. Naming the
+          state of an account nobody can use would reveal it, and offering to
+          connect to it would be pointless.
+        - The IdP *verified* the email, it belongs to exactly one active
+          account, and that account has no password but another provider:
+          ``account_exists_provider`` with ``via``. Only on a verified email —
+          naming the provider an arbitrary typed-in address "signs in with"
+          would disclose it to anyone who controls a lax IdP.
+        - Anything else: ``account_exists``.
+
+        Either ``account_exists*`` outcome stashes the attempted provider so
+        the SPA can offer to connect it once the user has proven they own the
+        account (``social_connect.stash_pending_connect``). The pending invite
+        token (``PENDING_INVITE_SESSION_KEY``) is deliberately left in the
+        session, and the SPA keeps its own invite/join state, so an
+        in-flight invite survives the detour through the login page.
+        """
+        from .social_connect import find_accounts_for_email, stash_pending_connect
+
+        # Pick the address the IdP calls primary, else the first verified one,
+        # else the first listed. GitHub returns every address on the account
+        # in API order (allauth does not sort them), so blindly taking [0]
+        # could run the collision check — and the "verified" gate for
+        # account_exists_provider — against a secondary, unverified address.
+        addresses = list(sociallogin.email_addresses or [])
+        first = (
+            next((a for a in addresses if getattr(a, "primary", False)), None)
+            or next((a for a in addresses if getattr(a, "verified", False)), None)
+            or (addresses[0] if addresses else None)
+        )
+        email = getattr(first, "email", "") or ""
+        if not email:
+            return
+        matches = list(find_accounts_for_email(email))
+        if not matches:
+            return
+        active = [user for user in matches if user.is_active]
+        if not active:
+            self._redirect_with_error(request, "oauth_failed")
+
+        provider = sociallogin.account.provider
+        idp_verified = bool(getattr(first, "verified", False))
+        # Stashed whether or not the IdP verified the email: the offer is only
+        # ever shown after the user has signed in to the matched account, so
+        # it discloses nothing, and some providers (allauth's GitLab provider)
+        # never mark emails verified at all. What guards the offer is the
+        # identity shown in it, the binding of the connect to this exact
+        # provider account (uid), and dropping the stash on any other user's
+        # sign-in — none of which depend on IdP verification. Verification
+        # only gates naming the ``via`` provider before sign-in, below.
+        stash_pending_connect(
+            request, provider, [user.pk for user in active],
+            identity=self._provider_identity(sociallogin, email),
+            uid=str(sociallogin.account.uid or ""),
+        )
+
+        if idp_verified and len(active) == 1 and not active[0].has_usable_password():
+            via = (
+                active[0].socialaccount_set.exclude(provider=provider)
+                .order_by("date_joined", "pk")
+                .values_list("provider", flat=True)
+                .first()
+            )
+            if via:
+                self._redirect_with_error(request, "account_exists_provider", provider=provider, via=via)
+        self._redirect_with_error(request, "account_exists", provider=provider)
+
     @staticmethod
-    def _redirect_with_error(request, error_code):
+    def _provider_identity(sociallogin, email: str) -> str:
+        """How the provider names the account that tried, for the prompt.
+
+        The provider-side username (GitHub/GitLab login) when it has one —
+        the email alone is no help, because a collision means it is the
+        victim's own address — else the email.
+        """
+        data = sociallogin.account.extra_data if isinstance(sociallogin.account.extra_data, dict) else {}
+        for key in ("login", "username", "preferred_username"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:150]
+        return email[:254]
+
+    @staticmethod
+    def _redirect_with_error(request, error_code, **params):
         """Redirect to the frontend with an auth_error query parameter.
 
         Raises ImmediateHttpResponse so allauth aborts the current flow
         and returns the redirect directly, bypassing the signup_closed template.
+        Extra ``params`` (``provider``, ``via``) are appended URL-encoded.
         """
+        from urllib.parse import urlencode
+
         frontend_url = getattr(django_settings, "LOGIN_REDIRECT_URL", "/")
         separator = "&" if "?" in frontend_url else "?"
-        redirect_url = f"{frontend_url}{separator}auth_error={error_code}"
+        query = urlencode({"auth_error": error_code, **params})
+        redirect_url = f"{frontend_url}{separator}{query}"
         raise ImmediateHttpResponse(HttpResponseRedirect(redirect_url))
+
+    @staticmethod
+    def _settings_url(**params) -> str:
+        """The SPA Settings page, where a connect round trip reports back."""
+        from urllib.parse import urlencode
+
+        frontend_url = (getattr(django_settings, "LOGIN_REDIRECT_URL", None) or "/").rstrip("/")
+        return f"{frontend_url}/settings?{urlencode(params)}"
 
     def save_user(self, request, sociallogin, form=None):
         """After user creation, consume the invite token if in INVITE_ONLY mode."""
@@ -371,6 +529,10 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         return user
 
     def get_connect_redirect_url(self, request, socialaccount):
-        """Redirect to the frontend after connecting a social account."""
-        from django.conf import settings
-        return getattr(settings, "LOGIN_REDIRECT_URL", "/")
+        """Redirect to the SPA's Settings page after connecting a social account.
+
+        ``?connected=<provider>`` is how the Security tab learns the round trip
+        succeeded (#1314); a refused connect never gets here — see
+        ``pre_social_login``.
+        """
+        return self._settings_url(connected=socialaccount.provider)

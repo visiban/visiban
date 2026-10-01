@@ -4,7 +4,7 @@ import json
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from .broadcast import EVT_PING
+from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import get_accessible_group_ids
 
 # Mirror BoardConsumer.PING_INTERVAL; NATs and reverse proxies commonly drop idle
@@ -56,7 +56,22 @@ class GroupConsumer(AsyncWebsocketConsumer):
         pass  # server-push only
 
     async def group_event(self, event):
-        await self.send(text_data=json.dumps(event["payload"]))
+        payload = event["payload"]
+        # If this user was just removed from the group, close their WebSocket
+        # connection immediately so they stop receiving group events (#1329).
+        # Mirrors BoardConsumer.board_event()'s self-eviction check — without
+        # it, a removed member keeps a live socket to group_{id} and goes on
+        # receiving group.updated, board.*, group.label.*, and member.* events
+        # for a group they no longer belong to. The membership deletion has
+        # already committed by the time this handler runs (broadcast_group_event
+        # is always called via transaction.on_commit).
+        if (
+            payload.get("event") == EVT_MEMBER_REMOVED
+            and payload.get("data", {}).get("user_id") == self.scope["user"].id
+        ):
+            await self.close()
+            return
+        await self.send(text_data=json.dumps(payload))
 
     @database_sync_to_async
     def _has_access(self, user, group_id):
