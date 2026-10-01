@@ -713,6 +713,21 @@ ACCOUNT_FORMS = {
     "reset_password": "accounts.forms.VisibanResetPasswordForm",
     "reset_password_from_key": "accounts.forms.VisibanResetPasswordKeyForm",
 }
+# One reset-token generator for every reset entry point — both request forms
+# and both redemption paths (the REST confirm endpoint and allauth's HTML
+# key page) read allauth's default_token_generator, which is built from this.
+# It binds a password-less account's link to the verified address it was sent
+# to (#1337); for accounts with a password it is identical to allauth's
+# default, so their outstanding links are unaffected. See
+# accounts.tokens.VisibanPasswordResetTokenGenerator. The enterprise settings
+# include below runs after this line; system check accounts.E001
+# (accounts/checks.py) fails startup if anything replaces it.
+#
+# allauth's by-code reset flow (ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED) ignores
+# token_generator and bypasses both the #1314 reset-link gate and this binding,
+# so it is unsupported unless that flow is separately hardened; system check
+# accounts.E002 fails startup if it is turned on.
+ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR = "accounts.tokens.VisibanPasswordResetTokenGenerator"
 # EMAIL_VERIFICATION is the canonical env var name (added in 1.0).
 # Warn operators still setting the pre-1.1 ACCOUNT_EMAIL_VERIFICATION alias —
 # it is no longer read, so it silently has no effect (#894, #1047).

@@ -6,6 +6,8 @@ from allauth.account.forms import ResetPasswordForm, ResetPasswordKeyForm, Signu
 from allauth.account.utils import user_pk_to_url_str
 from dj_rest_auth.forms import AllAuthPasswordResetForm
 
+from .tokens import AddressBoundTokenGenerator
+
 
 # Provider labels used in the OAuth-only password-reset email.
 _PROVIDER_LABELS: dict[str, str] = {
@@ -89,6 +91,12 @@ def password_reset_still_allowed(user) -> bool:
     The one rule for every place a reset token is redeemed: the REST confirm
     endpoint (``VisibanPasswordResetConfirmSerializer``) and allauth's own HTML
     page (``VisibanResetPasswordKeyForm``) — both accept the same uid/token.
+
+    The stricter rule — the link's *own* address must still be verified, not
+    just some address — is enforced by the token itself (#1337, see
+    ``accounts.tokens.VisibanPasswordResetTokenGenerator``), which both entry
+    points check before reaching this. This remains as a direct, generator-
+    independent statement of the #1314 minimum.
     """
     from allauth.account.models import EmailAddress
 
@@ -123,6 +131,11 @@ class _ResetLinkGateMixin:
       signed up with.
     - Any other password-less account gets the alternate "sign in with your
       provider" email and no link.
+
+    Each ``save()`` mints the link with ``AddressBoundTokenGenerator(email)``,
+    which re-checks the address against the verified set it hashes. That
+    closes the window between this gate's query and the token being minted
+    (#1337): an address unverified in between yields a link that never works.
     """
 
     def _gate_reset_users(self, request, email):
@@ -156,6 +169,8 @@ class VisibanPasswordResetForm(_ResetLinkGateMixin, AllAuthPasswordResetForm):
     def save(self, request, **kwargs):
         kwargs.setdefault("url_generator", _frontend_url_generator)
         email = self.cleaned_data["email"]
+        # Overrides the default_token_generator dj-rest-auth passes in (#1337).
+        kwargs["token_generator"] = AddressBoundTokenGenerator(email)
         # Replace self.users so that super().save() only mails a link to the
         # accounts the gate allows.
         original_users = self.users
@@ -182,6 +197,7 @@ class VisibanResetPasswordForm(_ResetLinkGateMixin, ResetPasswordForm):
             # through to allauth's "no account with this address" mail.
             return email
         self.users = link_users
+        kwargs["token_generator"] = AddressBoundTokenGenerator(email)  # #1337
         try:
             return super().save(request, **kwargs)
         finally:
