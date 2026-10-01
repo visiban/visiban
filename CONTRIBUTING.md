@@ -129,6 +129,10 @@ The pipeline must pass before an MR can be merged. Security and license jobs are
 
 If you're unsure whether a change is a good fit, open an issue to discuss it first before putting in the work.
 
+### Licensing of contributions
+
+Visiban is licensed under [Apache 2.0](LICENSE). There is no separate contributor agreement to sign: as stated in Section 5 of the license, any contribution you intentionally submit for inclusion is licensed under Apache 2.0, the same terms as the rest of the project.
+
 ---
 
 ## Code style
