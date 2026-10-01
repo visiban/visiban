@@ -272,6 +272,26 @@ class CreateCardTests(CrudToolsTestCase):
         self.assertIn("assignee_email", result["error"]["errors"])
         self.assertFalse(Card.objects.filter(title="Bad assignee").exists())
 
+    def test_ambiguous_assignee_email_is_a_validation_error(self):
+        # Matching is case-insensitive (email__iexact in _translate_card_fields),
+        # and the User model places no uniqueness constraint on email (only a
+        # performance index — accounts/0033 — not a uniqueness one), so two
+        # assignable board members can legitimately share an email address that
+        # differs only by case.
+        first = _make_user("dup-assignee-1", email="shared@example.com")
+        second = _make_user("dup-assignee-2", email="SHARED@example.com")
+        _make_membership(self.board, first, role=BoardMembership.Role.MEMBER)
+        _make_membership(self.board, second, role=BoardMembership.Role.MEMBER)
+
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="Ambiguous assignee",
+            assignee_email="shared@example.com",
+        )
+        self.assertEqual(result["error"]["code"], "validation_error")
+        self.assertIn("assignee_email", result["error"]["errors"])
+        self.assertFalse(Card.objects.filter(title="Ambiguous assignee").exists())
+
     def test_unknown_label_is_a_validation_error(self):
         result = self._call(
             "create_card", self.write_token, board_id=self.board.id,
