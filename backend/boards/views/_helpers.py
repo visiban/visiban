@@ -157,6 +157,17 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
     same SELECT and adds no query) for BoardFullSerializer's
     ``archived_card_count`` (#1289). Opt-in so the many write endpoints that
     share this helper do not pay for a count they never read.
+
+    The same ``with_archived_card_count=True`` flag also prefetches
+    ``custom_field_definitions`` and ``swimlane_custom_field_definitions`` —
+    the board-level and swimlane-level custom field schemas BoardFullSerializer
+    reads via plain ``.all()`` — for the same reason: today's only caller that
+    passes ``with_archived_card_count=True`` is ``BoardViewSet.full()``
+    building a ``BoardFullSerializer`` response, so it doubles as the "this is
+    the /full/ load" signal (#1334). Every other caller resolves RBAC only and
+    never serializes either relation; prefetching them unconditionally would
+    cost 2 extra queries on every card/column/swimlane/label mutation that
+    shares this helper for nothing.
     """
     queryset = Board.objects.select_related(
         "owner",
@@ -185,6 +196,27 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
             ),
         )
     if with_archived_card_count:
+        queryset = queryset.prefetch_related(
+            # Plain string prefetches: both fields are declared directly on
+            # BoardFullSerializer (CustomFieldDefinitionSerializer(many=True)
+            # / SwimlaneCustomFieldDefinitionSerializer(many=True)), so DRF's
+            # ListSerializer calls .all() with no extra filter/order_by — the
+            # model Meta.ordering (["position", "id"]) applies either way, so
+            # a plain prefetch matches what the serializer reads (#1334).
+            #
+            # Note: for this single-board fetch, prefetching does not reduce
+            # the *query count* below the unprefetched baseline — Django
+            # issues exactly one query per relation either way when there is
+            # only one parent row, and neither field is read a second time
+            # anywhere in /full/'s serialization (unlike "labels", prefetched
+            # above for a real dedup: BoardFullSerializer.get_cards() reads
+            # obj.labels.all() a second time). This still closes the gap
+            # against the #1212 rule ("every relation on BoardFullSerializer
+            # needs a matching prefetch") and costs nothing extra — these two
+            # queries were already being issued live.
+            "custom_field_definitions",
+            "swimlane_custom_field_definitions",
+        )
         queryset = queryset.annotate(
             _archived_card_count=Coalesce(
                 Subquery(
