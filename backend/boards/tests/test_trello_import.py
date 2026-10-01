@@ -393,6 +393,31 @@ class TrelloImportValidationTests(TrelloImportBase):
         self.assertIn("https://docs.example.com/a", card.description)
         self.assertNotIn("evil.example", card.description)
 
+    def test_disallowed_scheme_attachment_urls_are_dropped(self):
+        # _safe_url() only allows http(s); this is the only place its output
+        # lands (the rendered "Attachments" markdown block in the card
+        # description) — assert the disallowed schemes never reach it, with
+        # an https URL as a positive control that safe links still survive.
+        data = load_fixture()
+        data["cards"][0]["attachments"] = [
+            {"name": "ok", "url": "https://docs.example.com/a"},
+            {"name": "js", "url": "javascript:alert(1)"},
+            {"name": "data", "url": "data:text/html,<script>alert(1)</script>"},
+            {"name": "mixed", "url": " JavaScript:alert(1)"},
+        ]
+        board = Board.objects.get(pk=self.post("confirm", data=data).data["board"]["id"])
+        card = board.cards.get(title="Write launch plan")
+        self.assertIn("https://docs.example.com/a", card.description)
+        self.assertNotIn("data:text/html", card.description)
+        self.assertNotIn("alert(1)", card.description)
+        self.assertNotIn(
+            "javascript", card.description.lower(),
+            "a disallowed-scheme attachment URL reached the persisted card description",
+        )
+        # Exactly one attachment line: the three disallowed-scheme URLs were
+        # dropped entirely, not merely stripped of their dangerous substring.
+        self.assertEqual(card.description.count("- ["), 1)
+
     def test_long_comments_and_descriptions_truncated_with_warnings(self):
         data = load_fixture()
         data["cards"][1]["desc"] = "d" * 60_000

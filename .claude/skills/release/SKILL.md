@@ -28,6 +28,27 @@ If not provided in `$ARGUMENTS`, determine it:
 - Valid stages in ascending order: `alpha` → `beta` → `rc`
 - Pre-release suffix must include a numeric component (`rc.1` not `rc`)
 
+### Stage definitions
+
+The ordering above has existed since the version regex was written, but no
+release ever used `beta` — 1.0 and 1.1 both went straight from nothing to
+`rc.1`. 1.2 is the first cycle to use `alpha`. Each stage has a specific entry
+gate and meaning; don't advance a build to the next stage name without it
+meeting the gate:
+
+| Stage | Entry gate | Meaning |
+|---|---|---|
+| `alpha` | (none — this is where active development lives) | Active development. The milestone's `release::committed` issue tracker is still open and/or its named GA-blocker features are still being built. Breaking changes are possible between alphas. "Expect bugs." |
+| `beta` | All `release::committed` issues for the milestone are closed **and** every feature named as a GA blocker in the milestone description is merged to `main` | Feature-complete for the milestone's committed scope. No new scope lands in a beta — only bugfixes against what's already there. Safe-ish for self-hosters to trial on non-production instances. |
+| `rc` | The beta build has been run through `/pre-release full` with every 🔴 blocking finding resolved | Release candidate. Only regression fixes from here; the next green build ships as GA. |
+| GA (stable) | `rc` pipeline green, no new 🔴 finding since the last `/pre-release full` | Stable release. |
+
+A milestone can skip `alpha` and/or `beta` and cut straight to `rc` if the
+committed tracker and GA-blocker list are already clean when cutting the first
+pre-release build — that's what 1.0 and 1.1 did. Don't skip a stage's gate
+retroactively just because a build already shipped under that label; fix the
+label on the next cut instead.
+
 ## Step 1 — Pre-flight checks
 
 Before running the script:

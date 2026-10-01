@@ -332,7 +332,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
           <Link
             to="/"
             className={`flex items-center justify-center h-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-              location.pathname === "/" ? "text-info bg-info/20" : "text-fg-tertiary hover:text-fg hover:bg-surface"
+              location.pathname === "/" ? "text-info bg-primary-emphasis/20" : "text-fg-tertiary hover:text-fg hover:bg-surface"
             }`}
             title="Dashboard"
           >
@@ -345,7 +345,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
             to="/"
             onClick={collapse}
             className={`flex items-center gap-2 px-3 py-1.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-              location.pathname === "/" ? "text-info bg-info/20 font-medium" : "text-fg-secondary hover:text-fg hover:bg-surface"
+              location.pathname === "/" ? "text-info bg-primary-emphasis/20 font-medium" : "text-fg-secondary hover:text-fg hover:bg-surface"
             }`}
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -403,7 +403,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                   favoritesAnchor
                     ? "text-warning bg-surface-hover"
                     : isActiveFavoriteBoard
-                    ? "text-warning bg-info/20"
+                    ? "text-warning bg-primary-emphasis/20"
                     : "text-warning hover:text-warning hover:bg-surface"
                 }`}
               >
@@ -508,7 +508,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                   recentAnchor
                     ? "text-fg bg-surface-hover"
                     : isActiveRecentBoard
-                    ? "text-info bg-info/20"
+                    ? "text-info bg-primary-emphasis/20"
                     : "text-fg-tertiary hover:text-fg hover:bg-surface"
                 }`}
               >
@@ -532,7 +532,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                   groupsAnchor
                     ? "text-fg bg-surface-hover"
                     : isActiveGroupBoard
-                    ? "text-info bg-info/20"
+                    ? "text-info bg-primary-emphasis/20"
                     : "text-fg-tertiary hover:text-fg hover:bg-surface"
                 }`}
               >
@@ -577,7 +577,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                   personalAnchor
                     ? "text-fg bg-surface-hover"
                     : isActivePersonalBoard
-                    ? "text-info bg-info/20"
+                    ? "text-info bg-primary-emphasis/20"
                     : "text-fg-tertiary hover:text-fg hover:bg-surface"
                 }`}
               >
@@ -766,7 +766,7 @@ function RecentBoardItem({
       to={`/boards/${entry.id}`}
       onClick={onNavigate}
       className={`flex flex-col pr-3 py-1.5 text-sm transition truncate ${
-        active ? "bg-info/20" : "hover:bg-surface"
+        active ? "bg-primary-emphasis/20" : "hover:bg-surface"
       }`}
       title={entry.name}
     >
@@ -809,7 +809,7 @@ function BoardItem({
       style={{ paddingLeft: depth * 12 + 8 }}
       className={`flex items-center gap-1.5 pr-3 py-1.5 text-sm transition truncate ${
         active
-          ? "bg-info/20 text-info font-medium"
+          ? "bg-primary-emphasis/20 text-info font-medium"
           : "text-fg-tertiary hover:text-fg hover:bg-surface"
       }`}
       title={board.name}

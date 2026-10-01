@@ -83,6 +83,11 @@ describe('AppSidebar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockReset()
+    // vi.clearAllMocks() does not reset a mockReturnValue set by an earlier test
+    // (only call history), so pin the default pathname here — otherwise a test
+    // that sets a non-root pathname and never restores it leaks into every
+    // later test in file order.
+    mockUseLocation.mockReturnValue({ pathname: '/' })
     localStorage.clear()
     vi.mocked(listGroups).mockResolvedValue([fakeGroup])
     vi.mocked(listStarredGroups).mockResolvedValue([])
@@ -167,9 +172,16 @@ describe('AppSidebar', () => {
     render(<AppSidebar user={fakeUser} />)
     // Sprint Board appears in both the Recent section and the expanded group tree;
     // use getAllByText to avoid throwing on multiple matches.
-    await waitFor(() => expect(screen.getAllByText('Sprint Board').length).toBeGreaterThan(0))
-    const link = screen.getAllByText('Sprint Board')[0].closest('a')
-    expect(link?.className).toMatch(/info/)
+    await waitFor(() => expect(screen.getAllByText('Sprint Board').length).toBeGreaterThan(1))
+    const links = screen.getAllByText('Sprint Board').map((el) => el.closest('a'))
+    // bg-primary-emphasis/20 (not bg-info/20) so the active fill tracks the
+    // theme in dark mode, where --info and --primary diverge (#1336). Every
+    // occurrence of the active board — Recent section (RecentBoardItem) and
+    // the expanded group tree (BoardItem) — must use the theme-tracking token.
+    for (const link of links) {
+      expect(link?.className).toContain('bg-primary-emphasis/20')
+      expect(link?.className).not.toContain('bg-info/20')
+    }
   })
 
   it('renders Dashboard link', async () => {
@@ -188,6 +200,10 @@ describe('AppSidebar', () => {
     render(<AppSidebar user={fakeUser} />)
     const homeLink = screen.getByText('Dashboard').closest('a')
     expect(homeLink?.className).toMatch(/info/)
+    // bg-primary-emphasis/20 (not bg-info/20) so the active fill tracks the
+    // theme in dark mode, where --info and --primary diverge (#1336)
+    expect(homeLink?.className).toContain('bg-primary-emphasis/20')
+    expect(homeLink?.className).not.toContain('bg-info/20')
   })
 
   it('shows Dashboard icon in collapsed mode', async () => {
@@ -196,6 +212,19 @@ describe('AppSidebar', () => {
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
     expect(screen.getByTitle('Dashboard')).toBeInTheDocument()
+  })
+
+  it('highlights Dashboard icon in collapsed mode when at root path', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    mockUseLocation.mockReturnValue({ pathname: '/' })
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    const homeLink = screen.getByTitle('Dashboard')
+    // bg-primary-emphasis/20 (not bg-info/20) so the collapsed-rail active fill
+    // tracks the theme in dark mode, where --info and --primary diverge (#1336)
+    expect(homeLink.className).toContain('bg-primary-emphasis/20')
+    expect(homeLink.className).not.toContain('bg-info/20')
   })
 
   it('does not show Site Admin link for non-admin users', async () => {
@@ -305,6 +334,22 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Star Group')).toBeInTheDocument()
   })
 
+  it('highlights the Favorites trigger in collapsed mode for an active starred board', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    mockUseLocation.mockReturnValue({ pathname: '/boards/77' })
+    const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Starred One', is_starred: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Favorites'))
+    const btn = screen.getByTitle('Favorites')
+    // bg-primary-emphasis/20 (not bg-info/20) so the collapsed-rail active fill
+    // tracks the theme in dark mode, where --info and --primary diverge (#1336)
+    expect(btn.className).toContain('bg-primary-emphasis/20')
+    expect(btn.className).not.toContain('bg-info/20')
+  })
+
   it('shows Personal boards trigger in collapsed mode', async () => {
     localStorage.setItem('sidebar-collapsed', 'true')
     vi.mocked(listGroups).mockResolvedValue([])
@@ -353,6 +398,10 @@ describe('AppSidebar', () => {
     await waitFor(() => screen.getByTitle('Personal boards'))
     const btn = screen.getByTitle('Personal boards')
     expect(btn.className).toMatch(/info/)
+    // bg-primary-emphasis/20 (not bg-info/20) so the collapsed-rail active fill
+    // tracks the theme in dark mode, where --info and --primary diverge (#1336)
+    expect(btn.className).toContain('bg-primary-emphasis/20')
+    expect(btn.className).not.toContain('bg-info/20')
   })
 
   it('persists group expanded state in localStorage', async () => {
@@ -403,6 +452,18 @@ describe('AppSidebar', () => {
     expect(screen.getByTitle('Groups')).toHaveAttribute('aria-label', 'Groups')
     // Individual group names are not rendered as separate icons
     expect(screen.queryByTitle('Alpha')).not.toBeInTheDocument()
+  })
+
+  it('highlights the Groups trigger in collapsed mode for an active group board', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Groups'))
+    const btn = screen.getByTitle('Groups')
+    // bg-primary-emphasis/20 (not bg-info/20) so the collapsed-rail active fill
+    // tracks the theme in dark mode, where --info and --primary diverge (#1336)
+    expect(btn.className).toContain('bg-primary-emphasis/20')
+    expect(btn.className).not.toContain('bg-info/20')
   })
 
   it('Groups flyout lists all groups including subgroups', async () => {
@@ -553,7 +614,10 @@ describe('AppSidebar', () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getAllByText('Sprint Board'))
     const link = screen.getAllByText('Sprint Board')[0].closest('a')
-    expect(link?.className).toMatch(/info/)
+    // bg-primary-emphasis/20 (not bg-info/20) so the active fill tracks the
+    // theme in dark mode, where --info and --primary diverge (#1336)
+    expect(link?.className).toContain('bg-primary-emphasis/20')
+    expect(link?.className).not.toContain('bg-info/20')
   })
 
   it('shows Recent trigger in collapsed rail when recent boards exist', async () => {
@@ -568,6 +632,23 @@ describe('AppSidebar', () => {
     // assert the attribute directly — aria-label and title share the same text here, so
     // getByRole's computed-name resolution would pass via the title fallback regardless
     expect(screen.getByTitle('Recent boards')).toHaveAttribute('aria-label', 'Recent boards')
+  })
+
+  it('highlights the Recent trigger in collapsed mode for an active recent board', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 42, name: 'Sprint Board' },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([fakeBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Recent boards'))
+    const btn = screen.getByTitle('Recent boards')
+    // bg-primary-emphasis/20 (not bg-info/20) so the collapsed-rail active fill
+    // tracks the theme in dark mode, where --info and --primary diverge (#1336)
+    expect(btn.className).toContain('bg-primary-emphasis/20')
+    expect(btn.className).not.toContain('bg-info/20')
   })
 
   it('clicking Recent trigger opens flyout listing recent boards', async () => {

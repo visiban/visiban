@@ -2,6 +2,8 @@
 
 > **Added in 1.2**
 
+> **OSS core** — The Issue Board Lens is part of the open-source core; no enterprise license is required. See [Open-Core Boundary](../architecture/open-core-boundary.md#issue-board-lens-oss) for the full ruling.
+
 !!! warning "Experimental feature"
     The Issue Board Lens is experimental. Its configuration options and behavior may change in future releases.
 

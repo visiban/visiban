@@ -121,6 +121,11 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - Filter active-count badge: `bg-primary-emphasis/20 text-info` — always use the `primary-emphasis` token for the fill so the badge tracks the active theme
 - Consistent badge sizing: `px-2 py-0.5 text-xs rounded-full`
 - Active filter chip (`FilterChip.tsx`, the dismissible tag shown per applied filter in the filter row): `bg-primary-emphasis/20 text-info` fill with a `border border-primary-emphasis/40` border — same fill/text token pair as the badges above, plus the border so it reads as removable rather than a plain count/state indicator (#1239)
+- **`bg-info/*` vs `bg-primary-emphasis/*` — know which one your state is.** These are not interchangeable, and `--info`/`--primary` are different values in dark mode (they only coincide in light mode, which is why this drifts invisibly). Two patterns, never cross them:
+  - **Transient disclosure / toggle-open state** (a button whose job is "is this popover/menu/panel currently open" — Filters button, kebab trigger, SplitButton chevron, dropdown trigger's open state): `text-info bg-info/10`.
+  - **Persistent selection / "where you are" / "what's active" state** (nav-active item, tree-active item, flyout-active item, filter active-count badge, active filter chip, radio selected, grid-overlay cell tint, lens "Current" pill, mode-indicator banners): `bg-primary-emphasis/*` (paired text token varies by context — `text-info`, `text-warning`, etc. — keep whatever paired text token the surface already uses; only the background fill is the `primary-emphasis`-vs-`info` decision).
+
+  When introducing or touching any new "this item is the active/selected/current one" treatment, grep for `bg-info` in the file first and ask which bucket above it falls into before picking a token. Prior incidents: #1002, #1239 (`SavedFiltersDropdown`/`AdminPage`), #1336 (`AppSidebar`/`CollapsedFlyout`).
 
 ## Top chrome — two-row composition
 
