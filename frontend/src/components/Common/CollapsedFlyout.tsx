@@ -103,7 +103,7 @@ export default function CollapsedFlyout({
                 style={{ paddingLeft: 12 + depth * 12 }}
                 className={`flex items-center gap-2 py-1.5 pr-3 text-sm transition truncate ${
                   item.active
-                    ? "bg-info/20 text-info font-medium"
+                    ? "bg-primary-emphasis/20 text-info font-medium"
                     : depth > 0
                       ? "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
                       : "text-fg-secondary hover:text-fg hover:bg-surface-hover"

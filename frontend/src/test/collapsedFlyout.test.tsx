@@ -71,6 +71,10 @@ describe('CollapsedFlyout', () => {
     renderFlyout()
     const active = screen.getByText('Roadmap').closest('a')!
     expect(active.className).toContain('text-info')
+    // bg-primary-emphasis/20 (not bg-info/20) so the active fill tracks the
+    // theme in dark mode, where --info and --primary diverge (#1336)
+    expect(active.className).toContain('bg-primary-emphasis/20')
+    expect(active.className).not.toContain('bg-info/20')
   })
 
   it('renders multiple sections with separate headings', () => {
