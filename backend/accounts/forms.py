@@ -1,7 +1,8 @@
+from django import forms
 from django.conf import settings
 
 from allauth.account.adapter import get_adapter
-from allauth.account.forms import SignupForm
+from allauth.account.forms import ResetPasswordForm, ResetPasswordKeyForm, SignupForm
 from allauth.account.utils import user_pk_to_url_str
 from dj_rest_auth.forms import AllAuthPasswordResetForm
 
@@ -68,26 +69,69 @@ class VisibanSignupForm(SignupForm):
         return email
 
 
-class VisibanPasswordResetForm(AllAuthPasswordResetForm):
-    """Password reset form that:
-    - Uses FRONTEND_URL instead of reversing a Django auth URL.
-    - Sends an alternate email to OAuth-only accounts (no usable password)
-      rather than silently creating password auth on their behalf.
+def _has_verified_email(user, email: str) -> bool:
+    """Whether ``user`` has proven they own ``email`` (a verified allauth row)."""
+    from allauth.account.models import EmailAddress
+
+    return EmailAddress.objects.filter(user=user, email__iexact=email, verified=True).exists()
+
+
+def password_reset_still_allowed(user) -> bool:
+    """Whether a reset link may set ``user``'s password *now* (#1314).
+
+    A password-less account only ever gets a real reset link because it had a
+    verified address (``VisibanPasswordResetForm``). Links stay valid for days,
+    so that must still hold when the link is used — otherwise setting a
+    password would hand the account to whoever holds a mailbox the account no
+    longer vouches for. Accounts with a password are unaffected (resetting it
+    moves no trust boundary).
+
+    The one rule for every place a reset token is redeemed: the REST confirm
+    endpoint (``VisibanPasswordResetConfirmSerializer``) and allauth's own HTML
+    page (``VisibanResetPasswordKeyForm``) — both accept the same uid/token.
+    """
+    from allauth.account.models import EmailAddress
+
+    if user is None or user.has_usable_password():
+        return True
+    return EmailAddress.objects.filter(user=user, verified=True).exists()
+
+
+class VisibanResetPasswordKeyForm(ResetPasswordKeyForm):
+    """allauth's HTML set-new-password form, with the #1314 use-time re-check."""
+
+    def clean(self):
+        cleaned = super().clean()
+        if not password_reset_still_allowed(self.user):
+            raise forms.ValidationError(
+                "This password reset link is no longer valid. Request a new one."
+            )
+        return cleaned
+
+
+class _ResetLinkGateMixin:
+    """Who may receive a real reset link — one rule for every reset-request form.
+
+    Shared by the REST form (``VisibanPasswordResetForm``) and allauth's own
+    HTML reset-request page (``VisibanResetPasswordForm``) so the two can never
+    apply different rules:
+
+    - An account with a usable password gets the normal reset link.
+    - An account with no usable password gets a real set-password link only
+      when *the requested address* is verified on it (#1314). This is the
+      recovery path for someone who can no longer reach the provider they
+      signed up with.
+    - Any other password-less account gets the alternate "sign in with your
+      provider" email and no link.
     """
 
-    def save(self, request, **kwargs):
-        kwargs.setdefault("url_generator", _frontend_url_generator)
-
-        email = self.cleaned_data["email"]
+    def _gate_reset_users(self, request, email):
+        """Send the alternate email where due; return the users who get a link."""
         adapter = get_adapter(request)
-
-        # Partition users: those with a usable password get the standard
-        # reset email; OAuth-only users get an alternate email that directs
-        # them back to their OAuth provider.
-        users_with_password = []
+        link_users = []
         for user in self.users:
-            if user.has_usable_password():
-                users_with_password.append(user)
+            if user.has_usable_password() or _has_verified_email(user, email):
+                link_users.append(user)
             else:
                 provider_names = [
                     _PROVIDER_LABELS.get(sa.provider, sa.provider)
@@ -99,11 +143,45 @@ class VisibanPasswordResetForm(AllAuthPasswordResetForm):
                     email,
                     {"user": user, "provider": provider_label},
                 )
+        return link_users
 
-        # Replace self.users so that super().save() only processes accounts
-        # with usable passwords.
+
+class VisibanPasswordResetForm(_ResetLinkGateMixin, AllAuthPasswordResetForm):
+    """REST reset-request form (``POST /api/v1/auth/password/reset/``).
+
+    Uses FRONTEND_URL instead of reversing a Django auth URL, and decides who
+    gets a link with ``_ResetLinkGateMixin``.
+    """
+
+    def save(self, request, **kwargs):
+        kwargs.setdefault("url_generator", _frontend_url_generator)
+        email = self.cleaned_data["email"]
+        # Replace self.users so that super().save() only mails a link to the
+        # accounts the gate allows.
         original_users = self.users
-        self.users = users_with_password
+        self.users = self._gate_reset_users(request, email)
+        try:
+            return super().save(request, **kwargs)
+        finally:
+            self.users = original_users
+
+
+class VisibanResetPasswordForm(_ResetLinkGateMixin, ResetPasswordForm):
+    """allauth's own HTML reset-request page (``/accounts/password/reset/``).
+
+    Wired via ``ACCOUNT_FORMS["reset_password"]`` so this page applies the same
+    verified-address rule as the REST endpoint (#1314).
+    """
+
+    def save(self, request, **kwargs):
+        email = self.cleaned_data["email"]
+        original_users = self.users
+        link_users = self._gate_reset_users(request, email)
+        if original_users and not link_users:
+            # Every matching account got the alternate email. Don't fall
+            # through to allauth's "no account with this address" mail.
+            return email
+        self.users = link_users
         try:
             return super().save(request, **kwargs)
         finally:

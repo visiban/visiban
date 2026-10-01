@@ -49,6 +49,7 @@ from .validators import (
     username_collides_with_email,
 )
 from .serializers import (
+    ConnectedAccountSerializer,
     CurrentUserSerializer,
     PersonalAccessTokenCreateResponseSerializer,
     PersonalAccessTokenCreateSerializer,
@@ -350,6 +351,104 @@ class PendingEmailResendView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
         return Response({"detail": PENDING_EMAIL_RESENT_MESSAGE})
+
+
+class PendingConnectView(APIView):
+    """Dismiss the "Connect {Provider}?" prompt (#1314).
+
+    ``DELETE /auth/me/pending-connect/``. The prompt's "Not now": clears the
+    session-held pending provider so the prompt is never shown again for this
+    attempt, on any tab. An explicit call rather than a side effect of reading
+    ``/auth/user/`` — a GET that mutates would dismiss the prompt on a
+    background refetch the user never saw. Idempotent, acts only on the
+    requesting session, so there is nothing to look up and nothing to IDOR.
+    """
+
+    @extend_schema(request=None, responses={200: CurrentUserSerializer})
+    def delete(self, request):
+        from .social_connect import clear_pending_connect
+
+        clear_pending_connect(request)
+        return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
+
+
+DISCONNECT_NOT_CONNECTED_MESSAGE = "That account isn't connected."
+
+
+class ConnectedAccountsView(APIView):
+    """List the sign-in providers the requesting user has connected (#1314).
+
+    ``GET /auth/me/connected-accounts/``. One row per provider this instance
+    has configured, plus any the user still has connected through a provider
+    the operator has since removed. Connecting is not an API call: it is a
+    browser round trip through allauth's ``process=connect`` flow (see the
+    Security tab), because it has to visit the provider.
+    """
+
+    @extend_schema(responses={200: ConnectedAccountSerializer(many=True)})
+    def get(self, request):
+        from .social_connect import connected_accounts_status
+
+        rows = connected_accounts_status(request.user)
+        return Response(ConnectedAccountSerializer(rows, many=True).data)
+
+
+class ConnectedAccountDetailView(APIView):
+    """Disconnect one of the requesting user's providers (#1314).
+
+    ``DELETE /auth/me/connected-accounts/<provider>/``. Goes through allauth's
+    public ``DisconnectForm`` — never ``SocialAccount.delete()`` — so that
+    allauth's own guard refuses to remove the last way to sign in (no usable
+    password, or no verified email under mandatory verification), and so the
+    ``social_account_removed`` signal fires for anything listening to it.
+
+    The queryset is ``DisconnectForm``'s own (``SocialAccount`` rows of
+    ``request.user`` only), so another user's account can never be named.
+    Answers the refreshed list, so the client needs no second round trip.
+    """
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: ConnectedAccountSerializer(many=True),
+            400: OpenApiResponse(description="Disconnecting would leave no way to sign in."),
+            404: OpenApiResponse(description="No such provider is connected."),
+        },
+    )
+    def delete(self, request, provider):
+        from allauth.socialaccount.forms import DisconnectForm
+
+        from .social_connect import connected_accounts_status
+
+        # DisconnectForm reads request.user and allauth adds a Django message;
+        # both want the underlying HttpRequest. DRF's authentication has
+        # already set its .user.
+        django_request = request._request
+        accounts = list(
+            request.user.socialaccount_set.filter(provider=provider).select_related("user").order_by("pk")
+        )
+        if not accounts:
+            return Response(
+                {"detail": DISCONNECT_NOT_CONNECTED_MESSAGE}, status=status.HTTP_404_NOT_FOUND
+            )
+        # Normally one row per provider; a user who connected two identities
+        # of the same provider loses both, each still checked by the guard.
+        with transaction.atomic():
+            for account in accounts:
+                form = DisconnectForm(data={"account": account.pk}, request=django_request)
+                if not form.is_valid():
+                    errors = form.non_field_errors() or [
+                        err for errs in form.errors.values() for err in errs
+                    ]
+                    # All-or-nothing: undo any sibling already removed above.
+                    transaction.set_rollback(True)
+                    return Response(
+                        {"detail": str(errors[0]) if errors else "Can't disconnect this account."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                form.save()
+        rows = connected_accounts_status(request.user)
+        return Response(ConnectedAccountSerializer(rows, many=True).data)
 
 
 EMAIL_IN_USE_MESSAGE = (
@@ -1005,6 +1104,15 @@ class SocialSignupRedirectView(APIView):
          False).
       2. The provider returned no email at all (e.g. GitHub with a private
          email) while ``ACCOUNT_SIGNUP_FIELDS`` requires ``email*``.
+
+    Since #1314, case 1 is normally pre-empted upstream:
+    ``SocialRegistrationAdapter.pre_social_login`` runs before
+    ``process_auto_signup_email`` and redirects a collision with an active
+    account to ``account_exists`` / ``account_exists_provider`` (and one with
+    only deactivated accounts to ``oauth_failed``). This view stays as the
+    defense-in-depth safety net for case 2, for any collision the adapter's
+    lookup does not catch, and for direct or stale-session navigation to
+    this URL — do not delete it as dead code.
 
     Registered ahead of ``include("allauth.urls")`` in visiban/urls.py, same
     override technique as EmailConfirmRedirectView, so this view wins the
