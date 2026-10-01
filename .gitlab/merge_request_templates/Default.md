@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] I have read and agree to the [Contributor License Agreement](../../CLA.md)
+- [ ] I understand my contribution is licensed under [Apache 2.0](../../LICENSE)
 - [ ] Changelog fragment added to `changelog.d/` (e.g. `123.fixed.md`)
 - [ ] Tests pass locally
 - [ ] Documentation updated if applicable
