@@ -7,6 +7,7 @@ import { ThemeServerSync } from "./context/ThemeServerSync";
 import LoginPage from "./components/Auth/LoginPage";
 import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
 import ForceRenameUsernameModal from "./components/Auth/ForceRenameUsernameModal";
+import ConnectProviderModal from "./components/Auth/ConnectProviderModal";
 import Navbar from "./components/Layout/Navbar";
 import AppSidebar from "./components/Layout/AppSidebar";
 import BoardView from "./components/Board/BoardView";
@@ -107,6 +108,15 @@ export default function App() {
     )}
     {user && !user.must_change_password && user.must_change_username && (
       <ForceRenameUsernameModal user={user} onChanged={updateUser} />
+    )}
+    {/* One-time "Connect {Provider}?" after an OAuth email collision (#1314).
+        Waits for any forced password/username change to be resolved first. */}
+    {user && !user.must_change_password && !user.must_change_username && user.pending_connect_provider && (
+      <ConnectProviderModal
+        provider={user.pending_connect_provider}
+        identity={user.pending_connect_identity ?? null}
+        onDismissed={() => updateUser({ ...user, pending_connect_provider: null, pending_connect_identity: null })}
+      />
     )}
     <Routes>
       {/* Public — accessible regardless of auth */}
