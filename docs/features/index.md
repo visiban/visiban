@@ -22,7 +22,7 @@ Cards are dragged between cells. Every move that changes column or swimlane is l
 
 Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` focuses search, and `?` shows the full shortcut reference.
 
-**Grid overlays** shade each cell by a single number — card count, WIP usage, or weight — without hiding or resizing anything, so you can spot hot spots at a glance.
+**Grid overlays** shade each cell by card count — without hiding or resizing anything, so you can spot hot spots at a glance.
 
 → [Board & Cards](board.md) · [Grid overlays](board.md#grid-overlays)
 

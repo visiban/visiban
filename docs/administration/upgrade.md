@@ -344,6 +344,23 @@ date approaching** on (which historically only produced staleness alerts) starts
 24-hour due-date email too — see the note in
 [Notifications](../features/notifications.md) if you need to tell your users.
 
+Migration `accounts/0031_user_pending_email_address` adds a nullable foreign key,
+`pending_email_address`, to the user table for the new
+[pending email-change tracking](../features/index.md#user-settings) feature (#1273). It is a
+plain `AddField` with `db_index=False` — no index is built under this migration's table lock.
+Companion migration `accounts/0032_user_pending_email_addr_idx` adds the partial index backing
+that column, using `CREATE INDEX CONCURRENTLY` (via `visiban.db_operations`, `atomic = False`)
+so it does not block reads or writes while it builds, per the
+[zero-downtime migration rules](#zero-downtime-migration-rules) above. Every existing account
+starts with no pending change, so neither migration alters existing behavior.
+
+Migration `accounts/0033_add_user_email_upper_index` adds a functional index on
+`Upper(email)` to the user table, closing a case-insensitive email-collision gap (#1222) —
+two accounts could otherwise register emails that differ only by case. Because `users` is a
+populated table, it is hand-edited to use `CREATE INDEX CONCURRENTLY` (via
+`visiban.db_operations`, `atomic = False`) instead of the autodetector's plain `AddIndex`, so
+it does not lock reads or writes while it builds.
+
 Migration `accounts/0034_user_email_notif_comment_added` adds one more defaulted boolean
 column, `email_notif_comment_added`, to the user table — the email opt-in for the
 **Comment on a watched card** notification (#1295). It defaults to `False` for every user,
@@ -389,6 +406,13 @@ feature (#449). Migration `boards/0061_add_card_external_ref` creates the
 constraints — against brand-new tables, so none needs a concurrent build and none touches
 `boards` or `cards`. All three ship backend-only in 1.2 unless their linked feature page says
 otherwise.
+
+Migration `boards/0062_notification_comment_added_action_type` adds the `"comment_added"`
+value to `Notification.action_type`'s choices (#1277). As with `0060` (`due_soon`), `choices`
+is enforced by Django/DRF only, so this is a state-only `AlterField` that emits no DDL at
+all — `sqlmigrate boards 0062` prints `(no-op)`. No existing value changes meaning or
+disappears; see [Notifications](../features/notifications.md) if you need to tell API clients
+that switch on `action_type` to fall through to a generic rendering for an unrecognized value.
 
 Migrations `git_lens/0001_initial` and `git_lens/0002_alter_lensconnection_column_dim`
 create the entirely new `git_lens` app and its `LensConnection` table for
