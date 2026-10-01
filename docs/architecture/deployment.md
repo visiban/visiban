@@ -22,7 +22,7 @@ For a production-oriented Docker Compose stack (nginx, TLS via certbot, a `sched
 
 ## Production Docker images
 
-Pre-built images are published to the GitLab container registry automatically by CI on every merge to `main`:
+Pre-built images are published to the GitLab container registry automatically by CI. Every merge to `main` pushes an amd64-only `:latest` and short-SHA tag; multi-arch (linux/amd64 + linux/arm64) `:latest` and release tags come from release-tag pipelines:
 
 | Image | Registry path |
 |---|---|
