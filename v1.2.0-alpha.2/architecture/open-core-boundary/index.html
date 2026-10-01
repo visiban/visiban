@@ -4208,7 +4208,7 @@
 <tr>
 <td>Enterprise settings include (<code>enterprise.settings.*</code>)</td>
 <td>All enterprise settings overrides</td>
-<td>✅ Implemented — <code>visiban/settings.py</code> (#716)</td>
+<td>✅ Implemented — <code>visiban/settings.py</code> (#716). Constraint (#1337): the include must not replace <code>ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR</code> with anything that is not <code>accounts.tokens.VisibanPasswordResetTokenGenerator</code> or a subclass of it — subclasses are accepted. System check <code>accounts.E001</code> (Error) stops startup otherwise; <code>SILENCED_SYSTEM_CHECKS = ["accounts.E001"]</code> is the explicit opt-out.</td>
 </tr>
 <tr>
 <td>Enterprise WebSocket routing extension point (<code>enterprise.routing.enterprise_websocket_urlpatterns</code>)</td>
