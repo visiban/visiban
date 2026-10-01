@@ -282,7 +282,7 @@ Authentication uses the same two mechanisms as the board channel — session coo
 | `group.label.deleted` | Group shared label deleted | `{ "id": <int> }` |
 | `member.added` | User joined this group via an invite link. Named to mirror the board channel's `member.added` so one frontend socket layer handles both | Full `GroupMembershipSerializer` object |
 | `member.updated` | Group membership role changed. Mirrors the board channel's `member.updated` | Full `GroupMembershipSerializer` object |
-| `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it | `{ "user_id": <int> }` |
+| `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329) | `{ "user_id": <int> }` |
 | `invite_link.revoked` | An invite link for this group was revoked | `{ "id": <int> }` |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 

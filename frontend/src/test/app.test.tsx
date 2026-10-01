@@ -45,6 +45,10 @@ vi.mock('../components/Auth/ForceRenameUsernameModal', () => ({
   default: () => <div data-testid="force-username">Choose Username</div>,
 }))
 
+vi.mock('../components/Auth/ConnectProviderModal', () => ({
+  default: ({ provider }: { provider: string }) => <div data-testid="connect-provider">Connect {provider}</div>,
+}))
+
 vi.mock('../components/Layout/Navbar', () => ({
   default: () => <div data-testid="navbar">Navbar</div>,
 }))
@@ -159,6 +163,31 @@ describe('App', () => {
     render(<MemoryRouter><App /></MemoryRouter>)
     expect(screen.getByTestId('force-password')).toBeInTheDocument()
     expect(screen.queryByTestId('force-username')).not.toBeInTheDocument()
+  })
+
+  it('shows the connect prompt when pending_connect_provider is set (#1314)', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...fakeUser, pending_connect_provider: 'github' },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter><App /></MemoryRouter>)
+    expect(screen.getByTestId('connect-provider')).toHaveTextContent('Connect github')
+  })
+
+  it('holds the connect prompt while a forced password change is pending', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...fakeUser, must_change_password: true, pending_connect_provider: 'github' },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter><App /></MemoryRouter>)
+    expect(screen.getByTestId('force-password')).toBeInTheDocument()
+    expect(screen.queryByTestId('connect-provider')).not.toBeInTheDocument()
+  })
+
+  it('no connect prompt without a pending provider', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter><App /></MemoryRouter>)
+    expect(screen.queryByTestId('connect-provider')).not.toBeInTheDocument()
   })
 
   it('redirects unknown paths to / when authenticated', () => {

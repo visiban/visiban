@@ -38,7 +38,10 @@ Users with a password-based account can reset their own password from the login 
 2. Visiban sends a reset link to the address. The link expires after 3 days (Django's default `PASSWORD_RESET_TIMEOUT`).
 3. The user clicks the link, sets a new password (minimum 12 characters), and is redirected to the login page.
 
-**OAuth-only accounts** — if the email belongs to an account that has never set a password (signed up via Google, GitHub, GitLab, or OIDC and never used "Change password"), Visiban sends an alternate email explaining that no password is set and directing the user to log in via their OAuth provider. No reset token is issued.
+**OAuth-only accounts** — if the email belongs to an account that has never set a password (signed up via Google, GitHub, GitLab, or OIDC and never used "Change password"):
+
+- If the address is **verified** on that account, Visiban sends a normal reset link, and following it sets the account's first password. This is the recovery path for someone who can no longer sign in with the provider they signed up with. *Changed in 1.2 (#1314)* — earlier versions never issued a link to these accounts. The address must still be verified when the link is used; otherwise the link is refused.
+- If the address was never verified, Visiban sends an alternate email explaining that no password is set and directing the user to sign in with their provider. No reset token is issued, because mail reaching an unverified address proves nothing about who owns the account.
 
 **Rate limiting** — the reset-request endpoint (`POST /api/v1/auth/password/reset/`) is rate-limited per IP to prevent it from being used as a bulk email-sending vector.
 
@@ -53,6 +56,18 @@ For API details, see [Authentication API — Forgot password](../api/authenticat
 ## OAuth (Google, GitHub, GitLab)
 
 See the [OAuth Setup](../getting-started/oauth.md) guide for step-by-step configuration of each provider.
+
+### Connected accounts and email collisions
+
+*Added in 1.2 (#1314).*
+
+Visiban never attaches a provider to an existing account automatically just because the emails match — a provider can report an address it never verified. Instead:
+
+- **Someone signs in with a provider whose email already belongs to an account.** The login page says "You already have a Visiban account" and asks them to sign in the way they normally do: with their password, or — when the provider verified the email and the account has no password — with the provider the account already uses ("Continue with GitHub"). Once they're signed in, a one-time **Connect {Provider}?** prompt offers to connect the provider they first tried. The prompt names the provider account that tried (for example its GitHub username), so someone on a shared computer who doesn't recognize it can decline. The offer lasts 10 minutes and is shown once; choosing **Not now** dismisses it for good. It is discarded if anyone else signs in on that browser, or on sign-out. **Connect** only connects the same provider account that tried to sign in; if a different account of that provider is signed in on the browser, nothing is connected.
+- **The matching account is deactivated.** The user sees the generic sign-in error; the account is never revealed or offered.
+- **Email matching** ignores case only. `alice+work@example.com` and `a.lice@gmail.com` are treated as different addresses from `alice@example.com` and `alice@gmail.com`.
+
+Users manage their providers in **Settings → Security → Connected accounts**, where they can connect any provider configured on the instance or disconnect one. Visiban won't let anyone remove their last way to sign in: a user without a password must keep at least one connected provider. A provider that's already connected to a different Visiban account can't be connected a second time.
 
 <a id="generic-oidc"></a>
 

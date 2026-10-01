@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -138,6 +138,30 @@ describe('pending email change API (#1293)', () => {
     mockDelete.mockResolvedValue({ data: user })
     const result = await cancelPendingEmailChange()
     expect(mockDelete).toHaveBeenCalledWith('/api/v1/auth/me/pending-email/')
+    expect(result).toEqual(user)
+  })
+
+  it('listConnectedAccounts calls GET /api/v1/auth/me/connected-accounts/', async () => {
+    const rows = [{ provider: 'google', connected: false }]
+    mockGet.mockResolvedValue({ data: rows })
+    const result = await listConnectedAccounts()
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/auth/me/connected-accounts/')
+    expect(result).toEqual(rows)
+  })
+
+  it('disconnectAccount calls DELETE on the provider and returns the refreshed list', async () => {
+    const rows = [{ provider: 'github', connected: false }]
+    mockDelete.mockResolvedValue({ data: rows })
+    const result = await disconnectAccount('github')
+    expect(mockDelete).toHaveBeenCalledWith('/api/v1/auth/me/connected-accounts/github/')
+    expect(result).toEqual(rows)
+  })
+
+  it('dismissPendingConnect calls DELETE /api/v1/auth/me/pending-connect/ and returns the user', async () => {
+    const user = { id: 1, username: 'jdoe', pending_connect_provider: null }
+    mockDelete.mockResolvedValue({ data: user })
+    const result = await dismissPendingConnect()
+    expect(mockDelete).toHaveBeenCalledWith('/api/v1/auth/me/pending-connect/')
     expect(result).toEqual(user)
   })
 
