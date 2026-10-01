@@ -21,12 +21,14 @@ from unittest.mock import AsyncMock
 from asgiref.sync import sync_to_async
 from channels.testing import WebsocketCommunicator
 from django.core.cache import cache
-from django.test import TransactionTestCase
+from django.db import connection
+from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from accounts.ws_auth import issue_ws_ticket
-from boards.consumers import BoardConsumer
+from boards.consumers import BoardConsumer, _lookup_role
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
 
@@ -197,6 +199,39 @@ class ConsumerRoleRefreshUnitTests(TransactionTestCase):
 
         consumer._refresh_role.assert_not_called()
         self.assertNotIn("is_moderator", data)
+
+
+class LookupRoleQueryCountTests(TestCase):
+    """_lookup_role must not N+1 across the group-ancestor chain (#1332).
+
+    It runs on every self-subject member frame, so a role inherited from a
+    deeply nested group must cost the same queries as one from a direct group.
+    Called synchronously here (it is the plain-ORM half of _refresh_role), so
+    TestCase is fine.
+    """
+
+    def _nested_board(self, depth):
+        owner = User.objects.create_user(username=f"rr_qc_owner{depth}", password="pass")
+        user = User.objects.create_user(username=f"rr_qc_user{depth}", password="pass")
+        top = Group.objects.create(name=f"top{depth}", owner=owner)
+        GroupMembership.objects.create(group=top, user=user, role=GroupMembership.Role.ADMIN)
+        leaf = top
+        for i in range(depth - 1):
+            leaf = Group.objects.create(name=f"g{depth}-{i}", owner=owner, parent=leaf)
+        board = Board.objects.create(name=f"nested{depth}", owner=owner, group=leaf)
+        return User.objects.get(pk=user.pk), board.id
+
+    def _count(self, depth):
+        user, board_id = self._nested_board(depth)
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(_lookup_role(user, board_id), "admin")
+        return len(ctx.captured_queries)
+
+    def test_inherited_role_query_count_is_independent_of_depth(self):
+        direct = self._count(1)
+        deep_user, deep_board = self._nested_board(6)
+        with self.assertNumQueries(direct):
+            self.assertEqual(_lookup_role(deep_user, deep_board), "admin")
 
 
 class ConsumerRoleRefreshEndToEndTests(TransactionTestCase):

@@ -7,6 +7,7 @@ from accounts.models import User
 from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import Board
 from .permissions import (
+    GROUP_ANCESTOR_SELECT_RELATED,
     MODERATOR_BEARING_EVENTS,
     get_board_role,
     moderator_field_visible,
@@ -127,8 +128,13 @@ class BoardConsumer(AsyncWebsocketConsumer):
             # the effective role also depends on ownership, group inheritance
             # and can_access_all_content (get_board_role's ladder). Trusting
             # the payload would e.g. demote a site_admin who also happens to
-            # hold a viewer row. The cost is bounded: the query runs only on
-            # self-subject frames, never per frame.
+            # hold a viewer row. The lookup runs only on self-subject frames,
+            # never on frames about other members. Its own query count is
+            # small but not fixed: it depends on which rung of the ladder
+            # decides (all-content and ownership need no membership query; a
+            # group-inherited role also reads the user's group memberships),
+            # with the group-ancestor chain pre-joined in _lookup_role so the
+            # count does not grow with nesting depth.
             if subject_user_id is not None and subject_user_id == self.scope["user"].id:
                 role = await self._refresh_role()
                 if role is None:
@@ -172,9 +178,15 @@ class BoardConsumer(AsyncWebsocketConsumer):
 
 
 def _lookup_role(user, board_id):
-    """Effective role of *user* on board *board_id*, or None (sync; ORM)."""
+    """Effective role of *user* on board *board_id*, or None (sync; ORM).
+
+    The group-ancestor chain is joined up front because get_board_role walks
+    it in Python: without the select_related, a role inherited from a nested
+    group costs one lazy ``.parent`` fetch per level, and this now runs on
+    every self-subject member frame, not only at connect() (#1332).
+    """
     try:
-        board = Board.objects.get(pk=board_id)
+        board = Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).get(pk=board_id)
     except Board.DoesNotExist:
         return None
     return get_board_role(user, board)
