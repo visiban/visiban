@@ -286,7 +286,7 @@ modifying any file in this repository. See
 Each notification stores structured metadata alongside the human-readable `verb` string:
 
 - **`actor`** — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.
-- **`action_type`** — a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, `due_soon` *(added in 1.2)*. Useful for filtering or grouping notifications programmatically. Values are added over time, so a client that switches on this field must fall through to a generic rendering for one it does not recognize.
+- **`action_type`** — a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, `due_soon`, `comment_added` *(`due_soon` and `comment_added` added in 1.2)*. Useful for filtering or grouping notifications programmatically. Values are added over time, so a client that switches on this field must fall through to a generic rendering for one it does not recognize.
 
 ## Notification API
 
@@ -318,7 +318,7 @@ The `GET /api/v1/notifications/` response returns an array of objects with the f
 }
 ```
 
-The `action_type` field is a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, `due_soon` *(added in 1.2)*, or `""` (empty string for legacy notifications created before action types were introduced). New values are additive; treat an unrecognized one as generic rather than as an error.
+The `action_type` field is a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, `due_soon`, `comment_added` *(`due_soon` and `comment_added` added in 1.2)*, or `""` (empty string for legacy notifications created before action types were introduced). New values are additive; treat an unrecognized one as generic rather than as an error.
 
 !!! note "Added in 1.1"
     The `actor` field (the user who triggered the notification) is included in the API response as a slim user object (#1007). It is `null` for system-generated notifications such as staleness alerts.
