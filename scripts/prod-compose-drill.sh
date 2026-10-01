@@ -147,13 +147,15 @@ docker build -q \
 # ---- 1. fill .env the way installation.md's "Step 1" block says to --------
 # Every generated value below is created fresh, not hardcoded: a committed
 # dummy secret is a credential-shaped string in the repo that some operator
-# eventually copies. Hex rather than the docs' own `openssl rand -base64 32`
-# suggestion for DB_PASSWORD/REDIS_PASSWORD — deliberately, so this drill's
-# happy path is not itself the base64-`/`-in-a-password defect (a real,
-# separate finding against this same compose file — needs a from-scratch
-# db/valkey boot, since Postgres only applies POSTGRES_PASSWORD on first
-# init, so it can't be layered onto this already-running happy path; tracked
-# as its own negative case in #1229 rather than folded in here silently).
+# eventually copies. Hex for DB_PASSWORD/REDIS_PASSWORD now matches
+# installation.md's own "Use hex, not base64" warning (added alongside
+# init-prod.sh's matching reject-on-unsafe-chars guard) — `openssl rand
+# -base64` puts a `/` in about half its outputs, which breaks the
+# postgres://.../redis://... URLs these values are spliced into raw. This
+# drill still can't exercise THAT failure mode from this already-running
+# happy-path stack (Postgres only applies POSTGRES_PASSWORD on first init,
+# so a slash-bearing password needs a from-scratch db/valkey boot); that
+# negative case is tracked separately in #1229 rather than folded in here.
 log "filling .env from .env.example"
 gen_secret() { openssl rand -hex 32; }
 
@@ -179,6 +181,12 @@ set_env ALLOWED_HOSTS "${PROBE_HOST}"
 set_env CORS_ALLOWED_ORIGINS "${BASE_URL}"
 set_env FRONTEND_URL "${BASE_URL}"
 set_env SITE_DOMAIN "${PROBE_HOST}"
+# installation.md's Step 1 block lists this as required ("the backend
+# refuses to start while it is the example.com default" on 1.1.x; 1.2+
+# downgrades that to a startup warning — see settings.py). Set it anyway so
+# this drill's .env matches the documented block exactly rather than relying
+# on the 1.2+ warning-only behavior to paper over an unset value.
+set_env DEFAULT_FROM_EMAIL "noreply@${PROBE_HOST}"
 set_env DB_PASSWORD "$(gen_secret)"
 set_env REDIS_PASSWORD "$(gen_secret)"
 set_env TLS_MODE "${TLS_MODE}"
@@ -281,13 +289,16 @@ if compose logs backend 2>&1 | grep -q "ImproperlyConfigured"; then
 fi
 
 # The one-time admin password, retrieved with the EXACT command
-# docs/getting-started/installation.md § Step 3 documents. ensure_site_admin
-# runs inside the one-shot backend-init container, not the long-running
-# backend container — "admin creation succeeds" is not enough on its own; if
-# the two containers do not share whatever holds this file, the documented
-# retrieval command is the thing that actually fails, which is worse than an
-# unreachable log line because it looks like a working install right up
-# until day one.
+# docs/getting-started/installation.md § Step 3 documents.
+# ensure_site_admin now runs in the long-running `backend` container (see
+# docker-compose.prod.yml's own comment on the `backend` service) rather
+# than the one-shot backend-init container it originally ran in — a file
+# written in backend-init vanished with that container, so the documented
+# `exec backend cat ...` found nothing on a fresh install. That defect is
+# already fixed upstream; this assertion is a regression guard against it
+# reappearing, not a description of a live risk — "admin creation succeeds"
+# still isn't enough on its own, since a future refactor could move the
+# write back to a container the backend service doesn't share.
 log "reading the bootstrapped admin password the documented way"
 admin_password="$(compose exec -T backend cat /tmp/visiban_admin_password 2>/dev/null | tr -d '\r\n')"
 [ -n "${admin_password}" ] || fail \
