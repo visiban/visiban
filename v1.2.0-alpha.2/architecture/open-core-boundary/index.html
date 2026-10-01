@@ -2582,6 +2582,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#issue-board-lens-oss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue Board Lens (OSS)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-server-oss-vs-mcp-enterprise-upgrade-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP server (OSS) vs MCP enterprise upgrade (Enterprise)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3755,6 +3777,18 @@
 <td>#842</td>
 </tr>
 <tr>
+<td>Issue Board Lens (read-only GitHub/GitLab issue board)</td>
+<td>OSS</td>
+<td>A small team's own visibility into the external GitHub/GitLab work it tracks outside Visiban; <code>GIT_LENS_ENABLED</code>-gated, read-only, no write-back to the provider. See <a href="#issue-board-lens-oss">Issue Board Lens</a> below</td>
+<td>#1062</td>
+</tr>
+<tr>
+<td>MCP server (AI agent tool/resource access)</td>
+<td>OSS</td>
+<td>Core team-automation surface — the tools, resources, and Bearer-token auth a small team needs to let its own AI agents read and act on boards. See <a href="#mcp-server-oss-vs-mcp-enterprise-upgrade-enterprise">MCP server</a> below</td>
+<td>#511</td>
+</tr>
+<tr>
 <td>System-wide compliance audit log</td>
 <td>Enterprise</td>
 <td>Compliance tooling; card-level history in OSS is sufficient for small teams</td>
@@ -4147,6 +4181,15 @@
 <p>Manual card archiving is OSS (existing feature). Automated retention policies (auto-archive or delete cards older than an admin-configured threshold) are enterprise compliance tooling.</p>
 <p><strong>Issue:</strong> enterprise #19.</p>
 <hr />
+<h3 id="issue-board-lens-oss">Issue Board Lens (OSS)<a class="headerlink" href="#issue-board-lens-oss" title="Permanent link">&para;</a></h3>
+<p>The <a href="../../features/issue-board-lens/">Issue Board Lens</a> — a read-only kanban view of a public GitHub or GitLab repository's issues, pivoted onto columns and swimlanes — is OSS. Per this doc's guiding principle, a small team needs visibility into the external work (issues, PRs) it tracks outside Visiban to work together effectively; that is a core day-to-day workflow concern, not an advanced add-on. The feature is flag-gated (<code>GIT_LENS_ENABLED</code>, off by default) and strictly read-only — no sync, no webhooks, no write-back to the provider — which keeps it a bounded visibility feature rather than an integration platform.</p>
+<p><strong>Issue:</strong> #1062 (tracking issue — "Classified OSS (enterprise-check)"; base lens shipped via MR !842 and follow-ups).</p>
+<hr />
+<h3 id="mcp-server-oss-vs-mcp-enterprise-upgrade-enterprise">MCP server (OSS) vs MCP enterprise upgrade (Enterprise)<a class="headerlink" href="#mcp-server-oss-vs-mcp-enterprise-upgrade-enterprise" title="Permanent link">&para;</a></h3>
+<p>The <a href="../../features/mcp-server/">MCP server</a> — exposing boards, columns, swimlanes, cards, and the movement audit trail to an MCP-compatible AI agent over Bearer-token auth — is OSS. Letting a team's own agents and automations read and act on its boards, scoped by the same PATs the team already issues for CI/CD, is as core a day-to-day workflow concern as the human UI; withholding it would mean shipping an OSS feature (scoped PATs, #1110) that can only be used safely with a client enterprise alone provides.</p>
+<p>The feature doc's <a href="../../features/mcp-server/#upgrade-path-to-enterprise">"Upgrade path to enterprise"</a> section names the planned enterprise differentiators: OAuth 2.1 (so a client no longer needs a long-lived Bearer token managed by hand), analytics tools, prompt templates, and RBAC-scoped tool visibility (hiding tools a caller's role could never use, rather than returning <code>permission_denied</code> when they're called). <strong>None of this is implemented yet</strong> — it is a planned boundary, not a shipped one. Revisit this ruling's enterprise half once any part of it lands.</p>
+<p><strong>Issue:</strong> #511 (MCP server OSS scaffold). The planned enterprise upgrade path has no enterprise issue recorded yet.</p>
+<hr />
 <h2 id="oss-extension-points-implementation-status">OSS extension points — implementation status<a class="headerlink" href="#oss-extension-points-implementation-status" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4166,6 +4209,11 @@
 <td>Enterprise settings include (<code>enterprise.settings.*</code>)</td>
 <td>All enterprise settings overrides</td>
 <td>✅ Implemented — <code>visiban/settings.py</code> (#716)</td>
+</tr>
+<tr>
+<td>Enterprise WebSocket routing extension point (<code>enterprise.routing.enterprise_websocket_urlpatterns</code>)</td>
+<td>All enterprise WebSocket URL registrations</td>
+<td>✅ Implemented — <code>visiban/asgi.py</code>, mirrors the HTTP URL extension point above; silently skipped (<code>ImportError</code>) when the enterprise package is not installed (#1009)</td>
 </tr>
 <tr>
 <td><code>post_board_created/deleted/member_added/removed</code> signals</td>
