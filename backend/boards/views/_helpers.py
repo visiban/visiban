@@ -172,8 +172,8 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
     ``columns`` rides the same flag for the same reason (#1351): it is the
     third relation BoardFullSerializer reads via a plain ``.all()``
     (``ColumnSerializer(many=True)``) that this helper did not cover, and
-    the CSV/JSON export in ``import_export.py`` had to prefetch it at its
-    own call site (#994) precisely because of that gap.
+    the CSV/JSON export in ``import_export.py`` prefetches it at its own call
+    site (#994); it still does, because export does not pass this flag.
     """
     queryset = Board.objects.select_related(
         "owner",

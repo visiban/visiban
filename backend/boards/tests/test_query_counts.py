@@ -142,7 +142,7 @@ class CardListQueryCountTests(TestCase):
 class BoardFullQueryCountTests(TestCase):
     """GET /api/boards/{id}/full/ must not issue per-card queries."""
 
-    # 17 measured (unchanged by the #1351 columns prefetch) with one board-level + one swimlane-level custom field
+    # 17 measured with one board-level + one swimlane-level custom field
     # definition in the fixture (#1334); 19 gives a little headroom for
     # middleware. Note: get_board_for_user()'s columns / custom_field_definitions /
     # swimlane_custom_field_definitions prefetch does NOT lower this number —

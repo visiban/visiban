@@ -1349,9 +1349,11 @@ class BoardImportExportMixin:
             # of issuing one ORDER BY query each (#994).  ``Meta.ordering``
             # on both models guarantees position order without an explicit
             # ``.order_by()`` (which would defeat the prefetch).  Done at the
-            # call site rather than in ``get_board_for_user`` so non-export
-            # consumers (cards list, full board) do not pay for prefetches
-            # they never read.
+            # call site because export calls ``get_board_for_user(pk, user)``
+            # without ``with_archived_card_count=True``, so it does not get
+            # that helper's /full/-scoped ``columns`` prefetch (#1351) and
+            # still needs its own; other non-export consumers (cards list)
+            # do not pay for prefetches they never read.
             from django.db.models import prefetch_related_objects
             from ..serializers import _swimlane_custom_field_prefetch
             prefetch_related_objects(
