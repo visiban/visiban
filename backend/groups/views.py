@@ -858,7 +858,9 @@ class GroupViewSet(viewsets.ModelViewSet):
         # frontend/src/types/index.ts is optional for exactly this reason.
         responses={201: GroupInviteLinkSerializer},
     )
-    @action(detail=True, methods=["get", "post"], url_path="invite-links")
+    # pagination_class=None (#1359 sweep): GET returns the full link list as a
+    # bare array, never paginated — same envelope drift as saved-filters.
+    @action(detail=True, methods=["get", "post"], url_path="invite-links", pagination_class=None)
     def invite_links(self, request, pk=None):
         group = self.get_object()
         _require_group_admin(request.user, group)

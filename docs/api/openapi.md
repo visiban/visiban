@@ -203,4 +203,13 @@ def comments(self, request, ...):
 
 A `SerializerMethodField` that can return `None`, or a manually-declared nested serializer field on a nullable FK (e.g. `BoardUserSerializer(read_only=True)` on a `null=True` relation), must say so explicitly — add a `-> SomeType | None` return type hint to the `get_*` method, or pass `allow_null=True` to the nested field — otherwise drf-spectacular documents it as always-present and a generated client will reject the very responses the API actually sends (#1108; see `CardSerializer.get_last_moved_at`, `.assignee`, and `CardMovementSerializer.moved_by` in `backend/boards/serializers.py`).
 
+A `@action` that returns a bare list (`responses=SomeSerializer(many=True)`) on a viewset that paginates by default must pass `pagination_class=None` to `@action`. Without it, drf-spectacular treats any `many=True` response as a list view and wraps it in the viewset's paginated envelope. This happens on every HTTP method, POST included. The result is a `Paginated<Name>List` component (`{count, offset, page_size, results}`) plus `offset`/`page_size` query params that the action never honors. In `backend-schema-fuzz` this shows up as a `response_schema_conformance` failure with signature `x-bundled/schema1/type` and the message `[] is not of type "object"` at `/components/schemas/Paginated…List`. The cause is the envelope, not a serializer field. Do **not** set it on an action that really paginates through `self.paginate_queryset()` / `self.get_paginated_response()` (e.g. `export_history` in `backend/boards/views/import_export.py`). This has recurred three times: #1142 (reorder actions), the `GroupViewSet` list actions, and #1359 (`BoardViewSet.saved_filters`, `GroupViewSet.invite_links`). To sweep for it, generate the schema (`python manage.py spectacular --format openapi-json --file /tmp/schema.json`). List every operation whose response is `$ref: …/Paginated*List`. Any of those backed by a custom `@action` that never calls `paginate_queryset()` is the bug:
+
+```python
+@extend_schema(methods=["GET"], responses=SavedFilterSerializer(many=True))
+@action(detail=True, methods=["get", "post"], url_path="saved-filters", pagination_class=None)
+def saved_filters(self, request, pk=None):
+    ...
+```
+
 See the [drf-spectacular docs](https://drf-spectacular.readthedocs.io/en/latest/customization.html) for full customization options.

@@ -63,16 +63,6 @@
       "reason": "BoardImportExportMixin.export has no @extend_schema and answers either application/json or text/csv depending on the `format` query param; only one content type can be inferred automatically, so the other is undocumented. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
-      "id": "af605c",
-      "operation": "GET /api/v1/boards/{id}/saved-filters/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-10-01",
-      "reason": "This action does have @extend_schema(responses=SavedFilterSerializer(many=True)), but a field-level type mismatch still reproduces against the real response — same bug class #1119/#1123 fixed on Group/Board/BoardUser/CurrentUser. Tracked in #1359 (filed 2026-10-01); prune this entry once #1359 lands and a full-length st run no longer observes it. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
-    },
-    {
       "id": "3c0458",
       "operation": "GET /api/v1/boards/{id}/summary/",
       "check": "response_schema_conformance",
