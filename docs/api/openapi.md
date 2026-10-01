@@ -49,6 +49,7 @@ To access the schema directly from a backend pod for debugging:
 ```bash
 kubectl port-forward svc/<release-name>-backend 8000:8000
 # then: http://localhost:8000/api/schema/swagger-ui/
+# (needs `localhost` in backend.settings.allowedHosts, or send the real Host header)
 ```
 
 ## CI validation

@@ -449,3 +449,16 @@ containers:
     resources:
       {{- toYaml .Values.demo.resources | nindent 6 }}
 {{- end }}
+
+{{/*
+Host header for in-pod callers of the backend (kubelet probes, helm tests).
+The first operator-configured ALLOWED_HOSTS entry, so those callers pass Django's
+host validation without ALLOWED_HOSTS being widened with localhost (#1230). A
+leading dot (".example.com", Django's subdomain wildcard) is stripped so the
+result is a concrete hostname that the same pattern matches. A "*" or empty
+value accepts any Host, so "localhost" is as good as anything there.
+*/}}
+{{- define "visiban.probeHost" -}}
+{{- $h := index (splitList "," (toString .Values.backend.settings.allowedHosts)) 0 | trim | trimPrefix "." -}}
+{{- if or (eq $h "") (eq $h "*") -}}localhost{{- else -}}{{- $h -}}{{- end -}}
+{{- end }}

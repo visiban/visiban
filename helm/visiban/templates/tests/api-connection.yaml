@@ -49,6 +49,11 @@ spec:
       # probe pod could never start — ErrImageNeverPull on an image that was
       # never meant to be side-loaded in the first place.
       imagePullPolicy: IfNotPresent
+      # Passed as an env var, never spliced into the script: the host comes from
+      # operator values and a quote in it would otherwise break out of the shell.
+      env:
+        - name: PROBE_HOST
+          value: {{ include "visiban.probeHost" . | quote }}
       securityContext:
         allowPrivilegeEscalation: false
         runAsNonRoot: true
@@ -85,7 +90,7 @@ spec:
             label="$1"; url="$2"
             echo "probing ${label} -> ${url} ..."
             code="$(curl -sS --retry "${retries}" --retry-delay 2 --retry-all-errors \
-              -H 'Host: localhost' -o /dev/null -w '%{http_code}' "${url}" || echo 000)"
+              -H "Host: ${PROBE_HOST}" -o /dev/null -w '%{http_code}' "${url}" || echo 000)"
             if [ "$code" != "200" ]; then
               echo "FAIL: ${label} returned ${code}, expected 200"
               return 1

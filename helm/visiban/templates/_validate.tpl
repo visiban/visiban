@@ -41,6 +41,11 @@ manage the Secret in that case and cannot inspect its contents.
 {{- fail "\n\nVisiban: backend.email.useTls and backend.email.useSsl cannot both be true.\nUse STARTTLS on port 587 (useTls), or implicit SSL on port 465 (useSsl).\n" -}}
 {{- end }}
 
+{{- /* An empty list renders ALLOWED_HOSTS="" (the chart no longer appends localhost, #1230): Django rejects every request and no pod ever becomes ready. */ -}}
+{{- if eq (trim (toString .Values.backend.settings.allowedHosts)) "" }}
+{{- fail "\n\nVisiban: backend.settings.allowedHosts is empty.\nDjango would reject every request (including the pod's own probes) and no pod would become ready.\n\nSet your real hostname(s) (comma-separated):\n    --set backend.settings.allowedHosts=boards.yourdomain.com\n" -}}
+{{- end }}
+
 {{- if contains "visiban.example.com" .Values.backend.settings.allowedHosts }}
 {{- fail "\n\nVisiban: backend.settings.allowedHosts still contains the placeholder visiban.example.com.\nDjango will reject any request whose Host header is not in this list.\n\nSet your real hostname(s) (comma-separated):\n    --set backend.settings.allowedHosts=boards.yourdomain.com\n" -}}
 {{- end }}

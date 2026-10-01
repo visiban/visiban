@@ -178,8 +178,10 @@ kubectl get pods -n visiban
 
 # Backend health check
 kubectl exec -n visiban deploy/visiban-backend -- \
-  python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/api/health/readiness/').read().decode())"
+  python -c "import urllib.request as u; print(u.urlopen(u.Request('http://localhost:8000/api/health/readiness/', headers={'Host': '<your host>'})).read().decode())"
 ```
+
+`<your host>` is the first entry of `backend.settings.allowedHosts` (for example `boards.example.com`). The chart no longer adds `localhost` to `ALLOWED_HOSTS`, so a request that says `Host: localhost` gets HTTP 400.
 
 ## TLS with cert-manager
 
@@ -539,6 +541,7 @@ The Django admin panel (`/admin/`) is restricted to loopback at both the Nginx a
 ```bash
 kubectl port-forward -n visiban svc/visiban-backend 8000:8000
 # Then open http://localhost:8000/admin/
+# (needs `localhost` in backend.settings.allowedHosts; the chart no longer adds it)
 ```
 
 **IP allowlist** — for persistent access from a bastion or VPN host, set `backend.settings.adminAllowedIPs` to a comma-separated list of IPs and/or CIDR ranges:

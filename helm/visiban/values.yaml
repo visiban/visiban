@@ -20,7 +20,10 @@ backend:
   # Sensitive values (secretKey, db credentials) go in the Secret; see below.
   settings:
     debug: "false"
-    # Comma-separated list of allowed hosts / ingress hostnames
+    # Comma-separated list of allowed hosts / ingress hostnames. Rendered into
+    # ALLOWED_HOSTS verbatim: the chart does NOT append localhost/127.0.0.1
+    # (#1230). The first entry is also the Host header the chart's probes and
+    # helm tests send. Add `localhost` here yourself for `kubectl port-forward`.
     allowedHosts: "visiban.example.com"
     # Comma-separated CORS origins for the frontend
     corsAllowedOrigins: "https://visiban.example.com"

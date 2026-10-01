@@ -12,7 +12,7 @@ Upgrade a self-hosted Visiban instance between releases with zero downtime, usin
 | Any pre-1.0 beta or RC | 1.0.x | **No — maintenance window required** | Run the `groups/0003_placeholder` SQL fix first; `boards/0005` and `groups/0012` both require stopping backends before migration. See [Upgrading to 1.0.0](#upgrading-to-100). |
 | 1.0.x | 1.0.x (patch) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). |
 | 1.0.x | 1.1.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). Check the [release-specific notes](#release-specific-upgrade-notes) for any migration-window exceptions. |
-| 1.1.x | 1.2.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). See [Upgrading to 1.2.x](#upgrading-to-12x) — most changes are additive and need no operator action, but read the `!!!` callouts (Compose `ALLOWED_HOSTS`/`DOMAIN`, Helm values-schema validation, PAT scopes and the MCP server). |
+| 1.1.x | 1.2.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). See [Upgrading to 1.2.x](#upgrading-to-12x) — most changes are additive and need no operator action, but read the `!!!` callouts (Compose `ALLOWED_HOSTS`/`DOMAIN`, Helm `ALLOWED_HOSTS` no longer includes `localhost`, Helm values-schema validation, PAT scopes and the MCP server). |
 
 Skipping minor versions (e.g. 1.0 → 1.2 directly) is supported — run all intermediate migrations in sequence. The standard upgrade command (`manage.py migrate`) handles this automatically. The standard path is: pull the new image, run database migrations, restart. The sections below cover what makes each step safe and what to watch out for in more complex deployments.
 
@@ -429,6 +429,21 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     an alias but not the exact `DOMAIN` value never turns healthy after the
     upgrade, and nginx (which waits on it) does not start. Check that
     `ALLOWED_HOSTS` in `.env` contains `DOMAIN` before running `up -d`.
+
+!!! warning "Helm: `ALLOWED_HOSTS` no longer includes `localhost` / `127.0.0.1`"
+    The chart used to append `127.0.0.1,localhost` to `backend.settings.allowedHosts`.
+    The frontend nginx accepts any `Host` and forwards it, so that let any client
+    reaching the frontend Service directly (NodePort, LoadBalancer, or a host-less
+    Ingress rule) send `Host: localhost` and be accepted, which defeats pinning
+    `ALLOWED_HOSTS` to your public domain. The rendered `ALLOWED_HOSTS` is now
+    exactly `backend.settings.allowedHosts`. The chart's own probes and `helm test`
+    pods now send the first configured host as their `Host` header, so they need
+    no change. One thing you may notice: reaching the app through
+    `kubectl port-forward` and browsing `http://localhost:...` returns HTTP 400
+    (`DisallowedHost`). To keep doing that, opt back in explicitly with a
+    comma-separated list, for example
+    `--set backend.settings.allowedHosts=boards.example.com\,localhost`, or send
+    the real host: `curl -H "Host: boards.example.com" http://localhost:8080/`.
 
 !!! warning "Helm: give `externalDatabase.password` verbatim"
     The chart now percent-encodes the database username and password when it
