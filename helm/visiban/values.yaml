@@ -341,7 +341,8 @@ valkey:
     # REDIS_CACHE_URL itself, so any character is safe — "/" and "@" included.
     # See "Bundled Valkey" in docs/getting-started/kubernetes.md.
     enabled: false
-    # Chart-managed: stored in the <release>-visiban-valkey-auth Secret. Pass
+    # Chart-managed: stored in the <fullname>-valkey-auth Secret (visiban-valkey-auth
+    # for a release named visiban, my-release-visiban-valkey-auth for my-release). Pass
     # it with --set-string or a values.secret.yaml file, never commit it.
     #   openssl rand -hex 32
     password: ""
@@ -351,7 +352,8 @@ valkey:
     # Rotating either one restarts nothing on its own — there is deliberately
     # no checksum annotation, since a password hash on a pod is crackable by
     # anyone who can read pods. Afterwards run:
-    #   kubectl rollout restart statefulset/<release>-valkey deployment/<release>-visiban-backend
+    #   kubectl rollout restart statefulset,deployment \
+    #     -l 'app.kubernetes.io/instance=<release>,app.kubernetes.io/component in (valkey,backend)'
     existingSecret: ""
     # Key in existingSecret holding the password. Defaults to valkey-password.
     existingSecretPasswordKey: ""

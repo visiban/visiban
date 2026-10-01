@@ -316,7 +316,7 @@
               "type": "boolean"
             },
             "password": {
-              "description": "Chart-managed Valkey password, stored in the <release>-visiban-valkey-auth Secret. Any characters; the backend percent-encodes it.",
+              "description": "Chart-managed Valkey password, stored in the <fullname>-valkey-auth Secret (visiban-valkey-auth for a release named visiban, my-release-visiban-valkey-auth for my-release). Any characters; the backend percent-encodes it.",
               "type": "string"
             },
             "existingSecret": {

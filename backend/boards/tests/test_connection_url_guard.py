@@ -48,6 +48,8 @@ import django
 django.setup()
 from django.conf import settings
 print(settings.DATABASES["default"]["HOST"], settings.CACHES["default"]["LOCATION"])
+# Channels URL on its own line: REDIS_URL_PASSWORD tests assert both.
+print("CHANNELS=" + settings.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0])
 """
 
 
@@ -145,19 +147,36 @@ class ConnectionUrlGuardTests(SimpleTestCase):
     # percent-encodes it into both password-free URLs.
     _AUTH_PASSWORD = f"{_SECRET_FRAGMENT}/@:?#[] %+=\"'"
 
-    def test_redis_url_password_is_percent_encoded_into_both_urls(self):
+    def _load_with_auth_password(self, password):
         result = self._load(
             REDIS_URL="redis://valkey:6379/0",
             REDIS_CACHE_URL="redis://valkey:6379/1",
-            REDIS_URL_PASSWORD=self._AUTH_PASSWORD,
+            REDIS_URL_PASSWORD=password,
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
-        location = result.stdout.split()[-1]  # "<db host> <cache LOCATION>"; sqlite has no host
-        self.assertEqual(
-            location, f"redis://:{quote(self._AUTH_PASSWORD, safe='')}@valkey:6379/1"
-        )
-        # The URL redis-py actually connects with yields the original password.
-        self.assertEqual(parse_url(location)["password"], self._AUTH_PASSWORD)
+        first, channels = result.stdout.strip().splitlines()[-2:]
+        cache = first.split()[-1]  # "<db host> <cache LOCATION>"; sqlite has no host
+        self.assertTrue(channels.startswith("CHANNELS="), msg=result.stdout)
+        return cache, channels.removeprefix("CHANNELS=")
+
+    def test_redis_url_password_is_percent_encoded_into_both_urls(self):
+        cache, channels = self._load_with_auth_password(self._AUTH_PASSWORD)
+        encoded = quote(self._AUTH_PASSWORD, safe="")
+        self.assertEqual(cache, f"redis://:{encoded}@valkey:6379/1")
+        self.assertEqual(channels, f"redis://:{encoded}@valkey:6379/0")
+        # The URLs redis-py actually connects with yield the original password.
+        self.assertEqual(parse_url(cache)["password"], self._AUTH_PASSWORD)
+        self.assertEqual(parse_url(channels)["password"], self._AUTH_PASSWORD)
+
+    def test_redis_url_password_with_dollar_signs_is_read_verbatim(self):
+        # django-environ's env() treats a leading "$" as a reference to another
+        # variable, which silently dropped such a password (completeness-check,
+        # #1211). Leading, embedded, and a "$NAME" that IS a set variable.
+        for password in (f"${_SECRET_FRAGMENT}/x@y", f"a$b{_SECRET_FRAGMENT}$", "$DEBUG"):
+            with self.subTest(password=password):
+                cache, channels = self._load_with_auth_password(password)
+                self.assertEqual(parse_url(cache)["password"], password)
+                self.assertEqual(parse_url(channels)["password"], password)
 
     def test_redis_url_password_with_credentialed_url_is_refused_without_echoing_it(self):
         result = self._load(REDIS_URL_PASSWORD=self._AUTH_PASSWORD)  # base URLs carry plainpw

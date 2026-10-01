@@ -1052,7 +1052,7 @@ check_image_pins() {
 #   d) backend/ actually LOOKS UP REDIS_URL_PASSWORD (section 3's rule — its
 #      own render has auth off, so it never sees this variable).
 # And once, on the chart's plain defaults: auth off renders none of it.
-VALKEY_AUTH_STRESS_PW='structure/check@pw:1211#x'
+VALKEY_AUTH_STRESS_PW='$structure/check@pw:1211#x'
 
 check_valkey_auth() {
   section "11b. The bundled Valkey's password stays in Secrets (#1211)"

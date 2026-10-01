@@ -645,7 +645,7 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     | Value | Why it is refused | What to do |
     |---|---|---|
     | `valkey.architecture: replication` | The backend only ever used the primary; the replicas did nothing | Remove it, or use `externalRedis` |
-    | `valkey.auth.enabled: true` with no `valkey.auth.password` or `valkey.auth.existingSecret` | A password is required to turn auth on. This setting was refused outright before #1211, because `REDIS_URL` carried no password | Set one password source (see "Helm: optional password for the bundled Valkey" below), or remove the setting |
+    | `valkey.auth.enabled: true` with no `valkey.auth.password` or `valkey.auth.existingSecret` | A password is required to turn auth on. This setting was refused outright before #1211, because `REDIS_URL` carried no password | Set one password source (see "Helm: optional password for the bundled Valkey" above), or remove the setting |
     | A `bitnami/*` `valkey.image.repository`, or an empty or `latest` `valkey.image.tag` | A Bitnami image does not start under the new configuration, and `latest` is the drift this change removes | `--set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine` |
     | A `valkey.image.registry` other than Docker Hub | The chart no longer reads the key, so the image would silently come from Docker Hub | Drop it (`--set valkey.image.registry=null`) and put the mirror in `valkey.image.repository` |
 

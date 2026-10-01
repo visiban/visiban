@@ -318,7 +318,7 @@ runs without persistence by default. The values it reads:
 | `valkey.primary.resources` | 100m / 128Mi requests, 150m / 192Mi limits | Container resources. |
 | `valkey.commonConfiguration` | AOF on, RDB snapshots off | Extra `valkey.conf` lines. |
 | `valkey.auth.enabled` | `false` | Require a password. See [Valkey password](#valkey-password) below. |
-| `valkey.auth.password` | empty | Chart-managed password, stored in the `<release>-visiban-valkey-auth` Secret. |
+| `valkey.auth.password` | empty | Chart-managed password, stored in the `<fullname>-valkey-auth` Secret (`visiban-valkey-auth` for a release named `visiban`, `my-release-visiban-valkey-auth` for `my-release`). |
 | `valkey.auth.existingSecret` / `.existingSecretPasswordKey` | empty / `valkey-password` | A Secret you manage instead, and the key that holds the password. |
 
 ### Valkey password
@@ -342,9 +342,11 @@ render under `helm template` and GitOps tools.
       --set-string valkey.auth.password="$(openssl rand -hex 32)"
     ```
 
-    The chart stores the password in the `<release>-visiban-valkey-auth`
-    Secret, and it is part of the Helm release record like every chart-managed
-    credential.
+    The chart stores the password in the `<fullname>-valkey-auth` Secret.
+    `<fullname>` is the release name when it already contains `visiban`
+    (`visiban`, `visiban-prod`), and `<release>-visiban` otherwise
+    (`my-release-visiban`), unless `fullnameOverride` is set. The Secret is
+    part of the Helm release record like every chart-managed credential.
 
 === "Your own Secret"
 
@@ -368,16 +370,21 @@ password (a `helm upgrade` with a new `valkey.auth.password`, or an edit to
 your own Secret), restart Valkey and the backend together:
 
 ```bash
-kubectl -n <namespace> rollout restart \
-  statefulset/<release>-valkey deployment/<release>-visiban-backend
+kubectl -n <namespace> rollout restart statefulset,deployment \
+  -l 'app.kubernetes.io/instance=<release>,app.kubernetes.io/component in (valkey,backend)'
 ```
+
+The label selector matches the Valkey StatefulSet (`<release>-valkey`) and the
+backend Deployment (`<fullname>-backend`: `visiban-backend` for a release
+named `visiban`, `my-release-visiban-backend` for `my-release`), and nothing
+else, whatever the release is called.
 
 Until both restart, the backend cannot reach Valkey, so do this in a quiet
 moment. Scheduled jobs pick up the new password on their next run. Turning
 auth on or off, or switching between the two sources, changes the pod specs,
 so that `helm upgrade` restarts both without this step.
 
-The password can contain any character, including `/`, `@` and `:`. It never
+The password can contain any character, including `/`, `@`, `:` and `$`. It never
 appears in a ConfigMap, a plain environment value or a URL the chart renders.
 Valkey gets it from the Secret as `--requirepass`, and its health probes
 authenticate with the same Secret value. The backend reads it into
@@ -388,7 +395,8 @@ without a password.
 
 To use a password-protected Valkey or Redis outside the cluster instead, see
 [External database and Valkey](#external-database-and-valkey) and put the
-password in `externalRedis.url`.
+password in `externalRedis.url`. Further support for a password-protected
+external instance is tracked in #1361.
 
 !!! note "Chart 0.5.0 replaced the Bitnami subchart"
     Earlier development builds of the 1.2 chart ran Valkey through the Bitnami

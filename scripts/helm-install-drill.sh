@@ -48,8 +48,7 @@
 #      (published sign-in 200, board create 403 `demo_read_only`, a card move
 #      200, a countdown in site-config), a reset run from the CronJob succeeds
 #      and leaves the published login working, and uninstall leaves nothing.
-#   9. VALKEY AUTH (#1211), opt-in with DRILL_VALKEY_AUTH=1 so the default drill
-#      is no slower: an install with valkey.auth.existingSecret, then an upgrade
+#   9. VALKEY AUTH (#1211), opt-in with DRILL_VALKEY_AUTH=1 (CI sets it): an install with valkey.auth.existingSecret, then an upgrade
 #      to a chart-managed valkey.auth.password — both passwords holding "/" and
 #      "@", the characters that split a URL spliced in raw (#1229). Each phase
 #      proves Valkey refuses an unauthenticated client, the backend round-trips
@@ -77,7 +76,7 @@
 #                           CI does not set it, so CI always drills the shipped
 #                           defaults on amd64.
 #          DRILL_VALKEY_AUTH=1  also run step 9 (bundled Valkey password auth,
-#                           #1211). Off by default and in CI.
+#                           #1211). Off by default; CI's helm-install job sets it.
 #
 # Use a current kind (CI pins KIND_VERSION in .gitlab-ci.yml). Valkey dying with
 # "Fatal: Can't initialize Background Jobs. Error message: Operation not
@@ -614,7 +613,8 @@ async def roundtrip():
     layer = get_channel_layer()
     channel = await layer.new_channel()
     await layer.send(channel, {"type": "drill.1211"})
-    assert (await layer.receive(channel))["type"] == "drill.1211"
+    message = await asyncio.wait_for(layer.receive(channel), timeout=15)
+    assert message["type"] == "drill.1211"
 asyncio.run(roundtrip())
 print("VALKEY_AUTH_ROUNDTRIP_OK")
 ' 2>&1 || true)"
@@ -650,7 +650,9 @@ if [ "${DRILL_VALKEY_AUTH:-0}" = "1" ]; then
   step "9. VALKEY AUTH: existingSecret, then a chart-managed password (#1211)"
   AUTH_RELEASE="vauth"
   NAMESPACE="visiban-vauth-drill"   # install_args and dump_diagnostics read it
-  VALKEY_PW_SECRET='drill/existing@pw:1211+a'
+  # "$" first: django-environ's env() reads a leading "$" as a reference to
+  # another variable, which once dropped such a password silently (#1211).
+  VALKEY_PW_SECRET='$drill/existing@pw:1211+a$x'
   VALKEY_PW_CHART='drill/chart@pw:1211+b'
 
   kubectl create namespace "$NAMESPACE" >/dev/null
@@ -666,6 +668,14 @@ if [ "${DRILL_VALKEY_AUTH:-0}" = "1" ]; then
   ok "install with valkey.auth.existingSecret completed"
   valkey_auth_assertions "existingSecret" "$VALKEY_PW_SECRET"
 
+  # The backend pods that serve the existingSecret phase. They must be GONE
+  # before the assertions below, or `kubectl exec deployment/...` can land on a
+  # terminating pod that still holds the old password. Backend only: the Valkey
+  # pod is recreated under the SAME name (vauth-valkey-0), so waiting for that
+  # name to disappear would wait on the new pod; rollout status covers it.
+  OLD_AUTH_PODS="$(kubectl -n "$NAMESPACE" get pods \
+    -l "app.kubernetes.io/instance=${AUTH_RELEASE},app.kubernetes.io/component=backend" \
+    -o jsonpath='{range .items[*]}pod/{.metadata.name}{" "}{end}')"
   # shellcheck disable=SC2046
   helm upgrade "$AUTH_RELEASE" "$CHART" $(install_args) \
     --set-string secret.djangoSecretKey="$SECRET_KEY_A" \
@@ -675,6 +685,11 @@ if [ "${DRILL_VALKEY_AUTH:-0}" = "1" ]; then
     || die "the upgrade from valkey.auth.existingSecret to a chart-managed valkey.auth.password did not complete"
   kubectl -n "$NAMESPACE" rollout status "statefulset/${AUTH_RELEASE}-valkey" --timeout=180s >/dev/null \
     || die "the Valkey StatefulSet did not roll onto the chart-managed password"
+  kubectl -n "$NAMESPACE" rollout status "deployment/${AUTH_RELEASE}-visiban-backend" --timeout=180s >/dev/null \
+    || die "the backend Deployment did not roll onto the chart-managed password"
+  # shellcheck disable=SC2086  # a list of pod/<name> arguments
+  kubectl -n "$NAMESPACE" wait --for=delete $OLD_AUTH_PODS --timeout=180s >/dev/null 2>&1 \
+    || die "pods from the existingSecret phase were still present 180s after the upgrade: $OLD_AUTH_PODS"
   ok "upgrade to a chart-managed valkey.auth.password completed"
   valkey_auth_assertions "chart-managed" "$VALKEY_PW_CHART"
 
@@ -686,5 +701,9 @@ if [ "${DRILL_VALKEY_AUTH:-0}" = "1" ]; then
   ok "valkey-auth uninstall left nothing behind"
 fi
 
+VALKEY_AUTH_SUMMARY=""
+if [ "${DRILL_VALKEY_AUTH:-0}" = "1" ]; then
+  VALKEY_AUTH_SUMMARY=", and the bundled Valkey runs authenticated with an existingSecret and a chart-managed password"
+fi
 echo
-echo "PASSED: one-shot fresh install, serves, fails closed on a placeholder key, rotates secrets in place, migrates safely at 3 replicas, uninstalls clean, and the public demo installs, proves its fence, resets and uninstalls clean${DRILL_VALKEY_AUTH:+, and (DRILL_VALKEY_AUTH) the bundled Valkey runs authenticated with an existingSecret and a chart-managed password}"
+echo "PASSED: one-shot fresh install, serves, fails closed on a placeholder key, rotates secrets in place, migrates safely at 3 replicas, uninstalls clean, and the public demo installs, proves its fence, resets and uninstalls clean${VALKEY_AUTH_SUMMARY}"

@@ -318,7 +318,11 @@ else:
     # Helm's bundled Valkey with valkey.auth.enabled (#1211): the password
     # arrives separately and is percent-encoded into both URLs here. Unset
     # everywhere else (Compose embeds REDIS_PASSWORD in the URLs itself).
-    _REDIS_URL_PASSWORD = env("REDIS_URL_PASSWORD", default="")
+    # os.environ, NOT env(): django-environ treats a value starting with "$"
+    # as a reference to another variable and substitutes it (an unset one
+    # becomes ""), so a password like "$Sekrit" was silently dropped and the
+    # backend connected without one. The password must be read verbatim.
+    _REDIS_URL_PASSWORD = os.environ.get("REDIS_URL_PASSWORD", "")
     _REDIS_URL = _apply_redis_password("REDIS_URL", _REDIS_URL, _REDIS_URL_PASSWORD)
     _REDIS_CACHE_URL = _apply_redis_password("REDIS_CACHE_URL", _REDIS_CACHE_URL, _REDIS_URL_PASSWORD)
     # Fail at startup on an unparseable host, and never echo the URL: it
