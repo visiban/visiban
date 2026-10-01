@@ -3728,7 +3728,7 @@ own header — is never mistaken for a real exemption.</p>
 </tr>
 <tr>
 <td><code>scripts/prod-compose-drill.sh</code></td>
-<td>Live Docker Compose boot drill for the production stack — a synthetic self-test would need to boot a second real stack. Its own NEGATIVE case (a boot with the placeholder <code>DJANGO_SECRET_KEY</code> must be rejected) is the known-bad-input assertion, run against the real <code>docker-compose.prod.yml</code> instead of a fixture. See <a href="https://gitlab.com/visiban/visiban/-/issues/1152">#1152</a>.</td>
+<td>Live Docker Compose boot drill for the production stack — a synthetic self-test would need to boot a second real stack. Its own NEGATIVE cases are the known-bad-input assertions, run against the real <code>init-prod.sh</code> and <code>docker-compose.prod.yml</code> instead of a fixture: a boot with the placeholder <code>DJANGO_SECRET_KEY</code> must be rejected, and <code>init-prod.sh</code> must reject a <code>/</code>-bearing <code>DB_PASSWORD</code> or <code>REDIS_PASSWORD</code> before anything boots, with the specific error message (<a href="https://gitlab.com/visiban/visiban/-/issues/1229">#1229</a>). A static check also asserts <code>init-prod.sh</code> restarts nginx after its final <code>up -d</code>. See <a href="https://gitlab.com/visiban/visiban/-/issues/1152">#1152</a>.</td>
 </tr>
 <tr>
 <td><code>scripts/oidc_provision.py</code></td>
