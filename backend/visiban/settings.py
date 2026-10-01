@@ -322,9 +322,9 @@ else:
     # as a reference to another variable and substitutes it (an unset one
     # becomes ""), so a password like "$Sekrit" was silently dropped and the
     # backend connected without one. The password must be read verbatim.
-    _REDIS_URL_PASSWORD = os.environ.get("REDIS_URL_PASSWORD", "")
-    _REDIS_URL = _apply_redis_password("REDIS_URL", _REDIS_URL, _REDIS_URL_PASSWORD)
-    _REDIS_CACHE_URL = _apply_redis_password("REDIS_CACHE_URL", _REDIS_CACHE_URL, _REDIS_URL_PASSWORD)
+    _REDIS_URL_PASSWORD = os.environ.get("REDIS_URL_PASSWORD", "")  # pragma: no cover - this whole `else` branch only runs outside the test suite
+    _REDIS_URL = _apply_redis_password("REDIS_URL", _REDIS_URL, _REDIS_URL_PASSWORD)  # pragma: no cover - see above; _apply_redis_password itself is covered directly in test_connection_url_guard.py
+    _REDIS_CACHE_URL = _apply_redis_password("REDIS_CACHE_URL", _REDIS_CACHE_URL, _REDIS_URL_PASSWORD)  # pragma: no cover - see above
     # Fail at startup on an unparseable host, and never echo the URL: it
     # carries the password. See _validate_redis_url's docstring above.
     for _name, _url in (("REDIS_URL", _REDIS_URL), ("REDIS_CACHE_URL", _REDIS_CACHE_URL)):
