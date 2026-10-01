@@ -254,16 +254,21 @@ class PasswordlessRecoveryEndToEndTests(TestCase):
         of redirecting; that response is returned as-is."""
         return _redeem_via_allauth_html_page(uid, token)
 
-    def test_allauth_html_reset_page_applies_the_same_recheck(self):
-        """#1314: the alternate redemption URL must not bypass the re-check."""
+    def test_allauth_html_reset_page_refuses_link_once_no_address_is_verified(self):
+        """#1314: the alternate redemption URL must not accept the link either.
+
+        Since #1337 the token itself is refused here (``token_fail``), before
+        the form's ``password_reset_still_allowed`` re-check is reached; that
+        re-check is pinned directly by ``PasswordResetStillAllowedTests``.
+        """
         user, address, uid, token = self._stale_link_user()
         address.verified = False
         address.save()
 
         r = self._post_allauth_html_reset(uid, token)
 
-        # Refused either as a bad token (#1337) or by the form's re-check (#1314).
         self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context.get("token_fail"))
         user.refresh_from_db()
         self.assertFalse(user.has_usable_password())
 
@@ -394,6 +399,10 @@ class ResetLinkBoundToAddressTests(TestCase):
         self.assertFalse(user.has_usable_password())
 
     def test_rest_refuses_link_after_its_address_is_removed(self):
+        """Control, not coverage of the #1337 code: allauth's stock hash already
+        covers every address on the account, so removing one voids the link
+        with or without the verified-set binding. Kept so a future generator
+        change cannot lose it."""
         user, a, b = self._passwordless_two_verified()
         uid, token = self._request_link_for("a@example.com")
 
@@ -571,6 +580,169 @@ class ResetLinkBoundToAddressTests(TestCase):
 
         self.assertIsInstance(allauth_forms.default_token_generator, VisibanPasswordResetTokenGenerator)
         self.assertIsInstance(allauth_forms.UserTokenForm.token_generator, VisibanPasswordResetTokenGenerator)
+
+
+class ResetLinkMintingRaceTests(TestCase):
+    """#1337: the request gate and token minting are separate queries. An
+    address unverified between them must not yield a working link — the
+    minting generator re-checks the address against the set it hashes."""
+
+    def setUp(self):
+        cache.clear()
+
+    def _user_with_a_unverified_b_verified(self):
+        from allauth.account.models import EmailAddress
+
+        user = User.objects.create_user(username="race", email="a@example.com")
+        user.set_unusable_password()
+        user.save()
+        EmailAddress.objects.create(user=user, email="a@example.com", verified=False, primary=True)
+        EmailAddress.objects.create(user=user, email="b@example.com", verified=True, primary=False)
+        return user
+
+    def test_rest_request_link_is_dead_if_address_unverified_after_gate(self):
+        from django.core import mail
+
+        user = self._user_with_a_unverified_b_verified()
+        # The gate saw A verified; by minting time it no longer is.
+        with patch("accounts.forms._has_verified_email", return_value=True):
+            APIClient().post("/api/v1/auth/password/reset/", {"email": "a@example.com"})
+        self.assertEqual(len(mail.outbox), 1)
+        body = mail.outbox[0].body
+        path = body[body.index("/reset-password/"):].split()[0]
+        _, _, uid, token = path.rstrip("/").split("/")[:4]
+
+        r = APIClient().post("/api/v1/auth/password/reset/confirm/", {
+            "uid": uid, "token": token,
+            "new_password1": "NewPassword9876", "new_password2": "NewPassword9876",
+        })
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    def test_html_request_link_is_dead_if_address_unverified_after_gate(self):
+        import re
+
+        from django.core import mail
+
+        user = self._user_with_a_unverified_b_verified()
+        with patch("accounts.forms._has_verified_email", return_value=True):
+            Client().post("/accounts/password/reset/", {"email": "a@example.com"})
+        self.assertEqual(len(mail.outbox), 1)
+        m = re.search(r"/accounts/password/reset/key/([0-9A-Za-z]+)-(\S+?)/", mail.outbox[0].body)
+        self.assertIsNotNone(m)
+
+        r = _redeem_via_allauth_html_page(m.group(1), m.group(2))
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context["token_fail"])
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    def test_minting_generator_matches_redemption_when_address_is_verified(self):
+        from accounts.tokens import AddressBoundTokenGenerator, VisibanPasswordResetTokenGenerator
+
+        user = self._user_with_a_unverified_b_verified()
+        token = AddressBoundTokenGenerator("B@example.com").make_token(user)
+        self.assertTrue(VisibanPasswordResetTokenGenerator().check_token(user, token))
+        dead = AddressBoundTokenGenerator("a@example.com").make_token(user)
+        self.assertFalse(VisibanPasswordResetTokenGenerator().check_token(user, dead))
+
+
+class VerifiedSuffixEncodingTests(TestCase):
+    """#1337: the verified-address set is encoded unambiguously, so two
+    different sets can never hash the same."""
+
+    def test_pipe_in_address_does_not_collide_with_two_addresses(self):
+        from accounts.tokens import verified_suffix
+
+        self.assertNotEqual(
+            verified_suffix(['"a|b"@example.com']),
+            verified_suffix(['"a@example.com', 'b"@example.com']),
+        )
+        self.assertNotEqual(
+            verified_suffix(["a@example.com|b@example.com"]),
+            verified_suffix(["a@example.com", "b@example.com"]),
+        )
+
+    def test_suffix_is_order_independent(self):
+        from accounts.tokens import verified_suffix
+
+        self.assertEqual(verified_suffix(["b@x.com", "a@x.com"]), verified_suffix(["a@x.com", "b@x.com"]))
+
+
+class PasswordResetStillAllowedTests(TestCase):
+    """#1314 defense-in-depth re-check, pinned directly: since #1337 the token
+    is normally refused first, so end-to-end tests no longer reach it."""
+
+    def _passwordless(self, verified):
+        from allauth.account.models import EmailAddress
+
+        user = User.objects.create_user(username="psa", email="psa@example.com")
+        user.set_unusable_password()
+        user.save()
+        EmailAddress.objects.create(user=user, email="psa@example.com", verified=verified, primary=True)
+        return user
+
+    def test_passwordless_without_verified_address_is_refused(self):
+        from accounts.forms import password_reset_still_allowed
+
+        self.assertFalse(password_reset_still_allowed(self._passwordless(verified=False)))
+
+    def test_passwordless_with_verified_address_is_allowed(self):
+        from accounts.forms import password_reset_still_allowed
+
+        self.assertTrue(password_reset_still_allowed(self._passwordless(verified=True)))
+
+    def test_usable_password_is_allowed(self):
+        from accounts.forms import password_reset_still_allowed
+
+        user = User.objects.create_user(username="psa2", email="psa2@example.com", password="oldpassword12")
+        self.assertTrue(password_reset_still_allowed(user))
+        self.assertTrue(password_reset_still_allowed(None))
+
+    def test_html_key_form_clean_applies_the_recheck(self):
+        """``VisibanResetPasswordKeyForm`` is only built after allauth validated
+        the token, so the form is exercised directly with a user in hand."""
+        from accounts.forms import VisibanResetPasswordKeyForm
+
+        data = {"password1": "NewPassword9876", "password2": "NewPassword9876"}
+        refused = VisibanResetPasswordKeyForm(data=data, user=self._passwordless(verified=False), temp_key="k")
+        self.assertFalse(refused.is_valid())
+        self.assertIn("no longer valid", str(refused.errors))
+
+    def test_html_key_form_clean_passes_while_verified(self):
+        from accounts.forms import VisibanResetPasswordKeyForm
+
+        data = {"password1": "NewPassword9876", "password2": "NewPassword9876"}
+        self.assertTrue(
+            VisibanResetPasswordKeyForm(data=data, user=self._passwordless(verified=True), temp_key="k").is_valid()
+        )
+
+
+class PasswordResetTokenGeneratorCheckTests(TestCase):
+    """#1337: a system check catches a settings override that drops the binding."""
+
+    def test_check_passes_with_the_configured_generator(self):
+        from accounts.checks import check_password_reset_token_generator
+
+        self.assertEqual(check_password_reset_token_generator(None), [])
+
+    def test_check_fails_when_the_generator_is_replaced(self):
+        from allauth.account.forms import EmailAwarePasswordResetTokenGenerator
+
+        from accounts.checks import check_password_reset_token_generator
+
+        with patch("allauth.account.forms.default_token_generator", EmailAwarePasswordResetTokenGenerator()):
+            errors = check_password_reset_token_generator(None)
+        self.assertEqual([e.id for e in errors], ["accounts.E001"])
+        self.assertIn("ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR", errors[0].hint)
+
+    def test_check_is_registered(self):
+        from django.core import checks
+
+        from accounts.checks import check_password_reset_token_generator
+
+        self.assertIn(check_password_reset_token_generator, checks.registry.registry.get_checks())
 
 
 class PasswordResetEndpointTests(TestCase):

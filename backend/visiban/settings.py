@@ -719,7 +719,9 @@ ACCOUNT_FORMS = {
 # It binds a password-less account's link to the verified address it was sent
 # to (#1337); for accounts with a password it is identical to allauth's
 # default, so their outstanding links are unaffected. See
-# accounts.tokens.VisibanPasswordResetTokenGenerator.
+# accounts.tokens.VisibanPasswordResetTokenGenerator. The enterprise settings
+# include below runs after this line; system check accounts.E001
+# (accounts/checks.py) fails startup if anything replaces it.
 ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR = "accounts.tokens.VisibanPasswordResetTokenGenerator"
 # EMAIL_VERIFICATION is the canonical env var name (added in 1.0).
 # Warn operators still setting the pre-1.1 ACCOUNT_EMAIL_VERIFICATION alias —

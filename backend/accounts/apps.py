@@ -6,6 +6,8 @@ class AccountsConfig(AppConfig):
     name = "accounts"
 
     def ready(self):
+        from . import checks  # noqa: F401 — registers the #1337 system check
+
         from .signals import _connect_user_signals
         _connect_user_signals()
 
