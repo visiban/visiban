@@ -2,10 +2,11 @@
 #
 # gate-selftest-exempt: this IS a live Docker boot drill — a synthetic
 # --self-test would need to boot a second real stack, which defeats the point
-# of proving the documented compose path actually starts. Step 4 below
-# (NEGATIVE: a placeholder DJANGO_SECRET_KEY must be REJECTED) is the
-# known-bad-input assertion docs/development/ci-gates.md asks for, run
-# against the real compose file instead of a fixture.
+# of proving the documented compose path actually starts. Steps 2 and 6
+# below (NEGATIVE: a URL-unsafe DB_PASSWORD/REDIS_PASSWORD, and a placeholder
+# DJANGO_SECRET_KEY, must each be REJECTED) are the known-bad-input
+# assertions docs/development/ci-gates.md asks for, run against the real
+# init-prod.sh and compose file instead of a fixture.
 #
 # Production docker-compose boot drill (#1152).
 #
@@ -21,19 +22,37 @@
 # an override is exactly where a drift between "what the drill boots" and
 # "what an operator boots" would hide), and proves:
 #
-#   1. the init step completes: migrate + collectstatic + admin creation all
+#   1. STATIC: init-prod.sh restarts nginx AFTER its final `up -d` (#1229).
+#      `up -d` leaves a running nginx on its old config because nginx's own
+#      compose config never changes, so without the restart, re-running
+#      init-prod.sh to change TLS_MODE or regenerate a cert silently keeps
+#      serving the old config. Checked textually, on every run, because a
+#      live check cannot see it: step 3 below force-recreates nginx itself
+#      (the dind template re-sync), which masks init-prod.sh's own restart.
+#      A live StartedAt-advances check was considered and left out: it needs
+#      a second full `init-prod.sh` pass (which re-starts backend-init), is
+#      only observable where the daemon shares the checkout (not CI's dind),
+#      and so would protect nothing in CI that the static check does not;
+#   2. NEGATIVE, pre-boot: the REAL init-prod.sh REJECTS a DB_PASSWORD, and
+#      separately a REDIS_PASSWORD, containing `/` (#1229). Compose splices
+#      these raw into postgres:// and redis:// URLs and cannot percent-encode,
+#      and `openssl rand -base64` emits `/` about half the time. Asserts the
+#      exit is non-zero, the message names the variable (right reason, not
+#      just any failure), and that nothing was started (the guard fires
+#      before the boot, not after);
+#   3. the init step completes: migrate + collectstatic + admin creation all
 #      succeed, and the one-time admin password is retrievable with the
 #      EXACT command Step 3 of the docs documents;
-#   2. the backend container clears every settings.py import-time boot
+#   4. the backend container clears every settings.py import-time boot
 #      guard (DJANGO_SECRET_KEY, CORS_ALLOWED_ORIGINS, FRONTEND_URL, ...)
 #      rather than crash-looping on one;
-#   3. GET /api/health/readiness/ reports ready THROUGH nginx — the real
+#   5. GET /api/health/readiness/ reports ready THROUGH nginx — the real
 #      ingress path an operator's browser uses, not a container-internal
 #      Docker healthcheck;
-#   4. NEGATIVE: a boot with the chart's own placeholder DJANGO_SECRET_KEY
+#   6. NEGATIVE: a boot with the chart's own placeholder DJANGO_SECRET_KEY
 #      is REJECTED. A guard that stopped firing looks exactly like one that
 #      never fires, so the fail-closed path is asserted, not assumed;
-#   5. the stack survives `docker compose restart backend`.
+#   7. the stack survives `docker compose restart backend`.
 #
 # Images are BUILT FROM THE WORKING TREE with the exact production
 # Dockerfiles (backend/Dockerfile.prod, frontend/Dockerfile.prod) and
@@ -45,29 +64,6 @@
 # TLS is a PARAMETER (TLS_MODE=none, the default, or selfsigned — never
 # letsencrypt in CI: that profile needs a real domain and ACME reachability
 # on :80, so it is out of scope here and stays a manual smoke test).
-#
-# Known gap, deliberately deferred rather than folded in silently: #1152's
-# own evidence comment also named (a) a `/` in DB_PASSWORD/REDIS_PASSWORD
-# breaking the constructed DATABASE_URL/REDIS_URL, and (b) nginx not picking
-# up a re-rendered config when init-prod.sh is re-run without a forced
-# recreate. Both have since changed shape upstream (93201d328 and
-# follow-ups) and are smaller than #1229 originally scoped them:
-#   (a) init-prod.sh now REJECTS an unsafe DB_PASSWORD/REDIS_PASSWORD before
-#       anything boots ("contains a character (/ ? # % [ ] or whitespace)
-#       that breaks the connection URL ... Regenerate it with: openssl rand
-#       -hex 32"). What's still unasserted is narrower than "a from-scratch
-#       db/valkey boot with a slash-bearing password" — it's a pre-boot
-#       negative test of init-prod.sh's own guard, closer in shape to this
-#       script's existing placeholder-DJANGO_SECRET_KEY NEGATIVE case than
-#       to a separate mini-stack.
-#   (b) init-prod.sh now runs `docker compose ... restart nginx`
-#       unconditionally after `up -d`, every run, specifically so a re-run
-#       picks up a re-rendered config or renewed cert. What's still
-#       unasserted is narrower than "a second init-prod.sh pass changing
-#       TLS_MODE" — it may be reducible to a regression assertion that this
-#       restart still happens, rather than a multi-step re-run scenario.
-# #1229 should be re-scoped to match before it's worked — tracked there,
-# not fixed in this script.
 #
 # Expects a working Docker daemon (dind in CI) with docker compose v2, curl,
 # and openssl on PATH.
@@ -120,6 +116,30 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 compose() { docker compose -f "${PROD_COMPOSE_FILE}" "$@"; }
 
+# ---- 1. STATIC: init-prod.sh restarts nginx after its final `up -d` --------
+# Takes the script path as $1 so the check can be exercised against a mutated
+# copy. Comment lines are dropped first (init-prod.sh's own comments quote
+# `up -d`). The last `up -d` is the one that matters — the letsencrypt branch
+# has its own — and it must be followed by a restart/force-recreate of nginx.
+# The `|| true`s matter: under pipefail a no-match grep would abort the script
+# at the assignment and the named failure messages below would never print.
+assert_nginx_restart_after_up() {
+  local script="$1" last_up last_restart
+  last_up="$(grep -v -E '^[[:space:]]*#' "${script}" | grep -n -E 'compose .*[[:space:]]up[[:space:]]+-d' | tail -1 | cut -d: -f1 || true)"
+  last_restart="$(grep -v -E '^[[:space:]]*#' "${script}" \
+    | grep -n -E 'compose .*(restart[[:space:]]+nginx|up .*--force-recreate .*nginx)' | tail -1 | cut -d: -f1 || true)"
+  [ -n "${last_up}" ] || fail \
+    "${script} has no 'docker compose ... up -d' — the drill's static nginx-restart check cannot find the stack start (#1229)"
+  [ -n "${last_restart}" ] || fail \
+    "${script} no longer restarts nginx — re-running it to change TLS_MODE or regenerate a certificate would silently leave a running nginx on its OLD config, because 'up -d' does not recreate it (#1229)"
+  [ "${last_restart}" -gt "${last_up}" ] || fail \
+    "${script} restarts nginx BEFORE its final 'up -d' (restart at non-comment line ${last_restart}, up -d at ${last_up}) — the restart no longer follows the start, so a re-run keeps serving the OLD nginx config (#1229)"
+}
+
+log "STATIC: init-prod.sh restarts nginx after its final 'up -d'"
+assert_nginx_restart_after_up init-prod.sh
+log "init-prod.sh restarts nginx after 'up -d' — a re-run picks up a re-rendered config"
+
 # ---- diagnostics + teardown -------------------------------------------------
 dump_diagnostics() {
   echo "======== DIAGNOSTICS (prod compose stack did not reach a healthy state) ========" >&2
@@ -159,18 +179,15 @@ docker build -q \
   --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
   -t "${FRONTEND_IMAGE}" -f frontend/Dockerfile.prod frontend >/dev/null
 
-# ---- 1. fill .env the way installation.md's "Step 1" block says to --------
+# ---- fill .env the way installation.md's "Step 1" block says to --------
 # Every generated value below is created fresh, not hardcoded: a committed
 # dummy secret is a credential-shaped string in the repo that some operator
 # eventually copies. Hex for DB_PASSWORD/REDIS_PASSWORD now matches
 # installation.md's own "Use hex, not base64" warning (added alongside
 # init-prod.sh's matching reject-on-unsafe-chars guard) — `openssl rand
 # -base64` puts a `/` in about half its outputs, which breaks the
-# postgres://.../redis://... URLs these values are spliced into raw. This
-# drill still can't exercise THAT failure mode from this already-running
-# happy-path stack (Postgres only applies POSTGRES_PASSWORD on first init,
-# so a slash-bearing password needs a from-scratch db/valkey boot); that
-# negative case is tracked separately in #1229 rather than folded in here.
+# postgres://.../redis://... URLs these values are spliced into raw. The
+# reject-on-unsafe-chars guard itself is asserted in step 2, below.
 log "filling .env from .env.example"
 gen_secret() { openssl rand -hex 32; }
 
@@ -209,7 +226,46 @@ set_env DOMAIN "${PROBE_HOST}"
 set_env APP_VERSION "${APP_VERSION}"
 set_env DJANGO_SUPERUSER_EMAIL "${DJANGO_SUPERUSER_EMAIL_DEFAULT}"
 
-# ---- 2. boot through the documented entrypoint -----------------------------
+# ---- 2. NEGATIVE: URL-unsafe DB_PASSWORD / REDIS_PASSWORD fail closed ------
+# Runs the REAL init-prod.sh, but from a scratch directory holding a copy of
+# the drill's .env with one password swapped for a slash-bearing one: the
+# script reads ./.env, so the drill's own .env (and nginx/active.conf.template)
+# is never touched and the happy-path boot below starts from a clean slate. The
+# guard sits ahead of every cp/docker call in init-prod.sh, so the scratch dir
+# needs nothing else — and an empty scratch dir afterwards is itself evidence
+# that the guard fired before any rendering.
+assert_unsafe_password_rejected() {
+  local var="$1" script="${PWD}/init-prod.sh" scratch rc out
+  scratch="$(mktemp -d)"
+  grep -v -E "^[[:space:]]*#?[[:space:]]*${var}=" .env > "${scratch}/.env" || true
+  # Shaped like `openssl rand -base64 32` output that happens to contain `/`.
+  printf '%s=%s\n' "${var}" 'abc/def+ghi=' >> "${scratch}/.env"
+  set +e
+  out="$(cd "${scratch}" && bash "${script}" 2>&1)"
+  rc=$?
+  set -e
+  if [ -e "${scratch}/nginx" ]; then
+    rm -rf "${scratch}"
+    fail "init-prod.sh rendered nginx config with an unsafe ${var} — the guard did not fire before the boot (#1229)"
+  fi
+  rm -rf "${scratch}"
+  [ "${rc}" -ne 0 ] || fail \
+    "init-prod.sh with a '/' in ${var} SUCCEEDED — the constructed DATABASE_URL/REDIS_URL would be broken and the backend could not start; the unsafe-password guard in init-prod.sh is not firing (#1229)"
+  grep -q "${var} contains a character" <<<"${out}" || fail \
+    "init-prod.sh with a '/' in ${var} failed, but not at the unsafe-password guard — it may be masked by an unrelated error. Output: $(head -5 <<<"${out}")"
+  grep -q "openssl rand -hex 32" <<<"${out}" || fail \
+    "the ${var} rejection no longer tells the operator to regenerate with 'openssl rand -hex 32' (#1229). Output: $(head -5 <<<"${out}")"
+  # Pre-boot means nothing was started for this project.
+  [ -z "$(compose ps -a -q 2>/dev/null)" ] || fail \
+    "containers exist after init-prod.sh rejected ${var} — the guard must fire BEFORE anything boots (#1229)"
+}
+
+log "NEGATIVE: init-prod.sh with a '/' in DB_PASSWORD / REDIS_PASSWORD"
+assert_unsafe_password_rejected DB_PASSWORD
+assert_unsafe_password_rejected REDIS_PASSWORD
+log "unsafe DB_PASSWORD and REDIS_PASSWORD are rejected pre-boot, and for the right reason"
+
+# ---- 3. boot through the documented entrypoint -----------------------------
 #
 # dind caveat: `docker compose` runs in THIS container but the daemon runs in
 # the dind SERVICE container, and a bind mount's SOURCE path is resolved by
@@ -281,7 +337,7 @@ assert_template_on_daemon
 # chain too, which re-runs backend-init in the middle of the drill.
 compose up -d --no-deps --force-recreate nginx
 
-# ---- 3. the backend cleared its import-time boot guards --------------------
+# ---- 4. the backend cleared its import-time boot guards --------------------
 log "waiting for backend-init (migrate -> collectstatic -> ensure_site_admin)"
 deadline=$(( $(date +%s) + READY_TIMEOUT ))
 while :; do
@@ -321,7 +377,7 @@ admin_password="$(compose exec -T backend cat /tmp/visiban_admin_password 2>/dev
 the documented admin-password retrieval path (docs/getting-started/installation.md § Step 3) is broken. \
 See #1152."
 
-# ---- 4. readiness through nginx --------------------------------------------
+# ---- 5. readiness through nginx --------------------------------------------
 log "waiting for GET /api/health/readiness/ to report ready at ${BASE_URL}"
 deadline=$(( $(date +%s) + READY_TIMEOUT ))
 until [ "$("${CURL[@]}" -o /dev/null -w '%{http_code}' "${BASE_URL}/api/health/readiness/")" = "200" ]; do
@@ -336,7 +392,7 @@ grep -q '"status"[[:space:]]*:[[:space:]]*"ok"' <<<"${readyz}" || \
   fail "readiness 200 but status is not ok: ${readyz}"
 log "readiness reports ok through nginx — the real ingress path, not a container-internal probe"
 
-# ---- 5. NEGATIVE: the placeholder DJANGO_SECRET_KEY guard fails closed -----
+# ---- 6. NEGATIVE: the placeholder DJANGO_SECRET_KEY guard fails closed -----
 # db/valkey are already up and healthy from the run above, so this is a
 # single one-off `compose run` against the real image and the real settings
 # module — not a fixture standing in for either.
@@ -353,7 +409,7 @@ grep -q "DJANGO_SECRET_KEY must be set to a secure random value" <<<"${insecure_
 an unrelated error. Log: $(head -5 <<<"${insecure_log}")"
 log "placeholder DJANGO_SECRET_KEY is rejected, and for the right reason"
 
-# ---- 6. the stack survives a restart of the backend ------------------------
+# ---- 7. the stack survives a restart of the backend ------------------------
 # The failure this catches: a container that only boots because a sibling
 # was mid-initialization the first time — an ordering accident rather than a
 # dependency. backend-init has exited by now, so this restart runs against
