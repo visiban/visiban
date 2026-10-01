@@ -144,7 +144,7 @@ class BoardFullQueryCountTests(TestCase):
 
     # 17 measured with one board-level + one swimlane-level custom field
     # definition in the fixture (#1334); 19 gives a little headroom for
-    # middleware. Note: get_board_for_user()'s custom_field_definitions /
+    # middleware. Note: get_board_for_user()'s columns / custom_field_definitions /
     # swimlane_custom_field_definitions prefetch does NOT lower this number —
     # for a single-board fetch Django issues exactly one query per relation
     # whether it is prefetched or read lazily off the instance (prefetch only
@@ -342,6 +342,21 @@ class BoardForUserPrefetchTests(TestCase):
             "prefetches swimlane_custom_field_definitions (#1334).",
         )
 
+    def test_full_load_prefetches_columns(self):
+        from boards.views._helpers import get_board_for_user
+
+        Column.objects.create(board=self.board, name="Todo", position=0)
+        board, _role = get_board_for_user(
+            self.board.id, self.user, with_archived_card_count=True,
+        )
+        cache = getattr(board, "_prefetched_objects_cache", {})
+        self.assertIn(
+            "columns", cache,
+            "get_board_for_user(with_archived_card_count=True) no longer "
+            "prefetches columns — BoardFullSerializer would fall back to a "
+            "live query on every /full/ request (#1351).",
+        )
+
     def test_non_full_caller_does_not_pay_for_the_prefetch(self):
         """The many RBAC-only callers (cards/columns/swimlanes/labels/
         custom-fields views) pass no with_archived_card_count kwarg and must
@@ -353,6 +368,7 @@ class BoardForUserPrefetchTests(TestCase):
         cache = getattr(board, "_prefetched_objects_cache", {})
         self.assertNotIn("custom_field_definitions", cache)
         self.assertNotIn("swimlane_custom_field_definitions", cache)
+        self.assertNotIn("columns", cache)
 
 
 class BoardFullColdCacheAncestorTests(TestCase):

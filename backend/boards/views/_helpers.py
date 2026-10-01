@@ -168,6 +168,12 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
     never serializes either relation; prefetching them unconditionally would
     cost 2 extra queries on every card/column/swimlane/label mutation that
     shares this helper for nothing.
+
+    ``columns`` rides the same flag for the same reason (#1351): it is the
+    third relation BoardFullSerializer reads via a plain ``.all()``
+    (``ColumnSerializer(many=True)``) that this helper did not cover, and
+    the CSV/JSON export in ``import_export.py`` prefetches it at its own call
+    site (#994); it still does, because export does not pass this flag.
     """
     queryset = Board.objects.select_related(
         "owner",
@@ -216,6 +222,11 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
             # queries were already being issued live.
             "custom_field_definitions",
             "swimlane_custom_field_definitions",
+            # ``columns`` (#1351) follows the same rule: BoardFullSerializer
+            # declares ColumnSerializer(many=True) with no filter/order_by,
+            # and Column.Meta.ordering (["position"]) applies either way. Same
+            # zero measured query delta for a single board as above.
+            "columns",
         )
         queryset = queryset.annotate(
             _archived_card_count=Coalesce(
