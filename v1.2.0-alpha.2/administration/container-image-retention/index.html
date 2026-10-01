@@ -3226,69 +3226,14 @@
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ghcr-github-container-registry" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GHCR (GitHub Container Registry)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-scheduled-check-check-release-images" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The scheduled check: check-release-images
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#digest-pinning" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Digest pinning
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Digest pinning">
+    <nav class="md-nav" aria-label="GitLab container registry">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#finding-the-digest-for-a-release" class="md-nav__link">
+  <a href="#history-the-semver-anchored-form-predates-1190" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Finding the digest for a release
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pinning-docker-composeprodyml-by-digest" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pinning docker-compose.prod.yml by digest
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pinning-the-helm-chart-by-digest" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pinning the Helm chart by digest
+        History: the semver-anchored form predates #1190
       
     </span>
   </a>
@@ -3666,7 +3611,7 @@ release images are <strong>not yet</strong> scanned, SBOM'd, or signed the way T
 tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1153">#1153</a>. Below covers the
 registry-retention half and digest pinning, both of which apply regardless of #1153's status.</p>
 <h2 id="gitlab-container-registry">GitLab container registry<a class="headerlink" href="#gitlab-container-registry" title="Permanent link">&para;</a></h2>
-<p>Recorded 2026-09-27 via:</p>
+<p>Recorded 2026-10-01 via:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>glab<span class="w"> </span>api<span class="w"> </span><span class="s2">"projects/visiban%2Fvisiban"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.container_expiration_policy'</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
@@ -3675,50 +3620,83 @@ registry-retention half and digest pinning, both of which apply regardless of #1
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">"keep_n"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">"older_than"</span><span class="p">:</span><span class="w"> </span><span class="s2">"90d"</span><span class="p">,</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">"name_regex"</span><span class="p">:</span><span class="w"> </span><span class="s2">".*"</span><span class="p">,</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">"name_regex_keep"</span><span class="p">:</span><span class="w"> </span><span class="s2">"v.*"</span><span class="p">,</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">"next_run_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-26T23:52:16.652Z"</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">"name_regex_keep"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest)\\z"</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">"next_run_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-02T16:35:33.317Z"</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
 </code></pre></div>
 <p>A tag matching <code>name_regex_keep</code> is <strong>never</strong> swept, regardless of age or the <code>keep_n</code>/
 <code>older_than</code> count-and-age limits that apply to everything else <code>name_regex</code> matches. Reading
 this policy against Visiban's actual tag set:</p>
 <ul>
-<li><strong><code>v*</code> release tags are unconditionally protected.</strong> <code>name_regex_keep: "v.*"</code> matches every
-  <code>vX.Y.Z</code>(-alpha/beta/rc.N) tag this repo's kaniko push jobs create, so a released tag
-  cannot be reaped by this policy no matter how old it gets or how many other tags have been
-  pushed since. This is the exact gap TruePPM's incident exploited — it is closed here.</li>
-<li><strong><code>latest</code> is <em>not</em> unconditionally protected.</strong> <code>name_regex_keep: "v.*"</code> does not match
-  the literal string <code>latest</code>. It survives today only because <code>backend-docker-push</code> /
-  <code>frontend-docker-push</code> re-push <code>:latest</code> on every <code>main</code>-branch merge, which almost always
-  keeps it inside <code>keep_n: 10</code> most-recently-pushed or younger than <code>older_than: 90d</code>. If
-  <code>main</code> ever goes 90+ days without a merge to either image <em>and</em> 10 other tags get pushed in
-  the meantime, <code>latest</code> becomes eligible for the sweep — a scenario the policy does not rule
-  out, only makes unlikely under normal development cadence.</li>
-<li><strong>Known tradeoff, not yet addressed: per-arch <code>-amd64</code>/<code>-arm64</code> tags accumulate forever.</strong>
-  Since #1084, each release tag also pushes <code>:&lt;tag&gt;-amd64</code> and <code>:&lt;tag&gt;-arm64</code> on both
-  registries — the source images <code>backend-manifest</code> / <code>frontend-manifest</code> combine into the
-  real multi-arch <code>:&lt;tag&gt;</code> / <code>:latest</code> / <code>:MAJOR.MINOR</code>. On the GitLab registry,
-  <code>name_regex_keep: "v.*"</code> matches these too (they start with <code>v</code>), so they're protected
-  from the sweep the same as the real release tags — meaning they're never cleaned up,
-  not just protected from premature deletion. On GHCR there is no cleanup at all (see below),
-  so they accumulate there unconditionally. Neither is a correctness problem — the per-arch
-  tags are only ever consumed by the manifest-assembly job, immediately after being pushed —
-  but it is unbounded storage growth with no code path that reclaims it. Tracked in <strong>#1196</strong>
-  (delete the per-arch tags after manifest assembly, or exclude them from the keep-regex);
-  not fixed by #1084 itself.</li>
+<li><strong><code>v*</code> release tags and <code>latest</code> are both unconditionally protected (#1190).</strong> The
+  alternation matches every <code>vX.Y.Z</code>(-alpha/beta/rc.N) release tag this repo's publish
+  pipeline creates, and the literal string <code>latest</code>, so neither can be reaped by this policy
+  no matter how old it gets or how many other tags have been pushed since. <code>v*</code> protection is
+  the exact gap TruePPM's incident exploited — it predates this page's history. <code>latest</code>
+  previously survived only incidentally, via <code>backend-docker-push</code>/<code>frontend-docker-push</code>
+  re-pushing <code>:latest</code> on every <code>main</code>-branch merge, which almost always kept it inside
+  <code>keep_n: 10</code> most-recently-pushed or younger than <code>older_than: 90d</code> — a mechanism that
+  stops working the moment <code>main</code> goes 90+ days without a merge to either image while 10
+  other tags get pushed in the meantime. #1190 closes that gap unconditionally instead of
+  relying on development cadence.</li>
 </ul>
-<p><strong>This change does not modify the policy.</strong> Changing a GitLab project setting is an
-outward-facing admin action outside this branch's scope (#1074). If you want to close the
-<code>latest</code> gap, the exact call is:</p>
+<h3 id="history-the-semver-anchored-form-predates-1190">History: the semver-anchored form predates #1190<a class="headerlink" href="#history-the-semver-anchored-form-predates-1190" title="Permanent link">&para;</a></h3>
+<p>The keep-regex above is anchored to a strict semver shape
+(<code>^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?\z</code>) rather than the looser, unanchored
+<code>v.*</code> this page recorded through 2026-09-29. That tightening was <strong>already live</strong> when</p>
+<h1 id="1190s-audit-started-2026-10-01-1190-only-added-the-latest-alternative-alongside-it">1190's audit started (2026-10-01) — #1190 only added the <code>|latest</code> alternative alongside it,<a class="headerlink" href="#1190s-audit-started-2026-10-01-1190-only-added-the-latest-alternative-alongside-it" title="Permanent link">&para;</a></h1>
+<p>it did not introduce the semver anchoring.</p>
+<p>The anchored form traces to commit <code>6dfcad088</code> ("feat(ci): restore native arm64 image
+publishing (#1084)", 2026-09-27) on branch <code>feat/1084-restore-arm64-image-publish</code>. That
+commit's message documents applying this exact regex via the GitLab API that same day,
+<strong>specifically so the <code>-amd64</code>/<code>-arm64</code> intermediate tags #1084 introduces would not match
+<code>name_regex_keep</code></strong> and would instead fall back to the ordinary <code>keep_n</code>/<code>older_than</code> sweep
+rather than being retained forever (the old unanchored <code>v.*</code> matched those too, since they
+start with <code>v</code>). This is deliberate, not an oversight — it is recorded here because the
+branch that documents it was never merged: #1084 shipped via a different implementation
+(<code>docker buildx imagetools create</code> was dropped in favor of <code>manifest-tool</code>; see merged
+commits <code>720d21b5e</code> and <code>40d52cea2</code>), so that branch's doc update, including this history,
+never reached <code>main</code>. The live GitLab setting, changed directly via the API, was unaffected
+by which branch merged and was never reverted — so it was already in this tightened shape
+when #1190 began, and this page is only now catching up to it.</p>
+<ul>
+<li><strong>Per-arch <code>-amd64</code>/<code>-arm64</code> intermediate tags: swept by <code>keep_n</code>/<code>older_than</code> on GitLab,
+  unconditionally retained on GHCR.</strong> Each release tag pushes <code>&lt;tag&gt;-amd64</code> and <code>&lt;tag&gt;-arm64</code>
+  (e.g. <code>v1.2.0-amd64</code>) on both registries before <code>backend-manifest</code>/<code>frontend-manifest</code>
+  combine them into the real multi-arch <code>:&lt;tag&gt;</code>/<code>:latest</code>/<code>:MAJOR.MINOR</code>. The anchored regex
+  does <strong>not</strong> match these: the <code>\z</code> anchor requires the string to end right after the
+  optional prerelease group, so a trailing <code>-amd64</code>/<code>-arm64</code> suffix breaks the match. On the
+  GitLab registry they therefore fall back to the ordinary <code>keep_n: 10</code>/<code>older_than: 90d</code>
+  sweep that <code>name_regex: ".*"</code> subjects everything else to — they get cleaned up in due
+  course, not retained forever, as a direct result of the 2026-09-27 tightening above. On
+  GHCR there is still no cleanup mechanism at all (see below), so they accumulate there
+  unconditionally regardless of tag shape. Whether reclaiming them only after a <code>keep_n</code>/90d
+  wait (versus immediately after manifest assembly) is good enough is a separate question
+  still tracked in <strong>#1196</strong>.</li>
+<li><strong><code>MAJOR.MINOR</code> alias tags (e.g. <code>1.2</code>) are also not protected.</strong> For a stable release,
+  <code>backend-manifest</code>/<code>frontend-manifest</code> additionally alias the manifest onto a bare
+  <code>MAJOR.MINOR</code> tag with the leading <code>v</code> stripped (<code>manifest-tool ... --tags latest,1.2</code> from
+  <code>v1.2.0</code>) — so the pushed tag is literally <code>1.2</code>, not <code>v1.2</code>. The keep-regex only matches a
+  <code>v</code>-prefixed, three-component version or the literal <code>latest</code>, so <code>1.2</code> falls back to the
+  same <code>keep_n</code>/<code>older_than</code> sweep as the per-arch tags on GitLab, and is never cleaned up on
+  GHCR. No commit or issue found states this was a deliberate design decision for <code>MAJOR.MINOR</code>
+  tags specifically — it reads as an incidental consequence of the per-arch-tag anchoring
+  above rather than a considered choice, and should be treated as unrecorded, not intended,
+  until someone confirms otherwise.</li>
+</ul>
+<h3 id="1190-update-latest-added-to-the-keep-regex">#1190 update: <code>latest</code> added to the keep-regex<a class="headerlink" href="#1190-update-latest-added-to-the-keep-regex" title="Permanent link">&para;</a></h3>
+<p>The call actually used, 2026-10-01 (kept the existing semver strictness from the history
+above, and added <code>latest</code> alongside it):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>glab<span class="w"> </span>api<span class="w"> </span><span class="s2">"projects/visiban%2Fvisiban"</span><span class="w"> </span>--method<span class="w"> </span>PUT<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--header<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--input<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s">{"container_expiration_policy_attributes": {"name_regex_keep": "^(v.*|latest)\\z"}}</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s">{"container_expiration_policy_attributes": {"name_regex_keep": "^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest)\\z"}}</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="s">EOF</span>
 </code></pre></div>
-<p>Verify afterward with the same <code>jq '.container_expiration_policy'</code> read above. (Using <code>\z</code>
-rather than <code>$</code> anchors the regex to the true end of string, not "end of line" — GitLab's
-cleanup policy regex is a Ruby <code>Regexp</code>, where <code>$</code> also matches before a trailing newline.)</p>
+<p>Verified against the same <code>jq '.container_expiration_policy'</code> read above — see the recorded
+JSON at the top of this section. (Using <code>\z</code> rather than <code>$</code> anchors the regex to the true end
+of string, not "end of line" — GitLab's cleanup policy regex is a Ruby <code>Regexp</code>, where <code>$</code>
+also matches before a trailing newline.)</p>
 <h2 id="ghcr-github-container-registry">GHCR (GitHub Container Registry)<a class="headerlink" href="#ghcr-github-container-registry" title="Permanent link">&para;</a></h2>
 <p>GHCR has <strong>no per-package automatic retention/cleanup policy setting</strong> at all, on any GitHub
 plan — unlike GitLab's project-level <code>container_expiration_policy</code>, there is no equivalent
