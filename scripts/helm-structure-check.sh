@@ -1545,13 +1545,18 @@ self_test() {
 
   # Control: the UNDAMAGED chart (minus subcharts) must pass. Without this, a
   # check that fails on everything would score a perfect self-test.
-  local control="$tmp/control"
+  local control="$tmp/control" control_log="$tmp/control-run.log"
   cp -R "$CHART_DIR" "$control"
-  if ( RENDERED="$tmp/control.yaml"; render "$control" "$RENDERED"; FAILURES=0; run_all_checks >/dev/null 2>&1; [ "$FAILURES" -eq 0 ] ); then
+  if ( RENDERED="$tmp/control.yaml"; render "$control" "$RENDERED"; FAILURES=0; run_all_checks > "$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
     echo "  ✓ control: the undamaged chart passes"
     passes=$((passes + 1))
   else
+    # Unlike every fixture above, a control failure has no injected damage to
+    # name — it means the undamaged chart itself trips one of the checks, so
+    # the failing check's own output is the only lead. Printed here rather
+    # than left in $control_log, which this function deletes on return.
     echo "  ✗ SELF-TEST FAIL: the undamaged chart does not pass — every fixture result above is meaningless" >&2
+    sed 's/^/      /' "$control_log" >&2
     selftest_failures=$((selftest_failures + 1))
   fi
 
