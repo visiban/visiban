@@ -1105,11 +1105,12 @@ class VisibanSignupView(AllauthSignupView):
 
         from .models import SiteSetting, get_registration_mode
 
-        code = (
-            "invite_required"
-            if get_registration_mode() == SiteSetting.RegistrationMode.INVITE_ONLY
-            else "signup_closed"
-        )
+        # One read of the mode decides the code. INVITE_ONLY is the only mode
+        # with its own message; any other reason for a closed result (CLOSED,
+        # or a mode flipped between the adapter's read and this one) reports
+        # signup_closed.
+        mode = get_registration_mode()
+        code = "invite_required" if mode == SiteSetting.RegistrationMode.INVITE_ONLY else "signup_closed"
         frontend_url = getattr(settings, "LOGIN_REDIRECT_URL", None) or "/"
         separator = "&" if "?" in frontend_url else "?"
         return HttpResponseRedirect(f"{frontend_url}{separator}{urlencode({'auth_error': code})}")

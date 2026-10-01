@@ -11,7 +11,6 @@ from accounts.views import (
     EmailConfirmRedirectView,
     InviteRegisterView,
     SocialSignupRedirectView,
-    VisibanSignupView,
     ThrottledLoginView,
     ThrottledPasswordResetConfirmView,
     ThrottledPasswordResetView,
@@ -20,6 +19,7 @@ from accounts.views import (
     VerifyEmailThrottle,
     VerifyEmailView,
     VisibanEmailView,
+    VisibanSignupView,
 )
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 

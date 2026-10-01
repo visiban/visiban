@@ -54,6 +54,22 @@ class HtmlSignupClosedRedirectTests(TestCase):
         self._assert_redirect(self.client.post("/accounts/signup/", self.payload), "invite_required")
         self.assertFalse(User.objects.filter(username="newperson").exists())
 
+    def test_next_param_is_ignored(self):
+        _set_mode(SiteSetting.RegistrationMode.CLOSED)
+        self._assert_redirect(self.client.get("/accounts/signup/?next=https://evil.example"), "signup_closed")
+        resp = self.client.post(
+            "/accounts/signup/?next=https://evil.example", {**self.payload, "next": "https://evil.example"}
+        )
+        self._assert_redirect(resp, "signup_closed")
+
+    def test_other_methods_redirect_and_create_no_user(self):
+        _set_mode(SiteSetting.RegistrationMode.CLOSED)
+        for method in ("head", "options", "put", "delete"):
+            with self.subTest(method=method):
+                resp = getattr(self.client, method)("/accounts/signup/")
+                self._assert_redirect(resp, "signup_closed")
+        self.assertFalse(User.objects.filter(username="newperson").exists())
+
     def test_open_mode_unchanged(self):
         _set_mode(SiteSetting.RegistrationMode.OPEN)
         resp = self.client.get("/accounts/signup/")
