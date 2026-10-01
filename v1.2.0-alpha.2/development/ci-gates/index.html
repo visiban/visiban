@@ -3727,6 +3727,10 @@ own header — is never mistaken for a real exemption.</p>
 <td>Live Calico kind-cluster NetworkPolicy enforcement drill, same reasoning — its NEGATIVE/CONTROL pairs are the known-bad/known-good proof, against real Calico rather than a fixture.</td>
 </tr>
 <tr>
+<td><code>scripts/prod-compose-drill.sh</code></td>
+<td>Live Docker Compose boot drill for the production stack — a synthetic self-test would need to boot a second real stack. Its own NEGATIVE case (a boot with the placeholder <code>DJANGO_SECRET_KEY</code> must be rejected) is the known-bad-input assertion, run against the real <code>docker-compose.prod.yml</code> instead of a fixture. See <a href="https://gitlab.com/visiban/visiban/-/issues/1152">#1152</a>.</td>
+</tr>
+<tr>
 <td><code>scripts/oidc_provision.py</code></td>
 <td>Provisioning against a live Keycloak Admin REST API — setup, not detection logic. Its correctness is exercised end-to-end by <code>oidc_smoke_test.py</code>.</td>
 </tr>
