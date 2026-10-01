@@ -86,7 +86,7 @@ class SecretEnvVerbatimTests(SimpleTestCase):
         got = json.loads(result.stdout.strip())
         for name in _SECRET_VARS:
             key = "SECRET_KEY" if name == "DJANGO_SECRET_KEY" else name
-            self.assertEqual(got[key], values[name], msg=name)
+            self.assertTrue(got[key] == values[name], msg=name)
 
     def test_dollar_value_naming_a_set_variable_is_not_proxied(self):
         # "$GOOGLE_CLIENT_ID" must not resolve to the other variable's value.
@@ -101,14 +101,17 @@ class SecretEnvVerbatimTests(SimpleTestCase):
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         got = json.loads(result.stdout.strip())
-        self.assertEqual(got["GOOGLE_CLIENT_SECRET"], "$GOOGLE_CLIENT_ID")
+        self.assertTrue(got["GOOGLE_CLIENT_SECRET"] == "$GOOGLE_CLIENT_ID")
 
     def test_defaults_preserved_when_unset(self):
         script = _SCRIPT.replace(
             'p["openid_connect"]["APPS"][0]["client_id"]', '"n/a"'
         ).replace('p["openid_connect"]["APPS"][0]["secret"]', '"n/a"')
+        # Set every secret var explicitly: settings.py's read_env(.env) only
+        # fills *unset* vars, so a seeded backend/.env cannot leak in.
         env = {
             **_BASE_ENV,
+            **{name: "" for name in _SECRET_VARS if name != "DJANGO_SECRET_KEY"},
             "PYTHONPATH": os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
         }
         result = subprocess.run(
@@ -121,10 +124,11 @@ class SecretEnvVerbatimTests(SimpleTestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         got = json.loads(result.stdout.strip())
         for key in ("EMAIL_HOST_PASSWORD", "DEMO_ADMIN_PASSWORD", "GOOGLE_CLIENT_SECRET"):
-            self.assertEqual(got[key], "", msg=key)
+            self.assertTrue(got[key] == "", msg=key)
 
     def test_missing_secret_key_still_raises(self):
-        env = {k: v for k, v in _BASE_ENV.items() if k != "DJANGO_SECRET_KEY"}
+        # Explicit empty value: an unset key could be filled in from .env.
+        env = {**_BASE_ENV, "DJANGO_SECRET_KEY": ""}
         env["PYTHONPATH"] = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         result = subprocess.run(
             [sys.executable, "-c", _SCRIPT],

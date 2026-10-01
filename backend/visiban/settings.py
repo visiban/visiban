@@ -162,7 +162,8 @@ def _secret_env(name, default=None):
             raise ImproperlyConfigured(f"Set the {name} environment variable") from None
         return default
 
-SECRET_KEY = _secret_env("DJANGO_SECRET_KEY")
+
+SECRET_KEY =_secret_env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 
 # Reject placeholder secret keys in production. This guard fires at startup so a
