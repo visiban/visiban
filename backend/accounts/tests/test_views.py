@@ -41,6 +41,16 @@ class CurrentUserViewTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.has_completed_tour)
 
+    def test_patch_has_completed_tour_reset(self):
+        """User can reset the onboarding tour via PATCH has_completed_tour=False."""
+        self.user.has_completed_tour = True
+        self.user.save(update_fields=["has_completed_tour"])
+        r = self.client.patch("/api/v1/auth/me/", {"has_completed_tour": False})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertFalse(r.json()["has_completed_tour"])
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.has_completed_tour)
+
     def test_get_returns_has_completed_tour(self):
         """GET /api/auth/me/ includes has_completed_tour in the response."""
         r = self.client.get("/api/v1/auth/me/")

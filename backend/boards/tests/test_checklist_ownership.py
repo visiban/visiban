@@ -128,6 +128,37 @@ class ChecklistOwnershipGateTests(TestCase):
         r = self.client.patch(self._item_url(item.pk), {"text": "Admin edit"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
+    def _make_moderator(self, username):
+        # Moderator is only grantable to member/admin roles (see the members
+        # endpoint), so the fixture mirrors a real moderator membership.
+        moderator = User.objects.create_user(username=username, password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=moderator,
+            role=BoardMembership.Role.MEMBER, is_moderator=True,
+        )
+        return moderator
+
+    @patch(PATCH_BROADCAST)
+    def test_moderator_can_delete_any_item(self, _):
+        """A member with is_moderator=True may delete any collaborator's item."""
+        moderator = self._make_moderator("moderator")
+        item = _make_item(self.card, self.collab)
+        self.client.force_authenticate(moderator)
+        r = self.client.delete(self._item_url(item.pk))
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(CardChecklist.objects.filter(pk=item.pk).exists())
+
+    @patch(PATCH_BROADCAST)
+    def test_moderator_can_patch_any_item(self, _):
+        """A member with is_moderator=True may edit any collaborator's item."""
+        moderator = self._make_moderator("moderator2")
+        item = _make_item(self.card, self.collab)
+        self.client.force_authenticate(moderator)
+        r = self.client.patch(self._item_url(item.pk), {"text": "Moderator edit"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        item.refresh_from_db()
+        self.assertEqual(item.text, "Moderator edit")
+
     @patch(PATCH_BROADCAST)
     def test_null_created_by_is_unrestricted(self, _):
         """Pre-migration items with null created_by must not be blocked for any collaborator."""
