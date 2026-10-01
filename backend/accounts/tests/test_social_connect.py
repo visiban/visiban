@@ -76,7 +76,7 @@ class EmailCollisionRoutingTests(TestCase):
         return _query(ctx.exception.response)
 
     def test_password_account_gets_account_exists_with_provider(self):
-        User.objects.create_user(username="alice", email="alice@example.com", password="pw-123456789")
+        User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
         request = _request()
 
         _, params = self._run(request, _sociallogin(request, "alice@example.com"))
@@ -84,7 +84,7 @@ class EmailCollisionRoutingTests(TestCase):
         self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
 
     def test_collision_stashes_pending_connect_for_the_matched_account(self):
-        alice = User.objects.create_user(username="alice", email="alice@example.com", password="pw-123456789")
+        alice = User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
         request = _request()
 
         self._run(request, _sociallogin(request, "alice@example.com"))
@@ -95,7 +95,7 @@ class EmailCollisionRoutingTests(TestCase):
         self.assertGreater(pending["expires_at"], time.time() + 9 * 60)
 
     def test_match_is_case_insensitive(self):
-        User.objects.create_user(username="alice", email="Alice@Example.COM", password="pw-123456789")
+        User.objects.create_user(username="alice", email="Alice@Example.COM", password="testpassword123")
         request = _request()
 
         _, params = self._run(request, _sociallogin(request, "alice@example.com"))
@@ -103,7 +103,7 @@ class EmailCollisionRoutingTests(TestCase):
         self.assertEqual(params["auth_error"], "account_exists")
 
     def test_plus_tags_and_dots_are_different_addresses(self):
-        User.objects.create_user(username="alice", email="alice@gmail.com", password="pw-123456789")
+        User.objects.create_user(username="alice", email="alice@gmail.com", password="testpassword123")
         for other in ("alice+work@gmail.com", "a.lice@gmail.com"):
             request = _request()
             # No collision: the hook returns and allauth carries on to signup.
@@ -113,7 +113,7 @@ class EmailCollisionRoutingTests(TestCase):
     def test_admin_created_user_without_email_address_row_is_found(self):
         """allauth's assess_unique_email only reads EmailAddress rows; an
         admin-created account has none and must still be detected."""
-        User.objects.create_user(username="made", email="made@example.com", password="pw-123456789")
+        User.objects.create_user(username="made", email="made@example.com", password="testpassword123")
         self.assertFalse(EmailAddress.objects.exists())
         request = _request()
 
@@ -122,7 +122,7 @@ class EmailCollisionRoutingTests(TestCase):
         self.assertEqual(params["auth_error"], "account_exists")
 
     def test_secondary_email_address_row_is_found(self):
-        user = User.objects.create_user(username="bea", email="bea@primary.example", password="pw-123456789")
+        user = User.objects.create_user(username="bea", email="bea@primary.example", password="testpassword123")
         EmailAddress.objects.create(user=user, email="bea@secondary.example", verified=True)
         self.assertEqual(list(find_accounts_for_email("BEA@secondary.example")), [user])
 
@@ -203,7 +203,7 @@ class EmailCollisionRoutingTests(TestCase):
         self.assertEqual(params["via"], "google")
 
     def test_unverified_secondary_listed_first_does_not_collide(self):
-        User.objects.create_user(username="dora", email="dora@example.com", password="pw-123456789")
+        User.objects.create_user(username="dora", email="dora@example.com", password="testpassword123")
         request = _request()
         sociallogin = _sociallogin(request, "new-primary@example.com")
         sociallogin.email_addresses = [
@@ -214,7 +214,7 @@ class EmailCollisionRoutingTests(TestCase):
 
     def test_deactivated_account_is_not_revealed(self):
         User.objects.create_user(
-            username="gone", email="gone@example.com", password="pw-123456789", is_active=False
+            username="gone", email="gone@example.com", password="testpassword123", is_active=False
         )
         request = _request()
 
@@ -233,7 +233,7 @@ class EmailCollisionRoutingTests(TestCase):
         self.assertIsNone(pre_social_login(request, _sociallogin(request, "")))
 
     def test_existing_connected_identity_just_logs_in(self):
-        alice = User.objects.create_user(username="alice", email="alice@example.com", password="pw-123456789")
+        alice = User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
         SocialAccount.objects.create(user=alice, provider="github", uid="gh-1", extra_data={})
         request = _request()
 
@@ -246,8 +246,8 @@ class SharedBrowserTests(TestCase):
 
     def setUp(self):
         cache.clear()
-        self.victim = User.objects.create_user(username="victim", email="victim@example.com", password="pw-123456789")
-        self.other = User.objects.create_user(username="other", email="other@example.com", password="pw-123456789")
+        self.victim = User.objects.create_user(username="victim", email="victim@example.com", password="testpassword123")
+        self.other = User.objects.create_user(username="other", email="other@example.com", password="testpassword123")
 
     def _client_with_collision_stash(self):
         """Run a real collision through the adapter, then copy the resulting
@@ -276,7 +276,7 @@ class SharedBrowserTests(TestCase):
         client = self._client_with_collision_stash()
         self.assertIn(PENDING_CONNECT_SESSION_KEY, client.session)
 
-        r = client.post("/api/v1/auth/login/", {"username": "other", "password": "pw-123456789"})
+        r = client.post("/api/v1/auth/login/", {"username": "other", "password": "testpassword123"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
         self.assertNotIn(PENDING_CONNECT_SESSION_KEY, client.session)
@@ -287,7 +287,7 @@ class SharedBrowserTests(TestCase):
     def test_stash_survives_only_for_the_matched_account_and_names_the_identity(self):
         client = self._client_with_collision_stash()
 
-        client.post("/api/v1/auth/login/", {"username": "victim", "password": "pw-123456789"})
+        client.post("/api/v1/auth/login/", {"username": "victim", "password": "testpassword123"})
 
         body = client.get("/api/v1/auth/user/").json()
         self.assertEqual(body["pending_connect_provider"], "github")
@@ -296,10 +296,10 @@ class SharedBrowserTests(TestCase):
 
     def test_logout_clears_the_stash(self):
         client = self._client_with_collision_stash()
-        client.post("/api/v1/auth/login/", {"username": "victim", "password": "pw-123456789"})
+        client.post("/api/v1/auth/login/", {"username": "victim", "password": "testpassword123"})
 
         client.post("/api/v1/auth/logout/")
-        client.post("/api/v1/auth/login/", {"username": "victim", "password": "pw-123456789"})
+        client.post("/api/v1/auth/login/", {"username": "victim", "password": "testpassword123"})
 
         self.assertIsNone(client.get("/api/v1/auth/user/").json()["pending_connect_provider"])
 
@@ -315,8 +315,8 @@ class InviteInFlightTests(TestCase):
     """account_exists beats invite_* and signup-closed, and keeps the invite."""
 
     def setUp(self):
-        self.creator = User.objects.create_user(username="creator", password="pw-123456789")
-        User.objects.create_user(username="alice", email="alice@example.com", password="pw-123456789")
+        self.creator = User.objects.create_user(username="creator", password="testpassword123")
+        User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
 
     def _set_mode(self, mode):
         setting = SiteSetting.get()
@@ -371,8 +371,8 @@ class ConnectProcessTests(TestCase):
     """process=connect: refusing someone else's identity, and the redirect."""
 
     def setUp(self):
-        self.alice = User.objects.create_user(username="alice", email="alice@example.com", password="pw-123456789")
-        self.bob = User.objects.create_user(username="bob", email="bob@example.com", password="pw-123456789")
+        self.alice = User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
+        self.bob = User.objects.create_user(username="bob", email="bob@example.com", password="testpassword123")
 
     def test_identity_connected_elsewhere_is_refused(self):
         SocialAccount.objects.create(user=self.bob, provider="github", uid="gh-1", extra_data={})
@@ -465,7 +465,7 @@ class PendingConnectProviderFieldTests(TestCase):
 
     def setUp(self):
         cache.clear()
-        self.user = User.objects.create_user(username="alice", email="alice@example.com", password="pw-123456789")
+        self.user = User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
         self.client = APIClient()
         self.client.force_login(self.user)
 
@@ -499,7 +499,7 @@ class PendingConnectProviderFieldTests(TestCase):
     def test_stash_for_another_account_is_ignored(self):
         """A different person signing in on a shared browser is never asked
         to connect a stranger's identity."""
-        other = User.objects.create_user(username="bob", password="pw-123456789")
+        other = User.objects.create_user(username="bob", password="testpassword123")
         self._stash(user_ids=[other.pk])
         self.assertIsNone(self._field())
 
@@ -534,7 +534,7 @@ class PendingConnectProviderFieldTests(TestCase):
         }
         session.save()
 
-        r = client.post("/api/v1/auth/login/", {"username": "alice", "password": "pw-123456789"})
+        r = client.post("/api/v1/auth/login/", {"username": "alice", "password": "testpassword123"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(client.get("/api/v1/auth/user/").json()["pending_connect_provider"], "github")
 
@@ -543,7 +543,7 @@ class PendingConnectProviderFieldTests(TestCase):
 class ConnectedAccountsEndpointTests(TestCase):
     def setUp(self):
         cache.clear()
-        self.user = User.objects.create_user(username="alice", email="alice@example.com", password="pw-123456789")
+        self.user = User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
         self.client = APIClient()
         self.client.force_login(self.user)
 
@@ -569,7 +569,7 @@ class ConnectedAccountsEndpointTests(TestCase):
         self.assertEqual(providers, ["google", "github", "gitlab"])
 
     def test_list_is_only_the_requesting_users(self):
-        bob = User.objects.create_user(username="bob", password="pw-123456789")
+        bob = User.objects.create_user(username="bob", password="testpassword123")
         SocialAccount.objects.create(user=bob, provider="github", uid="gh-bob", extra_data={})
         rows = {r["provider"]: r for r in self.client.get(LIST_URL).json()}
         self.assertFalse(rows["github"]["connected"])
@@ -623,7 +623,7 @@ class ConnectedAccountsEndpointTests(TestCase):
         self.assertTrue(SocialAccount.objects.filter(user=self.user, provider="google").exists())
 
     def test_cannot_disconnect_another_users_account(self):
-        bob = User.objects.create_user(username="bob", password="pw-123456789")
+        bob = User.objects.create_user(username="bob", password="testpassword123")
         SocialAccount.objects.create(user=bob, provider="github", uid="gh-bob", extra_data={})
 
         response = self.client.delete(f"{LIST_URL}github/")
