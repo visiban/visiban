@@ -18,13 +18,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run as non-root for defense in depth.
-# Create /app/media explicitly so it is owned by the service user before
-# the VOLUME directive fires. Without mkdir here, Docker creates the mount
-# point as root:root (world-readable) because the chown -R runs before the
-# directory exists.
+# Create /app/media and /app/staticfiles explicitly so they are owned by the
+# service user before docker-compose.prod.yml's named volumes mount over them.
+# Without mkdir here, Docker creates the mount point as root:root (world-readable)
+# on first boot, because the chown -R runs before the directory exists —
+# collectstatic (uid 1001) then gets PermissionError writing into it.
 RUN addgroup --system --gid 1001 visiban \
     && adduser --system --uid 1001 --ingroup visiban visiban \
-    && mkdir -p /app/media \
+    && mkdir -p /app/media /app/staticfiles \
     && chown -R visiban:visiban /app
 
 # /app/media holds user-uploaded attachments. Declare it as a volume so that
