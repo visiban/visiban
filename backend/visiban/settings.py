@@ -163,7 +163,7 @@ def _secret_env(name, default=None):
         return default
 
 
-SECRET_KEY =_secret_env("DJANGO_SECRET_KEY")
+SECRET_KEY = _secret_env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 
 # Reject placeholder secret keys in production. This guard fires at startup so a
@@ -1058,7 +1058,7 @@ NOTIFICATION_EMAIL_ASYNC = env.bool("NOTIFICATION_EMAIL_ASYNC", default=True)
 # key is derived from SECRET_KEY — see visiban/crypto.py for why that is the
 # default rather than a mandatory variable. Validated eagerly so a malformed
 # value fails at boot rather than at the first password save.
-SECRET_ENCRYPTION_KEY = env("VISIBAN_SECRET_ENCRYPTION_KEY", default="")
+SECRET_ENCRYPTION_KEY = _secret_env("VISIBAN_SECRET_ENCRYPTION_KEY", default="")
 if SECRET_ENCRYPTION_KEY:
     import base64 as _b64
 

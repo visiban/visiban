@@ -123,7 +123,11 @@ class SecretEnvVerbatimTests(SimpleTestCase):
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         got = json.loads(result.stdout.strip())
-        for key in ("EMAIL_HOST_PASSWORD", "DEMO_ADMIN_PASSWORD", "GOOGLE_CLIENT_SECRET"):
+        for key in (
+            "EMAIL_HOST_PASSWORD",
+            "DEMO_ADMIN_PASSWORD",
+            "GOOGLE_CLIENT_SECRET",
+        ):
             self.assertTrue(got[key] == "", msg=key)
 
     def test_missing_secret_key_still_raises(self):
