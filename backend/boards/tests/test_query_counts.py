@@ -91,8 +91,10 @@ def _add_lanes_with_cards_and_values(board, owner, cols, defs, start, count):
 
     Unlike the empty lanes in ``SwimlaneParkedPrefetchQueryCountTests``, every
     lane here carries one card per column (so per-lane card grouping runs) and
-    a value for each of ``defs`` -- which must mix ``is_admin_only`` True and
-    False so the per-value definition lookup is exercised (#1335).
+    a value for each of ``defs``. Whether the per-value ``is_admin_only``
+    definition lookup is exercised depends on the viewer: only the non-admin
+    (public ``SwimlaneSerializer``) tests read it; an admin viewer never does.
+    Pass a mix of ``is_admin_only`` True and False in ``defs`` for those (#1335).
     """
     for i in range(start, start + count):
         lane = Swimlane.objects.create(board=board, name=f"Extra {i}", position=i)
@@ -105,6 +107,7 @@ def _add_lanes_with_cards_and_values(board, owner, cols, defs, start, count):
             SwimlaneCustomFieldValue.objects.create(
                 swimlane=lane, field_definition=d, value="v",
             )
+
 
 def _query_count_and_response(fn):
     """Like ``_query_count`` but also returns the response, so a test can
@@ -231,10 +234,12 @@ class BoardFullQueryCountTests(TestCase):
     def test_full_budget_scales_with_swimlanes(self):
         """Adding more swimlanes must not increase the query count (#1335).
 
-        Differs from the #1223 test in SwimlaneParkedPrefetchQueryCountTests:
-        the added lanes contain cards and carry values for both an
-        ``is_admin_only`` and a non-admin-only definition, so per-lane card
-        grouping and per-value ``is_admin_only`` resolution are exercised.
+        Viewed as the board admin (``SwimlaneAdminSerializer``). Differs from
+        the #1223 test in SwimlaneParkedPrefetchQueryCountTests: the added
+        lanes contain cards and carry values, so per-lane card grouping and
+        the value prefetch are exercised. The ``is_admin_only`` definition
+        lookup is NOT -- admins never read it; see the non-admin viewer
+        variant below for that path.
         """
         defs = [
             SwimlaneCustomFieldDefinition.objects.get(board=self.board, name="Owner"),
@@ -256,6 +261,48 @@ class BoardFullQueryCountTests(TestCase):
             f"full/ query count grew from {baseline} to {more} when swimlanes "
             "(with cards and admin-only values) were added — per-swimlane "
             "query regression (#1335).",
+        )
+
+    def test_full_budget_scales_with_swimlanes_non_admin_viewer(self):
+        """Same as above but viewed by a direct board ``viewer``, so the public
+        ``SwimlaneSerializer`` path -- which reads each value's definition to
+        filter ``is_admin_only`` -- is the one that must stay flat (#1335).
+        """
+        viewer = User.objects.create_user(username="u2_viewer", password="x")
+        BoardMembership.objects.create(board=self.board, user=viewer, role="viewer")
+        client = APIClient()
+        client.force_authenticate(viewer)
+
+        def get_full():
+            return client.get(f"/api/v1/boards/{self.board.id}/full/")
+
+        admin_def = SwimlaneCustomFieldDefinition.objects.get(board=self.board, name="Owner")
+        public_def = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Public", field_type="text",
+            position=1, is_admin_only=False,
+        )
+        defs = [admin_def, public_def]
+        _add_lanes_with_cards_and_values(self.board, self.user, self.cols, defs, 5, 3)
+        baseline, r1 = _query_count_and_response(get_full)
+
+        _add_lanes_with_cards_and_values(self.board, self.user, self.cols, defs, 8, 7)
+        more, r2 = _query_count_and_response(get_full)
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(len(r2.data["swimlanes"]), len(r1.data["swimlanes"]) + 7)
+        # Prove the non-admin path was taken: no admin-only values leak.
+        seen = [
+            v["field_definition"]
+            for lane in r2.data["swimlanes"] for v in lane["custom_field_values"]
+        ]
+        self.assertTrue(seen)
+        self.assertNotIn(admin_def.id, seen)
+        self.assertIn(public_def.id, seen)
+        self.assertEqual(
+            baseline, more,
+            f"full/ (non-admin viewer) query count grew from {baseline} to "
+            f"{more} when swimlanes were added — per-swimlane query "
+            "regression (#1335).",
         )
 
 
@@ -370,8 +417,9 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
 
         Group-inherited twin of ``BoardFullQueryCountTests``, viewed as the
         board admin (``SwimlaneAdminSerializer`` path). Lanes hold cards and
-        values for both an ``is_admin_only`` and a non-admin-only definition,
-        unlike the empty lanes in the #1223 test.
+        values, unlike the empty lanes in the #1223 test, but the
+        ``is_admin_only`` lookup is not exercised here -- see the non-admin
+        viewer variant below.
         """
         defs = self._swimlane_defs()
         _add_lanes_with_cards_and_values(self.board, self.owner, self.cols, defs, 3, 3)
