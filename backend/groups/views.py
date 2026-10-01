@@ -722,7 +722,8 @@ class GroupViewSet(viewsets.ModelViewSet):
         boards = (
             Board.objects.filter(group_id__in=visible_descendant_ids)
             # ``group__parent`` joins the immediate parent so
-            # GroupBriefSerializer.parent_name (``source="parent.name"``)
+            # GroupBriefSerializer.parent_name (a method field reading
+            # ``group.parent.name``)
             # doesn't issue a per-board lookup when the response is serialized.
             # #845 adds ancestors via a dedicated bulk map, but parent_name
             # is a separate field path that has its own N+1 if not joined here.
