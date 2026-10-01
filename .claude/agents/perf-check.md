@@ -52,6 +52,8 @@ Notification.objects.select_related("card", "board")
 
 If new relations are added to a model or serializer, verify they are added to the relevant prefetch chain.
 
+**When a `to_attr`-parking fix lands for one serializer's field, grep for every other serializer exposing the same model relation and check each one got the same fix.** A model's field is commonly read by more than one serializer (e.g. `CardSerializer.labels` for the authenticated board view, `CardQuerySerializer.labels` for cross-board search, `PublicCardSerializer.labels` for the anonymous share-link endpoint) — a perf fix applied to the primary/most-visited serializer does not automatically apply to a less-visited sibling that reads the same relation the old (unparked) way. Grep the field name across all of `serializers.py` (`grep -n "<field> = " backend/boards/serializers.py`), not just the serializer named in the issue (#1333).
+
 ### 3. Check post-create serialization
 
 When a view creates an object and immediately serializes it (e.g. `Movement.objects.create(...)` followed by `Serializer(movement).data`), check:
@@ -78,6 +80,8 @@ Also check annotated queryset serializers. When a `SerializerMethodField` uses a
 - It is included in `BoardFullSerializer`
 - The queryset for the full fetch includes the necessary prefetch
 - The payload size is not significantly increased without justification
+
+**Cross-check every field declared on `BoardFullSerializer` against the prefetch list in `get_board_for_user()` (`boards/views/_helpers.py`), both directions.** It is easy to add a new relation field to the serializer without adding a matching entry to that view's `prefetch_related(...)` call — the request still works (Django lazily issues the missing query), so it's invisible without counting queries. A field declared on the serializer but absent from the prefetch list costs one extra query per request; it won't scale with board size, so it won't show up as an N+1 in testing, but it's still a real gap against "every relation on BoardFullSerializer needs a matching prefetch" (#1334).
 
 ### 7. Output
 

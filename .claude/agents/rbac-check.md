@@ -68,7 +68,14 @@ If the board is owned by a group:
 - Does the permission check account for group-level roles (group admins inherit board admin)?
 - Is `get_board_role()` called rather than a direct `BoardMembership` lookup (the helper handles group inheritance)?
 
-### 6. Output
+### 6. Verify WebSocket consumer access revocation
+
+If the diff touches a `Consumer` class (board, group, or any other channel tied to membership):
+
+- **Self-eviction on removal**: when the consumer's event handler receives a membership-removal event (e.g. `EVT_MEMBER_REMOVED`) whose subject is the connected user, does it close the socket? A consumer that only re-broadcasts removal events to *other* subscribers, without checking whether the removed user is the one currently connected, leaves a standing live connection to a channel the user no longer belongs to. Check every `*_event` handler on every consumer for this self-check — a consumer added by copying an existing one may have inherited the broadcast-forwarding but not the self-eviction guard (this was missed for `GroupConsumer` when it was added alongside the already-fixed `BoardConsumer`, see #1329).
+- **Role refreshed on demotion, not just on removal**: if the consumer caches a permission/role value on `connect()` (e.g. `self._role`) and uses it to gate per-recipient field visibility on later frames (e.g. stripping `is_moderator`/`is_site_admin` for non-admins), does it also refresh that cached value when a role-change event (not just a removal event) names the connected user? A consumer that only handles the removal case will keep applying the connect-time role to every subsequent frame after a demotion, over-exposing fields that should now be stripped (see #1332 — the inverse of the more commonly-checked under-exposure case).
+
+### 7. Output
 
 Produce a summary:
 - ✅ RBAC correctly enforced

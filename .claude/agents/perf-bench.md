@@ -44,6 +44,8 @@ These tests assert two invariants per endpoint:
 
 A "scales" failure is the most important: it means the count grew proportionally with data, which is the definition of an N+1.
 
+**An endpoint can have multiple independent scaling dimensions — check that every one of them has its own test, not just the most obvious one.** `/full/` scales with both card count and swimlane count; `summary` and `analytics` each have a dedicated `*_scales_with_swimlanes` test in `test_query_counts.py`, but `BoardFullQueryCountTests` only exercised the card axis until this gap was found (#1335). When adding or reviewing a scale test for an endpoint, enumerate every independent axis the endpoint's queryset depends on (cards, swimlanes, columns, members, labels, custom field definitions, etc.) and confirm each has its own `test_<endpoint>_budget_scales_with_<axis>` — a test that only covers the axis the original regression happened to be about leaves the others unguarded against a future change.
+
 ---
 
 ### 3. Profile slow queries
