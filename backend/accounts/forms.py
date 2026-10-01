@@ -68,11 +68,27 @@ class VisibanSignupForm(SignupForm):
         return email
 
 
+def _has_verified_email(user, email: str) -> bool:
+    """Whether ``user`` has proven they own ``email`` (a verified allauth row)."""
+    from allauth.account.models import EmailAddress
+
+    return EmailAddress.objects.filter(user=user, email__iexact=email, verified=True).exists()
+
+
 class VisibanPasswordResetForm(AllAuthPasswordResetForm):
     """Password reset form that:
     - Uses FRONTEND_URL instead of reversing a Django auth URL.
-    - Sends an alternate email to OAuth-only accounts (no usable password)
-      rather than silently creating password auth on their behalf.
+    - Sends a real set-password link to an account with no usable password
+      whose address is *verified* (#1314). This is the "genuinely stuck"
+      recovery path: someone who signed up with a provider they can no longer
+      reach proves they own the inbox, sets a password, and logs in. Before
+      #1314 such accounts only ever got the "sign in with your provider"
+      email, which left that person with no way back in at all.
+    - Still sends that alternate email (and no link) to a password-less
+      account whose address was never verified: there, receiving mail at the
+      address proves nothing about who owns the account — an IdP can assert
+      an address it never checked — so a link would hand the account to
+      whoever controls that inbox.
     """
 
     def save(self, request, **kwargs):
@@ -81,12 +97,12 @@ class VisibanPasswordResetForm(AllAuthPasswordResetForm):
         email = self.cleaned_data["email"]
         adapter = get_adapter(request)
 
-        # Partition users: those with a usable password get the standard
-        # reset email; OAuth-only users get an alternate email that directs
-        # them back to their OAuth provider.
+        # Partition users: those with a usable password — or a verified
+        # address — get the standard reset email; the rest get an alternate
+        # email that directs them back to their OAuth provider.
         users_with_password = []
         for user in self.users:
-            if user.has_usable_password():
+            if user.has_usable_password() or _has_verified_email(user, email):
                 users_with_password.append(user)
             else:
                 provider_names = [

@@ -115,6 +115,25 @@ export interface User {
    * until the user follows the link mailed to the new one. Read-only.
    */
   pending_email?: string | null;
+  /**
+   * A provider this session tried to sign in with whose email matched this
+   * account, while the one-time "Connect {Provider}?" prompt is still owed,
+   * or null (#1314). Server-owned: cleared by DELETE /auth/me/pending-connect/
+   * or any connect attempt, expires after 10 minutes. Read-only.
+   */
+  pending_connect_provider?: string | null;
+}
+
+/** A sign-in provider id, as the backend reports it (#1314). */
+export type ProviderId = "google" | "github" | "gitlab" | "oidc";
+
+/** One row of GET /auth/me/connected-accounts/ (#1314). Mirrors
+ *  ConnectedAccountSerializer; `email`/`connected_at` only when connected. */
+export interface ConnectedAccount {
+  provider: string;
+  connected: boolean;
+  email?: string | null;
+  connected_at?: string;
 }
 
 /** A scope a personal access token can carry. Strictly non-hierarchical — no

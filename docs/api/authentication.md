@@ -451,7 +451,11 @@ A failed OAuth (or invite-gated registration) flow redirects the browser back to
 | `invite_invalid` | The invite token is malformed or unknown. |
 | `invite_expired` | The invite token has expired. |
 | `signup_closed` | Registration is closed for this instance. Emitted when an OAuth signup attempt is made while registration mode is `CLOSED` (#1323) — redirects to the frontend instead of rendering allauth's stock `signup_closed.html` template. |
-| `oauth_failed` | **Added in 1.2** (#1321) — generic fallback for an OAuth signup that could not complete automatically: the provider's email collided with an existing account, or the provider returned no email at all (e.g. GitHub with a private email, since email is a required signup field). Both cases previously fell through to allauth's own unstyled HTML signup form at `accounts/3rdparty/signup/` — which pre-filled the colliding email in an editable field, allowing a second account to be created under a different one. That view is now overridden to redirect here instead. |
+| `oauth_failed` | **Added in 1.2** (#1321) — generic fallback for an OAuth signup that could not complete automatically: the provider's email collided with an existing account, or the provider returned no email at all (e.g. GitHub with a private email, since email is a required signup field). Both cases previously fell through to allauth's own unstyled HTML signup form at `accounts/3rdparty/signup/` — which pre-filled the colliding email in an editable field, allowing a second account to be created under a different one. That view is now overridden to redirect here instead. Since #1314, an email collision with an *active* account gets `account_exists` / `account_exists_provider` instead; `oauth_failed` remains for a missing email and for a collision with a deactivated account (never revealed as such). |
+| `account_exists` | **Added in 1.2** (#1314) — the provider's email (compared ignoring case only) already belongs to an active account. Also carries `provider=<id>`, the provider that was tried. The user signs in normally, then is offered to connect `provider` (see `pending_connect_provider`). Takes priority over the `invite_*` codes and over closed registration. |
+| `account_exists_provider` | **Added in 1.2** (#1314) — as `account_exists`, but the account has no password and signs in with another provider, named by `via=<id>`. Only sent when the provider verified the email and exactly one account matches; otherwise `account_exists` is sent. |
+
+A connect round trip (see [Connected accounts](#connected-accounts)) reports back to the SPA's `/settings` page instead: `?connected=<provider>` on success, or `?connect_error=provider_already_connected&provider=<provider>` when that provider identity is already connected to a different account.
 
 ---
 
@@ -467,7 +471,8 @@ Request a password reset email. **No authentication required.**
 
 - The response is always `200 OK` regardless of whether the email matches a registered account — this prevents user enumeration.
 - If the email belongs to an account with a usable password, a reset link is emailed. The link points to the frontend route `/reset-password/{uid}/{token}`.
-- If the email belongs to an **OAuth-only** account (no password set), an alternate email is sent directing the user back to their OAuth provider instead.
+- If the email belongs to an **OAuth-only** account (no password set) and the address is verified on that account, the same reset link is emailed; confirming it sets the account's first password. *Changed in 1.2 (#1314).*
+- If the email belongs to an OAuth-only account whose address was never verified, an alternate email is sent directing the user back to their OAuth provider instead, and no reset token is issued.
 - **Rate limited** — 5 requests per hour per IP in production (unlimited in debug mode). Exceeding the limit returns `429 Too Many Requests`.
 
 **Response** `200 OK { "detail": "Password reset e-mail has been sent." }`
@@ -628,7 +633,7 @@ Returns the authenticated user's profile.
 
 **Permission:** Requires authentication.
 
-**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, `demo_next_reset_at`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `email_notif_comment_added`, `default_board_id`, `theme`, `pending_email`.
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, `demo_next_reset_at`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `email_notif_comment_added`, `default_board_id`, `theme`, `pending_email`, `pending_connect_provider`.
 
 | Field | Type | Description |
 |---|---|---|
@@ -641,6 +646,7 @@ Returns the authenticated user's profile.
 | `demo_mode` | boolean | Whether the instance is a public hosted demo (`DEMO_MODE`). When `true`, unsafe requests outside a small allowlist return `403` with `code: "demo_read_only"` — see [Hosted demo instance](../administration/demo-data.md#hosted-demo-instance). Read-only. Added in 1.2. |
 | `demo_next_reset_at` | string (ISO 8601 UTC) or null | The next scheduled demo reset, computed server-side from `DEMO_RESET_SCHEDULE`. `null` unless `demo_mode` is `true`. Read-only. Added in 1.2. |
 | `pending_email` | string or null | An email change that is waiting for confirmation, or `null`. Only set on instances with `EMAIL_VERIFICATION=mandatory` — see [`PATCH /api/v1/auth/me/`](#patch-apiv1authme). While it is set, `email` still holds the current address. Read-only. Added in 1.2. |
+| `pending_connect_provider` | string or null | A provider this session tried to sign in with whose email matched this account (see `account_exists` under [Auth error redirects](#auth-error-redirects)), or `null`. While set, the SPA offers once to connect it. Expires after 10 minutes, and is cleared by [`DELETE /api/v1/auth/me/pending-connect/`](#delete-apiv1authmepending-connect), by any connect attempt for that provider, or once the provider is connected. Read-only. Added in 1.2 (#1314). |
 | `theme` | string | The user's preferred color scheme. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"`. |
 | `notif_stale` | boolean | Receive an in-app notification when a card you own has not moved within the board's staleness window. Defaults to `false`. Writable. Added in 1.2 (previously gated on `notif_due_soon`). |
 | `email_notif_card_assigned` | boolean | Also email the user when a card is assigned to them. No effect while `notif_card_assigned` is `false`. Defaults to `false`. Writable. Added in 1.2. |
@@ -741,6 +747,58 @@ Idempotent: with no change pending it changes nothing and still returns `200`. O
 |---|---|
 | `401 Unauthorized` | Request is not authenticated |
 | `403 Forbidden` | A forced password or username change is pending |
+
+### `DELETE /api/v1/auth/me/pending-connect/`
+
+Dismiss the one-time "Connect {Provider}?" prompt: clears `pending_connect_provider` for this session. Added in 1.2 (#1314).
+
+**Permission:** Requires authentication. Acts only on the caller's own session.
+
+**Request body:** none.
+
+**Response** `200 OK` — the updated profile, the same shape as [`GET /api/v1/auth/me/`](#get-apiv1authme), with `pending_connect_provider: null`. Idempotent.
+
+<a id="connected-accounts"></a>
+
+### `GET /api/v1/auth/me/connected-accounts/`
+
+List the sign-in providers the caller has connected. One row per provider configured on the instance, plus any provider the caller is still connected to that the operator has since removed. Added in 1.2 (#1314).
+
+**Permission:** Requires authentication. Only the caller's own accounts are listed.
+
+**Response** `200 OK`
+
+```json
+[
+  { "provider": "google", "connected": true, "email": "alice@gmail.com", "connected_at": "2026-09-30T12:00:00Z" },
+  { "provider": "github", "connected": false }
+]
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `provider` | string | `google`, `github`, `gitlab`, or `oidc`. |
+| `connected` | boolean | Whether the caller has this provider connected. |
+| `email` | string or null | The email the provider reported, when connected and known. Omitted when not connected. |
+| `connected_at` | string (ISO 8601) | When the provider was connected. Omitted when not connected. |
+
+Connecting is not an API call: the browser POSTs (with the CSRF token) to `/accounts/<provider>/login/?process=connect` — `/accounts/oidc/oidc/login/?process=connect` for generic OIDC — and returns to `/settings` as described under [Auth error redirects](#auth-error-redirects).
+
+### `DELETE /api/v1/auth/me/connected-accounts/<provider>/`
+
+Disconnect a provider from the caller's account. Added in 1.2 (#1314).
+
+**Permission:** Requires authentication. Only the caller's own accounts can be named.
+
+**Request body:** none.
+
+**Response** `200 OK` — the refreshed list, same shape as `GET /api/v1/auth/me/connected-accounts/`.
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | Disconnecting would leave no way to sign in (no password and no other provider, or — under `EMAIL_VERIFICATION=mandatory` — no verified email). `{"detail": "..."}` |
+| `401 Unauthorized` | Request is not authenticated |
+| `404 Not Found` | The caller has no account connected for that provider |
 
 ### `POST /api/v1/auth/me/pending-email/resend/`
 

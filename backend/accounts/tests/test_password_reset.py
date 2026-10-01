@@ -62,25 +62,47 @@ class FrontendUrlGeneratorTests(TestCase):
 
 
 class OAuthOnlyPasswordResetTests(TestCase):
-    """VisibanPasswordResetForm.save() sends the alternate email for OAuth-only users."""
+    """VisibanPasswordResetForm.save() for accounts with no usable password.
 
-    def test_oauth_only_user_gets_alternate_email(self):
+    #1314 deliberately reversed part of this: a password-less account whose
+    address is VERIFIED now gets the real set-password link (the "genuinely
+    stuck" recovery path — lost access to the provider it signed up with).
+    Only an UNVERIFIED password-less account still gets the alternate "sign in
+    with your provider" email, because mail reaching an unverified address
+    proves nothing about who owns the account.
+    """
+
+    def _oauth_only_user(self, *, verified):
+        from allauth.account.models import EmailAddress
         from allauth.socialaccount.models import SocialAccount
 
         user = User.objects.create_user(username="oauthuser", email="oauth@example.com")
         user.set_unusable_password()
         user.save()
         SocialAccount.objects.create(user=user, provider="google", uid="google-123", extra_data={})
+        EmailAddress.objects.create(user=user, email="oauth@example.com", verified=verified, primary=True)
+        return user
 
+    def _save(self, user, email="oauth@example.com"):
         form = VisibanPasswordResetForm.__new__(VisibanPasswordResetForm)
-        form.cleaned_data = {"email": "oauth@example.com"}
+        form.cleaned_data = {"email": email}
         form.users = [user]
-
         mock_adapter = MagicMock()
-        request = MagicMock()
+        seen_users = []
 
-        with patch("accounts.forms.get_adapter", return_value=mock_adapter):
-            form.save(request)
+        def fake_super_save(this, request, **kwargs):
+            seen_users.extend(this.users)
+
+        with patch("accounts.forms.get_adapter", return_value=mock_adapter), patch.object(
+            VisibanPasswordResetForm.__bases__[0], "save", autospec=True, side_effect=fake_super_save
+        ):
+            form.save(MagicMock())
+        return mock_adapter, seen_users
+
+    def test_unverified_oauth_only_user_gets_alternate_email(self):
+        user = self._oauth_only_user(verified=False)
+
+        mock_adapter, seen_users = self._save(user)
 
         # send_mail must be called with the no-password template.
         # All three args are positional: (template_prefix, email, context_dict).
@@ -88,6 +110,35 @@ class OAuthOnlyPasswordResetTests(TestCase):
         args, _ = mock_adapter.send_mail.call_args
         self.assertEqual(args[0], "account/email/password_reset_no_password")
         self.assertEqual(args[2]["provider"], "Google")
+        self.assertEqual(seen_users, [])  # no reset link generated
+
+    def test_oauth_only_user_without_email_row_gets_alternate_email(self):
+        """An admin-created password-less account (no EmailAddress row at all)
+        has never proven the inbox either."""
+        user = User.objects.create_user(username="adminmade", email="made@example.com")
+        user.set_unusable_password()
+        user.save()
+
+        mock_adapter, seen_users = self._save(user, email="made@example.com")
+
+        mock_adapter.send_mail.assert_called_once()
+        self.assertEqual(seen_users, [])
+
+    def test_verified_oauth_only_user_gets_real_reset_link(self):
+        """#1314: reversed behavior — the recovery path must reach this user."""
+        user = self._oauth_only_user(verified=True)
+
+        mock_adapter, seen_users = self._save(user)
+
+        mock_adapter.send_mail.assert_not_called()
+        self.assertEqual(seen_users, [user])
+
+    def test_verified_match_is_case_insensitive(self):
+        user = self._oauth_only_user(verified=True)
+
+        mock_adapter, seen_users = self._save(user, email="OAuth@Example.com")
+
+        self.assertEqual(seen_users, [user])
 
     def test_regular_user_goes_through_standard_flow(self):
         user = User.objects.create_user(
@@ -105,6 +156,39 @@ class OAuthOnlyPasswordResetTests(TestCase):
         ) as mock_super_save:
             form.save(request)
             mock_super_save.assert_called_once()
+
+
+class PasswordlessRecoveryEndToEndTests(TestCase):
+    """#1314 "genuinely stuck" path end to end: a verified, password-less
+    account requests a reset, gets a working link, and sets a password."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_reset_link_reaches_passwordless_account_and_sets_password(self):
+        from allauth.account.models import EmailAddress
+        from django.core import mail
+
+        user = User.objects.create_user(username="stuck", email="stuck@example.com")
+        user.set_unusable_password()
+        user.save()
+        EmailAddress.objects.create(user=user, email="stuck@example.com", verified=True, primary=True)
+
+        client = APIClient()
+        r = client.post("/api/v1/auth/password/reset/", {"email": "stuck@example.com"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("/reset-password/", mail.outbox[0].body)
+
+        uid = user_pk_to_url_str(user)
+        token = default_token_generator.make_token(user)
+        r = client.post("/api/v1/auth/password/reset/confirm/", {
+            "uid": uid, "token": token,
+            "new_password1": "NewPassword9876", "new_password2": "NewPassword9876",
+        })
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("NewPassword9876"))
 
 
 class PasswordResetEndpointTests(TestCase):

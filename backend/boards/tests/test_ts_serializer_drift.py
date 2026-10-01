@@ -52,7 +52,12 @@ from boards.serializers import (
     SwimlaneCustomFieldDefinitionSerializer,
     SwimlaneSerializer,
 )
-from accounts.serializers import BoardUserSerializer, CurrentUserSerializer, UserSerializer
+from accounts.serializers import (
+    BoardUserSerializer,
+    ConnectedAccountSerializer,
+    CurrentUserSerializer,
+    UserSerializer,
+)
 
 
 _FRONTEND_TYPES = (
@@ -107,9 +112,11 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     # docstring) both map onto the one `User` TS interface, which already
     # marks every CurrentUser-only field (uploads_enabled, git_lens_enabled,
     # maintenance_mode, maintenance_message, demo_mode, demo_next_reset_at,
-    # pending_email) optional for exactly this reason.
+    # pending_email, pending_connect_provider) optional for exactly this reason.
     (UserSerializer, "User", set()),
     (CurrentUserSerializer, "User", set()),
+    # GET /auth/me/connected-accounts/ rows (#1314).
+    (ConnectedAccountSerializer, "ConnectedAccount", set()),
     # NOT registered: BoardEventSerializer (#1114, change-feed contract). The
     # `/boards/<id>/events/` endpoint has no frontend consumer today — it
     # exists for an external process to replay missed WebSocket frames over

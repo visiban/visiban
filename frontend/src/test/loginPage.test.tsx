@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import LoginPage from '../components/Auth/LoginPage'
 import { formatClockTime } from '../utils/date'
 
@@ -359,6 +359,88 @@ describe('LoginPage', () => {
       const alert = await screen.findByRole('alert')
       expect(alert).toBeInTheDocument()
     })
+  })
+
+  // ── OAuth email collision (#1314) ─────────────────────────────────────────
+
+  describe('account_exists / account_exists_provider', () => {
+    function renderAt(url: string) {
+      return render(
+        <MemoryRouter initialEntries={[url]}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+    }
+
+    it('account_exists: banner above the untouched login form, naming the provider', async () => {
+      renderAt('/?auth_error=account_exists&provider=github')
+      const banner = await screen.findByTestId('account-exists-banner')
+      expect(banner).toHaveAttribute('role', 'alert')
+      expect(within(banner).getByText('You already have a Visiban account')).toBeInTheDocument()
+      expect(banner).toHaveTextContent(
+        "This email is already registered. Log in with your password once and we'll connect GitHub for next time."
+      )
+      // The full form stays, including the recovery link.
+      expect(screen.getByPlaceholderText('Username or email')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
+      expect(screen.getByText('Forgot password?')).toBeInTheDocument()
+      // Banner comes before the form in document order.
+      const form = screen.getByPlaceholderText('Password').closest('form')!
+      expect(banner.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('account_exists keeps an in-flight invite token', async () => {
+      sessionStorage.setItem('invite_token', 'vbnl_abc')
+      renderAt('/?auth_error=account_exists&provider=google')
+      await screen.findByTestId('account-exists-banner')
+      expect(sessionStorage.getItem('invite_token')).toBe('vbnl_abc')
+    })
+
+    it('account_exists_provider: replaces the form with a Continue-with-via CTA and a reset link', async () => {
+      mockGetAuthProviders.mockResolvedValue({ google: true, github: true, gitlab: false, oidc: false, oidc_name: null })
+      renderAt('/?auth_error=account_exists_provider&provider=github&via=google')
+      const banner = await screen.findByTestId('account-exists-banner')
+      expect(banner).toHaveTextContent(
+        "This email signs in with Google. Continue with Google and we'll connect GitHub afterwards."
+      )
+      expect(screen.getByRole('button', { name: /Continue with Google/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: "Can't access Google? Reset your password instead" })).toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('Password')).not.toBeInTheDocument()
+      expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
+    })
+
+    it('account_exists_provider: the reset link goes to the forgot-password page', async () => {
+      const user = userEvent.setup()
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=account_exists_provider&provider=github&via=google']}>
+          <Routes>
+            <Route path="/" element={<LoginPage onLogin={vi.fn()} />} />
+            <Route path="/forgot-password" element={<div>forgot page</div>} />
+          </Routes>
+        </MemoryRouter>
+      )
+      await user.click(await screen.findByRole('button', { name: /Reset your password instead/ }))
+      expect(await screen.findByText('forgot page')).toBeInTheDocument()
+    })
+
+    it('names generic OIDC with the configured SSO name', async () => {
+      mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: 'Okta' })
+      renderAt('/?auth_error=account_exists_provider&provider=github&via=oidc')
+      expect(await screen.findByRole('button', { name: /Continue with Okta/ })).toBeInTheDocument()
+    })
+
+    it('other codes still use the bottom-of-form error slot', async () => {
+      renderAt('/?auth_error=oauth_failed')
+      expect(await screen.findByText('Something went wrong during authentication. Please try again.')).toBeInTheDocument()
+      expect(screen.queryByTestId('account-exists-banner')).not.toBeInTheDocument()
+    })
+  })
+
+  it('points the SSO button at allauth\'s nested OIDC login path', async () => {
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: 'Okta' })
+    renderLoginPage()
+    const link = await screen.findByText('Continue with Okta')
+    expect(link.closest('a')?.getAttribute('href')).toContain('/accounts/oidc/oidc/login/?process=login')
   })
 
   // ── Demo banner (#1034) ────────────────────────────────────────────────────

@@ -28,6 +28,11 @@ const mockChangePassword = vi.fn()
 const mockResetTour = vi.fn()
 const mockCancelPendingEmailChange = vi.fn()
 const mockResendPendingEmailConfirmation = vi.fn()
+const NO_PROVIDERS = { google: false, github: false, gitlab: false, oidc: false, oidc_name: null }
+const mockGetAuthProviders = vi.fn(() => Promise.resolve(NO_PROVIDERS))
+const mockListConnectedAccounts = vi.fn(() => Promise.resolve([] as unknown[]))
+const mockDisconnectAccount = vi.fn()
+const mockStartProviderConnect = vi.fn()
 
 vi.mock('../api/auth', () => ({
   updateCurrentUser: (...args: unknown[]) => mockUpdateCurrentUser(...args),
@@ -35,6 +40,13 @@ vi.mock('../api/auth', () => ({
   resetTour: (...args: unknown[]) => mockResetTour(...args),
   cancelPendingEmailChange: (...args: unknown[]) => mockCancelPendingEmailChange(...args),
   resendPendingEmailConfirmation: (...args: unknown[]) => mockResendPendingEmailConfirmation(...args),
+  getAuthProviders: () => mockGetAuthProviders(),
+  listConnectedAccounts: () => mockListConnectedAccounts(),
+  disconnectAccount: (...args: unknown[]) => mockDisconnectAccount(...args),
+}))
+
+vi.mock('../utils/oauth', () => ({
+  startProviderConnect: (...args: unknown[]) => mockStartProviderConnect(...args),
 }))
 
 const mockSetPreference = vi.fn()
@@ -604,6 +616,134 @@ describe('SecurityTab — social account (no usable password)', () => {
       { timeout: 10000 },
     )
   }, 15000)
+})
+
+// ---------------------------------------------------------------------------
+// SecurityTab — connected accounts (#1314)
+// ---------------------------------------------------------------------------
+
+describe('SecurityTab — connected accounts', () => {
+  const PROVIDERS = { google: true, github: true, gitlab: false, oidc: false, oidc_name: null }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetAuthProviders.mockImplementation(() => Promise.resolve(PROVIDERS))
+    mockListConnectedAccounts.mockImplementation(() => Promise.resolve([
+      { provider: 'google', connected: true, email: 'jane@gmail.com', connected_at: '2026-09-30T00:00:00Z' },
+      { provider: 'github', connected: false },
+    ]))
+  })
+
+  afterEach(() => {
+    mockGetAuthProviders.mockImplementation(() => Promise.resolve(NO_PROVIDERS))
+    mockListConnectedAccounts.mockImplementation(() => Promise.resolve([]))
+  })
+
+  async function open(user: User = fakeUser, url = '/settings') {
+    const ue = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <SettingsPage user={user} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+    )
+    if (!url.includes('connect')) await ue.click(screen.getAllByText('Security')[0])
+    await screen.findByTestId('connected-accounts-list')
+    return ue
+  }
+
+  it('lists only configured providers with their status', async () => {
+    await open()
+    expect(screen.getByText('Connected accounts')).toBeInTheDocument()
+    const google = screen.getByTestId('connected-account-google')
+    expect(google).toHaveTextContent('Google')
+    expect(google).toHaveTextContent('Connected')
+    expect(google).toHaveTextContent('jane@gmail.com')
+    expect(screen.getByTestId('connected-account-github')).toHaveTextContent('Not connected')
+    expect(screen.queryByTestId('connected-account-gitlab')).not.toBeInTheDocument()
+  })
+
+  it('hides the section when no provider is configured', async () => {
+    mockGetAuthProviders.mockImplementation(() => Promise.resolve(NO_PROVIDERS))
+    const ue = userEvent.setup()
+    renderSettings()
+    await ue.click(screen.getAllByText('Security')[0])
+    await waitFor(() => expect(mockGetAuthProviders).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByTestId('connected-accounts')).not.toBeInTheDocument())
+  })
+
+  it('Connect starts the provider round trip and shows Connecting…', async () => {
+    const ue = await open()
+    await ue.click(screen.getByTestId('connect-github'))
+    expect(mockStartProviderConnect).toHaveBeenCalledWith('github')
+    expect(screen.getByTestId('connect-github')).toHaveTextContent('Connecting…')
+    expect(screen.getByTestId('connect-github')).toBeDisabled()
+  })
+
+  it('Disconnect asks for inline confirmation, then disconnects', async () => {
+    mockDisconnectAccount.mockResolvedValue([
+      { provider: 'google', connected: false },
+      { provider: 'github', connected: false },
+    ])
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    expect(screen.getByText('Disconnect?')).toBeInTheDocument()
+    expect(mockDisconnectAccount).not.toHaveBeenCalled()
+    await ue.click(screen.getByTestId('confirm-disconnect-google'))
+    expect(mockDisconnectAccount).toHaveBeenCalledWith('google')
+    await waitFor(() =>
+      expect(screen.getByTestId('connected-account-google')).toHaveTextContent('Not connected'),
+    )
+  })
+
+  it('Cancel backs out of the disconnect confirmation', async () => {
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    await ue.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByText('Disconnect?')).not.toBeInTheDocument()
+    expect(mockDisconnectAccount).not.toHaveBeenCalled()
+  })
+
+  it('guards the only sign-in method with aria-disabled and a described hint', async () => {
+    const ue = await open({ ...fakeUser, has_usable_password: false })
+    const button = screen.getByTestId('disconnect-google')
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    expect(button).not.toBeDisabled() // stays focusable
+    expect(button).toHaveAttribute('aria-describedby', 'disconnect-hint-google')
+    expect(document.getElementById('disconnect-hint-google')).toHaveTextContent('This is your only sign-in method.')
+    await ue.click(button)
+    expect(screen.queryByText('Disconnect?')).not.toBeInTheDocument()
+  })
+
+  it('no guard when the user also has a password', async () => {
+    await open()
+    expect(screen.getByTestId('disconnect-google')).toHaveAttribute('aria-disabled', 'false')
+    expect(screen.queryByText('This is your only sign-in method.')).not.toBeInTheDocument()
+  })
+
+  it('shows a server refusal in the row', async () => {
+    mockDisconnectAccount.mockRejectedValue({ response: { data: { detail: 'Your account has no password set up.' } } })
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    await ue.click(screen.getByTestId('confirm-disconnect-google'))
+    expect(await screen.findByText('Your account has no password set up.')).toBeInTheDocument()
+  })
+
+  it('?connected=<provider> opens Security and marks the row Connected.', async () => {
+    mockListConnectedAccounts.mockImplementation(() => Promise.resolve([
+      { provider: 'google', connected: true, email: 'jane@gmail.com', connected_at: '2026-09-30T00:00:00Z' },
+      { provider: 'github', connected: true, email: null, connected_at: '2026-09-30T00:00:00Z' },
+    ]))
+    await open(fakeUser, '/settings?connected=github')
+    expect(screen.getByTestId('connected-account-github')).toHaveTextContent('Connected.')
+    expect(mockNavigate).toHaveBeenCalledWith('.', expect.objectContaining({ replace: true }))
+  })
+
+  it('?connect_error=provider_already_connected shows the taken copy on the row', async () => {
+    await open(fakeUser, '/settings?connect_error=provider_already_connected&provider=github')
+    expect(screen.getByTestId('connected-account-github')).toHaveTextContent(
+      "That GitHub account is taken — it's already connected to a different Visiban account.",
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

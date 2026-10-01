@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken } from "../types";
+import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/v1/auth/user/").then((r) => r.data);
@@ -94,6 +94,20 @@ export const createToken = (
 
 export const revokeToken = (id: number) =>
   client.delete(`/api/v1/auth/tokens/${id}/`);
+
+// #1314: connected sign-in providers. Connecting is a browser round trip
+// (see startProviderConnect in components/Common/ProviderIcons), not an API call.
+export const listConnectedAccounts = () =>
+  client.get<ConnectedAccount[]>("/api/v1/auth/me/connected-accounts/").then((r) => r.data);
+
+export const disconnectAccount = (provider: string) =>
+  client
+    .delete<ConnectedAccount[]>(`/api/v1/auth/me/connected-accounts/${encodeURIComponent(provider)}/`)
+    .then((r) => r.data);
+
+// "Not now" on the post-login connect prompt — clears pending_connect_provider.
+export const dismissPendingConnect = () =>
+  client.delete<User>("/api/v1/auth/me/pending-connect/").then((r) => r.data);
 
 // Admin API
 

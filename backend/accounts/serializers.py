@@ -574,6 +574,11 @@ class CurrentUserSerializer(UserSerializer):
     # yet in effect. Only on the current-user serializer: it costs a query, and
     # it is nobody else's business.
     pending_email = serializers.SerializerMethodField()
+    # #1314: the provider a collided OAuth attempt tried to use, while the
+    # "Connect {Provider}?" prompt is still owed to this account, or null.
+    # Read from the session (no query unless one is stashed); cleared by
+    # DELETE /auth/me/pending-connect/ or by any connect attempt for it.
+    pending_connect_provider = serializers.SerializerMethodField()
 
     def get_uploads_enabled(self, obj) -> bool:
         return get_uploads_enabled()
@@ -618,6 +623,15 @@ class CurrentUserSerializer(UserSerializer):
 
         return get_pending_email(obj)
 
+    @extend_schema_field(serializers.CharField(allow_null=True, read_only=True))
+    def get_pending_connect_provider(self, obj) -> str | None:
+        from .social_connect import get_pending_connect_provider
+
+        request = self.context.get("request")
+        if request is None or getattr(request, "user", None) is None or request.user.pk != obj.pk:
+            return None
+        return get_pending_connect_provider(request, obj)
+
     class Meta(UserSerializer.Meta):
         fields = UserSerializer.Meta.fields + [
             "uploads_enabled",
@@ -627,6 +641,7 @@ class CurrentUserSerializer(UserSerializer):
             "demo_mode",
             "demo_next_reset_at",
             "pending_email",
+            "pending_connect_provider",
         ]
         read_only_fields = UserSerializer.Meta.read_only_fields + [
             "uploads_enabled",
@@ -636,6 +651,7 @@ class CurrentUserSerializer(UserSerializer):
             "demo_mode",
             "demo_next_reset_at",
             "pending_email",
+            "pending_connect_provider",
         ]
 
 
@@ -723,3 +739,18 @@ class PersonalAccessTokenCreateSerializer(serializers.Serializer):
         # Preserve the declared vocabulary order and drop duplicates so the
         # stored value is canonical and comparable.
         return [scope for scope in PAT_SCOPES if scope in set(value)]
+
+
+class ConnectedAccountSerializer(serializers.Serializer):
+    """One row of ``GET /auth/me/connected-accounts/`` (#1314).
+
+    Read-only and never bound to request data — built from
+    ``social_connect.connected_accounts_status``. ``email`` and
+    ``connected_at`` are present only on a connected row. Exposes nothing a
+    provider token could be recovered from: no uid, no ``extra_data``.
+    """
+
+    provider = serializers.CharField(read_only=True)
+    connected = serializers.BooleanField(read_only=True)
+    email = serializers.EmailField(read_only=True, required=False, allow_null=True)
+    connected_at = serializers.DateTimeField(read_only=True, required=False)
