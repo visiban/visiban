@@ -3545,6 +3545,12 @@ re-verify these by hand; run the release and read what the gate says.</p>
   <code>docker-compose.prod.yml</code>, and the Helm chart — and <strong>aborts the release</strong> (rolling the
   branch back to <code>main</code>, no partial commit) if any of them fail, rather than merely warning
   (#1269).</li>
+<li><code>helm/visiban/Chart.yaml</code>: <code>release.sh</code> rewrites and stages <code>appVersion</code> (bare version, e.g.
+  <code>1.2.0-rc.1</code>) — you do not bump it by hand, and the <code>helm-publish</code> tag job hard-fails if it
+  ever differs from the tag. The chart's own <code>version:</code> does <strong>not</strong> move with a release: it is
+  the chart packaging version (SemVer for the chart's templates/values contract) and is bumped
+  by hand in the MR that changes the chart, since the same app version can ship several chart
+  revisions (#1194).</li>
 <li>CI job <code>docs-version-accuracy</code> (script <code>scripts/check-docs-version-accuracy.sh</code>) runs on
   MRs, <code>main</code>, and tag pipelines. It reads the current version from <code>frontend/package.json</code>
   and fails on: a <code>Coming in X</code> / <code>Ships in X</code> / <code>Lands in X</code> / <code>Planned for X</code> claim naming
