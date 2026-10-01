@@ -19,6 +19,7 @@ from accounts.views import (
     VerifyEmailThrottle,
     VerifyEmailView,
     VisibanEmailView,
+    VisibanSignupView,
 )
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 
@@ -142,6 +143,9 @@ urlpatterns = [
         r"^accounts/3rdparty/signup/$",
         SocialSignupRedirectView.as_view(),
     ),
+    # Same technique (#1324): replaces allauth's stock signup_closed page with a
+    # redirect to the SPA in CLOSED / INVITE_ONLY mode — see VisibanSignupView.
+    path("accounts/signup/", VisibanSignupView.as_view()),
     path("accounts/", include("allauth.urls")),
     # All versioned API endpoints live under /api/v1/.
     # The v1 prefix is a literal path segment — not a captured kwarg — so view

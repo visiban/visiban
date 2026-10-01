@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from allauth.account.adapter import get_adapter
 from allauth.account.views import EmailView as AllauthEmailView
+from allauth.account.views import SignupView as AllauthSignupView
 from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.registration.views import VerifyEmailView as DjRestAuthVerifyEmailView
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
@@ -1077,6 +1078,42 @@ class EmailConfirmRedirectView(APIView):
         if not self._KEY_RE.match(key):
             return HttpResponseRedirect(f"{frontend_url}/confirm-email/invalid")
         return HttpResponseRedirect(f"{frontend_url}/confirm-email/{key}")
+
+
+class VisibanSignupView(AllauthSignupView):
+    """allauth's HTML signup view, with the closed page replaced by a redirect (#1324).
+
+    ``RegistrationAdapter.is_open_for_signup`` returns ``False`` in CLOSED and
+    INVITE_ONLY modes, and allauth's ``CloseableSignupMixin.dispatch`` (GET and
+    POST alike) then renders its stock, unstyled ``account/signup_closed.html``
+    in-process: a dead-end in a SPA-only product. Same class as #1321/#1323,
+    which the OAuth adapter fixes by raising from ``is_open_for_signup``.
+
+    The redirect lives in the view instead of the adapter on purpose:
+    ``is_open_for_signup`` on the account adapter is also a plain boolean query
+    for allauth's headless endpoints and for the social adapter's default
+    delegation, none of which catch ``ImmediateHttpResponse``. Raising there
+    would turn a "no" into a 500 for them.
+
+    Reuses the OAuth flow's codes so the SPA needs no change: ``signup_closed``
+    for CLOSED, ``invite_required`` for INVITE_ONLY (an invite link is the only
+    way in; REST invite signup goes through ``InviteRegisterView``).
+    """
+
+    def closed(self):
+        from urllib.parse import urlencode
+
+        from .models import SiteSetting, get_registration_mode
+
+        # One read of the mode decides the code. INVITE_ONLY is the only mode
+        # with its own message; any other reason for a closed result (CLOSED,
+        # or a mode flipped between the adapter's read and this one) reports
+        # signup_closed.
+        mode = get_registration_mode()
+        code = "invite_required" if mode == SiteSetting.RegistrationMode.INVITE_ONLY else "signup_closed"
+        frontend_url = getattr(settings, "LOGIN_REDIRECT_URL", None) or "/"
+        separator = "&" if "?" in frontend_url else "?"
+        return HttpResponseRedirect(f"{frontend_url}{separator}{urlencode({'auth_error': code})}")
 
 
 class SocialSignupRedirectView(APIView):
