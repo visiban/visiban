@@ -723,10 +723,15 @@ backend-schema-validate:
 # random value schemathesis generated, so the file doesn't need touching every
 # run) rather than blocking this flip on #1119/#1123/#1124 landing first.
 # #1124's entries were pruned when visiban/schema_hooks.py started documenting
-# a generic 400 (#1165). #1119/#1123 are now closed but their entries were not
-# pruned — tracked in #1170 (`st run ... --baseline PATH --baseline-update
-# --baseline-prune`, from a full-length run) so the job starts catching a
-# regression in that area again.
+# a generic 400 (#1165). #1119/#1123 closed without their entries being pruned;
+# #1170 pruned them (`st run ... --baseline PATH --baseline-update
+# --baseline-prune`, two full-length runs with different seeds — a short run
+# reports valid entries as unobserved, so only entries unobserved by both
+# were dropped), taking the baseline from 41 entries to 12. Every surviving
+# entry now carries a "reason" field explaining why it's accepted (most are
+# @action/APIView endpoints with no @extend_schema, so drf-spectacular's
+# automatic inference doesn't match the real response) so the job resumes
+# catching a regression in the area the pruned entries used to mask.
 #
 # Scoped to the file classes #1080 names (views/, serializers.py, urls.py), so
 # a schema-shape change gets checked without running on every unrelated

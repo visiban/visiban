@@ -236,8 +236,9 @@ Before committing a new spec:
   its declared schema — see [`docs/api/openapi.md`](../api/openapi.md#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz).
   Blocking (`allow_failure: false`) as of #1120; a handful of already-tracked
   schema-accuracy gaps (#1119, #1123, now closed) were recorded as scoped, justified entries in
-  `backend/schemathesis-baseline.json` rather than blocking on them landing first; pruning
-  the leftovers is tracked in #1170. The
+  `backend/schemathesis-baseline.json` rather than blocking on them landing first; #1170
+  pruned the leftovers down to 12 entries (from two full-length runs, different seeds), each
+  now carrying a `"reason"` field. The
   undocumented-`400` gap (#1124) is closed generically by `visiban/schema_hooks.py` (#1165).
   A red run is a real defect, never a flake — do not retry it; see the
   [triage steps](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake)
