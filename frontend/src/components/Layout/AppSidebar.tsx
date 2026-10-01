@@ -165,7 +165,9 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
 
   const navigateTo = useCallback((path: string) => {
     setCollapsed(true);
-    navigate(path);
+    // Fire-and-forget: the declarative router resolves navigate() synchronously,
+    // and any failure is handled by its own error boundary.
+    void navigate(path);
   }, [navigate]);
 
   const toggleGroup = (id: number) => {
@@ -650,7 +652,11 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
             setBoards((prev) => [board, ...prev]);
             setShowCreateBoard(false);
             recordVisit({ id: board.id, name: board.name, groupAncestors: [] });
-            navigate(`/boards/${board.id}`);
+            // Fire-and-forget: the declarative router resolves navigate()
+            // synchronously, and any failure is handled by its own error boundary.
+            // createBoard() itself is awaited above, so CreateBoardModal's own
+            // try/catch (handleSubmit) already surfaces a creation failure.
+            void navigate(`/boards/${board.id}`);
           }}
           onCancel={() => setShowCreateBoard(false)}
           user={user}

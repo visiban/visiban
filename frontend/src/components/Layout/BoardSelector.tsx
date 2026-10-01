@@ -15,6 +15,16 @@ export default function BoardSelector({ user, onSelect }: Props) {
   const [creating, setCreating] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Board ids with a deleteBoard() call currently in flight. The confirm
+  // dialog closes synchronously on submit (see handleDelete below), which
+  // otherwise lets a second board's delete be confirmed and started while
+  // the first is still pending — each call captures its own `prevBoards`
+  // snapshot, so an overlapping failure can roll one delete's state back
+  // over the other's already-successful removal. Rather than reconciling
+  // overlapping snapshots, disable every delete trigger while any delete is
+  // in flight — that removes the only UI entry point for the race (#1375).
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const dialogTitleId = useId();
 
   const loadBoards = useCallback(() => {
@@ -29,14 +39,29 @@ export default function BoardSelector({ user, onSelect }: Props) {
   useEffect(() => { loadBoards(); }, [loadBoards]);
 
   const handleDelete = async (boardId: number) => {
+    const prevBoards = boards;
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
     setConfirmDeleteId(null);
     setDeleteConfirmInput("");
+    setDeletingIds((prev) => new Set(prev).add(boardId));
     try {
       await deleteBoard(boardId);
     } catch {
-      // rollback
-      listBoards().then(setBoards);
+      // Restore the optimistically-removed board immediately from the
+      // pre-delete snapshot — this is correct regardless of what else may
+      // have changed, unlike relying solely on a refetch that could itself
+      // fail and leave the board missing with no explanation (#1375).
+      setBoards(prevBoards);
+      setDeleteError("Failed to delete board.");
+      // Best-effort refresh to reconcile with the server; the snapshot
+      // restore above already keeps the UI consistent if this also fails.
+      listBoards().then(setBoards).catch(() => {});
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(boardId);
+        return next;
+      });
     }
   };
 
@@ -56,6 +81,10 @@ export default function BoardSelector({ user, onSelect }: Props) {
     <div className="min-h-screen bg-sunken flex items-center justify-center">
       <div className="w-full max-w-md">
         <h2 className="text-fg text-2xl font-bold mb-6 text-center">Your Boards</h2>
+
+        {deleteError && (
+          <p role="alert" className="text-sm text-danger text-center mb-3">{deleteError}</p>
+        )}
 
         {loading ? (
           <p className="text-fg-tertiary text-center">Loading…</p>
@@ -82,9 +111,10 @@ export default function BoardSelector({ user, onSelect }: Props) {
                 </button>
                 {b.owner.id === user.id && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-danger focus:text-danger p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    title="Delete board"
+                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); setDeleteError(null); }}
+                    disabled={deletingIds.size > 0}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-danger focus:text-danger p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:cursor-not-allowed disabled:opacity-40"
+                    title={deletingIds.size > 0 ? "A delete is already in progress" : "Delete board"}
                     aria-label={`Delete ${b.name}`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

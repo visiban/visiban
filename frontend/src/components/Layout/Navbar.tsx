@@ -36,7 +36,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   // deferred to 1.1 — the polling interval is intentional until then.
   useEffect(() => {
     const fetchCount = () => getUnreadCount().then(setUnreadCount).catch(() => {});
-    fetchCount();
+    // fetchCount's own .catch() above already swallows the rejection, so the
+    // returned promise can never reject — safe to fire without awaiting.
+    void fetchCount();
     const interval = setInterval(fetchCount, 30_000);
     return () => clearInterval(interval);
   }, []);
@@ -74,7 +76,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
     setShowBell(false);
     if (n.board_id) {
       const url = n.card_id ? `/boards/${n.board_id}?card=${n.card_id}` : `/boards/${n.board_id}`;
-      navigate(url);
+      // Fire-and-forget: the declarative router resolves navigate() synchronously,
+      // and any failure is handled by its own error boundary.
+      void navigate(url);
     }
   };
 

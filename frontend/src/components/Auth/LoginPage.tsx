@@ -129,18 +129,22 @@ export default function LoginPage({ onLogin }: Props) {
       const v = searchParams.get(key) ?? "";
       return isProviderId(v) ? v : null;
     };
+    // navigate() is typed as void | Promise<void> for data-router mode; this
+    // app uses the declarative <Routes> router, where it resolves
+    // synchronously and any navigation failure is handled by React Router's
+    // own error boundary, not by the caller — fire-and-forget by design.
     if (authError === "account_exists" && knownProvider("provider")) {
       // An in-flight invite (sessionStorage) is deliberately kept: the user
       // signs in to their existing account and the join flow carries on.
       setBanner({ kind: "account_exists", provider: knownProvider("provider")! });
-      navigate("/", { replace: true });
+      void navigate("/", { replace: true });
     } else if (authError === "account_exists_provider" && knownProvider("via") && knownProvider("provider")) {
       setBanner({
         kind: "account_exists_provider",
         via: knownProvider("via")!,
         provider: knownProvider("provider")!,
       });
-      navigate("/", { replace: true });
+      void navigate("/", { replace: true });
     } else if (authError) {
       setError(AUTH_ERROR_MESSAGES[authError] ?? AUTH_ERROR_FALLBACK);
       // Clear dead invite tokens on token-specific errors.
@@ -149,7 +153,7 @@ export default function LoginPage({ onLogin }: Props) {
         setHasInviteToken(false);
       }
       // Clean the error from the URL so a refresh doesn't re-show it.
-      navigate("/", { replace: true });
+      void navigate("/", { replace: true });
     }
   }, [navigate, searchParams]);
 

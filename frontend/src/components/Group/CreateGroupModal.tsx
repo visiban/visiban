@@ -132,7 +132,9 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
                 value={subgroupName}
                 onChange={(e) => { setSubgroupName(e.target.value); setSubgroupError(null); }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); handleAddSubgroup(); }
+                  // void: handleAddSubgroup already catches its own rejection
+                  // and surfaces it via subgroupError.
+                  if (e.key === "Enter") { e.preventDefault(); void handleAddSubgroup(); }
                 }}
                 placeholder="Subgroup name"
                 disabled={subgroupSaving}
@@ -190,7 +192,9 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             value={name}
             onChange={(e) => { setName(e.target.value); setError(null); }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); handleCreate(); }
+              // void: handleCreate already catches its own rejection and
+              // surfaces it via `error`.
+              if (e.key === "Enter") { e.preventDefault(); void handleCreate(); }
             }}
             placeholder={parentGroup ? "e.g. Backend" : "e.g. Engineering"}
             className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted transition"

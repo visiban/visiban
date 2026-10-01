@@ -367,4 +367,48 @@ describe('InviteLinkPanel', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(pageEscape).toHaveBeenCalledTimes(1)
   })
+
+  // ----------------------------------------------------------------
+  // Load failure and copy failure — rejection paths (#1375)
+  // ----------------------------------------------------------------
+
+  it('shows a load error and a retry button when the initial list fetch fails', async () => {
+    mockListInviteLinks.mockRejectedValueOnce(new Error('network error'))
+    render(<InviteLinkPanel groupId={1} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load invite links.')
+    // The empty-state message must not render in its place — they're mutually exclusive.
+    expect(screen.queryByText('No invite links.')).not.toBeInTheDocument()
+
+    mockListInviteLinks.mockResolvedValueOnce([fakeExistingLink])
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Existing link')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('refetching after reloadSignal clears a stale load error on success', async () => {
+    mockListInviteLinks.mockRejectedValueOnce(new Error('network error'))
+    const { rerender } = render(<InviteLinkPanel groupId={1} reloadSignal={0} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load invite links.')
+
+    mockListInviteLinks.mockResolvedValueOnce([fakeExistingLink])
+    rerender(<InviteLinkPanel groupId={1} reloadSignal={1} />)
+    expect(await screen.findByText('Existing link')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows a failure label on the Copy button when the clipboard write rejects, without a false "Copied!"', async () => {
+    mockCreateInviteLink.mockResolvedValue(fakeCreatedLink)
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'))
+    const user = userEvent.setup()
+    render(<InviteLinkPanel groupId={1} />)
+    await user.click(await screen.findByRole('button', { name: 'New link' }))
+    await user.click(screen.getByRole('button', { name: 'Create link' }))
+    const copyBtn = await screen.findByRole('button', { name: 'Copy' })
+
+    await user.click(copyBtn)
+
+    expect(await screen.findByRole('button', { name: 'Failed — try again' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copied!' })).not.toBeInTheDocument()
+  })
 })

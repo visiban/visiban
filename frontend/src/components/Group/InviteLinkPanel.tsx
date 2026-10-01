@@ -81,6 +81,8 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [copyErrorId, setCopyErrorId] = useState<number | null>(null);
 
   // Escape cancels the open revoke prompt before the host page's priority-0
   // Escape-to-navigate handler (GroupDetail, its only host) can leave the page (#1238).
@@ -103,16 +105,23 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
 
   const fetchLinks = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const data = await listInviteLinks(groupId);
       setLinks(data);
+    } catch {
+      // Previously unhandled: a failed load left `links` at its prior value
+      // (empty on first mount) with no indication anything went wrong — the
+      // empty state silently read as "no invite links" (#1375).
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   }, [groupId]);
 
   useEffect(() => {
-    fetchLinks();
+    // void: fetchLinks catches its own rejection above and surfaces it via loadError.
+    void fetchLinks();
   }, [fetchLinks]);
 
   // Refetch when the parent signals an invite_link.revoked socket event so the
@@ -123,15 +132,24 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
       didMountRef.current = true;
       return;
     }
-    fetchLinks();
+    void fetchLinks();
   }, [reloadSignal, fetchLinks]);
 
-  const handleCopy = (link: GroupInviteLink) => {
+  const handleCopy = async (link: GroupInviteLink) => {
     // For just-created links with raw token, copy the full join URL
     if (link.token) {
       const url = `${window.location.origin}/join/${link.token}`;
-      navigator.clipboard.writeText(url);
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        // Previously: the "Copied!" confirmation showed unconditionally even
+        // when the write itself failed (clipboard permission denied, insecure
+        // context, etc.), telling the user the wrong thing (#1375).
+        setCopyErrorId(link.id);
+        return;
+      }
     }
+    setCopyErrorId(null);
     setCopiedId(link.id);
     if (copiedTimerRef.current !== null) {
       clearTimeout(copiedTimerRef.current);
@@ -148,6 +166,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
       prev.map((l) => (l.id === linkId ? { ...l, token: undefined } : l))
     );
     setRevealId(null);
+    setCopyErrorId((prev) => (prev === linkId ? null : prev));
   };
 
   const handleRevoke = async (linkId: number) => {
@@ -208,6 +227,16 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
 
       {loading ? (
         <Spinner />
+      ) : loadError ? (
+        <div className="text-center py-2">
+          <p role="alert" className="text-xs text-danger mb-2">Failed to load invite links.</p>
+          <button
+            onClick={() => void fetchLinks()}
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Try again
+          </button>
+        </div>
       ) : links.length === 0 ? (
         <p className="text-xs text-fg-muted">No invite links.</p>
       ) : (
@@ -289,10 +318,11 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleCopy(link)}
+                        // void: handleCopy now catches its own rejection and surfaces it via copyErrorId.
+                        onClick={() => void handleCopy(link)}
                         className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
                       >
-                        {copiedId === link.id ? "Copied!" : "Copy"}
+                        {copyErrorId === link.id ? "Failed — try again" : copiedId === link.id ? "Copied!" : "Copy"}
                       </button>
                       <button
                         onClick={() => handleDismissReveal(link.id)}

@@ -59,7 +59,9 @@ export function useBoard() {
       .catch((err) => {
         if (err?.response?.status === 404 || err?.response?.status === 403) {
           // Board doesn't exist or user lost access — go back to dashboard.
-          navigate("/", { replace: true });
+          // Fire-and-forget: the declarative router resolves navigate()
+          // synchronously, and any failure is handled by its own error boundary.
+          void navigate("/", { replace: true });
         } else {
           setError("Failed to load board");
         }
@@ -77,7 +79,8 @@ export function useBoard() {
       .then(setBoard)
       .catch((err) => {
         if (err?.response?.status === 404 || err?.response?.status === 403) {
-          navigate("/", { replace: true });
+          // See the `load` catch above re: fire-and-forget navigate().
+          void navigate("/", { replace: true });
         }
         // Swallow other errors silently — a background resync failure is not
         // worth surfacing to the user; the WS connection will recover it.
