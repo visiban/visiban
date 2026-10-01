@@ -20,7 +20,14 @@ _SEGMENT_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$")
 class LensConnectionSerializer(serializers.ModelSerializer):
     # Nested user object to match the FK rendering convention used across the
     # board/card serializers (assignee, created_by, owner are all nested).
-    created_by = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1331): created_by is a SET_NULL FK with null=True — a
+    # lens connection whose creator has since been deleted serializes with
+    # `created_by: null` (REST and the `lens_connection.configured` WS payload).
+    # Same declared-nested-field gap as #1108/#1192: a declared nested
+    # serializer does not inherit null=True from the model, so without this
+    # drf-spectacular publishes a non-nullable type. Schema-only: read_only, so
+    # nothing about request validation changes.
+    created_by = BoardUserSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = LensConnection

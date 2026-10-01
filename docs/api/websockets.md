@@ -240,7 +240,7 @@ sees it appear or disappear without a reload.
 
 | Event | Trigger | `data` shape |
 |---|---|---|
-| `lens_connection.configured` | Lens connection created or reconfigured on this board (admin only) | Full `LensConnectionSerializer` object |
+| `lens_connection.configured` | Lens connection created or reconfigured on this board (admin only) | Full `LensConnectionSerializer` object (its `created_by` is `null` if the configuring user has since been deleted) |
 | `lens_connection.removed` | Lens connection deleted from this board (admin only) | `{ "board_id": <int> }` |
 
 ### Keepalive
