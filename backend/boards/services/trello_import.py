@@ -695,9 +695,14 @@ def _md_escape(text: str) -> str:
 
 
 def _safe_url(url: str) -> bool:
-    # Only absolute http(s) URLs with no whitespace/control characters, which
-    # could otherwise break out of the markdown link destination.
+    # Only absolute http(s) URLs with no whitespace/control characters, and
+    # none of `<`, `"`, or backtick, any of which could break out of the
+    # markdown `<...>` link destination or an HTML attribute if the
+    # markdown is ever rendered as raw HTML (defense in depth: card
+    # descriptions already go through react-markdown with rehypeSanitize).
     if not url.lower().startswith(("http://", "https://")):
+        return False
+    if any(ch in url for ch in ("<", '"', "`")):
         return False
     return not any(ch.isspace() or ord(ch) < 32 or ch == "\x7f" for ch in url)
 

@@ -418,6 +418,39 @@ class TrelloImportValidationTests(TrelloImportBase):
         # dropped entirely, not merely stripped of their dangerous substring.
         self.assertEqual(card.description.count("- ["), 1)
 
+    def test_attachment_urls_with_markdown_breakout_characters_are_dropped(self):
+        # _safe_url() allows the http(s) scheme itself but must still reject
+        # `<`, `"`, and backtick inside an otherwise-valid URL body — any of
+        # these can break out of the markdown `<...>` link destination (or
+        # an HTML attribute, if the markdown is ever rendered as raw HTML).
+        data = load_fixture()
+        data["cards"][0]["attachments"] = [
+            {"name": "ok", "url": "https://docs.example.com/a"},
+            {"name": "angle", "url": 'https://evil.example/"><script>alert(1)</script>'},
+            {"name": "quote", "url": 'https://evil.example/a"onmouseover=alert(1)'},
+            {"name": "backtick", "url": "https://evil.example/a`alert(1)`"},
+        ]
+        board = Board.objects.get(pk=self.post("confirm", data=data).data["board"]["id"])
+        card = board.cards.get(title="Write launch plan")
+        self.assertIn("https://docs.example.com/a", card.description)
+        self.assertNotIn("evil.example", card.description)
+        self.assertNotIn("<script>", card.description)
+        self.assertNotIn("onmouseover", card.description)
+        # Exactly one attachment line: the three breakout-character URLs
+        # were dropped entirely, not merely stripped of the bad character.
+        self.assertEqual(card.description.count("- ["), 1)
+
+    def test_safe_url_unit(self):
+        # Direct unit coverage of the predicate, alongside the end-to-end
+        # import tests above.
+        self.assertTrue(trello_import._safe_url("https://docs.example.com/a"))
+        self.assertTrue(trello_import._safe_url("http://docs.example.com/a"))
+        self.assertFalse(trello_import._safe_url("javascript:alert(1)"))
+        self.assertFalse(trello_import._safe_url('https://evil.example/"><script>'))
+        self.assertFalse(trello_import._safe_url('https://evil.example/a"onmouseover=1'))
+        self.assertFalse(trello_import._safe_url("https://evil.example/a`alert(1)`"))
+        self.assertFalse(trello_import._safe_url("https://evil.example/a\tb"))
+
     def test_long_comments_and_descriptions_truncated_with_warnings(self):
         data = load_fixture()
         data["cards"][1]["desc"] = "d" * 60_000
