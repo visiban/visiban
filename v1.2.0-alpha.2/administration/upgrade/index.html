@@ -3852,7 +3852,7 @@
 <td>1.1.x</td>
 <td>1.2.x (minor)</td>
 <td>Yes — zero-downtime</td>
-<td>Follow the <a href="#standard-upgrade-steps">standard upgrade steps</a>. See <a href="#upgrading-to-12x">Upgrading to 1.2.x</a> — most changes are additive and need no operator action, but read the <code>!!!</code> callouts (Compose <code>ALLOWED_HOSTS</code>/<code>DOMAIN</code>, Helm values-schema validation, PAT scopes and the MCP server).</td>
+<td>Follow the <a href="#standard-upgrade-steps">standard upgrade steps</a>. See <a href="#upgrading-to-12x">Upgrading to 1.2.x</a> — most changes are additive and need no operator action, but read the <code>!!!</code> callouts (Compose <code>ALLOWED_HOSTS</code>/<code>DOMAIN</code>, Helm <code>ALLOWED_HOSTS</code> no longer includes <code>localhost</code>, Helm values-schema validation, PAT scopes and the MCP server).</td>
 </tr>
 </tbody>
 </table>
@@ -4226,6 +4226,22 @@ of <code>Host: localhost</code>. An install whose <code>ALLOWED_HOSTS</code> hol
 an alias but not the exact <code>DOMAIN</code> value never turns healthy after the
 upgrade, and nginx (which waits on it) does not start. Check that
 <code>ALLOWED_HOSTS</code> in <code>.env</code> contains <code>DOMAIN</code> before running <code>up -d</code>.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Helm: <code>ALLOWED_HOSTS</code> no longer includes <code>localhost</code> / <code>127.0.0.1</code></p>
+<p>The chart used to append <code>127.0.0.1,localhost</code> to <code>backend.settings.allowedHosts</code>.
+The frontend nginx accepts any <code>Host</code> and forwards it, so that let any client
+reaching the frontend Service directly (NodePort, LoadBalancer, or a host-less
+Ingress rule) send <code>Host: localhost</code> and be accepted, which defeats pinning
+<code>ALLOWED_HOSTS</code> to your public domain. The rendered <code>ALLOWED_HOSTS</code> is now
+exactly <code>backend.settings.allowedHosts</code>. The chart's own probes and <code>helm test</code>
+pods now send the first configured host as their <code>Host</code> header, so they need
+no change. One thing you may notice: reaching the app through
+<code>kubectl port-forward</code> and browsing <code>http://localhost:...</code> returns HTTP 400
+(<code>DisallowedHost</code>). To keep doing that, opt back in explicitly with a
+comma-separated list, for example
+<code>--set backend.settings.allowedHosts=boards.example.com\,localhost</code>, or send
+the real host: <code>curl -H "Host: boards.example.com" http://localhost:8080/</code>.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Helm: give <code>externalDatabase.password</code> verbatim</p>

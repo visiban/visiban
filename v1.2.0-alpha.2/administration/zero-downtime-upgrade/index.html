@@ -3829,7 +3829,7 @@ you're satisfied:</p>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
 <a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Check readiness directly against a new pod</span>
 <a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>&lt;new-pod-name&gt;<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import urllib.request; print(urllib.request.urlopen('http://localhost:8000/api/health/readiness/').read().decode())"</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import urllib.request as u; print(u.urlopen(u.Request('http://localhost:8000/api/health/readiness/', headers={'Host': '&lt;your host&gt;'})).read().decode())"</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">This checkpoint is approximate, not a guaranteed 50%</p>
