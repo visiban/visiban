@@ -230,6 +230,8 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 
     `is_site_admin` (since 1.2) is sent only to `admin` / `site_admin` subscribers, with no self-row exception — see [Members](boards.md#members).
 
+    The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a `member.added` or `member.updated` frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving `is_moderator` and `is_site_admin` on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no `member.*` frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect on the next reconnect.
+
     The [change feed](events.md) applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.
 
 ### Git Lens events (since 1.2)
