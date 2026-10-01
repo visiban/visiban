@@ -210,6 +210,31 @@ that's intended — or restore the missing tag by other means (e.g. re-pushing t
 digest, if still available on the other registry) — before re-running the chain for anything
 other than the current newest release.
 
+## GitLab-registry `:latest` is amd64-only between releases
+
+The two registries do not behave the same for `:latest`:
+
+| Registry | What updates `:latest` | Architectures |
+|---|---|---|
+| GHCR | Release tags only (`backend-manifest` / `frontend-manifest`) | linux/amd64 + linux/arm64, persistently, until the next release |
+| GitLab | Release tags (multi-arch manifest) **and** every `main`-branch merge (`backend-docker-push` / `frontend-docker-push`, via kaniko) | Multi-arch right after a release tag, then **amd64 only** after the next `main` merge |
+
+The native arm64 legs (`*-docker-push-arm64`), `arm64-runner-preflight`, and the manifest jobs
+all have release-tag-only `rules:`. A `main` merge therefore pushes an amd64-only `:latest`
+and `:<short-sha>` to the GitLab registry, overwriting the multi-arch `:latest` from the last
+release.
+
+**This is an accepted tradeoff (#1208).** Building arm64 on every `main` merge would serialize
+each merge through the single dedicated Apple Silicon runner (`Max1-Runner-Visiban`), and that
+throughput cost has not been evaluated. GHCR is unaffected, so there is a persistently
+multi-arch `:latest` available.
+
+**Guidance for arm64 self-hosters:** pin a release tag (`:v1.2.0`) rather than `:latest`, or use
+GHCR's `:latest`. Do not pull the GitLab-registry `:latest` or a short-SHA tag on arm64 between
+releases; it may resolve to an amd64-only image. If this tradeoff stops being acceptable, the
+fix is to run the arm64 leg and manifest assembly on `main` merges, which means changing those
+jobs' `rules:` in `.gitlab-ci.yml`.
+
 ## Digest pinning
 
 Both `docker-compose.prod.yml` and the Helm chart select images by **tag** (`APP_VERSION` /
