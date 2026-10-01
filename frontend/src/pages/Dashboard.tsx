@@ -38,12 +38,17 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [trelloImporting, setTrelloImporting] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [joinToken, setJoinToken] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     listBoards()
       .then(setBoards)
+      .catch(() => setLoadError("Failed to load boards. Try refreshing the page."))
       .finally(() => setLoadingBoards(false));
-    listGroups().then(setGroups).finally(() => setLoadingGroups(false));
+    listGroups()
+      .then(setGroups)
+      .catch(() => setLoadError("Failed to load groups. Try refreshing the page."))
+      .finally(() => setLoadingGroups(false));
   }, []);
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, setAsDefault: boolean) => {
@@ -56,24 +61,38 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         .then((updatedUser) => onUserUpdated(updatedUser))
         .catch(() => undefined);
     }
-    navigate(`/boards/${board.id}`);
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // the board was already created and there is nothing to roll back.
+    void navigate(`/boards/${board.id}`);
   };
 
   const handleDeleteBoard = async (boardId: number) => {
+    const previousBoards = boards;
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
     setConfirmDeleteId(null);
     setDeleteConfirmInput("");
     try {
       await deleteBoard(boardId);
     } catch {
-      listBoards().then(setBoards);
+      // The delete failed after the board was optimistically removed from the
+      // list — refetch to reconcile with the server, and if that also fails,
+      // fall back to the pre-delete snapshot so the board doesn't appear
+      // deleted when it is not.
+      try {
+        setBoards(await listBoards());
+      } catch {
+        setBoards(previousBoards);
+      }
+      setLoadError("Failed to delete the board. Please try again.");
     }
   };
 
   const handleImportBoard = async (file: File, name?: string) => {
     const board = await importBoard(file, name);
     setImportingBoard(false);
-    navigate(`/boards/${board.id}`);
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // the board was already imported and there is nothing to roll back.
+    void navigate(`/boards/${board.id}`);
   };
 
   const personalBoards = boards.filter((b) => !b.group);
@@ -129,7 +148,9 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     // adversarial input (ReDoS). Takes whatever follows the last /join/ segment,
     // or the whole string if the user pasted a bare token.
     const token = raw.split("/join/").pop() ?? raw;
-    if (token) navigate(`/join/${token}`);
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // there is nothing to roll back if the navigation itself rejects.
+    if (token) void navigate(`/join/${token}`);
   };
 
   return (
@@ -137,6 +158,10 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
+
+        {loadError && (
+          <p className="text-sm text-danger mb-4" data-testid="dashboard-load-error">{loadError}</p>
+        )}
 
         {isEmpty && (
           <OnboardingEmptyState
@@ -250,7 +275,9 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           onCancel={() => setTrelloImporting(false)}
           onImported={(b) => {
             setTrelloImporting(false);
-            navigate(`/boards/${b.id}`);
+            // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+            // the board was already imported and there is nothing to roll back.
+            void navigate(`/boards/${b.id}`);
           }}
         />
       )}

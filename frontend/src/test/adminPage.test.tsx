@@ -703,6 +703,39 @@ describe('AdminPage — Invite Links tab', () => {
       'https://visiban.example.com/join/vbnl_abc123def456'
     )
   })
+
+  // #1374 — the clipboard write is a floating promise if its rejection isn't
+  // surfaced; a failed copy must not fail silently.
+  it('shows an error when copying the join URL to the clipboard fails', async () => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    })
+    mockCreateAdminInviteLink.mockResolvedValue({
+      id: 1,
+      prefix: 'vbnl_ab',
+      status: 'pending',
+      single_use: false,
+      expires_at: null,
+      use_count: 0,
+      created_by_username: 'admin',
+      raw_token: 'vbnl_abc123def456',
+    })
+
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Invite Links'))
+    fireEvent.click(screen.getByText('Invite Links'))
+    await waitFor(() => screen.getByText('Create link'))
+    fireEvent.click(screen.getByText('Create link'))
+
+    await waitFor(() => screen.getByText('Copy'))
+    fireEvent.click(screen.getByText('Copy'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to copy the link. Copy it manually instead.')).toBeInTheDocument()
+    })
+    // The reveal panel stays up so the link is still available to copy by hand.
+    expect(screen.getByText('https://visiban.example.com/join/vbnl_abc123def456')).toBeInTheDocument()
+  })
 })
 
 // ---------------------------------------------------------------------------

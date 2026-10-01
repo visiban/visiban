@@ -45,7 +45,9 @@ export default function ConfirmEmailPage({ isAuthenticated = false }: { isAuthen
       setCountdown((c) => {
         if (c <= 1) {
           clearInterval(timer);
-          navigate("/");
+          // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+          // there is nothing to roll back if the navigation itself rejects.
+          void navigate("/");
           return 0;
         }
         return c - 1;

@@ -313,11 +313,14 @@ function InviteLinksTab() {
 
   const handleCopy = () => {
     if (!newLink) return;
-    navigator.clipboard.writeText(`${window.location.origin}/join/${newLink.raw_token}`).then(() => {
-      setCopied(true);
-      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard
+      .writeText(`${window.location.origin}/join/${newLink.raw_token}`)
+      .then(() => {
+        setCopied(true);
+        if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+        copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => setError("Failed to copy the link. Copy it manually instead."));
   };
 
   const handleRevoke = async (id: number) => {
@@ -1022,7 +1025,8 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   );
 
   useEffect(() => {
-    fetchUsers(search, offset);
+    // void: fetchUsers handles its own errors via setError and never rethrows.
+    void fetchUsers(search, offset);
     // search is read from the latest closure intentionally: typing updates
     // `search` without refetching here — handleSearchChange below debounces
     // and fetches directly, so this effect only needs to react to offset
@@ -1440,14 +1444,17 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
   useEscapeStack(() => {
     const tag = (document.activeElement as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
-    if (window.history.length > 1) { navigate(-1); return; }
-    navigate("/");
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // there is nothing to roll back if the navigation itself rejects.
+    if (window.history.length > 1) { void navigate(-1); return; }
+    void navigate("/");
   }, 0);
 
   // Redirect non-admins immediately.
   useEffect(() => {
     if (!user.is_site_admin) {
-      navigate("/", { replace: true });
+      // void: fire-and-forget redirect, see useEscapeStack above.
+      void navigate("/", { replace: true });
     }
   }, [user.is_site_admin, navigate]);
 

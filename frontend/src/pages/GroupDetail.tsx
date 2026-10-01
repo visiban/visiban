@@ -57,8 +57,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   useEscapeStack(() => {
     const tag = (document.activeElement as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
-    if (window.history.length > 1) { navigate(-1); return; }
-    navigate("/");
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // there is nothing to roll back if the navigation itself rejects.
+    if (window.history.length > 1) { void navigate(-1); return; }
+    void navigate("/");
   }, 0);
 
   const [group, setGroup] = useState<Group | null>(null);
@@ -150,7 +152,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     }).catch((err: unknown) => {
         const status = (err as { response?: { status?: number } })?.response?.status;
         if (status === 404 || status === 403) {
-          navigate("/", { replace: true });
+          // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+          // there is nothing to roll back if the navigation itself rejects.
+          void navigate("/", { replace: true });
         } else {
           setError("Failed to load group");
         }
@@ -394,7 +398,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") { e.preventDefault(); handleRenameSave(); }
+    // void: handleRenameSave manages its own try/catch and reverts optimistic
+    // state on failure, so there is nothing further to await here.
+    if (e.key === "Enter") { e.preventDefault(); void handleRenameSave(); }
     if (e.key === "Escape") { e.preventDefault(); handleRenameCancel(); }
   };
 
@@ -438,13 +444,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     const board = await createGroupBoard(groupId, { name, template, swimlane_name: swimlaneName });
     setBoards((prev) => [...prev, board]);
     setCreatingBoard(false);
-    navigate(`/boards/${board.id}`);
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // the board was already created and there is nothing to roll back.
+    void navigate(`/boards/${board.id}`);
   };
 
   const handleImportBoard = async (file: File, name?: string) => {
     const board = await importBoard(file, name, groupId);
     setImportingBoard(false);
-    navigate(`/boards/${board.id}`);
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // the board was already imported and there is nothing to roll back.
+    void navigate(`/boards/${board.id}`);
   };
 
   const handleRemoveMember = async (userId: number) => {
@@ -461,7 +471,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const handleDeleteGroup = async () => {
     setConfirmDeleteGroup(false);
     await deleteGroup(groupId);
-    navigate("/");
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // the group was already deleted and there is nothing to roll back.
+    void navigate("/");
   };
 
   const handleTransferOwnership = async () => {
@@ -599,7 +611,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     {i > 0 && <span className="text-fg-faint mx-1.5 select-none">/</span>}
                     <a
                       href={`/groups/${ancestor.id}`}
-                      onClick={(e) => { e.preventDefault(); navigate(`/groups/${ancestor.id}`); }}
+                      // void: navigate() can return a Promise in React Router v7; fire-and-forget.
+                      onClick={(e) => { e.preventDefault(); void navigate(`/groups/${ancestor.id}`); }}
                       className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate"
                       title={ancestor.name}
                     >
@@ -1068,7 +1081,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     type="text"
                     value={newLabelName}
                     onChange={(e) => setNewLabelName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAddGroupLabel(); }}
+                    // void: handleAddGroupLabel manages its own try/catch and
+                    // surfaces failures via labelError, nothing further to await here.
+                    onKeyDown={(e) => { if (e.key === "Enter") void handleAddGroupLabel(); }}
                     placeholder="Label name…"
                     className="flex-1 bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                   />
@@ -1148,7 +1163,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           onCancel={() => setTrelloImporting(false)}
           onImported={(b) => {
             setTrelloImporting(false);
-            navigate(`/boards/${b.id}`);
+            // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+            // the board was already imported and there is nothing to roll back.
+            void navigate(`/boards/${b.id}`);
           }}
         />
       )}

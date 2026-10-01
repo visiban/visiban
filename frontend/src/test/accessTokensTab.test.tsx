@@ -103,6 +103,18 @@ describe('AccessTokensTab', () => {
     })
   })
 
+  // #1374 — fetchTokens had no catch at all, so a failed load left the user
+  // staring at "No access tokens yet." indistinguishable from a real empty list.
+  it('shows an error instead of the empty-state message when loading tokens fails', async () => {
+    mockListTokens.mockRejectedValue(new Error('network error'))
+    renderPage()
+    await switchToAccessTokensTab()
+    await waitFor(() => {
+      expect(screen.getByTestId('tokens-load-error')).toHaveTextContent('Failed to load access tokens.')
+    })
+    expect(screen.queryByTestId('no-tokens-message')).not.toBeInTheDocument()
+  })
+
   it('renders existing tokens', async () => {
     mockListTokens.mockResolvedValue([token1, token2])
     renderPage()

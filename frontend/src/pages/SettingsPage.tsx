@@ -740,6 +740,7 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Escape cancels an open inline revoke confirm before the page-level
   // Escape-to-navigate handler (priority 0) can leave the page (#1238).
@@ -751,12 +752,18 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
   const fetchTokens = useCallback(async () => {
     try {
       setTokens(await listTokens());
+      setLoadError(null);
+    } catch {
+      setLoadError("Failed to load access tokens.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchTokens(); }, [fetchTokens]);
+  useEffect(() => {
+    // void: fetchTokens handles its own errors via setLoadError and never rethrows.
+    void fetchTokens();
+  }, [fetchTokens]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -877,6 +884,8 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
         <div className="flex items-center justify-center py-8">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
+      ) : loadError ? (
+        <p className="text-sm text-danger" data-testid="tokens-load-error">{loadError}</p>
       ) : tokens.length === 0 ? (
         <p className="text-sm text-fg-muted" data-testid="no-tokens-message">No access tokens yet.</p>
       ) : (
@@ -1344,15 +1353,19 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
 
   useEffect(() => {
     if (searchParams.has("connected") || searchParams.has("connect_error")) {
-      navigate(".", { replace: true, state: location.state });
+      // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+      // there is nothing to roll back if the navigation itself rejects.
+      void navigate(".", { replace: true, state: location.state });
     }
   }, [navigate, searchParams, location.state]);
 
   useEscapeStack(() => {
     const tag = (document.activeElement as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
-    if (window.history.length > 1) { navigate(-1); return; }
-    navigate(from ?? "/", { replace: true });
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // there is nothing to roll back if the navigation itself rejects.
+    if (window.history.length > 1) { void navigate(-1); return; }
+    void navigate(from ?? "/", { replace: true });
   }, 0);
 
   return (

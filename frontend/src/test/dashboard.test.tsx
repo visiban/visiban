@@ -40,11 +40,12 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
 }))
 
-import { listBoards } from '../api/boards'
+import { listBoards, deleteBoard } from '../api/boards'
 import { listGroups } from '../api/groups'
 
 const mockListBoards = listBoards as ReturnType<typeof vi.fn>
 const mockListGroups = listGroups as ReturnType<typeof vi.fn>
+const mockDeleteBoard = deleteBoard as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -357,5 +358,74 @@ describe('Dashboard — delete confirmation and archived cards (#1289)', () => {
     expect(dialog).toHaveTextContent('all its data, including archived cards, will be permanently deleted')
     expect(screen.queryByPlaceholderText('Type "Sprint Board" to confirm')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+  })
+})
+
+// #1374 — floating promises: initial load and delete failures must surface an
+// error instead of failing silently, and a failed delete must not leave a
+// board permanently missing from the list.
+describe('Dashboard — rejection paths (#1374)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('shows an error when the initial board load fails', async () => {
+    mockListBoards.mockRejectedValue(new Error('network error'))
+    mockListGroups.mockResolvedValue([])
+    renderDashboard()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to load boards. Try refreshing the page.'
+    )
+  })
+
+  it('shows an error when the initial group load fails', async () => {
+    mockListBoards.mockResolvedValue([])
+    mockListGroups.mockRejectedValue(new Error('network error'))
+    renderDashboard()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to load groups. Try refreshing the page.'
+    )
+  })
+
+  it('reconciles with the server and shows an error when deleting a board fails', async () => {
+    const board = { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
+    mockListBoards.mockResolvedValueOnce([board])
+    mockListGroups.mockResolvedValue([])
+    mockDeleteBoard.mockRejectedValue(new Error('server error'))
+    // Refetch after the failed delete finds the board is still there.
+    mockListBoards.mockResolvedValueOnce([board])
+
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Sprint Board')
+    await user.click(screen.getByTitle('Delete board'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    // Board reappears after the reconciling refetch, and the error is shown.
+    expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to delete the board. Please try again.'
+    )
+  })
+
+  it('falls back to the pre-delete snapshot when both the delete and the reconciling refetch fail', async () => {
+    const board = { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
+    mockListBoards.mockResolvedValueOnce([board])
+    mockListGroups.mockResolvedValue([])
+    mockDeleteBoard.mockRejectedValue(new Error('server error'))
+    // The reconciling refetch also fails.
+    mockListBoards.mockRejectedValueOnce(new Error('network error'))
+
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Sprint Board')
+    await user.click(screen.getByTitle('Delete board'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    // The board is restored from the pre-delete snapshot rather than left missing.
+    expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to delete the board. Please try again.'
+    )
   })
 })
