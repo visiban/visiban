@@ -728,6 +728,17 @@ describe('SecurityTab — connected accounts', () => {
     expect(await screen.findByText('Your account has no password set up.')).toBeInTheDocument()
   })
 
+  it('a failed list load shows an error with Retry, not "Not connected" rows', async () => {
+    mockListConnectedAccounts.mockImplementationOnce(() => Promise.reject(new Error('500')))
+    const ue = userEvent.setup()
+    renderSettings()
+    await ue.click(screen.getAllByText('Security')[0])
+    expect(await screen.findByText('Failed to load connected accounts.')).toBeInTheDocument()
+    expect(screen.queryByText('Not connected')).not.toBeInTheDocument()
+    await ue.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByTestId('connected-accounts-list')).toBeInTheDocument()
+  })
+
   it('?connected=<provider> opens Security and marks the row Connected.', async () => {
     mockListConnectedAccounts.mockImplementation(() => Promise.resolve([
       { provider: 'google', connected: true, email: 'jane@gmail.com', connected_at: '2026-09-30T00:00:00Z' },
@@ -736,6 +747,12 @@ describe('SecurityTab — connected accounts', () => {
     await open(fakeUser, '/settings?connected=github')
     expect(screen.getByTestId('connected-account-github')).toHaveTextContent('Connected.')
     expect(mockNavigate).toHaveBeenCalledWith('.', expect.objectContaining({ replace: true }))
+  })
+
+  it('an unknown ?connect_error= code shows fixed copy, never the raw value', async () => {
+    await open(fakeUser, '/settings?connect_error=Call%20555-0100%20for%20help&provider=github')
+    expect(screen.getByTestId('connected-account-github')).toHaveTextContent("Couldn't connect GitHub. Please try again.")
+    expect(screen.queryByText(/555-0100/)).not.toBeInTheDocument()
   })
 
   it('?connect_error=provider_already_connected shows the taken copy on the row', async () => {

@@ -392,7 +392,17 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         """
         from .social_connect import find_accounts_for_email, stash_pending_connect
 
-        first = sociallogin.email_addresses[0] if sociallogin.email_addresses else None
+        # Pick the address the IdP calls primary, else the first verified one,
+        # else the first listed. GitHub returns every address on the account
+        # in API order (allauth does not sort them), so blindly taking [0]
+        # could run the collision check — and the "verified" gate for
+        # account_exists_provider — against a secondary, unverified address.
+        addresses = list(sociallogin.email_addresses or [])
+        first = (
+            next((a for a in addresses if getattr(a, "primary", False)), None)
+            or next((a for a in addresses if getattr(a, "verified", False)), None)
+            or (addresses[0] if addresses else None)
+        )
         email = getattr(first, "email", "") or ""
         if not email:
             return

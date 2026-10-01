@@ -122,16 +122,23 @@ export default function LoginPage({ onLogin }: Props) {
 
     // Handle auth_error from OAuth callback redirect.
     const authError = searchParams.get("auth_error");
-    if (authError === "account_exists") {
+    // Only known provider ids may be named in the banner: these params come
+    // from the URL, and a crafted link must not put arbitrary text into a
+    // security message. An unknown id falls back to the generic message.
+    const knownProvider = (key: string) => {
+      const v = searchParams.get(key) ?? "";
+      return isProviderId(v) ? v : null;
+    };
+    if (authError === "account_exists" && knownProvider("provider")) {
       // An in-flight invite (sessionStorage) is deliberately kept: the user
       // signs in to their existing account and the join flow carries on.
-      setBanner({ kind: "account_exists", provider: searchParams.get("provider") ?? "" });
+      setBanner({ kind: "account_exists", provider: knownProvider("provider")! });
       navigate("/", { replace: true });
-    } else if (authError === "account_exists_provider") {
+    } else if (authError === "account_exists_provider" && knownProvider("via") && knownProvider("provider")) {
       setBanner({
         kind: "account_exists_provider",
-        via: searchParams.get("via") ?? "",
-        provider: searchParams.get("provider") ?? "",
+        via: knownProvider("via")!,
+        provider: knownProvider("provider")!,
       });
       navigate("/", { replace: true });
     } else if (authError) {

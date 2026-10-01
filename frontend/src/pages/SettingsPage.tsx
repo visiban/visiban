@@ -406,7 +406,7 @@ function ConnectedAccountRow({
         {connected && account?.email && (
           <p className="text-xs text-fg-muted mt-0.5 truncate">{account.email}</p>
         )}
-        <p className="text-xs min-h-4 mt-0.5" aria-live="polite">
+        <p className="text-xs min-h-4 mt-0.5" role="status" aria-live="polite" aria-atomic="true">
           {rowError && <span className="text-danger">{rowError}</span>}
           {rowSuccess && !rowError && <span className="text-success">Connected.</span>}
         </p>
@@ -420,7 +420,7 @@ function ConnectedAccountRow({
                 type="button"
                 onClick={onConfirmDisconnect}
                 disabled={disconnecting}
-                className="text-xs text-danger hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                className="text-xs text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 data-testid={`confirm-disconnect-${provider}`}
               >
                 {disconnecting ? "Disconnecting…" : "Confirm"}
@@ -488,11 +488,15 @@ function ConnectedAccountsSection({
   const [configured, setConfigured] = useState<ProviderId[] | null>(null);
   const [oidcName, setOidcName] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<ConnectedAccount[] | null>(null);
+  // A failed list load must not render as "Not connected" on every row — that
+  // would be a false account-security status. Show an error with Retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
-  const [rowStatus, setRowStatus] = useState<{ provider: string; error: string | null } | null>(
-    connectResult ? { provider: connectResult.provider, error: connectResult.error } : null,
+  const [rowStatus, setRowStatus] = useState<{ provider: string; error: string | null; fromUrl: boolean } | null>(
+    connectResult ? { provider: connectResult.provider, error: connectResult.error, fromUrl: true } : null,
   );
 
   useEffect(() => {
@@ -505,10 +509,10 @@ function ConnectedAccountsSection({
       })
       .catch(() => { if (!cancelled) setConfigured([]); });
     listConnectedAccounts()
-      .then((rows) => { if (!cancelled) setAccounts(rows); })
-      .catch(() => { if (!cancelled) setAccounts([]); });
+      .then((rows) => { if (!cancelled) { setAccounts(rows); setLoadFailed(false); } })
+      .catch(() => { if (!cancelled) { setAccounts([]); setLoadFailed(true); } });
     return () => { cancelled = true; };
-  }, []);
+  }, [reloadKey]);
 
   const providersLoading = configured === null || accounts === null;
   if (!providersLoading && configured.length === 0) return null;
@@ -531,7 +535,7 @@ function ConnectedAccountsSection({
       setConfirmingId(null);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setRowStatus({ provider: id, error: detail ?? `Couldn't disconnect ${labelFor(id)}. Please try again.` });
+      setRowStatus({ provider: id, error: detail ?? `Couldn't disconnect ${labelFor(id)}. Please try again.`, fromUrl: false });
       setConfirmingId(null);
     } finally {
       setDisconnectingId(null);
@@ -550,6 +554,17 @@ function ConnectedAccountsSection({
         <div className="flex items-center justify-center py-6">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
+      ) : loadFailed ? (
+        <div className="flex items-center gap-3" data-testid="connected-accounts-error">
+          <p className="text-sm text-danger">Failed to load connected accounts.</p>
+          <button
+            type="button"
+            onClick={() => { setAccounts(null); setReloadKey((k) => k + 1); }}
+            className="text-xs text-fg-tertiary hover:text-fg underline transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Retry
+          </button>
+        </div>
       ) : (
         <div className="flex flex-col divide-y divide-line rounded-lg border border-line overflow-hidden" data-testid="connected-accounts-list">
           {configured.map((id) => {
@@ -565,7 +580,7 @@ function ConnectedAccountsSection({
                 confirming={confirmingId === id}
                 connecting={connectingId === id}
                 disconnecting={disconnectingId === id}
-                rowError={status?.error ? connectErrorOrDetail(status.error, labelFor(id)) : null}
+                rowError={status?.error ? connectErrorOrDetail(status.error, labelFor(id), status.fromUrl) : null}
                 rowSuccess={!!status && !status.error && !!account?.connected}
                 onConnect={() => handleConnect(id)}
                 onStartDisconnect={() => { setRowStatus(null); setConfirmingId(id); }}
@@ -580,9 +595,10 @@ function ConnectedAccountsSection({
   );
 }
 
-/** Connect-return codes become copy; a server `detail` string passes through. */
-function connectErrorOrDetail(error: string, label: string): string {
-  return /^[a-z_]+$/.test(error) ? connectErrorMessage(error, label) : error;
+/** Connect-return codes (from the URL) become fixed copy — never echoed
+ *  verbatim; any other string is a server `detail` from a disconnect call. */
+function connectErrorOrDetail(error: string, label: string, fromUrl: boolean): string {
+  return fromUrl ? connectErrorMessage(error, label) : error;
 }
 
 function SecurityTab({ user, connectResult = null }: { user: User; connectResult?: ConnectResult | null }) {

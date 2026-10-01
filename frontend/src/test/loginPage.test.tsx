@@ -429,6 +429,13 @@ describe('LoginPage', () => {
       expect(await screen.findByRole('button', { name: /Continue with Okta/ })).toBeInTheDocument()
     })
 
+    it('an unknown provider id in the URL is never echoed into the banner', async () => {
+      renderAt('/?auth_error=account_exists_provider&provider=github&via=Evil%20Corp%20Support')
+      expect(await screen.findByText('Something went wrong during authentication. Please try again.')).toBeInTheDocument()
+      expect(screen.queryByTestId('account-exists-banner')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Evil Corp/)).not.toBeInTheDocument()
+    })
+
     it('other codes still use the bottom-of-form error slot', async () => {
       renderAt('/?auth_error=oauth_failed')
       expect(await screen.findByText('Something went wrong during authentication. Please try again.')).toBeInTheDocument()

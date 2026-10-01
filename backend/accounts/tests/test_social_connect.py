@@ -162,6 +162,34 @@ class EmailCollisionRoutingTests(TestCase):
 
         self.assertEqual(params["auth_error"], "account_exists")
 
+    def test_multi_address_idp_uses_the_primary_address(self):
+        """GitHub lists every address in API order; the primary one decides."""
+        user = User.objects.create_user(username="carol", email="carol@example.com")
+        user.set_unusable_password()
+        user.save()
+        SocialAccount.objects.create(user=user, provider="google", uid="g-9", extra_data={})
+        request = _request()
+        sociallogin = _sociallogin(request, "carol@example.com", verified=True)
+        sociallogin.email_addresses = [
+            EmailAddress(email="someone-else@example.com", verified=False, primary=False),
+            EmailAddress(email="carol@example.com", verified=True, primary=True),
+        ]
+
+        _, params = self._run(request, sociallogin)
+
+        self.assertEqual(params["auth_error"], "account_exists_provider")
+        self.assertEqual(params["via"], "google")
+
+    def test_unverified_secondary_listed_first_does_not_collide(self):
+        User.objects.create_user(username="dora", email="dora@example.com", password="pw-123456789")
+        request = _request()
+        sociallogin = _sociallogin(request, "new-primary@example.com")
+        sociallogin.email_addresses = [
+            EmailAddress(email="dora@example.com", verified=False, primary=False),
+            EmailAddress(email="new-primary@example.com", verified=True, primary=True),
+        ]
+        self.assertIsNone(pre_social_login(request, sociallogin))
+
     def test_deactivated_account_is_not_revealed(self):
         User.objects.create_user(
             username="gone", email="gone@example.com", password="pw-123456789", is_active=False

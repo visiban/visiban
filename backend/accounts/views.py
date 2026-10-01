@@ -424,7 +424,9 @@ class ConnectedAccountDetailView(APIView):
         # both want the underlying HttpRequest. DRF's authentication has
         # already set its .user.
         django_request = request._request
-        accounts = list(request.user.socialaccount_set.filter(provider=provider).order_by("pk"))
+        accounts = list(
+            request.user.socialaccount_set.filter(provider=provider).select_related("user").order_by("pk")
+        )
         if not accounts:
             return Response(
                 {"detail": DISCONNECT_NOT_CONNECTED_MESSAGE}, status=status.HTTP_404_NOT_FOUND
@@ -1102,6 +1104,15 @@ class SocialSignupRedirectView(APIView):
          False).
       2. The provider returned no email at all (e.g. GitHub with a private
          email) while ``ACCOUNT_SIGNUP_FIELDS`` requires ``email*``.
+
+    Since #1314, case 1 is normally pre-empted upstream:
+    ``SocialRegistrationAdapter.pre_social_login`` runs before
+    ``process_auto_signup_email`` and redirects a collision with an active
+    account to ``account_exists`` / ``account_exists_provider`` (and one with
+    only deactivated accounts to ``oauth_failed``). This view stays as the
+    defense-in-depth safety net for case 2, for any collision the adapter's
+    lookup does not catch, and for direct or stale-session navigation to
+    this URL — do not delete it as dead code.
 
     Registered ahead of ``include("allauth.urls")`` in visiban/urls.py, same
     override technique as EmailConfirmRedirectView, so this view wins the
