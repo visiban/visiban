@@ -234,7 +234,7 @@ The feature doc's ["Upgrade path to enterprise"](../features/mcp-server.md#upgra
 | Extension point | Required by | Status |
 |---|---|---|
 | Enterprise URL extension point (`enterprise.urls.enterprise_urlpatterns`) | All enterprise URL registrations | ✅ Implemented — `visiban/urls.py` (#715) |
-| Enterprise settings include (`enterprise.settings.*`) | All enterprise settings overrides | ✅ Implemented — `visiban/settings.py` (#716) |
+| Enterprise settings include (`enterprise.settings.*`) | All enterprise settings overrides | ✅ Implemented — `visiban/settings.py` (#716). Constraint (#1337): the include must not replace `ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR` with anything that is not `accounts.tokens.VisibanPasswordResetTokenGenerator` or a subclass of it — subclasses are accepted. System check `accounts.E001` (Error) stops startup otherwise; `SILENCED_SYSTEM_CHECKS = ["accounts.E001"]` is the explicit opt-out. |
 | Enterprise WebSocket routing extension point (`enterprise.routing.enterprise_websocket_urlpatterns`) | All enterprise WebSocket URL registrations | ✅ Implemented — `visiban/asgi.py`, mirrors the HTTP URL extension point above; silently skipped (`ImportError`) when the enterprise package is not installed (#1009) |
 | `post_board_created/deleted/member_added/removed` signals | Enterprise audit log (enterprise #28) | Not yet implemented |
 | `VISIBAN_AUDIT_BACKEND` setting | Enterprise audit log | Not yet implemented |

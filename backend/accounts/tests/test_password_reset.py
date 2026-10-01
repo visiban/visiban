@@ -737,6 +737,35 @@ class PasswordResetTokenGeneratorCheckTests(TestCase):
         self.assertEqual([e.id for e in errors], ["accounts.E001"])
         self.assertIn("ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR", errors[0].hint)
 
+    def test_check_reports_missing_user_token_form_generator_without_crashing(self):
+        from accounts.checks import check_password_reset_token_generator
+
+        with patch("allauth.account.forms.UserTokenForm", object):
+            errors = check_password_reset_token_generator(None)
+        self.assertEqual([e.id for e in errors], ["accounts.E001"])
+        self.assertIn("NoneType", errors[0].msg)
+
+    def test_check_reports_an_import_failure_without_crashing(self):
+        from accounts.checks import check_password_reset_token_generator
+
+        with patch.dict("sys.modules", {"accounts.tokens": None}):
+            errors = check_password_reset_token_generator(None)
+        self.assertEqual([e.id for e in errors], ["accounts.E001"])
+
+    def test_hint_names_the_subclass_rule_and_the_opt_out(self):
+        from accounts.checks import _HINT
+
+        self.assertIn("subclass", _HINT)
+        self.assertIn("SILENCED_SYSTEM_CHECKS", _HINT)
+
+    def test_check_refuses_the_by_code_reset_flow(self):
+        """allauth's by-code reset ignores token_generator and the #1314 gate."""
+        from accounts.checks import check_password_reset_token_generator
+
+        with override_settings(ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED=True):
+            errors = check_password_reset_token_generator(None)
+        self.assertEqual([e.id for e in errors], ["accounts.E002"])
+
     def test_check_is_registered(self):
         from django.core import checks
 

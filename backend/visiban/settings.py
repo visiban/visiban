@@ -722,6 +722,11 @@ ACCOUNT_FORMS = {
 # accounts.tokens.VisibanPasswordResetTokenGenerator. The enterprise settings
 # include below runs after this line; system check accounts.E001
 # (accounts/checks.py) fails startup if anything replaces it.
+#
+# allauth's by-code reset flow (ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED) ignores
+# token_generator and bypasses both the #1314 reset-link gate and this binding,
+# so it is unsupported unless that flow is separately hardened; system check
+# accounts.E002 fails startup if it is turned on.
 ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR = "accounts.tokens.VisibanPasswordResetTokenGenerator"
 # EMAIL_VERIFICATION is the canonical env var name (added in 1.0).
 # Warn operators still setting the pre-1.1 ACCOUNT_EMAIL_VERIFICATION alias —
