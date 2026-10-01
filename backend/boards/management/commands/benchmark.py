@@ -13,15 +13,19 @@ a ≤-budget verdict.  It creates a throw-away board, runs each endpoint
 through the Django test client, then deletes the board.
 
 Budgets are set conservatively — a regression that adds an N+1 will immediately
-exceed the budget and the command exits non-zero.
+exceed the budget and the command exits non-zero (with ``--fail-on-budget``).
+
+A non-2xx response from any endpoint is always a hard failure (``CommandError``,
+exit code 1) regardless of ``--fail-on-budget`` — a rejected request makes the
+query count meaningless, so it must never be reported as "✅ OK" (#1330).
 """
 import secrets
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import connection, reset_queries
-from django.core.management.base import BaseCommand
-from django.test import RequestFactory
+from django.core.management.base import BaseCommand, CommandError
+from django.test import RequestFactory, override_settings
 
 from boards.models import (
     Board, BoardMembership, Column, Swimlane, Label,
@@ -29,6 +33,15 @@ from boards.models import (
 )
 
 User = get_user_model()
+
+# The Django/DRF test clients default to a "testserver" Host header. A
+# restrictive ALLOWED_HOSTS (e.g. the dev container's "localhost,127.0.0.1")
+# rejects that with a 400 DisallowedHost before any query runs. Scoping
+# "testserver" onto ALLOWED_HOSTS just for the request each _bench_* helper
+# issues avoids that 400 without reaching for
+# django.test.utils.setup_test_environment(), which would also swap the
+# email backend and template rendering for the whole process (#1330).
+_BENCH_HOST = "testserver"
 
 # ── fixture dimensions ────────────────────────────────────────────────────────
 COLUMNS   = 5
@@ -122,15 +135,17 @@ class Command(BaseCommand):
         client.force_authenticate(user=user)
 
         reset_queries()
-        response = client.get(f"/api/v1/boards/{board.pk}/full/")
+        with override_settings(ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, _BENCH_HOST]):
+            response = client.get(f"/api/v1/boards/{board.pk}/full/")
         count = len(connection.queries)
 
-        if response.status_code != 200:
-            self.stderr.write(
-                self.style.ERROR(
-                    f"  full/ returned HTTP {response.status_code} — "
-                    "query count may be inaccurate."
-                )
+        if not (200 <= response.status_code < 300):
+            # A non-2xx means the query count below is meaningless (often 0,
+            # because the view rejected the request before touching the DB) —
+            # hard-fail instead of reporting a false "✅ OK" (#1330).
+            raise CommandError(
+                f"{name} returned HTTP {response.status_code} (expected 2xx) — "
+                f"query count is not meaningful. Body: {response.content[:500]!r}"
             )
 
         self._dump_queries(name, count, budget)
@@ -148,15 +163,16 @@ class Command(BaseCommand):
         client.force_authenticate(user=user)
 
         reset_queries()
-        response = client.get(f"/api/v1/boards/{board.pk}/summary/")
+        with override_settings(ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, _BENCH_HOST]):
+            response = client.get(f"/api/v1/boards/{board.pk}/summary/")
         count = len(connection.queries)
 
-        if response.status_code != 200:
-            self.stderr.write(
-                self.style.ERROR(
-                    f"  summary/ returned HTTP {response.status_code} — "
-                    "query count may be inaccurate."
-                )
+        if not (200 <= response.status_code < 300):
+            # See _bench_full: a non-2xx makes the query count meaningless,
+            # so this hard-fails rather than reporting a false "✅ OK" (#1330).
+            raise CommandError(
+                f"{name} returned HTTP {response.status_code} (expected 2xx) — "
+                f"query count is not meaningful. Body: {response.content[:500]!r}"
             )
 
         self._dump_queries(name, count, budget)
