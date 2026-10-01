@@ -158,7 +158,7 @@ SavedFilter
 Notification
  ├── recipient → User
  ├── actor → User (nullable — the user who triggered the notification)
- ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite | due_soon)
+ ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite | due_soon | comment_added)
  ├── verb (str — human-readable summary)
  ├── card → Card (nullable)
  ├── board → Board (nullable)
@@ -281,7 +281,7 @@ Saved filters are private to the owning user — there is no sharing across boar
 
 ### Notification
 
-Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite). The `verb` field stores a human-readable summary. The `actor` and `action_type` fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.
+Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite, due date approaching, comment added). The `verb` field stores a human-readable summary. The `actor` and `action_type` fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.
 
 The `board_invite` action type is created when a user is added to a board via invite link or directly by an admin. The notification links to the board rather than a card; the `card` FK is null for this action type.
 
