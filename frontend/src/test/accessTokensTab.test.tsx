@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { PersonalAccessToken, CreatedPersonalAccessToken } from '../types'
 
@@ -29,6 +29,12 @@ const mockRevokeToken = revokeToken as ReturnType<typeof vi.fn>
 // and switch to the access-tokens tab.
 
 import { MemoryRouter } from 'react-router-dom'
+
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return { ...actual, useNavigate: () => mockNavigate }
+})
 import SettingsPage from '../pages/SettingsPage'
 import type { User } from '../types'
 
@@ -226,5 +232,43 @@ describe('AccessTokensTab', () => {
       expect(screen.getByTestId('max-tokens-notice')).toBeInTheDocument()
     })
     expect(screen.queryByTestId('create-token-form')).not.toBeInTheDocument()
+  })
+
+  it('Escape cancels the revoke confirm without navigating away (#1238)', async () => {
+    mockListTokens.mockResolvedValue([token1])
+    renderPage()
+    await switchToAccessTokensTab()
+    await userEvent.click(await screen.findByRole('button', { name: `Revoke ${token1.name}` }))
+    expect(screen.getByText(/Anything using this token will lose access/)).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText(/Anything using this token will lose access/)).not.toBeInTheDocument()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('keeps the confirm open and shows Revoking… while the request is in flight', async () => {
+    mockListTokens.mockResolvedValue([token1])
+    let resolveRevoke: () => void = () => {}
+    mockRevokeToken.mockReturnValue(new Promise<void>((r) => { resolveRevoke = r }))
+    renderPage()
+    await switchToAccessTokensTab()
+    await userEvent.click(await screen.findByRole('button', { name: `Revoke ${token1.name}` }))
+    await userEvent.click(screen.getByTestId(`confirm-revoke-${token1.id}`))
+    const confirm = screen.getByTestId(`confirm-revoke-${token1.id}`)
+    expect(confirm).toHaveTextContent('Revoking…')
+    expect(confirm).toBeDisabled()
+    expect(screen.queryByTestId(`revoke-${token1.id}`)).not.toBeInTheDocument()
+    resolveRevoke()
+    await waitFor(() => expect(screen.queryByText('CI pipeline')).not.toBeInTheDocument())
+  })
+
+  it('shows an error and keeps the prompt open when revoke fails', async () => {
+    mockListTokens.mockResolvedValue([token1])
+    mockRevokeToken.mockRejectedValue(new Error('boom'))
+    renderPage()
+    await switchToAccessTokensTab()
+    await userEvent.click(await screen.findByRole('button', { name: `Revoke ${token1.name}` }))
+    await userEvent.click(screen.getByTestId(`confirm-revoke-${token1.id}`))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to revoke token')
+    expect(screen.getByTestId(`confirm-revoke-${token1.id}`)).not.toBeDisabled()
   })
 })

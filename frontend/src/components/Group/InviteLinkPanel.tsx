@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { listInviteLinks, createInviteLink, revokeInviteLink } from "../../api/groups";
 import type { GroupInviteLink } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -80,6 +81,13 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
+
+  // Escape cancels the open revoke prompt before the host page's priority-0
+  // Escape-to-navigate handler (GroupDetail, its only host) can leave the page (#1238).
+  useEscapeStack(() => {
+    if (confirmRevokeId !== null) { setConfirmRevokeId(null); return; }
+    return false;
+  }, 40);
 
   // Clear the "Copied!" feedback timer on unmount so setCopiedId(null) never
   // runs after teardown (#870).
@@ -296,22 +304,37 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                   </div>
                 ) : !isTerminal ? (
                   /* Normal display — prefix only + revoke */
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <div className="flex-1 text-xs bg-surface border border-line rounded px-2 py-1 text-fg-tertiary truncate font-mono">
                       {link.prefix}…
                     </div>
-                    {confirmRevokeId === link.id ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => handleRevoke(link.id)} className="text-xs text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Revoke</button>
-                        <button onClick={() => setConfirmRevokeId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">Cancel</button>
-                      </div>
-                    ) : (
+                    {confirmRevokeId !== link.id && (
                       <button
                         onClick={() => setConfirmRevokeId(link.id)}
                         className="text-xs text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1"
                       >
                         Revoke
                       </button>
+                    )}
+                    {confirmRevokeId === link.id && (
+                      /* BoardSettingsModal inline-confirm pattern (frontend/CLAUDE.md § Modals and dialogs) */
+                      <div className="basis-full flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-fg-tertiary">
+                          Revoke this invite link? Anyone holding it will no longer be able to join.
+                        </span>
+                        <button
+                          onClick={() => handleRevoke(link.id)}
+                          className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmRevokeId(null)}
+                          className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     )}
                   </div>
                 ) : null}

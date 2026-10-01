@@ -268,6 +268,14 @@ function InviteLinksTab() {
   const [newLink, setNewLink] = useState<CreatedAdminInviteLink | null>(null);
   const [copied, setCopied] = useState(false);
   const [revokeConfirm, setRevokeConfirm] = useState<number | null>(null);
+  const [revokingId, setRevokingId] = useState<number | null>(null);
+
+  // Escape cancels an open inline revoke confirm before the page-level
+  // Escape-to-navigate handler (priority 0) can leave the page (#1238).
+  useEscapeStack(() => {
+    if (revokeConfirm !== null) { setRevokeConfirm(null); return; }
+    return false;
+  }, 40);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -313,6 +321,9 @@ function InviteLinksTab() {
   };
 
   const handleRevoke = async (id: number) => {
+    // Guard against a double click sending two revokes while one is in flight.
+    if (revokingId !== null) return;
+    setRevokingId(id);
     try {
       const updated = await revokeAdminInviteLink(id);
       setLinks((prev) => prev.map((l) => (l.id === id ? updated : l)));
@@ -320,6 +331,7 @@ function InviteLinksTab() {
       setError("Failed to revoke invite link.");
     } finally {
       setRevokeConfirm(null);
+      setRevokingId(null);
     }
   };
 
@@ -402,7 +414,7 @@ function InviteLinksTab() {
       ) : (
         <div className="flex flex-col divide-y divide-line rounded-lg border border-line overflow-hidden">
           {links.map((link) => (
-            <div key={link.id} className="flex items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition">
+            <div key={link.id} className="flex flex-wrap items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-xs text-fg-tertiary">{link.prefix}…</span>
@@ -421,24 +433,32 @@ function InviteLinksTab() {
               </div>
               {link.status === "pending" && (
                 revokeConfirm === link.id ? (
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="basis-full flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-fg-tertiary">
+                      Revoke this invite link? Anyone holding it will no longer be able to join.
+                    </span>
                     <button
+                      type="button"
                       onClick={() => handleRevoke(link.id)}
-                      className="text-xs text-danger hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      disabled={revokingId === link.id}
+                      className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                     >
-                      Confirm revoke
+                      {revokingId === link.id ? "Revoking…" : "Confirm"}
                     </button>
                     <button
+                      type="button"
                       onClick={() => setRevokeConfirm(null)}
-                      className="text-xs text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       Cancel
                     </button>
                   </div>
                 ) : (
                   <button
+                    type="button"
                     onClick={() => setRevokeConfirm(link.id)}
-                    className="shrink-0 text-xs text-danger hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    aria-label={`Revoke invite link ${link.prefix}`}
+                    className="shrink-0 text-xs text-danger hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                   >
                     Revoke
                   </button>

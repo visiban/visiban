@@ -74,12 +74,13 @@ describe('BoardMembersModal', () => {
     // The × button has title "Remove direct board role"
     const removeBtn = screen.getAllByTitle('Remove direct board role')[0]
     await userEvent.setup().click(removeBtn)
-    expect(screen.getByText('Remove?')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Yes' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'No' })).toBeInTheDocument()
-    // text-xs typography floor (#1311) — was text-[11px]
-    expect(screen.getByText('Remove?').className).toMatch(/\btext-xs\b/)
-    expect(screen.getByText('Remove?').className).not.toMatch(/text-\[(8|9|10|11)px\]/)
+    expect(screen.getByText(/from this board\?/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    // Canonical inline-confirm pattern (#1238): text-xs, full sentence, font-medium Confirm
+    expect(screen.getByRole('button', { name: 'Confirm' }).className).toMatch(/\bfont-medium\b/)
+    expect(screen.getByText(/from this board\?/).parentElement!.className).toMatch(/\btext-xs\b/)
+    expect(screen.getByText(/from this board\?/).parentElement!.className).not.toMatch(/text-\[(8|9|10|11)px\]/)
   })
 
   it('remove member: confirming calls removeBoardMember and invokes onMembersChanged', async () => {
@@ -95,7 +96,7 @@ describe('BoardMembersModal', () => {
     const user = userEvent.setup()
     const removeBtn = screen.getAllByTitle('Remove direct board role')[0]
     await user.click(removeBtn)
-    await user.click(screen.getByRole('button', { name: 'Yes' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => {
       expect(mockRemoveBoardMember).toHaveBeenCalledWith(fakeBoard.id, expect.any(Number))
     })
@@ -107,9 +108,9 @@ describe('BoardMembersModal', () => {
     render(<BoardMembersModal board={fakeBoard} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
     const removeBtn = screen.getAllByTitle('Remove direct board role')[0]
     await user.click(removeBtn)
-    expect(screen.getByText('Remove?')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'No' }))
-    expect(screen.queryByText('Remove?')).not.toBeInTheDocument()
+    expect(screen.getByText(/from this board\?/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByText(/from this board\?/)).not.toBeInTheDocument()
     expect(mockRemoveBoardMember).not.toHaveBeenCalled()
   })
 
@@ -208,5 +209,18 @@ describe('BoardMembersModal', () => {
     render(<BoardMembersModal board={board} onClose={vi.fn()} onMembersChanged={vi.fn()} currentUserIsSiteAdmin />)
     expect(screen.getAllByRole('combobox')).toHaveLength(2)
     expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
+  })
+
+  it('remove member: prompt closes on Confirm and the row trigger is disabled while in flight, so it cannot double-submit (#1238)', async () => {
+    let resolveRemove: () => void = () => {}
+    mockRemoveBoardMember.mockReturnValue(new Promise<void>((r) => { resolveRemove = r }))
+    const user = userEvent.setup()
+    render(<BoardMembersModal board={fakeBoard} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
+    await user.click(screen.getAllByTitle('Remove direct board role')[0])
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
+    expect(mockRemoveBoardMember).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(screen.getAllByTitle('Remove direct board role')[0]).toBeDisabled())
+    resolveRemove()
   })
 })

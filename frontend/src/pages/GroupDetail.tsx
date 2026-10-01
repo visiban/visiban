@@ -47,6 +47,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   useEscapeStack(() => {
     if (showTransferModal) { setShowTransferModal(false); return; }
     if (confirmDeleteGroup) { setConfirmDeleteGroup(false); return; }
+    // Inline confirms (#1238): Escape cancels the prompt instead of reaching the
+    // priority-0 handler below, which would navigate away from the page.
+    if (confirmRemoveMemberId !== null) { setConfirmRemoveMemberId(null); return; }
+    if (confirmRemoveLabelId !== null) { setConfirmRemoveLabelId(null); return; }
     return false;
   }, 40);
 
@@ -928,14 +932,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           </RoleInfoTooltip>
                         )}
                         {confirmRemoveMemberId === m.user.id ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-fg-tertiary">Remove?</span>
-                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Yes</button>
-                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">No</button>
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="text-fg-tertiary">
+                              Remove <span className="text-fg font-medium">{m.user.display_name || m.user.username}</span> from this group?
+                            </span>
+                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
+                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
                           </div>
                         ) : (
                           <button
                             onClick={() => setConfirmRemoveMemberId(m.user.id)}
+                            aria-label={`Remove ${m.user.display_name || m.user.username} from group`}
                             className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           >
                             Remove
@@ -1027,14 +1034,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       />
                       <span className="text-fg text-sm flex-1">{label.name}</span>
                       {confirmRemoveLabelId === label.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-fg-tertiary">Remove?</span>
-                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Yes</button>
-                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">No</button>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="text-fg-tertiary">
+                            Remove <span className="text-fg font-medium">{label.name}</span> from this group?
+                          </span>
+                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
+                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
                         </div>
                       ) : (
                         <button
                           onClick={() => setConfirmRemoveLabelId(label.id)}
+                          aria-label={`Remove ${label.name} from group`}
                           className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                         >
                           Remove

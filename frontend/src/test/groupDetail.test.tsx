@@ -914,10 +914,8 @@ describe('GroupDetail', () => {
       await screen.findByText('Docs')
 
       // Each label row carries a Remove button
-      const removeButtons = screen.getAllByRole('button', { name: 'Remove' })
-      // Two labels = two Remove buttons (there may also be a Remove in the Members section)
-      // We just want at least two (one per label)
-      expect(removeButtons.length).toBeGreaterThanOrEqual(2)
+      expect(screen.getByRole('button', { name: 'Remove Docs from group' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove Chore from group' })).toBeInTheDocument()
     })
 
     it('clicking Remove on a label shows an inline confirm prompt', async () => {
@@ -936,13 +934,13 @@ describe('GroupDetail', () => {
 
       // Click Remove on the label. The label-row Remove button is the first one;
       // the member-row Remove button lives in the Members section below.
-      const removeBtn = screen.getAllByRole('button', { name: 'Remove' })[0]
+      const removeBtn = screen.getByRole('button', { name: 'Remove Design from group' })
       fireEvent.click(removeBtn)
 
       // Inline confirmation prompt should appear
-      expect(await screen.findByText('Remove?')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Yes' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'No' })).toBeInTheDocument()
+      expect(await screen.findByText(/from this group\?/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
     })
 
     it('confirming label removal removes the label from the list', async () => {
@@ -959,9 +957,9 @@ describe('GroupDetail', () => {
       fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
       await screen.findByText('Design')
 
-      fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0])
-      await screen.findByText('Remove?')
-      fireEvent.click(screen.getByRole('button', { name: 'Yes' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Design from group' }))
+      await screen.findByText(/from this group\?/)
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
       await waitFor(() => {
         expect(screen.queryByText('Design')).not.toBeInTheDocument()
@@ -982,12 +980,54 @@ describe('GroupDetail', () => {
       fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
       await screen.findByText('Design')
 
-      fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0])
-      await screen.findByText('Remove?')
-      fireEvent.click(screen.getByRole('button', { name: 'No' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Design from group' }))
+      await screen.findByText(/from this group\?/)
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
       // Label should still be visible
       expect(screen.getByText('Design')).toBeInTheDocument()
+    })
+
+    it('label removal: Escape cancels the prompt without leaving the page (#1238)', async () => {
+      mockGetGroup.mockResolvedValue({ ...fakeGroup, shared_labels: [{ id: 1, name: 'Design', color: '#f59e0b' }] })
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Design')
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Design from group' }))
+      expect(screen.getByText(/from this group\?/)).toBeInTheDocument()
+
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(screen.queryByText(/from this group\?/)).not.toBeInTheDocument()
+      expect(screen.getByText('Design')).toBeInTheDocument()
+    })
+
+    it('member removal: full-sentence Confirm/Cancel prompt, and Escape cancels it without leaving the page (#1238)', async () => {
+      const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([
+        { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+        { id: 2, user: otherUser, role: 'member', joined_at: '' },
+      ])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Alice Smith')
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
+
+      expect(screen.getByText(/from this group\?/).textContent).toBe('Remove Alice Smith from this group?')
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+
+      // Escape dismisses the prompt rather than reaching the page-level navigate(-1)
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(screen.queryByText(/from this group\?/)).not.toBeInTheDocument()
+      expect(screen.getByText('Alice Smith')).toBeInTheDocument()
     })
   })
 
