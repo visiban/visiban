@@ -12,8 +12,18 @@ spec:
       {{- include "visiban.backend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- if or (not .Values.secret.existingSecret) (include "visiban.demoEnabled" .) }}
+      {{- $valkeyAuthChecksum := and (include "visiban.valkeyAuthEnabled" .) (not .Values.valkey.auth.existingSecret) }}
+      {{- if or (not .Values.secret.existingSecret) (include "visiban.demoEnabled" .) $valkeyAuthChecksum }}
       annotations:
+      {{- end }}
+      {{- if $valkeyAuthChecksum }}
+        {{- /*
+        Same reason as checksum/secret, for the chart-managed Valkey password
+        (#1211): it lives in its own Secret, so without this a rotated
+        valkey.auth.password restarts Valkey (checksum/auth in valkey.yaml)
+        while every backend pod keeps presenting the old one.
+        */}}
+        checksum/valkey-auth: {{ .Values.valkey.auth.password | toString | sha256sum }}
       {{- end }}
       {{- if not .Values.secret.existingSecret }}
         {{- /*

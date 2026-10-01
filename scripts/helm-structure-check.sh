@@ -923,7 +923,8 @@ check_demo_guards() {
 # name|message the render must fail with|helm flag[|helm flag...]
 VALKEY_GUARD_CASES=(
   "replication architecture|the bundled Valkey is standalone only|--set=valkey.architecture=replication"
-  "auth enabled|valkey.auth.enabled is true|--set=valkey.auth.enabled=true"
+  "auth enabled without a password source (#1211)|no password source is set|--set=valkey.auth.enabled=true"
+  "auth with both password and existingSecret (#1211)|are both set|--set=valkey.auth.enabled=true|--set=valkey.auth.password=x|--set=valkey.auth.existingSecret=y"
   "non-Docker-Hub registry key|valkey.image.registry is|--set=valkey.image.registry=quay.io"
   "Bitnami repository|a Bitnami image|--set=valkey.image.repository=bitnamilegacy/valkey"
   "latest tag|valkey.image must name a repository and a pinned tag|--set=valkey.image.tag=latest"
@@ -1026,6 +1027,136 @@ check_image_pins() {
   fi
   rm -f "$out"
   [ "$gbad" -eq 0 ] && pass "all ${#VALKEY_GUARD_CASES[@]} bundled-Valkey guards refuse their render, each with its own message, and the printed fix clears them"
+}
+
+# ---------------------------------------------------------------------------
+# 11b. The bundled Valkey's password stays in Secrets (#1211).
+# ---------------------------------------------------------------------------
+# valkey.auth.enabled=true is opt-in. The password must reach pods ONLY through
+# a secretKeyRef — never a ConfigMap, a plain env `value`, or a URL the chart
+# renders — and every Valkey client and the server itself must read the SAME
+# Secret key, or the install boots with a backend that cannot authenticate.
+# Rendered twice: the chart-managed valkey.auth.password (a stress password
+# holding "/" and "@", the #1229 characters that split a URL spliced in raw),
+# and valkey.auth.existingSecret together with secret.existingSecret.
+#
+# Asserted per render:
+#   a) the password appears nowhere in the render as plaintext — ConfigMap,
+#      env value, args, annotations — (chart-managed case; the existingSecret
+#      case renders no password at all, by construction);
+#   b) every backend-image container that gets REDIS_URL also gets
+#      REDIS_URL_PASSWORD from the expected Secret and key, and REDIS_URL /
+#      REDIS_CACHE_URL carry no credentials of their own;
+#   c) the Valkey container reads REDISCLI_AUTH from that same Secret and key,
+#      and starts with --requirepass "$REDISCLI_AUTH";
+#   d) backend/ actually LOOKS UP REDIS_URL_PASSWORD (section 3's rule — its
+#      own render has auth off, so it never sees this variable).
+# And once, on the chart's plain defaults: auth off renders none of it.
+VALKEY_AUTH_STRESS_PW='structure/check@pw:1211#x'
+
+check_valkey_auth() {
+  section "11b. The bundled Valkey's password stays in Secrets (#1211)"
+
+  local out bad=0 mode
+  out="$(mktemp)"
+  for mode in chart-managed existing-secret; do
+    local extra=() want_secret want_key
+    if [ "$mode" = chart-managed ]; then
+      extra=(--set valkey.auth.enabled=true --set-string "valkey.auth.password=$VALKEY_AUTH_STRESS_PW")
+      want_secret=""; want_key="valkey-password"  # name read from the render below
+    else
+      extra=(--set valkey.auth.enabled=true --set valkey.auth.existingSecret=sc-valkey
+             --set valkey.auth.existingSecretPasswordKey=sc-key --set secret.existingSecret=sc-runtime)
+      want_secret="sc-valkey"; want_key="sc-key"
+    fi
+    if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" "${extra[@]}" \
+          > "$out" 2>/tmp/helm-valkey-auth-err.txt; then
+      fail "$mode: the valkey.auth.enabled=true render failed: $(grep -m1 -v '^$' /tmp/helm-valkey-auth-err.txt)"
+      bad=1; continue
+    fi
+
+    if [ "$mode" = chart-managed ]; then
+      want_secret="$(yq 'select(.kind == "Secret" and .metadata.labels."app.kubernetes.io/component" == "valkey") | .metadata.name' "$out" | grep -vE '^(---)?$' || true)"
+      if [ -z "$want_secret" ] || [ "$(wc -l <<< "$want_secret" | tr -d ' ')" -ne 1 ]; then
+        fail "$mode: expected exactly one chart-managed Valkey password Secret, found: '${want_secret//$'\n'/, }'"
+        bad=1; continue
+      fi
+    elif yq 'select(.kind == "Secret" and .metadata.labels."app.kubernetes.io/component" == "valkey") | .metadata.name' "$out" | grep -qvE '^(---)?$'; then
+      fail "$mode: the chart renders its own Valkey password Secret although valkey.auth.existingSecret is set"
+      bad=1
+    fi
+
+    # a) No plaintext password anywhere in the render.
+    if grep -qF -- "$VALKEY_AUTH_STRESS_PW" "$out"; then
+      fail "$mode: the Valkey password appears as plaintext in the render ($(grep -nF -- "$VALKEY_AUTH_STRESS_PW" "$out" | head -1 | cut -c1-80)…) — it must reach pods only through a secretKeyRef"
+      bad=1
+    fi
+
+    # b) Every backend-image container with REDIS_URL also reads the password
+    # from the expected Secret key, and the URLs carry no credentials.
+    local rows cname has_pw pw_ref url_bad clients=0
+    rows="$(yq '
+      select(.kind == "Deployment" or .kind == "Job" or .kind == "CronJob")
+      | (.spec.template // .spec.jobTemplate.spec.template) as $t
+      | ($t.spec.containers + ($t.spec.initContainers // []))[]
+      | select((.env // []) | map(.name) | contains(["REDIS_URL"]))
+      | [ .name,
+          ((.env | map(select(.name == "REDIS_URL_PASSWORD")) | length) > 0),
+          ((.env | map(select(.name == "REDIS_URL_PASSWORD"))[0].valueFrom.secretKeyRef // {} | (.name // "") + "/" + (.key // ""))),
+          ((.env | map(select(.name == "REDIS_URL" or .name == "REDIS_CACHE_URL") | (.value // "") | test("@")) | any))
+        ] | @tsv' "$out" | grep -vE '^(---)?$' || true)"
+    while IFS=$'\t' read -r cname has_pw pw_ref url_bad; do
+      [ -z "$cname" ] && continue
+      clients=$((clients + 1))
+      if [ "$has_pw" != "true" ]; then
+        fail "$mode: container '$cname' gets REDIS_URL but no REDIS_URL_PASSWORD — it cannot authenticate to the bundled Valkey"
+        bad=1
+      elif [ "$pw_ref" != "$want_secret/$want_key" ]; then
+        fail "$mode: container '$cname' reads REDIS_URL_PASSWORD from '$pw_ref', want secretKeyRef '$want_secret/$want_key'"
+        bad=1
+      fi
+      if [ "$url_bad" = "true" ]; then
+        fail "$mode: container '$cname' renders credentials into REDIS_URL/REDIS_CACHE_URL as a plain env value"
+        bad=1
+      fi
+    done <<< "$rows"
+    if [ "$clients" -eq 0 ]; then
+      fail "$mode: no container in the render gets REDIS_URL — the client query matched nothing"
+      bad=1
+    fi
+
+    # c) The server reads the same Secret key and requires it.
+    local server_ref server_cmd
+    server_ref="$(yq 'select(.kind == "StatefulSet" and .spec.template.metadata.labels."app.kubernetes.io/component" == "valkey")
+                      | .spec.template.spec.containers[0].env // [] | map(select(.name == "REDISCLI_AUTH"))[0].valueFrom.secretKeyRef // {}
+                      | (.name // "") + "/" + (.key // "")' "$out" | grep -vE '^(---)?$' || true)"
+    server_cmd="$(yq 'select(.kind == "StatefulSet" and .spec.template.metadata.labels."app.kubernetes.io/component" == "valkey")
+                      | .spec.template.spec.containers[0].command | join(" ")' "$out" | grep -vE '^(---)?$' || true)"
+    if [ "$server_ref" != "$want_secret/$want_key" ]; then
+      fail "$mode: the Valkey container reads REDISCLI_AUTH from '$server_ref', want secretKeyRef '$want_secret/$want_key' — the server and its clients must share one password"
+      bad=1
+    fi
+    case "$server_cmd" in
+      *'--requirepass "$REDISCLI_AUTH"'*) ;;
+      *) fail "$mode: the Valkey container does not start with --requirepass \"\$REDISCLI_AUTH\" — it would run without a password while the backend presents one"; bad=1 ;;
+    esac
+  done
+
+  # d) The backend reads REDIS_URL_PASSWORD (same lookup rule as section 3).
+  if ! find "$REPO_ROOT/backend" -name '*.py' -exec cat {} + | tr '\n' ' ' \
+       | grep -qE "(env|env\.[a-z_]+|os\.getenv|os\.environ\.get)\([[:space:]]*[\"']REDIS_URL_PASSWORD[\"']"; then
+    fail "the chart injects REDIS_URL_PASSWORD but nothing under backend/ looks it up — the backend would connect without a password"
+    bad=1
+  fi
+
+  # Auth off (the default) renders none of it, so existing installs are unchanged.
+  if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" > "$out" 2>/dev/null \
+     && grep -qE 'REDIS_URL_PASSWORD|REDISCLI_AUTH|valkey-auth|requirepass' "$out"; then
+    fail "the default render (valkey.auth.enabled=false) contains Valkey auth wiring — auth must be opt-in"
+    bad=1
+  fi
+  rm -f "$out"
+  [ "$bad" -eq 0 ] && pass "valkey.auth: the password reaches the server and every client only via one secretKeyRef, never as plaintext; chart-managed and existingSecret both; off by default"
 }
 
 # ---------------------------------------------------------------------------
@@ -1248,6 +1379,7 @@ run_all_checks() {
   check_demo_mode
   check_demo_guards
   check_image_pins
+  check_valkey_auth
   check_pod_hardening
   check_database_url_encoding
   check_allowed_hosts_not_widened
@@ -1318,9 +1450,15 @@ self_test() {
     # 11: a floating `latest` through values, on the one datastore image whose
     # schema entry is a free string.
     "11 postgresql image floats on latest|values.yaml|s/image: \"postgres:17\"/image: \"postgres:latest\"/"
-    # 11: a bundled-Valkey guard stops firing, so a values file asking for a
-    # password would silently get an unauthenticated Valkey.
-    "11 valkey auth guard removed|templates/_validate.tpl|s/{{- if (dig \"auth\" \"enabled\" false \$v) -}}/{{- if false -}}/"
+    # 11 (#1211): the no-password-source guard stops firing, so auth.enabled
+    # with no password renders a Valkey that refuses to start.
+    "11 valkey auth no-source guard removed|templates/_validate.tpl|s/{{- if and (eq \$pw \"\") (eq \$es \"\") -}}/{{- if false -}}/"
+    # 11b (#1211): the password leaks into the Valkey ConfigMap.
+    "11b valkey password written into the ConfigMap|templates/valkey.yaml|s/^    # (#1211), never written here: this file is a ConfigMap. Protected mode/    requirepass {{ .Values.valkey.auth.password }}/"
+    # 11b: the backend loses the password env (a rename settings.py never reads).
+    "11b backend loses REDIS_URL_PASSWORD|templates/_backend-env.tpl|s/- name: REDIS_URL_PASSWORD/- name: REDIS_PASSWORD/"
+    # 11b: the server starts without --requirepass while clients present one.
+    "11b valkey server started without requirepass|templates/valkey.yaml|s/ --requirepass \"\$REDISCLI_AUTH\"'/'/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
     # 12 (#1210, #1224): every overridable hardened workload (backend,
     # postgresql, frontend) loses its capability drop through their shared

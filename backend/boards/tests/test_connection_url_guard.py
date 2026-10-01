@@ -24,6 +24,7 @@ from urllib.parse import quote
 
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
+from redis.connection import parse_url
 
 from visiban import settings as settings_module
 
@@ -138,6 +139,34 @@ class ConnectionUrlGuardTests(SimpleTestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
 
 
+    # REDIS_URL_PASSWORD (#1211): the Helm chart's bundled Valkey with
+    # valkey.auth.enabled passes the password separately, possibly from an
+    # operator-managed Secret the chart cannot encode, and settings.py
+    # percent-encodes it into both password-free URLs.
+    _AUTH_PASSWORD = f"{_SECRET_FRAGMENT}/@:?#[] %+=\"'"
+
+    def test_redis_url_password_is_percent_encoded_into_both_urls(self):
+        result = self._load(
+            REDIS_URL="redis://valkey:6379/0",
+            REDIS_CACHE_URL="redis://valkey:6379/1",
+            REDIS_URL_PASSWORD=self._AUTH_PASSWORD,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        location = result.stdout.split()[-1]  # "<db host> <cache LOCATION>"; sqlite has no host
+        self.assertEqual(
+            location, f"redis://:{quote(self._AUTH_PASSWORD, safe='')}@valkey:6379/1"
+        )
+        # The URL redis-py actually connects with yields the original password.
+        self.assertEqual(parse_url(location)["password"], self._AUTH_PASSWORD)
+
+    def test_redis_url_password_with_credentialed_url_is_refused_without_echoing_it(self):
+        result = self._load(REDIS_URL_PASSWORD=self._AUTH_PASSWORD)  # base URLs carry plainpw
+        self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("already carries credentials", result.stderr)
+        self.assertNotIn(_SECRET_FRAGMENT, result.stderr)
+        self.assertNotIn("plainpw", result.stderr)
+
+
 class ConnectionUrlGuardFunctionTests(SimpleTestCase):
     """In-process tests of the extracted guard functions themselves.
 
@@ -205,3 +234,39 @@ class ConnectionUrlGuardFunctionTests(SimpleTestCase):
             settings_module._load_database_url(url)
         self.assertIn("DATABASE_URL could not be parsed", str(ctx.exception))
         self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+
+    def test_apply_redis_password_leaves_url_unchanged_without_a_password(self):
+        url = "redis://valkey:6379/0"
+        self.assertEqual(settings_module._apply_redis_password("REDIS_URL", url, ""), url)
+
+    def test_apply_redis_password_round_trips_any_password(self):
+        # "/" and "@" are the #1229 class: spliced raw, either one moves the
+        # host. Every character redis-py's URL parser cares about is covered.
+        for password in ("plain", f"{_SECRET_FRAGMENT}/x", "a@b", "/@:?#[] %+=\"'\\", "ü€"):
+            with self.subTest(password=password):
+                url = settings_module._apply_redis_password(
+                    "REDIS_URL", "redis://drill-valkey-primary:6379/0", password
+                )
+                settings_module._validate_redis_url("REDIS_URL", url)
+                parsed = parse_url(url)
+                self.assertEqual(parsed["password"], password)
+                self.assertEqual(parsed["host"], "drill-valkey-primary")
+                self.assertEqual(parsed["port"], 6379)
+                self.assertEqual(parsed["db"], 0)
+
+    def test_apply_redis_password_refuses_a_url_with_credentials_without_leaking(self):
+        for url in ("redis://:plainpw@valkey:6379/0", "redis://user:plainpw@valkey:6379/0"):
+            with self.subTest(url=url):
+                with self.assertRaises(ImproperlyConfigured) as ctx:
+                    settings_module._apply_redis_password("REDIS_URL", url, _SECRET_FRAGMENT)
+                self.assertIn("REDIS_URL already carries credentials", str(ctx.exception))
+                self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+                self.assertNotIn("plainpw", str(ctx.exception))
+
+    def test_apply_redis_password_refuses_a_hostless_or_unparseable_url_without_leaking(self):
+        for url in ("redis:///0", "unix:///run/valkey.sock", f"redis://Sek[{_SECRET_FRAGMENT}]x:6379/0"):
+            with self.subTest(url=url):
+                with self.assertRaises(ImproperlyConfigured) as ctx:
+                    settings_module._apply_redis_password("REDIS_CACHE_URL", url, "pw")
+                self.assertIn("REDIS_CACHE_URL has no host", str(ctx.exception))
+                self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))

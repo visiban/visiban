@@ -317,11 +317,64 @@ runs without persistence by default. The values it reads:
 | `valkey.primary.persistence.enabled` / `.size` / `.storageClass` | `false` / `1Gi` / unset | Keep the append-only file in a PVC across restarts. |
 | `valkey.primary.resources` | 100m / 128Mi requests, 150m / 192Mi limits | Container resources. |
 | `valkey.commonConfiguration` | AOF on, RDB snapshots off | Extra `valkey.conf` lines. |
+| `valkey.auth.enabled` | `false` | Require a password. See [Valkey password](#valkey-password) below. |
+| `valkey.auth.password` | empty | Chart-managed password, stored in the `<release>-visiban-valkey-auth` Secret. |
+| `valkey.auth.existingSecret` / `.existingSecretPasswordKey` | empty / `valkey-password` | A Secret you manage instead, and the key that holds the password. |
 
-The bundled Valkey has no password: access is restricted by the
-[network policies](#network-policies) below. For a password-protected instance,
-use an [external Valkey](#external-database-and-valkey) with the password in
-`externalRedis.url`.
+### Valkey password
+
+By default the bundled Valkey has no password. Access to it is restricted only
+by the [network policies](#network-policies) below, and those are off by
+default and enforced only by a CNI that implements them. On a shared cluster,
+turn password authentication on. (`docker-compose.prod.yml` always runs Valkey
+with a password.)
+
+Set `valkey.auth.enabled=true` and **exactly one** password source. The install
+fails with an explanation if you set neither or both. The chart does not
+generate a password for you, because a generated one would change on every
+render under `helm template` and GitOps tools.
+
+=== "Chart-managed password"
+
+    ```bash
+    helm upgrade --install visiban helm/visiban -f my-values.yaml \
+      --set valkey.auth.enabled=true \
+      --set-string valkey.auth.password="$(openssl rand -hex 32)"
+    ```
+
+    The chart stores the password in the `<release>-visiban-valkey-auth`
+    Secret, and it is part of the Helm release record like every chart-managed
+    credential. Changing it in a later `helm upgrade` restarts Valkey and the
+    backend together.
+
+=== "Your own Secret"
+
+    ```bash
+    kubectl -n <namespace> create secret generic visiban-valkey \
+      --from-literal=valkey-password="$(openssl rand -hex 32)"
+    helm upgrade --install visiban helm/visiban -f my-values.yaml \
+      --set valkey.auth.enabled=true \
+      --set valkey.auth.existingSecret=visiban-valkey
+    ```
+
+    Use `valkey.auth.existingSecretPasswordKey` if the password is under a key
+    other than `valkey-password`. This works with or without
+    `secret.existingSecret`. The password never passes through Helm. After
+    you rotate it, restart both workloads yourself:
+    `kubectl rollout restart statefulset/<release>-valkey deployment/<release>-visiban-backend`.
+
+The password can contain any character, including `/`, `@` and `:`. It never
+appears in a ConfigMap, a plain environment value or a URL the chart renders.
+Valkey gets it from the Secret as `--requirepass`, and its health probes
+authenticate with the same Secret value. The backend reads it into
+`REDIS_URL_PASSWORD` and percent-encodes it into `REDIS_URL` and
+`REDIS_CACHE_URL` itself. Those two variables keep their password-free values.
+If the Secret's value is empty, Valkey refuses to start rather than run
+without a password.
+
+To use a password-protected Valkey or Redis outside the cluster instead, see
+[External database and Valkey](#external-database-and-valkey) and put the
+password in `externalRedis.url`.
 
 !!! note "Chart 0.5.0 replaced the Bitnami subchart"
     Earlier development builds of the 1.2 chart ran Valkey through the Bitnami

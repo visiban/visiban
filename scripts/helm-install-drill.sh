@@ -48,6 +48,13 @@
 #      (published sign-in 200, board create 403 `demo_read_only`, a card move
 #      200, a countdown in site-config), a reset run from the CronJob succeeds
 #      and leaves the published login working, and uninstall leaves nothing.
+#   9. VALKEY AUTH (#1211), opt-in with DRILL_VALKEY_AUTH=1 so the default drill
+#      is no slower: an install with valkey.auth.existingSecret, then an upgrade
+#      to a chart-managed valkey.auth.password — both passwords holding "/" and
+#      "@", the characters that split a URL spliced in raw (#1229). Each phase
+#      proves Valkey refuses an unauthenticated client, the backend round-trips
+#      the cache and the Channels layer through it, `helm test` passes, and
+#      `helm get manifest` carries no plaintext password.
 #
 # Images are BUILT FROM THE WORKING TREE and side-loaded into kind, not pulled
 # from a registry. The MR pipeline's image jobs are `--no-push`, so there is no
@@ -69,6 +76,8 @@
 #                               --set externalRedis.cacheUrl=redis://my-valkey:6379/1"
 #                           CI does not set it, so CI always drills the shipped
 #                           defaults on amd64.
+#          DRILL_VALKEY_AUTH=1  also run step 9 (bundled Valkey password auth,
+#                           #1211). Off by default and in CI.
 #
 # Use a current kind (CI pins KIND_VERSION in .gitlab-ci.yml). Valkey dying with
 # "Fatal: Can't initialize Background Jobs. Error message: Operation not
@@ -577,5 +586,90 @@ if [ -n "$LEFTOVERS" ]; then
 fi
 ok "demo uninstall left nothing behind"
 
+# ---------------------------------------------------------------------------
+# 9. VALKEY AUTH (#1211) — opt-in, DRILL_VALKEY_AUTH=1
+# ---------------------------------------------------------------------------
+# valkey.auth.enabled is off by default, so the steps above never exercise it.
+# Two password sources, one release: existingSecret first (the case Helm cannot
+# encode, so the backend's own percent-encoding is what is under test), then a
+# `helm upgrade` to the chart-managed password, which also proves switching
+# source rolls both Valkey and the backend onto the new one.
+valkey_auth_assertions() {
+  local label="$1" pw="$2" out
+  # Unauthenticated: valkey-cli reads REDISCLI_AUTH by itself, so drop it.
+  out="$(kubectl -n "$NAMESPACE" exec "statefulset/${AUTH_RELEASE}-valkey" -c valkey -- \
+    env -u REDISCLI_AUTH valkey-cli -h 127.0.0.1 ping 2>&1 || true)"
+  case "$out" in
+    *NOAUTH*) ok "$label: Valkey refuses an unauthenticated client (NOAUTH)" ;;
+    *) die "$label: an unauthenticated PING to Valkey answered '$out', not NOAUTH — the server is running without a password" ;;
+  esac
+  out="$(kubectl -n "$NAMESPACE" exec "deployment/${AUTH_RELEASE}-visiban-backend" -c backend -- \
+    python manage.py shell -c '
+import asyncio
+from channels.layers import get_channel_layer
+from django.core.cache import cache
+cache.set("drill-1211", "ok", 30)
+assert cache.get("drill-1211") == "ok", "cache round-trip failed"
+async def roundtrip():
+    layer = get_channel_layer()
+    channel = await layer.new_channel()
+    await layer.send(channel, {"type": "drill.1211"})
+    assert (await layer.receive(channel))["type"] == "drill.1211"
+asyncio.run(roundtrip())
+print("VALKEY_AUTH_ROUNDTRIP_OK")
+' 2>&1 || true)"
+  case "$out" in
+    *VALKEY_AUTH_ROUNDTRIP_OK*) ok "$label: the backend round-trips the cache (db 1) and the Channels layer (db 0) through the authenticated Valkey" ;;
+    *) die "$label: the backend could not use the authenticated Valkey: $(printf '%s' "$out" | tail -3)" ;;
+  esac
+  helm test "$AUTH_RELEASE" --namespace "$NAMESPACE" --timeout 5m \
+    || die "$label: helm test failed with valkey.auth.enabled=true"
+  ok "$label: helm test passed"
+  if helm get manifest "$AUTH_RELEASE" --namespace "$NAMESPACE" | grep -qF -- "$pw"; then
+    die "$label: the Valkey password appears as plaintext in 'helm get manifest'"
+  fi
+  ok "$label: no plaintext Valkey password in 'helm get manifest'"
+}
+
+if [ "${DRILL_VALKEY_AUTH:-0}" = "1" ]; then
+  step "9. VALKEY AUTH: existingSecret, then a chart-managed password (#1211)"
+  AUTH_RELEASE="vauth"
+  NAMESPACE="visiban-vauth-drill"   # install_args and dump_diagnostics read it
+  VALKEY_PW_SECRET='drill/existing@pw:1211+a'
+  VALKEY_PW_CHART='drill/chart@pw:1211+b'
+
+  kubectl create namespace "$NAMESPACE" >/dev/null
+  kubectl -n "$NAMESPACE" create secret generic drill-valkey \
+    --from-literal=valkey-password="$VALKEY_PW_SECRET" >/dev/null
+  # shellcheck disable=SC2046  # install_args is deliberately word-split
+  helm install "$AUTH_RELEASE" "$CHART" $(install_args) \
+    --set-string secret.djangoSecretKey="$SECRET_KEY_A" \
+    --set valkey.auth.enabled=true \
+    --set valkey.auth.existingSecret=drill-valkey \
+    --wait --timeout 10m \
+    || die "an install with valkey.auth.existingSecret did not complete"
+  ok "install with valkey.auth.existingSecret completed"
+  valkey_auth_assertions "existingSecret" "$VALKEY_PW_SECRET"
+
+  # shellcheck disable=SC2046
+  helm upgrade "$AUTH_RELEASE" "$CHART" $(install_args) \
+    --set-string secret.djangoSecretKey="$SECRET_KEY_A" \
+    --set valkey.auth.enabled=true \
+    --set-string valkey.auth.password="$VALKEY_PW_CHART" \
+    --wait --timeout 10m \
+    || die "the upgrade from valkey.auth.existingSecret to a chart-managed valkey.auth.password did not complete"
+  kubectl -n "$NAMESPACE" rollout status "statefulset/${AUTH_RELEASE}-valkey" --timeout=180s >/dev/null \
+    || die "the Valkey StatefulSet did not roll onto the chart-managed password"
+  ok "upgrade to a chart-managed valkey.auth.password completed"
+  valkey_auth_assertions "chart-managed" "$VALKEY_PW_CHART"
+
+  helm uninstall "$AUTH_RELEASE" --namespace "$NAMESPACE" --wait --timeout 5m \
+    || die "helm uninstall of the valkey-auth release failed"
+  LEFTOVERS="$(kubectl -n "$NAMESPACE" get deploy,statefulset,svc,secret,job,configmap,networkpolicy,pdb \
+    -l "app.kubernetes.io/instance=${AUTH_RELEASE}" -o name 2>/dev/null | grep -v '^$' || true)"
+  [ -z "$LEFTOVERS" ] || die "the valkey-auth uninstall left release-owned objects behind: $LEFTOVERS"
+  ok "valkey-auth uninstall left nothing behind"
+fi
+
 echo
-echo "PASSED: one-shot fresh install, serves, fails closed on a placeholder key, rotates secrets in place, migrates safely at 3 replicas, uninstalls clean, and the public demo installs, proves its fence, resets and uninstalls clean"
+echo "PASSED: one-shot fresh install, serves, fails closed on a placeholder key, rotates secrets in place, migrates safely at 3 replicas, uninstalls clean, and the public demo installs, proves its fence, resets and uninstalls clean${DRILL_VALKEY_AUTH:+, and (DRILL_VALKEY_AUTH) the bundled Valkey runs authenticated with an existingSecret and a chart-managed password}"

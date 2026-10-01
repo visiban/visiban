@@ -285,7 +285,7 @@
       }
     },
     "valkey": {
-      "description": "OPEN, deliberately. Until chart 0.5.0 (#1200) this block configured the bitnami/valkey subchart, and existing values files may still carry its keys; closing the block would fail their helm upgrade. Those keys are no longer read (docs/administration/upgrade.md), and the ones that would change what runs (architecture, auth, a Bitnami image) are refused by _validate.tpl. The keys below are the ones templates/valkey.yaml reads; they are typed so a wrong type still fails.",
+      "description": "OPEN, deliberately. Until chart 0.5.0 (#1200) this block configured the bitnami/valkey subchart, and existing values files may still carry its keys; closing the block would fail their helm upgrade. Those keys are no longer read (docs/administration/upgrade.md), and the ones that would change what runs (architecture, a Bitnami image) are refused by _validate.tpl, as is auth.enabled without a password source (#1211). The keys below are the ones templates/valkey.yaml reads; they are typed so a wrong type still fails.",
       "type": "object",
       "properties": {
         "enabled": {
@@ -312,8 +312,20 @@
           "type": "object",
           "properties": {
             "enabled": {
-              "description": "Must be false: the bundled Valkey has no password support (REDIS_URL carries none).",
+              "description": "Require a password on the bundled Valkey (#1211). When true, set exactly one of password or existingSecret.",
               "type": "boolean"
+            },
+            "password": {
+              "description": "Chart-managed Valkey password, stored in the <release>-visiban-valkey-auth Secret. Any characters; the backend percent-encodes it.",
+              "type": "string"
+            },
+            "existingSecret": {
+              "description": "Name of an operator-managed Secret holding the Valkey password. Mutually exclusive with password.",
+              "type": "string"
+            },
+            "existingSecretPasswordKey": {
+              "description": "Key in existingSecret that holds the password. Empty means valkey-password.",
+              "type": "string"
             }
           }
         },

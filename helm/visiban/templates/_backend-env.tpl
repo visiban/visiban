@@ -65,6 +65,17 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: REDIS_CACHE_URL
   value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/1" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.cacheUrl | quote }}{{ end }}
 {{- /*
+  Bundled Valkey password (#1211), only with valkey.auth.enabled. REDIS_URL and
+  REDIS_CACHE_URL above stay the plain, password-free URLs; settings.py
+  (_apply_redis_password) percent-encodes this value into both. That is what
+  makes an existingSecret password with "/" or "@" in it work — see
+  visiban.valkeyAuthEnabled in _helpers.tpl.
+*/}}
+{{- if include "visiban.valkeyAuthEnabled" $ctx }}
+- name: REDIS_URL_PASSWORD
+  {{- include "visiban.valkeyAuthValueFrom" $ctx | nindent 2 }}
+{{- end }}
+{{- /*
   EMAIL_BACKEND is emitted ONLY when explicitly configured. Setting it pins the
   backend and suppresses the DB-backed configuration in Admin → Settings → Email
   (#306) — so emitting it unconditionally, as this chart did before 1.2, made

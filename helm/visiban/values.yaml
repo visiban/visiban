@@ -328,12 +328,29 @@ valkey:
     tag: "8-alpine"
     pullPolicy: IfNotPresent
   auth:
-    # Must stay false. REDIS_URL carries no password, so authentication on the
-    # bundled Valkey has never produced a working deploy; the render refuses
-    # true. Access is restricted by NetworkPolicy (networkPolicy.enabled). For
-    # a password-protected instance, use externalRedis with the password in
-    # the URL.
+    # Password auth for the bundled Valkey (#1211). Off by default, so an
+    # existing install is unchanged on upgrade; access is then restricted only
+    # by NetworkPolicy (networkPolicy.enabled), which also needs a CNI that
+    # enforces it. Recommended on, especially on a shared cluster.
+    #
+    # When true, set EXACTLY ONE of password or existingSecret — the render
+    # fails on neither or both (there is no auto-generated password: it would
+    # need `lookup` to survive `helm upgrade`, which GitOps renderers lack).
+    # The password reaches pods only through a Secret: Valkey gets it as
+    # --requirepass, and the backend percent-encodes it into REDIS_URL /
+    # REDIS_CACHE_URL itself, so any character is safe — "/" and "@" included.
+    # See "Bundled Valkey" in docs/getting-started/kubernetes.md.
     enabled: false
+    # Chart-managed: stored in the <release>-visiban-valkey-auth Secret. Pass
+    # it with --set-string or a values.secret.yaml file, never commit it.
+    #   openssl rand -hex 32
+    password: ""
+    # Or a Secret you manage (the chart then renders none, and the password
+    # never passes through Helm). Restart the valkey StatefulSet and the
+    # backend Deployment yourself after rotating it.
+    existingSecret: ""
+    # Key in existingSecret holding the password. Defaults to valkey-password.
+    existingSecretPasswordKey: ""
   primary:
     persistence:
       # Off by default: Valkey holds only the Channels layer and the Django
