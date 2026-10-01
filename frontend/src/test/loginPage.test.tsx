@@ -327,6 +327,26 @@ describe('LoginPage', () => {
       expect(await screen.findByText('This invite link has already been used. Please ask your administrator for a new one.')).toBeInTheDocument()
     })
 
+    it('shows closed-registration message for signup_closed (#1324)', async () => {
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=signup_closed']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      expect(await screen.findByText('Registration is currently closed.')).toBeInTheDocument()
+    })
+
+    it('shows invite-required message for invite_required (#1324)', async () => {
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=invite_required']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      expect(await screen.findByText('An invite link is required to create an account.')).toBeInTheDocument()
+    })
+
     it('clears invite_token from sessionStorage on invite errors', async () => {
       sessionStorage.setItem('invite_token', 'vbnl_abc')
       render(
