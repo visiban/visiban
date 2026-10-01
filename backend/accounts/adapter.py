@@ -414,7 +414,10 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
             self._redirect_with_error(request, "oauth_failed")
 
         provider = sociallogin.account.provider
-        stash_pending_connect(request, provider, [user.pk for user in active])
+        stash_pending_connect(
+            request, provider, [user.pk for user in active],
+            identity=self._provider_identity(sociallogin, email),
+        )
 
         if getattr(first, "verified", False) and len(active) == 1 and not active[0].has_usable_password():
             via = (
@@ -426,6 +429,21 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
             if via:
                 self._redirect_with_error(request, "account_exists_provider", provider=provider, via=via)
         self._redirect_with_error(request, "account_exists", provider=provider)
+
+    @staticmethod
+    def _provider_identity(sociallogin, email: str) -> str:
+        """How the provider names the account that tried, for the prompt.
+
+        The provider-side username (GitHub/GitLab login) when it has one —
+        the email alone is no help, because a collision means it is the
+        victim's own address — else the email.
+        """
+        data = sociallogin.account.extra_data if isinstance(sociallogin.account.extra_data, dict) else {}
+        for key in ("login", "username", "preferred_username"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:150]
+        return email[:254]
 
     @staticmethod
     def _redirect_with_error(request, error_code, **params):

@@ -24,7 +24,7 @@ describe('ConnectProviderModal (#1314)', () => {
   })
 
   it('asks to connect the pending provider, without a close button', () => {
-    render(<ConnectProviderModal provider="github" onDismissed={vi.fn()} />)
+    render(<ConnectProviderModal provider="github" identity={null} onDismissed={vi.fn()} />)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('Connect GitHub?')).toBeInTheDocument()
     expect(screen.getByText(/connect GitHub so you can use it to sign in next time/)).toBeInTheDocument()
@@ -34,7 +34,7 @@ describe('ConnectProviderModal (#1314)', () => {
 
   it('Connect starts the provider round trip and shows Connecting…', async () => {
     const user = userEvent.setup()
-    render(<ConnectProviderModal provider="github" onDismissed={vi.fn()} />)
+    render(<ConnectProviderModal provider="github" identity={null} onDismissed={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Connect' }))
     expect(mockStartProviderConnect).toHaveBeenCalledWith('github')
     expect(screen.getByRole('button', { name: 'Connecting…' })).toBeDisabled()
@@ -44,7 +44,7 @@ describe('ConnectProviderModal (#1314)', () => {
   it('Not now closes immediately and clears the server-side prompt', async () => {
     const user = userEvent.setup()
     const onDismissed = vi.fn()
-    render(<ConnectProviderModal provider="github" onDismissed={onDismissed} />)
+    render(<ConnectProviderModal provider="github" identity={null} onDismissed={onDismissed} />)
     await user.click(screen.getByRole('button', { name: 'Not now' }))
     expect(onDismissed).toHaveBeenCalledTimes(1)
     expect(mockDismissPendingConnect).toHaveBeenCalledTimes(1)
@@ -56,7 +56,7 @@ describe('ConnectProviderModal (#1314)', () => {
     mockDismissPendingConnect.mockRejectedValue(new Error('offline'))
     const user = userEvent.setup()
     const onDismissed = vi.fn()
-    render(<ConnectProviderModal provider="github" onDismissed={onDismissed} />)
+    render(<ConnectProviderModal provider="github" identity={null} onDismissed={onDismissed} />)
     await user.click(screen.getByRole('button', { name: 'Not now' }))
     expect(onDismissed).toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -67,14 +67,26 @@ describe('ConnectProviderModal (#1314)', () => {
   it('does not use browser storage for the "shown once" rule', async () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem')
     const user = userEvent.setup()
-    render(<ConnectProviderModal provider="github" onDismissed={vi.fn()} />)
+    render(<ConnectProviderModal provider="github" identity={null} onDismissed={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Not now' }))
     expect(setItem).not.toHaveBeenCalled()
     setItem.mockRestore()
   })
 
+  it('names the provider account that tried, so an unfamiliar one can be declined', () => {
+    render(<ConnectProviderModal provider="github" identity="attacker-gh" onDismissed={vi.fn()} />)
+    const line = screen.getByTestId('connect-provider-identity')
+    expect(line).toHaveTextContent("You'll be able to sign in as attacker-gh on GitHub.")
+    expect(line).toHaveTextContent("If you don't recognize this account, choose Not now.")
+  })
+
+  it('omits the identity line when the server sends none', () => {
+    render(<ConnectProviderModal provider="github" identity={null} onDismissed={vi.fn()} />)
+    expect(screen.queryByTestId('connect-provider-identity')).not.toBeInTheDocument()
+  })
+
   it('names generic OIDC with the configured SSO name', async () => {
-    render(<ConnectProviderModal provider="oidc" onDismissed={vi.fn()} />)
+    render(<ConnectProviderModal provider="oidc" identity={null} onDismissed={vi.fn()} />)
     expect(await screen.findByText('Connect Okta?')).toBeInTheDocument()
   })
 })

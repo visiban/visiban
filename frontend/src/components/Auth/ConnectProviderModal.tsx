@@ -7,6 +7,10 @@ import ModalWrapper from "../shared/ModalWrapper";
 interface Props {
   /** The server's `pending_connect_provider` — the provider the user first tried. */
   provider: string;
+  /** The server's `pending_connect_identity` — the provider account that
+   *  tried. Shown so someone on a shared browser who doesn't recognize it
+   *  can decline (#1314). */
+  identity: string | null;
   /** Called once "Not now" is chosen, so the parent can drop the pending field. */
   onDismissed: () => void;
 }
@@ -19,7 +23,7 @@ interface Props {
  * server. No localStorage/sessionStorage flag — a client-side "seen" marker
  * would re-show the prompt on every other device and tab.
  */
-export default function ConnectProviderModal({ provider, onDismissed }: Props) {
+export default function ConnectProviderModal({ provider, identity, onDismissed }: Props) {
   const [open, setOpen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +72,12 @@ export default function ConnectProviderModal({ provider, onDismissed }: Props) {
         <p className="text-sm text-fg-secondary">
           You're signed in. Want to connect {label} so you can use it to sign in next time?
         </p>
+        {identity && (
+          <p className="text-sm text-fg-secondary" data-testid="connect-provider-identity">
+            You'll be able to sign in as <strong className="font-semibold text-fg break-all">{identity}</strong> on {label}.
+            If you don't recognize this account, choose Not now.
+          </p>
+        )}
         <p className="text-xs text-fg-muted">You can disconnect it anytime in Settings → Security.</p>
         <p className="text-xs min-h-4">{error && <span className="text-danger" role="alert">{error}</span>}</p>
         <div className="flex items-center justify-end gap-3">

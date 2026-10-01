@@ -190,6 +190,46 @@ class PasswordlessRecoveryEndToEndTests(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.check_password("NewPassword9876"))
 
+    def test_link_refused_if_address_is_no_longer_verified_when_used(self):
+        """#1314: verification is re-checked when the link is used, not only
+        when it was sent — a link mailed while verified must not set a
+        password after the account stops vouching for that address."""
+        from allauth.account.models import EmailAddress
+        from django.core import mail
+
+        user = User.objects.create_user(username="stale", email="stale@example.com")
+        user.set_unusable_password()
+        user.save()
+        address = EmailAddress.objects.create(user=user, email="stale@example.com", verified=True, primary=True)
+
+        client = APIClient()
+        client.post("/api/v1/auth/password/reset/", {"email": "stale@example.com"})
+        self.assertEqual(len(mail.outbox), 1)
+        uid = user_pk_to_url_str(user)
+        token = default_token_generator.make_token(user)
+
+        address.verified = False
+        address.save()
+
+        r = client.post("/api/v1/auth/password/reset/confirm/", {
+            "uid": uid, "token": token,
+            "new_password1": "NewPassword9876", "new_password2": "NewPassword9876",
+        })
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("token", r.json())
+        user.refresh_from_db()
+        self.assertFalse(user.has_usable_password())
+
+    def test_password_account_reset_unaffected_by_unverified_address(self):
+        """Accounts that already have a password keep the ordinary reset."""
+        user = User.objects.create_user(username="haspw", email="haspw@example.com", password="oldpassword12")
+        client = APIClient()
+        r = client.post("/api/v1/auth/password/reset/confirm/", {
+            "uid": user_pk_to_url_str(user), "token": default_token_generator.make_token(user),
+            "new_password1": "NewPassword9876", "new_password2": "NewPassword9876",
+        })
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
 
 class PasswordResetEndpointTests(TestCase):
     """POST /api/v1/auth/password/reset/ — enumeration safety."""

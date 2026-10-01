@@ -255,6 +255,27 @@ class VisibanPasswordResetConfirmSerializer(DjRestAuthPasswordResetConfirmSerial
     ``save()`` ever runs, so both are guaranteed present here.
     """
 
+    def validate(self, attrs):
+        """Re-check, when the link is used, the condition that allowed sending it (#1314).
+
+        A password-less account only ever gets a real reset link because its
+        address was verified (``VisibanPasswordResetForm``). Links stay valid
+        for days, so that has to still hold now: if the account no longer has
+        a verified address, the link is refused exactly like an invalid token
+        — setting a password would hand the account to whoever holds a mailbox
+        the account no longer vouches for. Accounts that already have a
+        password are unaffected (resetting it changes no trust boundary).
+        """
+        from allauth.account.models import EmailAddress
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+
+        attrs = super().validate(attrs)
+        if not self.user.has_usable_password() and not EmailAddress.objects.filter(
+            user=self.user, verified=True
+        ).exists():
+            raise DRFValidationError({"token": ["Invalid value"]})
+        return attrs
+
     def save(self):
         result = super().save()
         clear_login_lockout(self.context["request"], self.user)
@@ -579,6 +600,10 @@ class CurrentUserSerializer(UserSerializer):
     # Read from the session (no query unless one is stashed); cleared by
     # DELETE /auth/me/pending-connect/ or by any connect attempt for it.
     pending_connect_provider = serializers.SerializerMethodField()
+    # #1314: how the provider names the account that tried (its username,
+    # else its email), so the prompt can say *which* account it would
+    # connect — a shared-browser safeguard. Null whenever the provider is.
+    pending_connect_identity = serializers.SerializerMethodField()
 
     def get_uploads_enabled(self, obj) -> bool:
         return get_uploads_enabled()
@@ -623,14 +648,26 @@ class CurrentUserSerializer(UserSerializer):
 
         return get_pending_email(obj)
 
+    def _pending_connect(self, obj):
+        """``(provider, identity)`` read once per serialization (one query at most)."""
+        from .social_connect import get_pending_connect
+
+        cache = self.__dict__.setdefault("_cached_pending_connect", {})
+        if obj.pk not in cache:
+            request = self.context.get("request")
+            if request is None or getattr(request, "user", None) is None or request.user.pk != obj.pk:
+                cache[obj.pk] = (None, None)
+            else:
+                cache[obj.pk] = get_pending_connect(request, obj)
+        return cache[obj.pk]
+
     @extend_schema_field(serializers.CharField(allow_null=True, read_only=True))
     def get_pending_connect_provider(self, obj) -> str | None:
-        from .social_connect import get_pending_connect_provider
+        return self._pending_connect(obj)[0]
 
-        request = self.context.get("request")
-        if request is None or getattr(request, "user", None) is None or request.user.pk != obj.pk:
-            return None
-        return get_pending_connect_provider(request, obj)
+    @extend_schema_field(serializers.CharField(allow_null=True, read_only=True))
+    def get_pending_connect_identity(self, obj) -> str | None:
+        return self._pending_connect(obj)[1]
 
     class Meta(UserSerializer.Meta):
         fields = UserSerializer.Meta.fields + [
@@ -642,6 +679,7 @@ class CurrentUserSerializer(UserSerializer):
             "demo_next_reset_at",
             "pending_email",
             "pending_connect_provider",
+            "pending_connect_identity",
         ]
         read_only_fields = UserSerializer.Meta.read_only_fields + [
             "uploads_enabled",
@@ -652,6 +690,7 @@ class CurrentUserSerializer(UserSerializer):
             "demo_next_reset_at",
             "pending_email",
             "pending_connect_provider",
+            "pending_connect_identity",
         ]
 
 

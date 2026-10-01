@@ -122,6 +122,12 @@ export interface User {
    * or any connect attempt, expires after 10 minutes. Read-only.
    */
   pending_connect_provider?: string | null;
+  /**
+   * How the provider names the account that tried (its username, else its
+   * email), shown in the connect prompt so an unfamiliar account can be
+   * declined (#1314). Null whenever pending_connect_provider is.
+   */
+  pending_connect_identity?: string | null;
 }
 
 /** A sign-in provider id, as the backend reports it (#1314). */

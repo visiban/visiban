@@ -114,7 +114,8 @@ export default function App() {
     {user && !user.must_change_password && !user.must_change_username && user.pending_connect_provider && (
       <ConnectProviderModal
         provider={user.pending_connect_provider}
-        onDismissed={() => updateUser({ ...user, pending_connect_provider: null })}
+        identity={user.pending_connect_identity ?? null}
+        onDismissed={() => updateUser({ ...user, pending_connect_provider: null, pending_connect_identity: null })}
       />
     )}
     <Routes>

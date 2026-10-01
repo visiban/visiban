@@ -79,15 +79,18 @@ def find_accounts_for_email(email: str):
     )
 
 
-def stash_pending_connect(request, provider: str, user_ids: list[int]) -> None:
+def stash_pending_connect(request, provider: str, user_ids: list[int], identity: str = "") -> None:
     """Remember that a collided OAuth attempt wanted to use ``provider``.
 
     ``user_ids`` are the active accounts the attempt collided with: the prompt
-    is only ever offered to one of them, so on a shared browser a different
-    person signing in next is never asked to connect a stranger's identity.
+    is only ever offered to one of them (see ``clear_pending_connect_on_login``
+    for the shared-browser case). ``identity`` is how the provider names the
+    account that tried (its username, else its email) — the prompt shows it,
+    so someone who sees an account they don't recognize can decline.
     """
     request.session[PENDING_CONNECT_SESSION_KEY] = {
         "provider": provider,
+        "identity": identity,
         "user_ids": list(user_ids),
         "expires_at": time.time() + PENDING_CONNECT_TTL_SECONDS,
     }
@@ -99,8 +102,31 @@ def clear_pending_connect(request) -> None:
         session.pop(PENDING_CONNECT_SESSION_KEY, None)
 
 
-def get_pending_connect_provider(request, user) -> str | None:
-    """The provider to offer ``user`` a connect prompt for, or None.
+def clear_pending_connect_on_login(sender, request, user, **kwargs) -> None:
+    """``user_logged_in`` receiver: drop a stash meant for someone else (#1314).
+
+    The stash lives in the browser's session, which a shared or public
+    browser hands from one person to the next. Django's login keeps session
+    data across the key rotation, so without this a stash an attempt left
+    behind would still be sitting there for whoever signs in next. Only the
+    account(s) the attempt collided with may inherit it.
+    """
+    session = getattr(request, "session", None)
+    if session is None:
+        return
+    data = session.get(PENDING_CONNECT_SESSION_KEY)
+    if not isinstance(data, dict) or getattr(user, "pk", None) not in (data.get("user_ids") or []):
+        session.pop(PENDING_CONNECT_SESSION_KEY, None)
+
+
+def clear_pending_connect_on_logout(sender, request, user=None, **kwargs) -> None:
+    """``user_logged_out`` receiver: a sign-out ends any pending prompt."""
+    if request is not None:
+        clear_pending_connect(request)
+
+
+def _pending_connect_data(request, user) -> dict | None:
+    """The live stash for ``user``, or None.
 
     None when nothing is stashed, the stash expired (a closed tab just lets it
     lapse — nothing to clean up), it was stashed for a different account, or
@@ -121,7 +147,22 @@ def get_pending_connect_provider(request, user) -> str | None:
         return None
     if user.socialaccount_set.filter(provider=provider).exists():
         return None
-    return provider
+    return data
+
+
+def get_pending_connect_provider(request, user) -> str | None:
+    """The provider to offer ``user`` a connect prompt for, or None."""
+    data = _pending_connect_data(request, user)
+    return data["provider"] if data else None
+
+
+def get_pending_connect(request, user) -> tuple[str, str] | tuple[None, None]:
+    """``(provider, identity)`` for the prompt, or ``(None, None)``."""
+    data = _pending_connect_data(request, user)
+    if not data:
+        return None, None
+    identity = data.get("identity")
+    return data["provider"], identity if isinstance(identity, str) and identity else None
 
 
 def social_account_email(account) -> str | None:

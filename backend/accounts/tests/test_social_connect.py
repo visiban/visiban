@@ -219,6 +219,75 @@ class EmailCollisionRoutingTests(TestCase):
 
 
 @override_settings(LOGIN_REDIRECT_URL=FRONTEND)
+class SharedBrowserTests(TestCase):
+    """The stash must never carry over to a different person on the same browser."""
+
+    def setUp(self):
+        cache.clear()
+        self.victim = User.objects.create_user(username="victim", email="victim@example.com", password="pw-123456789")
+        self.other = User.objects.create_user(username="other", email="other@example.com", password="pw-123456789")
+
+    def _client_with_collision_stash(self):
+        """Run a real collision through the adapter, then copy the resulting
+        session into a test client — the browser the attempt was made in."""
+        request = _request()
+        sociallogin = _sociallogin(request, "victim@example.com", verified=False)
+        sociallogin.account.extra_data = {"login": "attacker-gh"}
+        with self.assertRaises(ImmediateHttpResponse):
+            pre_social_login(request, sociallogin)
+        client = APIClient()
+        session = client.session
+        for key, value in request.session.items():
+            session[key] = value
+        session.save()
+        return client
+
+    def test_collision_stash_names_the_attempting_provider_account(self):
+        client = self._client_with_collision_stash()
+        pending = client.session[PENDING_CONNECT_SESSION_KEY]
+        self.assertEqual(pending["identity"], "attacker-gh")
+
+    def test_stash_is_dropped_when_a_different_user_logs_in(self):
+        """The attempt never completes; someone else signs in next in the same
+        browser. The stash is gone and no prompt appears."""
+        client = self._client_with_collision_stash()
+        self.assertIn(PENDING_CONNECT_SESSION_KEY, client.session)
+
+        r = client.post("/api/v1/auth/login/", {"username": "other", "password": "pw-123456789"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+        self.assertNotIn(PENDING_CONNECT_SESSION_KEY, client.session)
+        body = client.get("/api/v1/auth/user/").json()
+        self.assertIsNone(body["pending_connect_provider"])
+        self.assertIsNone(body["pending_connect_identity"])
+
+    def test_stash_survives_only_for_the_matched_account_and_names_the_identity(self):
+        client = self._client_with_collision_stash()
+
+        client.post("/api/v1/auth/login/", {"username": "victim", "password": "pw-123456789"})
+
+        body = client.get("/api/v1/auth/user/").json()
+        self.assertEqual(body["pending_connect_provider"], "github")
+        # Shown in the prompt so an unfamiliar account can be declined.
+        self.assertEqual(body["pending_connect_identity"], "attacker-gh")
+
+    def test_logout_clears_the_stash(self):
+        client = self._client_with_collision_stash()
+        client.post("/api/v1/auth/login/", {"username": "victim", "password": "pw-123456789"})
+
+        client.post("/api/v1/auth/logout/")
+        client.post("/api/v1/auth/login/", {"username": "victim", "password": "pw-123456789"})
+
+        self.assertIsNone(client.get("/api/v1/auth/user/").json()["pending_connect_provider"])
+
+    def test_identity_falls_back_to_email_without_a_provider_username(self):
+        request = _request()
+        with self.assertRaises(ImmediateHttpResponse):
+            pre_social_login(request, _sociallogin(request, "victim@example.com"))
+        self.assertEqual(request.session[PENDING_CONNECT_SESSION_KEY]["identity"], "victim@example.com")
+
+
+@override_settings(LOGIN_REDIRECT_URL=FRONTEND)
 class InviteInFlightTests(TestCase):
     """account_exists beats invite_* and signup-closed, and keeps the invite."""
 
