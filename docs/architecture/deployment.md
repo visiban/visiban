@@ -22,7 +22,7 @@ For a production-oriented Docker Compose stack (nginx, TLS via certbot, a `sched
 
 ## Production Docker images
 
-Pre-built images are published to the GitLab container registry automatically by CI on every merge to `main`:
+Pre-built images are published to the GitLab container registry automatically by CI. Every merge to `main` pushes an amd64-only `:latest` and short-SHA tag; multi-arch (linux/amd64 + linux/arm64) `:latest` and release tags come from release-tag pipelines:
 
 | Image | Registry path |
 |---|---|
@@ -30,6 +30,9 @@ Pre-built images are published to the GitLab container registry automatically by
 | Frontend | `registry.gitlab.com/visiban/visiban/frontend:latest` |
 
 Each merge also pushes a short-SHA tag (e.g. `registry.gitlab.com/visiban/visiban/backend:a1b2c3d4`) for rollback.
+
+!!! warning "GitLab-registry `:latest` is amd64-only between releases"
+    The GitLab-registry `:latest` and short-SHA tags built on `main` are **linux/amd64 only**. `:latest` is multi-arch (linux/amd64 + linux/arm64) only right after a release tag's pipeline runs, and the next `main` merge overwrites it with an amd64-only image again. On arm64 hosts (Apple Silicon, Graviton, Raspberry Pi), pull a pinned release tag (for example `v1.2.0`) or GHCR's `ghcr.io/visiban/visiban/backend:latest` / `frontend:latest`, which only release tags update and which stay multi-arch. See [Container image retention](../administration/container-image-retention.md#gitlab-registry-latest-is-amd64-only-between-releases).
 
 To build images manually:
 
