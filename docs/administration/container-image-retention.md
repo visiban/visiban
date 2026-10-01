@@ -29,7 +29,7 @@ registry-retention half and digest pinning, both of which apply regardless of #1
 
 ## GitLab container registry
 
-Recorded 2026-09-27 via:
+Recorded 2026-10-01 via:
 
 ```bash
 glab api "projects/visiban%2Fvisiban" | jq '.container_expiration_policy'
@@ -42,8 +42,8 @@ glab api "projects/visiban%2Fvisiban" | jq '.container_expiration_policy'
   "keep_n": 10,
   "older_than": "90d",
   "name_regex": ".*",
-  "name_regex_keep": "v.*",
-  "next_run_at": "2026-09-26T23:52:16.652Z"
+  "name_regex_keep": "^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest)\\z",
+  "next_run_at": "2026-10-02T16:35:33.317Z"
 }
 ```
 
@@ -51,45 +51,81 @@ A tag matching `name_regex_keep` is **never** swept, regardless of age or the `k
 `older_than` count-and-age limits that apply to everything else `name_regex` matches. Reading
 this policy against Visiban's actual tag set:
 
-- **`v*` release tags are unconditionally protected.** `name_regex_keep: "v.*"` matches every
-  `vX.Y.Z`(-alpha/beta/rc.N) tag this repo's kaniko push jobs create, so a released tag
-  cannot be reaped by this policy no matter how old it gets or how many other tags have been
-  pushed since. This is the exact gap TruePPM's incident exploited — it is closed here.
-- **`latest` is *not* unconditionally protected.** `name_regex_keep: "v.*"` does not match
-  the literal string `latest`. It survives today only because `backend-docker-push` /
-  `frontend-docker-push` re-push `:latest` on every `main`-branch merge, which almost always
-  keeps it inside `keep_n: 10` most-recently-pushed or younger than `older_than: 90d`. If
-  `main` ever goes 90+ days without a merge to either image *and* 10 other tags get pushed in
-  the meantime, `latest` becomes eligible for the sweep — a scenario the policy does not rule
-  out, only makes unlikely under normal development cadence.
-- **Known tradeoff, not yet addressed: per-arch `-amd64`/`-arm64` tags accumulate forever.**
-  Since #1084, each release tag also pushes `:<tag>-amd64` and `:<tag>-arm64` on both
-  registries — the source images `backend-manifest` / `frontend-manifest` combine into the
-  real multi-arch `:<tag>` / `:latest` / `:MAJOR.MINOR`. On the GitLab registry,
-  `name_regex_keep: "v.*"` matches these too (they start with `v`), so they're protected
-  from the sweep the same as the real release tags — meaning they're never cleaned up,
-  not just protected from premature deletion. On GHCR there is no cleanup at all (see below),
-  so they accumulate there unconditionally. Neither is a correctness problem — the per-arch
-  tags are only ever consumed by the manifest-assembly job, immediately after being pushed —
-  but it is unbounded storage growth with no code path that reclaims it. Tracked in **#1196**
-  (delete the per-arch tags after manifest assembly, or exclude them from the keep-regex);
-  not fixed by #1084 itself.
+- **`v*` release tags and `latest` are both unconditionally protected (#1190).** The
+  alternation matches every `vX.Y.Z`(-alpha/beta/rc.N) release tag this repo's publish
+  pipeline creates, and the literal string `latest`, so neither can be reaped by this policy
+  no matter how old it gets or how many other tags have been pushed since. `v*` protection is
+  the exact gap TruePPM's incident exploited — it predates this page's history. `latest`
+  previously survived only incidentally, via `backend-docker-push`/`frontend-docker-push`
+  re-pushing `:latest` on every `main`-branch merge, which almost always kept it inside
+  `keep_n: 10` most-recently-pushed or younger than `older_than: 90d` — a mechanism that
+  stops working the moment `main` goes 90+ days without a merge to either image while 10
+  other tags get pushed in the meantime. #1190 closes that gap unconditionally instead of
+  relying on development cadence.
 
-**This change does not modify the policy.** Changing a GitLab project setting is an
-outward-facing admin action outside this branch's scope (#1074). If you want to close the
-`latest` gap, the exact call is:
+### History: the semver-anchored form predates #1190
+
+The keep-regex above is anchored to a strict semver shape
+(`^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?\z`) rather than the looser, unanchored
+`v.*` this page recorded through 2026-09-29. That tightening was **already live** when
+#1190's audit started (2026-10-01) — #1190 only added the `|latest` alternative alongside it,
+it did not introduce the semver anchoring.
+
+The anchored form traces to commit `6dfcad088` ("feat(ci): restore native arm64 image
+publishing (#1084)", 2026-09-27) on branch `feat/1084-restore-arm64-image-publish`. That
+commit's message documents applying this exact regex via the GitLab API that same day,
+**specifically so the `-amd64`/`-arm64` intermediate tags #1084 introduces would not match
+`name_regex_keep`** and would instead fall back to the ordinary `keep_n`/`older_than` sweep
+rather than being retained forever (the old unanchored `v.*` matched those too, since they
+start with `v`). This is deliberate, not an oversight — it is recorded here because the
+branch that documents it was never merged: #1084 shipped via a different implementation
+(`docker buildx imagetools create` was dropped in favor of `manifest-tool`; see merged
+commits `720d21b5e` and `40d52cea2`), so that branch's doc update, including this history,
+never reached `main`. The live GitLab setting, changed directly via the API, was unaffected
+by which branch merged and was never reverted — so it was already in this tightened shape
+when #1190 began, and this page is only now catching up to it.
+
+- **Per-arch `-amd64`/`-arm64` intermediate tags: swept by `keep_n`/`older_than` on GitLab,
+  unconditionally retained on GHCR.** Each release tag pushes `<tag>-amd64` and `<tag>-arm64`
+  (e.g. `v1.2.0-amd64`) on both registries before `backend-manifest`/`frontend-manifest`
+  combine them into the real multi-arch `:<tag>`/`:latest`/`:MAJOR.MINOR`. The anchored regex
+  does **not** match these: the `\z` anchor requires the string to end right after the
+  optional prerelease group, so a trailing `-amd64`/`-arm64` suffix breaks the match. On the
+  GitLab registry they therefore fall back to the ordinary `keep_n: 10`/`older_than: 90d`
+  sweep that `name_regex: ".*"` subjects everything else to — they get cleaned up in due
+  course, not retained forever, as a direct result of the 2026-09-27 tightening above. On
+  GHCR there is still no cleanup mechanism at all (see below), so they accumulate there
+  unconditionally regardless of tag shape. Whether reclaiming them only after a `keep_n`/90d
+  wait (versus immediately after manifest assembly) is good enough is a separate question
+  still tracked in **#1196**.
+- **`MAJOR.MINOR` alias tags (e.g. `1.2`) are also not protected.** For a stable release,
+  `backend-manifest`/`frontend-manifest` additionally alias the manifest onto a bare
+  `MAJOR.MINOR` tag with the leading `v` stripped (`manifest-tool ... --tags latest,1.2` from
+  `v1.2.0`) — so the pushed tag is literally `1.2`, not `v1.2`. The keep-regex only matches a
+  `v`-prefixed, three-component version or the literal `latest`, so `1.2` falls back to the
+  same `keep_n`/`older_than` sweep as the per-arch tags on GitLab, and is never cleaned up on
+  GHCR. No commit or issue found states this was a deliberate design decision for `MAJOR.MINOR`
+  tags specifically — it reads as an incidental consequence of the per-arch-tag anchoring
+  above rather than a considered choice, and should be treated as unrecorded, not intended,
+  until someone confirms otherwise.
+
+### #1190 update: `latest` added to the keep-regex
+
+The call actually used, 2026-10-01 (kept the existing semver strictness from the history
+above, and added `latest` alongside it):
 
 ```bash
 glab api "projects/visiban%2Fvisiban" --method PUT \
   --header "Content-Type: application/json" \
   --input - <<'EOF'
-{"container_expiration_policy_attributes": {"name_regex_keep": "^(v.*|latest)\\z"}}
+{"container_expiration_policy_attributes": {"name_regex_keep": "^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest)\\z"}}
 EOF
 ```
 
-Verify afterward with the same `jq '.container_expiration_policy'` read above. (Using `\z`
-rather than `$` anchors the regex to the true end of string, not "end of line" — GitLab's
-cleanup policy regex is a Ruby `Regexp`, where `$` also matches before a trailing newline.)
+Verified against the same `jq '.container_expiration_policy'` read above — see the recorded
+JSON at the top of this section. (Using `\z` rather than `$` anchors the regex to the true end
+of string, not "end of line" — GitLab's cleanup policy regex is a Ruby `Regexp`, where `$`
+also matches before a trailing newline.)
 
 ## GHCR (GitHub Container Registry)
 

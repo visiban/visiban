@@ -251,7 +251,8 @@ verify_images() {
     echo "architecture (${RELEASE_REQUIRED_ARCHES}). For a MISSING image, check" >&2
     echo "each registry's cleanup/retention policy — see" >&2
     echo "docs/administration/container-image-retention.md — its keep-regex" >&2
-    echo "must protect release tags (^v.*\$|^latest\$), or a scheduled sweep" >&2
+    echo "must protect release tags and the latest tag unconditionally (see" >&2
+    echo "that doc for the current regex), or a scheduled sweep" >&2
     echo "will delete them again. For an ARCH-MISSING image, the manifest-" >&2
     echo "assembly job (backend-manifest / frontend-manifest) silently" >&2
     echo "dropped a platform leg — re-run it, or the whole tag pipeline's" >&2
