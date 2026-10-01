@@ -4150,6 +4150,21 @@ no DDL. One behavior change worth flagging to users, not the database: because
 date approaching</strong> on (which historically only produced staleness alerts) starts receiving the
 24-hour due-date email too — see the note in
 <a href="../../features/notifications/">Notifications</a> if you need to tell your users.</p>
+<p>Migration <code>accounts/0031_user_pending_email_address</code> adds a nullable foreign key,
+<code>pending_email_address</code>, to the user table for the new
+<a href="../../features/#user-settings">pending email-change tracking</a> feature (#1273). It is a
+plain <code>AddField</code> with <code>db_index=False</code> — no index is built under this migration's table lock.
+Companion migration <code>accounts/0032_user_pending_email_addr_idx</code> adds the partial index backing
+that column, using <code>CREATE INDEX CONCURRENTLY</code> (via <code>visiban.db_operations</code>, <code>atomic = False</code>)
+so it does not block reads or writes while it builds, per the
+<a href="#zero-downtime-migration-rules">zero-downtime migration rules</a> above. Every existing account
+starts with no pending change, so neither migration alters existing behavior.</p>
+<p>Migration <code>accounts/0033_add_user_email_upper_index</code> adds a functional index on
+<code>Upper(email)</code> to the user table, closing a case-insensitive email-collision gap (#1222) —
+two accounts could otherwise register emails that differ only by case. Because <code>users</code> is a
+populated table, it is hand-edited to use <code>CREATE INDEX CONCURRENTLY</code> (via
+<code>visiban.db_operations</code>, <code>atomic = False</code>) instead of the autodetector's plain <code>AddIndex</code>, so
+it does not lock reads or writes while it builds.</p>
 <p>Migration <code>accounts/0034_user_email_notif_comment_added</code> adds one more defaulted boolean
 column, <code>email_notif_comment_added</code>, to the user table — the email opt-in for the
 <strong>Comment on a watched card</strong> notification (#1295). It defaults to <code>False</code> for every user,
@@ -4190,6 +4205,12 @@ feature (#449). Migration <code>boards/0061_add_card_external_ref</code> creates
 constraints — against brand-new tables, so none needs a concurrent build and none touches
 <code>boards</code> or <code>cards</code>. All three ship backend-only in 1.2 unless their linked feature page says
 otherwise.</p>
+<p>Migration <code>boards/0062_notification_comment_added_action_type</code> adds the <code>"comment_added"</code>
+value to <code>Notification.action_type</code>'s choices (#1277). As with <code>0060</code> (<code>due_soon</code>), <code>choices</code>
+is enforced by Django/DRF only, so this is a state-only <code>AlterField</code> that emits no DDL at
+all — <code>sqlmigrate boards 0062</code> prints <code>(no-op)</code>. No existing value changes meaning or
+disappears; see <a href="../../features/notifications/">Notifications</a> if you need to tell API clients
+that switch on <code>action_type</code> to fall through to a generic rendering for an unrecognized value.</p>
 <p>Migrations <code>git_lens/0001_initial</code> and <code>git_lens/0002_alter_lensconnection_column_dim</code>
 create the entirely new <code>git_lens</code> app and its <code>LensConnection</code> table for
 <a href="../../features/issue-board-lens/">Issue Board Lens</a> (experimental, off by default —
