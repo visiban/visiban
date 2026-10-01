@@ -2,6 +2,8 @@ import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from accounts.models import User
+
 from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import Board
 from .permissions import (
@@ -24,6 +26,13 @@ PING_INTERVAL = 30
 # consumer applies the gate itself rather than relying on the REST-response
 # stripping in BoardMembershipSerializer.to_representation, which cannot know
 # the recipient's role at send time.
+#
+# The subscriber's role (`self._role`) is resolved at connect() and refreshed
+# from the DB on any member.added/member.updated frame whose subject is the
+# subscriber (#1332), so a demotion or promotion applies from that frame on.
+# Role changes that emit no board-channel member.* frame (group-membership role
+# changes, board move-group, can_access_all_content toggles) still apply only
+# on reconnect.
 #
 # moderator_field_visible() is defined in boards.permissions since #1114 so
 # this consumer, the change-feed reader (BoardEventSerializer), and the two
@@ -104,6 +113,32 @@ class BoardConsumer(AsyncWebsocketConsumer):
             # (a malformed payload must fail closed, not raise).
             subject = data.get("user")
             subject_user_id = subject.get("id") if isinstance(subject, dict) else None
+            # A member.added/member.updated frame about THIS subscriber means
+            # their own board role may just have changed (#1332). `self._role`
+            # was cached at connect(), so without a refresh a board admin
+            # demoted to viewer keeps the admin-only `is_moderator` /
+            # `is_site_admin` columns on every later frame until they
+            # reconnect (and a promoted viewer stays under-exposed — the
+            # inverse of #1191). Re-resolve before stripping, so this very
+            # frame and every later one are filtered by the new role.
+            #
+            # Why re-resolve from the DB rather than trust `data["role"]`:
+            # the payload carries only the *explicit* membership role, while
+            # the effective role also depends on ownership, group inheritance
+            # and can_access_all_content (get_board_role's ladder). Trusting
+            # the payload would e.g. demote a site_admin who also happens to
+            # hold a viewer row. The cost is bounded: the query runs only on
+            # self-subject frames, never per frame.
+            if subject_user_id is not None and subject_user_id == self.scope["user"].id:
+                role = await self._refresh_role()
+                if role is None:
+                    # No effective access any more (race with a removal that
+                    # committed after this frame was queued) — fail closed the
+                    # same way the member.removed self-close above does.
+                    self._role = None
+                    await self.close()
+                    return
+                self._role = role
             hidden = set()
             if "is_moderator" in data and not moderator_field_visible(
                 self._role, self.scope["user"].id, subject_user_id
@@ -119,8 +154,27 @@ class BoardConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _resolve_role(self, user, board_id):
-        try:
-            board = Board.objects.get(pk=board_id)
-        except Board.DoesNotExist:
+        return _lookup_role(user, board_id)
+
+    @database_sync_to_async
+    def _refresh_role(self):
+        """Re-resolve the subscriber's effective role mid-connection (#1332).
+
+        Re-reads the User row as well as the board: ``scope["user"]`` is the
+        instance loaded at handshake time, so its ``can_access_all_content``
+        (the top rung of get_board_role's ladder) would be just as stale as
+        the cached role this method exists to replace.
+        """
+        user = User.objects.filter(pk=self.scope["user"].id).first()
+        if user is None:
             return None
-        return get_board_role(user, board)
+        return _lookup_role(user, self.board_id)
+
+
+def _lookup_role(user, board_id):
+    """Effective role of *user* on board *board_id*, or None (sync; ORM)."""
+    try:
+        board = Board.objects.get(pk=board_id)
+    except Board.DoesNotExist:
+        return None
+    return get_board_role(user, board)

@@ -191,6 +191,9 @@ class ConsumerFlagTests(SimpleTestCase):
             "user": MagicMock(is_authenticated=True, id=subscriber_id),
         }
         consumer._role = role
+        # Self-subject frames re-resolve the role from the DB (#1332); this is
+        # a SimpleTestCase, so pin the refresh to the role under test.
+        consumer._refresh_role = AsyncMock(return_value=role)
         payload = {
             "event": event,
             "data": {
