@@ -2969,7 +2969,12 @@ class PublicCardSerializer(serializers.ModelSerializer):
     which sets up the necessary prefetches (checklist_items, movements) and
     select_related(board) so that no per-card queries are issued.
     """
-    labels = LabelSerializer(many=True, read_only=True)
+    # ParkedLabelListSerializer (#1333, same pattern CardSerializer/
+    # CardQuerySerializer use, #1223/#1212) reads the to_attr list
+    # PublicBoardSerializer.get_cards() parks the labels on, instead of a
+    # plain LabelSerializer(many=True) resolving to the M2M manager and
+    # calling .all() on it once per card on every anonymous page view.
+    labels = ParkedLabelListSerializer(child=LabelSerializer(), read_only=True)
     # allow_null=True (#1192): Card.assignee is a SET_NULL FK with null=True —
     # an unassigned card is the common case, and serializes with `assignee: null`.
     # Same declared-nested-field gap as CardCommentSerializer.author.
@@ -3063,7 +3068,10 @@ class PublicBoardSerializer(serializers.ModelSerializer):
             .filter(archived_at__isnull=True)
             .select_related("assignee", "board")
             .prefetch_related(
-                "labels",
+                # Parked with to_attr, read through _card_labels() via
+                # ParkedLabelListSerializer (#1333, mirrors _card_queryset,
+                # #1223/#1212).
+                Prefetch("labels", to_attr=_PARKED_LABELS),
                 # Parked with to_attr, same as _card_queryset (#1212).
                 Prefetch("checklist_items", to_attr=_PARKED_CHECKLIST_ITEMS),
                 # Ordered newest-first so index [0] gives the most recent movement,
