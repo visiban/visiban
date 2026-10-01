@@ -307,7 +307,7 @@ step "Creating kind cluster '$CLUSTER'"
 kind delete cluster --name "$CLUSTER" >/dev/null 2>&1 || true
 # apiServerAddress 0.0.0.0 so the API server is reachable from outside the
 # Docker host — required under kind-in-dind, harmless locally.
-cat <<EOF | kind create cluster --name "$CLUSTER" --config=- --wait 120s "${KIND_IMAGE_ARGS[@]}"
+cat <<EOF | kind create cluster --name "$CLUSTER" --config=- --wait 120s ${KIND_IMAGE_ARGS[@]+"${KIND_IMAGE_ARGS[@]}"}
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
@@ -315,7 +315,7 @@ networking:
 EOF
 retarget_kubeconfig "$CLUSTER"
 kubectl cluster-info >/dev/null || die "the cluster came up but is not reachable from this container"
-kind load docker-image "$BACKEND_IMAGE" "$FRONTEND_IMAGE" "${EXTRA_LOAD_IMAGES[@]}" --name "$CLUSTER"
+kind load docker-image "$BACKEND_IMAGE" "$FRONTEND_IMAGE" ${EXTRA_LOAD_IMAGES[@]+"${EXTRA_LOAD_IMAGES[@]}"} --name "$CLUSTER"
 ok "cluster up, reachable, images side-loaded"
 
 # ---------------------------------------------------------------------------
@@ -625,10 +625,25 @@ print("VALKEY_AUTH_ROUNDTRIP_OK")
   helm test "$AUTH_RELEASE" --namespace "$NAMESPACE" --timeout 5m \
     || die "$label: helm test failed with valkey.auth.enabled=true"
   ok "$label: helm test passed"
+  # Plaintext must be absent from every object that is NOT a Secret. Read
+  # from the live cluster, so what Helm actually applied is what is checked.
+  # The Secret exclusion cannot make this pass trivially: the control below
+  # first proves the password IS in the cluster, in the Secret the pods read.
+  local secret_name secret_key live
+  secret_name="$(kubectl -n "$NAMESPACE" get "statefulset/${AUTH_RELEASE}-valkey" \
+    -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="REDISCLI_AUTH")].valueFrom.secretKeyRef.name}')"
+  secret_key="$(kubectl -n "$NAMESPACE" get "statefulset/${AUTH_RELEASE}-valkey" \
+    -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="REDISCLI_AUTH")].valueFrom.secretKeyRef.key}')"
+  live="$(kubectl -n "$NAMESPACE" get secret "$secret_name" -o go-template="{{index .data \"$secret_key\"}}" | base64 -d)"
+  [ "$live" = "$pw" ] \
+    || die "$label: control failed — Secret $secret_name/$secret_key does not hold the drill password, so the plaintext check below would prove nothing"
+  if kubectl -n "$NAMESPACE" get configmap,statefulset,deployment,cronjob,job,pod,service,networkpolicy -o yaml | grep -qF -- "$pw"; then
+    die "$label: the Valkey password appears as plaintext in a non-Secret object (ConfigMap, workload or pod spec)"
+  fi
   if helm get manifest "$AUTH_RELEASE" --namespace "$NAMESPACE" | grep -qF -- "$pw"; then
     die "$label: the Valkey password appears as plaintext in 'helm get manifest'"
   fi
-  ok "$label: no plaintext Valkey password in 'helm get manifest'"
+  ok "$label: the password is in Secret $secret_name only — no plaintext in any other object or in 'helm get manifest'"
 }
 
 if [ "${DRILL_VALKEY_AUTH:-0}" = "1" ]; then

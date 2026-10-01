@@ -344,8 +344,7 @@ render under `helm template` and GitOps tools.
 
     The chart stores the password in the `<release>-visiban-valkey-auth`
     Secret, and it is part of the Helm release record like every chart-managed
-    credential. Changing it in a later `helm upgrade` restarts Valkey and the
-    backend together.
+    credential.
 
 === "Your own Secret"
 
@@ -359,9 +358,24 @@ render under `helm template` and GitOps tools.
 
     Use `valkey.auth.existingSecretPasswordKey` if the password is under a key
     other than `valkey-password`. This works with or without
-    `secret.existingSecret`. The password never passes through Helm. After
-    you rotate it, restart both workloads yourself:
-    `kubectl rollout restart statefulset/<release>-valkey deployment/<release>-visiban-backend`.
+    `secret.existingSecret`. The password never passes through Helm.
+
+**Rotating the password.** With either source, a new password does not
+restart anything by itself. The chart deliberately adds no checksum
+annotation for it, because a hash of the password on a pod could be cracked
+offline by anyone who can read pods but not Secrets. After you change the
+password (a `helm upgrade` with a new `valkey.auth.password`, or an edit to
+your own Secret), restart Valkey and the backend together:
+
+```bash
+kubectl -n <namespace> rollout restart \
+  statefulset/<release>-valkey deployment/<release>-visiban-backend
+```
+
+Until both restart, the backend cannot reach Valkey, so do this in a quiet
+moment. Scheduled jobs pick up the new password on their next run. Turning
+auth on or off, or switching between the two sources, changes the pod specs,
+so that `helm upgrade` restarts both without this step.
 
 The password can contain any character, including `/`, `@` and `:`. It never
 appears in a ConfigMap, a plain environment value or a URL the chart renders.

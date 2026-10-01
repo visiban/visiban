@@ -346,8 +346,12 @@ valkey:
     #   openssl rand -hex 32
     password: ""
     # Or a Secret you manage (the chart then renders none, and the password
-    # never passes through Helm). Restart the valkey StatefulSet and the
-    # backend Deployment yourself after rotating it.
+    # never passes through Helm).
+    #
+    # Rotating either one restarts nothing on its own — there is deliberately
+    # no checksum annotation, since a password hash on a pod is crackable by
+    # anyone who can read pods. Afterwards run:
+    #   kubectl rollout restart statefulset/<release>-valkey deployment/<release>-visiban-backend
     existingSecret: ""
     # Key in existingSecret holding the password. Defaults to valkey-password.
     existingSecretPasswordKey: ""

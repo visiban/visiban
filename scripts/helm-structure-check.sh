@@ -1057,8 +1057,8 @@ VALKEY_AUTH_STRESS_PW='structure/check@pw:1211#x'
 check_valkey_auth() {
   section "11b. The bundled Valkey's password stays in Secrets (#1211)"
 
-  local out bad=0 mode
-  out="$(mktemp)"
+  local out err bad=0 mode
+  out="$(mktemp)"; err="$(mktemp)"
   for mode in chart-managed existing-secret; do
     local extra=() want_secret want_key
     if [ "$mode" = chart-managed ]; then
@@ -1070,8 +1070,8 @@ check_valkey_auth() {
       want_secret="sc-valkey"; want_key="sc-key"
     fi
     if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" "${extra[@]}" \
-          > "$out" 2>/tmp/helm-valkey-auth-err.txt; then
-      fail "$mode: the valkey.auth.enabled=true render failed: $(grep -m1 -v '^$' /tmp/helm-valkey-auth-err.txt)"
+          > "$out" 2>"$err"; then
+      fail "$mode: the valkey.auth.enabled=true render failed: $(grep -m1 -v '^$' "$err")"
       bad=1; continue
     fi
 
@@ -1125,6 +1125,23 @@ check_valkey_auth() {
       bad=1
     fi
 
+    # No pod-template annotation may carry anything derived from the password:
+    # `get pods` is a weaker permission than `get secrets`, and an unsalted
+    # hash of a weak password cracks offline (security-review on #1211).
+    local pw_sum
+    if command -v sha256sum >/dev/null; then
+      pw_sum="$(printf '%s' "$VALKEY_AUTH_STRESS_PW" | sha256sum | cut -d' ' -f1)"
+    else
+      pw_sum="$(printf '%s' "$VALKEY_AUTH_STRESS_PW" | shasum -a 256 | cut -d' ' -f1)"
+    fi
+    if [ -z "$pw_sum" ]; then
+      fail "$mode: could not hash the stress password (no sha256sum or shasum) — the password-hash check would prove nothing"
+      bad=1
+    elif grep -qF -- "$pw_sum" "$out"; then
+      fail "$mode: a sha256 of the Valkey password appears in the render (an annotation?) — crackable offline by anyone who can read pods"
+      bad=1
+    fi
+
     # c) The server reads the same Secret key and requires it.
     local server_ref server_cmd
     server_ref="$(yq 'select(.kind == "StatefulSet" and .spec.template.metadata.labels."app.kubernetes.io/component" == "valkey")
@@ -1155,7 +1172,7 @@ check_valkey_auth() {
     fail "the default render (valkey.auth.enabled=false) contains Valkey auth wiring — auth must be opt-in"
     bad=1
   fi
-  rm -f "$out"
+  rm -f "$out" "$err"
   [ "$bad" -eq 0 ] && pass "valkey.auth: the password reaches the server and every client only via one secretKeyRef, never as plaintext; chart-managed and existingSecret both; off by default"
 }
 
@@ -1457,6 +1474,8 @@ self_test() {
     "11b valkey password written into the ConfigMap|templates/valkey.yaml|s/^    # (#1211), never written here: this file is a ConfigMap. Protected mode/    requirepass {{ .Values.valkey.auth.password }}/"
     # 11b: the backend loses the password env (a rename settings.py never reads).
     "11b backend loses REDIS_URL_PASSWORD|templates/_backend-env.tpl|s/- name: REDIS_URL_PASSWORD/- name: REDIS_PASSWORD/"
+    # 11b: a crackable hash of the password comes back as a pod annotation.
+    "11b password sha256 in a pod annotation|templates/valkey.yaml|s/checksum\/config: {{ .Values.valkey.commonConfiguration | toString | sha256sum }}/checksum\/config: {{ printf \"%v\" .Values.valkey.auth.password | sha256sum }}/"
     # 11b: the server starts without --requirepass while clients present one.
     "11b valkey server started without requirepass|templates/valkey.yaml|s/ --requirepass \"\$REDISCLI_AUTH\"'/'/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"

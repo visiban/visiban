@@ -47,9 +47,7 @@ data:
     # (#1211), never written here: this file is a ConfigMap. Protected mode
     # only matters without a password, so it stays off as before.
     {{- else }}
-    {{- /* Wording kept verbatim from before #1211 so an auth-off render is
-           byte-identical: "refused" now reads as "not enabled". */}}
-    # No password (valkey.auth.enabled is refused), so protected mode would
+    # No password (valkey.auth.enabled is false), so protected mode would
     # refuse every non-loopback client. Ingress is restricted by NetworkPolicy.
     {{- end }}
     protected-mode no
@@ -104,12 +102,6 @@ spec:
       annotations:
         # A changed commonConfiguration must restart the server to take effect.
         checksum/config: {{ .Values.valkey.commonConfiguration | toString | sha256sum }}
-        {{- if and $auth (not .Values.valkey.auth.existingSecret) }}
-        # A rotated valkey.auth.password must restart the server, or it keeps
-        # the old one while the backend pods (which roll on the same change)
-        # present the new one.
-        checksum/auth: {{ .Values.valkey.auth.password | toString | sha256sum }}
-        {{- end }}
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -130,7 +122,9 @@ spec:
           {{- if $auth }}
           # REDISCLI_AUTH carries the password from the Secret: the server takes
           # it as --requirepass (valkey-server quotes command-line values, so
-          # any character is safe, and the process title never shows it), and
+          # any character is safe; it rewrites its process title at startup,
+          # but until then the password is in the process's argv, readable via
+          # /proc/<pid>/cmdline from inside this pod only), and
           # valkey-cli reads REDISCLI_AUTH by itself, so the probes below
           # authenticate unchanged. An empty value would START the server with
           # no password at all; refuse that instead of running open (#1211).

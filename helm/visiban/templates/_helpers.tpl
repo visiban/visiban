@@ -466,7 +466,15 @@ value accepts any Host, so "localhost" is as good as anything there.
 {{/*
 Bundled Valkey password auth (#1211). Opt-in: valkey.auth.enabled defaults to
 false, and every helper below renders nothing on that path, so an install that
-does not turn auth on renders exactly what it did before #1211.
+does not turn auth on renders what it did before #1211. The one difference is
+a reworded comment in the Valkey ConfigMap, and checksum/config hashes only
+valkey.commonConfiguration, so that causes no restart.
+
+No checksum annotation for the password, on Valkey or the backend: `get pods`
+is a weaker permission than `get secrets`, and an unsalted hash of a weak
+password cracks offline. No salt is secret in every mode (secret.djangoSecretKey
+is a placeholder under secret.existingSecret). So rotating the password needs a
+manual `kubectl rollout restart`, as documented.
 
 Nil-safe (`dig`) for the same reason as the demo helpers: `helm upgrade
 --reuse-values` from a release whose values carry no valkey.auth map must not

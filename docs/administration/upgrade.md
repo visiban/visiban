@@ -582,7 +582,8 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
 !!! note "Helm: optional password for the bundled Valkey"
     The bundled Valkey can now require a password (#1211). **Nothing changes
     unless you turn it on**: `valkey.auth.enabled` stays `false` by default, so
-    an existing install renders the same manifests after `helm upgrade`.
+    an existing install renders the same workloads after `helm upgrade`.
+    Only a comment in the Valkey ConfigMap changes, and nothing restarts.
     Without a password, access to Valkey is restricted only by the chart's
     NetworkPolicy (`networkPolicy.enabled`, off by default). We recommend
     turning auth on, especially on a shared cluster.
@@ -592,7 +593,9 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     in [Valkey password](../getting-started/kubernetes.md#valkey-password).
     The upgrade that turns it on restarts Valkey and the backend together. As
     on any Valkey restart, open WebSocket connections reconnect once and
-    cached values are rebuilt.
+    cached values are rebuilt. A later password rotation does not restart
+    them on its own; run `kubectl rollout restart` on both, as described
+    there.
 
 !!! note "Helm: bundled Valkey is no longer the Bitnami subchart"
     Chart 0.5.0 runs the bundled Valkey as the chart's own StatefulSet on the
