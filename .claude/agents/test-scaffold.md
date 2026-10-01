@@ -90,6 +90,8 @@ describe('<ComponentName>', () => {
 - ✅ Error state shown on API failure
 - ✅ Accessibility: interactive elements are reachable by role/label
 
+**A popover, dropdown, or modal's own dismissal/positioning logic needs a test file for that component itself, not just for whatever parent renders it.** It's common for a test to exist that opens a parent component, triggers the child popover's primary action, and asserts the resulting callback (e.g. selecting an option calls `updateCard`) — that covers the *wiring*, not the popover's own behavior. If the popover component has its own Escape-to-dismiss handler, a click-outside/`mousedown` listener, or a viewport-overflow position flip, each of those is untested until something actually presses Escape, clicks outside, or forces the overflow condition against that component directly (#1348, sibling pattern to #1250). Check every popover/dropdown/modal component for this gap, not just the one named in a tracked issue — it generalizes to any component whose only existing test exercises it exclusively through a parent's integration path.
+
 **Required test categories for API functions:**
 - ✅ Correct HTTP method, URL, and payload
 - ✅ Successful response parsed and returned correctly
