@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import InviteLinkPanel from '../components/Group/InviteLinkPanel'
 import type { GroupInviteLink } from '../types'
@@ -192,7 +192,8 @@ describe('InviteLinkPanel', () => {
     expect(await screen.findByText('Existing link')).toBeInTheDocument()
     // Click Revoke to enter confirm mode, then confirm
     await user.click(screen.getByRole('button', { name: 'Revoke' }))
-    await user.click(screen.getAllByRole('button', { name: 'Revoke' })[0])
+    expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
     // The row should still be visible showing the Revoked badge
     expect(await screen.findByText('Revoked')).toBeInTheDocument()
     expect(screen.getByText('Existing link')).toBeInTheDocument()
@@ -238,7 +239,7 @@ describe('InviteLinkPanel', () => {
     await screen.findByText('Existing link')
     // Enter confirm mode
     await user.click(screen.getByRole('button', { name: 'Revoke' }))
-    // Cancel — the Cancel button appears inline next to the confirm Revoke button
+    // Cancel — the Cancel button appears in the inline confirm row
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     // API must not have been called
     expect(mockRevokeInviteLink).not.toHaveBeenCalled()
@@ -343,5 +344,27 @@ describe('InviteLinkPanel', () => {
     // The Expired status label should be shown (may appear in badge and expiry field)
     const expiredLabels = screen.getAllByText('Expired')
     expect(expiredLabels.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('Escape cancels the revoke prompt without calling the API or reaching lower-priority handlers (#1238)', async () => {
+    mockListInviteLinks.mockResolvedValue([fakeExistingLink])
+    const pageEscape = vi.fn()
+    // Stand-in for GroupDetail's priority-0 Escape-to-navigate handler.
+    const { useEscapeStack } = await import('../hooks/useEscapeStack')
+    function Host() {
+      useEscapeStack(() => { pageEscape() }, 0)
+      return <InviteLinkPanel groupId={1} />
+    }
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.click(await screen.findByRole('button', { name: 'Revoke' }))
+    expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText(/Anyone holding it will no longer be able to join/)).not.toBeInTheDocument()
+    expect(pageEscape).not.toHaveBeenCalled()
+    expect(mockRevokeInviteLink).not.toHaveBeenCalled()
+    // With nothing pending, Escape falls through to the page handler.
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(pageEscape).toHaveBeenCalledTimes(1)
   })
 })

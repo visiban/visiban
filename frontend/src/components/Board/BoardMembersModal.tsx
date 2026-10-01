@@ -81,7 +81,7 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged, cu
           // A row without the field falls back to the role, failing closed.
           const isLocked = (m.is_site_admin ?? m.role === "site_admin") && !currentUserIsSiteAdmin;
           return (
-            <div key={m.user.id} className="flex items-center justify-between gap-3 py-2 border-b border-line last:border-0">
+            <div key={m.user.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 border-b border-line last:border-0">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-fg truncate">{userDisplayName(m.user)}</p>
               </div>
@@ -101,24 +101,37 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged, cu
                 />
                 )}
                 {!isSelf && !isLocked && m.id !== null && (
-                  confirmRemoveUserId === m.user.id ? (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs text-fg-tertiary">Remove?</span>
-                      <button onClick={() => handleRemove(m.user.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Yes</button>
-                      <button onClick={() => setConfirmRemoveUserId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">No</button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmRemoveUserId(m.user.id)}
-                      disabled={isDisabled}
-                      className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
-                      title="Remove direct board role"
-                    >
-                      &#10005;
-                    </button>
-                  )
+                  <button
+                    onClick={() => setConfirmRemoveUserId(m.user.id)}
+                    disabled={isDisabled}
+                    className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                    title="Remove direct board role"
+                  >
+                    &#10005;
+                  </button>
                 )}
               </div>
+              {/* Inline confirm follows the BoardSettingsModal member-removal pattern
+                  (frontend/CLAUDE.md § Modals and dialogs): full sentence, Confirm/Cancel. */}
+              {!isSelf && !isLocked && m.id !== null && confirmRemoveUserId === m.user.id && (
+                <div className="basis-full flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-fg-tertiary">
+                    Remove <span className="text-fg font-medium">{userDisplayName(m.user)}</span> from this board?
+                  </span>
+                  <button
+                    onClick={() => handleRemove(m.user.id)}
+                    className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmRemoveUserId(null)}
+                    className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}

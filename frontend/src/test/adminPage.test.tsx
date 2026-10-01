@@ -726,6 +726,54 @@ describe('AdminPage — Escape key', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/')
   })
 
+  it('Escape cancels an open invite-link revoke confirm without navigating (#1238)', async () => {
+    mockGetAdminInviteLinks.mockResolvedValue([
+      { id: 7, prefix: 'vbnl_zz', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' },
+    ])
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Invite Links'))
+    fireEvent.click(screen.getByText('Invite Links'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke invite link vbnl_zz' }))
+    expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText(/Anyone holding it will no longer be able to join/)).not.toBeInTheDocument()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('revoke Confirm shows Revoking… and a double click sends one request (#1238)', async () => {
+    mockGetAdminInviteLinks.mockResolvedValue([
+      { id: 7, prefix: 'vbnl_zz', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' },
+    ])
+    let resolveRevoke: (v: unknown) => void = () => {}
+    mockRevokeAdminInviteLink.mockReturnValue(new Promise((r) => { resolveRevoke = r }))
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Invite Links'))
+    fireEvent.click(screen.getByText('Invite Links'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke invite link vbnl_zz' }))
+    const confirm = screen.getByRole('button', { name: 'Confirm' })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    expect(await screen.findByRole('button', { name: 'Revoking…' })).toBeDisabled()
+    expect(mockRevokeAdminInviteLink).toHaveBeenCalledTimes(1)
+    resolveRevoke({ id: 7, prefix: 'vbnl_zz', status: 'revoked', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' })
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Revoking…' })).not.toBeInTheDocument())
+  })
+
+  it('revoke failure shows an error and closes the prompt (#1238)', async () => {
+    mockGetAdminInviteLinks.mockResolvedValue([
+      { id: 7, prefix: 'vbnl_zz', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' },
+    ])
+    mockRevokeAdminInviteLink.mockRejectedValue(new Error('boom'))
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Invite Links'))
+    fireEvent.click(screen.getByText('Invite Links'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke invite link vbnl_zz' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(await screen.findByText('Failed to revoke invite link.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
+  })
+
   it('Escape closes the Add User modal without navigating', async () => {
     renderAdminPage()
     await waitFor(() => expect(screen.getByText('Site Administration')).toBeInTheDocument())

@@ -210,6 +210,7 @@ describe('BoardSettingsModal — Members tab', () => {
     await user.click(removeButtons[removeButtons.length - 1])
 
     expect(screen.getByText('Bob Smith', { selector: 'span.text-fg' })).toBeInTheDocument()
+    expect(screen.getByText(/from this board\?/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
   })

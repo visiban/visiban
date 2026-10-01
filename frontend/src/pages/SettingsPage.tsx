@@ -739,6 +739,14 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
   const [newToken, setNewToken] = useState<CreatedPersonalAccessToken | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
+
+  // Escape cancels an open inline revoke confirm before the page-level
+  // Escape-to-navigate handler (priority 0) can leave the page (#1238).
+  useEscapeStack(() => {
+    if (confirmRevokeId !== null) { setConfirmRevokeId(null); return; }
+    return false;
+  }, 40);
 
   const fetchTokens = useCallback(async () => {
     try {
@@ -770,12 +778,17 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
   };
 
   const handleRevoke = async (id: number) => {
+    // Keep the confirm prompt open until the request settles so the in-flight
+    // label and disabled state are real and the trigger doesn't reappear mid-flight.
     setRevokingId(id);
-    setConfirmRevokeId(null);
+    setRevokeError(null);
     try {
       await revokeToken(id);
       setTokens((prev) => prev.filter((t) => t.id !== id));
       if (newToken?.id === id) setNewToken(null);
+      setConfirmRevokeId(null);
+    } catch {
+      setRevokeError("Failed to revoke token. Please try again.");
     } finally {
       setRevokingId(null);
     }
@@ -887,33 +900,43 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
               <span className="text-xs text-fg-tertiary whitespace-nowrap">{formatDate(token.created_at)}</span>
               <span className="text-xs text-fg-tertiary whitespace-nowrap">{formatDate(token.expires_at)}</span>
               <div className="flex items-center gap-2">
-                {confirmRevokeId === token.id ? (
-                  <>
-                    <button
-                      onClick={() => handleRevoke(token.id)}
-                      disabled={revokingId === token.id}
-                      className="text-xs text-danger hover:text-danger transition"
-                      data-testid={`confirm-revoke-${token.id}`}
-                    >
-                      {revokingId === token.id ? "Revoking…" : "Confirm"}
-                    </button>
-                    <button
-                      onClick={() => setConfirmRevokeId(null)}
-                      className="text-xs text-fg-tertiary hover:text-fg transition"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
+                {confirmRevokeId !== token.id && (
                   <button
-                    onClick={() => setConfirmRevokeId(token.id)}
-                    className="text-xs text-fg-tertiary hover:text-danger transition"
+                    type="button"
+                    onClick={() => { setRevokeError(null); setConfirmRevokeId(token.id); }}
+                    aria-label={`Revoke ${token.name}`}
+                    className="text-xs text-fg-tertiary hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                     data-testid={`revoke-${token.id}`}
                   >
                     Revoke
                   </button>
                 )}
               </div>
+              {confirmRevokeId === token.id && (
+                <div className="col-span-full mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-fg-tertiary">
+                    Revoke <span className="text-fg font-medium">{token.name}</span>? Anything using this token will lose access.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRevoke(token.id)}
+                    disabled={revokingId === token.id}
+                    className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                    data-testid={`confirm-revoke-${token.id}`}
+                  >
+                    {revokingId === token.id ? "Revoking…" : "Confirm"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRevokeId(null)}
+                    disabled={revokingId === token.id}
+                    className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  >
+                    Cancel
+                  </button>
+                  {revokeError && <span role="alert" className="text-danger">{revokeError}</span>}
+                </div>
+              )}
             </div>
           ))}
         </div>
