@@ -4267,7 +4267,7 @@ sees it appear or disappear without a reload.</p>
 <tr>
 <td><code>lens_connection.configured</code></td>
 <td>Lens connection created or reconfigured on this board (admin only)</td>
-<td>Full <code>LensConnectionSerializer</code> object</td>
+<td>Full <code>LensConnectionSerializer</code> object (its <code>created_by</code> is <code>null</code> if the configuring user has since been deleted)</td>
 </tr>
 <tr>
 <td><code>lens_connection.removed</code></td>

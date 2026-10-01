@@ -3778,8 +3778,8 @@
 </tr>
 <tr>
 <td><code>created_by</code></td>
-<td>object</td>
-<td>User who created the connection — <code>{ id, username, display_name, avatar_url }</code></td>
+<td>object | null</td>
+<td>User who created the connection — <code>{ id, username, display_name, avatar_url }</code>, or <code>null</code> if that user has since been deleted (the connection itself is kept)</td>
 </tr>
 <tr>
 <td><code>created_at</code></td>
