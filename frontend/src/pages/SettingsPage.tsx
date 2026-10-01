@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useId } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import type { Location } from "react-router-dom";
-import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation } from "../api/auth";
+import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation, getAuthProviders, listConnectedAccounts, disconnectAccount } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
-import type { User, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
+import type { User, PersonalAccessToken, CreatedPersonalAccessToken, ConnectedAccount, ProviderId } from "../types";
+import { ProviderIcon, providerLabel } from "../components/Common/ProviderIcons";
+import { startProviderConnect } from "../utils/oauth";
 import { useTheme } from "../context/ThemeContext";
 import type { ThemePreference } from "../context/ThemeContext";
 import { TIMEZONE_OPTIONS, browserTimezone, formatDate as formatDateUtil } from "../utils/date";
@@ -67,6 +69,13 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
   // The action buttons unmount once nothing is pending; move focus to the
   // field they belonged to rather than letting it fall to <body>.
   const emailInputRef = useRef<HTMLInputElement>(null);
+  // The post-save "return to where you came from" timer. Cleared on unmount:
+  // if the user leaves Settings (or switches tab) within the delay, a stale
+  // timer must not yank them to another page afterwards.
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+  }, []);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -99,7 +108,8 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         // the address that is actually in effect in the field.
         setForm((f) => ({ ...f, email: updated.email ?? "" }));
       } else {
-        setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
+        if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+        leaveTimerRef.current = setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
       }
     } catch (err) {
       const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
@@ -342,7 +352,267 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
   );
 }
 
-function SecurityTab({ user }: { user: User }) {
+/** The outcome of a connect round trip, read from /settings?connected= or
+ *  ?connect_error= by SettingsPage (#1314). */
+interface ConnectResult {
+  provider: string;
+  error: string | null;
+}
+
+const PROVIDER_ORDER: ProviderId[] = ["google", "github", "gitlab", "oidc"];
+
+function connectErrorMessage(code: string, label: string): string {
+  if (code === "provider_already_connected") {
+    return `That ${label} account is taken — it's already connected to a different Visiban account. Sign in with ${label} to use that account, or disconnect it there first.`;
+  }
+  if (code === "connect_identity_mismatch") {
+    return `That isn't the ${label} account that tried to sign in, so nothing was connected. Check which ${label} account you're signed in to, then connect again if you meant to.`;
+  }
+  return `Couldn't connect ${label}. Please try again.`;
+}
+
+function ConnectedAccountRow({
+  provider,
+  label,
+  account,
+  isOnlyMethod,
+  confirming,
+  connecting,
+  disconnecting,
+  rowError,
+  rowSuccess,
+  onConnect,
+  onStartDisconnect,
+  onCancelDisconnect,
+  onConfirmDisconnect,
+}: {
+  provider: ProviderId;
+  label: string;
+  account: ConnectedAccount | undefined;
+  isOnlyMethod: boolean;
+  confirming: boolean;
+  connecting: boolean;
+  disconnecting: boolean;
+  rowError: string | null;
+  rowSuccess: boolean;
+  onConnect: () => void;
+  onStartDisconnect: () => void;
+  onCancelDisconnect: () => void;
+  onConfirmDisconnect: () => void;
+}) {
+  const connected = !!account?.connected;
+  const hintId = `disconnect-hint-${provider}`;
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition" data-testid={`connected-account-${provider}`}>
+      <ProviderIcon id={provider} className="w-5 h-5 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-fg truncate">{label}</span>
+          {connected ? (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-success/20 text-success">Connected</span>
+          ) : (
+            <span className="px-2 py-0.5 text-xs rounded-full border border-line text-fg-tertiary">Not connected</span>
+          )}
+        </div>
+        {connected && account?.email && (
+          <p className="text-xs text-fg-muted mt-0.5 truncate">{account.email}</p>
+        )}
+        <p className="text-xs min-h-4 mt-0.5" role="status" aria-live="polite" aria-atomic="true">
+          {rowError && <span className="text-danger">{rowError}</span>}
+          {rowSuccess && !rowError && <span className="text-success">Connected.</span>}
+        </p>
+      </div>
+      <div className="shrink-0 flex flex-col items-end gap-1">
+        {connected ? (
+          confirming ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-fg-tertiary">Disconnect?</span>
+              <button
+                type="button"
+                onClick={onConfirmDisconnect}
+                disabled={disconnecting}
+                className="text-xs text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                data-testid={`confirm-disconnect-${provider}`}
+              >
+                {disconnecting ? "Disconnecting…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                onClick={onCancelDisconnect}
+                className="text-xs text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            // aria-disabled, never native `disabled`: a disabled button drops
+            // out of the tab order and hides *why* from keyboard and screen-
+            // reader users. The reason stays visible and is announced via
+            // aria-describedby; the click is a no-op.
+            <button
+              type="button"
+              aria-disabled={isOnlyMethod}
+              aria-describedby={isOnlyMethod ? hintId : undefined}
+              onClick={isOnlyMethod ? undefined : onStartDisconnect}
+              className={
+                isOnlyMethod
+                  ? "text-xs rounded text-fg-tertiary opacity-40 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                  : "text-xs rounded text-fg-tertiary hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+              }
+              data-testid={`disconnect-${provider}`}
+            >
+              Disconnect
+            </button>
+          )
+        ) : (
+          <button
+            type="button"
+            onClick={onConnect}
+            disabled={connecting}
+            className="px-3 py-1.5 text-sm font-medium bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            data-testid={`connect-${provider}`}
+          >
+            {connecting ? "Connecting…" : "Connect"}
+          </button>
+        )}
+        {isOnlyMethod && (
+          <p id={hintId} className="text-xs text-fg-muted text-right">This is your only sign-in method.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Settings → Security → Connected accounts (#1314). Lists every provider the
+ * instance has configured; connecting is a real navigation through the
+ * provider, disconnecting an API call the server refuses for the last way to
+ * sign in (the UI guard below only mirrors that rule).
+ */
+function ConnectedAccountsSection({
+  hasUsablePassword,
+  connectResult,
+}: {
+  hasUsablePassword: boolean;
+  connectResult: ConnectResult | null;
+}) {
+  const [configured, setConfigured] = useState<ProviderId[] | null>(null);
+  const [oidcName, setOidcName] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<ConnectedAccount[] | null>(null);
+  // A failed list load must not render as "Not connected" on every row — that
+  // would be a false account-security status. Show an error with Retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [rowStatus, setRowStatus] = useState<{ provider: string; error: string | null; fromUrl: boolean } | null>(
+    connectResult ? { provider: connectResult.provider, error: connectResult.error, fromUrl: true } : null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    getAuthProviders()
+      .then((p) => {
+        if (cancelled) return;
+        setConfigured(PROVIDER_ORDER.filter((id) => p[id]));
+        setOidcName(p.oidc_name);
+      })
+      .catch(() => { if (!cancelled) setConfigured([]); });
+    listConnectedAccounts()
+      .then((rows) => { if (!cancelled) { setAccounts(rows); setLoadFailed(false); } })
+      .catch(() => { if (!cancelled) { setAccounts([]); setLoadFailed(true); } });
+    return () => { cancelled = true; };
+  }, [reloadKey]);
+
+  const providersLoading = configured === null || accounts === null;
+  if (!providersLoading && configured.length === 0) return null;
+
+  const labelFor = (id: string) => providerLabel(id, oidcName);
+  const byProvider = new Map((accounts ?? []).map((a) => [a.provider, a]));
+  const connectedCount = (accounts ?? []).filter((a) => a.connected).length;
+
+  const handleConnect = (id: ProviderId) => {
+    setConnectingId(id);
+    setRowStatus(null);
+    startProviderConnect(id);
+  };
+
+  const confirmDisconnect = async (id: ProviderId) => {
+    setDisconnectingId(id);
+    setRowStatus(null);
+    try {
+      setAccounts(await disconnectAccount(id));
+      setConfirmingId(null);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setRowStatus({ provider: id, error: detail ?? `Couldn't disconnect ${labelFor(id)}. Please try again.`, fromUrl: false });
+      setConfirmingId(null);
+    } finally {
+      setDisconnectingId(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-line pt-4" data-testid="connected-accounts">
+      <div>
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Connected accounts</h3>
+        <p className="text-sm text-fg-tertiary mt-1">
+          Connect an account for faster sign-in. You must keep at least one way to sign in.
+        </p>
+      </div>
+      {providersLoading ? (
+        <div className="flex items-center justify-center py-6">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : loadFailed ? (
+        <div className="flex items-center gap-3" data-testid="connected-accounts-error">
+          <p className="text-sm text-danger">Failed to load connected accounts.</p>
+          <button
+            type="button"
+            onClick={() => { setAccounts(null); setReloadKey((k) => k + 1); }}
+            className="text-xs text-fg-tertiary hover:text-fg underline transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col divide-y divide-line rounded-lg border border-line overflow-hidden" data-testid="connected-accounts-list">
+          {configured.map((id) => {
+            const account = byProvider.get(id);
+            const status = rowStatus?.provider === id ? rowStatus : null;
+            return (
+              <ConnectedAccountRow
+                key={id}
+                provider={id}
+                label={labelFor(id)}
+                account={account}
+                isOnlyMethod={!!account?.connected && !hasUsablePassword && connectedCount === 1}
+                confirming={confirmingId === id}
+                connecting={connectingId === id}
+                disconnecting={disconnectingId === id}
+                rowError={status?.error ? connectErrorOrDetail(status.error, labelFor(id), status.fromUrl) : null}
+                rowSuccess={!!status && !status.error && !!account?.connected}
+                onConnect={() => handleConnect(id)}
+                onStartDisconnect={() => { setRowStatus(null); setConfirmingId(id); }}
+                onCancelDisconnect={() => setConfirmingId(null)}
+                onConfirmDisconnect={() => confirmDisconnect(id)}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Connect-return codes (from the URL) become fixed copy — never echoed
+ *  verbatim; any other string is a server `detail` from a disconnect call. */
+function connectErrorOrDetail(error: string, label: string, fromUrl: boolean): string {
+  return fromUrl ? connectErrorMessage(error, label) : error;
+}
+
+function SecurityTab({ user, connectResult = null }: { user: User; connectResult?: ConnectResult | null }) {
   // Default true: older API responses that predate this field should be
   // treated as password accounts so the current-password field is shown.
   const hasPw = user.has_usable_password ?? true;
@@ -350,6 +620,9 @@ function SecurityTab({ user }: { user: User }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // A password set on this page counts as a sign-in method right away, so
+  // the "only sign-in method" guard lifts without a reload.
+  const [passwordJustSet, setPasswordJustSet] = useState(false);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -370,6 +643,7 @@ function SecurityTab({ user }: { user: User }) {
     try {
       await changePassword(form.current_password, form.new_password);
       setSaved(true);
+      setPasswordJustSet(true);
       setForm({ current_password: "", new_password: "", confirm: "" });
     } catch {
       setError(
@@ -383,70 +657,73 @@ function SecurityTab({ user }: { user: User }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-fg text-lg font-semibold">Security</h2>
+    <div className="flex flex-col gap-8 max-w-lg">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <h2 className="text-fg text-lg font-semibold">Security</h2>
 
-      {!hasPw && (
-        <p className="text-sm text-fg-tertiary">
-          You signed in with a social account. Set a password below to also enable
-          username/password login.
-        </p>
-      )}
+        {!hasPw && (
+          <p className="text-sm text-fg-tertiary">
+            You signed in with a social account. Set a password below to also enable
+            username/password login.
+          </p>
+        )}
 
-      {hasPw && (
+        {hasPw && (
+          <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
+            Current password
+            <input
+              type="password"
+              value={form.current_password}
+              onChange={set("current_password")}
+              required
+              autoComplete="current-password"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
+            />
+          </label>
+        )}
+
         <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-          Current password
+          New password
           <input
             type="password"
-            value={form.current_password}
-            onChange={set("current_password")}
+            value={form.new_password}
+            onChange={set("new_password")}
             required
-            autoComplete="current-password"
+            autoComplete="new-password"
+            minLength={12}
             className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
           />
         </label>
-      )}
 
-      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-        New password
-        <input
-          type="password"
-          value={form.new_password}
-          onChange={set("new_password")}
-          required
-          autoComplete="new-password"
-          minLength={12}
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-        />
-      </label>
+        <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
+          Confirm new password
+          <input
+            type="password"
+            value={form.confirm}
+            onChange={set("confirm")}
+            required
+            autoComplete="new-password"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
+          />
+        </label>
 
-      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-        Confirm new password
-        <input
-          type="password"
-          value={form.confirm}
-          onChange={set("confirm")}
-          required
-          autoComplete="new-password"
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-        />
-      </label>
+        <p className="text-xs h-4">
+          {error && <span className="text-danger">{error}</span>}
+          {saved && !error && <span className="text-success">{hasPw ? "Password changed successfully." : "Password set successfully."}</span>}
+        </p>
 
-      <p className="text-xs h-4">
-        {error && <span className="text-danger">{error}</span>}
-        {saved && !error && <span className="text-success">{hasPw ? "Password changed successfully." : "Password set successfully."}</span>}
-      </p>
-
-      <div>
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        >
-          {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
-        </button>
-      </div>
-    </form>
+        <div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
+          </button>
+        </div>
+      </form>
+      <ConnectedAccountsSection hasUsablePassword={hasPw || passwordJustSet} connectResult={connectResult} />
+    </div>
   );
 }
 
@@ -1028,7 +1305,25 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: Location } | null)?.from;
-  const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const [searchParams] = useSearchParams();
+  // A connect round trip (#1314) returns here with ?connected=<provider> or
+  // ?connect_error=<code>&provider=<provider>. Read once, open the Security
+  // tab so the outcome shows on its row, then drop the params from the URL
+  // so a refresh doesn't repeat it.
+  const [connectResult] = useState<ConnectResult | null>(() => {
+    const connected = searchParams.get("connected");
+    if (connected) return { provider: connected, error: null };
+    const connectError = searchParams.get("connect_error");
+    if (connectError) return { provider: searchParams.get("provider") ?? "", error: connectError };
+    return null;
+  });
+  const [activeTab, setActiveTab] = useState<Tab>(connectResult ? "security" : "profile");
+
+  useEffect(() => {
+    if (searchParams.has("connected") || searchParams.has("connect_error")) {
+      navigate(".", { replace: true, state: location.state });
+    }
+  }, [navigate, searchParams, location.state]);
 
   useEscapeStack(() => {
     const tag = (document.activeElement as HTMLElement)?.tagName;
@@ -1068,7 +1363,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} />}
-            {activeTab === "security" && <SecurityTab user={user} />}
+            {activeTab === "security" && <SecurityTab user={user} connectResult={connectResult} />}
             {activeTab === "access-tokens" && <AccessTokensTab user={user} />}
             {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
             {activeTab === "appearance" && <AppearanceTab />}

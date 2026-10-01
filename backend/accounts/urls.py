@@ -1,7 +1,8 @@
-from django.urls import path
+from django.urls import path, re_path
 from .views import (
-    AuthProvidersView, ChangePasswordView, ChooseUsernameView, CurrentUserView,
-    PendingEmailResendView, PendingEmailView,
+    AuthProvidersView, ChangePasswordView, ChooseUsernameView,
+    ConnectedAccountDetailView, ConnectedAccountsView, CurrentUserView,
+    PendingConnectView, PendingEmailResendView, PendingEmailView,
     PersonalAccessTokenDeleteView, PersonalAccessTokenListCreateView,
     SiteConfigView, UserSearchView, WSTicketView,
 )
@@ -21,6 +22,13 @@ urlpatterns = [
     # #1293: withdraw / resend a pending email change (EMAIL_VERIFICATION=mandatory).
     path("auth/me/pending-email/", PendingEmailView.as_view()),
     path("auth/me/pending-email/resend/", PendingEmailResendView.as_view()),
+    # #1314: connected sign-in providers, and the post-login connect prompt.
+    path("auth/me/pending-connect/", PendingConnectView.as_view()),
+    path("auth/me/connected-accounts/", ConnectedAccountsView.as_view()),
+    re_path(
+        r"^auth/me/connected-accounts/(?P<provider>[a-z0-9_-]{1,64})/$",
+        ConnectedAccountDetailView.as_view(),
+    ),
     path("auth/tokens/", PersonalAccessTokenListCreateView.as_view()),
     path("auth/tokens/<int:pk>/", PersonalAccessTokenDeleteView.as_view()),
     path("auth/ws-ticket/", WSTicketView.as_view()),
