@@ -47,12 +47,27 @@
 # on :80, so it is out of scope here and stays a manual smoke test).
 #
 # Known gap, deliberately deferred rather than folded in silently: #1152's
-# own evidence comment also names (a) a `/` in DB_PASSWORD/REDIS_PASSWORD
+# own evidence comment also named (a) a `/` in DB_PASSWORD/REDIS_PASSWORD
 # breaking the constructed DATABASE_URL/REDIS_URL, and (b) nginx not picking
 # up a re-rendered config when init-prod.sh is re-run without a forced
-# recreate. Both need a meaningfully separate scenario (a from-scratch
-# db/valkey boot for (a); a second init-prod.sh pass for (b)) rather than a
-# one-line addition here — tracked in #1229.
+# recreate. Both have since changed shape upstream (93201d328 and
+# follow-ups) and are smaller than #1229 originally scoped them:
+#   (a) init-prod.sh now REJECTS an unsafe DB_PASSWORD/REDIS_PASSWORD before
+#       anything boots ("contains a character (/ ? # % [ ] or whitespace)
+#       that breaks the connection URL ... Regenerate it with: openssl rand
+#       -hex 32"). What's still unasserted is narrower than "a from-scratch
+#       db/valkey boot with a slash-bearing password" — it's a pre-boot
+#       negative test of init-prod.sh's own guard, closer in shape to this
+#       script's existing placeholder-DJANGO_SECRET_KEY NEGATIVE case than
+#       to a separate mini-stack.
+#   (b) init-prod.sh now runs `docker compose ... restart nginx`
+#       unconditionally after `up -d`, every run, specifically so a re-run
+#       picks up a re-rendered config or renewed cert. What's still
+#       unasserted is narrower than "a second init-prod.sh pass changing
+#       TLS_MODE" — it may be reducible to a regression assertion that this
+#       restart still happens, rather than a multi-step re-run scenario.
+# #1229 should be re-scoped to match before it's worked — tracked there,
+# not fixed in this script.
 #
 # Expects a working Docker daemon (dind in CI) with docker compose v2, curl,
 # and openssl on PATH.
