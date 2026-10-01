@@ -1506,12 +1506,11 @@ compose-prod-drill:
   rules:
     # Blocking on MRs and the default branch, advisory on the nightly
     # schedule — the same posture as helm-install/helm-netpol. The drill went
-    # green end-to-end on main (pipelines 2902462814 and 2902655693,
-    # 2026-10-01), closing out #1152's "drill proven green" condition, so it
-    # no longer needs the blanket allow_failure it launched with. The schedule
-    # leg stays advisory: a blip on a shared runner should not turn the
-    # nightly red. Note this job's `changes:` includes `.gitlab-ci.yml`, so it
-    # now also blocks any MR touching that file — intended, since it is proven.
+    # green end-to-end on two main push pipelines (2902462814 and 2902655693,
+    # 2026-10-01); the schedule leg has not run the job yet (earlier scheduled
+    # pipelines predate the drill's merge), so it stays advisory until it
+    # does. Note this job's `changes:` includes `.gitlab-ci.yml`, so it now
+    # also blocks any MR touching that file — intended, since it is proven.
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
