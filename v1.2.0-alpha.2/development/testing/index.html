@@ -3968,8 +3968,9 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
   its declared schema — see <a href="../../api/openapi/#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz"><code>docs/api/openapi.md</code></a>.
   Blocking (<code>allow_failure: false</code>) as of #1120; a handful of already-tracked
   schema-accuracy gaps (#1119, #1123, now closed) were recorded as scoped, justified entries in
-  <code>backend/schemathesis-baseline.json</code> rather than blocking on them landing first; pruning
-  the leftovers is tracked in #1170. The
+  <code>backend/schemathesis-baseline.json</code> rather than blocking on them landing first; #1170
+  pruned the leftovers down to 12 entries (from two full-length runs, different seeds), each
+  now carrying a <code>"reason"</code> field. The
   undocumented-<code>400</code> gap (#1124) is closed generically by <code>visiban/schema_hooks.py</code> (#1165).
   A red run is a real defect, never a flake — do not retry it; see the
   <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake">triage steps</a></li>

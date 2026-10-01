@@ -3809,10 +3809,21 @@ recorded as scoped, justified entries in <code>backend/schemathesis-baseline.jso
 (<a href="https://schemathesis.readthedocs.io/">schemathesis's baseline mechanism</a> — matched by
 operation + check + failure class, not by the random value generated, so it doesn't need
 touching on every run) alongside #1119's findings. The <code>400</code> entries were pruned
-once the generic <code>400</code> rule above landed (#1165). #1119 and #1123 are now closed but their
-entries were not pruned; that is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1170">#1170</a>
-(<code>st run ... --baseline-update --baseline-prune</code>, from a full-length run — a short run reports
-valid entries as unobserved) so the job resumes catching regressions in that area.</p>
+once the generic <code>400</code> rule above landed (#1165). #1119 and #1123 closed without their
+entries being pruned; <a href="https://gitlab.com/visiban/visiban/-/issues/1170">#1170</a> pruned them
+by running the job's exact <code>st run ... --baseline-update --baseline-prune</code> invocation twice,
+full-length (600s each, different seeds) against a CI-equivalent Postgres — a short run
+reports valid entries as unobserved, so only entries unobserved by <em>both</em> full runs were
+dropped. That took the baseline from 41 entries to 12. Every surviving entry now carries a
+<code>"reason"</code> field — schemathesis's baseline format round-trips any key it doesn't itself
+define (see the <code>extra</code> dict in <code>schemathesis/baseline/model.py</code>), so this is a plain
+documentation field, not something <code>st run</code> reads. As of this prune none of the 12
+survivors cite an open issue — all name a specific, inline cause instead (most are
+<code>@action</code>/APIView endpoints with no <code>@extend_schema</code>, where drf-spectacular's automatic
+inference doesn't match the real response — the same class of gap <code>@extend_schema</code> closes
+elsewhere per the "Adding annotations" section below). A future entry's reason should name
+an open issue instead, once one exists. Read the entries themselves for the current list;
+this paragraph is not re-synced on every future prune.</p>
 <h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
 <p>The schema is generated live from whatever code is deployed — <code>GET /api/schema/</code> always reflects the exact version running behind it, consistent with the <code>/api/v1/</code> URL versioning scheme the REST API itself uses (see <a href="../authentication/"><code>docs/api/authentication.md</code></a> for the versioning contract those endpoints follow).</p>
 <p>There is currently <strong>no separately downloadable, per-release schema artifact</strong> (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the MCP server's REST-client package (#511) is one known case — must fetch <code>/api/schema/</code> from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (<code>scripts/release.sh</code>) rather than a schema-accuracy fix.</p>
