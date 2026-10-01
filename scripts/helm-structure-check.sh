@@ -1198,7 +1198,7 @@ check_allowed_hosts_not_widened() {
   # (a) pass ALLOWED_HOSTS through verbatim and (b) hand the probes a Host that
   # Django's own matcher accepts -- a leading-dot entry matches the bare domain
   # and its subdomains, "*" matches anything.
-  local shape want_probe out probe_hosts ph allowed ok errf
+  local shape want_probe out probe_hosts allowed ok errf
   errf="$(mktemp)"
   for shape in 'a.com,b.com|a.com' '.a.com|a.com' '*|localhost'; do
     allowed="${shape%%|*}"; want_probe="${shape##*|}"
