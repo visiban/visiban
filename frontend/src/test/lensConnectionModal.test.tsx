@@ -131,6 +131,23 @@ describe('LensConnectionModal', () => {
     expect(onRemoved).toHaveBeenCalled()
   })
 
+  it('renders an existing connection whose creator was deleted (created_by: null, #1331)', () => {
+    // created_by is a SET_NULL FK: deleting the configuring user leaves the
+    // lens in place with created_by: null. The modal must still open and
+    // prefill from the saved connection.
+    render(
+      <LensConnectionModal
+        boardId={5}
+        connection={{ ...savedConnection, created_by: null }}
+        onSaved={vi.fn()}
+        onRemoved={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Repository')).toHaveValue('acme/widgets')
+    expect(screen.getByRole('button', { name: 'Remove lens' })).toBeInTheDocument()
+  })
+
   it('cancels the remove confirmation without deleting', async () => {
     const user = userEvent.setup()
     const onRemoved = vi.fn()

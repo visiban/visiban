@@ -1021,7 +1021,8 @@ export interface LensConnection {
   repo_slug: string;
   column_dim: string;
   swimlane_dim: string;
-  created_by: BoardUser;
+  /** Null once the user who configured the lens is deleted (SET_NULL FK, #1331). */
+  created_by: BoardUser | null;
   created_at: string;
   updated_at: string;
 }
