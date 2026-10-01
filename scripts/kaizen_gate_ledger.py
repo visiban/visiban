@@ -130,7 +130,10 @@ class GateStats:
         if self.runs < MIN_RUNS_FOR_VERDICT:
             return f"inconclusive (n={self.runs} < {MIN_RUNS_FOR_VERDICT})"
         y = self.yield_pct
-        if y == 0.0:
+        # Compare the integer counts feeding yield_pct rather than the rounded
+        # float itself (S1244) — 0% yield means no positive run was seen, which
+        # `self.positive == 0` states directly without going through rounding.
+        if self.positive == 0:
             return "fast-path candidate (0% yield, narrow the trigger — never delete)"
         if y is not None and y > LOAD_BEARING_YIELD_PCT:
             return "load-bearing (resist trimming)"

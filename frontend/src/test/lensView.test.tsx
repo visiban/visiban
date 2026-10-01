@@ -147,6 +147,28 @@ describe('LensView', () => {
     expect(Array.from(opts).map((o) => (o as HTMLOptionElement).value)).toEqual(['alice'])
   })
 
+  it('orders label suggestions with localeCompare, not UTF-16 code-unit order (#1372)', async () => {
+    // A bare `.sort()` compares code units, so every uppercase letter sorts before
+    // every lowercase one ("Zebra" before "ant" before "café"). That is not the
+    // order a reader of a user-visible label list expects; pin the locale-aware
+    // order instead so a regression back to the bare sort fails loudly.
+    const user = userEvent.setup()
+    const data = lensData(['v1'])
+    data.issues[0].labels = [
+      { name: 'Zebra', color: 'd73a4a' },
+      { name: 'ant', color: '0075ca' },
+      { name: 'café', color: '0075ca' },
+    ] as never
+    setup('/', true, ['v1'], data)
+    await user.click(screen.getByRole('button', { name: /Label/ }))
+
+    const group = screen.getByRole('group', { name: /Label/ })
+    const names = Array.from(group.querySelectorAll('input[type="checkbox"]')).map(
+      (input) => input.closest('label')?.textContent?.trim(),
+    )
+    expect(names).toEqual(['ant', 'café', 'Zebra'])
+  })
+
   it('keeps an active label in the suggestion list even when nothing in the response carries it', async () => {
     // Label filtering is SERVER-SIDE, so a filtered response only contains issues
     // that match. Deriving the menu from the current response alone would collapse
