@@ -4078,6 +4078,21 @@
 <td>Keep Valkey's AOF in a PVC across restarts. Not needed: Valkey holds only rebuildable data</td>
 </tr>
 <tr>
+<td><code>valkey.auth.enabled</code></td>
+<td><code>false</code></td>
+<td>Require a password on the bundled Valkey (#1211). Needs exactly one of the two keys below</td>
+</tr>
+<tr>
+<td><code>valkey.auth.password</code></td>
+<td><code>""</code></td>
+<td>Chart-managed Valkey password, stored in the <code>&lt;fullname&gt;-valkey-auth</code> Secret</td>
+</tr>
+<tr>
+<td><code>valkey.auth.existingSecret</code> / <code>valkey.auth.existingSecretPasswordKey</code></td>
+<td><code>""</code> / <code>valkey-password</code></td>
+<td>A Secret you manage instead, and the key holding the password</td>
+</tr>
+<tr>
 <td><code>externalRedis.url</code></td>
 <td><code>""</code></td>
 <td>External Valkey (or Redis-compatible) DSN (used when <code>valkey.enabled: false</code>) — <strong>must be set</strong> when using an external instance</td>

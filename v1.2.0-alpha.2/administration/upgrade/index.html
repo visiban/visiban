@@ -4397,6 +4397,24 @@ least 35 MB for Trello imports to work — see
 </div>
 </div>
 <div class="admonition note">
+<p class="admonition-title">Helm: optional password for the bundled Valkey</p>
+<p>The bundled Valkey can now require a password (#1211). <strong>Nothing changes
+unless you turn it on</strong>: <code>valkey.auth.enabled</code> stays <code>false</code> by default, so
+an existing install renders the same workloads after <code>helm upgrade</code>.
+Only a comment in the Valkey ConfigMap changes, and nothing restarts.
+Without a password, access to Valkey is restricted only by the chart's
+NetworkPolicy (<code>networkPolicy.enabled</code>, off by default). We recommend
+turning auth on, especially on a shared cluster.</p>
+<p>To turn it on, set <code>valkey.auth.enabled=true</code> and exactly one of
+<code>valkey.auth.password</code> or <code>valkey.auth.existingSecret</code>. The full steps are
+in <a href="../../getting-started/kubernetes/#valkey-password">Valkey password</a>.
+The upgrade that turns it on restarts Valkey and the backend together. As
+on any Valkey restart, open WebSocket connections reconnect once and
+cached values are rebuilt. A later password rotation does not restart
+them on its own; run <code>kubectl rollout restart</code> on both, as described
+there.</p>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Helm: bundled Valkey is no longer the Bitnami subchart</p>
 <p>Chart 0.5.0 runs the bundled Valkey as the chart's own StatefulSet on the
 official, versioned <code>valkey/valkey:8-alpine</code> image — the same major as
@@ -4449,9 +4467,9 @@ upgrade <strong>fails with an explanation</strong> instead:</p>
 <td>Remove it, or use <code>externalRedis</code></td>
 </tr>
 <tr>
-<td><code>valkey.auth.enabled: true</code></td>
-<td><code>REDIS_URL</code> never carried a password, so this has never worked</td>
-<td>Remove it (NetworkPolicy restricts access), or use <code>externalRedis</code> with the password in the URL</td>
+<td><code>valkey.auth.enabled: true</code> with no <code>valkey.auth.password</code> or <code>valkey.auth.existingSecret</code></td>
+<td>A password is required to turn auth on. This setting was refused outright before #1211, because <code>REDIS_URL</code> carried no password</td>
+<td>Set one password source (see "Helm: optional password for the bundled Valkey" above), or remove the setting</td>
 </tr>
 <tr>
 <td>A <code>bitnami/*</code> <code>valkey.image.repository</code>, or an empty or <code>latest</code> <code>valkey.image.tag</code></td>

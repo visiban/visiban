@@ -3920,6 +3920,10 @@
 <td>Valkey authentication password — required in production; the Valkey service starts with <code>--requirepass</code> and <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> are built from this value. Generate with: <code>openssl rand -hex 32</code> (base64 output can contain <code>/</code>, which breaks the URL)</td>
 </tr>
 <tr>
+<td><code>REDIS_URL_PASSWORD</code></td>
+<td>Not set under Compose: Compose puts the password into <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> itself (from <code>REDIS_PASSWORD</code>). Set by the Helm chart from a Secret when <code>valkey.auth.enabled</code> is true. The backend percent-encodes it into both URLs, so any character is safe; it refuses to start if a URL already carries credentials.</td>
+</tr>
+<tr>
 <td><code>DJANGO_SECRET_KEY</code></td>
 <td>Production Django signing key — must be unique and kept secret</td>
 </tr>
