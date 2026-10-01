@@ -652,7 +652,13 @@ class BoardViewSet(
         methods=["POST"],
         responses={201: SavedFilterSerializer},
     )
-    @action(detail=True, methods=["get", "post"], url_path="saved-filters")
+    # pagination_class=None (#1359): GET returns the user's full preset list as
+    # a bare array, never paginated. Without it drf-spectacular wraps the
+    # many=True response in BoardViewSet's default paginated envelope
+    # (PaginatedSavedFilterList) and publishes offset/page_size params the action
+    # never honors — same bug #1142 fixed for the reorder actions. Schema-only:
+    # the action never calls paginate_queryset(), so runtime output is unchanged.
+    @action(detail=True, methods=["get", "post"], url_path="saved-filters", pagination_class=None)
     def saved_filters(self, request, pk=None):
         """List or create saved filter presets for the requesting user on this board.
 

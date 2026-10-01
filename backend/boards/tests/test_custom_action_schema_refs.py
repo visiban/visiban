@@ -122,6 +122,15 @@ class CustomActionSchemaRefTests(SimpleTestCase):
         post_schema = self._response_schema("/api/v1/groups/{id}/labels/", "post", "201")
         self.assertEqual(post_schema["$ref"], "#/components/schemas/GroupLabel")
 
+    def test_group_invite_links_get_returns_a_bare_array(self):
+        """Was `$ref: PaginatedGroupInviteLinkList` (#1359 sweep) — the GET branch
+        returns the full link list without paginating, same as saved-filters."""
+        schema = self._response_schema("/api/v1/groups/{id}/invite-links/", "get")
+        self.assertEqual(schema.get("type"), "array")
+        self.assertEqual(schema["items"]["$ref"], "#/components/schemas/GroupInviteLink")
+        post_schema = self._response_schema("/api/v1/groups/{id}/invite-links/", "post", "201")
+        self.assertEqual(post_schema["$ref"], "#/components/schemas/GroupInviteLink")
+
     def test_update_group_label_patch_and_delete(self):
         path = "/api/v1/groups/{id}/labels/{label_id}/"
         patch_schema = self._response_schema(path, "patch")
