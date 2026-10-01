@@ -158,14 +158,19 @@ class GroupBriefSerializer(serializers.ModelSerializer):
     # resolves to the field-level `default=None` and the response carries
     # `parent_name: null`. Identical to the fix #1119 made on GroupSerializer
     # below — this class was simply missed. Schema-only; the field is read_only.
-    parent_name = serializers.CharField(
-        source="parent.name", default=None, allow_null=True, read_only=True
-    )
+    # A SerializerMethodField, not a dotted-source CharField with default=None —
+    # see _parent_name_for_group() for the partial=True SkipField trap (#1226,
+    # same mechanism as #1166/#1225). Dormant here today (never bound partial),
+    # converted so a future partial bind cannot silently drop the key.
+    parent_name = serializers.SerializerMethodField(allow_null=True)
     ancestors = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
         fields = ["id", "name", "parent", "parent_name", "ancestors"]
+
+    def get_parent_name(self, obj) -> str | None:
+        return _parent_name_for_group(obj)
 
     # #1139: an undecorated SerializerMethodField has no inferable return type,
     # so drf-spectacular published this list of {id, name} dicts as `string`.
@@ -360,9 +365,10 @@ class GroupInviteLinkSerializer(serializers.ModelSerializer):
     # GroupInviteLink.created_by_username in frontend/src/types/index.ts),
     # and a declared CharField traversing a nullable source does not inherit
     # that nullability the way an auto-generated ModelSerializer field would.
-    created_by_username = serializers.CharField(
-        source="created_by.username", read_only=True, default=None, allow_null=True,
-    )
+    # A SerializerMethodField, not a dotted-source CharField with default=None:
+    # DRF's get_default() raises SkipField under partial=True (#1226, same
+    # mechanism as #1166/#1225). Dormant today (only bound read-only).
+    created_by_username = serializers.SerializerMethodField(allow_null=True)
 
     class Meta:
         model = GroupInviteLink
@@ -371,6 +377,11 @@ class GroupInviteLinkSerializer(serializers.ModelSerializer):
             "expires_at", "is_expired", "single_use", "used_at", "status",
         ]
         read_only_fields = ["id", "prefix", "is_active", "created_at", "created_by_username", "is_expired", "single_use", "used_at", "status"]
+
+    def get_created_by_username(self, obj) -> str | None:
+        # created_by_id reads the loaded FK column (no query); created_by is
+        # only dereferenced when set, so a null creator serializes as None.
+        return obj.created_by.username if obj.created_by_id else None
 
 
 class GroupInviteLinkCreateSerializer(serializers.Serializer):

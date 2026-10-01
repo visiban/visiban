@@ -38,8 +38,12 @@ class NotificationSerializer(serializers.ModelSerializer):
     # wiring) match the response DRF was already producing. Same
     # declared-vs-actual gap as #1192; surfaced by regression-check while
     # auditing #1209's schema wiring.
-    card_title = serializers.CharField(source="card.title", default=None, read_only=True, allow_null=True)
-    board_name = serializers.CharField(source="board.name", default=None, read_only=True, allow_null=True)
+    # SerializerMethodFields, not dotted-source CharFields with default=None
+    # (#1226): DRF's get_default() raises SkipField under partial=True, which
+    # would silently drop these keys (same mechanism as #1166/#1225). Dormant
+    # today — this serializer is only bound read-only.
+    card_title = serializers.SerializerMethodField(allow_null=True)
+    board_name = serializers.SerializerMethodField(allow_null=True)
     # allow_null=True (#1192): actor is a SET_NULL FK with null=True — a
     # system-generated notification (e.g. stale-card alerts) has no human
     # actor and serializes with `actor: null`. Same declared-nested-field gap
@@ -62,6 +66,12 @@ class NotificationSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_card_title(self, obj) -> str | None:
+        return obj.card.title if obj.card_id else None
+
+    def get_board_name(self, obj) -> str | None:
+        return obj.board.name if obj.board_id else None
 
 
 def _filter_to_accessible_boards(notifications, user):
