@@ -121,11 +121,13 @@ compose() { docker compose -f "${PROD_COMPOSE_FILE}" "$@"; }
 # copy. Comment lines are dropped first (init-prod.sh's own comments quote
 # `up -d`). The last `up -d` is the one that matters — the letsencrypt branch
 # has its own — and it must be followed by a restart/force-recreate of nginx.
+# The `|| true`s matter: under pipefail a no-match grep would abort the script
+# at the assignment and the named failure messages below would never print.
 assert_nginx_restart_after_up() {
   local script="$1" last_up last_restart
-  last_up="$(grep -v -E '^[[:space:]]*#' "${script}" | grep -n -E 'compose .*[[:space:]]up[[:space:]]+-d' | tail -1 | cut -d: -f1)"
+  last_up="$(grep -v -E '^[[:space:]]*#' "${script}" | grep -n -E 'compose .*[[:space:]]up[[:space:]]+-d' | tail -1 | cut -d: -f1 || true)"
   last_restart="$(grep -v -E '^[[:space:]]*#' "${script}" \
-    | grep -n -E 'compose .*(restart[[:space:]]+nginx|up .*--force-recreate .*nginx)' | tail -1 | cut -d: -f1)"
+    | grep -n -E 'compose .*(restart[[:space:]]+nginx|up .*--force-recreate .*nginx)' | tail -1 | cut -d: -f1 || true)"
   [ -n "${last_up}" ] || fail \
     "${script} has no 'docker compose ... up -d' — the drill's static nginx-restart check cannot find the stack start (#1229)"
   [ -n "${last_restart}" ] || fail \
