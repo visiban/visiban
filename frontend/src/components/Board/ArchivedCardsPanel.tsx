@@ -19,6 +19,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [unarchivingId, setUnarchivingId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -30,6 +31,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(null);
     setCards([]);
     setOffset(0);
     getArchivedCards(board.id, 0)
@@ -38,16 +40,19 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
         setTotal(page.count);
         setOffset(page.results.length);
       })
+      .catch(() => setLoadError("Could not load archived cards. Please try again."))
       .finally(() => setLoading(false));
   }, [board.id]);
 
   const handleLoadMore = () => {
     setLoadingMore(true);
+    setLoadError(null);
     getArchivedCards(board.id, offset)
       .then((page) => {
         setCards((prev) => [...prev, ...page.results]);
         setOffset((prev) => prev + page.results.length);
       })
+      .catch(() => setLoadError("Could not load more archived cards. Please try again."))
       .finally(() => setLoadingMore(false));
   };
 
@@ -114,7 +119,12 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
           {loading && (
             <div className="flex items-center justify-center py-8 text-fg-muted text-sm">Loading…</div>
           )}
-          {!loading && cards.length === 0 && (
+          {!loading && loadError && cards.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <p className="text-danger text-sm">{loadError}</p>
+            </div>
+          )}
+          {!loading && !loadError && cards.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
               <span className="text-fg-faint text-2xl">📦</span>
               <p className="text-fg-tertiary text-sm">No archived cards</p>
@@ -159,6 +169,9 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                 >
                   {loadingMore ? "Loading…" : `Load more (${total - cards.length} remaining)`}
                 </button>
+              )}
+              {loadError && cards.length > 0 && (
+                <p className="text-danger text-xs text-center mt-2">{loadError}</p>
               )}
             </>
           )}
