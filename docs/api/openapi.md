@@ -147,10 +147,21 @@ recorded as scoped, justified entries in `backend/schemathesis-baseline.json`
 ([schemathesis's baseline mechanism](https://schemathesis.readthedocs.io/) — matched by
 operation + check + failure class, not by the random value generated, so it doesn't need
 touching on every run) alongside #1119's findings. The `400` entries were pruned
-once the generic `400` rule above landed (#1165). #1119 and #1123 are now closed but their
-entries were not pruned; that is tracked in [#1170](https://gitlab.com/visiban/visiban/-/issues/1170)
-(`st run ... --baseline-update --baseline-prune`, from a full-length run — a short run reports
-valid entries as unobserved) so the job resumes catching regressions in that area.
+once the generic `400` rule above landed (#1165). #1119 and #1123 closed without their
+entries being pruned; [#1170](https://gitlab.com/visiban/visiban/-/issues/1170) pruned them
+by running the job's exact `st run ... --baseline-update --baseline-prune` invocation twice,
+full-length (600s each, different seeds) against a CI-equivalent Postgres — a short run
+reports valid entries as unobserved, so only entries unobserved by *both* full runs were
+dropped. That took the baseline from 41 entries to 12. Every surviving entry now carries a
+`"reason"` field — schemathesis's baseline format round-trips any key it doesn't itself
+define (see the `extra` dict in `schemathesis/baseline/model.py`), so this is a plain
+documentation field, not something `st run` reads. As of this prune none of the 12
+survivors cite an open issue — all name a specific, inline cause instead (most are
+`@action`/APIView endpoints with no `@extend_schema`, where drf-spectacular's automatic
+inference doesn't match the real response — the same class of gap `@extend_schema` closes
+elsewhere per the "Adding annotations" section below). A future entry's reason should name
+an open issue instead, once one exists. Read the entries themselves for the current list;
+this paragraph is not re-synced on every future prune.
 
 ## Versioning
 

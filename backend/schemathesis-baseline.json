@@ -9,16 +9,8 @@
       "failure": "MissingContentType",
       "signature": "",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "8b0fa0",
-      "operation": "DELETE /api/v1/boards/{id}/saved-filters/{filter_pk}/",
-      "check": "response_schema_conformance",
-      "failure": "MissingContentType",
-      "signature": "",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "BoardViewSet.saved_filter_delete has no @extend_schema and always returns a bodyless 204; drf-spectacular's inferred response schema for this action expects a Content-Type, which a 204 correctly omits. #1170: reconfirmed by two full-length runs (seeds 1339052782995173070, 6600348252086321964) on 2026-10-01."
     },
     {
       "id": "285c31",
@@ -27,7 +19,18 @@
       "failure": "MalformedJson",
       "signature": "JSON deserialization error",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "Same bodyless-204 gap as the content_type_conformance entry on this operation (id 8fe22c) — schemathesis tries to parse the empty DELETE response body as JSON against the inferred schema and fails. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
+    },
+    {
+      "id": "8b0fa0",
+      "operation": "DELETE /api/v1/boards/{id}/saved-filters/{filter_pk}/",
+      "check": "response_schema_conformance",
+      "failure": "MissingContentType",
+      "signature": "",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-10-01",
+      "reason": "Same bodyless-204 gap as 8fe22c, bundled under response_schema_conformance as well as content_type_conformance. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "0420cf",
@@ -36,79 +39,8 @@
       "failure": "UndefinedStatusCode",
       "signature": "200",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "bdda6a",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/archived/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "6137bc",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/assignee/anyOf",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "0e667b",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/activities/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "bc559d",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/attachments/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "639865",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/checklist/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "01d9c8",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/movements/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "34bc47",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/status/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "5da266",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/timeline/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "BoardViewSet.star has no @extend_schema; both its POST and DELETE branches return `Response(self.get_serializer(board).data)` (status 200) so the client can resync is_starred, but drf-spectacular's automatic inference for a DELETE action doesn't credit a 200 as a possible response. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "c32635",
@@ -117,7 +49,8 @@
       "failure": "JsonSchemaError",
       "signature": "x-bundled/schema1/required",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "BoardAnalyticsMixin.analytics has no @extend_schema and returns a hand-built dict (heatmap/outlier/stalled-cards shape); drf-spectacular's generic fallback schema doesn't match it. Needs the same inline_serializer treatment CardViewSet.move/.comments/.checklist got under #1108 — not yet done. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "d2f3d8",
@@ -126,16 +59,8 @@
       "failure": "UndefinedContentType",
       "signature": "text/csv",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "0a9a4c",
-      "operation": "GET /api/v1/boards/{id}/movements/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "BoardImportExportMixin.export has no @extend_schema and answers either application/json or text/csv depending on the `format` query param; only one content type can be inferred automatically, so the other is undocumented. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "af605c",
@@ -144,7 +69,8 @@
       "failure": "JsonSchemaError",
       "signature": "x-bundled/schema1/type",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "This action does have @extend_schema(responses=SavedFilterSerializer(many=True)), but a field-level type mismatch still reproduces against the real response — same bug class #1119/#1123 fixed on Group/Board/BoardUser/CurrentUser. Tracked in #1359 (filed 2026-10-01); prune this entry once #1359 lands and a full-length st run no longer observes it. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "3c0458",
@@ -153,70 +79,8 @@
       "failure": "JsonSchemaError",
       "signature": "x-bundled/schema1/required",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "60ee3f",
-      "operation": "GET /api/v1/cards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema4/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "9ffdfc",
-      "operation": "GET /api/v1/groups/{id}/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "6a878e",
-      "operation": "GET /api/v1/groups/{id}/descendant-boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "07e72b",
-      "operation": "GET /api/v1/groups/{id}/invite-links/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "97139a",
-      "operation": "GET /api/v1/groups/{id}/labels/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "f22498",
-      "operation": "GET /api/v1/groups/{id}/members/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "82598d",
-      "operation": "GET /api/v1/groups/{id}/subgroups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "BoardAnalyticsMixin.summary has no @extend_schema and returns a hand-built dict (per-swimlane counts/velocity/cycle-time); same gap as the analytics action above (id c32635). #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "09011b",
@@ -225,34 +89,8 @@
       "failure": "UndefinedContentType",
       "signature": "text/html; charset=utf-8",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "2e786b",
-      "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "f8a70c",
-      "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema3/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "1eb14e",
-      "operation": "PATCH /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "ServeMediaView is a plain authenticated file-serving APIView with no @extend_schema; the response Content-Type is whatever the served (or missing) file actually is, which can't be a fixed OpenAPI declaration. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "9fd87c",
@@ -261,7 +99,8 @@
       "failure": "JsonSchemaError",
       "signature": "required",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "ThrottledPasswordResetView subclasses dj-rest-auth's PasswordResetView unmodified; drf-spectacular's introspection of the third-party dj-rest-auth serializer doesn't match its actual response shape. Not Visiban application code. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "72c48f",
@@ -270,7 +109,8 @@
       "failure": "UndefinedStatusCode",
       "signature": "200",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "Third-party dj-rest-auth/allauth registration resend-email view, wired via urls.py's include() (not a Visiban-authored view), with no local @extend_schema override; its real 200 response isn't declared by drf-spectacular's generic introspection of the library view. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     },
     {
       "id": "a9fe64",
@@ -279,97 +119,8 @@
       "failure": "UndefinedStatusCode",
       "signature": "201",
       "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "54c327",
-      "operation": "POST /api/v1/boards/{id}/members/",
-      "check": "content_type_conformance",
-      "failure": "MissingContentType",
-      "signature": "",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "635704",
-      "operation": "POST /api/v1/boards/{id}/members/",
-      "check": "response_schema_conformance",
-      "failure": "MissingContentType",
-      "signature": "",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "b170f2",
-      "operation": "POST /api/v1/boards/{id}/members/",
-      "check": "response_schema_conformance",
-      "failure": "MalformedJson",
-      "signature": "JSON deserialization error",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "12ae3c",
-      "operation": "POST /api/v1/boards/{id}/share/",
-      "check": "content_type_conformance",
-      "failure": "MissingContentType",
-      "signature": "",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "af8bd8",
-      "operation": "POST /api/v1/boards/{id}/share/",
-      "check": "response_schema_conformance",
-      "failure": "MissingContentType",
-      "signature": "",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "c81604",
-      "operation": "POST /api/v1/boards/{id}/share/",
-      "check": "response_schema_conformance",
-      "failure": "MalformedJson",
-      "signature": "JSON deserialization error",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "7f2373",
-      "operation": "POST /api/v1/groups/{id}/boards/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "201",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "67c227",
-      "operation": "POST /api/v1/groups/{id}/invite-links/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "201",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "30504f",
-      "operation": "POST /api/v1/groups/{id}/labels/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "201",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "3e4a67",
-      "operation": "POST /api/v1/groups/{id}/star/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "201",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "last_seen": "2026-10-01",
+      "reason": "WSTicketView is a plain APIView (not a ViewSet action) with no @extend_schema; it returns 201 on success (issue_ws_ticket) but drf-spectacular has no automatic schema inference for a bare APIView.post, so the real 201 isn't declared. #1170: reconfirmed on 2026-10-01 (two full runs, seeds 1339052782995173070 and 6600348252086321964)."
     }
   ]
 }
