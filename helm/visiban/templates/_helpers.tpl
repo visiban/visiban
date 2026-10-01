@@ -462,3 +462,62 @@ value accepts any Host, so "localhost" is as good as anything there.
 {{- $h := index (splitList "," (toString .Values.backend.settings.allowedHosts)) 0 | trim | trimPrefix "." -}}
 {{- if or (eq $h "") (eq $h "*") -}}localhost{{- else -}}{{- $h -}}{{- end -}}
 {{- end }}
+
+{{/*
+Bundled Valkey password auth (#1211). Opt-in: valkey.auth.enabled defaults to
+false, and every helper below renders nothing on that path, so an install that
+does not turn auth on renders what it did before #1211. The one difference is
+a reworded comment in the Valkey ConfigMap, and checksum/config hashes only
+valkey.commonConfiguration, so that causes no restart.
+
+No checksum annotation for the password, on Valkey or the backend: `get pods`
+is a weaker permission than `get secrets`, and an unsalted hash of a weak
+password cracks offline. No salt is secret in every mode (secret.djangoSecretKey
+is a placeholder under secret.existingSecret). So rotating the password needs a
+manual `kubectl rollout restart`, as documented.
+
+Nil-safe (`dig`) for the same reason as the demo helpers: `helm upgrade
+--reuse-values` from a release whose values carry no valkey.auth map must not
+hit a nil-pointer render error.
+
+The password reaches pods ONLY through a secretKeyRef — never a ConfigMap, a
+plain env `value`, or a URL rendered by the chart:
+  - Valkey reads it from the REDISCLI_AUTH env var: the server is started with
+    `--requirepass "$REDISCLI_AUTH"`, and valkey-cli picks the same variable up
+    on its own, so the liveness/readiness probes authenticate unchanged.
+  - The backend reads it from REDIS_URL_PASSWORD, and settings.py
+    (_apply_redis_password) percent-encodes it into REDIS_URL/REDIS_CACHE_URL.
+    REDIS_URL itself stays the plain, password-free URL it always was.
+Doing the encoding in the backend rather than here is what lets an
+existingSecret holding ANY password work: Helm cannot read that Secret at render
+time to `urlquery` it, and Kubernetes' $(VAR) env expansion does no encoding,
+so a "/" or "@" in it would split the URL (the #1229 defect class).
+*/}}
+{{- define "visiban.valkeyAuthEnabled" -}}
+{{- if and .Values.valkey.enabled (dig "auth" "enabled" false (.Values.valkey | default dict)) -}}true{{- end -}}
+{{- end }}
+
+{{- define "visiban.valkeyAuthSecretName" -}}
+{{- $auth := dig "auth" dict (.Values.valkey | default dict) -}}
+{{- if $auth.existingSecret -}}
+{{- $auth.existingSecret -}}
+{{- else -}}
+{{- printf "%s-valkey-auth" (include "visiban.fullname" .) -}}
+{{- end -}}
+{{- end }}
+
+{{- define "visiban.valkeyAuthSecretKey" -}}
+{{- (dig "auth" "existingSecretPasswordKey" "" (.Values.valkey | default dict)) | default "valkey-password" -}}
+{{- end }}
+
+{{/*
+The REDISCLI_AUTH / REDIS_URL_PASSWORD env entry's valueFrom, shared by the
+Valkey container and visiban.backendEnv so the two can never read different
+Secrets or keys.
+*/}}
+{{- define "visiban.valkeyAuthValueFrom" -}}
+valueFrom:
+  secretKeyRef:
+    name: {{ include "visiban.valkeyAuthSecretName" . }}
+    key: {{ include "visiban.valkeyAuthSecretKey" . }}
+{{- end }}

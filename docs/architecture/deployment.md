@@ -229,6 +229,9 @@ helm install visiban helm/visiban \
 | `valkey.enabled` | `true` | Use bundled Valkey 8; set `false` to use `externalRedis.url` |
 | `valkey.image.tag` | `8-alpine` | Official `valkey/valkey` image tag. Never `latest` or empty — the chart refuses both |
 | `valkey.primary.persistence.enabled` | `false` | Keep Valkey's AOF in a PVC across restarts. Not needed: Valkey holds only rebuildable data |
+| `valkey.auth.enabled` | `false` | Require a password on the bundled Valkey (#1211). Needs exactly one of the two keys below |
+| `valkey.auth.password` | `""` | Chart-managed Valkey password, stored in the `<fullname>-valkey-auth` Secret |
+| `valkey.auth.existingSecret` / `valkey.auth.existingSecretPasswordKey` | `""` / `valkey-password` | A Secret you manage instead, and the key holding the password |
 | `externalRedis.url` | `""` | External Valkey (or Redis-compatible) DSN (used when `valkey.enabled: false`) — **must be set** when using an external instance |
 | `networkPolicy.enabled` | `false` | Create NetworkPolicy resources restricting pod-to-pod traffic |
 

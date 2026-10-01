@@ -579,6 +579,24 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
 
         If you used the bundled subchart, the in-cluster service DNS changes from `<release>-redis-master:6379` to `<release>-valkey-primary:6379`. The Helm chart sets `REDIS_URL` automatically from the new service name — no manual update is required unless you overrode `REDIS_URL` in your values file.
 
+!!! note "Helm: optional password for the bundled Valkey"
+    The bundled Valkey can now require a password (#1211). **Nothing changes
+    unless you turn it on**: `valkey.auth.enabled` stays `false` by default, so
+    an existing install renders the same workloads after `helm upgrade`.
+    Only a comment in the Valkey ConfigMap changes, and nothing restarts.
+    Without a password, access to Valkey is restricted only by the chart's
+    NetworkPolicy (`networkPolicy.enabled`, off by default). We recommend
+    turning auth on, especially on a shared cluster.
+
+    To turn it on, set `valkey.auth.enabled=true` and exactly one of
+    `valkey.auth.password` or `valkey.auth.existingSecret`. The full steps are
+    in [Valkey password](../getting-started/kubernetes.md#valkey-password).
+    The upgrade that turns it on restarts Valkey and the backend together. As
+    on any Valkey restart, open WebSocket connections reconnect once and
+    cached values are rebuilt. A later password rotation does not restart
+    them on its own; run `kubectl rollout restart` on both, as described
+    there.
+
 !!! note "Helm: bundled Valkey is no longer the Bitnami subchart"
     Chart 0.5.0 runs the bundled Valkey as the chart's own StatefulSet on the
     official, versioned `valkey/valkey:8-alpine` image — the same major as
@@ -627,7 +645,7 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     | Value | Why it is refused | What to do |
     |---|---|---|
     | `valkey.architecture: replication` | The backend only ever used the primary; the replicas did nothing | Remove it, or use `externalRedis` |
-    | `valkey.auth.enabled: true` | `REDIS_URL` never carried a password, so this has never worked | Remove it (NetworkPolicy restricts access), or use `externalRedis` with the password in the URL |
+    | `valkey.auth.enabled: true` with no `valkey.auth.password` or `valkey.auth.existingSecret` | A password is required to turn auth on. This setting was refused outright before #1211, because `REDIS_URL` carried no password | Set one password source (see "Helm: optional password for the bundled Valkey" above), or remove the setting |
     | A `bitnami/*` `valkey.image.repository`, or an empty or `latest` `valkey.image.tag` | A Bitnami image does not start under the new configuration, and `latest` is the drift this change removes | `--set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine` |
     | A `valkey.image.registry` other than Docker Hub | The chart no longer reads the key, so the image would silently come from Docker Hub | Drop it (`--set valkey.image.registry=null`) and put the mirror in `valkey.image.repository` |
 

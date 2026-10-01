@@ -88,9 +88,16 @@ Helm install silently changed Valkey major on any pod reschedule (#1200).
   `REDIS_CACHE_URL` are unchanged across the upgrade.
 - Valkey holds only the Channels layer and the Django cache, so the upgrade's
   pod replacement loses nothing that is not rebuilt on its own.
-- `valkey.architecture=replication`, `valkey.auth.enabled=true` and a Bitnami
-  `valkey.image` fail the render with an explanation rather than being ignored.
-  Other Bitnami-only keys are no longer read.
+- `valkey.architecture=replication` and a Bitnami `valkey.image` fail the
+  render with an explanation rather than being ignored. Other Bitnami-only keys
+  are no longer read.
+- `valkey.auth.enabled=true` (off by default) requires a password, from
+  `valkey.auth.password` or `valkey.auth.existingSecret` (+
+  `existingSecretPasswordKey`, default `valkey-password`) — exactly one (#1211).
+  The password reaches Valkey and the backend only through that Secret; the
+  backend percent-encodes it into `REDIS_URL` / `REDIS_CACHE_URL`, so any
+  character is safe. See "Valkey password" in
+  `docs/getting-started/kubernetes.md`.
 
 `scripts/helm-structure-check.sh` fails any rendered image that has no tag or
 is tagged `latest`.

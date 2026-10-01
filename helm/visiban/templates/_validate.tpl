@@ -63,8 +63,9 @@ manage the Secret in that case and cannot inspect its contents.
 Bundled Valkey guards (#1200). Until chart 0.5.0 the `valkey` block configured
 the bitnami/valkey subchart; templates/valkey.yaml now reads it. A leftover
 subchart value that would CHANGE what runs, if the chart silently ignored it,
-fails the render here instead — a values file that asked for replicas, a
-password or a Bitnami image must not quietly get something else.
+fails the render here instead — a values file that asked for replicas or a
+Bitnami image must not quietly get something else. A password is supported
+since #1211, and refused only when it has no source.
 */}}
 {{- define "visiban.valkeyGuards" -}}
 {{- if .Values.valkey.enabled -}}
@@ -72,8 +73,31 @@ password or a Bitnami image must not quietly get something else.
 {{- if ne (toString ($v.architecture | default "standalone")) "standalone" -}}
 {{- fail (printf "\n\nVisiban: valkey.architecture is %q, but the bundled Valkey is standalone only (chart 0.5.0+, #1200).\nThe backend only ever connected to the primary, so the old subchart's replicas were never used.\n\nRemove the override:\n    --set valkey.architecture=standalone\nor point externalRedis at a replicated instance with --set valkey.enabled=false.\n" (toString $v.architecture)) -}}
 {{- end -}}
+{{- /*
+  Password auth (#1211). Until #1211 auth.enabled=true was refused outright:
+  REDIS_URL carried no password, so it never produced a working deploy. It now
+  works, with the password from EXACTLY ONE of auth.password (a chart-managed
+  Secret) or auth.existingSecret (+ existingSecretPasswordKey). Neither is
+  refused rather than auto-generated: a generated password would need `lookup`
+  to survive `helm upgrade`, and `lookup` returns nothing under `helm template`
+  and GitOps renderers, which would silently rotate it on every sync.
+*/ -}}
 {{- if (dig "auth" "enabled" false $v) -}}
-{{- fail "\n\nVisiban: valkey.auth.enabled is true, but the bundled Valkey does not support a password: REDIS_URL carries none, so this setting has never produced a working deploy (#1200).\nAccess to the bundled Valkey is restricted by NetworkPolicy (networkPolicy.enabled=true).\n\nEither remove the override:\n    --set valkey.auth.enabled=false\nor use a password-protected instance through externalRedis:\n    --set valkey.enabled=false --set externalRedis.url=redis://:<password>@host:6379/0 --set externalRedis.cacheUrl=redis://:<password>@host:6379/1\n" -}}
+{{- $a := $v.auth -}}
+{{- $pw := toString ($a.password | default "") -}}
+{{- $es := toString ($a.existingSecret | default "") -}}
+{{- if and (eq $pw "") (eq $es "") -}}
+{{- fail "\n\nVisiban: valkey.auth.enabled is true but no password source is set.\nThe bundled Valkey needs exactly one of:\n    --set-string valkey.auth.password=\"$(openssl rand -hex 32)\"\nor a Secret you manage (key defaults to valkey-password):\n    kubectl create secret generic visiban-valkey --from-literal=valkey-password=\"$(openssl rand -hex 32)\"\n    --set valkey.auth.existingSecret=visiban-valkey\n" -}}
+{{- end -}}
+{{- if and (ne $pw "") (ne $es "") -}}
+{{- fail "\n\nVisiban: valkey.auth.password and valkey.auth.existingSecret are both set.\nThe bundled Valkey takes its password from exactly one of them; clear the other:\n    --set valkey.auth.password=null\nor\n    --set valkey.auth.existingSecret=null\n" -}}
+{{- end -}}
+{{- if and (ne $es "") (not (regexMatch "^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$" $es)) -}}
+{{- fail (printf "\n\nVisiban: valkey.auth.existingSecret %q is not a valid Kubernetes Secret name (lowercase letters, digits, '-' and '.').\n" $es) -}}
+{{- end -}}
+{{- if not (regexMatch "^[-._a-zA-Z0-9]{1,253}$" (include "visiban.valkeyAuthSecretKey" $)) -}}
+{{- fail (printf "\n\nVisiban: valkey.auth.existingSecretPasswordKey %q is not a valid Secret key (letters, digits, '-', '_' and '.').\n" (include "visiban.valkeyAuthSecretKey" $)) -}}
+{{- end -}}
 {{- end -}}
 {{- /*
   `helm upgrade --reuse-values` from a subchart-era release carries the

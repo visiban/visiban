@@ -27,6 +27,7 @@ is not rebuilt on its own. See docs/administration/upgrade.md.
 */}}
 {{- if .Values.valkey.enabled }}
 {{- $persist := .Values.valkey.primary.persistence }}
+{{- $auth := include "visiban.valkeyAuthEnabled" . }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -41,8 +42,14 @@ data:
     bind * -::*
     port 6379
     dir /data
-    # No password (valkey.auth.enabled is refused), so protected mode would
+    {{- if $auth }}
+    # requirepass is passed on the command line from the valkey.auth Secret
+    # (#1211), never written here: this file is a ConfigMap. Protected mode
+    # only matters without a password, so it stays off as before.
+    {{- else }}
+    # No password (valkey.auth.enabled is false), so protected mode would
     # refuse every non-loopback client. Ingress is restricted by NetworkPolicy.
+    {{- end }}
     protected-mode no
     {{- with .Values.valkey.commonConfiguration }}
     {{- . | nindent 4 }}
@@ -112,7 +119,25 @@ spec:
           imagePullPolicy: {{ .Values.valkey.image.pullPolicy | default "IfNotPresent" }}
           # Straight to the server, bypassing docker-entrypoint.sh: it exists to
           # chown /data and drop root, and this pod never runs as root.
+          {{- if $auth }}
+          # REDISCLI_AUTH carries the password from the Secret: the server takes
+          # it as --requirepass (valkey-server quotes command-line values, so
+          # any character is safe; it rewrites its process title at startup,
+          # but until then the password is in the process's argv, readable via
+          # /proc/<pid>/cmdline from inside this pod only), and
+          # valkey-cli reads REDISCLI_AUTH by itself, so the probes below
+          # authenticate unchanged. An empty value would START the server with
+          # no password at all; refuse that instead of running open (#1211).
+          command:
+            - sh
+            - -c
+            - '[ -n "$REDISCLI_AUTH" ] || { echo "valkey.auth.enabled is true but the password in Secret {{ include "visiban.valkeyAuthSecretName" . }} (key {{ include "visiban.valkeyAuthSecretKey" . }}) is empty; refusing to start without a password" >&2; exit 1; }; exec valkey-server /etc/valkey/valkey.conf --requirepass "$REDISCLI_AUTH"'
+          env:
+            - name: REDISCLI_AUTH
+              {{- include "visiban.valkeyAuthValueFrom" . | nindent 14 }}
+          {{- else }}
           command: ["valkey-server", "/etc/valkey/valkey.conf"]
+          {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
