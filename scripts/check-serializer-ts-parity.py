@@ -188,6 +188,11 @@ import tempfile
 from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 
+# Hyphenated gate scripts are also loaded via importlib by their tests, where
+# scripts/ is not on sys.path; make the sibling import work either way.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _paths import cli_roots, resolve_within  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TYPES_FILE = REPO_ROOT / "frontend" / "src" / "types" / "index.ts"
 BACKEND_DIR = REPO_ROOT / "backend"
@@ -1156,7 +1161,7 @@ def generate_schema(destination: Path) -> None:
 
 def load_schema(path: Path | None) -> dict:
     if path is not None:
-        return json.loads(path.read_text())
+        return json.loads(resolve_within(cli_roots(), path).read_text())
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "openapi.json"
         generate_schema(out)
@@ -1544,11 +1549,15 @@ def main(argv: list[str]) -> int:
         if exc.stderr:
             print(exc.stderr.decode(errors="replace").strip(), file=sys.stderr)
         return EXIT_USAGE
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError) as exc:  # ValueError covers JSONDecodeError and PathEscapeError
         print(f"error: could not read the OpenAPI schema: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
-    src = args.types.read_text()
+    try:
+        src = resolve_within(cli_roots(), args.types).read_text()
+    except (OSError, ValueError) as exc:
+        print(f"error: could not read the TypeScript types file: {exc}", file=sys.stderr)
+        return EXIT_USAGE
     interfaces = parse_ts_interfaces(src)
     unions = parse_ts_string_unions(src)
 

@@ -66,13 +66,24 @@ function git(args, cwd) {
   return { ok: true, stdout: result.stdout, stderr: result.stderr };
 }
 
+// A ref starting with `-` would be parsed by git as an option (e.g.
+// `--output=...`). `merge-base` has no `--` separator for revisions, so reject
+// such values up front (#1377).
+function assertSafeRef(ref) {
+  if (typeof ref !== 'string' || ref === '' || ref.startsWith('-')) {
+    throw new Error(`invalid git ref: ${JSON.stringify(ref)}`);
+  }
+  return ref;
+}
+
 function getAddedFiles(cwd, targetRef) {
+  assertSafeRef(targetRef);
   const base = git(['merge-base', targetRef, 'HEAD'], cwd);
   if (!base.ok || !base.stdout.trim()) {
     return { base: null, files: [] };
   }
   const baseSha = base.stdout.trim();
-  const diff = git(['diff', '--diff-filter=A', '--name-only', baseSha, 'HEAD'], cwd);
+  const diff = git(['diff', '--diff-filter=A', '--name-only', baseSha, 'HEAD', '--'], cwd);
   if (!diff.ok) {
     throw new Error(`git diff failed: ${diff.stderr}`);
   }
@@ -466,6 +477,14 @@ function selfTest() {
       frontendCoveragePath: 'frontend/coverage/cobertura-coverage.xml',
     });
     assert(cleanResult.ok, 'passes once every added source file has a coverage row', failures);
+
+    let threw = false;
+    try {
+      getAddedFiles(tmp, '--output=/tmp/x');
+    } catch {
+      threw = true;
+    }
+    assert(threw, 'rejects a --target-ref that starts with "-"', failures);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -525,6 +544,10 @@ function main() {
   let targetRef = opts.targetRef;
   if (!targetRef) {
     const branch = process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME || 'main';
+    if (branch.startsWith('-')) {
+      console.error(`ERROR — invalid target branch: ${branch}`);
+      process.exit(1);
+    }
     targetRef = `origin/${branch}`;
     if (!opts.noFetch) {
       const fetch = spawnSync('git', ['fetch', 'origin', branch, '--depth=100'], { cwd, stdio: 'inherit' });

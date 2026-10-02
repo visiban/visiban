@@ -115,6 +115,17 @@ own header — is never mistaken for a real exemption.
 covering the exact version-dotted-slug incident that motivated #1093), but is not wired into
 any CI job — see below.
 
+## Path containment for CLI arguments
+
+Gate scripts that open files named on the command line or via `--root` do so through `scripts/_paths.py::resolve_within` (#1377). It canonicalizes the path (collapsing `..` and following symlinks) and only then checks it sits under an allowed root, so a symlink that leaves the tree is rejected too. A rejected path is a "cannot run" outcome (exit 2 for the rbac, ws-event and broadcast gates), never a clean result.
+
+- `--root`-based gates (`check-rbac-coverage.py`, `check-ws-event-reachability.py`, `check-broadcast-deferral.py`) confine every read to `--root`.
+- Other file arguments (`--input`, `--state`, `--declined`, `--write-state`, `--token-file`, `--budget-file`, `--output`, `--schema`, `--types`) must resolve under the repository, the current directory, or the system temp directory (`/tmp`). The temp roots are trusted only on ephemeral single-tenant runners; there is no ownership check. A filesystem-root working directory is never treated as a root.
+- `kaizen_gate_ledger.py` validates `--window` (1..100) and `--project` (`group/project` characters) before they reach the `glab` argv.
+- `check-added-files-covered.mjs` rejects a `--target-ref` that starts with `-`.
+
+Run `python scripts/_paths.py --self-test` to exercise the helper (`..` traversal, symlink escape, filesystem-root cwd); the `rbac-coverage` job runs it.
+
 ## Known gaps and deferred work
 
 Not every bespoke script called out when #1093 was filed got a self-test in the same pass.

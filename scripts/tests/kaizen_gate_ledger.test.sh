@@ -174,6 +174,17 @@ sys.exit(0 if text.startswith("--bump-numpy") else 1)
 PYEOF
 )"
 
+# validate_project / validate_window: reject newline, dot segments, option-like input
+vp() { (cd "$REPO_ROOT/scripts" && python3 -c 'import sys, argparse, kaizen_gate_ledger as l
+try:
+    l.validate_project(sys.argv[1].encode().decode("unicode_escape"))
+except argparse.ArgumentTypeError:
+    sys.exit(1)' "$1") >/dev/null 2>&1; }
+vp 'visiban/visiban' && rc=0 || rc=$?; check "validate_project accepts group/project" "$rc"
+vp 'a/b\n' && rc=0 || rc=$?; check "validate_project rejects trailing newline" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)"
+vp '../..' && rc=0 || rc=$?; check "validate_project rejects dot segments" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)"
+vp '-x/y' && rc=0 || rc=$?; check "validate_project rejects leading dash" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)"
+
 echo ""
 if [[ "$fail" -eq 0 ]]; then
   echo "kaizen_gate_ledger.test.sh: all $pass checks passed"

@@ -74,5 +74,9 @@ check "committed state file is valid" "$(python3 -c "import json;s=json.load(ope
 
 check "--self-test passes" "$(python3 "$WATCH" --self-test >/dev/null 2>&1 && echo 0 || echo 1)"
 
+# a --declined path outside the allowed roots must fail loudly (not fall back to "nothing declined")
+rc=0; python3 "$WATCH" --state "$TMP/none.json" --declined /etc/passwd --input "$TMP/ten_zero.json" >/dev/null 2>&1 || rc=$?
+check "declined path escape exits 2" "$([ "$rc" -eq 2 ] && echo 0 || echo 1)"
+
 echo ""
 if [[ "$fail" -eq 0 ]]; then echo "kaizen_yield_watch.test.sh: all $pass checks passed"; else echo "kaizen_yield_watch.test.sh: $fail failed, $pass passed"; exit 1; fi

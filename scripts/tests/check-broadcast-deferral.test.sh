@@ -143,6 +143,18 @@ check "the defer says it is not a pass" \
 run_gate --no-such-flag
 check "unknown flag does not exit 0" "$([ "$RC" -ne 0 ] && echo 0 || echo 1)"
 
+# --- fail closed: a module symlinked outside --root (#1377) -----------------
+# The path helper must refuse to read through a symlink that leaves the tree
+# under audit; that is "cannot run" (exit 2), never a clean or finding result.
+copy_tree "$TMP/escape"
+echo "x = 1" > "$TMP/outside.py"
+rm "$TMP/escape/backend/boards/views/labels.py"
+ln -s "$TMP/outside.py" "$TMP/escape/backend/boards/views/labels.py"
+run_gate --root "$TMP/escape"
+check "symlink escaping --root fails closed (exit 2)" "$([ "$RC" -eq 2 ] && echo 0 || echo 1)"
+check "symlink escape says cannot run" \
+  "$(echo "$OUT" | grep -q "cannot run" && echo 0 || echo 1)"
+
 echo ""
 if [ "$fail" -eq 0 ]; then
   echo "check-broadcast-deferral.test.sh: all $pass checks passed"
