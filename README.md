@@ -118,6 +118,21 @@ mkdocs serve --dev-addr=localhost:8001
 
 ---
 
+## How this is built
+
+Visiban is developed with heavy use of AI coding assistants, primarily [Claude Code](https://claude.com/claude-code). Most of the code, and most of the tests, were written by an AI; commits carry a `Co-Authored-By` trailer where that applies. Treat it the way you would any AI-assisted codebase: read it before you trust it, and use it at your own risk, as the [Apache 2.0 license](LICENSE) already says.
+
+What stands between AI-written code and `main`:
+
+- **Review.** Every change lands through a merge request that the maintainer reviews. Nothing is committed directly to `main`.
+- **CI on every merge request.** Lint, type checks, the backend, frontend, and Playwright end-to-end suites, SAST, secret scanning (gitleaks), and dependency vulnerability scanning.
+- **Schema fuzzing.** The API is fuzzed against its own schema in CI. A failing fuzz run is treated as a real defect, not a flake.
+- **Static analysis.** A [SonarCloud](https://sonarcloud.io/project/overview?id=visiban_visiban) scan runs nightly.
+
+What this does **not** prove: that AI-written tests assert the right things. Coverage numbers do not show that. Mutation testing is the planned way to measure it and has not been done yet. If you find a test that passes without checking anything meaningful, please [open an issue](https://gitlab.com/visiban/visiban/-/issues).
+
+---
+
 ## Contributing
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
