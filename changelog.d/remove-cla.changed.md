@@ -1,1 +1,0 @@
-Removed the Contributor License Agreement. Contributions are now accepted under the project's Apache 2.0 license on inbound=outbound terms (Section 5 of the license), documented in `CONTRIBUTING.md`; the default MR template's CLA checkbox is replaced by an Apache 2.0 acknowledgment.
