@@ -2569,6 +2569,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#url-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        URL fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get-apiv1boardsidcustom-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6268,7 +6279,7 @@ on board load. Card <strong>values</strong> are read and written through the
 <td><code>field_type</code></td>
 <td>string</td>
 <td>no*</td>
-<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code></td>
+<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code>, <code>"url"</code> (see <a href="#url-fields">URL fields</a>)</td>
 </tr>
 <tr>
 <td><code>choices</code></td>
@@ -6310,6 +6321,29 @@ on board load. Card <strong>values</strong> are read and written through the
 </table>
 <p>* <code>field_type</code> is writable only while the definition has zero values — see the <code>PATCH</code>
 errors below.</p>
+<h4 id="url-fields">URL fields<a class="headerlink" href="#url-fields" title="Permanent link">&para;</a></h4>
+<p>A <code>"url"</code> field stores a web address. It applies to card and swimlane custom fields alike,
+and is text-backed like every other type — the value is the stored string, with no extra
+columns or structure.</p>
+<ul>
+<li><strong>Validated on write</strong>, through the same rule as a card's
+  <a href="../cards/#external-ref-since-12">external ref</a> URL: the value must be an absolute
+  <code>http://</code> or <code>https://</code> URL with a host. Any other scheme (<code>javascript:</code>, <code>data:</code>,
+  <code>ftp:</code>, <code>mailto:</code> — matched case-insensitively), a missing scheme (<code>example.com</code>),
+  embedded whitespace or control characters, a backslash, a percent-encoded host,
+  credentials (<code>user:pass@</code>), or an invalid port is rejected with <code>400 Bad Request</code>.</li>
+<li><strong>At most 500 characters</strong>, the cap that applies to every custom field value. A longer
+  URL is rejected, never truncated.</li>
+<li><strong>Stored as sent</strong> (after trimming surrounding whitespace) — the scheme's case and the
+  rest of the URL are not rewritten. The API does not add a missing <code>https://</code>; the web
+  UI does that before it sends the value.</li>
+<li><code>choices</code> is rejected for a <code>"url"</code> field, as for every non-dropdown type.</li>
+<li><strong>Clients that do not recognize <code>"url"</code></strong> should fall back to rendering the value as
+  plain text — the value is always a string. A client that renders it as a link must
+  still check the scheme at render time and use <code>rel="noopener noreferrer"</code>.</li>
+<li>Enterprise <code>CUSTOM_FIELD_VALIDATORS</code> hooks receive <code>"url"</code> as the <code>field_type</code> and run
+  after this validation.</li>
+</ul>
 <h3 id="get-apiv1boardsidcustom-fields"><code>GET /api/v1/boards/{id}/custom-fields/</code><a class="headerlink" href="#get-apiv1boardsidcustom-fields" title="Permanent link">&para;</a></h3>
 <p>List the board's custom field definitions, in <code>position</code> order. Available to <strong>all board
 members, including viewers</strong> — a reader needs the schema to make sense of the values they
@@ -6398,7 +6432,7 @@ model docstring for the reasoning; do not assume they track each other.</p>
 <td><code>field_type</code></td>
 <td>string</td>
 <td>no</td>
-<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code>. Immutable once any swimlane holds a value for this definition — see <strong>Errors</strong> below.</td>
+<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code>, <code>"url"</code> (see <a href="#url-fields">URL fields</a>). Immutable once any swimlane holds a value for this definition — see <strong>Errors</strong> below.</td>
 </tr>
 <tr>
 <td><code>choices</code></td>

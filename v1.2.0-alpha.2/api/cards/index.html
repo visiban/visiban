@@ -4500,8 +4500,10 @@ returned can be sent straight back:</p>
 <li>Values are validated and normalized per the definition's <code>field_type</code>: a <code>number</code> must
   parse as a finite decimal, a <code>date</code> must be <code>YYYY-MM-DD</code>, a <code>dropdown</code> value must be one
   of the definition's current <code>choices</code>, and a <code>checkbox</code> accepts <code>true</code>/<code>false</code>, <code>"true"</code>/
-  <code>"false"</code>, <code>"1"</code>/<code>"0"</code> and <code>"yes"</code>/<code>"no"</code> and stores <code>"true"</code> or <code>"false"</code>. A value may be
-  at most 500 characters.</li>
+  <code>"false"</code>, <code>"1"</code>/<code>"0"</code> and <code>"yes"</code>/<code>"no"</code> and stores <code>"true"</code> or <code>"false"</code>. A <code>url</code> must
+  be an absolute <code>http://</code> or <code>https://</code> URL — see
+  <a href="../boards/#url-fields">URL fields</a>. A value may be at most 500 characters; a longer one
+  (a long URL included) is rejected, not truncated.</li>
 <li>A <code>field_definition</code> id that does not belong to this card's board is rejected with <code>400</code>,
   as is the same field appearing twice in one payload.</li>
 <li>Setting a value is a card edit: it goes through the same role allow-list and ownership
