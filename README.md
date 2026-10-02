@@ -2,9 +2,10 @@
 
 [![pipeline status](https://gitlab.com/visiban/visiban/badges/main/pipeline.svg)](https://gitlab.com/visiban/visiban/-/commits/main)
 [![coverage report](https://gitlab.com/visiban/visiban/badges/main/coverage.svg)](https://gitlab.com/visiban/visiban/-/commits/main)
-[![quality gate](https://sonarcloud.io/api/project_badges/measure?project=visiban_visiban&metric=alert_status)](https://sonarcloud.io/project/overview?id=visiban_visiban)
-[![reliability](https://sonarcloud.io/api/project_badges/measure?project=visiban_visiban&metric=reliability_rating)](https://sonarcloud.io/project/overview?id=visiban_visiban)
-[![security](https://sonarcloud.io/api/project_badges/measure?project=visiban_visiban&metric=security_rating)](https://sonarcloud.io/project/overview?id=visiban_visiban)
+[![quality gate](https://sonarcloud.io/api/project_badges/measure?project=visiban_visiban&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=visiban_visiban)
+[![reliability](https://sonarcloud.io/api/project_badges/measure?project=visiban_visiban&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=visiban_visiban)
+[![security](https://sonarcloud.io/api/project_badges/measure?project=visiban_visiban&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=visiban_visiban)
+[![coverage (SonarCloud)](https://sonarcloud.io/api/project_badges/measure?project=visiban_visiban&metric=coverage)](https://sonarcloud.io/summary/new_code?id=visiban_visiban)
 [![release](https://img.shields.io/github/v/release/visiban/visiban?include_prereleases&label=release)](https://github.com/visiban/visiban/releases)
 [![docs](https://img.shields.io/badge/docs-docs.visiban.com-blue)](https://docs.visiban.com/next/)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
