@@ -93,7 +93,8 @@ class EnsureSiteAdminTests(TestCase):
             path = os.path.join(d, "pw")
             with open(path, "w") as f:
                 f.write("old\n")
-            os.chmod(path, 0o666)
+            # Deliberately world-writable: the stale file the helper must replace.
+            os.chmod(path, 0o666)  # nosec B103
             output = self._run_with_pw_path(path)
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
             with open(path) as f:
@@ -221,7 +222,8 @@ class ProvisionFuzzTokenFileTests(TestCase):
     def test_replaces_stale_own_file(self):
         with open(self.path, "w") as f:
             f.write("old\n")
-        os.chmod(self.path, 0o666)
+        # Deliberately world-writable: the stale file the helper must replace.
+        os.chmod(self.path, 0o666)  # nosec B103
         self._run()
         self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o600)
         with open(self.path) as f:
