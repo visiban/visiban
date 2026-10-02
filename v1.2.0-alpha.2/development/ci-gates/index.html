@@ -3881,6 +3881,11 @@ own header — is never mistaken for a real exemption.</p>
 <td><code>sonar-scan-selftest</code> (MRs touching the script, <code>sonar-project.properties</code>, or CI file; also main)</td>
 <td>#1370: the rewrites that make SonarCloud resolve backend/frontend coverage paths; a regression silently reads 0.0%. Self-test fixtures the backend <code>&lt;source&gt;</code> injection (and a non-empty <code>&lt;source&gt;</code> no-op), the lcov <code>SF:src/</code> prefix, untouched originals, and missing-report tolerance. Runs <code>sh</code> on alpine; the scan itself is the scheduled <code>sonar:scan</code>.</td>
 </tr>
+<tr>
+<td><code>scripts/check-sonar-exclusions.sh</code></td>
+<td><code>lint:sonar-exclusions</code> (MRs touching <code>sonar-project.properties</code>, the script, or the CI file; also main)</td>
+<td>#1380, ported from TruePPM's <code>check-sonar-exclusions.sh</code>: a <code>sonar.issue.ignore.multicriteria</code> glob that matches no tracked file is dead or has silently drifted (a rename un-suppresses findings with nothing going red). Pure <code>git ls-files</code> matching, no network or <code>SONAR_TOKEN</code>. Globs use real Ant semantics (<code>**/est/**</code> is dead). Self-test plants a dead glob, an Ant-dead glob, <code>*.ts</code> globs (literal, <code>**/</code> and mid-<code>**</code> spellings) over a directory that also holds <code>.tsx</code>, an unlisted criterion, an orphan <code>.resourceKey</code>, an indexed criterion with no <code>.resourceKey</code>, and a ghost index id; each case must fail with its own check's message, and the real file must pass.</td>
+</tr>
 </tbody>
 </table>
 <p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,

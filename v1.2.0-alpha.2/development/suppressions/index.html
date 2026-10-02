@@ -2775,6 +2775,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sonarcloud-suppressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SonarCloud suppressions
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3712,6 +3723,22 @@ reasonable follow-up if these entries start accumulating the way the <code>eslin
 <li>When the issue closes, remove the suppression in the same MR that resolves it — don't leave
    it for <code>suppressions-check</code> to catch on <code>main</code> after the fact.</li>
 </ol>
+<h2 id="sonarcloud-suppressions">SonarCloud suppressions<a class="headerlink" href="#sonarcloud-suppressions" title="Permanent link">&para;</a></h2>
+<p><code>sonar.issue.ignore.multicriteria.*</code> criteria in <code>sonar-project.properties</code> follow the same
+two buckets. Each existing criterion is <strong>permanent</strong>: it carries a plain rationale comment
+and a narrow path, with no marker. A criterion that waits on tracked work would carry a
+<code>SUPPRESSED-UNTIL(#N)</code> comment above it, exactly like any other suppression. Never widen a
+glob to hide a finding. The same policy is stated in the header of the properties file.</p>
+<p>The <code>lint:sonar-exclusions</code> job (<code>scripts/check-sonar-exclusions.sh</code>) keeps those criteria
+honest: it fails when a criterion's glob matches no tracked file (dead or silently drifted),
+when the <code>multicriteria=</code> index and the <code>.ruleKey</code>/<code>.resourceKey</code> definitions disagree, or when
+a glob is pinned to <code>*.ts</code>/<code>*.js</code> in a directory that also holds <code>.tsx</code>/<code>.jsx</code>. It is pure
+<code>git ls-files</code> matching, with no network and no <code>SONAR_TOKEN</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>bash<span class="w"> </span>scripts/check-sonar-exclusions.sh
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>bash<span class="w"> </span>scripts/check-sonar-exclusions.sh<span class="w"> </span>--self-test
+</code></pre></div>
+<p>These properties apply only to CI-based analysis (the <code>sonar:scan</code> job), not to SonarCloud
+Automatic Analysis.</p>
 
 
 
