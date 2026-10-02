@@ -3861,6 +3861,10 @@ in <code>sonar-project.properties</code>:</p>
 <td><code>backend/factories.py</code></td>
 <td>Test-data factory module</td>
 </tr>
+<tr>
+<td><code>backend/boards/seed_data/**</code></td>
+<td>Standalone fixture generators (<code>generate_seed_data.py</code>, <code>generate_seed_data_part2.py</code>) that write the <code>sample-boards/*.json</code>/<code>.csv</code> fixtures checked into the repo; run by hand, never imported by any runtime path</td>
+</tr>
 </tbody>
 </table>
 <p>Nothing under product source is excluded to reach a number. If you are tempted to add an
