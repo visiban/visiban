@@ -706,19 +706,24 @@ BOARDS = [
             ("OSA", "text", [], True, False, "Overlay solutions architect providing technical coverage across accounts."),
             ("AD", "text", [], False, True, "Account director who owns the overall strategic relationship. Visible to board admins only."),
         ],
-        # Fictional names, shared across accounts on purpose (an OAE/OSA/AD
-        # covers more than one account under this model). Ironwood's OAE is
-        # the one deliberate coverage gap — an explicit "Unassigned" value
-        # rather than an omitted key, so every lane still carries a value for
-        # every field (see test_each_board_has_public_and_admin_only_swimlane_fields_on_every_lane)
-        # while the gap stays visible on the card face.
+        # Fictional names, reflecting a real reporting shape (#1412 fix):
+        # each AD owns several AEs — never the reverse, so no AE name repeats
+        # under two different ADs — and the overlay org is a separate set of
+        # fixed OAE+OSA pods (an OAE always pairs with the same OSA) that cut
+        # across AD/AE account lines, since overlay coverage doesn't follow
+        # account-team boundaries. Ironwood's OAE is the one deliberate
+        # coverage gap — an explicit "Unassigned" value rather than an
+        # omitted key, so every lane still carries a value for every field
+        # (see test_each_board_has_public_and_admin_only_swimlane_fields_on_every_lane);
+        # its OSA (Lisa Wang) is covering solo, with no OAE pod partner, which
+        # is itself part of the gap story.
         "swimlane_field_values": {
-            "Meridian Financial Group": {"AD": "Diane Foster", "AE": "Sarah Chen", "OAE": "Bob Jones", "OSA": "Lisa Wang"},
+            "Meridian Financial Group": {"AD": "Diane Foster", "AE": "Sarah Chen", "OAE": "Bob Jones", "OSA": "Carlos Ruiz"},
             "Cascade Energy Partners": {"AD": "Marcus Webb", "AE": "Tom Wilson", "OAE": "Bob Jones", "OSA": "Carlos Ruiz"},
             "Nimbus Cloud Systems": {"AD": "Marcus Webb", "AE": "James Brown", "OAE": "Elena Rossi", "OSA": "Priya Shah"},
-            "Solaris Biotech": {"AD": "Renee Okafor", "AE": "Sarah Chen", "OAE": "Elena Rossi", "OSA": "Lisa Wang"},
-            "Vantage Insurance Group": {"AD": "Renee Okafor", "AE": "Tom Wilson", "OAE": "Bob Jones", "OSA": "Carlos Ruiz"},
-            "Ironwood Logistics": {"AD": "Diane Foster", "AE": "Amy Patel", "OAE": "Unassigned", "OSA": "Priya Shah"},
+            "Solaris Biotech": {"AD": "Renee Okafor", "AE": "Grace Liu", "OAE": "Elena Rossi", "OSA": "Priya Shah"},
+            "Vantage Insurance Group": {"AD": "Renee Okafor", "AE": "Derek Hall", "OAE": "Bob Jones", "OSA": "Carlos Ruiz"},
+            "Ironwood Logistics": {"AD": "Diane Foster", "AE": "Amy Patel", "OAE": "Unassigned", "OSA": "Lisa Wang"},
         },
         "checklists": {
             "Core banking platform migration": [
