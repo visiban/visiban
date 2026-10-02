@@ -30,9 +30,14 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+
+# Sibling import must work however the script is loaded (direct run, importlib).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _paths import PathEscapeError, cli_roots, resolve_within  # noqa: E402
 
 TITLE = "backend-schema-fuzz-deep: nightly schema-fuzz finding"
 LABELS = "bug,ci"
@@ -52,9 +57,10 @@ def api(method, url, token, data=None):
 
 def read_seed(path):
     try:
-        with open(path, encoding="utf-8") as fh:
+        # --seed-file is CLI input: confine it to the repo, cwd, or temp dir.
+        with open(resolve_within(cli_roots(), path), encoding="utf-8") as fh:
             return fh.read().strip() or "unknown"
-    except OSError:
+    except (OSError, PathEscapeError):
         return "unknown"
 
 
@@ -242,7 +248,7 @@ def self_test():
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--self-test", action="store_true")
-    p.add_argument("--seed-file", default="/tmp/fuzz_seed")
+    p.add_argument("--seed-file", default=os.path.join(tempfile.gettempdir(), "fuzz_seed"))
     args = p.parse_args(argv)
     if args.self_test:
         return self_test()

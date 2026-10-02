@@ -39,14 +39,15 @@ def cli_roots(*extra: str | os.PathLike) -> list[Path]:
 
     The repo checkout (inputs and committed baselines), the current working
     directory (CI artifacts like ``nightly-load-test-results.json``), and the
-    system temp dir plus ``/tmp`` (CI token files, test fixtures). Anything
+    system temp dir (CI token files, test fixtures; ``/tmp`` on the Linux CI
+    runners, where ``TMPDIR`` is unset). Anything
     else - ``/etc``, ``~/.ssh``, a ``..`` climb out of these - is rejected.
     """
-    # The temp dir and /tmp are trusted only on ephemeral, single-tenant runners
+    # The temp dir is trusted only on ephemeral, single-tenant runners
     # (CI containers, a developer's own machine). There is no ownership check, so
     # on a shared multi-user host another user could plant files there - a
     # documented limitation, not a guarantee.
-    roots = [REPO_ROOT, Path(tempfile.gettempdir()), Path("/tmp"), *map(Path, extra)]
+    roots = [REPO_ROOT, Path(tempfile.gettempdir()), *map(Path, extra)]
     cwd = Path.cwd().resolve()
     # A filesystem-root cwd (`/`, or a drive root) would make every path "inside".
     if len(cwd.parts) >= 2:
