@@ -1291,3 +1291,228 @@ class SwimlaneCustomFieldMultiSelectTypeTests(SwimlaneCustomFieldTestBase):
         rows = list(csv.reader(io.StringIO(r.content.decode())))
         col = rows[0].index("Swimlane Custom: Markets")
         self.assertEqual(rows[1][col], "EMEA; APAC")
+
+
+class SwimlaneCustomFieldNumberFormatTests(SwimlaneCustomFieldTestBase):
+    """Display-only number formatting on row fields (#1391, MR B) — the same
+    shared ``validate_number_format`` rules as the card level."""
+
+    def _create(self, **extra):
+        body = {"name": "ARR", "field_type": "number", "is_admin_only": False, **extra}
+        return self.client.post(self.url, body, format="json")
+
+    def _detail(self, definition):
+        return f"{self.url}{definition.id}/"
+
+    def test_defaults_when_omitted(self):
+        r = self._create()
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(
+            (r.data["number_prefix"], r.data["number_suffix"], r.data["number_decimals"]),
+            ("", "", None),
+        )
+
+    def test_create_and_patch_round_trip(self):
+        r = self._create(number_prefix="€", number_suffix=" k", number_decimals=1)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["number_suffix"], " k")
+        definition = SwimlaneCustomFieldDefinition.objects.get(pk=r.data["id"])
+        r = self.client.patch(self._detail(definition), {"number_decimals": 10}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(
+            (definition.number_prefix, definition.number_suffix, definition.number_decimals),
+            ("€", " k", 10),
+        )
+
+    def test_invalid_values_are_400(self):
+        cases = [
+            ("number_decimals", -1), ("number_decimals", 11), ("number_decimals", 1.5),
+            ("number_decimals", "x"), ("number_prefix", "x" * 11),
+            ("number_suffix", "y" * 11), ("number_prefix", "a\x00"),
+            ("number_suffix", None),
+        ]
+        for key, value in cases:
+            with self.subTest(key=key, value=value):
+                r = self._create(**{key: value})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertIn(key, r.data)
+
+    def test_format_on_a_non_number_type_is_rejected(self):
+        r = self.client.post(
+            self.url,
+            {"name": "Region", "field_type": "dropdown", "choices": ["EMEA"],
+             "number_suffix": "h"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Number format options can only be set on a number field.",
+            str(r.data["number_suffix"]),
+        )
+        text = _definition(self.board, name="Owner", field_type=T.TEXT)
+        r = self.client.patch(self._detail(text), {"number_decimals": 2}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("number_decimals", r.data)
+
+    def test_retyping_away_from_number_clears_the_format(self):
+        definition = _definition(
+            self.board, name="ARR", field_type=T.NUMBER,
+            number_prefix="$", number_suffix="k", number_decimals=2,
+        )
+        r = self.client.patch(self._detail(definition), {"field_type": "text"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(
+            (definition.number_prefix, definition.number_suffix, definition.number_decimals),
+            ("", "", None),
+        )
+
+    def test_member_and_viewer_cannot_set_a_format(self):
+        definition = _definition(self.board, name="ARR", field_type=T.NUMBER)
+        for user in (self.member, self.viewer):
+            with self.subTest(user=user.username):
+                client = self._client_for(user)
+                self.assertEqual(
+                    client.patch(
+                        self._detail(definition), {"number_prefix": "$"}, format="json"
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
+                self.assertEqual(
+                    client.post(
+                        self.url,
+                        {"name": "X", "field_type": "number", "number_decimals": 2},
+                        format="json",
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
+        definition.refresh_from_db()
+        self.assertEqual(definition.number_prefix, "")
+
+    def test_outsider_and_anonymous_cannot_set_a_format(self):
+        definition = _definition(self.board, name="ARR", field_type=T.NUMBER)
+        outsider = self._client_for(_make_user("scf_nf_outsider"))
+        anonymous = APIClient()
+        for label, client, expected in (
+            ("outsider", outsider, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND)),
+            ("anonymous", anonymous, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)),
+        ):
+            with self.subTest(client=label):
+                self.assertIn(
+                    client.post(
+                        self.url,
+                        {"name": "X", "field_type": "number", "number_suffix": "k"},
+                        format="json",
+                    ).status_code,
+                    expected,
+                )
+                self.assertIn(
+                    client.patch(
+                        self._detail(definition), {"number_decimals": 2}, format="json"
+                    ).status_code,
+                    expected,
+                )
+        definition.refresh_from_db()
+        self.assertIsNone(definition.number_decimals)
+        self.assertEqual(
+            SwimlaneCustomFieldDefinition.objects.filter(board=self.board).count(), 1
+        )
+
+    def test_a_site_admin_may_set_a_format(self):
+        site_admin = self._client_for(_make_user(
+            "scf_nf_siteadmin", is_site_admin=True, can_access_all_content=True,
+        ))
+        r = site_admin.post(
+            self.url,
+            {"name": "ARR", "field_type": "number", "number_suffix": "k"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        r = site_admin.patch(
+            f"{self.url}{r.data['id']}/", {"number_decimals": 1}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["number_decimals"], 1)
+
+    def test_a_format_patch_cannot_reach_another_boards_definition(self):
+        other_board = _make_board(_make_user("scf_nf_other"), name="Other")
+        theirs = _definition(other_board, name="ARR", field_type=T.NUMBER)
+        r = self.client.patch(
+            f"{self.url}{theirs.id}/", {"number_prefix": "$"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.number_prefix, "")
+
+    def test_json_export_withholds_an_admin_only_number_definition_from_a_member(self):
+        secret = _definition(
+            self.board, name="ARR", field_type=T.NUMBER, is_admin_only=True,
+            number_prefix="$", number_decimals=2,
+        )
+        SwimlaneCustomFieldValue.objects.create(
+            swimlane=self.lane, field_definition=secret, value="250000"
+        )
+        url = f"/api/v1/boards/{self.board.id}/export/?format=json"
+        member_payload = json.loads(
+            self._client_for(self.member).get(url).content.decode()
+        )
+        self.assertNotIn(
+            "ARR", [f["name"] for f in member_payload["swimlane_custom_fields"]]
+        )
+        self.assertNotIn("250000", json.dumps(member_payload))
+        admin_payload = json.loads(self.client.get(url).content.decode())
+        schema = next(
+            f for f in admin_payload["swimlane_custom_fields"] if f["name"] == "ARR"
+        )
+        self.assertEqual(
+            (schema["number_prefix"], schema["number_suffix"], schema["number_decimals"]),
+            ("$", "", 2),
+        )
+
+    def test_the_stored_row_value_is_unchanged_by_a_format(self):
+        definition = _definition(
+            self.board, name="ARR", field_type=T.NUMBER,
+            number_prefix="$", number_decimals=2,
+        )
+        r = self.client.patch(
+            self.lane_url,
+            {"custom_field_values": [{"field_definition": definition.id, "value": "250000"}]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(
+            SwimlaneCustomFieldValue.objects.get(
+                swimlane=self.lane, field_definition=definition
+            ).value,
+            "250000",
+        )
+
+    def test_the_definition_event_carries_the_format(self):
+        from boards.models import BoardEvent
+
+        r = self._create(number_prefix="$", number_decimals=0)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        event = BoardEvent.objects.latest("id")
+        self.assertEqual(event.event, "swimlane_custom_field.created")
+        self.assertEqual(event.data["number_prefix"], "$")
+        self.assertEqual(event.data["number_suffix"], "")
+        self.assertEqual(event.data["number_decimals"], 0)
+
+    def test_json_export_carries_the_format_and_csv_stays_raw(self):
+        definition = _definition(
+            self.board, name="ARR", field_type=T.NUMBER,
+            number_prefix="$", number_suffix="", number_decimals=2,
+        )
+        SwimlaneCustomFieldValue.objects.create(
+            swimlane=self.lane, field_definition=definition, value="250000"
+        )
+        export_url = f"/api/v1/boards/{self.board.id}/export/"
+        payload = json.loads(self.client.get(f"{export_url}?format=json").content.decode())
+        schema = next(f for f in payload["swimlane_custom_fields"] if f["name"] == "ARR")
+        self.assertEqual(
+            (schema["number_prefix"], schema["number_suffix"], schema["number_decimals"]),
+            ("$", "", 2),
+        )
+        rows = list(csv.reader(io.StringIO(self.client.get(export_url).content.decode())))
+        self.assertEqual(rows[1][rows[0].index("Swimlane Custom: ARR")], "250000")

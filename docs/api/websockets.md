@@ -160,7 +160,7 @@ payload carries the card's `custom_field_values`.
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `custom_field.created` | New custom field definition created | Full `CustomFieldDefinitionSerializer` object |
-| `custom_field.updated` | Definition renamed, retyped, or its choices/pinning changed | Full `CustomFieldDefinitionSerializer` object |
+| `custom_field.updated` | Definition renamed, retyped, or its choices/pinning/number format changed | Full `CustomFieldDefinitionSerializer` object |
 | `custom_field.deleted` | Definition deleted (and every card value with it) | `{ "custom_field_uid": <string> }` |
 | `custom_field.reordered` | Definition order changed | `{ "custom_fields": [<CustomFieldDefinitionSerializer>, ...] }` — all definitions in new order |
 
@@ -174,7 +174,7 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `swimlane_custom_field.created` | New swimlane field definition created | Full `SwimlaneCustomFieldDefinitionSerializer` object |
-| `swimlane_custom_field.updated` | Definition renamed, retyped, or its choices/pinning/visibility changed | Full `SwimlaneCustomFieldDefinitionSerializer` object |
+| `swimlane_custom_field.updated` | Definition renamed, retyped, or its choices/pinning/visibility/number format changed | Full `SwimlaneCustomFieldDefinitionSerializer` object |
 | `swimlane_custom_field.deleted` | Definition deleted (and every swimlane value with it) | `{ "swimlane_custom_field_uid": <string> }` |
 | `swimlane_custom_field.reordered` | Definition order changed | `{ "swimlane_custom_fields": [<SwimlaneCustomFieldDefinitionSerializer>, ...] }` — all definitions in new order |
 

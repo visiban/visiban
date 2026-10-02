@@ -257,6 +257,14 @@ Three decisions worth knowing before changing either model:
 `is_required` exists as a column but is **not enforced**; turning it on would make
 previously valid card writes fail, so it needs a release note, not a quiet change.
 
+Both definition models also carry three display-only number-format columns (#1391):
+`number_prefix` and `number_suffix` (`varchar(10)`, default `""`) and `number_decimals`
+(`smallint` with a `>= 0` check, nullable; `NULL` = "as typed", the API caps it at 10).
+They are typed columns on the *definition*, not on the value — the value stays the plain
+number string, so exports, filtering and the value index are unaffected. They mean
+something only when `field_type` is `number`; the serializer rejects them on any other
+type and resets them when a definition is retyped away from `number` (migration `0065`).
+
 The same shape exists one level up, for swimlanes rather than cards: `SwimlaneCustomFieldDefinition` / `SwimlaneCustomFieldValue` (#1140), capped at 15 definitions and 3 pinned per board — a swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a `target_type` discriminator on the card-level models, so that existing 1.0 response shapes (`BoardFullSerializer`, the CSV export header, the per-board cap count) never have to filter for scope. `is_admin_only` (default `true`) restricts a row field's values to board admins, reusing the existing `SwimlaneSerializer` / `SwimlaneAdminSerializer` split.
 
 ### CardRelation

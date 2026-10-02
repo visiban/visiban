@@ -24,7 +24,7 @@ function fullDef(overrides: Partial<CustomFieldDefinition> = {}): CustomFieldDef
   return {
     id: 5, uid: "cfuid005", name: "Platforms", field_type: "multi_select",
     choices: ["web", "ios", "android"], position: 0, show_on_card: true,
-    is_required: false, help_text: "", created_at: "2026-01-01T00:00:00Z",
+    is_required: false, help_text: "", number_prefix: "", number_suffix: "", number_decimals: null, created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
 }

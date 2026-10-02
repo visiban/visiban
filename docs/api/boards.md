@@ -501,10 +501,10 @@ caller below `admin` — the same role gate this export already applies to a swi
   ],
   "labels": [{ "name": "Bug", "color": "#EF4444" }],
   "custom_fields": [
-    { "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "position": 0, "show_on_card": true, "is_required": false, "help_text": "" }
+    { "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "position": 0, "show_on_card": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null }
   ],
   "swimlane_custom_fields": [
-    { "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "position": 0, "show_on_row": true, "is_admin_only": true, "is_required": false, "help_text": "" }
+    { "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "position": 0, "show_on_row": true, "is_admin_only": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null }
   ],
   "cards": [
     {
@@ -1131,6 +1131,9 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `show_on_card` | boolean | no | Pin the value to the card face. Max 2 per board |
 | `is_required` | boolean | no | Declared but **not enforced** in this release |
 | `help_text` | string | no | Hint shown next to the input |
+| `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
+| `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
+| `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
 
 \* `field_type` is writable only while the definition has zero values — see the `PATCH`
@@ -1214,6 +1217,53 @@ JSON array.
   `swimlane_custom_field_value_changed` signals send `old_value`/`new_value` as the
   canonical strings — the whole set, not a per-entry diff.
 
+#### Number formatting
+
+*Since 1.2.* Three optional, **display-only** settings on a `"number"` definition, on card
+and swimlane custom fields alike. They change how a client renders a value, never the
+value: the `value` on the wire, in exports, and in filters stays the plain number string
+the user entered.
+
+```json
+{ "name": "Budget", "field_type": "number", "number_prefix": "$", "number_suffix": " USD", "number_decimals": 2 }
+```
+
+| Field | Type | Default | Rule |
+|---|---|---|---|
+| `number_prefix` | string | `""` | At most 10 characters. Stored exactly as sent — leading and trailing spaces are **not** trimmed (`"$ "` is a valid prefix). |
+| `number_suffix` | string | `""` | At most 10 characters, stored exactly as sent (`" h"`). |
+| `number_decimals` | integer or `null` | `null` | `0`–`10` inclusive. `null` means "render the number as typed". |
+
+- **All three are optional** on create and `PATCH`; omitted, they keep their defaults (or
+  current values), which reproduce the pre-1.2 rendering exactly. Existing clients that
+  ignore them are unaffected.
+- **Only on a number field.** On any other `field_type`, a non-default value is a
+  `400 Bad Request` keyed by the offending field:
+  `{"number_prefix": ["Number format options can only be set on a number field."]}`.
+  Sending the defaults (`""`, `""`, `null`) is always accepted, so a client may send all
+  three keys for every type. A `PATCH` is checked against the definition's stored type
+  when `field_type` is not in the body.
+- **Changing the type clears them.** When a definition with no values is retyped away from
+  `"number"`, all three are reset to their defaults in the same write. Sending a
+  non-default format in the same request as the retype is a `400`.
+- **Other `400`s:** `number_decimals` below 0 (`Ensure this value is greater than or equal
+  to 0.`), above 10 (`Ensure this value is less than or equal to 10.`), or not an integer
+  (`A valid integer is required.`); a prefix or suffix over 10 characters (`Ensure this
+  field has no more than 10 characters.`), containing NUL (`Null characters are not
+  allowed.`), or `null` (`This field may not be null.`).
+- **Rendering (the web UI's rule, recommended for other clients):** a value that does not
+  parse as a finite number is shown raw. With `number_decimals` `null`, the number is
+  shown **as typed** (`"+5"` → `$+5`, `"1e3"` → `$1e3`, no grouping). With it set, round
+  to that many places with thousands grouping (`1e3` → `1,000`); values beyond 2^53 lose
+  precision in the **display only** — the stored value is untouched. Then add the prefix
+  and suffix verbatim, with a minus sign **before** the prefix (`-$5.00`).
+- **Export.** The JSON export's `custom_fields` and `swimlane_custom_fields` entries carry
+  the three keys (additive — `schema_version` is unchanged); card and swimlane values stay
+  the raw number string in both JSON and CSV.
+- **Events.** `custom_field.created` / `custom_field.updated` and
+  `swimlane_custom_field.created` / `swimlane_custom_field.updated` carry the full
+  definition, so the three fields arrive with them.
+
 ### `GET /api/v1/boards/{id}/custom-fields/`
 List the board's custom field definitions, in `position` order. Available to **all board
 members, including viewers** — a reader needs the schema to make sense of the values they
@@ -1227,18 +1277,22 @@ Create a definition. Requires board admin.
 
 **Request** `{ "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "show_on_card": true }`
 
+A number field may also carry display-only formatting — see [Number formatting](#number-formatting):
+`{ "name": "Budget", "field_type": "number", "number_prefix": "$", "number_suffix": " USD", "number_decimals": 2 }`
+
 `position` is server-assigned (appended to the end) and ignored if supplied.
 
 **Errors:**
 - `400 Bad Request` if the name is blank or already used on this board, a dropdown or
-  multi-select has no choices, a type that cannot carry choices supplies them, the board
-  already has 30 definitions, or a
+  multi-select has no choices, a type that cannot carry choices supplies them, a
+  non-number type supplies a [number format](#number-formatting) option, a number format
+  option is out of range, the board already has 30 definitions, or a
   third field is pinned with `show_on_card`.
 
 ### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/`
 Update a definition. Requires board admin.
 
-**Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`
+**Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`
 
 > Removing (or renaming) a choice on a dropdown or multi-select does **not** rewrite cards
 > that already hold it: the stored value keeps reading back. A dropdown value that is no
@@ -1256,6 +1310,9 @@ Update a definition. Requires board admin.
 **Errors:**
 - `400 Bad Request` if `field_type` is changed on a definition that already has at least
   one `CustomFieldValue`.
+- `400 Bad Request` for a [number format](#number-formatting) option on a non-number field
+  (judged against the stored `field_type` when the body does not change it), or out of
+  range.
 
 ### `DELETE /api/v1/boards/{id}/custom-fields/{field_id}/`
 Delete a definition. Requires board admin. **Every card's value for that field is deleted
@@ -1305,6 +1362,9 @@ model docstring for the reasoning; do not assume they track each other.
 | `is_admin_only` | boolean | no | When `true` (the default), this field's **values** are served only to `admin` and `site_admin` role members and are omitted entirely from share-link payloads. Does not affect who can read the *definition* — see [Swimlanes](#swimlanes) for the values visibility rule. |
 | `is_required` | boolean | no | Declared but **not enforced** in this release |
 | `help_text` | string | no | Hint shown next to the input |
+| `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
+| `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
+| `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
 
 ### `GET /api/v1/boards/{id}/swimlane-custom-fields/`
@@ -1323,18 +1383,22 @@ Create a definition. Requires board admin.
 
 **Request** `{ "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "show_on_row": true, "is_admin_only": true }`
 
+A number field may also carry display-only formatting — see [Number formatting](#number-formatting):
+`{ "name": "ARR", "field_type": "number", "number_prefix": "$", "number_suffix": "", "number_decimals": 0 }`
+
 `position` is server-assigned (appended to the end) and ignored if supplied.
 
 **Errors:**
 - `400 Bad Request` if the name is blank or already used on this board's swimlane fields, a
   dropdown or multi-select has no choices, a type that cannot carry choices supplies them,
-  the board already has 15
+  a non-number type supplies a [number format](#number-formatting) option, a number format
+  option is out of range, the board already has 15
   swimlane field definitions, or a fourth field is pinned with `show_on_row`.
 
 ### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
 Update a definition. Requires board admin.
 
-**Writable fields:** `name`, `field_type`, `choices`, `show_on_row`, `is_admin_only`, `is_required`, `help_text`
+**Writable fields:** `name`, `field_type`, `choices`, `show_on_row`, `is_admin_only`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`
 
 **Errors:**
 - `400 Bad Request` with a `field_type` key if the request changes `field_type` and at
@@ -1343,6 +1407,9 @@ Update a definition. Requires board admin.
   clear the field's values first, or create a new definition.
 - `400 Bad Request` with a `name` key if the new name collides with another swimlane field
   on this board.
+- `400 Bad Request` keyed by the offending field for a [number format](#number-formatting)
+  option on a non-number field, or out of range. Retyping a definition away from
+  `"number"` clears its format options.
 
 > Removing (or renaming) a choice on a dropdown or multi-select does **not** rewrite rows
 > that already hold it: the stored value keeps reading back. A dropdown value that is no

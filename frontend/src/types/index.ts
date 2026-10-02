@@ -354,6 +354,12 @@ export interface CustomFieldDefinition {
   /** Declared but not enforced in v1 — see the serializer. */
   is_required: boolean;
   help_text: string;
+  /** Display-only text shown before a number value, e.g. `"$"` (#1391). `""` = none. Never stripped. */
+  number_prefix: string;
+  /** Display-only text shown after a number value, e.g. `" h"` (#1391). `""` = none. Never stripped. */
+  number_suffix: string;
+  /** Fixed decimal places (0-10) for display; `null` = show the number as typed (#1391). */
+  number_decimals: number | null;
   created_at: string;
 }
 
@@ -383,6 +389,14 @@ export interface FieldDefinitionShape {
   field_type: CustomFieldType;
   choices: string[];
   help_text: string;
+  /**
+   * #1391 number formatting. Optional in this *shape* only — both full
+   * definition interfaces declare them — so a helper given a partial
+   * definition renders the number exactly as typed.
+   */
+  number_prefix?: string;
+  number_suffix?: string;
+  number_decimals?: number | null;
 }
 
 /**
@@ -417,6 +431,12 @@ export interface SwimlaneCustomFieldDefinition {
   /** Declared but not enforced in v1 — see the serializer. */
   is_required: boolean;
   help_text: string;
+  /** Display-only text shown before a number value, e.g. `"$"` (#1391). `""` = none. Never stripped. */
+  number_prefix: string;
+  /** Display-only text shown after a number value, e.g. `" h"` (#1391). `""` = none. Never stripped. */
+  number_suffix: string;
+  /** Fixed decimal places (0-10) for display; `null` = show the number as typed (#1391). */
+  number_decimals: number | null;
   created_at: string;
 }
 

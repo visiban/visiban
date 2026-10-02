@@ -23,6 +23,7 @@ from boards.models import (
     CustomFieldDefinition,
     Label,
     SavedFilter,
+    SwimlaneCustomFieldDefinition,
 )
 from boards.tests.conftest import _make_board, _make_card, _make_column, _make_swimlane, _make_user
 from groups.models import Group, GroupInviteLink, GroupLabel
@@ -61,6 +62,7 @@ class LoadRealIdsTests(TestCase):
                 "pat_id": None,
                 "group_pk": None,
                 "custom_field_id": None,
+                "swimlane_custom_field_id": None,
                 "saved_filter_id": None,
                 "attachment_id": None,
                 "group_invite_link_id": None,
@@ -89,6 +91,7 @@ class LoadRealIdsTests(TestCase):
         # either (#1125) — same graceful-degradation-to-None behavior.
         self.assertIsNone(ids["group_pk"])
         self.assertIsNone(ids["custom_field_id"])
+        self.assertIsNone(ids["swimlane_custom_field_id"])
         self.assertIsNone(ids["saved_filter_id"])
         self.assertIsNone(ids["attachment_id"])
         self.assertIsNone(ids["group_invite_link_id"])
@@ -126,6 +129,15 @@ class LoadRealIdsTests(TestCase):
         ids = _hooks()._load_real_ids()
 
         self.assertEqual(ids["custom_field_id"], field.id)
+
+    def test_populates_swimlane_custom_field_id(self):
+        owner = _make_user()
+        board = _make_board(owner, name="Visiban Demo Board")
+        field = SwimlaneCustomFieldDefinition.objects.create(board=board, name="Region")
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertEqual(ids["swimlane_custom_field_id"], field.id)
 
     def test_populates_saved_filter_id(self):
         owner = _make_user()
@@ -231,6 +243,7 @@ class MapPathParametersTests(TestCase):
             "card_id": None,
             "group_pk": 9,
             "custom_field_id": 11,
+            "swimlane_custom_field_id": 21,
             "saved_filter_id": 13,
             "attachment_id": 15,
             "group_invite_link_id": 17,
@@ -279,6 +292,27 @@ class MapPathParametersTests(TestCase):
         result = _hooks().map_path_parameters(context, params)
 
         self.assertEqual(result, {"board_pk": 7, "id": 11})
+
+    def test_swimlane_definition_paths_get_a_real_board_pk(self):
+        """#1391: without these mappings a random board_pk 404s in the
+        viewset, so definition writes never reach validate_number_format."""
+        for path in (
+            "/api/v1/boards/{board_pk}/swimlane-custom-fields/",
+            "/api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/",
+        ):
+            with self.subTest(path=path):
+                result = _hooks().map_path_parameters(
+                    _fake_context(path), {"board_pk": "generated-board"}
+                )
+                self.assertEqual(result, {"board_pk": 7})
+
+    def test_overrides_swimlane_custom_field_id(self):
+        context = _fake_context("/api/v1/boards/{board_pk}/swimlane-custom-fields/{id}/")
+        params = {"board_pk": "generated-board", "id": "generated-field"}
+
+        result = _hooks().map_path_parameters(context, params)
+
+        self.assertEqual(result, {"board_pk": 7, "id": 21})
 
     def test_overrides_saved_filter_id(self):
         context = _fake_context("/api/v1/boards/{id}/saved-filters/{filter_pk}/")

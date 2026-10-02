@@ -1508,6 +1508,12 @@ class BoardImportExportMixin:
                         "show_on_card": cf.show_on_card,
                         "is_required": cf.is_required,
                         "help_text": cf.help_text,
+                        # Display-only number formatting (#1391). Additive
+                        # keys; the values in "cards" stay the raw number
+                        # string, so a consumer applies these or ignores them.
+                        "number_prefix": cf.number_prefix,
+                        "number_suffix": cf.number_suffix,
+                        "number_decimals": cf.number_decimals,
                     }
                     for cf in custom_field_definitions
                 ],
@@ -1529,6 +1535,10 @@ class BoardImportExportMixin:
                         "is_admin_only": sf.is_admin_only,
                         "is_required": sf.is_required,
                         "help_text": sf.help_text,
+                        # Display-only number formatting (#1391); see above.
+                        "number_prefix": sf.number_prefix,
+                        "number_suffix": sf.number_suffix,
+                        "number_decimals": sf.number_decimals,
                     }
                     for sf in swimlane_field_definitions
                 ],

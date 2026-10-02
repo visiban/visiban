@@ -197,6 +197,16 @@ class BoardFullQueryCountTests(TestCase):
         SwimlaneCustomFieldDefinition.objects.create(
             board=self.board, name="Owner", field_type="text", position=0,
         )
+        # #1391: a formatted number definition at each level, so the new
+        # number_* columns ride the guarded /full/ response too.
+        CustomFieldDefinition.objects.create(
+            board=self.board, name="Budget", field_type="number", position=90,
+            number_prefix="$", number_decimals=2,
+        )
+        SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="ARR", field_type="number", position=90,
+            number_prefix="$", number_decimals=2,
+        )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
@@ -208,6 +218,10 @@ class BoardFullQueryCountTests(TestCase):
             r = self._get_full()
         self.assertEqual(r.status_code, 200)
         self.assertEqual(len(r.data["cards"]), 50)
+        budget = next(d for d in r.data["custom_field_definitions"] if d["name"] == "Budget")
+        self.assertEqual((budget["number_prefix"], budget["number_decimals"]), ("$", 2))
+        arr = next(d for d in r.data["swimlane_custom_field_definitions"] if d["name"] == "ARR")
+        self.assertEqual((arr["number_prefix"], arr["number_decimals"]), ("$", 2))
         self.assertLessEqual(
             len(ctx), self.BUDGET,
             f"full/ used {len(ctx)} queries — budget is {self.BUDGET}.",
@@ -343,6 +357,16 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
         )
         SwimlaneCustomFieldDefinition.objects.create(
             board=self.board, name="Owner", field_type="text", position=0,
+        )
+        # #1391: a formatted number definition at each level, so the new
+        # number_* columns ride the guarded /full/ response too.
+        CustomFieldDefinition.objects.create(
+            board=self.board, name="Budget", field_type="number", position=90,
+            number_prefix="$", number_decimals=2,
+        )
+        SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="ARR", field_type="number", position=90,
+            number_prefix="$", number_decimals=2,
         )
 
         # Seed cards

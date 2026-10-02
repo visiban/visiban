@@ -123,13 +123,16 @@ export const createCustomFieldDefinition = (boardId: number, data: {
   field_type: CustomFieldType;
   choices?: string[];
   help_text?: string;
+  number_prefix?: string;
+  number_suffix?: string;
+  number_decimals?: number | null;
 }) =>
   client.post<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/`, data).then((r) => r.data);
 
 export const updateCustomFieldDefinition = (
   boardId: number,
   fieldId: number,
-  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card">>
+  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card" | "number_prefix" | "number_suffix" | "number_decimals">>
 ) =>
   client.patch<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/${fieldId}/`, data).then((r) => r.data);
 
@@ -152,13 +155,16 @@ export const createSwimlaneCustomFieldDefinition = (boardId: number, data: {
   choices?: string[];
   help_text?: string;
   is_admin_only?: boolean;
+  number_prefix?: string;
+  number_suffix?: string;
+  number_decimals?: number | null;
 }) =>
   client.post<SwimlaneCustomFieldDefinition>(`/api/v1/boards/${boardId}/swimlane-custom-fields/`, data).then((r) => r.data);
 
 export const updateSwimlaneCustomFieldDefinition = (
   boardId: number,
   fieldId: number,
-  data: Partial<Pick<SwimlaneCustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_row" | "is_admin_only">>
+  data: Partial<Pick<SwimlaneCustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_row" | "is_admin_only" | "number_prefix" | "number_suffix" | "number_decimals">>
 ) =>
   client.patch<SwimlaneCustomFieldDefinition>(`/api/v1/boards/${boardId}/swimlane-custom-fields/${fieldId}/`, data).then((r) => r.data);
 

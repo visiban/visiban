@@ -237,6 +237,7 @@ function makeDef(overrides: Partial<CustomFieldDefinition> = {}): CustomFieldDef
   return {
     id: 1, uid: 'cfuid001', name: 'Field', field_type: 'text', choices: [],
     position: 0, show_on_card: false, is_required: false, help_text: '',
+    number_prefix: '', number_suffix: '', number_decimals: null,
     created_at: '2026-01-01T00:00:00Z',
     ...overrides,
   }

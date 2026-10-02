@@ -77,11 +77,16 @@ export function formatCustomFieldValue(
       return value === "true" ? "Yes" : "No";
     case "multi_select":
       return parseMultiSelect(value).join(", ");
+    case "number":
+      return formatNumberValue(value, {
+        prefix: definition.number_prefix,
+        suffix: definition.number_suffix,
+        decimals: definition.number_decimals,
+      });
     // url: the full URL, not the hostname — this is the peek popover's text
     // and the chips' `title`, where the reader verifies where a link goes.
     // Only the pinned chips shorten it to a hostname (`urlDisplayHostname`).
     case "url":
-    case "number":
     case "text":
     case "dropdown":
     default:
@@ -264,4 +269,132 @@ export function serializeMultiSelect(entries: string[], choices: string[]): stri
   const inChoices = new Set(ordered);
   ordered.push(...wanted.filter((entry) => !inChoices.has(entry)));
   return JSON.stringify(ordered);
+}
+
+/** The display-only number-format options of a definition (#1391). */
+export interface NumberFormatOptions {
+  prefix?: string;
+  suffix?: string;
+  decimals?: number | null;
+}
+
+/** Upper bound on `number_decimals`, mirroring the serializer's `max_value`. */
+export const NUMBER_DECIMALS_MAX = 10;
+
+/**
+ * Locale for number grouping and decimal separators (#1391). Number
+ * formatting always uses en-US, so one stored value reads the same for every
+ * teammate; the per-user `number_locale` preference (Settings → Number
+ * format) is not applied here.
+ */
+const NUMBER_LOCALE = "en-US";
+
+/**
+ * Render a stored number value with its field's display-only format (#1391).
+ * Every number display surface (card-face chip, row header, card detail read
+ * view, peek popover, filter chip) reaches this through
+ * `formatCustomFieldValue`, so they cannot disagree.
+ *
+ * - Not a finite number (an orphaned value after a retype, free text): the
+ *   raw text, unchanged — the §5b "always show *something*" contract.
+ * - All options at their defaults: the raw text, unchanged — exactly the
+ *   pre-#1391 rendering, with no grouping added.
+ * - `decimals` null: the number as typed. Set: exactly that many decimal
+ *   places, rounded, with thousands grouping.
+ * - `prefix`/`suffix` are added verbatim (spaces included). A minus sign goes
+ *   before the prefix — `-$5.00`, not `$-5.00` — and is dropped when the value
+ *   rounds to zero, so `-0.001` at 2 decimals shows `$0.00`, not `-$0.00`.
+ *
+ * The stored value is never touched; this is display only.
+ */
+export function formatNumberValue(raw: string, options: NumberFormatOptions = {}): string {
+  const prefix = options.prefix ?? "";
+  const suffix = options.suffix ?? "";
+  const decimals = options.decimals ?? null;
+  const trimmed = raw.trim();
+  if (trimmed === "") return raw;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return raw;
+  if (prefix === "" && suffix === "" && decimals === null) return raw;
+
+  let negative: boolean;
+  let body: string;
+  if (decimals === null) {
+    negative = trimmed.startsWith("-");
+    body = negative ? trimmed.slice(1) : trimmed;
+  } else {
+    const places = Math.min(Math.max(Math.trunc(decimals), 0), NUMBER_DECIMALS_MAX);
+    const magnitude = Math.abs(n);
+    negative = n < 0 && Number(magnitude.toFixed(places)) !== 0;
+    body = new Intl.NumberFormat(NUMBER_LOCALE, {
+      minimumFractionDigits: places,
+      maximumFractionDigits: places,
+      useGrouping: true,
+    }).format(magnitude);
+  }
+  return `${negative ? "-" : ""}${prefix}${body}${suffix}`;
+}
+
+/**
+ * Clip a chip's value text to `max` characters with an ellipsis (#371) —
+ * except a number field with any format option set (#1391). Slicing the
+ * formatted string cuts the suffix (the unit) first, so those values are left
+ * whole for the chip's CSS `truncate` to clip only when they truly do not
+ * fit; the chip's `title` always carries the full text. Unformatted numbers
+ * and every other type keep the character cap unchanged.
+ */
+export function chipValueText(definition: FieldDefinitionShape, displayText: string, max: number): string {
+  const formattedNumber =
+    definition.field_type === "number" &&
+    (!!definition.number_prefix || !!definition.number_suffix ||
+      (definition.number_decimals !== null && definition.number_decimals !== undefined));
+  if (formattedNumber || displayText.length <= max) return displayText;
+  return `${displayText.slice(0, max)}…`;
+}
+
+/**
+ * Parse the settings form's decimals input (#1391): `""` means "as typed"
+ * (`null`); a whole number 0-10 is itself; anything else is `undefined`
+ * (invalid — the form shows "Enter 0 to 10." and refuses to save).
+ */
+export function parseDecimalsInput(text: string): number | null | undefined {
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  if (!/^\d+$/.test(trimmed)) return undefined;
+  const n = Number(trimmed);
+  return n <= NUMBER_DECIMALS_MAX ? n : undefined;
+}
+
+/** The number-format part of a settings field form (#1391). Decimals is kept as the typed text so an invalid entry can be shown and corrected. */
+export interface NumberFormatDraft {
+  number_prefix: string;
+  number_suffix: string;
+  number_decimals: string;
+}
+
+export const EMPTY_NUMBER_FORMAT: NumberFormatDraft = { number_prefix: "", number_suffix: "", number_decimals: "" };
+
+export function numberFormatDraftFrom(d: { number_prefix: string; number_suffix: string; number_decimals: number | null }): NumberFormatDraft {
+  return {
+    number_prefix: d.number_prefix,
+    number_suffix: d.number_suffix,
+    number_decimals: d.number_decimals === null ? "" : String(d.number_decimals),
+  };
+}
+
+/**
+ * The payload half of a settings save. A non-number type sends none of the
+ * keys: the server clears a stored format when a field is retyped away from
+ * number, so omitting them keeps every other type's request exactly as it
+ * was before #1391. Returns `null` when the decimals text is invalid — the
+ * caller refuses to save.
+ */
+export function numberFormatPayload(
+  isNumber: boolean,
+  draft: NumberFormatDraft
+): { number_prefix?: string; number_suffix?: string; number_decimals?: number | null } | null {
+  if (!isNumber) return {};
+  const decimals = parseDecimalsInput(draft.number_decimals);
+  if (decimals === undefined) return null;
+  return { number_prefix: draft.number_prefix, number_suffix: draft.number_suffix, number_decimals: decimals };
 }

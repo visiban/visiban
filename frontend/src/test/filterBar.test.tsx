@@ -577,7 +577,7 @@ describe('FilterBar — URL custom fields (#1390)', () => {
     const board = makeBoard()
     board.custom_field_definitions = [{
       id: 7, uid: 'cfuid007', name: 'Docs', field_type: 'url', choices: [], position: 0,
-      show_on_card: true, is_required: false, help_text: '', created_at: '',
+      show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, created_at: '',
     }]
     const onChange = vi.fn()
     render(
@@ -601,7 +601,7 @@ describe('FilterBar — multi-select custom fields (#1391)', () => {
     board.custom_field_definitions = [{
       id: 8, uid: 'cfuid008', name: 'Platforms', field_type: 'multi_select',
       choices: ['web', 'ios'], position: 0, show_on_card: true, is_required: false,
-      help_text: '', created_at: '',
+      help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, created_at: '',
     }]
     return board
   }

@@ -72,6 +72,7 @@ function makeDef(overrides: Partial<SwimlaneCustomFieldDefinition> = {}): Swimla
   return {
     id: 1, uid: 'sfuid0000001', name: 'Owner', field_type: 'text', choices: [], position: 0,
     show_on_row: true, is_admin_only: false, is_required: false, help_text: '',
+    number_prefix: '', number_suffix: '', number_decimals: null,
     created_at: '2026-01-01', ...overrides,
   }
 }
@@ -967,5 +968,62 @@ describe('Swimlane multi-select fields (#1391)', () => {
     expect(onChange).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(onChange).toHaveBeenCalledWith('["EMEA","APAC"]')
+  })
+})
+
+describe('BoardSettingsSwimlaneFieldsTab — number format (#1391)', () => {
+  beforeEach(() => {
+    Object.values(mockApi).forEach((m) => m.mockReset())
+  })
+
+  function renderTab(defs: SwimlaneCustomFieldDefinition[]) {
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
+  }
+
+  it('shows the Format block only for number and sends the options on create', async () => {
+    const user = userEvent.setup()
+    mockApi.createSwimlaneCustomFieldDefinition.mockResolvedValue(makeDef({ id: 9, name: 'ARR', field_type: 'number' }))
+    renderTab([])
+    await user.click(screen.getByRole('button', { name: '+ Add field' }))
+    await user.type(screen.getByPlaceholderText('e.g. Account owner'), 'ARR')
+    expect(screen.queryByText('Format')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /# Number/ }))
+    await user.type(screen.getByLabelText('Prefix'), '€')
+    await user.type(screen.getByLabelText('Suffix'), 'k')
+    await user.type(screen.getByLabelText('Decimals'), '1')
+    expect(screen.getByText('Preview: €1,234.5k')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save field' }))
+    await waitFor(() => expect(mockApi.createSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, {
+      name: 'ARR', field_type: 'number', choices: undefined, help_text: undefined, is_admin_only: true,
+      number_prefix: '€', number_suffix: 'k', number_decimals: 1,
+    }))
+  })
+
+  it('refuses to save an out-of-range decimals value', async () => {
+    const user = userEvent.setup()
+    renderTab([])
+    await user.click(screen.getByRole('button', { name: '+ Add field' }))
+    await user.type(screen.getByPlaceholderText('e.g. Account owner'), 'ARR')
+    await user.click(screen.getByRole('button', { name: /# Number/ }))
+    await user.type(screen.getByLabelText('Decimals'), '-1')
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter 0 to 10.')
+    await user.click(screen.getByRole('button', { name: 'Save field' }))
+    expect(mockApi.createSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+  })
+
+  it('loads and patches an existing format', async () => {
+    const user = userEvent.setup()
+    const def = makeDef({ id: 3, name: 'ARR', field_type: 'number', number_prefix: '$', number_decimals: 2 })
+    mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue({ ...def, number_decimals: null })
+    renderTab([def])
+    await user.click(screen.getByTitle('Edit ARR'))
+    expect(screen.getByLabelText('Prefix')).toHaveValue('$')
+    expect(screen.getByText('Preview: $1,234.50')).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Decimals'))
+    expect(screen.getByText('Preview: $1234.5')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save field' }))
+    await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 3, expect.objectContaining({
+      number_prefix: '$', number_suffix: '', number_decimals: null,
+    })))
   })
 })

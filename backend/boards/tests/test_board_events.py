@@ -332,6 +332,41 @@ class EveryEmittedEventIsPersistedTests(BoardEventTestBase):
             [{"field_definition": created.data["id"], "value": '["web","ios"]'}],
         )
 
+    def test_number_format_definition_events_are_persisted(self):
+        """#1391 (MR B): the number-format options ride the definition events
+        for both card and swimlane fields — additive keys, full serializer."""
+        c = self.client_for(self.owner)
+        b = self.board.pk
+        created = c.post(
+            f"/api/v1/boards/{b}/custom-fields/",
+            {"name": "Budget", "field_type": "number", "number_prefix": "$",
+             "number_decimals": 2},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        updated = c.patch(
+            f"/api/v1/boards/{b}/custom-fields/{created.data['id']}/",
+            {"number_suffix": " USD"}, format="json",
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        row = c.post(
+            f"/api/v1/boards/{b}/swimlane-custom-fields/",
+            {"name": "ARR", "field_type": "number", "number_suffix": "k"},
+            format="json",
+        )
+        self.assertEqual(row.status_code, 201, row.data)
+        events = {e.event: e.data for e in self.events()}
+        self.assertEqual(
+            {k: events["custom_field.created"][k] for k in ("number_prefix", "number_suffix", "number_decimals")},
+            {"number_prefix": "$", "number_suffix": "", "number_decimals": 2},
+        )
+        self.assertEqual(events["custom_field.updated"]["number_suffix"], " USD")
+        self.assertEqual(events["custom_field.updated"]["number_prefix"], "$")
+        self.assertEqual(
+            {k: events["swimlane_custom_field.created"][k] for k in ("number_prefix", "number_suffix", "number_decimals")},
+            {"number_prefix": "", "number_suffix": "k", "number_decimals": None},
+        )
+
     def test_custom_field_schema_change_replays_from_a_cursor(self):
         c = self.client_for(self.owner)
         cursor = record_board_event(self.board.id, "card.created", {"n": 0})
