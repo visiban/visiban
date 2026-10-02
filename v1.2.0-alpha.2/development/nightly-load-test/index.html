@@ -3905,8 +3905,10 @@ endpoints.</p>
 <p>The scheduled run is blocking (not <code>allow_failure</code>), so a budget violation fails the pipeline.
 GitLab emails every project maintainer who has "Failed pipeline" notifications enabled
 (<strong>Profile → Notifications → Global notification level → "Watch"</strong>, or per-project under
-<strong>Project → Notification settings</strong>) — the same mechanism the weekly CVE scan
-(<code>backend-dep-scan</code> / <code>frontend-dep-scan</code>) already relies on.</p>
+<strong>Project → Notification settings</strong>) — the same mechanism the nightly CVE scan
+(<code>backend-dep-scan</code> / <code>frontend-dep-scan</code>, on the separate Nightly schedule) already relies
+on. The load test keeps its own schedule rather than joining that one because its latency
+budgets are noisy on a busy runner — see <a href="../ci-gates/#scheduled-pipelines">Scheduled pipelines</a>.</p>
 
 
 

@@ -2722,24 +2722,30 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#known-gaps-and-deferred-work" class="md-nav__link">
+  <a href="#scheduled-pipelines" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Known gaps and deferred work
+        Scheduled pipelines
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scheduled pipelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changing-a-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing a schedule
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-matters-here-specifically" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why this matters here specifically
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3934,7 +3940,12 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/check-pipeline-schedules.sh</code></td>
 <td><code>schedule-config-check</code> (scheduled pipelines only)</td>
-<td>#1213: <code>nightly-load-test</code>'s GitLab pipeline schedule was never configured, and nothing asserted it existed — same failure shape as <code>check-release-images</code>. Self-test stubs <code>SCHEDULE_PROBE</code> with fixed JSON covering a covered variable, one with no schedule at all, one on an <code>active:false</code> schedule, one set to <code>"false"</code>, an <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> entry, a probe failure (must fail open, not report a false MISSING), and a CI file with no schedule-gated rules at all. See <a href="../nightly-load-test/#the-schedule">Nightly load test § The schedule</a>.</td>
+<td>#1213: <code>nightly-load-test</code>'s GitLab pipeline schedule was never configured, and nothing asserted it existed — same failure shape as <code>check-release-images</code>. Self-test stubs <code>SCHEDULE_PROBE</code> with fixed JSON covering a covered variable, one with no schedule at all, one on an <code>active:false</code> schedule, one set to <code>"false"</code>, an <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> entry, a probe failure (must fail open, not report a false MISSING), a CI file with no schedule-gated rules at all, and (#1383) the real probe falling through from a rejected <code>CI_JOB_TOKEN</code> to <code>GITLAB_API_TOKEN</code>. See <a href="../nightly-load-test/#the-schedule">Nightly load test § The schedule</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/fuzz_deep_file_issue.py</code></td>
+<td><code>backend-schema-fuzz-deep</code> (Nightly schedule only)</td>
+<td>#1383: the deep fuzz job is <code>allow_failure: true</code>, so a finding shows as a yellow job in a green pipeline and emails nobody. This script, run from <code>after_script</code> on failure, keeps one open tracking issue: it files it, or comments on it when it is already open. Self-test (run in <code>script:</code> before the fuzz) covers report-only with no token (no API call at all), a comment on an existing exact-title match (a near-miss search hit must not count), a new issue via the <code>KAIZEN_API_TOKEN</code> fallback, failing open on an API error, and quick-action smuggling: a multi-line <code>FUZZ_SEED</code> becomes <code>invalid</code>, and no CI-variable text can start a body line with <code>/</code>. The job files only when a marker written after the self-test exists, so a self-test or setup failure is never reported as a schema-fuzz finding.</td>
 </tr>
 <tr>
 <td><code>scripts/sonar-scan.sh</code></td>
@@ -3960,6 +3971,98 @@ any CI job — see below.</p>
 <li><code>check-added-files-covered.mjs</code> rejects a <code>--target-ref</code> that starts with <code>-</code>.</li>
 </ul>
 <p>Run <code>python scripts/_paths.py --self-test</code> to exercise the helper (<code>..</code> traversal, symlink escape, filesystem-root cwd); the <code>rbac-coverage</code> job runs it.</p>
+<h2 id="scheduled-pipelines">Scheduled pipelines<a class="headerlink" href="#scheduled-pipelines" title="Permanent link">&para;</a></h2>
+<p>A scheduled pipeline on <code>main</code> runs the <strong>whole</strong> pipeline, not just the schedule-gated jobs:
+the <code>$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</code> rules match a schedule, and <code>changes:</code> rules
+evaluate true on one. Every extra schedule therefore costs a full pipeline (about 48 jobs).
+So the project keeps <strong>two</strong> schedules (#1383), not one per job:</p>
+<table>
+<thead>
+<tr>
+<th>Schedule (id)</th>
+<th>Cron (UTC)</th>
+<th>Variables</th>
+<th>Owner</th>
+<th>Jobs it adds</th>
+<th>What red means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nightly (CVE/OSV, Sonar, deep fuzz, kaizen) (4176726)</td>
+<td><code>0 5 * * *</code></td>
+<td><code>CVE_SCAN</code>, <code>OSV_SCAN</code>, <code>SONAR_SCHEDULED</code>, <code>FUZZ_DEEP</code>, <code>KAIZEN_YIELD_WATCH</code> (all <code>true</code>)</td>
+<td>maintainers (schedule owner: <code>kellyhair</code>)</td>
+<td><code>backend-dep-scan</code>, <code>frontend-dep-scan</code> (blocking); <code>dep-scan-osv</code> (blocking on HIGH/CRITICAL, warns otherwise); <code>sonar:scan</code>, <code>backend-schema-fuzz-deep</code>, <code>kaizen-yield-watch</code> (all <code>allow_failure: true</code>)</td>
+<td><strong>Red:</strong> a dependency on <code>main</code> has a new HIGH/CRITICAL advisory, or an ordinary <code>main</code> job failed. Fix or document it (an expiring <code>IgnoredVulns</code> entry for OSV). <strong>Yellow <code>backend-schema-fuzz-deep</code>:</strong> a real API contract defect, never a flake (#1165); see its tracking issue. <strong>Yellow <code>sonar:scan</code>:</strong> the SonarCloud dashboard did not refresh that night.</td>
+</tr>
+<tr>
+<td>Nightly load test (#1082) (4463581)</td>
+<td><code>0 3 * * *</code></td>
+<td><code>LOAD_TEST_SCHEDULE=true</code></td>
+<td>maintainers (schedule owner: <code>kellyhair</code>)</td>
+<td><code>nightly-load-test</code> (blocking)</td>
+<td>A p95 budget was exceeded; see <a href="../nightly-load-test/">Nightly load test</a>.</td>
+</tr>
+</tbody>
+</table>
+<p>Both schedules also run every ordinary <code>main</code> job, plus the jobs that use any scheduled
+pipeline as their slot: <code>schedule-config-check</code>, <code>check-release-images</code>,
+<code>cleanup-merged-branches</code>. The helm and compose drills (<code>helm-install</code>, <code>helm-netpol</code>,
+<code>compose-prod-drill</code>) skip any schedule that sets <code>SONAR_SCHEDULED</code>, so they run on the
+load-test schedule only. The load test keeps its own schedule, two hours earlier, because its
+latency budgets are noisy on a busy runner. <code>backend-schema-fuzz</code>, the MR job, never runs on
+a schedule; <code>backend-schema-fuzz-deep</code> replaces it there.</p>
+<p><code>seed-demo-data</code>'s weekly refresh (<code>SEED_SCHEDULE</code>) still has no schedule. It needs the demo
+environment's <code>DEMO_*</code> variables, so it is an accepted gap tracked in #1232.</p>
+<h3 id="changing-a-schedule">Changing a schedule<a class="headerlink" href="#changing-a-schedule" title="Permanent link">&para;</a></h3>
+<p>Schedules are GitLab project configuration (<strong>Build → Pipeline schedules</strong>), not files in this
+repository. <code>schedule-config-check</code> runs on every scheduled pipeline. It fails if any
+<code>$CI_PIPELINE_SOURCE == "schedule" &amp;&amp; $VAR == "true"</code> rule in <code>.gitlab-ci.yml</code> has no
+active schedule setting <code>VAR=true</code>, unless the variable is listed in
+<code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">The check only asserts anything when <code>GITLAB_API_TOKEN</code> is configured</p>
+<p>A job's <code>CI_JOB_TOKEN</code> cannot read pipeline schedules. Without a <code>GITLAB_API_TOKEN</code> CI
+variable (project access token, Reporter role or above, <code>read_api</code> scope), the lookup is
+inconclusive and the job <strong>warns and passes</strong>. As of #1383 no such variable exists on the
+project or the group, so the check is currently a warning only. Until it is configured, a
+schedule missing a variable goes unreported, which is the gap #1213 was filed over. Before</p>
+<h1 id="1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying">1383 the script also stopped at the rejected job token instead of trying<a class="headerlink" href="#1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying" title="Permanent link">&para;</a></h1>
+<p><code>GITLAB_API_TOKEN</code>. It now falls through to it.</p>
+</div>
+<p>Once <code>GITLAB_API_TOKEN</code> is configured, the order of a change matters:</p>
+<ul>
+<li><strong>Adding a schedule-gated job:</strong> add the variable to a schedule <strong>first</strong>. Extra variables
+  that no rule reads are harmless. Then merge the rule. In the reverse order, the next
+  scheduled pipeline reports the variable <code>MISSING</code>.</li>
+<li><strong>Removing a schedule-gated job:</strong> merge the removal first, then drop the variable from the
+  schedule.</li>
+</ul>
+<p>The check only reads <code>.gitlab-ci.yml</code> from the commit the schedule runs, so it never fails an
+MR or push pipeline. It fails the next scheduled pipeline on <code>main</code> after the merge.</p>
+<h3 id="the-readme-pipeline-badge">The README pipeline badge<a class="headerlink" href="#the-readme-pipeline-badge" title="Permanent link">&para;</a></h3>
+<p><strong>Decision (#1383): the README badge keeps tracking the latest <code>main</code> pipeline, schedules
+included.</strong> A red scheduled pipeline turns the badge red, which is deliberate. Both schedules
+feed it, including the 03:00 load-test pipeline. GitLab's pipeline badge
+can filter by ref and <code>ignore_skipped</code> but not by pipeline source, and the shields.io GitLab
+pipeline badge reads the same latest-pipeline-per-ref data. A schedule-free badge would mean
+running and maintaining a new endpoint, a service this project does not have. More
+importantly, every reason the badge can go red is a real problem with <code>main</code>, not a stochastic
+or external blip. Visiban is self-hosted, so for someone deciding whether to deploy <code>main</code>,
+that is exactly what a public status badge should show.</p>
+<p>The badge can go red for three reasons:</p>
+<ul>
+<li><code>nightly-load-test</code> goes over a latency budget. It is blocking and the noisiest of the
+  three, because budgets move on a busy shared runner. The 2026-09-30 red was this.</li>
+<li>A real HIGH/CRITICAL CVE or OSV advisory lands against a dependency of <code>main</code>.</li>
+<li>An ordinary <code>main</code> job really fails in a scheduled run (for example, the 2026-10-01
+  <code>frontend-test</code> red).</li>
+</ul>
+<p>Deep fuzz, Sonar and kaizen are <code>allow_failure: true</code> and <strong>cannot</strong> turn the badge red. The
+load test is the case most likely to reopen this decision. If its noise starts making the
+badge meaningless, the fix belongs in the load test's budgets, not in the badge. To revisit the
+decision, change this section and <code>README.md</code> together.</p>
 <h2 id="known-gaps-and-deferred-work">Known gaps and deferred work<a class="headerlink" href="#known-gaps-and-deferred-work" title="Permanent link">&para;</a></h2>
 <p>Not every bespoke script called out when #1093 was filed got a self-test in the same pass.
 Deferred deliberately, not silently:</p>

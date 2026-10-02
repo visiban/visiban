@@ -3785,8 +3785,12 @@ nobody does, the next run re-derives the same result.</p>
 </ul>
 <p>See <a href="../ci-gates/#path-containment-for-cli-arguments">CI gate scripts and path containment</a> for the shared helper.</p>
 <h2 id="scheduled-job">Scheduled job<a class="headerlink" href="#scheduled-job" title="Permanent link">&para;</a></h2>
-<p><code>kaizen-yield-watch</code> runs only in scheduled pipelines that set <code>KAIZEN_YIELD_WATCH=true</code>
-(CI/CD, Schedules; suggested weekly). It is <code>allow_failure: true</code> and <strong>fails open</strong>: an
+<p><code>kaizen-yield-watch</code> runs only in scheduled pipelines that set <code>KAIZEN_YIELD_WATCH=true</code>,
+which the consolidated Nightly schedule does (#1383; see
+<a href="../ci-gates/#scheduled-pipelines">Scheduled pipelines</a>). Daily is more often than it needs,
+but it is one small job in a pipeline that runs anyway; a separate weekly schedule would
+spawn a whole extra full pipeline just for this report. Each run folds only MRs past the
+committed watermark, so a daily cadence never double counts. It is <code>allow_failure: true</code> and <strong>fails open</strong>: an
 inconclusive GitLab API lookup is a warning and exit 0, matching
 <code>scripts/check-suppression-issues.sh</code>.</p>
 <h2 id="auto-filing-issues-opt-in">Auto-filing issues (opt-in)<a class="headerlink" href="#auto-filing-issues-opt-in" title="Permanent link">&para;</a></h2>

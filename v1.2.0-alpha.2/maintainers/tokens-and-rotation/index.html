@@ -3535,6 +3535,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deep-fuzz-and-kaizen-issue-filing-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deep-fuzz and kaizen issue-filing tokens
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#docs_deploy_token-historical-note-and-current-status" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3796,6 +3807,30 @@ describe where it lives instead.</p>
 <td><code>backend-docker-build</code> / <code>frontend-docker-build</code> (MR-time, <code>--no-push</code> build verification) and <code>.kaniko-push-common</code> / <code>backend-docker-push</code>, <code>frontend-docker-push</code> (main/tag pushes) — populates kaniko's <code>/kaniko/.docker/config.json</code> so Docker Hub <code>FROM</code> base-image pulls (<code>python:3.12-slim</code>, <code>node:20-alpine</code>, <code>nginx:1.27-alpine</code>) use the authenticated 200-pulls/hour tier instead of the 100/hour anonymous tier shared across the runner's IP (#1198). Being <code>protected</code>, it does <strong>not</strong> reach MR pipelines from unprotected branches — those still pull anonymously.</td>
 <td>TBD — confirm expiry set on Docker Hub</td>
 </tr>
+<tr>
+<td><code>GITLAB_API_TOKEN</code> (optional — <strong>not yet created</strong>)</td>
+<td>GitLab project access token, Reporter role, <code>read_api</code> scope</td>
+<td>TBD</td>
+<td>GitLab CI/CD variable (protected, masked)</td>
+<td><code>schedule-config-check</code> (reads pipeline schedules; <code>CI_JOB_TOKEN</code> cannot) and <code>suppressions-check</code> / <code>kaizen-yield-watch</code> as a read fallback. Without it, <code>schedule-config-check</code> warns and passes — see <a href="../../development/ci-gates/#scheduled-pipelines">Scheduled pipelines</a></td>
+<td>n/a until created</td>
+</tr>
+<tr>
+<td><code>FUZZ_DEEP_API_TOKEN</code> (optional — <strong>not yet created</strong>)</td>
+<td>GitLab project access token, Reporter role, <code>api</code> scope (Reporter is enough to create issues and comment)</td>
+<td>TBD</td>
+<td>GitLab CI/CD variable (protected, masked)</td>
+<td><code>backend-schema-fuzz-deep</code> <code>after_script</code> (<code>scripts/fuzz_deep_file_issue.py</code>) — files or comments on the deep-fuzz tracking issue. Falls back to <code>KAIZEN_API_TOKEN</code>; see <a href="#deep-fuzz-and-kaizen-issue-filing-tokens">below</a></td>
+<td>n/a until created</td>
+</tr>
+<tr>
+<td><code>KAIZEN_API_TOKEN</code> (optional — <strong>not yet created</strong>)</td>
+<td>GitLab project access token, Reporter role, <code>api</code> scope</td>
+<td>TBD</td>
+<td>GitLab CI/CD variable (protected, masked)</td>
+<td><code>kaizen-yield-watch</code> issue filing (only with <code>KAIZEN_FILE_ISSUES=true</code>); also the fallback filer token for <code>backend-schema-fuzz-deep</code></td>
+<td>n/a until created</td>
+</tr>
 </tbody>
 </table>
 <h2 id="runner_status_token"><code>RUNNER_STATUS_TOKEN</code><a class="headerlink" href="#runner_status_token" title="Permanent link">&para;</a></h2>
@@ -3854,6 +3889,16 @@ tokens, find both tokens, and record their expiry dates here. Until that happens
 as <strong>could expire at any time</strong> — a sudden <code>github-release</code> or GHCR push failure with an auth
 error is the first symptom, and by then it's already an incident. Do not let this line sit as
 long as the two memory notes below did (~5 months pending).</p>
+<h2 id="deep-fuzz-and-kaizen-issue-filing-tokens">Deep-fuzz and kaizen issue-filing tokens<a class="headerlink" href="#deep-fuzz-and-kaizen-issue-filing-tokens" title="Permanent link">&para;</a></h2>
+<p><code>scripts/fuzz_deep_file_issue.py</code> (#1383) uses <code>FUZZ_DEEP_API_TOKEN</code> and falls back to
+<code>KAIZEN_API_TOKEN</code> when that is unset, so a project can run on one issue-filing token.
+A project access token with <strong>Reporter</strong> role and <code>api</code> scope is enough: Reporter can create
+issues and comment, and nothing here needs a higher role. Neither token exists yet. Until one
+does, both jobs only report what they would have filed.</p>
+<p>The fallback <strong>ties the two tokens' rotation together</strong>. If only <code>KAIZEN_API_TOKEN</code> is
+configured, it is also the deep-fuzz filer, so revoking or rotating it silently stops deep-fuzz
+filing too. Rotate or revoke it as a deep-fuzz credential as well as a kaizen one. To separate
+them, create <code>FUZZ_DEEP_API_TOKEN</code>, which takes precedence.</p>
 <h2 id="docs_deploy_token-historical-note-and-current-status"><code>DOCS_DEPLOY_TOKEN</code> — historical note and current status<a class="headerlink" href="#docs_deploy_token-historical-note-and-current-status" title="Permanent link">&para;</a></h2>
 <p>A memory note dated 2026-04-07 recorded <code>DOCS_DEPLOY_TOKEN</code> as mistakenly set to a GitHub
 PAT (<code>ghp_...</code>), which GitLab's git auth would reject when <code>mike</code> tries to push to
