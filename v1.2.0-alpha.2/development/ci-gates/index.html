@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.2/development/ci-gates/">
       
       
-        <link rel="prev" href="../database-migrations/">
+        <link rel="prev" href="../dependency-lock/">
       
       
         <link rel="next" href="../serializer-ts-parity/">
@@ -2197,6 +2197,8 @@
       
         
       
+        
+      
     
     
     
@@ -2521,6 +2523,34 @@
     
   
     Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dependency-lock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
   
 
     
@@ -3759,6 +3789,11 @@ own header — is never mistaken for a real exemption.</p>
 <td><code>scripts/helm-structure-check.sh</code></td>
 <td><code>helm-lint</code></td>
 <td><code>--self-test</code> injects each defect class into a throwaway copy of the chart.</td>
+</tr>
+<tr>
+<td><code>scripts/lock-backend-requirements.sh</code></td>
+<td><code>backend-lock-check</code></td>
+<td>Network-free self-test swaps in a stub <code>uv</code> and a synthetic <code>backend/</code> tree, then proves a fresh lock passes <code>--check</code>, a drifted <code>requirements.txt</code> makes <code>--check</code> exit non-zero, and an unknown argument is rejected (<a href="https://gitlab.com/visiban/visiban/-/issues/1378">#1378</a>).</td>
 </tr>
 <tr>
 <td><code>scripts/check-migration-numbering.sh</code></td>

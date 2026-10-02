@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.2/features/appearance/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.2/development/dependency-lock/">
       
       
-        <link rel="prev" href="../keyboard-shortcuts/">
+        <link rel="prev" href="../database-migrations/">
       
       
-        <link rel="next" href="../personal-access-tokens/">
+        <link rel="next" href="../ci-gates/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Appearance - Visiban</title>
+        <title>Backend Dependency Lock - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#appearance" class="md-skip">
+        <a href="#backend-dependency-lock" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Appearance
+              Backend Dependency Lock
             
           </span>
         </div>
@@ -266,13 +266,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
           
   
   
@@ -312,10 +310,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../architecture/" class="md-tabs__link">
           
   
@@ -785,8 +785,6 @@
       
   
   
-    
-  
   
   
     
@@ -846,23 +844,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../features/" class="md-nav__link ">
               
   
   
@@ -880,13 +875,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -906,7 +901,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../board/" class="md-nav__link">
+      <a href="../../features/board/" class="md-nav__link">
         
   
   
@@ -934,7 +929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../trello-import/" class="md-nav__link">
+      <a href="../../features/trello-import/" class="md-nav__link">
         
   
   
@@ -962,7 +957,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-archiving/" class="md-nav__link">
+      <a href="../../features/card-archiving/" class="md-nav__link">
         
   
   
@@ -990,7 +985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-descriptions/" class="md-nav__link">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
         
   
   
@@ -1018,7 +1013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../saved-filters/" class="md-nav__link">
+      <a href="../../features/saved-filters/" class="md-nav__link">
         
   
   
@@ -1046,7 +1041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../custom-fields/" class="md-nav__link">
+      <a href="../../features/custom-fields/" class="md-nav__link">
         
   
   
@@ -1074,7 +1069,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-relations/" class="md-nav__link">
+      <a href="../../features/card-relations/" class="md-nav__link">
         
   
   
@@ -1102,7 +1097,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-links/" class="md-nav__link">
+      <a href="../../features/card-links/" class="md-nav__link">
         
   
   
@@ -1130,7 +1125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analytics/" class="md-nav__link">
+      <a href="../../features/analytics/" class="md-nav__link">
         
   
   
@@ -1158,7 +1153,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../notifications/" class="md-nav__link">
+      <a href="../../features/notifications/" class="md-nav__link">
         
   
   
@@ -1186,7 +1181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../realtime/" class="md-nav__link">
+      <a href="../../features/realtime/" class="md-nav__link">
         
   
   
@@ -1214,7 +1209,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-history/" class="md-nav__link">
+      <a href="../../features/card-history/" class="md-nav__link">
         
   
   
@@ -1242,7 +1237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stable-uids/" class="md-nav__link">
+      <a href="../../features/stable-uids/" class="md-nav__link">
         
   
   
@@ -1270,7 +1265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../groups/" class="md-nav__link">
+      <a href="../../features/groups/" class="md-nav__link">
         
   
   
@@ -1298,7 +1293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../navigation/" class="md-nav__link">
+      <a href="../../features/navigation/" class="md-nav__link">
         
   
   
@@ -1326,7 +1321,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keyboard-shortcuts/" class="md-nav__link">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
         
   
   
@@ -1351,37 +1346,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Appearance
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
         
   
   
@@ -1397,109 +1365,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#changing-your-appearance" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing your appearance
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#system-auto-option" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        System (auto) option
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="System (auto) option">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#macos" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        macOS
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windows-11" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Windows 11
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#linux-gnome-42" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Linux (GNOME 42+)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#light-palette-availability" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Light palette availability
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#whats-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What's next
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1512,7 +1377,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../personal-access-tokens/" class="md-nav__link">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
         
   
   
@@ -1540,7 +1405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-server/" class="md-nav__link">
+      <a href="../../features/mcp-server/" class="md-nav__link">
         
   
   
@@ -1568,7 +1433,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../permissions/" class="md-nav__link">
+      <a href="../../features/permissions/" class="md-nav__link">
         
   
   
@@ -1596,7 +1461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../feature-toggles/" class="md-nav__link">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
         
   
   
@@ -1624,7 +1489,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../issue-board-lens/" class="md-nav__link">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
         
   
   
@@ -1670,13 +1535,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -1684,7 +1546,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../rbac/" class="md-nav__link ">
+            <a href="../../features/rbac/" class="md-nav__link ">
               
   
   
@@ -1702,7 +1564,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1728,7 +1590,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/roles/" class="md-nav__link">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
         
   
   
@@ -1756,7 +1618,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/inheritance/" class="md-nav__link">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
         
   
   
@@ -1784,7 +1646,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/managing/" class="md-nav__link">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
         
   
   
@@ -2288,6 +2150,8 @@
       
   
   
+    
+  
   
   
     
@@ -2339,16 +2203,19 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -2370,13 +2237,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2620,7 +2487,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/testing/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
@@ -2648,7 +2515,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/database-migrations/" class="md-nav__link">
+      <a href="../database-migrations/" class="md-nav__link">
         
   
   
@@ -2673,10 +2540,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../development/dependency-lock/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2692,6 +2586,59 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#regenerating-the-lock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regenerating the lock
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-dj-rest-auth-sdist-exception" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The dj-rest-auth sdist exception
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-test-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI test jobs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2704,7 +2651,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/ci-gates/" class="md-nav__link">
+      <a href="../ci-gates/" class="md-nav__link">
         
   
   
@@ -2732,7 +2679,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
         
   
   
@@ -2760,7 +2707,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/rbac-and-broadcast-gates/" class="md-nav__link">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
         
   
   
@@ -2788,7 +2735,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/suppressions/" class="md-nav__link">
+      <a href="../suppressions/" class="md-nav__link">
         
   
   
@@ -2816,7 +2763,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
         
   
   
@@ -2844,7 +2791,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+      <a href="../websocket-event-contract/" class="md-nav__link">
         
   
   
@@ -2872,7 +2819,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/nightly-load-test/" class="md-nav__link">
+      <a href="../nightly-load-test/" class="md-nav__link">
         
   
   
@@ -2900,7 +2847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/load-test-version-benchmarks/" class="md-nav__link">
+      <a href="../load-test-version-benchmarks/" class="md-nav__link">
         
   
   
@@ -3663,67 +3610,80 @@
   
 
 
-<h1 id="appearance">Appearance<a class="headerlink" href="#appearance" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
-<p>Visiban offers a per-user appearance preference with three options.</p>
+<h1 id="backend-dependency-lock">Backend Dependency Lock<a class="headerlink" href="#backend-dependency-lock" title="Permanent link">&para;</a></h1>
+<p>The backend images install from <code>backend/requirements.lock</code>, a fully resolved,
+hash-pinned file, not from <code>backend/requirements.txt</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Option</th>
-<th>Behavior</th>
+<th>File</th>
+<th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>System</strong> (default)</td>
-<td>Follows your operating system's light/dark preference, and updates live when you change it at the OS level.</td>
+<td><code>backend/requirements.txt</code></td>
+<td>Human-edited source: direct dependencies plus security floors and pins. Edit this one.</td>
 </tr>
 <tr>
-<td><strong>Dark</strong></td>
-<td>Always use the dark palette, regardless of OS preference.</td>
+<td><code>backend/requirements-build.in</code> / <code>.lock</code></td>
+<td>Build backend (<code>setuptools</code>) for the one sdist-only dependency; see below.</td>
 </tr>
 <tr>
-<td><strong>Light</strong></td>
-<td>Always use the light palette, regardless of OS preference.</td>
+<td><code>backend/requirements.lock</code></td>
+<td>Generated. Every direct and transitive package pinned with <code>sha256</code> hashes for all platforms (including linux x86_64 and aarch64). Never edit by hand.</td>
 </tr>
 </tbody>
 </table>
-<p>The preference is stored with your account, so it follows you to every browser and device you sign in on — see <a href="#changing-your-appearance">below</a> for when it takes effect.</p>
-<h2 id="changing-your-appearance">Changing your appearance<a class="headerlink" href="#changing-your-appearance" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Click your avatar in the top-right corner and select <strong>Profile &amp; preferences</strong>.</li>
-<li>Open the <strong>Appearance</strong> tab in the Settings sidebar.</li>
-<li>Under <strong>Theme</strong>, choose one of the three options.</li>
-<li>The change takes effect immediately — no page reload.</li>
-</ol>
-<p>Your choice is remembered across logins and syncs instantly to any other tab in the same browser. It reaches your other browsers and devices the next time each one loads or reloads Visiban — there's no live push between already-open sessions on different devices.</p>
-<h2 id="system-auto-option">System (auto) option<a class="headerlink" href="#system-auto-option" title="Permanent link">&para;</a></h2>
-<p><strong>System</strong> follows your operating system's appearance preference via the standard <code>prefers-color-scheme</code> signal. When your OS switches modes (e.g. a scheduled night-shift on macOS), Visiban picks it up without a page reload.</p>
-<h3 id="macos">macOS<a class="headerlink" href="#macos" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Open <strong>System Settings → Appearance</strong>.</li>
-<li>Choose <strong>Light</strong>, <strong>Dark</strong>, or <strong>Auto</strong> (switches automatically with sunrise/sunset).</li>
-<li>Visiban updates as soon as the setting changes — no action needed in the browser.</li>
-</ol>
-<h3 id="windows-11">Windows 11<a class="headerlink" href="#windows-11" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Open <strong>Settings → Personalization → Colors</strong>.</li>
-<li>Under <strong>Choose your mode</strong>, select <strong>Light</strong>, <strong>Dark</strong>, or <strong>Custom</strong>.</li>
-<li>Visiban's <strong>System</strong> option reads the app-level preference (the <strong>Choose your default app mode</strong> setting inside <strong>Custom</strong>), not the Windows mode.</li>
-</ol>
-<h3 id="linux-gnome-42">Linux (GNOME 42+)<a class="headerlink" href="#linux-gnome-42" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Open <strong>Settings → Appearance</strong>.</li>
-<li>Choose <strong>Default</strong> or <strong>Dark</strong>.</li>
-</ol>
-<p>Other desktop environments (KDE Plasma, XFCE, Cinnamon) expose the same <code>prefers-color-scheme</code> signal through their respective appearance settings; check your desktop's documentation for details.</p>
-<h2 id="light-palette-availability">Light palette availability<a class="headerlink" href="#light-palette-availability" title="Permanent link">&para;</a></h2>
-<p><strong>Light</strong> is available by default in every Visiban installation.</p>
-<p>Administrators who want to hide it — for example, on an install-specific fork that hasn't adopted the light palette — can set the build-time environment variable <code>VITE_THEME_LIGHT_ENABLED=false</code> when building the frontend image. <strong>System</strong> and <strong>Dark</strong> are always available regardless.</p>
-<h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
-<p>A custom color scheme option is under discussion in <a href="https://gitlab.com/visiban/visiban/-/issues/251">#251</a>, with no committed timing.</p>
+<p>Both <code>backend/Dockerfile</code> and <code>backend/Dockerfile.prod</code> install with
+<code>--only-binary :all: --require-hashes</code>. Pip therefore never runs a package's
+<code>setup.py</code> and rejects any file whose hash is not in the lock (SonarCloud
+<code>docker:S8541</code> / <code>docker:S8544</code>, #1378).</p>
+<h2 id="regenerating-the-lock">Regenerating the lock<a class="headerlink" href="#regenerating-the-lock" title="Permanent link">&para;</a></h2>
+<p>After any change to <code>backend/requirements.txt</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--require-hashes<span class="w"> </span>-r<span class="w"> </span>scripts/uv-requirements.txt<span class="w">   </span><span class="c1"># pinned uv; or brew install uv at the same version</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>scripts/lock-backend-requirements.sh
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>git<span class="w"> </span>add<span class="w"> </span>backend/requirements.txt<span class="w"> </span>backend/requirements.lock<span class="w"> </span>backend/requirements-build.lock
+</code></pre></div>
+<p>The script runs <code>uv pip compile --universal --python-version 3.12
+--generate-hashes</code>, so one lock covers every platform for the images' Python
+(<code>python:3.12-slim</code>). uv (Apache-2.0 / MIT, 0.12.22) is pinned in the script so output is
+identical locally and in CI. Existing pins are kept unless <code>requirements.txt</code>
+forces a change; to pick up newer transitive versions, delete
+<code>backend/requirements.lock</code> and rerun the script.</p>
+<p>The <code>backend-lock-check</code> CI job runs <code>scripts/lock-backend-requirements.sh
+--check</code> (after a network-free <code>--self-test</code>) on any MR touching <code>requirements.txt</code>, the locks or the script and fails when they
+disagree.</p>
+<h2 id="the-dj-rest-auth-sdist-exception">The dj-rest-auth sdist exception<a class="headerlink" href="#the-dj-rest-auth-sdist-exception" title="Permanent link">&para;</a></h2>
+<p><code>dj-rest-auth</code> publishes only a source distribution on PyPI (re-checked for
+7.1.1; it is the only such package). The Dockerfiles pass
+<code>--no-binary dj-rest-auth</code>, which overrides <code>--only-binary :all:</code> for that single
+package and builds it into a wheel in the builder stage. Exactly what is and is
+not verified:</p>
+<ul>
+<li>Verified: every wheel and the <code>dj-rest-auth</code> sdist against their <code>sha256</code> in
+  <code>requirements.lock</code>.</li>
+<li>Verified: the build backend. <code>backend/requirements-build.lock</code> hash-pins
+  <code>setuptools</code>; the builder installs it with <code>--only-binary :all:
+  --require-hashes</code>, then builds with <code>--no-build-isolation</code>, so pip fetches no
+  unpinned build requirement. The package's <code>setup.py</code> does run, in the builder
+  stage only.</li>
+<li>Not verifiable: the hash of the locally built <code>dj-rest-auth</code> wheel. The runtime
+  stage installs <code>/wheels/*.whl</code> with <code>--no-index --no-deps</code>; the other wheels in
+  it were hash-checked in the builder. Both Dockerfiles use a builder/runtime
+  split, so <code>setuptools</code> and the build toolchain never ship in the images.</li>
+<li>CI installs uv from <code>scripts/uv-requirements.txt</code> with <code>--require-hashes</code>.</li>
+</ul>
+<p>If upstream starts publishing a wheel, drop <code>--no-binary</code>,
+<code>--no-build-isolation</code> and <code>requirements-build.*</code>. If another sdist-only package
+appears, <code>uv pip compile --only-binary :all:</code> fails loudly; add it to the same
+<code>--no-binary</code> list with a note here and make sure its build requirements are in
+<code>requirements-build.in</code>.</p>
+<h2 id="ci-test-jobs">CI test jobs<a class="headerlink" href="#ci-test-jobs" title="Permanent link">&para;</a></h2>
+<p>Test jobs still <code>pip install -r backend/requirements.txt</code>. They do not build
+images, so by design they track the latest compatible releases and catch
+upstream breakage early; only the shipped images install from the lock.</p>
+<p><code>backend-dep-scan</code> audits <code>requirements.lock</code> with <code>pip-audit --require-hashes</code>.</p>
 
 
 
