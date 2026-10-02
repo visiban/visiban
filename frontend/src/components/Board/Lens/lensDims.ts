@@ -28,11 +28,16 @@ export const LENS_NONE = "__none__";
 /**
  * Labels from the `?labels=` param: split, trimmed, deduped, sorted, capped.
  *
- * This deliberately mirrors `_parse_filters` in `backend/git_lens/views.py`
- * exactly. The sort is not cosmetic: the server hashes the sorted list into the
- * board cache key, so `?labels=b,a` and `?labels=a,b` are one cache entry and one
- * upstream fetch. Emitting an unsorted list from here would mint a second key for
- * the same filter on every reorder.
+ * This deliberately mirrors `_parse_filters` in `backend/git_lens/views.py` in
+ * its dedupe/sort/cap shape. The sort itself only needs to be deterministic
+ * here, not byte-identical to the server's: `_board_cache_key` re-derives
+ * `filters.labels` from `_parse_filters`'s own `sorted(...)` call, independent
+ * of whatever order the `?labels=` query string arrived in, so the cache key
+ * never depends on this function's comparator. What this sort buys is a stable
+ * canonical form on the frontend side, so `?labels=b,a` and `?labels=a,b`
+ * collapse to one URL and one `useMemo`/fetch key instead of two. Uses an
+ * explicit locale (not a bare `.sort()`'s UTF-16 code-unit order) so the
+ * canonical form doesn't flip between browsers.
  */
 export function parseLensLabels(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -41,7 +46,7 @@ export function parseLensLabels(raw: string | null | undefined): string[] {
     const value = chunk.trim();
     if (value) seen.add(value);
   }
-  return Array.from(seen).sort().slice(0, MAX_LENS_LABELS);
+  return Array.from(seen).sort((a, b) => a.localeCompare(b, "en")).slice(0, MAX_LENS_LABELS);
 }
 
 /** Canonical `?labels=` value for a selection — the inverse of parseLensLabels. */
