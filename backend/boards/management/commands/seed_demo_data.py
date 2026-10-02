@@ -59,10 +59,10 @@ Usage:
 
     python manage.py seed_demo_data --force --wipe --demo-site
         Hosted demo instance (#1034, try.visiban.com). In addition to the
-        normal demo board, seeds six showcase boards, each with a different
-        swimlane entity (#1389): Software Team, Property Management,
-        Construction, Sales Territory, Content Moderation and Logistics
-        Exceptions (16-20 cards each, with comments, assignees, labels,
+        normal demo board, seeds seven showcase boards, each with a different
+        swimlane entity (#1389, #1412): Software Team, Property Management,
+        Construction, Sales Territory, Sales Territory (Overlay), Content
+        Moderation and Logistics Exceptions (16-20 cards each, with comments, assignees, labels,
         movement history, checklists, card and swimlane custom fields, card
         relations and, on Software Team, MR/PR links; #1363 also gives them a
         fresh/aging/stale and due-date mix and seeds the visitor's
@@ -553,9 +553,9 @@ class Command(BaseCommand):
             "--demo-site",
             action="store_true",
             help=(
-                "Also seed the hosted-demo content (#1034, #1389): six showcase "
+                "Also seed the hosted-demo content (#1034, #1389, #1412): seven showcase "
                 "boards (Software Team, Property Management, Construction, Sales "
-                "Territory, Content Moderation, Logistics Exceptions) plus a site "
+                "Territory, Sales Territory (Overlay), Content Moderation, Logistics Exceptions) plus a site "
                 "admin, the published visitor account and two member accounts. Passwords are read from "
                 "DEMO_LOGIN_PASSWORD / DEMO_ADMIN_PASSWORD / "
                 "DEMO_MEMBER_PASSWORD. Off by default — the default output "

@@ -635,10 +635,13 @@ class SeedNotificationsTests(TestCase):
 class SeedDemoSiteTests(TestCase):
     """#1034: --demo-site seeds the hosted-demo boards and accounts."""
 
-    #: #1389: six boards, each a different workflow and swimlane entity.
+    #: #1389/#1412: seven boards, each a different workflow and swimlane entity
+    #: (Sales Territory (Overlay) deliberately overlaps Sales Territory — #1412
+    #: supersedes #1406's "keep the roster at six" decision at the user's
+    #: explicit direction).
     BOARD_NAMES = [
         "Software Team", "Property Management", "Construction",
-        "Sales Territory", "Content Moderation", "Logistics Exceptions",
+        "Sales Territory", "Sales Territory (Overlay)", "Content Moderation", "Logistics Exceptions",
     ]
 
     @staticmethod
@@ -647,7 +650,7 @@ class SeedDemoSiteTests(TestCase):
 
         return next(len(spec["cards"]) for spec in BOARDS if spec["name"] == name)
 
-    def test_seeds_exactly_six_boards_with_at_least_fifteen_cards_each(self):
+    def test_seeds_exactly_seven_boards_with_at_least_fifteen_cards_each(self):
         _seed(demo_site=True)
         seeded = set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True))
         self.assertEqual(seeded, set(self.BOARD_NAMES))
@@ -713,7 +716,7 @@ class SeedDemoSiteTests(TestCase):
         )
         self.assertFalse(Board.objects.filter(owner=visitor).exists())
         boards = Board.objects.all()
-        self.assertEqual(boards.count(), 7)  # the demo board + the six demo-site boards
+        self.assertEqual(boards.count(), 8)  # the demo board + the seven demo-site boards
         for board in boards:
             membership = BoardMembership.objects.get(board=board, user=visitor)
             self.assertEqual(membership.role, BoardMembership.Role.MEMBER, board.name)
