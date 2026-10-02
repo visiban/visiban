@@ -335,8 +335,13 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                     {pageRows.map(c => (
                       <tr
                         key={c.id}
-                        className={`border-b border-line transition ${onOpenCard ? "hover:bg-surface cursor-pointer" : ""}`}
+                        className={`border-b border-line transition ${onOpenCard ? "hover:bg-surface cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""}`}
                         onClick={() => onOpenCard?.(c.id)}
+                        // Keyboard parity for the row click (#1376): a tab stop only when the row is actionable.
+                        tabIndex={onOpenCard ? 0 : undefined}
+                        onKeyDown={onOpenCard ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenCard(c.id); }
+                        } : undefined}
                       >
                         <td className="py-1.5 pr-4 text-xs text-fg-tertiary sticky left-0 bg-sunken max-w-[8rem] truncate" title={c.swimlane}>
                           {c.swimlane}

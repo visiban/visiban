@@ -160,15 +160,15 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 
 ## Column kebab menu (#965)
 
-Each column header carries a `⋮` overflow kebab as the discoverable surface for column-scoped actions. The kebab is the *only* keyboard-reachable path to column rename, settings, and delete — no separate `✎` icon button.
+Each column header carries a `⋮` overflow kebab as the discoverable surface for column-scoped actions. The kebab is the only keyboard-reachable path to column settings and delete — no separate `✎` icon button. Inline rename is additionally reachable by Tab + Enter/Space on the column name itself, which is a real `<button>` for admins (#1376).
 
 - **Trigger:** `OverflowMenu` instance with `ariaLabel={\`Actions for column "${column.name}"\`}` so screen readers announce *which* column is being acted on. The trigger uses the standard kebab styling and is wrapped in `opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 transition` so it is hidden at rest, revealed on column hover, and stays visible when keyboard focus enters the menu (per the hover-reveal-controls rule).
 - **Items, in order:**
-  1. `Rename` — sets the column name into an inline editor (the same editor reachable by double-clicking the name)
+  1. `Rename` — sets the column name into the inline editor (the same editor the admin column-name button opens on click, Enter, or Space)
   2. `Edit settings…` — opens `EditColumnModal` (color, WIP/weight limits, allow card creation, is_done)
   3. `Delete column` — danger-styled (`OverflowItem.danger: true`), preceded by an engraved separator. Routes to the confirmation dialog.
 - **Non-admins see no kebab affordance** — the control is hidden entirely from the DOM, per the *Conditional admin-only elements* rule. Do not render a greyed-out `⋮` glyph, a disabled trigger, or a tooltip explaining missing permission; affordances Sam (occasional, non-admin) cannot use should not look like affordances at all.
-- **Double-click on the column name** continues to open `EditColumnModal` as a power-user shortcut; the kebab is the discoverable path.
+- **Double-click on the column header** continues to open `EditColumnModal` as a power-user shortcut (the name button itself does inline rename on a single click / Enter / Space); the kebab is the discoverable path.
 
 ## Column delete confirmation (#965)
 
@@ -510,7 +510,7 @@ Use this pattern whenever showing a full ancestor chain (e.g. group hierarchies)
 
 For plain-text description fields that are inline-editable by admins:
 
-- **Idle / view state**: wrap content in a `border border-transparent hover:border-line-emphasis cursor-text rounded px-2 py-1.5 -mx-2 transition-colors` container; hover-reveal pencil icon must include `focus:opacity-100 focus:ring-2 focus:ring-primary-emphasis`
+- **Idle / view state**: a `relative` wrapper holds a `<button type="button">` (`block w-[calc(100%+1rem)] text-left border border-transparent hover:border-line-emphasis cursor-text rounded px-2 py-1.5 -mx-2 transition-colors`, standard focus ring) whose children are `<span className="block ...">` text (no `<p>` inside a button). This button is the single keyboard tab stop. The hover-reveal pencil is an overlay sibling (`absolute top-1 right-1`, `tabIndex={-1}`, `focus:opacity-100 focus:ring-2 focus:ring-primary-emphasis`) so it adds no height (reference: `GroupDetail`)
 - **Edit state**: `bg-sunken border border-primary-soft rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent` on the `<textarea>`; `resize-none`; Escape cancels, blur saves
 - **Error slot**: always render `<p className="text-xs h-4">` below the field unconditionally; place error text in a `<span className="text-danger">` inside it — never conditionally render the container itself
 - **Non-admin, non-empty**: render plain `<p className="text-sm text-fg-tertiary whitespace-pre-wrap">`
@@ -624,6 +624,23 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 - Truncate long URLs in read-only display inputs: `truncate overflow-hidden text-ellipsis whitespace-nowrap`
 - The full value must remain in the clipboard on copy — only the display is truncated
 - Add a `title` attribute (or tooltip on hover) showing the full URL
+
+## Click handlers need keyboard parity (#1376, Sonar S1082)
+
+A click handler never goes on a non-interactive element (`div`, `span`, `p`, `h1`) without keyboard parity. Pick the first option that fits:
+
+1. **Make it a `<button type="button">`** — inline-rename text (column/swimlane/board/group names), file dropzones, and "click the text to edit" regions. Tailwind preflight already resets button chrome; add `text-left`, `block`, or `max-w-full truncate` as the original element needed. A truncating button inside a `<p>` needs `block`. Add the standard `focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`. For a heading, put the button *inside* the `<h1>` so heading semantics survive. Do not nest block elements (`div`/`p`) or inputs inside the button — use `<span className="block">` and render hidden file inputs as siblings.
+2. **Put the handler on the focusable control** — an overlay `<input type="date">` owns its own `onClick` (picker fallback) instead of a wrapper `div`; a `<label htmlFor>` forwards clicks on label text to its switch (see `ToggleField`).
+3. **Decorative pointer-only backdrops** — `aria-hidden="true"` when the backdrop is a sibling of the panel (drawers, tour spotlight, bulk-add overlay), `role="presentation"` when it is the panel's parent (`ModalWrapper`). Both require that Escape (via `useEscapeStack`) and a visible Close button already exist.
+4. **A `stopPropagation`-only wrapper is a smell** — delete the wrapper handler and move the guard into the parent handler (e.g. `closest("[data-column-drag-handle]")` in the collapsed `ColumnHeader`).
+
+**Pencil policy:** when a text button is paired with a hover-reveal `✎` pencil that starts the same edit, the text button is the single keyboard tab stop and the pencil is `tabIndex={-1}` (keep its `aria-label`, `focus:opacity-100`, and ring). Never two tab stops for one field.
+
+**Allowed shapes that are not a real button:**
+- `CardItem` forwards the dnd-kit `listeners.onKeyDown` explicitly. This is the one sanctioned bare `onKeyDown` on a `div`: the div already has `role="button"` and `tabIndex` from dnd-kit `attributes`, and the restatement only makes the handler visible to static analysis.
+- `SelectDropdown` options use the `aria-activedescendant` shape: the combobox trigger owns keyboard selection, and each `role="option"` gets `tabIndex={-1}` plus an Enter/Space handler for parity.
+
+Otherwise never add a bare `onKeyDown` to a `div` just to silence the rule; if the element is operable it should be a real control.
 
 ## Focus ring consistency
 

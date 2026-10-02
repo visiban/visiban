@@ -204,10 +204,21 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             ) : (
               <p
                 className={`text-sm text-fg-secondary truncate ${isAdmin ? "cursor-text hover:text-fg" : ""}`}
-                title={isAdmin ? "Click to rename" : swimlane.name}
-                onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
+                title={isAdmin ? undefined : swimlane.name}
               >
-                {swimlane.name}
+                {isAdmin ? (
+                  // A real button so keyboard users can reach inline rename with Tab + Enter/Space (#1376).
+                  <button
+                    type="button"
+                    className="block max-w-full truncate text-left cursor-text rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    title="Click to rename"
+                    onClick={(e) => { e.stopPropagation(); startRenaming(); }}
+                  >
+                    {swimlane.name}
+                  </button>
+                ) : (
+                  swimlane.name
+                )}
               </p>
             )}
             {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}

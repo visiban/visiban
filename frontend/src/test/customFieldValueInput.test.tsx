@@ -236,3 +236,23 @@ describe('CustomFieldValueInput', () => {
     })
   })
 })
+
+describe('CustomFieldValueInput date — picker owned by the input (#1376)', () => {
+  it('clicking/activating the focusable date input opens the picker, not a wrapper div', () => {
+    const showPicker = vi.fn()
+    const proto = HTMLInputElement.prototype as HTMLInputElement & { showPicker?: () => void }
+    const original = proto.showPicker
+    proto.showPicker = showPicker
+    try {
+      const { container } = render(<CustomFieldValueInput definition={dateDef()} value="" onCommit={vi.fn()} />)
+      const input = container.querySelector('input[type="date"]') as HTMLInputElement
+      expect(input).toHaveAccessibleName('Due')
+      input.focus()
+      expect(input).toHaveFocus()
+      fireEvent.click(input)
+      expect(showPicker).toHaveBeenCalledTimes(1)
+    } finally {
+      proto.showPicker = original
+    }
+  })
+})

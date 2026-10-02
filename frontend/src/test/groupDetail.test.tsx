@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import type { User, Group } from '../types'
@@ -480,11 +481,36 @@ describe('GroupDetail', () => {
     renderGroupDetail()
 
     const heading = await screen.findByRole('heading', { name: 'Engineering' })
-    fireEvent.click(heading)
+    fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
     expect(input).toBeInTheDocument()
     expect((input as HTMLInputElement).value).toBe('Engineering')
+  })
+
+  it('admin can start rename and description edit from the keyboard (#1376)', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, description: 'Team description' })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderGroupDetail()
+
+    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    const nameButton = within(heading).getByRole('button')
+    nameButton.focus()
+    expect(nameButton).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('textbox')).toHaveValue('Engineering')
+    await user.keyboard('{Escape}')
+
+    expect(screen.getByRole('button', { name: 'Rename group' })).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByRole('button', { name: 'Edit description' })).toHaveAttribute('tabindex', '-1')
+
+    const descButton = screen.getByRole('button', { name: 'Team description' })
+    descButton.focus()
+    await user.keyboard(' ')
+    expect(screen.getByRole('textbox')).toHaveValue('Team description')
   })
 
   it('admin rename saves on Enter and updates heading', async () => {
@@ -496,7 +522,7 @@ describe('GroupDetail', () => {
     renderGroupDetail()
 
     const heading = await screen.findByRole('heading', { name: 'Engineering' })
-    fireEvent.click(heading)
+    fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
     fireEvent.change(input, { target: { value: 'Platform' } })
@@ -513,7 +539,7 @@ describe('GroupDetail', () => {
     renderGroupDetail()
 
     const heading = await screen.findByRole('heading', { name: 'Engineering' })
-    fireEvent.click(heading)
+    fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
     fireEvent.change(input, { target: { value: 'Should not save' } })

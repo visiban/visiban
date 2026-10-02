@@ -336,6 +336,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       ref={compositeRef}
       {...attributes}
       {...listeners}
+      // Sanctioned exception to the "no bare onKeyDown on a div" rule (frontend/CLAUDE.md): this
+      // forwards the dnd-kit KeyboardSensor listener, and the div already has role="button" and
+      // tabIndex from dnd-kit `attributes`. Behavior is identical to the spread; restating it
+      // makes the keyboard handler visible to static analysis (S1082) (#1376).
+      onKeyDown={(e) => { listeners?.onKeyDown?.(e); }}
       onClick={readOnly ? undefined : onClick}
       data-no-pan
       data-tour-step="card"

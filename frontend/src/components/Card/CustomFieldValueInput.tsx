@@ -139,7 +139,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
       };
       return (
         <div className="flex items-center gap-1.5">
-          <div className="relative flex-1 cursor-pointer" onClick={openPicker}>
+          <div className="relative flex-1 cursor-pointer rounded focus-within:ring-2 focus-within:ring-primary-emphasis">
             <div className={`text-sm border rounded px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${local ? "bg-surface-hover border-line-strong text-fg" : "bg-surface-hover border-line-strong text-fg-muted"}`}>
               <span>{local || "Select a date"}</span>
               <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5" /><path d="M5 1v3M11 1v3M1.5 6h13" /></svg>
@@ -147,9 +147,11 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
             <input
               ref={dateInputRef}
               type="date"
+              aria-label={definition.name}
               value={local}
               disabled={disabled}
               onChange={(e) => onCommit(e.target.value)}
+              onClick={openPicker}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
           </div>

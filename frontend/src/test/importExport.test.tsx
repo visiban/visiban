@@ -234,3 +234,18 @@ describe('Export dropdown (BoardView)', () => {
     openSpy.mockRestore()
   })
 })
+
+describe('ImportBoardModal — keyboard (#1376)', () => {
+  it('the file dropzone is a real button that opens the file chooser on Enter and Space', async () => {
+    const user = userEvent.setup()
+    render(<ImportBoardModal onImport={vi.fn()} onCancel={vi.fn()} />)
+    const zone = screen.getByRole('button', { name: /click to select a \.json or \.csv file/i })
+    expect(zone).toHaveAttribute('type', 'button')
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click')
+    zone.focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(clickSpy).toHaveBeenCalledTimes(2)
+    clickSpy.mockRestore()
+  })
+})

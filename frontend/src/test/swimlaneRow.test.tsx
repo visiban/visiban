@@ -334,3 +334,20 @@ describe('SwimlaneRow — grid overlay lookup (#1147)', () => {
     expect(screen.queryByTestId('cell-10-20')).not.toBeInTheDocument()
   })
 })
+
+describe('SwimlaneRow — keyboard rename (#1376)', () => {
+  it('admin name is a button; Enter starts inline rename', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} />)
+    const nameBtn = screen.getByRole('button', { name: 'Customer A' })
+    nameBtn.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByDisplayValue('Customer A')).toBeInTheDocument()
+  })
+
+  it('non-admin name is plain text, not a button', () => {
+    render(<SwimlaneRow {...defaultProps()} isAdmin={false} />)
+    expect(screen.queryByRole('button', { name: 'Customer A' })).not.toBeInTheDocument()
+    expect(screen.getByText('Customer A')).toBeInTheDocument()
+  })
+})

@@ -358,7 +358,11 @@ export default function RichTextEditor({
 
   if (!isEditing) {
     return (
+      // role="presentation": click-to-edit on the surface is a pointer shortcut; the
+      // keyboard path is the pencil button below, which is a real tab stop that
+      // enters edit mode on focus/Enter/Space (#1376).
       <div
+        role="presentation"
         className={`group relative ${readOnly ? "" : "cursor-text"}`}
         onClick={readOnly ? undefined : enterEdit}
       >

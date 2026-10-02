@@ -244,6 +244,7 @@ export default function OnboardingTour({ onComplete }: Props) {
             ${targetRect.left - padding}px 0%
           )`,
         }}
+        aria-hidden="true"
         onClick={handleNext}
       />
 

@@ -83,7 +83,10 @@ export default function ModalWrapper({
   if (!open) return null;
 
   return (
+    // role="presentation": the backdrop's click-to-dismiss is a pointer shortcut only —
+    // keyboard users dismiss via Escape (useEscapeStack above) or the Close button (#1376).
     <div
+      role="presentation"
       className="fixed inset-0 bg-backdrop/60 z-50 flex items-center justify-center p-4"
       onClick={handleBackdropClick}
     >

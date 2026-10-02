@@ -45,6 +45,22 @@ interface Props {
   refreshSignal?: number;
 }
 
+/**
+ * Opens the browser's native date picker for the transparent overlay input.
+ * Safari ignores clicks on opacity-0 inputs, so showPicker() / focus() is the
+ * fallback; the handler lives on the input itself (not a wrapper div) so the
+ * focusable element owns both pointer and keyboard activation (#1376).
+ */
+function openNativeDatePicker(el: HTMLInputElement | null) {
+  if (!el) return;
+  // showPicker() is supported in Chrome 99+, Firefox 101+, Safari 16+
+  if (typeof (el as HTMLInputElement & { showPicker?: () => void }).showPicker === "function") {
+    try { (el as HTMLInputElement & { showPicker: () => void }).showPicker(); return; } catch { /* ignore */ }
+  }
+  // Focus opens the picker on older Safari and acts as a no-op elsewhere
+  el.focus();
+}
+
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, used by tests and co-located with the component for cohesion
 export function formatCommentTime(iso: string, user?: UserDatePrefs | null): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -185,6 +201,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (!showMovePopover) return false;
     setShowMovePopover(false);
   }, 36);
+  // Bulk-add overlay is a modal over the panel: Escape closes it first (priority 37, above
+  // the move popover) instead of closing the whole card panel (#1376).
+  useEscapeStack(() => {
+    if (!showBulkAdd) return false;
+    setShowBulkAdd(false);
+    setChecklistError(null);
+  }, 37);
   useEscapeStack(onClose, 30);
 
   const save = async (patch: CardPatch) => {
@@ -466,7 +489,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-backdrop/40" onClick={onClose} />
+      <div className="flex-1 bg-backdrop/40" aria-hidden="true" onClick={onClose} />
 
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="card-detail-title" tabIndex={-1} className="w-full sm:w-[540px] bg-surface shadow-2xl flex flex-col overflow-hidden outline-none">
         {/* Header */}
@@ -646,19 +669,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             directly. On Chrome/Firefox the opacity-0 input is enough; on Safari,
                             opacity:0 inputs don't trigger the native calendar, so the container
                             onClick explicitly calls showPicker() / focus() as a fallback. */}
-                        <div
-                          className="relative flex-1 cursor-pointer"
-                          onClick={() => {
-                            const el = dueDateRef.current;
-                            if (!el) return;
-                            // showPicker() is supported in Chrome 99+, Firefox 101+, Safari 16+
-                            if (typeof (el as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
-                              try { (el as HTMLInputElement & { showPicker: () => void }).showPicker(); return; } catch { /* ignore */ }
-                            }
-                            // Focus opens the picker on older Safari and acts as a no-op elsewhere
-                            el.focus();
-                          }}
-                        >
+                        <div className="relative flex-1 cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
                           <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${info.overdue ? "bg-danger/10 border-danger/40 text-danger" : "bg-surface-hover border-line-strong text-fg"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
@@ -666,12 +677,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <input
                             ref={dueDateRef}
                             type="date"
+                            aria-label="Due date"
                             value={localCard.due_date}
                             onChange={(e) => {
                               const v = e.target.value || null;
                               setLocalCard((c) => ({ ...c, due_date: v }));
                               save({ due_date: v }).catch(() => {});
                             }}
+                            onClick={() => openNativeDatePicker(dueDateRef.current)}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
                         </div>
@@ -686,17 +699,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     );
                   })() : (
-                    <div
-                      className="relative cursor-pointer"
-                      onClick={() => {
-                        const el = dueDateEmptyRef.current;
-                        if (!el) return;
-                        if (typeof (el as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
-                          try { (el as HTMLInputElement & { showPicker: () => void }).showPicker(); return; } catch { /* ignore */ }
-                        }
-                        el.focus();
-                      }}
-                    >
+                    <div className="relative cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
                       <div className="text-sm bg-surface-hover border border-line-strong rounded-lg px-2.5 py-1.5 text-fg-muted select-none flex items-center justify-between pointer-events-none">
                         <span>{userDateFormat.toLowerCase()}</span>
                         <svg className="w-4 h-4 opacity-50 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
@@ -704,6 +707,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       <input
                         ref={dueDateEmptyRef}
                         type="date"
+                        aria-label="Due date"
                         value=""
                         min={new Date().toISOString().slice(0, 10)}
                         onChange={(e) => {
@@ -711,6 +715,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           setLocalCard((c) => ({ ...c, due_date: v }));
                           save({ due_date: v }).catch(() => {});
                         }}
+                        onClick={() => openNativeDatePicker(dueDateEmptyRef.current)}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
                     </div>
@@ -1006,7 +1011,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
                 {showBulkAdd && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center">
-                    <div className="absolute inset-0 bg-backdrop/40" onClick={() => setShowBulkAdd(false)} />
+                    <div className="absolute inset-0 bg-backdrop/40" aria-hidden="true" onClick={() => setShowBulkAdd(false)} />
                     <div className="relative bg-surface border border-line rounded-lg shadow-xl w-80 p-5 flex flex-col gap-4">
                       <h3 className="text-sm font-semibold text-fg">Add checklist items</h3>
                       <p className="text-xs text-fg-muted -mt-2">One item per line</p>

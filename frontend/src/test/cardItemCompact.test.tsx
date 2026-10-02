@@ -3,10 +3,13 @@ import { render, screen } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
 import type { Card } from '../types'
 
+// #1376 — spy on the KeyboardSensor handler dnd-kit hands back in `listeners`
+const { mockDragKeyDown } = vi.hoisted(() => ({ mockDragKeyDown: vi.fn() }))
+
 vi.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({
-    attributes: {},
-    listeners: {},
+    attributes: { role: 'button', tabIndex: 0 },
+    listeners: { onKeyDown: mockDragKeyDown },
     setNodeRef: () => {},
     isDragging: false,
   }),
@@ -296,5 +299,22 @@ describe('CardItem — compact vs expanded rendering', () => {
     const { container } = render(<CardItem density="dense" card={makeCard()} readOnly compact />)
     const card = container.querySelector('[data-tour-step="card"]') as HTMLElement
     expect(card.className).toMatch(/cursor-default/)
+  })
+})
+
+describe('CardItem — keyboard (#1376)', () => {
+  it('is focusable with a button role and forwards keydown to the drag sensor listener', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default
+    const onClick = vi.fn()
+    mockDragKeyDown.mockClear()
+    render(<CardItem density="comfortable" card={makeCard()} onClick={onClick} />)
+    const card = screen.getByText('Test Card Title').closest('[data-tour-step="card"]') as HTMLElement
+    expect(card).toHaveAttribute('role', 'button')
+    card.focus()
+    expect(card).toHaveFocus()
+    await userEvent.setup().keyboard('{Enter}')
+    expect(mockDragKeyDown).toHaveBeenCalledTimes(1)
+    // Enter belongs to the dnd-kit KeyboardSensor, not onClick
+    expect(onClick).not.toHaveBeenCalled()
   })
 })

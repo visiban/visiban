@@ -434,6 +434,46 @@ describe('AnalyticsView', () => {
     expect(onOpenCard).toHaveBeenCalledWith(42)
   })
 
+  const stalledPayload = {
+    days: 30,
+    columns: ['To Do'],
+    swimlanes: [
+      {
+        id: 1, name: 'Customer A',
+        avg_days_per_column: { 'To Do': 5 },
+        is_outlier: { 'To Do': false },
+        deal_velocity_days: null,
+        stalled_cards: [{ id: 42, title: 'Stale Card', days_since_move: 14 }],
+      },
+    ],
+    stalled_threshold_days: 7,
+    staleness_threshold_days: 14,
+    stale_warning_pct: 50,
+  }
+
+  it('stalled card row is a keyboard tab stop; Enter and Space open the card (#1376)', async () => {
+    mockGetBoardAnalytics.mockResolvedValue(stalledPayload)
+    const onOpenCard = vi.fn()
+    const user = userEvent.setup()
+    render(<AnalyticsView boardId={1} currentUserRole="admin" onOpenCard={onOpenCard} />)
+    const row = (await screen.findByText('Stale Card')).closest('tr') as HTMLElement
+    expect(row).toHaveAttribute('tabindex', '0')
+    row.focus()
+    expect(row).toHaveFocus()
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(onOpenCard).toHaveBeenCalledTimes(2)
+    expect(onOpenCard).toHaveBeenNthCalledWith(1, 42)
+    expect(onOpenCard).toHaveBeenNthCalledWith(2, 42)
+  })
+
+  it('stalled card row has no tab stop when onOpenCard is absent (#1376)', async () => {
+    mockGetBoardAnalytics.mockResolvedValue(stalledPayload)
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    const row = (await screen.findByText('Stale Card')).closest('tr') as HTMLElement
+    expect(row).not.toHaveAttribute('tabindex')
+  })
+
   it('changes period on button click in throughput mode', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,

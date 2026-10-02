@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 // Mock useEscapeStack before importing the component
 const mockEscapeHandlers: Array<{ fn: () => boolean | void; priority: number }> = []
@@ -209,5 +209,39 @@ describe('OnboardingTour - conditional rendering', () => {
 
     expect(!userWithTourCompleted.has_completed_tour).toBe(false)
     expect(!userWithoutTour.has_completed_tour).toBe(true)
+  })
+})
+
+describe('OnboardingTour - click-only backdrop (#1376)', () => {
+  it('hides the click-to-advance backdrop; Next button advances from the keyboard', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default
+    const onComplete = vi.fn()
+    mockEscapeHandlers.length = 0
+    const el = document.createElement('div')
+    el.setAttribute('data-tour-step', 'view-tabs')
+    el.getBoundingClientRect = () => ({ top: 10, left: 10, bottom: 30, right: 200, width: 190, height: 20, x: 10, y: 10, toJSON: () => {} })
+    document.body.appendChild(el)
+    const lane = document.createElement('div')
+    lane.setAttribute('data-tour-step', 'swimlane')
+    lane.getBoundingClientRect = () => ({ top: 100, left: 50, bottom: 140, right: 250, width: 200, height: 40, x: 50, y: 100, toJSON: () => {} })
+    document.body.appendChild(lane)
+    try {
+      const { container } = render(<OnboardingTour onComplete={onComplete} />)
+      expect(container.querySelector('.bg-backdrop\\/60')).toHaveAttribute('aria-hidden', 'true')
+      const next = screen.getByRole('button', { name: /next/i })
+      const user = userEvent.setup()
+      // Reach Next with Tab alone (focus trap keeps focus inside the tooltip)
+      for (let i = 0; i < 4 && document.activeElement !== next; i++) await user.tab()
+      expect(next).toHaveFocus()
+      await user.keyboard('{Enter}')
+      await waitFor(() => expect(screen.getByText('Step 2 of 8')).toBeTruthy())
+      // Escape (modal-level stack entry, priority 40) dismisses the tour
+      const escapeHandler = mockEscapeHandlers.filter(h => h.priority === 40).at(-1)!
+      await act(async () => { escapeHandler.fn() })
+      await waitFor(() => expect(onComplete).toHaveBeenCalled())
+    } finally {
+      el.remove()
+      lane.remove()
+    }
   })
 })

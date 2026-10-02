@@ -90,8 +90,8 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-backdrop/50" onClick={onClose} />
+      {/* Backdrop — decorative pointer-only dismiss; keyboard parity is Escape + the Close button (#1376) */}
+      <div className="absolute inset-0 bg-backdrop/50" aria-hidden="true" onClick={onClose} />
 
       {/* Panel */}
       <div

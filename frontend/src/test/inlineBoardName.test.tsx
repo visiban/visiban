@@ -102,3 +102,28 @@ describe('InlineBoardName', () => {
     await waitFor(() => expect(screen.getByText(/failed to rename/i)).toBeTruthy())
   })
 })
+
+describe('InlineBoardName — keyboard (#1376)', () => {
+  it('the name itself is a button that starts editing on Enter and Space', async () => {
+    const user = userEvent.setup()
+    render(<InlineBoardName name="My board" canEdit={true} onSave={vi.fn()} />)
+    const nameBtn = screen.getByRole('button', { name: 'My board' })
+    nameBtn.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('textbox', { name: /board name/i })).toBeTruthy()
+    await user.keyboard('{Escape}')
+    screen.getByRole('button', { name: 'My board' }).focus()
+    await user.keyboard(' ')
+    expect(screen.getByRole('textbox', { name: /board name/i })).toBeTruthy()
+  })
+
+  it('keeps one keyboard tab stop: the pencil is mouse-only (tabIndex -1)', async () => {
+    const user = userEvent.setup()
+    render(<InlineBoardName name="My board" canEdit={true} onSave={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /rename board/i })).toHaveAttribute('tabindex', '-1')
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'My board' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: /rename board/i })).not.toHaveFocus()
+  })
+})
