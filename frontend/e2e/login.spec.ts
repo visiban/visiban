@@ -48,10 +48,35 @@ test.describe('login flow', () => {
   })
 
   test('logs in with valid credentials and reaches the dashboard', async ({ page }) => {
+    // Observe the request rather than re-routing it: the beforeEach's own
+    // login handler already drives the unauthenticated → authenticated
+    // transition (it flips `loggedIn`, which the auth/user handler checks).
+    // Re-registering a competing page.route for the same URL would take
+    // priority over that handler and short-circuit it — e.g. a route that
+    // always answers auth/user with USER would skip the login form entirely
+    // (the app loads already "authenticated") and this test would never
+    // find the username field to fill in.
+    let loginRequestBody: unknown = null
+    page.on('request', (req) => {
+      if (req.method() === 'POST' && req.url().includes('/api/v1/auth/login/')) {
+        loginRequestBody = JSON.parse(req.postData() ?? '{}')
+      }
+    })
+
     await page.goto('/')
     await page.getByPlaceholder('Username or email').fill('testuser')
     await page.getByPlaceholder('Password').fill('testpass123')
     await page.getByRole('button', { name: 'Sign in' }).click()
+
+    // Assert the actual login POST body (api/auth.ts login) rather than only
+    // the resulting navigation — a form that silently dropped or mis-keyed a
+    // field would otherwise still pass this test as long as the mocked
+    // response made the app proceed to the dashboard.
+    await expect.poll(() => loginRequestBody, { timeout: 5_000 }).toEqual({
+      username: 'testuser',
+      password: 'testpass123',
+    })
+
     // After login the app renders the authenticated shell (sidebar + dashboard).
     await expect(page).toHaveURL('/', { timeout: 10_000 })
     // The sidebar contains the user's display name or a board/groups section.
