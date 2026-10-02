@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import os
@@ -271,12 +272,17 @@ def load_mrs(args) -> list:
     else:
         project_path = urllib.parse.quote(validate_project(args.project), safe="")
         window = validate_window(args.window)
-        cmd = [
-            "glab",
-            "api",
-            f"projects/{project_path}/merge_requests"
-            f"?state=merged&per_page={window}&order_by=updated_at&sort=desc",
-        ]
+        # Resolve glab once, and pass the endpoint as a single list-form argv
+        # element (no shell). project_path is percent-encoded and window is an
+        # int, so neither can start an option or add a query parameter.
+        glab = shutil.which("glab")
+        if glab is None:
+            print("error: glab not found on PATH", file=sys.stderr)
+            sys.exit(1)
+        query = urllib.parse.urlencode(
+            {"state": "merged", "per_page": window, "order_by": "updated_at", "sort": "desc"}
+        )
+        cmd = [glab, "api", f"projects/{project_path}/merge_requests?{query}"]
         try:
             out = subprocess.check_output(cmd, text=True)
         except (subprocess.CalledProcessError, FileNotFoundError) as exc:
