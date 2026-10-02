@@ -1,6 +1,6 @@
 import { test, expect, devices, type Page, type CDPSession } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, CARD } from './fixtures/board'
+import { BOARD_FULL, CARD, COLUMN_DONE, SWIMLANE } from './fixtures/board'
 
 // Touch drag-and-drop on an emulated Android tablet (#1287).
 //
@@ -33,16 +33,31 @@ async function setup(page: Page) {
   const moves: unknown[] = []
   await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/move/`, async (route) => {
     moves.push(JSON.parse(route.request().postData() ?? '{}'))
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...CARD, column: 2 }) })
+    // The real move endpoint responds with { card, movement? } (see
+    // board.spec.ts's move test) — matching that shape here, rather than the
+    // flat card this used to return, keeps useBoard's `const { card } = ...`
+    // destructure from silently resolving to undefined.
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ card: { ...CARD, column: COLUMN_DONE.id, swimlane: SWIMLANE.id, position: 0 } }),
+    })
   })
   await page.goto(`/boards/${BOARD_FULL.id}`)
-  const cardEl = page.getByText(CARD.title).first()
+  // Scoped to the actual CardItem element, not plain getByText(CARD.title) —
+  // see board.spec.ts's move test for why: the sr-only dnd announcement
+  // region also contains the card's title as a substring once a move
+  // completes, and getByText.first() would resolve to it instead.
+  const cardEl = page.locator('[data-tour-step="card"]').filter({ hasText: CARD.title }).first()
   await expect(cardEl).toBeVisible({ timeout: 10_000 })
   const cardBox = await cardEl.boundingBox()
   const doneBox = await page.getByText('Done').first().boundingBox()
   if (!cardBox || !doneBox) throw new Error('Could not locate card or Done column')
   return {
     moves,
+    cardEl,
+    cardBox,
+    doneBox,
     cdp: await page.context().newCDPSession(page),
     from: { x: cardBox.x + cardBox.width / 2, y: cardBox.y + cardBox.height / 2 },
     to: { x: doneBox.x + doneBox.width / 2, y: doneBox.y + doneBox.height / 2 },
@@ -56,9 +71,28 @@ test.describe('touch drag-and-drop (#1287)', () => {
   })
 
   test('press-and-hold then drag moves the card', async ({ page }) => {
-    const { moves, cdp, from, to } = await setup(page)
+    const { moves, cardEl, cardBox, doneBox, cdp, from, to } = await setup(page)
     await touchDrag(cdp, from, to, 400)
+
+    // Assert the actual move payload, not just that *a* move request fired —
+    // same field names and target as board.spec.ts's mouse-drag test.
     await expect.poll(() => moves.length, { timeout: 5_000 }).toBe(1)
+    expect(moves[0]).toEqual({
+      column_id: COLUMN_DONE.id,
+      swimlane_id: SWIMLANE.id,
+      position: 0,
+      version: CARD.version,
+    })
+
+    // And assert the card actually renders under the Done column afterward.
+    await expect.poll(async () => {
+      const box = await cardEl.boundingBox()
+      return box ? box.x : null
+    }, { timeout: 5_000 }).not.toBeNull()
+    const movedCardBox = await cardEl.boundingBox()
+    if (!movedCardBox) throw new Error('Could not locate card after the move')
+    expect(movedCardBox.x).toBeGreaterThan(cardBox.x + 50)
+    expect(Math.abs(movedCardBox.x - doneBox.x)).toBeLessThan(150)
   })
 
   test('a quick swipe does not pick up the card', async ({ page }) => {
@@ -70,11 +104,27 @@ test.describe('touch drag-and-drop (#1287)', () => {
   })
 
   test('holding still past the long-press menu delay does not open the new-card input', async ({ page }) => {
-    const { moves, cdp, from, to } = await setup(page)
+    const { moves, cardEl, cardBox, doneBox, cdp, from, to } = await setup(page)
     // Android fires contextmenu at ~500ms; the cell's right-click-to-add must
     // not open mid-drag.
     await touchDrag(cdp, from, to, 1_200)
+
     await expect.poll(() => moves.length, { timeout: 5_000 }).toBe(1)
+    expect(moves[0]).toEqual({
+      column_id: COLUMN_DONE.id,
+      swimlane_id: SWIMLANE.id,
+      position: 0,
+      version: CARD.version,
+    })
     await expect(page.getByPlaceholder('Card title…')).toHaveCount(0)
+
+    await expect.poll(async () => {
+      const box = await cardEl.boundingBox()
+      return box ? box.x : null
+    }, { timeout: 5_000 }).not.toBeNull()
+    const movedCardBox = await cardEl.boundingBox()
+    if (!movedCardBox) throw new Error('Could not locate card after the move')
+    expect(movedCardBox.x).toBeGreaterThan(cardBox.x + 50)
+    expect(Math.abs(movedCardBox.x - doneBox.x)).toBeLessThan(150)
   })
 })
