@@ -2776,6 +2776,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#argument-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Argument validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#scheduled-job" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3705,6 +3716,14 @@ nobody does, the next run re-derives the same result.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--input<span class="w"> </span>mrs.json<span class="w">            </span><span class="c1"># offline</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--self-test<span class="w">                 </span><span class="c1"># gate self-test (#1093)</span>
 </code></pre></div>
+<h2 id="argument-validation">Argument validation<a class="headerlink" href="#argument-validation" title="Permanent link">&para;</a></h2>
+<p>The kaizen scripts reject malformed arguments up front (#1377):</p>
+<ul>
+<li><code>--window</code> must be an integer from 1 to 100 (GitLab's <code>per_page</code> cap).</li>
+<li><code>--project</code> must be a plain <code>group/project</code> path (letters, digits, <code>_</code>, <code>.</code>, <code>-</code>; no leading <code>-</code>, no <code>.</code>/<code>..</code> segments).</li>
+<li>File-path arguments (<code>--input</code>, <code>--state</code>, <code>--declined</code>, <code>--write-state</code>) must resolve under the repository, the current directory, or the temp directory, through <code>scripts/_paths.py</code>. A path that escapes (via <code>..</code> or a symlink) exits non-zero; a bad <code>--declined</code> path is never treated as "nothing declined".</li>
+</ul>
+<p>See <a href="../ci-gates/#path-containment-for-cli-arguments">CI gate scripts and path containment</a> for the shared helper.</p>
 <h2 id="scheduled-job">Scheduled job<a class="headerlink" href="#scheduled-job" title="Permanent link">&para;</a></h2>
 <p><code>kaizen-yield-watch</code> runs only in scheduled pipelines that set <code>KAIZEN_YIELD_WATCH=true</code>
 (CI/CD, Schedules; suggested weekly). It is <code>allow_failure: true</code> and <strong>fails open</strong>: an

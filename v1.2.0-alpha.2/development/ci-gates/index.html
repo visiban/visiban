@@ -2709,6 +2709,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#path-containment-for-cli-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path containment for CLI arguments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#known-gaps-and-deferred-work" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3875,6 +3886,15 @@ own header — is never mistaken for a real exemption.</p>
 <p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,
 covering the exact version-dotted-slug incident that motivated #1093), but is not wired into
 any CI job — see below.</p>
+<h2 id="path-containment-for-cli-arguments">Path containment for CLI arguments<a class="headerlink" href="#path-containment-for-cli-arguments" title="Permanent link">&para;</a></h2>
+<p>Gate scripts that open files named on the command line or via <code>--root</code> do so through <code>scripts/_paths.py::resolve_within</code> (#1377). It canonicalizes the path (collapsing <code>..</code> and following symlinks) and only then checks it sits under an allowed root, so a symlink that leaves the tree is rejected too. A rejected path is a "cannot run" outcome (exit 2 for the rbac, ws-event and broadcast gates), never a clean result.</p>
+<ul>
+<li><code>--root</code>-based gates (<code>check-rbac-coverage.py</code>, <code>check-ws-event-reachability.py</code>, <code>check-broadcast-deferral.py</code>) confine every read to <code>--root</code>.</li>
+<li>Other file arguments (<code>--input</code>, <code>--state</code>, <code>--declined</code>, <code>--write-state</code>, <code>--token-file</code>, <code>--budget-file</code>, <code>--output</code>, <code>--schema</code>, <code>--types</code>) must resolve under the repository, the current directory, or the system temp directory (<code>/tmp</code>). The temp roots are trusted only on ephemeral single-tenant runners; there is no ownership check. A filesystem-root working directory is never treated as a root.</li>
+<li><code>kaizen_gate_ledger.py</code> validates <code>--window</code> (1..100) and <code>--project</code> (<code>group/project</code> characters) before they reach the <code>glab</code> argv.</li>
+<li><code>check-added-files-covered.mjs</code> rejects a <code>--target-ref</code> that starts with <code>-</code>.</li>
+</ul>
+<p>Run <code>python scripts/_paths.py --self-test</code> to exercise the helper (<code>..</code> traversal, symlink escape, filesystem-root cwd); the <code>rbac-coverage</code> job runs it.</p>
 <h2 id="known-gaps-and-deferred-work">Known gaps and deferred work<a class="headerlink" href="#known-gaps-and-deferred-work" title="Permanent link">&para;</a></h2>
 <p>Not every bespoke script called out when #1093 was filed got a self-test in the same pass.
 Deferred deliberately, not silently:</p>
