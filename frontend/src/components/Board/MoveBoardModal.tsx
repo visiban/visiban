@@ -21,9 +21,14 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<number | null>(board.group);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    listGroups().then(setGroups).finally(() => setLoading(false));
+    setLoadError(false);
+    listGroups()
+      .then(setGroups)
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleMove = async () => {
@@ -49,6 +54,8 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
 
       {loading ? (
         <p className="text-sm text-fg-muted py-4 text-center">Loading groups…</p>
+      ) : loadError ? (
+        <p className="text-sm text-danger py-4 text-center">Could not load groups. Please try again.</p>
       ) : (
         <div className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
           <PickerRow

@@ -68,11 +68,15 @@ vi.mock('../api/auth', () => ({
   changePassword: vi.fn(),
 }))
 
-import { createGroup } from '../api/groups'
+import { createGroup, listGroups } from '../api/groups'
 import { changePassword } from '../api/auth'
+import { createColumn, updateColumn } from '../api/boards'
 
 const mockCreateGroup = createGroup as ReturnType<typeof vi.fn>
 const mockChangePassword = changePassword as ReturnType<typeof vi.fn>
+const mockListGroups = listGroups as ReturnType<typeof vi.fn>
+const mockCreateColumn = createColumn as ReturnType<typeof vi.fn>
+const mockUpdateColumn = updateColumn as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -279,6 +283,16 @@ describe('MoveBoardModal', () => {
     await userEvent.setup().click(personalOption)
     expect(screen.getByText('Move')).not.toBeDisabled()
   })
+
+  // #1373 — the listGroups() call used to be a floating promise: a rejection
+  // left `groups` empty and `loading` false, rendering the same "No groups
+  // available" message as a board with genuinely zero groups.
+  it('shows a load error distinct from the empty state when listGroups fails', async () => {
+    mockListGroups.mockRejectedValueOnce(new Error('network error'))
+    render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={vi.fn()} />)
+    expect(await screen.findByText('Could not load groups. Please try again.')).toBeInTheDocument()
+    expect(screen.queryByText('No groups available.')).not.toBeInTheDocument()
+  })
 })
 
 describe('CreateGroupModal', () => {
@@ -442,6 +456,22 @@ describe('AddColumnModal', () => {
     render(<AddColumnModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getAllByRole('button', { name: /Select color/ })).toHaveLength(6)
   })
+
+  // #1373 — handleSave's createColumn() call used to be a floating promise:
+  // pressing Enter on a failed save left the modal open with no error and no
+  // indication the add had failed.
+  it('shows an error and keeps the modal open when createColumn fails (Enter key)', async () => {
+    mockCreateColumn.mockRejectedValueOnce(new Error('network error'))
+    const onAdded = vi.fn()
+    const onClose = vi.fn()
+    render(<AddColumnModal boardId={1} onAdded={onAdded} onClose={onClose} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. In Progress'), 'Review{Enter}')
+
+    expect(await screen.findByText('Failed to add column. Please try again.')).toBeInTheDocument()
+    expect(onAdded).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
 })
 
 describe('EditColumnModal', () => {
@@ -520,6 +550,33 @@ describe('EditColumnModal', () => {
       />
     )
     expect(screen.getByText('Cannot delete — 1 card in this column')).toBeInTheDocument()
+  })
+
+  // #1373 — handleSave's updateColumn() call used to be a floating promise:
+  // pressing Enter on a failed save left the modal open with no error and no
+  // indication the save had failed.
+  it('shows an error and keeps the modal open when updateColumn fails (Enter key)', async () => {
+    mockUpdateColumn.mockRejectedValueOnce(new Error('network error'))
+    const onUpdated = vi.fn()
+    const onClose = vi.fn()
+    render(
+      <EditColumnModal
+        boardId={1}
+        column={fakeColumn}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onRequestDelete={vi.fn()}
+        onClose={onClose}
+      />
+    )
+    const user = userEvent.setup()
+    const nameInput = screen.getByDisplayValue('To Do')
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Doing{Enter}')
+
+    expect(await screen.findByText('Failed to save column. Please try again.')).toBeInTheDocument()
+    expect(onUpdated).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
   })
 })
 

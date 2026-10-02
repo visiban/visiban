@@ -35,7 +35,10 @@ vi.mock('@dnd-kit/utilities', () => ({
 
 import CardItem from '../components/Card/CardItem'
 import ColumnHeader from '../components/Board/ColumnHeader'
+import { updateColumn } from '../api/boards'
 import type { Card, Column } from '../types'
+
+const mockUpdateColumn = updateColumn as ReturnType<typeof vi.fn>
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -743,6 +746,36 @@ describe('ColumnHeader', () => {
     expect(screen.getByDisplayValue('Doing')).toBeInTheDocument()
   })
 
+  // #1373 — commitRename's updateColumn() call used to be a floating promise:
+  // a rejection vanished silently and the user saw nothing.
+  it('shows an inline error and does not call onColumnUpdated when the rename request fails', async () => {
+    mockUpdateColumn.mockRejectedValueOnce(new Error('network error'))
+    const onColumnUpdated = vi.fn()
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Doing' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={true}
+        onColumnUpdated={onColumnUpdated}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Actions for column "Doing"' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Rename' }))
+    const input = screen.getByDisplayValue('Doing')
+    await user.clear(input)
+    await user.type(input, 'Done{Enter}')
+
+    expect(await screen.findByText('Failed to rename column. Please try again.')).toBeInTheDocument()
+    expect(onColumnUpdated).not.toHaveBeenCalled()
+    // The column reverts to showing the name from props (the parent never updated it).
+    expect(screen.getByText('Doing')).toBeInTheDocument()
+  })
+
   it('kebab → Edit settings opens EditColumnModal', async () => {
     render(
       <ColumnHeader
@@ -1018,7 +1051,10 @@ describe('ColumnHeader', () => {
 // ---------------------------------------------------------------------------
 
 import SwimlaneRow from '../components/Board/SwimlaneRow'
+import { updateSwimlane } from '../api/boards'
 import type { Swimlane } from '../types'
+
+const mockUpdateSwimlane = updateSwimlane as ReturnType<typeof vi.fn>
 
 function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   return {
@@ -1076,6 +1112,30 @@ describe('SwimlaneRow', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Customer A')).toBeInTheDocument()
+  })
+
+  // #1373 — commitRename's updateSwimlane() call used to be a floating promise:
+  // a rejection vanished silently and the user saw nothing.
+  it('shows an inline error and does not call onSwimlaneUpdated when the rename request fails', async () => {
+    mockUpdateSwimlane.mockRejectedValueOnce(new Error('network error'))
+    const onSwimlaneUpdated = vi.fn()
+    render(
+      <SwimlaneRow
+        swimlane={makeSwimlane()}
+        isAdmin={true}
+        {...swimlaneRowBaseProps}
+        onSwimlaneUpdated={onSwimlaneUpdated}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Customer A'))
+    const input = screen.getByRole('textbox')
+    await user.clear(input)
+    await user.type(input, 'Customer B{Enter}')
+
+    expect(await screen.findByText('Failed to rename swimlane. Please try again.')).toBeInTheDocument()
+    expect(onSwimlaneUpdated).not.toHaveBeenCalled()
     expect(screen.getByText('Customer A')).toBeInTheDocument()
   })
 

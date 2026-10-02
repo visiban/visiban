@@ -766,10 +766,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else {
       setSearchParams((prev) => { prev.delete("card"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
       // Check whether the card is archived so we can show a contextual message.
-      getCardStatus(board.id, cardId).then((status) => {
-        const msg = status?.archived
-          ? "This card has been archived."
-          : "Card not found — it may have been deleted.";
+      const showCardNotFound = (msg: string) => {
         setCardNotFound(msg);
         if (cardNotFoundTimerRef.current !== null) {
           clearTimeout(cardNotFoundTimerRef.current);
@@ -778,7 +775,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           setCardNotFound(null);
           cardNotFoundTimerRef.current = null;
         }, 4000);
-      });
+      };
+      getCardStatus(board.id, cardId)
+        .then((status) => {
+          showCardNotFound(
+            status?.archived
+              ? "This card has been archived."
+              : "Card not found — it may have been deleted.",
+          );
+        })
+        // Status lookup itself failed (e.g. network error) — fall back to the
+        // generic missing-card message rather than leaving the user with no
+        // feedback at all for their deep link.
+        .catch(() => showCardNotFound("Card not found — it may have been deleted."));
     }
   }, [board.cards, board.id, searchParams, setSearchParams]);
   const [showAddColumn, setShowAddColumn] = useState(false);
@@ -1348,7 +1357,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         col.id,
         ...currentIds.slice(insertPosition),
       ];
-      onColumnsReordered(newOrder);
+      // onColumnsReordered (useBoard.reorderColumns) does its own optimistic
+      // update + rollback on failure and never rejects.
+      void onColumnsReordered(newOrder);
     }
   }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered]);
 
@@ -1365,7 +1376,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         swimlane.id,
         ...currentIds.slice(insertSwimlanePosition),
       ];
-      onSwimlanesReordered(newOrder);
+      // onSwimlanesReordered (useBoard.reorderSwimlanes) does its own optimistic
+      // update + rollback on failure and never rejects.
+      void onSwimlanesReordered(newOrder);
     }
   }, [board.swimlanes, insertSwimlanePosition, onSwimlaneAdded, onSwimlanesReordered]);
 
@@ -1537,7 +1550,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const newIndex = board.columns.findIndex((c) => `col:${c.id}` === mappedOverId);
       if (oldIndex === -1 || newIndex === -1) return;
       const reordered = arrayMove(board.columns, oldIndex, newIndex);
-      onColumnsReordered(reordered.map((c) => c.id));
+      // onColumnsReordered (useBoard.reorderColumns) does its own optimistic
+      // update + rollback on failure and never rejects.
+      void onColumnsReordered(reordered.map((c) => c.id));
       return;
     }
 
@@ -1559,7 +1574,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const newIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === overId);
       if (oldIndex === -1 || newIndex === -1) return;
       const reordered = arrayMove(board.swimlanes, oldIndex, newIndex);
-      onSwimlanesReordered(reordered.map((s) => s.id));
+      // onSwimlanesReordered (useBoard.reorderSwimlanes) does its own optimistic
+      // update + rollback on failure and never rejects.
+      void onSwimlanesReordered(reordered.map((s) => s.id));
       return;
     }
 
@@ -1591,7 +1608,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       .filter((c) => c.column === targetColumnId && c.swimlane === targetSwimlaneId && c.id !== cardId)
       .sort((a, b) => a.position - b.position);
 
-    onMoveCard(cardId, targetColumnId, targetSwimlaneId, siblings.length);
+    // onMoveCard (useBoard.moveCard) does its own optimistic update, rollback,
+    // and error surfacing (moveError) on failure and never rejects.
+    void onMoveCard(cardId, targetColumnId, targetSwimlaneId, siblings.length);
   };
 
   const activeCount = countActiveFilters(filters);
@@ -2628,7 +2647,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && canConfirm) {
                       e.preventDefault();
-                      onColumnDeleted(confirmDeleteColumn.id);
+                      // onColumnDeleted (useBoard.removeColumn) does its own
+                      // optimistic update + reload-on-failure and never rejects.
+                      void onColumnDeleted(confirmDeleteColumn.id);
                       closeDialog();
                     }
                   }}
@@ -2646,7 +2667,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               </button>
               <button
                 onClick={() => {
-                  onColumnDeleted(confirmDeleteColumn.id);
+                  // onColumnDeleted (useBoard.removeColumn) does its own
+                  // optimistic update + reload-on-failure and never rejects.
+                  void onColumnDeleted(confirmDeleteColumn.id);
                   closeDialog();
                 }}
                 disabled={!canConfirm}

@@ -46,7 +46,7 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") { e.preventDefault(); save(); }
+    if (e.key === "Enter") { e.preventDefault(); void save(); } // save manages its own error state and never rejects
     if (e.key === "Escape") { e.preventDefault(); cancel(); }
   };
 

@@ -84,6 +84,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const heightResizeState = useRef<{ startY: number; startHeight: number } | null>(null);
@@ -114,8 +115,13 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     const trimmed = draft.trim();
     setRenaming(false);
     if (!trimmed || trimmed === swimlane.name) return;
-    const updated = await updateSwimlane(boardId, swimlane.id, { name: trimmed, color: swimlane.color });
-    onSwimlaneUpdated(updated);
+    setRenameError(null);
+    try {
+      const updated = await updateSwimlane(boardId, swimlane.id, { name: trimmed, color: swimlane.color });
+      onSwimlaneUpdated(updated);
+    } catch {
+      setRenameError("Failed to rename swimlane. Please try again.");
+    }
   };
 
   const cancelRename = () => {
@@ -188,7 +194,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); commitRename(); }
+                  if (e.key === "Enter") { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
                   if (e.key === "Escape") { e.preventDefault(); cancelRename(); }
                 }}
                 onBlur={commitRename}
@@ -205,6 +211,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </p>
             )}
             {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
+            {renameError && <p className="text-xs text-danger truncate" role="alert">{renameError}</p>}
             {/* Gated on !collapsed, matching contact_email above: a collapsed
                 row is py-1 and exists to give vertical space back, so stacked
                 chips would undo the gesture the user just made. The +N trigger

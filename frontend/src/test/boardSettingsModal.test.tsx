@@ -201,6 +201,23 @@ describe('BoardSettingsModal — Members tab', () => {
     })
   })
 
+  // #1373 — handleRoleChange had no catch at all (a genuine unhandled promise
+  // rejection, not just an unsurfaced error), found while fixing the sibling
+  // floating-promise sites in this same component.
+  it('shows an error and keeps the previous role when setBoardMember rejects', async () => {
+    const user = userEvent.setup()
+    mockSetBoardMember.mockRejectedValueOnce(new Error('network error'))
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+
+    const memberCombo = screen.getAllByRole('combobox').find((c) => c.textContent?.includes('Member'))!
+    await user.click(memberCombo)
+    await user.click(screen.getByRole('option', { name: 'Viewer' }))
+
+    expect(await screen.findByText('Failed to update role. Please try again.')).toBeInTheDocument()
+    const combos = screen.getAllByRole('combobox')
+    expect(combos.some((c) => c.textContent?.includes('Member'))).toBe(true)
+  })
+
   it('clicking ✕ shows inline remove confirmation for that member', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
@@ -231,6 +248,22 @@ describe('BoardSettingsModal — Members tab', () => {
     await waitFor(() => {
       expect(screen.queryByText('Bob Smith')).toBeNull()
     })
+  })
+
+  // #1373 — handleRemoveConfirm had no catch at all (a genuine unhandled
+  // promise rejection, not just an unsurfaced error), found while fixing the
+  // sibling floating-promise sites in this same component.
+  it('shows an error and keeps the member when removeBoardMember rejects', async () => {
+    const user = userEvent.setup()
+    mockRemoveBoardMember.mockRejectedValueOnce(new Error('network error'))
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+
+    const removeButtons = screen.getAllByTitle('Remove direct board role')
+    await user.click(removeButtons[removeButtons.length - 1])
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    expect(await screen.findByText('Failed to remove member. Please try again.')).toBeInTheDocument()
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
   })
 
   it('cancel on remove confirmation hides the confirmation', async () => {
@@ -641,6 +674,51 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
     })
   })
 
+  // #1373 — handleStalenessBlur's patchBoard() call used to be a floating
+  // promise: a rejection left the input showing the unsaved value with no
+  // error and no revert.
+  it('reverts the staleness threshold and shows an error when patchBoard rejects', async () => {
+    mockPatchBoard.mockRejectedValueOnce(new Error('network error'))
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+
+    const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
+    await user.clear(input)
+    await user.type(input, '21')
+    await user.tab()
+
+    expect(await screen.findByText('Failed to save stale card threshold. Please try again.')).toBeInTheDocument()
+    await waitFor(() => expect(input).toHaveValue(7))
+  })
+
+  // #1373 — handleStalenessBlur/handleStalenessWarningPctBlur now skip the
+  // patchBoard() call entirely when the blurred value matches what was last
+  // persisted, instead of always re-saving on every blur.
+  it('does not call patchBoard when the staleness threshold is blurred without a change', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+
+    const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
+    await user.click(input)
+    await user.tab()
+
+    expect(mockPatchBoard).not.toHaveBeenCalled()
+  })
+
+  it('does not call patchBoard when the warning percentage is blurred without a change', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+
+    const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
+    await user.click(input)
+    await user.tab()
+
+    expect(mockPatchBoard).not.toHaveBeenCalled()
+  })
+
   it('shows read-only staleness text for non-admins in Rules tab', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
@@ -664,6 +742,24 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
     await waitFor(() => {
       expect(mockPatchBoard).toHaveBeenCalledWith(1, { stale_warning_pct: 25 })
     })
+  })
+
+  // #1373 — handleStalenessWarningPctBlur's patchBoard() call used to be a
+  // floating promise: a rejection left the clamped value showing with no
+  // error and no revert.
+  it('reverts the warning percentage and shows an error when patchBoard rejects', async () => {
+    mockPatchBoard.mockRejectedValueOnce(new Error('network error'))
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+
+    const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
+    await user.clear(input)
+    await user.type(input, '25')
+    await user.tab()
+
+    expect(await screen.findByText('Failed to save warning percentage. Please try again.')).toBeInTheDocument()
+    await waitFor(() => expect(input).toHaveValue(50))
   })
 
   it('falls back to 14 days when staleness_threshold_days is null', async () => {
@@ -1059,6 +1155,56 @@ describe('BoardSettingsModal — Sharing tab', () => {
     await waitFor(() => expect(screen.queryByText(/existing-token-xyz/)).toBeNull())
   })
 
+  // #1373 — the Toggle's onChange used to call handleEnableShare()/handleDisableShare()
+  // as a bare floating promise. Both already manage their own loading/error state
+  // (shareStatus) internally, so the fix is `void` at the call site — these tests
+  // confirm that internal error handling still surfaces correctly through it.
+  it('shows an error when enabling sharing fails', async () => {
+    mockEnableBoardSharing.mockRejectedValueOnce(new Error('network error'))
+    const user = (await import('@testing-library/user-event')).default.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+
+    await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
+
+    expect(await screen.findByText('Failed to enable sharing. Please try again.')).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Enable public share link' })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('shows an error when disabling sharing fails', async () => {
+    mockDisableBoardSharing.mockRejectedValueOnce(new Error('network error'))
+    const user = (await import('@testing-library/user-event')).default.setup()
+    const boardWithToken = { ...fakeBoard, share_token: 'existing-token-xyz' }
+    render(<BoardSettingsModal board={boardWithToken} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+
+    await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
+
+    expect(await screen.findByText('Failed to disable sharing. Please try again.')).toBeInTheDocument()
+    // The link is still shown — the disable did not actually go through.
+    expect(screen.getByText(/existing-token-xyz/)).toBeInTheDocument()
+  })
+
+  // #1373 — handleCopyShareUrl's navigator.clipboard.writeText() call used to be
+  // a floating promise: a rejection still showed "Copied!" even though nothing
+  // was copied.
+  it('shows an error instead of "Copied!" when the clipboard write fails', async () => {
+    // userEvent.setup() installs its own clipboard stub on navigator.clipboard
+    // (unconditionally, overriding anything set beforehand), so the rejecting
+    // mock must be installed AFTER setup() to take effect.
+    const user = (await import('@testing-library/user-event')).default.setup()
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+      writable: true,
+    })
+    const boardWithToken = { ...fakeBoard, share_token: 'existing-token-xyz' }
+    render(<BoardSettingsModal board={boardWithToken} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+
+    await user.click(screen.getByText('Copy'))
+
+    expect(await screen.findByText('Failed to copy link. Please copy it manually.')).toBeInTheDocument()
+    expect(screen.queryByText('Copied!')).not.toBeInTheDocument()
+  })
+
   it('does not show Sharing tab content for non-admin even if navigated directly', () => {
     // Non-admin cannot select "sharing" tab — it won't exist in DOM
     render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
@@ -1112,6 +1258,21 @@ describe('BoardSettingsModal — Moderator toggle', () => {
     await user.click(checkboxes[1])
 
     expect(mockSetBoardMember).toHaveBeenCalledWith(1, 2, 'member', true)
+  })
+
+  // #1373 — handleModeratorToggle had no catch at all (a genuine unhandled
+  // promise rejection, not just an unsurfaced error), found while fixing the
+  // sibling floating-promise sites in this same component.
+  it('shows an error and leaves the checkbox unchanged when setBoardMember rejects', async () => {
+    const user = userEvent.setup()
+    mockSetBoardMember.mockRejectedValueOnce(new Error('network error'))
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1])
+
+    expect(await screen.findByText('Failed to update moderator status. Please try again.')).toBeInTheDocument()
+    expect(screen.getAllByRole('checkbox')[1]).not.toBeChecked()
   })
 
   it('collaborator-role moderator checkbox is unchecked and disabled (#574)', () => {

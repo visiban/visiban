@@ -123,6 +123,24 @@ describe('BoardCell', () => {
     expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'New Card' })
   })
 
+  // #1373 — handleAdd's createCard() call used to be a floating promise when
+  // invoked from the Enter-key path: a rejection left the input showing the
+  // typed title with no error (the existing addError UI never rendered).
+  it('shows an error and keeps the input open when createCard fails (Enter key, closeEditorOnEnter)', async () => {
+    mockCreateCard.mockRejectedValueOnce(new Error('network error'))
+    const props = { ...defaultProps(), closeEditorOnEnter: true }
+    render(<BoardCell {...props} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Add card'))
+    const input = screen.getByPlaceholderText('Card title…')
+    await user.type(input, 'New Card{Enter}')
+
+    expect(await screen.findByText('Failed to add card.')).toBeInTheDocument()
+    expect(props.onCardAdded).not.toHaveBeenCalled()
+    // The input stays open with the typed title so the user can retry.
+    expect(screen.getByDisplayValue('New Card')).toBeInTheDocument()
+  })
+
   it('shows card count badge when 2 or more cards are present', () => {
     const props = defaultProps()
     props.cards = [makeCard({ id: 1 }), makeCard({ id: 2, title: 'Card B' })]

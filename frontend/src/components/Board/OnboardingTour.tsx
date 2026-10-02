@@ -176,7 +176,7 @@ export default function OnboardingTour({ onComplete }: Props) {
         if (step < STEPS.length - 1) {
           setStep((s) => s + 1);
         } else {
-          finish();
+          void finish(); // finish() is best-effort (see its own comment) and never rejects
         }
       }
     };
@@ -198,14 +198,14 @@ export default function OnboardingTour({ onComplete }: Props) {
 
   // Escape dismisses the tour — priority 40 (modal level)
   useEscapeStack(() => {
-    finish();
+    void finish(); // finish() is best-effort (see its own comment) and never rejects
   }, 40);
 
   const handleNext = () => {
     if (step < STEPS.length - 1) {
       setStep((s) => s + 1);
     } else {
-      finish();
+      void finish(); // finish() is best-effort (see its own comment) and never rejects
     }
   };
 
