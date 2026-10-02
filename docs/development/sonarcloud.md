@@ -76,7 +76,6 @@ in `sonar-project.properties`:
 | `frontend/e2e/**` | Playwright specs assert flows; they are not themselves covered |
 | `**/migrations/**` | Auto-generated schema operations. Data-migration logic is tested through the function it calls |
 | `scripts/**`, `backend/scripts/**` | Repo tooling (CI gate scripts, release helpers). None of it ships in an image or bundle, and no test runner instruments it |
-| `backend/**/management/commands/seed_*` | Demo and template data generators, run by hand |
 | `backend/factories.py` | Test-data factory module |
 | `backend/boards/seed_data/**` | Standalone fixture generators (`generate_seed_data.py`, `generate_seed_data_part2.py`) that write the `sample-boards/*.json`/`.csv` fixtures checked into the repo; run by hand, never imported by any runtime path |
 
@@ -176,7 +175,7 @@ README badge shows. Check the `coverage:` lines in `.gitlab-ci.yml` if this chan
 |---|---|---|
 | Source | Regexes over the job logs of `backend-test-coverage` and `frontend-test` | The imported Cobertura and LCOV reports |
 | Scope | Backend and frontend, as an **average of two percentages** | Backend and frontend, as **one combined figure weighted by lines** |
-| Denominator | Whatever each tool reports: everything `backend/.coveragerc` does not omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side | Product source only: tests, migrations, scripts, seed commands, and factories are excluded |
+| Denominator | Whatever each tool reports: everything `backend/.coveragerc` does not omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side | Product source only: tests, migrations, scripts, seed-data generators, and factories are excluded |
 | Updates | Every pipeline that runs the jobs | Nightly |
 
 Because the badge averages two percentages, a small frontend and a large backend count equally,
