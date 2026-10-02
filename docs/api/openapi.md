@@ -82,8 +82,8 @@ this job (#1266). It never runs on a scheduled pipeline.
 seconds, against the MR job's 10 and 600. Boot, seed, token, checks, and
 `backend/schemathesis-baseline.json` are shared, because the deep job `extends:` the MR job.
 It gets a fresh seed each night, printed the same way. It is `allow_failure: true` so a
-finding does not turn the shared Nightly pipeline red. A finding is still a real defect: on
-failure the job files one tracking issue titled
+finding does not turn the shared Nightly pipeline red. A finding is still a real defect: when
+the fuzz itself ran and failed, the job files one tracking issue titled
 `backend-schema-fuzz-deep: nightly schema-fuzz finding`, or comments on it if it is already
 open. That needs a `FUZZ_DEEP_API_TOKEN` (or `KAIZEN_API_TOKEN`) CI variable with `api`
 scope. Without one, the job log shows what would have been filed.

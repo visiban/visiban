@@ -16,6 +16,9 @@ describe where it lives instead.
 | MinIO `AccessKey` / `SecretKey` | S3-compatible object storage credentials | Runner infra owner | Each self-hosted runner's local `config.toml` (`[runners.cache.s3]`), referenced via env interpolation; also present as GitLab CI/CD variables `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (masked, protected) alongside `MINIO_ENDPOINT` / `MINIO_BUCKET` | Distributed CI cache shared across runners (`.npm-cache`, pip cache templates in `.gitlab-ci.yml`) | Not tracked here — internal-only MinIO instance, not internet-exposed (per issue #141) |
 | `RUNNER_STATUS_TOKEN` | GitLab fine-grained PAT, `read_runner` permission, scoped to the `visiban` group (id 126306686) | `kellyhair` | GitLab CI/CD variable (masked, protected, description "ARM64") | `arm64-runner-preflight` job (#1084) — queries `GET /groups/visiban/runners?scope=online&tag_list=arm64` to fail loud before scheduling the arm64 Docker push legs, instead of letting them hang `pending` with no matching runner | **2027-09-26** |
 | Docker Hub PAT (`DOCKERHUB_TOKEN`) | Docker Hub personal access token, "Public Repo Read-only" scope (view/search/pull public images only — no push access) | TBD — confirm current owner before rotating | GitLab CI/CD variables `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` (masked, protected — only injected on `main` and `v*` tag pipelines) | `backend-docker-build` / `frontend-docker-build` (MR-time, `--no-push` build verification) and `.kaniko-push-common` / `backend-docker-push`, `frontend-docker-push` (main/tag pushes) — populates kaniko's `/kaniko/.docker/config.json` so Docker Hub `FROM` base-image pulls (`python:3.12-slim`, `node:20-alpine`, `nginx:1.27-alpine`) use the authenticated 200-pulls/hour tier instead of the 100/hour anonymous tier shared across the runner's IP (#1198). Being `protected`, it does **not** reach MR pipelines from unprotected branches — those still pull anonymously. | TBD — confirm expiry set on Docker Hub |
+| `GITLAB_API_TOKEN` (optional — **not yet created**) | GitLab project access token, Reporter role, `read_api` scope | TBD | GitLab CI/CD variable (protected, masked) | `schedule-config-check` (reads pipeline schedules; `CI_JOB_TOKEN` cannot) and `suppressions-check` / `kaizen-yield-watch` as a read fallback. Without it, `schedule-config-check` warns and passes — see [Scheduled pipelines](../development/ci-gates.md#scheduled-pipelines) | n/a until created |
+| `FUZZ_DEEP_API_TOKEN` (optional — **not yet created**) | GitLab project access token, Reporter role, `api` scope (Reporter is enough to create issues and comment) | TBD | GitLab CI/CD variable (protected, masked) | `backend-schema-fuzz-deep` `after_script` (`scripts/fuzz_deep_file_issue.py`) — files or comments on the deep-fuzz tracking issue. Falls back to `KAIZEN_API_TOKEN`; see [below](#deep-fuzz-and-kaizen-issue-filing-tokens) | n/a until created |
+| `KAIZEN_API_TOKEN` (optional — **not yet created**) | GitLab project access token, Reporter role, `api` scope | TBD | GitLab CI/CD variable (protected, masked) | `kaizen-yield-watch` issue filing (only with `KAIZEN_FILE_ISSUES=true`); also the fallback filer token for `backend-schema-fuzz-deep` | n/a until created |
 
 ## `RUNNER_STATUS_TOKEN`
 
@@ -80,6 +83,19 @@ tokens, find both tokens, and record their expiry dates here. Until that happens
 as **could expire at any time** — a sudden `github-release` or GHCR push failure with an auth
 error is the first symptom, and by then it's already an incident. Do not let this line sit as
 long as the two memory notes below did (~5 months pending).
+
+## Deep-fuzz and kaizen issue-filing tokens
+
+`scripts/fuzz_deep_file_issue.py` (#1383) uses `FUZZ_DEEP_API_TOKEN` and falls back to
+`KAIZEN_API_TOKEN` when that is unset, so a project can run on one issue-filing token.
+A project access token with **Reporter** role and `api` scope is enough: Reporter can create
+issues and comment, and nothing here needs a higher role. Neither token exists yet. Until one
+does, both jobs only report what they would have filed.
+
+The fallback **ties the two tokens' rotation together**. If only `KAIZEN_API_TOKEN` is
+configured, it is also the deep-fuzz filer, so revoking or rotating it silently stops deep-fuzz
+filing too. Rotate or revoke it as a deep-fuzz credential as well as a kaizen one. To separate
+them, create `FUZZ_DEEP_API_TOKEN`, which takes precedence.
 
 ## `DOCS_DEPLOY_TOKEN` — historical note and current status
 

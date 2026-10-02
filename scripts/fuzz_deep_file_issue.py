@@ -58,10 +58,37 @@ def read_seed(path):
         return "unknown"
 
 
+def clean_seed(seed):
+    """The seed is a decimal integer (secrets.randbits(64), or FUZZ_SEED).
+    Anything else, including a multi-line value, becomes "invalid", so a
+    crafted FUZZ_SEED cannot carry GitLab quick actions (/close, /label ...)
+    into the issue or note."""
+    s = (seed or "").strip()
+    return s if s.isdigit() else "invalid"
+
+
+def clean_field(value, default):
+    """One CI-variable value, made safe to embed inline in Markdown: first line
+    only, no backticks, no leading '/'. GitLab runs a quick action only from a
+    line that starts with '/', so a value that cannot start a line cannot
+    trigger one."""
+    first = (value or "").replace("\r", "\n").split("\n", 1)[0]
+    first = first.replace("`", "").strip().lstrip("/").strip()
+    return first or default
+
+
+def strip_quick_actions(text):
+    """Belt and braces: drop any line of the final body that would be read as
+    a quick action."""
+    return "\n".join(line for line in text.split("\n")
+                     if not line.lstrip().startswith("/"))
+
+
 def run_details(env, seed):
-    pipeline = env.get("CI_PIPELINE_URL", "(pipeline URL unavailable)")
-    job = env.get("CI_JOB_URL", "(job URL unavailable)")
-    sha = env.get("CI_COMMIT_SHORT_SHA", "unknown")
+    pipeline = clean_field(env.get("CI_PIPELINE_URL"), "(pipeline URL unavailable)")
+    job = clean_field(env.get("CI_JOB_URL"), "(job URL unavailable)")
+    sha = clean_field(env.get("CI_COMMIT_SHORT_SHA"), "unknown")
+    seed = clean_seed(seed)
     return (
         f"- Pipeline: {pipeline}\n"
         f"- Job: {job}\n"
@@ -71,6 +98,7 @@ def run_details(env, seed):
 
 
 def issue_body(details, project_url):
+    project_url = clean_field(project_url, "https://gitlab.com/visiban/visiban")
     doc = (f"{project_url}/-/blob/main/docs/api/openapi.md"
            "#a-red-backend-schema-fuzz-job-is-never-a-flake")
     return (
@@ -112,12 +140,12 @@ def file_or_update(env, seed, api_fn=api):
         if match:
             iid = match[0]["iid"]
             api_fn("POST", f"{base}/projects/{project}/issues/{iid}/notes", token,
-                   {"body": "Failed again.\n\n" + details})
+                   {"body": strip_quick_actions("Failed again.\n\n" + details)})
             print(f"fuzz-deep-file-issue: added a note to open issue #{iid}")
             return f"noted:{iid}"
         made = api_fn("POST", f"{base}/projects/{project}/issues", token,
-                      {"title": TITLE, "description": issue_body(
-                           details, env.get("CI_PROJECT_URL", "https://gitlab.com/visiban/visiban")),
+                      {"title": TITLE, "description": strip_quick_actions(issue_body(
+                           details, env.get("CI_PROJECT_URL"))),
                        "labels": LABELS})
         print(f"fuzz-deep-file-issue: filed {made.get('web_url', '(no URL returned)')}")
         return "filed"
@@ -178,12 +206,36 @@ def self_test():
     expect("api error", file_or_update(dict(env, FUZZ_DEEP_API_TOKEN="t"), "42", broken_api),
            "inconclusive")
 
+    # 5. Quick-action smuggling (#1383 completeness-check): a multi-line seed
+    #    and CI-variable text starting a line with '/' must never reach a body.
+    calls.clear()
+    hostile = dict(env, FUZZ_DEEP_API_TOKEN="t",
+                   CI_PIPELINE_URL="https://example.invalid/p/1\n/close",
+                   CI_JOB_URL="/label ~security",
+                   CI_COMMIT_SHORT_SHA="abc`\n/assign @someone",
+                   CI_PROJECT_URL="https://example.invalid\n/confidential")
+    for api_fn in (existing_api, empty_api):
+        calls.clear()
+        file_or_update(dict(hostile), "42\n/close", api_fn)
+        for _m, _u, data in calls:
+            if not data:
+                continue
+            body = data.get("body") or data.get("description") or ""
+            bad = [ln for ln in body.split("\n") if ln.lstrip().startswith("/")]
+            if bad:
+                failures.append(f"quick action reached a body: {bad!r}")
+            if "Seed: `invalid`" not in body:
+                failures.append("a multi-line seed was not replaced by 'invalid'")
+    expect("clean_seed digits", clean_seed(" 11904822046389351554\n"), "11904822046389351554")
+    expect("clean_seed junk", clean_seed("12 /close"), "invalid")
+    expect("clean_field leading slash", clean_field("/close", "d"), "close")
+
     if failures:
         for f in failures:
             print(f"self-test FAILED: {f}", file=sys.stderr)
         return 1
     print("fuzz_deep_file_issue --self-test: OK (report-only, note-on-existing, "
-          "file-new, fail-open)")
+          "file-new, fail-open, quick-action sanitizing)")
     return 0
 
 

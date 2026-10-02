@@ -976,14 +976,21 @@ backend-schema-fuzz-deep:
   script:
     # Self-test the issue filer before trusting it in after_script (#1093).
     - python3 scripts/fuzz_deep_file_issue.py --self-test
+    # Marker: the fuzz itself is about to run. after_script files an issue only
+    # when this exists, so a failed filer self-test (or a failed pip install,
+    # migrate or seed in before_script) is never reported as a schema-fuzz
+    # finding. It is a red job like any other, not an API defect.
+    - touch /tmp/fuzz_deep_started
     # GitLab flattens nested script arrays: this is backend-schema-fuzz's own
     # script, so the two jobs cannot drift apart.
     - *schema-fuzz-script
   after_script:
     - *schema-fuzz-after-script
     - |
-      if [ "$CI_JOB_STATUS" = "failed" ]; then
+      if [ "$CI_JOB_STATUS" = "failed" ] && [ -f /tmp/fuzz_deep_started ]; then
         python3 scripts/fuzz_deep_file_issue.py --seed-file /tmp/fuzz_seed || true
+      elif [ "$CI_JOB_STATUS" = "failed" ]; then
+        echo "backend-schema-fuzz-deep failed before the fuzz ran (setup or the filer self-test); not filing a schema-fuzz issue."
       fi
 
 # ─── Issue Board Lens (experiment) tests ─────────────────────────────────────
@@ -3798,10 +3805,14 @@ nightly-load-test:
 #
 # Runs on every scheduled pipeline, same slot check-release-images/
 # helm-install/helm-netpol already use, so this needs no new schedule of its
-# own to be exercised. Requires GITLAB_API_TOKEN (already configured for
-# suppressions-check) with at least Reporter access to read pipeline
-# schedules; fails open (warns, does not block) if that lookup is
-# inconclusive rather than report a false MISSING.
+# own to be exercised. It only asserts anything when a GITLAB_API_TOKEN CI
+# variable (project access token, Reporter role or above, read_api scope) is
+# configured: CI_JOB_TOKEN cannot read pipeline schedules, so without
+# GITLAB_API_TOKEN the lookup is inconclusive and the job warns and passes
+# rather than report a false MISSING. As of #1383 no GITLAB_API_TOKEN is
+# configured on the project or the group, so today this check is a warning
+# only. Before #1383 the script also stopped at the rejected CI_JOB_TOKEN and
+# never tried GITLAB_API_TOKEN at all; it now falls through.
 #
 # SCHEDULE_AUDIT_ACCEPTED_GAPS below lists gaps #1213's own audit already
 # found and filed as #1232 — a documented, temporary exception (same shape as
