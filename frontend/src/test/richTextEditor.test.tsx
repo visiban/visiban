@@ -347,3 +347,290 @@ describe('RichTextEditor view mode — keyboard path (#1376)', () => {
     expect(screen.getByTestId('tiptap-editor')).toBeInTheDocument()
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// #1371 — editor-interaction coverage. The suites above mock useEditor() to
+// return null (a real Tiptap/ProseMirror instance needs a real browser DOM,
+// so full editor behavior stays an e2e concern). These tests supply a fake
+// non-null editor so the toolbar onClick handlers, Save/Cancel, the onBlur
+// save path, and the value-sync effect — all gated on `editor?.` — actually
+// run instead of short-circuiting on the optional chain.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Tracks every method call on a Tiptap-style fluent chain(); any method
+ * name returns the same tracker so `.focus().toggleBold().run()` chains
+ * without needing to hand-list every method tiptap exposes. */
+function makeChainTracker() {
+  const calls: string[] = []
+  const chain: Record<string, (...args: unknown[]) => unknown> = new Proxy(
+    {},
+    {
+      get(_target, prop: string) {
+        return (...args: unknown[]) => {
+          calls.push(args.length ? `${prop}(${JSON.stringify(args)})` : prop)
+          return chain
+        }
+      },
+    }
+  )
+  return { chain, calls }
+}
+
+function makeFakeEditor(markdown = 'current markdown') {
+  const { chain, calls } = makeChainTracker()
+  const commands = { focus: vi.fn(), setContent: vi.fn() }
+  const editor = {
+    isActive: vi.fn(() => false),
+    getAttributes: vi.fn(() => ({})),
+    storage: { markdown: { getMarkdown: vi.fn(() => markdown) } },
+    chain: vi.fn(() => chain),
+    commands,
+  }
+  return { editor, calls, commands }
+}
+
+describe('RichTextEditor toolbar actions (fake non-null editor)', () => {
+  // Each test below sets useEditor's mock return value to a fake non-null
+  // editor and restores it to null in a `finally` block, so the default
+  // null-returning mock other describe blocks in this file depend on is
+  // never left clobbered if an assertion throws mid-test.
+
+  it('Bold/Italic/Code/list/heading/blockquote buttons drive the chain', () => {
+    const { editor, calls } = makeFakeEditor()
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+
+      // ToolbarButton wires its action to onMouseDown (with preventDefault),
+      // not onClick, so the editor never loses focus on a toolbar click.
+      fireEvent.mouseDown(screen.getByTitle('Bold (Ctrl+B)'))
+      expect(calls).toContain('toggleBold')
+
+      fireEvent.mouseDown(screen.getByTitle('Italic (Ctrl+I)'))
+      expect(calls).toContain('toggleItalic')
+
+      fireEvent.mouseDown(screen.getByTitle('Inline code'))
+      expect(calls).toContain('toggleCode')
+
+      fireEvent.mouseDown(screen.getByTitle('Bullet list'))
+      expect(calls).toContain('toggleBulletList')
+
+      fireEvent.mouseDown(screen.getByTitle('Numbered list'))
+      expect(calls).toContain('toggleOrderedList')
+
+      fireEvent.mouseDown(screen.getByTitle('Heading'))
+      expect(calls).toContain(`toggleHeading(${JSON.stringify([{ level: 2 }])})`)
+
+      fireEvent.mouseDown(screen.getByTitle('Blockquote'))
+      expect(calls).toContain('toggleBlockquote')
+
+      // Every click must also chain through focus() and terminate with run()
+      expect(calls.filter((c) => c === 'focus').length).toBeGreaterThanOrEqual(7)
+      expect(calls.filter((c) => c === 'run').length).toBeGreaterThanOrEqual(7)
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('ColorPicker swatch selection calls setColor, and the Default swatch calls unsetColor', () => {
+    const { editor, calls } = makeFakeEditor()
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+
+      const colorButton = screen.getByTitle('Text color')
+      fireEvent.mouseDown(colorButton)
+      fireEvent.mouseDown(screen.getByTitle('Red'))
+      expect(calls).toContain(`setColor(${JSON.stringify(['#f87171'])})`)
+
+      fireEvent.mouseDown(colorButton)
+      fireEvent.mouseDown(screen.getByTitle('Default'))
+      expect(calls).toContain('unsetColor')
+
+      // Selecting a swatch closes the panel
+      expect(screen.queryByTitle('Red')).not.toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('clicking outside the open color swatch panel closes it', () => {
+    const { editor } = makeFakeEditor()
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+
+      fireEvent.mouseDown(screen.getByTitle('Text color'))
+      expect(screen.getByTitle('Default')).toBeInTheDocument()
+
+      fireEvent.mouseDown(document.body)
+      expect(screen.queryByTitle('Default')).not.toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('Save button commits the markdown via onSave and exits edit mode', () => {
+    const { editor } = makeFakeEditor('saved markdown')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const onSave = vi.fn()
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} showActions />)
+      fireEvent.click(container.firstChild as Element)
+
+      fireEvent.mouseDown(screen.getByText('Save'))
+      expect(onSave).toHaveBeenCalledWith('saved markdown')
+      expect(screen.queryByTestId('tiptap-editor')).not.toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('Cancel restores the original value via setContent and does not call onSave', () => {
+    const { editor, commands } = makeFakeEditor('unsaved draft markdown')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const onSave = vi.fn()
+      const { container } = render(<RichTextEditor value="original text" onSave={onSave} showActions />)
+      fireEvent.click(container.firstChild as Element)
+
+      fireEvent.mouseDown(screen.getByText('Cancel'))
+      expect(onSave).not.toHaveBeenCalled()
+      expect(commands.setContent).toHaveBeenCalledWith('original text')
+      expect(screen.queryByTestId('tiptap-editor')).not.toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('Escape while editing cancels edit mode (restores content, does not save)', () => {
+    const { editor, commands } = makeFakeEditor('draft markdown')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const onSave = vi.fn()
+      const { container } = render(<RichTextEditor value="committed text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+      expect(screen.getByTestId('tiptap-editor')).toBeInTheDocument()
+
+      fireEvent.keyDown(document, { key: 'Escape' })
+
+      expect(commands.setContent).toHaveBeenCalledWith('committed text')
+      expect(onSave).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('tiptap-editor')).not.toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('onBlur saves and exits edit mode when focus leaves the editor container', () => {
+    const { editor } = makeFakeEditor('blurred-out markdown')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const onSave = vi.fn()
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+
+      const optsArg = vi.mocked(useEditor).mock.calls.at(-1)?.[0] as unknown as {
+        onBlur: (args: { event: { relatedTarget: Node | null } }) => void
+      }
+      act(() => {
+        optsArg.onBlur({ event: { relatedTarget: document.body } })
+      })
+
+      expect(onSave).toHaveBeenCalledWith('blurred-out markdown')
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('onBlur does not save when focus moves to a toolbar/action button inside the container', () => {
+    const { editor } = makeFakeEditor('should not save')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const onSave = vi.fn()
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+      const boldButton = screen.getByTitle('Bold (Ctrl+B)')
+
+      const optsArg = vi.mocked(useEditor).mock.calls.at(-1)?.[0] as unknown as {
+        onBlur: (args: { event: { relatedTarget: Node | null } }) => void
+      }
+      act(() => {
+        optsArg.onBlur({ event: { relatedTarget: boldButton } })
+      })
+
+      expect(onSave).not.toHaveBeenCalled()
+      // Still in edit mode — the editor stays mounted
+      expect(screen.getByTestId('tiptap-editor')).toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('onBlur never saves when showActions is true, even if focus leaves the container', () => {
+    const { editor } = makeFakeEditor('should not autosave')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const onSave = vi.fn()
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} showActions />)
+      fireEvent.click(container.firstChild as Element)
+
+      const optsArg = vi.mocked(useEditor).mock.calls.at(-1)?.[0] as unknown as {
+        onBlur: (args: { event: { relatedTarget: Node | null } }) => void
+      }
+      act(() => {
+        optsArg.onBlur({ event: { relatedTarget: document.body } })
+      })
+
+      expect(onSave).not.toHaveBeenCalled()
+      expect(screen.getByTestId('tiptap-editor')).toBeInTheDocument()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('syncs editor content when the value prop changes externally while not editing', () => {
+    const { editor, commands } = makeFakeEditor('old value')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { rerender } = render(<RichTextEditor value="old value" onSave={vi.fn()} />)
+      rerender(<RichTextEditor value="new external value" onSave={vi.fn()} />)
+      expect(commands.setContent).toHaveBeenCalledWith('new external value')
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('does not resync editor content from the value prop while actively editing', () => {
+    const { editor, commands } = makeFakeEditor('old value')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container, rerender } = render(<RichTextEditor value="old value" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element) // enter edit mode
+      commands.setContent.mockClear()
+
+      rerender(<RichTextEditor value="externally changed while editing" onSave={vi.fn()} />)
+      expect(commands.setContent).not.toHaveBeenCalled()
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+
+  it('focuses the editor at the end of the content when entering edit mode', () => {
+    const { editor, commands } = makeFakeEditor()
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    vi.useFakeTimers()
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+      vi.runAllTimers()
+      expect(commands.focus).toHaveBeenCalledWith('end')
+    } finally {
+      vi.useRealTimers()
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
+  })
+})

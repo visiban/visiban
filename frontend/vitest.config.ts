@@ -24,11 +24,16 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/test/**', 'src/**/*.test.*', 'src/**/*.spec.*', 'src/vite-env.d.ts'],
+      // Ratcheted for #1371 (SonarCloud coverage floor). Measured on this
+      // branch after extending RichTextEditor.tsx and useBoard.ts coverage:
+      // lines 85.03%, statements 82.2%, functions 79.03%, branches 79.69%.
+      // Set a couple of points under each so the gate cannot regress but
+      // normal test-order/environment variance doesn't flake it red.
       thresholds: {
-        lines: 70,
-        statements: 70,
-        functions: 60,
-        branches: 60,
+        lines: 83,
+        statements: 80,
+        functions: 77,
+        branches: 77,
       },
     },
   },

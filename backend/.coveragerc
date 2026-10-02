@@ -9,7 +9,6 @@ source = .
 relative_files = true
 omit =
     */tests/*
-    */management/commands/benchmark.py
     visiban/wsgi.py
     visiban/asgi.py
     boards/routing.py
