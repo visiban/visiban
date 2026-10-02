@@ -169,6 +169,25 @@ describe('LensView', () => {
     expect(names).toEqual(['ant', 'café', 'Zebra'])
   })
 
+  it('orders assignee suggestions with localeCompare, not UTF-16 code-unit order (#1372)', async () => {
+    // Same regression guard as the label-suggestion test above, for the sibling
+    // `availableAssignees` sort in LensView.
+    const data = lensData(['v1'])
+    data.issues[0].assignees = [
+      { username: 'Zoe', avatar_url: '' },
+      { username: 'ana', avatar_url: '' },
+      { username: 'émile', avatar_url: '' },
+    ] as never
+    setup('/', true, ['v1'], data)
+
+    const opts = document.querySelectorAll('#lens-assignee-options option')
+    expect(Array.from(opts).map((o) => (o as HTMLOptionElement).value)).toEqual([
+      'ana',
+      'émile',
+      'Zoe',
+    ])
+  })
+
   it('keeps an active label in the suggestion list even when nothing in the response carries it', async () => {
     // Label filtering is SERVER-SIDE, so a filtered response only contains issues
     // that match. Deriving the menu from the current response alone would collapse
