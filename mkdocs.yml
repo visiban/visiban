@@ -123,6 +123,7 @@ nav:
     - Serializer ↔ TypeScript Parity: development/serializer-ts-parity.md
     - RBAC & Broadcast Gates: development/rbac-and-broadcast-gates.md
     - Suppression Markers: development/suppressions.md
+    - SonarCloud: development/sonarcloud.md
     - Kaizen Yield Watch: development/kaizen-yield-watch.md
     - WebSocket Event Contract: development/websocket-event-contract.md
     - Nightly Load Test: development/nightly-load-test.md
@@ -149,4 +150,5 @@ nav:
     - Tokens and Rotation: maintainers/tokens-and-rotation.md
     - Known CI Failures: maintainers/known-ci-failures.md
     - Hosted Demo: maintainers/demo-deploy.md
+    - SonarCloud Runbook: maintainers/sonarcloud.md
   - Changelog: changelog.md

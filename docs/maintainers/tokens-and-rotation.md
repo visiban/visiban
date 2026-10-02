@@ -10,6 +10,7 @@ describe where it lives instead.
 | Credential | Type / scope | Owner | Stored | Used by | Expiry |
 |---|---|---|---|---|---|
 | Mirror bot PAT | GitLab PAT, Maintainer role on `visiban/visiban-enterprise` | `visiban-mirror-bot` service account | GitLab → Settings → Repository → Mirroring (push mirror URL for the OSS→enterprise mirror) | Automatic push-mirror of every branch/tag from OSS to enterprise on every push | **2027-03-10** |
+| `SONAR_TOKEN` | SonarCloud user token (inherits its owner's permissions; the owner must be able to run analysis on the project) | TBD — confirm current owner before rotating | GitLab CI/CD variable (protected, masked) | `sonar:scan` (nightly, `SONAR_SCHEDULED=true`) — see [SonarCloud Runbook](sonarcloud.md#sonar_token) | **UNKNOWN** — record the expiry from SonarCloud → My Account → Security |
 | GitHub push-mirror PAT (`visiban-gitlab-mirror`) | GitHub PAT, scope `repo` | TBD — confirm current owner before rotating | GitLab → Settings → Repository → Mirroring (push mirror URL for OSS→GitHub); **also** stored as the `GH_TOKEN` GitLab CI/CD variable (protected, masked) | Push-mirrors OSS to `github.com/visiban/visiban`; `github-release` CI job (`gh release create`, which reads `GH_TOKEN` automatically — see correction below) | **UNKNOWN** — see below |
 | GHCR push PAT (`visiban-ghcr-push`) | GitHub PAT, scope `write:packages` | TBD — confirm current owner before rotating | GitLab CI/CD variable `GHCR_TOKEN` (masked), paired with `GHCR_USER` (masked) | `.kaniko-push-common` / `backend-docker-push`, `frontend-docker-push`, `.arm64-docker-push-base` / `backend-docker-push-arm64`, `frontend-docker-push-arm64`, `.manifest-tool-common` / `backend-manifest`, `frontend-manifest` — pushes images and multi-arch manifests to `ghcr.io/visiban/visiban/*` | **UNKNOWN** — see below |
 | `DOCS_DEPLOY_TOKEN` | GitLab token, `write_repository` scope | TBD | GitLab CI/CD variable (protected, masked) | `docs-deploy` job — `mike` pushes the versioned docs site to the `gh-pages` branch | Not tracked here — see note below |
@@ -134,6 +135,8 @@ its `config.toml` follows the interpolated form — do not hardcode the values a
         `DOCS_VERSION` set (see the job's comment block in `.gitlab-ci.yml`).
       - Mirror bot PAT: push any commit to `main` and confirm it appears on
         `visiban/visiban-enterprise` shortly after.
+      - `SONAR_TOKEN`: run the Nightly schedule by hand (Build → Pipeline schedules → play) and
+        confirm `sonar:scan` publishes; see the [SonarCloud Runbook](sonarcloud.md#verify).
       - `RUNNER_STATUS_TOKEN`: re-run a past `arm64-runner-preflight` job (CI/CD → Pipelines →
         find a release-tag pipeline → retry that job), or trigger a new pipeline on a
         pre-release tag; it should log "OK: N online runner(s) tagged arm64" rather than the
