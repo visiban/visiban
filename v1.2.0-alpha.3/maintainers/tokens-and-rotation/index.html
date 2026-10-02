@@ -3939,11 +3939,12 @@ its <code>config.toml</code> follows the interpolated form — do not hardcode t
     stage). Test via a pre-release tag (e.g. <code>v1.2.0-rc.1</code>) instead — it exercises
     <code>backend-docker-push</code> / <code>frontend-docker-push</code> (kaniko, pushes <code>-amd64</code>-suffixed GHCR
     tags) and, if the arm64 leg and preflight also pass, <code>backend-manifest</code> /
-    <code>frontend-manifest</code> (assembles the real GHCR <code>:&lt;tag&gt;</code>/<code>:latest</code>). <strong>Caveat, pre-existing
-    and not specific to this token:</strong> a pre-release tag's <code>TAGS_ARG</code> includes <code>latest</code>
-    (<code>.gitlab-ci.yml</code> <code>backend-manifest</code>/<code>frontend-manifest</code>), so this test moves the real
-    <code>:latest</code> reference to the rc build on both registries — expected for an actual rc
-    release, but worth knowing before using it purely as a credential smoke test.</li>
+    <code>frontend-manifest</code> (assembles the real GHCR <code>:&lt;tag&gt;</code>). A pre-release tag only ever
+    gets its own exact <code>:&lt;tag&gt;</code> — <code>backend-manifest</code>/<code>frontend-manifest</code> alias <code>:latest</code>
+    (and <code>:MAJOR.MINOR</code>) onto a stable release tag only, so this test never touches the
+    real <code>:latest</code> reference on either registry (a bug that did exactly that, from
+    v1.2.0-alpha.1 through v1.2.0-alpha.3, was fixed; see the <code>STABLE_TAGS</code> gating in
+    both jobs).</li>
 <li><code>DOCS_DEPLOY_TOKEN</code>: run the <code>docs-deploy</code> job manually on <code>main</code> with a
     <code>DOCS_VERSION</code> set (see the job's comment block in <code>.gitlab-ci.yml</code>).</li>
 <li>Mirror bot PAT: push any commit to <code>main</code> and confirm it appears on

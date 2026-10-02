@@ -3858,7 +3858,7 @@
 <p>The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does <strong>not</strong> proxy <code>/api/</code> requests. Access the <a href="../../api/openapi/">OpenAPI schema</a> at <code>http://localhost:8000/api/schema/swagger-ui/</code> — the schema endpoints require an authenticated session or PAT, to avoid exposing the full API surface to anonymous callers.</p>
 <p>For a production-oriented Docker Compose stack (nginx, TLS via certbot, a <code>scheduler</code> service for daily notification jobs, no bind-mounted source), see <code>docker-compose.prod.yml</code> and <a href="../../getting-started/installation/">Installation</a>.</p>
 <h2 id="production-docker-images">Production Docker images<a class="headerlink" href="#production-docker-images" title="Permanent link">&para;</a></h2>
-<p>Pre-built images are published to the GitLab container registry automatically by CI. Every merge to <code>main</code> pushes an amd64-only <code>:latest</code> and short-SHA tag; multi-arch (linux/amd64 + linux/arm64) <code>:latest</code> and release tags come from release-tag pipelines:</p>
+<p>Pre-built images are published to the GitLab container registry automatically by CI. Every merge to <code>main</code> pushes an amd64-only <code>:latest</code> and short-SHA tag; multi-arch (linux/amd64 + linux/arm64) <code>:latest</code> comes from a <strong>stable</strong> release-tag pipeline only — a pre-release tag (<code>-alpha</code>/<code>-beta</code>/<code>-rc</code>) publishes its own exact version tag and never touches <code>:latest</code>:</p>
 <table>
 <thead>
 <tr>

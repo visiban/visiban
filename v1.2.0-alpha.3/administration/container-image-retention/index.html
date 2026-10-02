@@ -3845,21 +3845,23 @@ registry. Check that registry's retention/cleanup policy first (see the sections
 re-run the FULL tag pipeline's publish chain to restore the image: <code>backend-docker-push</code> /
 <code>frontend-docker-push</code> alone (amd64) is <strong>not</strong> sufficient — as of the 2026-09-28 #1084
 re-audit, those jobs only push <code>-amd64</code>-suffixed intermediate tags on a release tag, never the
-real <code>:&lt;tag&gt;</code>/<code>:latest</code> names directly. The real names are written exclusively by
-<code>backend-manifest</code> / <code>frontend-manifest</code>, which <code>needs:</code> both the amd64 leg above and the
-arm64 leg (<code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code>). Re-running only the
-amd64 leg will not bring the tag back at all — all six jobs (<code>arm64-runner-preflight</code>,
+real <code>:&lt;tag&gt;</code> name directly. The real name is written exclusively by <code>backend-manifest</code> /
+<code>frontend-manifest</code>, which <code>needs:</code> both the amd64 leg above and the arm64 leg
+(<code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code>). Re-running only the amd64 leg
+will not bring the tag back at all — all six jobs (<code>arm64-runner-preflight</code>,
 <code>backend-docker-push</code> + <code>backend-docker-push-arm64</code>, <code>frontend-docker-push</code> +
 <code>frontend-docker-push-arm64</code>, and <code>backend-manifest</code> + <code>frontend-manifest</code>) must complete for
 the real, multi-arch tag to exist again.</p>
-<p><strong>Caution if you're restoring an OLD release's tag</strong> (not the newest one): both manifest jobs
-always pass <code>--tags latest</code> (and <code>:MAJOR.MINOR</code> for a stable release) to <code>manifest-tool</code>, with
-no check that the tag being rebuilt is actually the newest release. Re-running the full chain
-for an old tag will move the real <code>:latest</code> (and <code>:MAJOR.MINOR</code>) reference back to that old
-release on both registries, not just restore the specific <code>:&lt;tag&gt;</code> this check flagged. Confirm
-that's intended — or restore the missing tag by other means (e.g. re-pushing the specific
-digest, if still available on the other registry) — before re-running the chain for anything
-other than the current newest release.</p>
+<p><strong>Caution if you're restoring an OLD <em>stable</em> release's tag</strong> (not the newest one): the
+manifest jobs pass <code>--tags latest,MAJOR.MINOR</code> to <code>manifest-tool</code> only for a stable
+(non-pre-release) tag, with no check that the stable tag being rebuilt is actually the newest
+release. Re-running the full chain for an old stable tag will move the real <code>:latest</code> (and
+<code>:MAJOR.MINOR</code>) reference back to that old release on both registries, not just restore the
+specific <code>:&lt;tag&gt;</code> this check flagged. Confirm that's intended — or restore the missing tag by
+other means (e.g. re-pushing the specific digest, if still available on the other registry) —
+before re-running the chain for anything other than the current newest stable release. A
+pre-release tag (<code>-alpha.N</code>/<code>-beta.N</code>/<code>-rc.N</code>) gets no <code>--tags</code> at all — restoring one only
+ever recreates its own exact <code>:&lt;tag&gt;</code>, never touches <code>:latest</code>.</p>
 <h2 id="gitlab-registry-latest-is-amd64-only-between-releases">GitLab-registry <code>:latest</code> is amd64-only between releases<a class="headerlink" href="#gitlab-registry-latest-is-amd64-only-between-releases" title="Permanent link">&para;</a></h2>
 <p>The two registries do not behave the same for <code>:latest</code>:</p>
 <table>
@@ -3873,13 +3875,13 @@ other than the current newest release.</p>
 <tbody>
 <tr>
 <td>GHCR</td>
-<td>Release tags only (<code>backend-manifest</code> / <code>frontend-manifest</code>)</td>
-<td>linux/amd64 + linux/arm64, persistently, until the next release</td>
+<td><strong>Stable</strong> release tags only (<code>backend-manifest</code> / <code>frontend-manifest</code>) — a pre-release tag (<code>-alpha</code>/<code>-beta</code>/<code>-rc</code>) never touches <code>:latest</code></td>
+<td>linux/amd64 + linux/arm64, persistently, until the next stable release</td>
 </tr>
 <tr>
 <td>GitLab</td>
-<td>Release tags (multi-arch manifest) <strong>and</strong> every <code>main</code>-branch merge (<code>backend-docker-push</code> / <code>frontend-docker-push</code>, via kaniko)</td>
-<td>Multi-arch right after a release tag, then <strong>amd64 only</strong> after the next <code>main</code> merge</td>
+<td>Stable release tags (multi-arch manifest) <strong>and</strong> every <code>main</code>-branch merge (<code>backend-docker-push</code> / <code>frontend-docker-push</code>, via kaniko)</td>
+<td>Multi-arch right after a stable release tag, then <strong>amd64 only</strong> after the next <code>main</code> merge</td>
 </tr>
 </tbody>
 </table>

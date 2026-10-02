@@ -3809,8 +3809,9 @@ point of failure for amd64.</p>
 plan. <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code> (<code>.arm64-docker-push-base</code>)
 instead run natively on <code>Max1-Runner-Visiban</code> (see Inventory above), on release tags only.
 <code>backend-manifest</code> / <code>frontend-manifest</code> then assemble the amd64 and arm64 single-arch images
-into real multi-arch manifest lists under <code>:&lt;tag&gt;</code>, <code>:latest</code>, and (stable releases)
-<code>:MAJOR.MINOR</code>, via <code>manifest-tool</code>, on both the GitLab registry and GHCR.</p>
+into real multi-arch manifest lists under <code>:&lt;tag&gt;</code> always, plus <code>:latest</code> and <code>:MAJOR.MINOR</code>
+for a stable release tag only (a pre-release tag gets no alias), via <code>manifest-tool</code>, on both
+the GitLab registry and GHCR.</p>
 <p><code>arm64-runner-preflight</code> runs before either arm64 leg and fails the pipeline within seconds if
 no runner tagged <code>arm64</code> is online — see "Fail-loud, not hang" below. This is deliberately
 <em>not</em> the same "add <code>no_matching_runner</code> and hang" trap the amd64/kaniko conversion avoided by
@@ -3934,8 +3935,11 @@ persistent shared host must not accumulate registry credentials between releases
 <h2 id="related-open-items">Related open items<a class="headerlink" href="#related-open-items" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>#1084</strong> — resolved: native arm64 image publishing restored via <code>Max1-Runner-Visiban</code> +
-  <code>manifest-tool</code>. Acceptance criteria (multi-arch <code>:&lt;tag&gt;</code>/<code>:latest</code>/<code>:MAJOR.MINOR</code> on both
-  registries) are verified at the next release tag pipeline, not by this change alone.</li>
+  <code>manifest-tool</code>. Acceptance criteria (multi-arch <code>:&lt;tag&gt;</code> on both registries, plus
+  <code>:latest</code>/<code>:MAJOR.MINOR</code> for a stable release) are verified at the next release tag
+  pipeline, not by this change alone. (The original acceptance criteria applied <code>:latest</code> to
+  every release tag, pre-release included — a bug fixed later; see "arm64 is published again"
+  above.)</li>
 <li><strong>#1204</strong> — resolved: the arm64 release jobs' base-image pulls now route through
   <code>${DOCKERHUB_MIRROR}</code> like every other Docker Hub pull in this file (see "Dependency Proxy"
   above). Like #1084, full verification (a clean release-tag pipeline with no anonymous Docker
