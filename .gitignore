@@ -53,6 +53,10 @@ frontend/.playwright/
 # Coverage
 backend/.coverage
 backend/htmlcov/
+# Generated coverage reports (CI artifacts; scripts/sonar-scan.sh rewrites, #1370)
+backend/coverage.xml
+backend/coverage.sonar.xml
+frontend/coverage/
 
 # schemathesis local run cache (backend-schema-fuzz, #1120) — not the
 # committed baseline file (backend/schemathesis-baseline.json), which is

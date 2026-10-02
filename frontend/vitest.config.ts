@@ -18,7 +18,9 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'cobertura'],
+      // `text` + `cobertura` feed GitLab's coverage regex and coverage_report;
+      // `lcov` is the format SonarCloud's JS importer reads (#1370).
+      reporter: ['text', 'cobertura', 'lcov'],
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/test/**', 'src/**/*.test.*', 'src/**/*.spec.*', 'src/vite-env.d.ts'],

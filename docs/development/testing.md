@@ -244,6 +244,30 @@ Before committing a new spec:
   [triage steps](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake)
 - The `changelog-check` job blocks the pipeline if no fragment is added under `changelog.d/`
 
+### SonarCloud coverage import (#1370)
+
+SonarCloud does not run tests; it imports the reports the `test` stage already
+produces, via `sonar.python.coverage.reportPaths` and
+`sonar.javascript.lcov.reportPaths` in `sonar-project.properties`. The nightly
+`sonar:scan` job consumes the `backend-test-coverage` artifact
+(`backend/coverage.xml`, Cobertura) and the `frontend-test` artifact
+(`frontend/coverage/lcov.info`; `lcov` is one of the vitest `coverage.reporter`
+formats alongside `text` and `cobertura`, which GitLab's coverage badge and
+`coverage_report` still depend on).
+
+Neither report resolves from the repo root as emitted, so
+`scripts/sonar-scan.sh --prep-only` rewrites them into `backend/coverage.sonar.xml`
+(injects the `<source>` root) and `frontend/coverage/lcov.sonar.info` (prefixes
+`SF:src/` with `frontend/`). To reproduce the CI scan locally, generate both
+reports, then run `SONAR_TOKEN=... scripts/sonar-scan.sh`. `--prep-only` prints how many
+class entries and `SF:` files each rewritten report lists (and warns on zero), so the
+nightly log shows whether paths resolved. `scripts/sonar-scan.sh --self-test` fixtures
+both rewrites and runs in the `sonar-scan-selftest` CI job.
+
+Test code, migrations, repo tooling, and seed/factory modules are removed from the
+coverage denominator by `sonar.coverage.exclusions`; each entry is justified in
+the properties file, and nothing under product source is excluded.
+
 ### Diff coverage (#1076)
 
 `backend-test-coverage` and `frontend-test`'s vitest thresholds gate the *aggregate*
