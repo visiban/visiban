@@ -3918,6 +3918,16 @@ own header — is never mistaken for a real exemption.</p>
 <td>Resolves and v-prefix-normalizes the mike deploy VERSION from <code>DOCS_VERSION</code> / <code>CI_COMMIT_TAG</code> / <code>.env.example</code>'s <code>APP_VERSION=</code>, unconditionally across all three sources. <code>#1270</code>: a single manually-typed <code>DOCS_VERSION</code> missing the <code>v</code> prefix created a duplicate unprefixed version entry that mike/verspec's loose-version sort ranked above every real version in the docs dropdown, undetected for months. 6-case self-test plus a 9-case regression suite in <code>scripts/tests/resolve-docs-version.test.sh</code>.</td>
 </tr>
 <tr>
+<td><code>scripts/classify-release-tag.sh</code></td>
+<td><code>backend-manifest</code> and <code>frontend-manifest</code> (each runs the self-test independently — the two jobs have no <code>needs:</code> on each other and run in parallel, so a self-test in only one would let the other race ahead unguarded)</td>
+<td>Single source of truth for whether a release tag is stable (gets the <code>:latest</code>/<code>:MAJOR.MINOR</code> registry aliases) or pre-release (gets neither). A 2026-10 incident: the stable-vs-pre-release regex used to gate <code>:MAJOR.MINOR</code> alone while the alias list defaulted to including <code>:latest</code> unconditionally, so every alpha/beta/rc tag silently re-pointed <code>backend:latest</code>/<code>frontend:latest</code> at that pre-release build, on both registries, for about three days before anyone noticed — the second time this exact duplicated-regex shape has bitten this file (cf. <code>resolve-docs-version.sh</code> above, #1270). 13-case self-test, including the exact alpha/beta/rc shapes <code>scripts/release.sh</code> produces and several malformed/partial tags that must not be misread as stable.</td>
+</tr>
+<tr>
+<td><code>scripts/check-latest-tag-stability.sh</code></td>
+<td><code>latest-tag-stability-check</code> (release tags, <code>needs: [backend-manifest, frontend-manifest]</code>)</td>
+<td>Fails the tag pipeline itself if <code>backend:latest</code>/<code>frontend:latest</code> on either registry does not match the newest STABLE release's digest — the automatic version of the manual check that caught the incident above. "Stable" is resolved via <code>classify-release-tag.sh</code>, never re-implemented, so this can't drift out of sync with the jobs it's checking. 10-case self-test over a stubbed <code>DIGEST_PROBE</code>, including the resolver correctly skipping a newer-but-pre-release tag and reproducing the actual incident shape (one registry's <code>:latest</code> drifted, the other healthy). See <a href="../../administration/container-image-retention/">Container image retention</a>.</td>
+</tr>
+<tr>
 <td><code>scripts/check-rbac-coverage.py</code></td>
 <td><code>rbac-coverage</code></td>
 <td>12-case self-test over a synthetic view tree: a dropped auth gate, a missing role gate, a write that never resolves a role, an unscoped board-child lookup, a raw membership lookup, and a stale entry in each recorded-exception table. See <a href="../rbac-and-broadcast-gates/">RBAC and broadcast gates</a>.</td>
