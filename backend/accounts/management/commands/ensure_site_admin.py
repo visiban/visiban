@@ -3,13 +3,14 @@ import os
 import secrets
 from django.core.management.base import BaseCommand
 from django.contrib.sites.models import Site
+from accounts.management._secure_file import write_secret_file
 from accounts.models import User
 
 logger = logging.getLogger(__name__)
 
 # The password file path can be overridden via env var for environments where
 # /tmp is not appropriate (e.g. read-only container filesystems).
-_PASSWORD_FILE = os.environ.get("VISIBAN_ADMIN_PASSWORD_FILE", "/tmp/visiban_admin_password")  # nosec B108 — /tmp default is intentional for dev; production must set VISIBAN_ADMIN_PASSWORD_FILE
+_PASSWORD_FILE = os.environ.get("VISIBAN_ADMIN_PASSWORD_FILE", "/tmp/visiban_admin_password")  # nosec B108 — /tmp default kept for compatibility (docs/compose `exec cat /tmp/...`); the write is O_EXCL|O_NOFOLLOW 0600 (see write_secret_file), and Helm sets a private path
 
 
 class Command(BaseCommand):
@@ -52,17 +53,7 @@ class Command(BaseCommand):
         # retrieved immediately then deleted.
         _pw_to_stdout = False
         try:
-            # Use os.open with O_CREAT so the file is created with mode 0o600
-            # atomically — avoids the TOCTOU window where a two-step open()+chmod()
-            # would leave the file world-readable between creation and restriction.
-            # O_NOFOLLOW (Linux/macOS) prevents following a symlink an attacker may
-            # have planted at this path in the world-writable /tmp directory.
-            _flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            if hasattr(os, "O_NOFOLLOW"):
-                _flags |= os.O_NOFOLLOW
-            fd = os.open(_PASSWORD_FILE, _flags, 0o600)
-            with os.fdopen(fd, "w") as fh:
-                fh.write(password + "\n")
+            write_secret_file(_PASSWORD_FILE, password)
             password_location = f"written to {_PASSWORD_FILE}"
         except OSError as exc:
             # File write failed — fall back to management command stdout only.

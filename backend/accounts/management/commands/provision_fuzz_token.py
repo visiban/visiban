@@ -21,6 +21,7 @@ import os
 
 from django.core.management.base import BaseCommand, CommandError
 
+from accounts.management._secure_file import write_secret_file
 from accounts.models import PAT_DEFAULT_SCOPES, User
 
 _DEFAULT_TOKEN_FILE = os.environ.get(
@@ -69,12 +70,8 @@ class Command(BaseCommand):
         )
 
         token_file = options["token_file"]
-        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        fd = os.open(token_file, flags, 0o600)
-        with os.fdopen(fd, "w") as fh:
-            fh.write(raw_token + "\n")
+        # O_EXCL|O_NOFOLLOW 0600 -- the default path is in shared /tmp (#1379).
+        write_secret_file(token_file, raw_token)
 
         self.stdout.write(
             self.style.SUCCESS(

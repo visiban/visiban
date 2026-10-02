@@ -6,6 +6,8 @@ The first time Visiban starts, it creates a one-time admin password — retrieve
 
 On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (`/tmp/visiban_admin_password` by default). The password is **not** printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.
 
+The file is created exclusively with mode `0600` and symlinks are never followed. If something other than a regular file you own already exists at that path, Visiban refuses to use it and prints the password to the command's stdout instead. Set `VISIBAN_ADMIN_PASSWORD_FILE` to use a private directory instead of `/tmp`.
+
 The stdout output looks like this:
 
 ```
