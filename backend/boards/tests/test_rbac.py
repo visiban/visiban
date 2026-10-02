@@ -7,7 +7,7 @@ from rest_framework import status
 from accounts.models import User
 from boards.models import BoardMembership, Card, CardComment, Column, Swimlane
 from boards.permissions import get_board_role, SITE_ADMIN
-from boards.tests.conftest import _make_board
+from boards.tests.conftest import _make_board, assert_denied_write_noop
 
 
 def _make_board_with_structure(owner):
@@ -173,18 +173,21 @@ class CardCreationRBACTests(TestCase):
     def test_viewer_cannot_create_card(self):
         viewer = User.objects.create_user(username="viewer", password="pass")
         BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
-        resp = self._create_card(viewer)
+        with assert_denied_write_noop(self):
+            resp = self._create_card(viewer)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_create_card(self):
         collab = User.objects.create_user(username="collab", password="pass")
         BoardMembership.objects.create(board=self.board, user=collab, role=BoardMembership.Role.COLLABORATOR)
-        resp = self._create_card(collab)
+        with assert_denied_write_noop(self):
+            resp = self._create_card(collab)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_non_member_gets_403(self):
         stranger = User.objects.create_user(username="stranger", password="pass")
-        resp = self._create_card(stranger)
+        with assert_denied_write_noop(self):
+            resp = self._create_card(stranger)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -210,25 +213,28 @@ class CardMutationRBACTests(TestCase):
 
     def test_collaborator_cannot_edit_card(self):
         self.client.force_authenticate(self.collab)
-        resp = self.client.patch(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
-            {"title": "Changed"},
-        )
+        with assert_denied_write_noop(self, target=self.card):
+            resp = self.client.patch(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
+                {"title": "Changed"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_move_card(self):
         self.client.force_authenticate(self.collab)
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/",
-            {"column_id": self.col.pk, "swimlane_id": self.swim.pk, "position": 0},
-        )
+        with assert_denied_write_noop(self, target=self.card):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+                {"column_id": self.col.pk, "swimlane_id": self.swim.pk, "position": 0},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_delete_card(self):
         self.client.force_authenticate(self.collab)
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
-        )
+        with assert_denied_write_noop(self, target=self.card):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -253,13 +259,15 @@ class ColumnCreationRBACTests(TestCase):
     def test_member_cannot_create_column(self):
         member = User.objects.create_user(username="member", password="pass")
         BoardMembership.objects.create(board=self.board, user=member, role=BoardMembership.Role.MEMBER)
-        resp = self._create_column(member)
+        with assert_denied_write_noop(self, extra_models=(Column,)):
+            resp = self._create_column(member)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_create_column(self):
         viewer = User.objects.create_user(username="viewer", password="pass")
         BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
-        resp = self._create_column(viewer)
+        with assert_denied_write_noop(self, extra_models=(Column,)):
+            resp = self._create_column(viewer)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -288,13 +296,13 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     # Comments
     # ------------------------------------------------------------------
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_viewer_cannot_post_comment(self, _mock):
+    def test_viewer_cannot_post_comment(self):
         self.client.force_authenticate(self.viewer)
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
-            {"body": "hello"},
-        )
+        with assert_denied_write_noop(self):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
+                {"body": "hello"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
@@ -306,13 +314,13 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_viewer_cannot_delete_comment(self, _mock):
+    def test_viewer_cannot_delete_comment(self):
         comment = CardComment.objects.create(card=self.card, author=self.owner, body="original")
         self.client.force_authenticate(self.viewer)
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
-        )
+        with assert_denied_write_noop(self, target=comment):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
@@ -324,29 +332,29 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_collaborator_cannot_delete_other_users_comment(self, _mock):
+    def test_collaborator_cannot_delete_other_users_comment(self):
         comment = CardComment.objects.create(card=self.card, author=self.owner, body="owner comment")
         self.client.force_authenticate(self.collab)
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
-        )
+        with assert_denied_write_noop(self, target=comment):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     # ------------------------------------------------------------------
     # Attachments
     # ------------------------------------------------------------------
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_viewer_cannot_upload_attachment(self, _mock):
+    def test_viewer_cannot_upload_attachment(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
         self.client.force_authenticate(self.viewer)
         f = SimpleUploadedFile("test.txt", b"hello", content_type="text/plain")
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/",
-            {"file": f},
-            format="multipart",
-        )
+        with assert_denied_write_noop(self):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/",
+                {"file": f},
+                format="multipart",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
@@ -361,8 +369,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_viewer_cannot_delete_attachment(self, _mock):
+    def test_viewer_cannot_delete_attachment(self):
         from boards.models import CardAttachment
         from django.core.files.uploadedfile import SimpleUploadedFile
         att = CardAttachment.objects.create(
@@ -373,22 +380,23 @@ class ViewerCollaboratorBoundaryTests(TestCase):
             uploaded_by=self.owner,
         )
         self.client.force_authenticate(self.viewer)
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{att.pk}/",
-        )
+        with assert_denied_write_noop(self, target=att):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{att.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     # ------------------------------------------------------------------
     # Checklist
     # ------------------------------------------------------------------
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_viewer_cannot_add_checklist_item(self, _mock):
+    def test_viewer_cannot_add_checklist_item(self):
         self.client.force_authenticate(self.viewer)
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/",
-            {"text": "a task"},
-        )
+        with assert_denied_write_noop(self):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/",
+                {"text": "a task"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
@@ -400,15 +408,15 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_viewer_cannot_patch_checklist_item(self, _mock):
+    def test_viewer_cannot_patch_checklist_item(self):
         from boards.models import CardChecklist
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
         self.client.force_authenticate(self.viewer)
-        resp = self.client.patch(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
-            {"is_checked": True},
-        )
+        with assert_denied_write_noop(self, target=item):
+            resp = self.client.patch(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
+                {"is_checked": True},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
@@ -422,14 +430,14 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_viewer_cannot_delete_checklist_item(self, _mock):
+    def test_viewer_cannot_delete_checklist_item(self):
         from boards.models import CardChecklist
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
         self.client.force_authenticate(self.viewer)
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
-        )
+        with assert_denied_write_noop(self, target=item):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
