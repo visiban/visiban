@@ -1,46 +1,16 @@
 import logging
 import os
 import secrets
-import stat
 from django.core.management.base import BaseCommand
 from django.contrib.sites.models import Site
+from accounts.management._secure_file import write_secret_file
 from accounts.models import User
 
 logger = logging.getLogger(__name__)
 
 # The password file path can be overridden via env var for environments where
 # /tmp is not appropriate (e.g. read-only container filesystems).
-_PASSWORD_FILE = os.environ.get("VISIBAN_ADMIN_PASSWORD_FILE", "/tmp/visiban_admin_password")  # nosec B108 — /tmp default kept for compatibility (docs/compose `exec cat /tmp/...`); the write is O_EXCL|O_NOFOLLOW 0600 (see _write_password_file), and Helm sets a private path
-
-
-def _write_password_file(path, password):
-    """Create ``path`` exclusively with mode 0600 and write the password to it.
-
-    Why O_EXCL: the default path lives in the sticky, world-writable /tmp
-    (Sonar python:S5443). Without O_EXCL, O_CREAT on a path an attacker
-    pre-created would reuse *their* file (and its permissive mode / ownership),
-    leaking the password to them. O_EXCL guarantees we only ever write to a
-    file we just created, with our 0600 mode; O_NOFOLLOW additionally refuses a
-    planted symlink at the final component.
-
-    A stale file left by a previous bootstrap run is removed first, but only if
-    it is a regular file owned by this process's user -- anything else (symlink,
-    another user's file, directory) is left alone and raises OSError so the
-    caller falls back to stdout instead of writing into an untrusted location.
-    """
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    try:
-        fd = os.open(path, flags, 0o600)
-    except FileExistsError:
-        st = os.lstat(path)
-        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid():
-            raise
-        os.unlink(path)
-        fd = os.open(path, flags, 0o600)  # still O_EXCL: loses cleanly to a race
-    with os.fdopen(fd, "w") as fh:
-        fh.write(password + "\n")
+_PASSWORD_FILE = os.environ.get("VISIBAN_ADMIN_PASSWORD_FILE", "/tmp/visiban_admin_password")  # nosec B108 — /tmp default kept for compatibility (docs/compose `exec cat /tmp/...`); the write is O_EXCL|O_NOFOLLOW 0600 (see write_secret_file), and Helm sets a private path
 
 
 class Command(BaseCommand):
@@ -83,7 +53,7 @@ class Command(BaseCommand):
         # retrieved immediately then deleted.
         _pw_to_stdout = False
         try:
-            _write_password_file(_PASSWORD_FILE, password)
+            write_secret_file(_PASSWORD_FILE, password)
             password_location = f"written to {_PASSWORD_FILE}"
         except OSError as exc:
             # File write failed — fall back to management command stdout only.

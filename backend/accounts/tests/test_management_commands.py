@@ -117,10 +117,17 @@ class EnsureSiteAdminTests(TestCase):
             path = os.path.join(d, "pw")
             with open(path, "w") as f:
                 f.write("attacker\n")
-            with patch("accounts.management.commands.ensure_site_admin.os.geteuid", return_value=os.geteuid() + 1):
+            with patch("accounts.management._secure_file.os.geteuid", return_value=os.geteuid() + 1):
                 output = self._run_with_pw_path(path)
             with open(path) as f:
                 self.assertEqual(f.read(), "attacker\n")
+            self.assertNotIn("REDACTED", output)
+
+    def test_password_file_refuses_directory(self):
+        """A directory at the path is never unlinked; password goes to stdout."""
+        with tempfile.TemporaryDirectory() as d:
+            output = self._run_with_pw_path(d)
+            self.assertTrue(os.path.isdir(d))
             self.assertNotIn("REDACTED", output)
 
     def test_password_printed_to_stdout_when_file_write_fails(self):
@@ -193,3 +200,44 @@ class SetSiteAdminTests(TestCase):
 
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_site_admin)
+
+
+class ProvisionFuzzTokenFileTests(TestCase):
+    """provision_fuzz_token writes the PAT exclusively with mode 0600 (#1379)."""
+
+    def setUp(self):
+        User.objects.create_user(username="fuzzer", password="x", email="f@example.com")
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        self.path = os.path.join(self.dir.name, "tok")
+
+    def _run(self):
+        call_command("provision_fuzz_token", username="fuzzer", token_file=self.path, stdout=StringIO())
+
+    def test_writes_token_0600(self):
+        self._run()
+        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o600)
+
+    def test_replaces_stale_own_file(self):
+        with open(self.path, "w") as f:
+            f.write("old\n")
+        os.chmod(self.path, 0o666)
+        self._run()
+        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o600)
+        with open(self.path) as f:
+            self.assertNotEqual(f.read().strip(), "old")
+
+    def test_refuses_foreign_owned_file(self):
+        with open(self.path, "w") as f:
+            f.write("attacker\n")
+        with patch("accounts.management._secure_file.os.geteuid", return_value=os.geteuid() + 1):
+            with self.assertRaises(OSError):
+                self._run()
+        with open(self.path) as f:
+            self.assertEqual(f.read(), "attacker\n")
+
+    def test_refuses_symlink(self):
+        os.symlink(os.path.join(self.dir.name, "victim"), self.path)
+        with self.assertRaises(OSError):
+            self._run()
+        self.assertFalse(os.path.exists(os.path.join(self.dir.name, "victim")))
