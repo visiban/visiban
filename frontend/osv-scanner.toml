@@ -1,0 +1,14 @@
+# OSV-Scanner config for frontend/package-lock.json (auto-discovered; see
+# scripts/osv-severity-gate.sh for the accepted-risk contract).
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+# braces <= 3.0.3: stack exhaustion (DoS) on deeply nested brace patterns.
+# No patched release exists yet (every published version, 3.0.3 included, is
+# affected), so there is nothing to bump. braces is a dev-only transitive of
+# tailwindcss (chokidar, micromatch) and only ever expands the repo's own
+# static glob patterns at build time; it is not shipped in the production
+# bundle and never sees user input. Re-check npm for a fixed braces release
+# and remove this entry when one lands (tracked in #1415).
+ignoreUntil = 2026-11-30
+reason = "No fixed braces release exists; dev-only build-time transitive of tailwindcss, never sees untrusted input"
