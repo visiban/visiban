@@ -650,6 +650,31 @@ class SeedDemoSiteTests(TestCase):
 
         return next(len(spec["cards"]) for spec in BOARDS if spec["name"] == name)
 
+    def test_overlay_pipeline_cards_move_through_every_stage_they_passed(self):
+        """#1416: the overlay board's nine-stage pipeline shows real movement.
+
+        Each card has one movement per stage it passed, in pipeline order, so
+        the History tab and the aging tint have something to show in every
+        column. A Lost card goes straight from Commit to Lost, never through Won.
+        """
+        _seed(demo_site=True)
+        board = Board.objects.get(name="Sales Territory (Overlay)")
+        names = list(board.columns.order_by("position").values_list("name", flat=True))
+        self.assertEqual(
+            names,
+            ["Identify", "Discover", "Qualify", "Shape", "Validate", "Commercial", "Commit", "Won", "Lost"],
+        )
+        in_flight = names[:7]
+        for card in board.cards.select_related("column"):
+            trail = [m.to_column_name for m in card.movements.order_by("moved_at", "id")]
+            current = card.column.name
+            self.assertEqual(trail[-1], current, card.title)
+            expected = in_flight[: in_flight.index(current) + 1] if current in in_flight else in_flight + [current]
+            self.assertEqual(trail, expected, card.title)
+        # Every column holds at least one card, so no stage reads as empty.
+        for name in names:
+            self.assertTrue(board.cards.filter(column__name=name).exists(), name)
+
     def test_seeds_exactly_seven_boards_with_at_least_fifteen_cards_each(self):
         _seed(demo_site=True)
         seeded = set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True))
