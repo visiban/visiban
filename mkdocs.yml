@@ -118,6 +118,7 @@ nav:
     - Technology Decisions: architecture/decisions.md
     - Testing: development/testing.md
     - Database Migrations: development/database-migrations.md
+    - Backend Dependency Lock: development/dependency-lock.md
     - CI Gate Self-Tests: development/ci-gates.md
     - Serializer ↔ TypeScript Parity: development/serializer-ts-parity.md
     - RBAC & Broadcast Gates: development/rbac-and-broadcast-gates.md
