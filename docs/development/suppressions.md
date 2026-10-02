@@ -95,3 +95,25 @@ reasonable follow-up if these entries start accumulating the way the `eslint-dis
 2. Add the suppression with `SUPPRESSED-UNTIL(#N)` citing that issue's number.
 3. When the issue closes, remove the suppression in the same MR that resolves it — don't leave
    it for `suppressions-check` to catch on `main` after the fact.
+
+## SonarCloud suppressions
+
+`sonar.issue.ignore.multicriteria.*` criteria in `sonar-project.properties` follow the same
+two buckets. Each existing criterion is **permanent**: it carries a plain rationale comment
+and a narrow path, with no marker. A criterion that waits on tracked work would carry a
+`SUPPRESSED-UNTIL(#N)` comment above it, exactly like any other suppression. Never widen a
+glob to hide a finding. The same policy is stated in the header of the properties file.
+
+The `lint:sonar-exclusions` job (`scripts/check-sonar-exclusions.sh`) keeps those criteria
+honest: it fails when a criterion's glob matches no tracked file (dead or silently drifted),
+when the `multicriteria=` index and the `.ruleKey`/`.resourceKey` definitions disagree, or when
+a glob is pinned to `*.ts`/`*.js` in a directory that also holds `.tsx`/`.jsx`. It is pure
+`git ls-files` matching, with no network and no `SONAR_TOKEN`.
+
+```bash
+bash scripts/check-sonar-exclusions.sh
+bash scripts/check-sonar-exclusions.sh --self-test
+```
+
+These properties apply only to CI-based analysis (the `sonar:scan` job), not to SonarCloud
+Automatic Analysis.
