@@ -3830,6 +3830,11 @@ own header — is never mistaken for a real exemption.</p>
 <td><code>schedule-config-check</code> (scheduled pipelines only)</td>
 <td>#1213: <code>nightly-load-test</code>'s GitLab pipeline schedule was never configured, and nothing asserted it existed — same failure shape as <code>check-release-images</code>. Self-test stubs <code>SCHEDULE_PROBE</code> with fixed JSON covering a covered variable, one with no schedule at all, one on an <code>active:false</code> schedule, one set to <code>"false"</code>, an <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> entry, a probe failure (must fail open, not report a false MISSING), and a CI file with no schedule-gated rules at all. See <a href="../nightly-load-test/#the-schedule">Nightly load test § The schedule</a>.</td>
 </tr>
+<tr>
+<td><code>scripts/sonar-scan.sh</code></td>
+<td><code>sonar-scan-selftest</code> (MRs touching the script, <code>sonar-project.properties</code>, or CI file; also main)</td>
+<td>#1370: the rewrites that make SonarCloud resolve backend/frontend coverage paths; a regression silently reads 0.0%. Self-test fixtures the backend <code>&lt;source&gt;</code> injection (and a non-empty <code>&lt;source&gt;</code> no-op), the lcov <code>SF:src/</code> prefix, untouched originals, and missing-report tolerance. Runs <code>sh</code> on alpine; the scan itself is the scheduled <code>sonar:scan</code>.</td>
+</tr>
 </tbody>
 </table>
 <p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,

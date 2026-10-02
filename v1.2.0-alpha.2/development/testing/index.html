@@ -2706,6 +2706,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#sonarcloud-coverage-import-1370" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SonarCloud coverage import (#1370)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#diff-coverage-1076" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3976,6 +3987,26 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
   <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake">triage steps</a></li>
 <li>The <code>changelog-check</code> job blocks the pipeline if no fragment is added under <code>changelog.d/</code></li>
 </ul>
+<h3 id="sonarcloud-coverage-import-1370">SonarCloud coverage import (#1370)<a class="headerlink" href="#sonarcloud-coverage-import-1370" title="Permanent link">&para;</a></h3>
+<p>SonarCloud does not run tests; it imports the reports the <code>test</code> stage already
+produces, via <code>sonar.python.coverage.reportPaths</code> and
+<code>sonar.javascript.lcov.reportPaths</code> in <code>sonar-project.properties</code>. The nightly
+<code>sonar:scan</code> job consumes the <code>backend-test-coverage</code> artifact
+(<code>backend/coverage.xml</code>, Cobertura) and the <code>frontend-test</code> artifact
+(<code>frontend/coverage/lcov.info</code>; <code>lcov</code> is one of the vitest <code>coverage.reporter</code>
+formats alongside <code>text</code> and <code>cobertura</code>, which GitLab's coverage badge and
+<code>coverage_report</code> still depend on).</p>
+<p>Neither report resolves from the repo root as emitted, so
+<code>scripts/sonar-scan.sh --prep-only</code> rewrites them into <code>backend/coverage.sonar.xml</code>
+(injects the <code>&lt;source&gt;</code> root) and <code>frontend/coverage/lcov.sonar.info</code> (prefixes
+<code>SF:src/</code> with <code>frontend/</code>). To reproduce the CI scan locally, generate both
+reports, then run <code>SONAR_TOKEN=... scripts/sonar-scan.sh</code>. <code>--prep-only</code> prints how many
+class entries and <code>SF:</code> files each rewritten report lists (and warns on zero), so the
+nightly log shows whether paths resolved. <code>scripts/sonar-scan.sh --self-test</code> fixtures
+both rewrites and runs in the <code>sonar-scan-selftest</code> CI job.</p>
+<p>Test code, migrations, repo tooling, and seed/factory modules are removed from the
+coverage denominator by <code>sonar.coverage.exclusions</code>; each entry is justified in
+the properties file, and nothing under product source is excluded.</p>
 <h3 id="diff-coverage-1076">Diff coverage (#1076)<a class="headerlink" href="#diff-coverage-1076" title="Permanent link">&para;</a></h3>
 <p><code>backend-test-coverage</code> and <code>frontend-test</code>'s vitest thresholds gate the <em>aggregate</em>
 coverage of the whole codebase. That number moves slowly — a large, well-tested
