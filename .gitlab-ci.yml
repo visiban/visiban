@@ -811,6 +811,12 @@ backend-schema-validate:
 # and `changes:` already re-fires on main push pipelines whenever a merge
 # actually touches these paths, so a docs-only merge no longer pays for a
 # full server boot + seed + up to 600s of fuzzing it cannot affect.
+#
+# Never on a scheduled pipeline (#1383). `changes:` evaluates true on a
+# schedule, so this job used to run incidentally on every schedule at the MR
+# budget. The Nightly schedule now runs `backend-schema-fuzz-deep` (below)
+# instead, at a much larger budget; running this one too would only double the
+# boot + seed cost for a strictly smaller search.
 backend-schema-fuzz:
   extends: .pip-cache
   stage: test
@@ -837,6 +843,8 @@ backend-schema-fuzz:
   # Do not "fix" a red run by re-running it or by baselining it: fix the endpoint
   # (a 5xx) or declare the response in the schema (an undocumented 4xx).
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
     - changes:
         - backend/**/views/**/*
         - backend/**/serializers.py
@@ -869,6 +877,11 @@ backend-schema-fuzz:
     # !892) is otherwise undiagnosable from the CI log alone. Cheap and
     # inert on every normal run — only fires on an actual native-level crash.
     PYTHONFAULTHANDLER: "1"
+    # Search budget. backend-schema-fuzz-deep overrides both (#1383); a manual
+    # "Run pipeline" on main can set them too, to replay a deep run's seed at
+    # the deep budget through this job (see docs/api/openapi.md).
+    FUZZ_MAX_EXAMPLES: "10"
+    FUZZ_MAX_TIME: "600"
   cache:
     - key:
         prefix: "pip"
@@ -899,7 +912,7 @@ backend-schema-fuzz:
         sleep 1
       done
     - cd ..
-  script:
+  script: &schema-fuzz-script
     # The two email-confirm endpoints and the 3rdparty/signup safety-net (#1321)
     # only 302 to the SPA at FRONTEND_URL, which does not run in this job —
     # following that redirect is a "Connection refused" NonFatalError, and any
@@ -909,7 +922,7 @@ backend-schema-fuzz:
     # Fresh seed per run for coverage, but recorded up front (a crash before
     # st's own summary would otherwise lose it) and pinned via FUZZ_SEED to replay.
     - echo "${FUZZ_SEED:-$(python3 -c 'import secrets; print(secrets.randbits(64))')}" > /tmp/fuzz_seed
-    - echo "backend-schema-fuzz seed=$(cat /tmp/fuzz_seed)  (to replay, run the pipeline with variable FUZZ_SEED=$(cat /tmp/fuzz_seed))"
+    - echo "${CI_JOB_NAME} seed=$(cat /tmp/fuzz_seed) max-examples=${FUZZ_MAX_EXAMPLES} max-time=${FUZZ_MAX_TIME}  (to replay, run the pipeline with variable FUZZ_SEED=$(cat /tmp/fuzz_seed))"
     - |
       st run http://localhost:8000/api/schema/ \
         --seed "$(cat /tmp/fuzz_seed)" \
@@ -917,19 +930,19 @@ backend-schema-fuzz:
         --exclude-path-regex 'confirm-email|3rdparty/signup' \
         --checks response_schema_conformance,status_code_conformance,content_type_conformance \
         --phases examples,fuzzing \
-        --max-examples 10 \
-        --max-time 600 \
+        --max-examples "${FUZZ_MAX_EXAMPLES}" \
+        --max-time "${FUZZ_MAX_TIME}" \
         --workers 4 \
         --baseline backend/schemathesis-baseline.json \
         --report junit \
         --report-junit-path schemathesis-junit.xml \
         --no-color
-  after_script:
+  after_script: &schema-fuzz-after-script
     - |
       if [ "$CI_JOB_STATUS" = "failed" ]; then
         cat <<EOF
       ============================================================================
-      backend-schema-fuzz FAILED — treat this as a REAL defect, not a flake.
+      ${CI_JOB_NAME} FAILED — treat this as a REAL defect, not a flake.
       A different seed passing does not mean the endpoint is fine; it means that
       seed did not reach the failing input (#1165).
         1. Find the failing operation and status in the "FAILURES" section above.
@@ -939,7 +952,8 @@ backend-schema-fuzz:
                              visiban/schema_hooks.py rule if it is a whole class).
            schema mismatch -> fix the serializer or the annotation.
         3. Reproduce: 'st replay <Test Case ID>' with the request in the log, or
-           re-run this job with variable FUZZ_SEED=$(cat /tmp/fuzz_seed 2>/dev/null).
+           re-run with variables FUZZ_SEED=$(cat /tmp/fuzz_seed 2>/dev/null)
+           FUZZ_MAX_EXAMPLES=${FUZZ_MAX_EXAMPLES} FUZZ_MAX_TIME=${FUZZ_MAX_TIME}.
         4. Do NOT retry the job or add a baseline entry to turn it green.
       ============================================================================
       EOF
@@ -949,6 +963,60 @@ backend-schema-fuzz:
       junit: schemathesis-junit.xml
     when: always
     expire_in: 1 week
+
+# ─── Deep nightly schema fuzz (#1383) ────────────────────────────────────────
+#
+# The deliberate, large-budget run of backend-schema-fuzz: same boot, seed,
+# token, checks and shared backend/schemathesis-baseline.json (everything is
+# inherited via `extends:`), with 10x the per-operation example budget and 4x
+# the wall-clock cap. Before #1383 the only scheduled fuzzing was the MR job
+# running incidentally at the MR budget; that job now never runs on a schedule.
+#
+# Schedule-only, on the consolidated Nightly schedule (FUZZ_DEEP=true). A fresh
+# seed each night, printed at the start and replayable with FUZZ_SEED, exactly
+# like the MR job.
+#
+# allow_failure: true so a stochastic finding does not red the shared Nightly
+# pipeline (and the README badge) that also carries the CVE scans — TruePPM's
+# `api:fuzz` precedent. That does NOT make it a flake: a red run here is a real,
+# replayable defect, same as the MR job (#1165). Because a yellow job in a green
+# pipeline emails nobody, after_script files one tracking issue (or comments on
+# the open one) via scripts/fuzz_deep_file_issue.py when a
+# FUZZ_DEEP_API_TOKEN / KAIZEN_API_TOKEN (`api` scope) is configured, and prints
+# what it would have filed otherwise. See docs/development/ci-gates.md.
+#
+# Budget: --max-time 2400s inside a 55m job timeout leaves ~15 minutes for pip
+# install, migrate, seed and server boot (the MR job's boot is ~45s). The MR
+# job already exhausts its 600s cap at --max-examples 10, so --max-time is the
+# binding limit here too; raise it before raising --max-examples.
+backend-schema-fuzz-deep:
+  extends: backend-schema-fuzz
+  allow_failure: true
+  timeout: 55m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $FUZZ_DEEP == "true"'
+  variables:
+    FUZZ_MAX_EXAMPLES: "100"
+    FUZZ_MAX_TIME: "2400"
+  script:
+    # Self-test the issue filer before trusting it in after_script (#1093).
+    - python3 scripts/fuzz_deep_file_issue.py --self-test
+    # Marker: the fuzz itself is about to run. after_script files an issue only
+    # when this exists, so a failed filer self-test (or a failed pip install,
+    # migrate or seed in before_script) is never reported as a schema-fuzz
+    # finding. It is a red job like any other, not an API defect.
+    - touch /tmp/fuzz_deep_started
+    # GitLab flattens nested script arrays: this is backend-schema-fuzz's own
+    # script, so the two jobs cannot drift apart.
+    - *schema-fuzz-script
+  after_script:
+    - *schema-fuzz-after-script
+    - |
+      if [ "$CI_JOB_STATUS" = "failed" ] && [ -f /tmp/fuzz_deep_started ]; then
+        python3 scripts/fuzz_deep_file_issue.py --seed-file /tmp/fuzz_seed || true
+      elif [ "$CI_JOB_STATUS" = "failed" ]; then
+        echo "backend-schema-fuzz-deep failed before the fuzz ran (setup or the filer self-test); not filing a schema-fuzz issue."
+      fi
 
 # ─── Issue Board Lens (experiment) tests ─────────────────────────────────────
 # The git_lens app is only installed when GIT_LENS_ENABLED=true, so its
@@ -2189,7 +2257,10 @@ suppressions-check:
 # edits CLAUDE.md or the fast-path table. Report-only unless the schedule sets
 # KAIZEN_FILE_ISSUES=true AND a KAIZEN_API_TOKEN variable (opt-in; files at
 # most one issue per candidate). Fails open: never blocks anything. Opt-in
-# schedule variable KAIZEN_YIELD_WATCH=true, like the other scheduled jobs.
+# schedule variable KAIZEN_YIELD_WATCH=true, set on the consolidated Nightly
+# schedule (#1383): daily is more often than it needs, but it is one small job
+# in a pipeline that runs anyway, where a separate weekly schedule would spawn
+# a whole extra full pipeline just for this report.
 # See docs/development/kaizen-yield-watch.md.
 kaizen-yield-watch:
   stage: lint
@@ -2321,8 +2392,8 @@ frontend-sast:
 # pip-audit: checks Python packages against the OSV vulnerability database.
 # On MRs: only when requirements.txt changes; allow_failure so a new CVE in an
 # existing dep doesn't block unrelated MRs.
-# On the weekly CVE schedule: always runs; allow_failure: false so the pipeline
-# fails and GitLab sends a failure email to maintainers.
+# On the Nightly schedule (CVE_SCAN=true, #1383): always runs; allow_failure:
+# false so the pipeline fails and GitLab sends a failure email to maintainers.
 backend-dep-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
@@ -2474,9 +2545,11 @@ trivy-scan:
 # already sitting in a committed, unchanged lockfile, so a changes-gated rule
 # would only ever catch it after it lands on main. The job is a few seconds of
 # static-binary download plus a fast scan, so running it on every pipeline is
-# cheap. Also runs on the weekly CVE schedule for the same reason pip-audit /
-# npm-audit do: to catch a freshly-published advisory against dependencies
-# nobody touched this week either.
+# cheap. Also runs on the Nightly schedule (OSV_SCAN=true, #1383) for the same
+# reason pip-audit / npm-audit do: to catch a freshly-published advisory
+# against dependencies nobody touched today either. (The main-branch rule
+# already matches a schedule targeting main; the OSV_SCAN rule states the
+# intent and keeps schedule-config-check asserting the schedule exists.)
 #
 # Severity gate: OSV-Scanner has no native severity threshold (confirmed on
 # v2.3.5 — no --severity / --fail-on / --audit-level flag), so it exits
@@ -3473,23 +3546,29 @@ docs-deploy:
       when: manual
       allow_failure: true
 
-# ─── Weekly CVE dependency scan ───────────────────────────────────────────────
+# ─── Nightly schedule: CVE/OSV, Sonar, deep fuzz, kaizen (#1383) ─────────────
 #
-# backend-dep-scan and frontend-dep-scan (defined in the security stage above)
-# run on a weekly GitLab CI schedule with CVE_SCAN=true set as a schedule
-# variable. Unlike their MR counterparts they use allow_failure: false, so a
-# new HIGH/CRITICAL CVE causes the pipeline to fail and GitLab emails all
+# One consolidated schedule instead of one per job, so the project pays for one
+# full scheduled pipeline a night rather than N. backend-dep-scan and
+# frontend-dep-scan (security stage above) run on it with CVE_SCAN=true.
+# Unlike their MR counterparts they use allow_failure: false, so a new
+# HIGH/CRITICAL CVE causes the pipeline to fail and GitLab emails all
 # maintainers who have "Failed pipeline" notifications enabled.
 #
 # To enable email notifications:
 #   Profile → Notifications → Global notification level → "Watch"
 #   or set per-project in Project → Notification settings → "Failed pipeline"
 #
-# The schedule itself is configured in GitLab: CI/CD → Schedules
-#   Description : Weekly CVE scan
-#   Interval    : 0 8 * * 1  (Mondays 08:00 UTC)
+# The schedule itself is configured in GitLab: CI/CD → Schedules (schedule id
+# 4176726, formerly "Weekly CVE scan"):
+#   Description : Nightly (CVE/OSV, Sonar, deep fuzz, kaizen)
+#   Interval    : 0 5 * * *  (daily 05:00 UTC, two hours after the load test)
 #   Target branch: main
-#   Variables   : CVE_SCAN = true
+#   Variables   : CVE_SCAN=true OSV_SCAN=true SONAR_SCHEDULED=true
+#                 FUZZ_DEEP=true KAIZEN_YIELD_WATCH=true
+# nightly-load-test keeps its own 03:00 schedule (LOAD_TEST_SCHEDULE=true):
+# its latency budgets are noisy on a busy runner. The full schedule table, and
+# what red means for each job, is in docs/development/ci-gates.md.
 #
 # ─── Scheduled branch cleanup ─────────────────────────────────────────────────
 #
@@ -3751,10 +3830,14 @@ nightly-load-test:
 #
 # Runs on every scheduled pipeline, same slot check-release-images/
 # helm-install/helm-netpol already use, so this needs no new schedule of its
-# own to be exercised. Requires GITLAB_API_TOKEN (already configured for
-# suppressions-check) with at least Reporter access to read pipeline
-# schedules; fails open (warns, does not block) if that lookup is
-# inconclusive rather than report a false MISSING.
+# own to be exercised. It only asserts anything when a GITLAB_API_TOKEN CI
+# variable (project access token, Reporter role or above, read_api scope) is
+# configured: CI_JOB_TOKEN cannot read pipeline schedules, so without
+# GITLAB_API_TOKEN the lookup is inconclusive and the job warns and passes
+# rather than report a false MISSING. As of #1383 no GITLAB_API_TOKEN is
+# configured on the project or the group, so today this check is a warning
+# only. Before #1383 the script also stopped at the rejected CI_JOB_TOKEN and
+# never tried GITLAB_API_TOKEN at all; it now falls through.
 #
 # SCHEDULE_AUDIT_ACCEPTED_GAPS below lists gaps #1213's own audit already
 # found and filed as #1232 — a documented, temporary exception (same shape as
@@ -3767,17 +3850,15 @@ schedule-config-check:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   variables:
-    # SUPPRESSED-UNTIL(#1232): dep-scan-osv, seed-demo-data's weekly refresh,
-    # and kaizen-yield-watch have never had a schedule configured either —
-    # filed as its own issue rather than fixed here so #1213 stays scoped to
-    # nightly-load-test. Remove each name as #1232 closes it.
-    #
-    # SUPPRESSED-UNTIL(#1369): sonar:scan's SONAR_SCHEDULED is new in this
-    # commit. Creating the actual GitLab pipeline schedule (and the
-    # SONAR_TOKEN variable) is a maintainer-only step listed under #1369's
-    # "Maintainer follow-up" — remove SONAR_SCHEDULED from this list once
-    # that schedule exists, so this gate starts asserting it stays configured.
-    SCHEDULE_AUDIT_ACCEPTED_GAPS: "OSV_SCAN SEED_SCHEDULE KAIZEN_YIELD_WATCH SONAR_SCHEDULED"
+    # SUPPRESSED-UNTIL(#1232): seed-demo-data's weekly refresh has never had
+    # a schedule configured. It also needs the demo environment's DEMO_*
+    # variables, so it is not folded into the Nightly schedule. OSV_SCAN,
+    # KAIZEN_YIELD_WATCH and SONAR_SCHEDULED left this list in #1383, which
+    # put them on the Nightly schedule, so this gate now asserts they stay
+    # configured. FUZZ_DEEP was never in it. Order matters: the schedule must
+    # carry a variable BEFORE the commit that removes it from this list
+    # reaches main, or the next scheduled pipeline reports it MISSING.
+    SCHEDULE_AUDIT_ACCEPTED_GAPS: "SEED_SCHEDULE"
   before_script:
     - apk add --no-cache bash curl jq
   script:

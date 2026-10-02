@@ -89,39 +89,59 @@ extract_required_vars() {
     | sort -u
 }
 
-# default_schedule_probe — the real GitLab API lookup: list this project's
-# pipeline schedules, then fetch each one individually (the list endpoint
-# omits `variables`; only the single-schedule endpoint includes it), and
-# print the merged array. Tries CI_JOB_TOKEN first, then GITLAB_API_TOKEN
-# (same fallback chain as check-suppression-issues.sh / kaizen_yield_watch.py)
-# — pipeline-schedule read access is not guaranteed for a job token, so
-# GITLAB_API_TOKEN (a stored project access token) is the token most
-# deployments will actually rely on. Prints nothing and exits non-zero on any
-# failure — the caller treats that as inconclusive, not as "no schedules".
-default_schedule_probe() {
-  local api_base project auth_header url list ids id detail merged
+# http_get <auth-header> <url> — one authenticated GET, body to stdout,
+# non-zero on any HTTP error (curl -f) or network failure. A function, not an
+# inline curl, so --self-test can redefine it and exercise the token
+# fallthrough below without a network or a token.
+http_get() {
+  curl -sf -H "$1" "$2"
+}
+
+# probe_with_header <auth-header> — list this project's pipeline schedules,
+# then fetch each one individually (the list endpoint omits `variables`; only
+# the single-schedule endpoint includes it), and print the merged array.
+# Returns non-zero on any failure.
+probe_with_header() {
+  local auth_header="$1" api_base project list ids id detail merged
   api_base="${CI_API_V4_URL:-https://gitlab.com/api/v4}"
   project="${CI_PROJECT_ID:-}"
   [ -n "$project" ] || return 1
 
-  if [ -n "${CI_JOB_TOKEN:-}" ]; then
-    auth_header="JOB-TOKEN: ${CI_JOB_TOKEN}"
-  elif [ -n "${GITLAB_API_TOKEN:-}" ]; then
-    auth_header="PRIVATE-TOKEN: ${GITLAB_API_TOKEN}"
-  else
-    return 1
-  fi
-
-  url="${api_base}/projects/${project}/pipeline_schedules?per_page=100"
-  list="$(curl -sf -H "$auth_header" "$url")" || return 1
+  list="$(http_get "$auth_header" "${api_base}/projects/${project}/pipeline_schedules?per_page=100")" || return 1
   ids="$(printf '%s' "$list" | jq -r '.[].id')" || return 1
 
   merged="[]"
   for id in $ids; do
-    detail="$(curl -sf -H "$auth_header" "${api_base}/projects/${project}/pipeline_schedules/${id}")" || return 1
+    detail="$(http_get "$auth_header" "${api_base}/projects/${project}/pipeline_schedules/${id}")" || return 1
     merged="$(printf '%s' "$merged" | jq --argjson d "$detail" '. + [$d]')" || return 1
   done
   printf '%s' "$merged"
+}
+
+# default_schedule_probe — the real GitLab API lookup. Tries CI_JOB_TOKEN
+# first, then GITLAB_API_TOKEN (a stored project access token, Reporter role
+# or above). #1383: CI_JOB_TOKEN is always set inside a job but cannot read
+# pipeline schedules (the API answers 401/403/404), and this used to return
+# on that first failure, so the GITLAB_API_TOKEN fallback was never reached
+# and the check failed open on every run. A failed CI_JOB_TOKEN lookup now
+# falls through to GITLAB_API_TOKEN when it is set. Prints nothing and exits
+# non-zero only when every available token fails; the caller treats that as
+# inconclusive, not as "no schedules".
+default_schedule_probe() {
+  local out
+  if [ -n "${CI_JOB_TOKEN:-}" ]; then
+    if out="$(probe_with_header "JOB-TOKEN: ${CI_JOB_TOKEN}")"; then
+      printf '%s' "$out"
+      return 0
+    fi
+  fi
+  if [ -n "${GITLAB_API_TOKEN:-}" ]; then
+    if out="$(probe_with_header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}")"; then
+      printf '%s' "$out"
+      return 0
+    fi
+  fi
+  return 1
 }
 
 # active_true_vars <schedules-json> — every variable key set to the literal
@@ -193,7 +213,8 @@ check_schedules() {
 # JSON blob (no network, no token), covering: a covered var, a var missing
 # entirely, a var only on an INACTIVE schedule, a var set to "false" (present
 # but not enabled), an accepted gap, a probe failure (inconclusive → fail
-# open), and the no-schedule-gated-jobs case.
+# open), the no-schedule-gated-jobs case, and the CI_JOB_TOKEN ->
+# GITLAB_API_TOKEN fallthrough in the real probe (#1383).
 self_test() {
   local tmp ok=1
   tmp="$(mktemp -d)"
@@ -287,6 +308,33 @@ EOS
     echo "$out" >&2; exit 1
   fi
   echo "Case 3 OK: a CI file with no schedule-gated jobs passes clean without ever calling the probe."
+
+  # Case 4 (#1383): the real probe must fall through from a CI_JOB_TOKEN that
+  # cannot read schedules to GITLAB_API_TOKEN. http_get is redefined (this
+  # self-test only) to reject the job token and answer the private token.
+  http_get() {
+    case "$1" in
+      JOB-TOKEN:*) return 22 ;;
+      PRIVATE-TOKEN:*)
+        case "$2" in
+          */pipeline_schedules\?*) echo '[{"id": 1}]' ;;
+          */pipeline_schedules/1) echo '{"id": 1, "active": true, "variables": [{"key": "COVERED_VAR", "value": "true"}]}' ;;
+          *) return 22 ;;
+        esac ;;
+    esac
+  }
+  out="$(CI_PROJECT_ID=1 CI_JOB_TOKEN=job GITLAB_API_TOKEN=api default_schedule_probe)" || {
+    echo "self-test FAILED: a rejected CI_JOB_TOKEN did not fall through to GITLAB_API_TOKEN." >&2; exit 1; }
+  if [ "$(printf '%s' "$out" | jq -r '.[0].variables[0].key')" != "COVERED_VAR" ]; then
+    echo "self-test FAILED: the GITLAB_API_TOKEN fallthrough returned the wrong schedules: $out" >&2; exit 1
+  fi
+  rc=0
+  CI_PROJECT_ID=1 CI_JOB_TOKEN=job GITLAB_API_TOKEN="" default_schedule_probe >/dev/null || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "self-test FAILED: a rejected CI_JOB_TOKEN with no GITLAB_API_TOKEN must be inconclusive (non-zero)." >&2; exit 1
+  fi
+  unset -f http_get
+  echo "Case 4 OK: a CI_JOB_TOKEN that cannot read schedules falls through to GITLAB_API_TOKEN; with no fallback the lookup is inconclusive."
 
   rm -rf "$tmp"
   trap - EXIT

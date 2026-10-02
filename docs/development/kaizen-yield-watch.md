@@ -63,8 +63,12 @@ See [CI gate scripts and path containment](ci-gates.md#path-containment-for-cli-
 
 ## Scheduled job
 
-`kaizen-yield-watch` runs only in scheduled pipelines that set `KAIZEN_YIELD_WATCH=true`
-(CI/CD, Schedules; suggested weekly). It is `allow_failure: true` and **fails open**: an
+`kaizen-yield-watch` runs only in scheduled pipelines that set `KAIZEN_YIELD_WATCH=true`,
+which the consolidated Nightly schedule does (#1383; see
+[Scheduled pipelines](ci-gates.md#scheduled-pipelines)). Daily is more often than it needs,
+but it is one small job in a pipeline that runs anyway; a separate weekly schedule would
+spawn a whole extra full pipeline just for this report. Each run folds only MRs past the
+committed watermark, so a daily cadence never double counts. It is `allow_failure: true` and **fails open**: an
 inconclusive GitLab API lookup is a warning and exit 0, matching
 `scripts/check-suppression-issues.sh`.
 
