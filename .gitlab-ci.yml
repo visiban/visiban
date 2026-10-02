@@ -340,6 +340,31 @@ sonar-scan-selftest:
   script:
     - sh scripts/sonar-scan.sh --self-test
 
+# ─── Sonar exclusion-integrity guard (#1380) ─────────────────────────────────
+#
+# Every sonar.issue.ignore.multicriteria criterion is a reviewed false positive;
+# nothing verified its glob still pointed at anything (TruePPM #2517: a rename
+# silently un-suppressed findings and the reliability rating fell A -> D with no
+# job going red). Pure `git ls-files` path matching: no network, no SONAR_TOKEN.
+# Runs on MRs touching the properties file or the script, and on main.
+lint:sonar-exclusions:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - changes: &sonar-exclusions-paths
+        - sonar-project.properties
+        - scripts/check-sonar-exclusions.sh
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *sonar-exclusions-paths
+  before_script:
+    - apk add --no-cache bash git grep sed
+  script:
+    # Self-test first: a broken detector must not report green.
+    - bash scripts/check-sonar-exclusions.sh --self-test
+    - bash scripts/check-sonar-exclusions.sh
+
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
 # Ruff lint check + CodeClimate quality report in a single job — avoids
