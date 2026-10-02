@@ -27,7 +27,7 @@ host defaults to sonarcloud.io, so `SONAR_HOST_URL` is not set.
 | Property | Value |
 |---|---|
 | Type | SonarCloud user token |
-| Needed permission | **Execute Analysis** on the `visiban` organization (or the `visiban_visiban` project) |
+| Needed permission | A user token inherits its owner's permissions, so the owner needs permission to run analysis on the project (the "Execute Analysis" permission in the current SonarCloud UI) |
 | Stored | GitLab → Settings → CI/CD → Variables, key `SONAR_TOKEN`, **masked** and **protected** |
 | Used by | `sonar:scan`, and a local `scripts/sonar-scan.sh` run if a maintainer exports their own token |
 | Owner | **TBD.** A SonarCloud user token belongs to the person who generated it and stops working if that person loses access to the organization |
@@ -49,8 +49,8 @@ or tag. That is why the schedule must target `main`: a schedule on an unprotecte
 1. Sign in to SonarCloud as a member of the `visiban` organization with permission to run
    analysis. Prefer a dedicated service account over a personal one, so the token outlives any
    one person's access.
-2. Go to **My Account → Security → Generate Tokens**. Name it so its purpose is obvious (for
-   example `visiban-gitlab-nightly`), choose an expiry, and generate it. Copy the value now;
+2. In the current SonarCloud UI, go to **My Account → Security** and generate a token. Name it so its purpose is obvious (for
+   example `visiban-gitlab-nightly`), choose an expiry if the UI offers one, and generate it. Copy the value now;
    SonarCloud shows it once.
 3. In GitLab, open **Settings → CI/CD → Variables → Add variable**. Key `SONAR_TOKEN`, paste
    the value, enable **Mask variable** and **Protect variable**, and leave the environment scope
@@ -128,7 +128,7 @@ date. To diagnose a yellow job, read its log and match the symptom:
 |---|---|---|
 | `Not authorized`, `401`, or a token error | `SONAR_TOKEN` expired, was revoked, or its owner lost access | [Rotate the token](#rotate-the-token) |
 | `SONAR_TOKEN` empty, or no token error but no analysis | The variable is missing, or the pipeline ran on a ref where a protected variable is not injected | Confirm the variable exists and the schedule targets `main` |
-| An error that CI analysis cannot run while Automatic Analysis is enabled | Someone turned on Automatic Analysis in SonarCloud | Turn it off: **Administration → Analysis Method**. Automatic Analysis also ignores `sonar-project.properties`, so all the suppressions would stop applying |
+| An error saying CI analysis cannot run while Automatic Analysis is enabled (exact wording varies) | Someone turned on Automatic Analysis in SonarCloud | Turn it off in the project's administration settings (in the current SonarCloud UI this is under **Administration → Analysis Method**). Automatic Analysis also ignores `sonar-project.properties`, so all the suppressions would stop applying |
 | `resolved: 0 class entries` or `0 SF files`, or Coverage reads 0.0% | A report rewrite regressed, or a producer job failed and its report is missing | Check `sonar-scan-selftest`, then run `scripts/sonar-scan.sh --prep-only` locally against fresh reports |
 | `! backend/coverage.xml not found` or `! frontend/coverage/lcov.info not found` | `backend-test-coverage` or `frontend-test` failed on `main` that night | Fix that job first; the scan still ran for the other half |
 | Image pull failure, or a network or timeout error | A transient registry or SonarCloud problem | Re-run the job. If it persists, check the pinned `sonar-scanner-cli` image in `.gitlab-ci.yml` |
@@ -155,5 +155,11 @@ rating. The policy is **no unreviewed hotspots**.
 5. Do this when it appears, not at release time. Hotspots reviewed late are reviewed from
    memory.
 
-Reviewing a hotspot needs the **Administer Security Hotspots** permission on the project in
-SonarCloud. If you cannot see the status controls, ask an organization admin.
+Reviewing a hotspot needs a specific project permission in SonarCloud (called "Administer
+Security Hotspots" in the current UI). If you cannot see the status controls, ask an
+organization admin.
+
+!!! note "SonarCloud UI details are not yet verified"
+    The SonarCloud menu paths, permission names, and error wording on this page were written
+    from general knowledge of the product and were last verified: not yet. SonarCloud changes
+    its UI and plans; if a step does not match what you see, trust the UI and fix this page.

@@ -142,9 +142,10 @@ Use this to reproduce the nightly result or to check a fix before waiting for th
     which is a quick way to confirm both resolve a non-zero number of files.
 
 !!! warning "A local scan publishes to the shared project"
-    A scan from your checkout replaces the project's most recent analysis of the branch it
-    names. Run it from a branch you are happy to see on the dashboard, and never paste the
-    token into a file or a shell history you share.
+    A scan from your checkout publishes an analysis to the shared project. Depending on the
+    SonarCloud plan, it may replace the project's latest analysis or may not be analyzed at all
+    for a branch other than the main one. Run it only when you are happy to see the result on
+    the dashboard, and never paste the token into a file or a shell history you share.
 
 ## Reading the dashboard
 
@@ -165,12 +166,19 @@ Open the [project page](https://sonarcloud.io/project/overview?id=visiban_visiba
 
 They are two unrelated measurements and are not expected to match.
 
+Two jobs declare a `coverage:` regex in `.gitlab-ci.yml`: `backend-test-coverage` (the `TOTAL`
+line of `coverage report`) and `frontend-test` (the `All files` line of Vitest's text report).
+GitLab averages the values it collects into the pipeline's coverage figure, which is what the
+README badge shows. Check the `coverage:` lines in `.gitlab-ci.yml` if this changes.
+
 | | GitLab coverage badge | SonarCloud |
 |---|---|---|
-| Source | A regex over `backend-test-coverage` job output (`coverage:` in `.gitlab-ci.yml`) | The imported Cobertura and LCOV reports |
-| Scope | Backend only | Backend and frontend together |
-| Denominator | Everything `backend/.coveragerc` does not omit. Django imports every migration to build the test database, so migrations count | Product source only: tests, migrations, scripts, seed commands, and factories are excluded |
-| Updates | Every pipeline that runs the job | Nightly |
+| Source | Regexes over the job logs of `backend-test-coverage` and `frontend-test` | The imported Cobertura and LCOV reports |
+| Scope | Backend and frontend, as an **average of two percentages** | Backend and frontend, as **one combined figure weighted by lines** |
+| Denominator | Whatever each tool reports: everything `backend/.coveragerc` does not omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side | Product source only: tests, migrations, scripts, seed commands, and factories are excluded |
+| Updates | Every pipeline that runs the jobs | Nightly |
 
-The badge never reaches the scanner, and the scanner never feeds the badge. The backend gate
-(`--fail-under=90`) is applied to the first number only.
+Because the badge averages two percentages, a small frontend and a large backend count equally,
+while Sonar weights each file by its lines. The badge never reaches the scanner, and the
+scanner never feeds the badge. The backend gate (`--fail-under=90`) applies only to the
+backend number, not to either combined figure.
