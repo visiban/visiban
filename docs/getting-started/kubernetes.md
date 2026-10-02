@@ -595,8 +595,8 @@ These are also suitable for external load balancer health checks. The readiness 
 helm upgrade visiban helm/visiban \
   --namespace visiban \
   -f helm/visiban/values.secret.yaml \
-  --set backend.image.tag=v1.2.0-alpha.2 \
-  --set frontend.image.tag=v1.2.0-alpha.2
+  --set backend.image.tag=v1.2.0-alpha.3 \
+  --set frontend.image.tag=v1.2.0-alpha.3
 ```
 
 Each new backend pod runs the `migrate` init container before its application container starts, so migrations are applied automatically and no pod serves traffic against a schema it has not migrated. See the [Upgrade guide](../administration/upgrade.md) for version-specific notes and rollback procedures.
