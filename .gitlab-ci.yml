@@ -320,6 +320,26 @@ compose-hygiene:
     - bash scripts/render-nginx-hsts.sh --self-test
     - bash scripts/render-nginx-hsts.sh --check nginx/app.conf.template
 
+# ─── SonarCloud report-rewrite self-test (#1370) ─────────────────────────────
+#
+# scripts/sonar-scan.sh rewrites the coverage reports so SonarCloud can resolve
+# their paths; a regression resolves zero files and reports 0.0% with nothing
+# red. --self-test fixtures both rewrites (#1093 house rule). sonar:scan itself
+# runs only on the nightly schedule, so this runs on MRs touching the inputs.
+sonar-scan-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - changes: &sonar-scan-selftest-paths
+        - scripts/sonar-scan.sh
+        - sonar-project.properties
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *sonar-scan-selftest-paths
+  script:
+    - sh scripts/sonar-scan.sh --self-test
+
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
 # Ruff lint check + CodeClimate quality report in a single job — avoids
@@ -1644,6 +1664,8 @@ frontend-test:
         path: frontend/coverage/cobertura-coverage.xml
     paths:
       - frontend/coverage/cobertura-coverage.xml
+      # LCOV for SonarCloud's JS importer (#1370); consumed by sonar:scan.
+      - frontend/coverage/lcov.info
     when: always
 
 # ─── Serializer <-> TypeScript interface parity ──────────────────────────────
@@ -2495,12 +2517,12 @@ gitleaks-scan:
 # dashboard itself (no new analysis for that day). That is a known, accepted
 # gap for this first cut; #1382 owns writing it up in the maintainer runbook.
 #
-# Each report rewrite below is guarded on the source file existing. Until
-# #1370 lands (it adds the `sonar.*.reportPaths` entries and the frontend LCOV
-# reporter), both guards are no-ops and the scan imports no coverage — see
-# #1369's description. Once #1370 lands, a single failed producer (e.g. an
-# allow_failure coverage job) still lets the rest of the import proceed
-# instead of aborting the whole scan.
+# Coverage import (#1370): sonar-project.properties points
+# `sonar.python.coverage.reportPaths` / `sonar.javascript.lcov.reportPaths` at
+# the rewritten reports that scripts/sonar-scan.sh --prep-only generates from
+# the two producer artifacts. A missing report only warns, so a single failed
+# producer (e.g. an allow_failure coverage job) still lets the rest of the
+# import proceed instead of aborting the whole scan.
 sonar:scan:
   stage: security
   image: ${DOCKERHUB_MIRROR}/sonarsource/sonar-scanner-cli:12.2.0.4256_8.1.0@sha256:a3f4215076706c95a17a68c19322ee916e40a3acd081a8c1a1e839e0194afa57
@@ -2521,16 +2543,13 @@ sonar:scan:
     paths:
       - .sonar/cache
   script:
-    # backend/coverage.xml emits an EMPTY `<source></source>` because
-    # backend/.coveragerc sets `relative_files = true` (needed so the three
-    # parallel backend-test shards combine across runners). With no source
-    # root the scanner would resolve class filenames from the repo root and
-    # drop them; inject the real package root instead.
-    - if [ -f backend/coverage.xml ]; then sed "s#<source></source>#<source>${CI_PROJECT_DIR}/backend</source>#" backend/coverage.xml > backend/coverage.sonar.xml; fi
-    # frontend/coverage/lcov.info records `SF:src/...` paths relative to
-    # frontend/; the scanner runs from the checkout root, so rewrite them to
-    # `SF:frontend/src/...`.
-    - if [ -f frontend/coverage/lcov.info ]; then sed 's|^SF:src/|SF:frontend/src/|' frontend/coverage/lcov.info > frontend/coverage/lcov.sonar.info; fi
+    # Rewrite both coverage reports so their file paths resolve from the repo
+    # root (backend <source> root, frontend `SF:src/` -> `SF:frontend/src/`).
+    # The rewrites live in scripts/sonar-scan.sh so CI and a developer's local
+    # scan share one implementation; it is POSIX sh because this image has no
+    # bash. A missing report only warns, so one failed producer still lets the
+    # other import proceed.
+    - sh scripts/sonar-scan.sh --prep-only
     # SONAR_TOKEN (masked, protected CI/CD variable) and SONAR_HOST_URL
     # (defaults to sonarcloud.io) are read from the environment by
     # sonar-scanner automatically. Don't block on the quality-gate compute
