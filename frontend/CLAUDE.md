@@ -130,6 +130,10 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 
   When introducing or touching any new "this item is the active/selected/current one" treatment, grep for `bg-info` in the file first and ask which bucket above it falls into before picking a token. Prior incidents: #1002, #1239 (`SavedFiltersDropdown`/`AdminPage`), #1336 (`AppSidebar`/`CollapsedFlyout`).
 
+## Truncation inside nested flex chips
+
+Any chip built as an `inline-flex` container around one or more `truncate` text spans (custom-field chips, multi-select sub-chips, and any future nested-flex chip) must give **every** truncating span an explicit `min-w-0` (or a numeric `min-w-[Nrem]` floor), and give the **chip itself** `overflow-hidden`. A flex child's default `min-width: auto` is content-based — without an explicit override, `truncate`'s ellipsis never engages inside a flex container, and long content silently overflows the chip's own box onto whatever renders next in the row (#1411: this is why pinned custom-field chips rendered on top of their neighbors instead of clipping). A chip that needs to shrink in its own parent flex context (e.g. the card metadata row) must not be `shrink-0` with only a `max-w` — pair an explicit `min-w-[Nrem]` floor with the `max-w` instead, or it will overflow its parent rather than shrink into it.
+
 ## Top chrome — two-row composition
 
 The authenticated UI is framed by two horizontally-divided chrome rows and a main region. Maintain this skeleton across all routes; feature work lands inside the rows, not on top of them.
@@ -376,7 +380,7 @@ Each board has an admin-controlled `card_density` setting that drives how much m
 - Size: `w-6 h-6 text-xs font-medium text-on-primary`
 - Background: deterministic color based on user — use a consistent palette (teal `bg-palette-teal`, amber `bg-warning-bg`, violet `bg-palette-violet`, rose `bg-palette-rose`, etc.)
 - Content: 2-letter uppercase initials only
-- Position on cards: bottom-right, `absolute` or flex end
+- **Position on cards: `absolute bottom-1.5 right-1.5 z-10`, not a flex child of the metadata row (#1411).** `CardItem`'s metadata row is `overflow-hidden` with no wrap at rest; an avatar rendered as the row's last flex child (`ml-auto`) is the first thing silently clipped when the row overflows — backwards, since the avatar is the one metadata element with no density gate. The content wrapper carries `relative`, and the metadata row reserves `pr-7` whenever `card.assignee` is set so clipped chip content never runs under the avatar's corner.
 - Never show more than the initials — no full name, no tooltip required (but allowed)
 - **Always use the `Avatar` component** (`src/components/Common/Avatar.tsx`) — never hand-roll avatar circles with inline palette arrays or hardcoded background colors. The `Avatar` component owns the canonical `-600` tone palette and handles initials, image avatars, and deterministic color assignment.
 - **Sizes:** `xs` (20px), `sm` (24px, default chip on cards), `trigger` (28px, reserved for nav/chrome menu triggers — sits between chip and user-header sizes), `md` (32px), `lg` (40px)

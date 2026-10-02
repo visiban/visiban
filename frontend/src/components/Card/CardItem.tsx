@@ -305,13 +305,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     }
   };
 
-  const hasMetadata =
+  const hasMetadataRow =
     (showDescriptionIndicator && !!card.description) ||
     card.labels.length > 0 ||
     card.checklist_total > 0 ||
     (showAttachments && card.attachment_count > 0) ||
     (showDueDatePill && dueInfo && !dueAlreadyInUrgency) ||
-    card.assignee ||
     (showWeight && card.weight > 1) ||
     (showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency) ||
     !!movedLabel ||
@@ -394,13 +393,13 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           )}
         </div>
       )}
-      <div className={`px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
+      <div className={`relative px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         <p className={`leading-snug ${compact ? "text-xs text-fg line-clamp-1" : "text-sm text-fg line-clamp-2"}`}>{card.title}</p>
 
         {/* Description exists — indicator only; full content shown in card detail */}
 
-        {hasMetadata && (
-          <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
+        {hasMetadataRow && (
+          <div className={`flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap focus-within:overflow-visible focus-within:flex-wrap ${card.assignee ? "pr-7" : ""}`}>
             {/* Blocked indicator (#449) — FIRST in the row, and deliberately
                 outside the `!compact` branch and every density gate.
 
@@ -462,7 +461,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           visible indicator and click target, so it steps up
                           from the decorative w-3 size (frontend/CLAUDE.md). */}
                       <ExternalRefGlyph className={showExternalRefText ? "w-3 h-3 shrink-0" : "w-3.5 h-3.5 shrink-0"} />
-                      {showExternalRefText && <span className="truncate font-mono">{externalRef.ref}</span>}
+                      {showExternalRefText && <span className="truncate font-mono min-w-0">{externalRef.ref}</span>}
                     </>
                   );
                   return isHttpUrl(externalRef.url) ? (
@@ -481,7 +480,13 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       onMouseDown={(e) => e.stopPropagation()}
                       onTouchStart={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 text-xs text-info hover:underline shrink-0 max-w-[10rem] min-w-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      // shrink-0 is intentional and unlike the custom-field chips
+                      // (#1411): this badge is deliberately first in the row (see
+                      // the comment above) so it's never hidden by the row's
+                      // right-to-left clip — overflow-hidden + the inner span's
+                      // min-w-0 (above) just stop its own text bleeding past its
+                      // own max-w-[10rem] edge, the same fix applied there.
+                      className="inline-flex items-center gap-1 text-xs text-info hover:underline shrink-0 max-w-[10rem] min-w-0 overflow-hidden rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       {content}
                     </a>
@@ -490,7 +495,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       role="img"
                       aria-label={`${externalRef.ref}, ${label}`}
                       title={`${label} ${externalRef.ref}`}
-                      className="inline-flex items-center gap-1 text-xs text-fg-muted shrink-0 max-w-[10rem] min-w-0"
+                      // Same shrink-0-is-intentional note as the <a> branch above.
+                      className="inline-flex items-center gap-1 text-xs text-fg-muted shrink-0 max-w-[10rem] min-w-0 overflow-hidden"
                     >
                       {content}
                     </span>
@@ -599,11 +605,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           }
                         } : undefined}
                         aria-label={interactive ? `${def.name}: not set. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
-                        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-dashed border-line shrink-0 max-w-[10rem] text-fg-faint ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
+                        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-dashed border-line overflow-hidden min-w-[3.5rem] max-w-[10rem] text-fg-faint ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
                         title={`${def.name}: not set`}
                       >
-                        {def.name}
-                        <span className={interactive ? "border-b border-dotted border-fg-tertiary" : ""}>—</span>
+                        <span className="truncate min-w-0">{def.name}</span>
+                        <span className={interactive ? "border-b border-dotted border-fg-tertiary shrink-0" : "shrink-0"}>—</span>
                       </span>
                     );
                   }
@@ -638,12 +644,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                         }
                       } : undefined}
                       aria-label={interactive ? `${def.name}: ${displayText}. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
-                      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line ${multiEntries ? "max-w-[14rem] min-w-0" : "shrink-0 max-w-[10rem]"} ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
+                      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line overflow-hidden ${multiEntries ? "max-w-[14rem] min-w-[4rem]" : "max-w-[10rem] min-w-[3.5rem]"} ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
                       title={`${def.name}: ${displayText}`}
                     >
                       {dot}
                       {/* #1391: on a multi-select chip the name yields width before the value chips do. */}
-                      <span className={`text-fg-muted truncate ${multiEntries ? "min-w-0 shrink-[3]" : ""}`}>{def.name}:</span>
+                      <span className="text-fg-muted truncate min-w-0 shrink-[3]">{def.name}:</span>
                       {/* Firm VoC requirement — the editable-badge affordance
                           (dotted underline) stays visible at rest, never
                           hover-reveal-only, so an occasional user can
@@ -671,7 +677,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           ) : chipValueText(def, displayText, 16)}
                         </ChoiceBadge>
                       ) : (
-                        <span className={`text-fg-secondary truncate ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
+                        <span className={`text-fg-secondary truncate min-w-0 ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
                           {chipValueText(def, displayText, 16)}
                         </span>
                       )}
@@ -741,12 +747,17 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 {card.priority}
               </span>
             )}
-
-            {/* Assignee avatar — always shown */}
-            {card.assignee && (
-              <Avatar user={card.assignee} size="xs" className="ml-auto" />
-            )}
           </div>
+        )}
+
+        {/* Assignee avatar — positioned against the content wrapper
+            (`relative`, above), not a flex child of the metadata row. The row
+            is `overflow-hidden` with no wrap at rest, so an avatar rendered as
+            its last flex child was the first thing silently clipped when the
+            row overflowed — backwards, since it's the one metadata element
+            with no density gate (#1411). */}
+        {card.assignee && (
+          <Avatar user={card.assignee} size="xs" className="absolute bottom-1.5 right-1.5 z-10" />
         )}
       </div>
     </div>

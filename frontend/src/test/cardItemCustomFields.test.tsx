@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import CardItem from "../components/Card/CardItem";
+import Avatar from "../components/Common/Avatar";
 import type { Card, CustomFieldDefinition } from "../types";
 import * as cardsApi from "../api/cards";
 
@@ -9,7 +10,7 @@ vi.mock("@dnd-kit/core", () => ({
 }));
 
 vi.mock("../components/Common/Avatar", () => ({
-  default: () => null,
+  default: vi.fn(() => null),
 }));
 
 vi.mock("../api/cards", () => ({
@@ -366,6 +367,17 @@ describe("CardItem — pinned multi-select chips (#1391)", () => {
     expect(screen.queryByRole("button", { name: /Platforms:/ })).not.toBeInTheDocument();
     expect(document.querySelector(".border-dotted")).toBeNull();
   });
+
+  it("gives each sub-chip span min-w-0 so its truncate ellipsis actually engages (#1411)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: '["web","ios"]' }] })}
+        customFieldDefinitions={[msDef()]}
+      />
+    );
+    expect(screen.getByText("web")).toHaveClass("truncate", "min-w-0");
+    expect(screen.getByText("ios")).toHaveClass("truncate", "min-w-0");
+  });
 });
 
 describe("CardItem — formatted number chips (#1391)", () => {
@@ -490,5 +502,109 @@ describe("CardItem — colored choices on the card face (#1391)", () => {
     expect(badges).toHaveLength(1);
     expect(badges[0]).toHaveTextContent("ios");
     expect(screen.getByTitle("web")).toHaveClass("bg-surface-hover");
+  });
+});
+
+describe("CardItem — chip clipping, not overlap, when the card face is narrow (#1411)", () => {
+  it("gives a populated non-multi chip's name and value spans a min-w-0-bearing truncate class", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Reporter count" }] })}
+        customFieldDefinitions={[makeDefinition()]}
+      />
+    );
+    const chip = screen.getByTitle("Sprint: Reporter count");
+    const nameSpan = chip.querySelector("span.text-fg-muted")!;
+    const valueSpan = screen.getByText("Reporter count");
+    expect(nameSpan).toHaveClass("truncate", "min-w-0");
+    expect(valueSpan).toHaveClass("truncate", "min-w-0");
+  });
+
+  it("gives a populated non-multi chip's outer span overflow-hidden and never shrink-0 (regression guard)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "14" }] })}
+        customFieldDefinitions={[makeDefinition()]}
+      />
+    );
+    const chip = screen.getByTitle("Sprint: 14");
+    expect(chip).toHaveClass("overflow-hidden");
+    expect(chip.className).not.toMatch(/\bshrink-0\b/);
+  });
+
+  it("gives the ghost/unset chip at dense density the same overflow-hidden, no-shrink-0 outer treatment and a min-w-0 name span", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [] })}
+        customFieldDefinitions={[makeDefinition()]}
+        density="dense"
+      />
+    );
+    const chip = screen.getByTitle("Sprint: not set");
+    expect(chip).toHaveClass("overflow-hidden");
+    expect(chip.className).not.toMatch(/\bshrink-0\b/);
+    const nameSpan = screen.getByText("Sprint");
+    expect(nameSpan).toHaveClass("truncate", "min-w-0");
+  });
+});
+
+describe("CardItem — avatar positioned against the content wrapper, not the metadata row (#1411)", () => {
+  beforeEach(() => {
+    vi.mocked(Avatar).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub mirrors the real component's narrow prop surface
+      ((props: any) => <div data-testid="avatar-stub" className={props.className} />) as typeof Avatar
+    );
+  });
+
+  afterEach(() => {
+    vi.mocked(Avatar).mockImplementation((() => null) as unknown as typeof Avatar);
+  });
+
+  it("renders the avatar bottom-right, absolutely positioned, as a sibling of the metadata row rather than inside it", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({
+          assignee: { id: 9, username: "jordan", display_name: "Jordan", avatar_url: "" },
+          custom_field_values: [
+            { field_definition: 5, value: "14" },
+            { field_definition: 6, value: "Beta" },
+          ],
+        })}
+        customFieldDefinitions={[
+          makeDefinition({ id: 5, name: "Sprint" }),
+          makeDefinition({ id: 6, name: "Stage", field_type: "dropdown", choices: ["Beta", "GA"] }),
+        ]}
+      />
+    );
+
+    expect(screen.getByTitle("Sprint: 14")).toBeInTheDocument();
+    expect(screen.getByTitle("Stage: Beta")).toBeInTheDocument();
+
+    const avatarStub = screen.getByTestId("avatar-stub");
+    expect(avatarStub.className).toMatch(/\babsolute\b/);
+    expect(avatarStub.className).toMatch(/\bbottom-1\.5\b/);
+    expect(avatarStub.className).toMatch(/\bright-1\.5\b/);
+
+    // The row (identified by its overflow-hidden/group-hover:overflow-visible
+    // classes) must not contain the avatar — it is now a sibling of the row,
+    // positioned against the content wrapper instead.
+    const row = container.querySelector(".overflow-hidden.group-hover\\:overflow-visible")!;
+    expect(row).not.toBeNull();
+    expect(row.querySelector('[data-testid="avatar-stub"]')).toBeNull();
+    expect(avatarStub.parentElement).not.toBe(row);
+  });
+
+  it("renders the avatar stub but no metadata row when the card has only an assignee (hasMetadataRow rename didn't leave an empty row)", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({
+          assignee: { id: 9, username: "jordan", display_name: "Jordan", avatar_url: "" },
+        })}
+        customFieldDefinitions={[]}
+      />
+    );
+
+    expect(screen.getByTestId("avatar-stub")).toBeInTheDocument();
+    expect(container.querySelector(".overflow-hidden.group-hover\\:overflow-visible")).toBeNull();
   });
 });
