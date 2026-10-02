@@ -128,6 +128,20 @@ describe('JoinPage', () => {
     expect(screen.getByText('Continue with GitLab')).toBeInTheDocument()
   })
 
+  it('redirects to / with register authMode for a site invite token (#1374)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/join/vbnl_abc123']}>
+        <Routes>
+          <Route path="/join/:token" element={<JoinPage user={null} onLogin={vi.fn()} />} />
+          <Route path="/" element={<div data-testid="home-page" />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await waitFor(() => expect(screen.getByTestId('home-page')).toBeInTheDocument())
+    expect(sessionStorage.getItem('invite_token')).toBe('vbnl_abc123')
+    expect(mockResolveJoinToken).not.toHaveBeenCalled()
+  })
+
   it('does not fetch providers when user is authenticated', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     mockJoinGroup.mockReturnValue(new Promise(() => {}))

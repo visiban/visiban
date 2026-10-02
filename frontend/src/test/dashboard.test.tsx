@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Dashboard from '../pages/Dashboard'
@@ -40,11 +40,42 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
 }))
 
-import { listBoards } from '../api/boards'
+import { listBoards, deleteBoard, createBoard, importBoard, previewTrelloImport, confirmTrelloImport } from '../api/boards'
 import { listGroups } from '../api/groups'
+import type { TrelloImportPreview } from '../types'
 
 const mockListBoards = listBoards as ReturnType<typeof vi.fn>
 const mockListGroups = listGroups as ReturnType<typeof vi.fn>
+const mockDeleteBoard = deleteBoard as ReturnType<typeof vi.fn>
+const mockCreateBoard = createBoard as ReturnType<typeof vi.fn>
+const mockImportBoard = importBoard as ReturnType<typeof vi.fn>
+const mockPreviewTrelloImport = previewTrelloImport as ReturnType<typeof vi.fn>
+const mockConfirmTrelloImport = confirmTrelloImport as ReturnType<typeof vi.fn>
+
+// Minimal valid preview fixture — mirrors trelloImport.test.tsx's makePreview(),
+// trimmed to what Dashboard's Trello-import flow needs to reach "Create board".
+function trelloPreview(): TrelloImportPreview {
+  return {
+    source: 'trello',
+    file_sha256: 'sha-1',
+    board: { name: 'Product Roadmap', description: '' },
+    counts: {
+      lists: 1, lists_archived: 0, cards: 1, cards_archived: 0, labels: 0, checklists: 0,
+      checklist_items: 0, comments: 0, attachments: 0, members: 0,
+    },
+    result: { columns: 1, swimlanes: 1, labels: 0, cards: 1, cards_archived: 0, checklist_items: 0, comments: 0 },
+    mapping: {
+      columns: [{ trello_id: 'a', name: 'To Do', position: 0, card_count: 1, archived: false }],
+      labels: [],
+      swimlanes: [],
+      default_swimlane: 'Unassigned',
+    },
+    members: { total: 0, matched: 0, unmatched: [] },
+    options: { swimlane_label_ids: [], default_swimlane_name: 'Unassigned', include_archived_lists: false, add_matched_members: false },
+    warnings: [],
+    unmappable: [],
+  }
+}
 
 const fakeUser: User = {
   id: 1,
@@ -357,5 +388,135 @@ describe('Dashboard — delete confirmation and archived cards (#1289)', () => {
     expect(dialog).toHaveTextContent('all its data, including archived cards, will be permanently deleted')
     expect(screen.queryByPlaceholderText('Type "Sprint Board" to confirm')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+  })
+})
+
+// #1374 — floating promises: initial load and delete failures must surface an
+// error instead of failing silently, and a failed delete must not leave a
+// board permanently missing from the list.
+describe('Dashboard — rejection paths (#1374)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('shows an error when the initial board load fails', async () => {
+    mockListBoards.mockRejectedValue(new Error('network error'))
+    mockListGroups.mockResolvedValue([])
+    renderDashboard()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to load boards. Try refreshing the page.'
+    )
+  })
+
+  it('shows an error when the initial group load fails', async () => {
+    mockListBoards.mockResolvedValue([])
+    mockListGroups.mockRejectedValue(new Error('network error'))
+    renderDashboard()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to load groups. Try refreshing the page.'
+    )
+  })
+
+  it('reconciles with the server and shows an error when deleting a board fails', async () => {
+    const board = { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
+    mockListBoards.mockResolvedValueOnce([board])
+    mockListGroups.mockResolvedValue([])
+    mockDeleteBoard.mockRejectedValue(new Error('server error'))
+    // Refetch after the failed delete finds the board is still there.
+    mockListBoards.mockResolvedValueOnce([board])
+
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Sprint Board')
+    await user.click(screen.getByTitle('Delete board'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    // Board reappears after the reconciling refetch, and the error is shown.
+    expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to delete the board. Please try again.'
+    )
+  })
+
+  it('falls back to the pre-delete snapshot when both the delete and the reconciling refetch fail', async () => {
+    const board = { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
+    mockListBoards.mockResolvedValueOnce([board])
+    mockListGroups.mockResolvedValue([])
+    mockDeleteBoard.mockRejectedValue(new Error('server error'))
+    // The reconciling refetch also fails.
+    mockListBoards.mockRejectedValueOnce(new Error('network error'))
+
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Sprint Board')
+    await user.click(screen.getByTitle('Delete board'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    // The board is restored from the pre-delete snapshot rather than left missing.
+    expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
+    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+      'Failed to delete the board. Please try again.'
+    )
+  })
+})
+
+// #1374 — navigate(...) after create/import/Trello-import was wrapped in void
+// to silence the floating-promise lint rule. These exercise the actual
+// navigation target so a wrong path still fails loudly.
+describe('Dashboard — navigates to the new board after create/import (#1374)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockListBoards.mockResolvedValue([])
+    mockListGroups.mockResolvedValue([])
+    mockNavigate.mockReset()
+  })
+
+  it('navigates to the new board after a successful create', async () => {
+    const user = userEvent.setup()
+    mockCreateBoard.mockResolvedValue({
+      id: 42, name: 'New Board', description: '', owner: fakeUser,
+      group: null, group_name: null, member_count: 1, created_at: '', updated_at: '',
+    })
+    renderDashboard()
+    await screen.findByText('+ New board')
+    await user.click(screen.getByText('+ New board'))
+    await user.type(screen.getByPlaceholderText(/e.g. Q3 Pipeline/), 'New Board')
+    await user.click(screen.getByRole('button', { name: 'Create Board' }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/boards/42'))
+  })
+
+  it('navigates to the new board after a successful import', async () => {
+    const user = userEvent.setup()
+    mockImportBoard.mockResolvedValue({
+      id: 55, name: 'Imported Board', description: '', owner: fakeUser,
+      group: null, group_name: null, member_count: 1, created_at: '', updated_at: '',
+    })
+    renderDashboard()
+    await screen.findByText('Import')
+    await user.click(screen.getByText('Import'))
+    const dialog = await screen.findByRole('dialog')
+    const fileInput = dialog.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(fileInput, new File(['{}'], 'board.json', { type: 'application/json' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Import' }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/boards/55'))
+  })
+
+  it('navigates to the new board after a successful Trello import', async () => {
+    const user = userEvent.setup()
+    mockPreviewTrelloImport.mockResolvedValue(trelloPreview())
+    mockConfirmTrelloImport.mockResolvedValue({ board: { id: 77, name: 'Product Roadmap' }, summary: {} })
+    renderDashboard()
+    await screen.findByText('Import')
+    await user.click(screen.getByText('Import'))
+    await user.click(screen.getByRole('button', { name: 'Import a Trello export' }))
+    await screen.findByText('Import from Trello')
+
+    const fileInput = document.getElementById('trello-file') as HTMLInputElement
+    await user.upload(fileInput, new File(['{"lists":[],"cards":[]}'], 'board.json', { type: 'application/json' }))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await screen.findByText('Step 2 of 2 · Review and configure')
+
+    await user.click(screen.getByRole('button', { name: 'Create board' }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/boards/77'))
   })
 })

@@ -35,7 +35,9 @@ export default function JoinPage({ user }: Props) {
     if (isSiteInvite) {
       // Store the invite token for the registration form to pick up.
       sessionStorage.setItem("invite_token", token);
-      navigate("/", { state: { authMode: "register" }, replace: true });
+      // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+      // there is nothing to roll back if the navigation itself rejects.
+      void navigate("/", { state: { authMode: "register" }, replace: true });
       return;
     }
     resolveJoinToken(token)
@@ -50,7 +52,9 @@ export default function JoinPage({ user }: Props) {
 
   useEffect(() => {
     if (!invalid) return;
-    if (countdown <= 0) { navigate("/"); return; }
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // there is nothing to roll back if the navigation itself rejects.
+    if (countdown <= 0) { void navigate("/"); return; }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [invalid, countdown, navigate]);
@@ -94,7 +98,9 @@ export default function JoinPage({ user }: Props) {
   const handleAuthRedirect = (mode: "login" | "register") => {
     sessionStorage.setItem("pendingJoinToken", token!);
     sessionStorage.setItem("returnTo", `/join/${token}`);
-    navigate("/", { state: { authMode: mode } });
+    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
+    // there is nothing to roll back if the navigation itself rejects.
+    void navigate("/", { state: { authMode: mode } });
   };
 
   const handleOAuthRedirect = (provider: string) => {

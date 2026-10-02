@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ResetPasswordPage from '../pages/ResetPasswordPage'
@@ -91,6 +91,31 @@ describe('ResetPasswordPage', () => {
     })
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
     expect(mockConfirm).toHaveBeenCalledWith('abc', 'tok-en123', 'NewPassword9876', 'NewPassword9876')
+  })
+
+  it('auto-redirects to / after the post-reset countdown reaches zero (#1374)', async () => {
+    // Fake timers only for this test — mirrors ConfirmEmailPage's countdown test.
+    vi.useFakeTimers()
+    try {
+      mockConfirm.mockResolvedValue(undefined)
+      renderPage()
+
+      fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'NewPassword9876' } })
+      fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'NewPassword9876' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Set new password' }))
+
+      // Flush the resolved promise microtask and React re-render
+      await act(async () => {})
+
+      expect(screen.getByText('Password updated')).toBeInTheDocument()
+
+      // Advance past the full 3-second countdown
+      await act(async () => { vi.advanceTimersByTime(3000) })
+
+      expect(screen.getByText('login-page')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows token-invalid state and "Request a new link" CTA on token error', async () => {

@@ -230,6 +230,31 @@ describe('ProfileTab', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
   })
 
+  it('Escape navigates to "/" when there is no browser history and no "from" state (#1374)', () => {
+    renderSettings()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    // JSDOM has no real history, so history.length === 1 → navigate(from ?? "/")
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+  })
+
+  it('Escape navigates back to "from" location state when there is no browser history (#1374)', () => {
+    const fromLocation = { pathname: '/boards/1', search: '', hash: '', state: null, key: 'abc' }
+    renderSettings(fakeUser, { from: fromLocation })
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(mockNavigate).toHaveBeenCalledWith(fromLocation, { replace: true })
+  })
+
+  it('Escape navigates back when browser history has previous entries (#1374)', () => {
+    const historySpy = vi.spyOn(window.history, 'length', 'get').mockReturnValue(2)
+    try {
+      renderSettings()
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(mockNavigate).toHaveBeenCalledWith(-1)
+    } finally {
+      historySpy.mockRestore()
+    }
+  })
+
   it('shows error message on save failure', async () => {
     mockUpdateCurrentUser.mockRejectedValueOnce(new Error('Server error'))
     const user = userEvent.setup()
