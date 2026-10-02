@@ -116,6 +116,10 @@ def _query_real_ids():
         # group-label ids, now that seed_demo_data creates one of each.
         "group_pk": None,
         "custom_field_id": None,
+        # #1391 — swimlane (row) field definitions are seeded by
+        # seed_demo_data too; without a real board_pk their writes 404 in the
+        # viewset before any definition validation runs under fuzz.
+        "swimlane_custom_field_id": None,
         "saved_filter_id": None,
         "attachment_id": None,
         "group_invite_link_id": None,
@@ -139,6 +143,10 @@ def _query_real_ids():
     custom_field = board.custom_field_definitions.order_by("id").first()
     if custom_field is not None:
         ids["custom_field_id"] = custom_field.id
+
+    swimlane_field = board.swimlane_custom_field_definitions.order_by("id").first()
+    if swimlane_field is not None:
+        ids["swimlane_custom_field_id"] = swimlane_field.id
 
     saved_filter = board.saved_filters.order_by("id").first()
     if saved_filter is not None:
@@ -255,6 +263,12 @@ _PATH_PARAM_OVERRIDES = {
     # id seeded since #1125 (was left to schemathesis before).
     "/api/v1/boards/{board_pk}/custom-fields/{id}/": {
         "board_pk": "board_pk", "id": "custom_field_id",
+    },
+    # #1391 — swimlane (row) field definitions, mapped like the card ones above.
+    "/api/v1/boards/{board_pk}/swimlane-custom-fields/": {"board_pk": "board_pk"},
+    "/api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/": {"board_pk": "board_pk"},
+    "/api/v1/boards/{board_pk}/swimlane-custom-fields/{id}/": {
+        "board_pk": "board_pk", "id": "swimlane_custom_field_id",
     },
     "/api/v1/boards/{id}/": {"id": "board_pk"},
     "/api/v1/boards/{id}/analytics/": {"id": "board_pk"},

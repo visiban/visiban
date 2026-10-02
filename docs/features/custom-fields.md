@@ -38,6 +38,7 @@ Click **+ Add field**, or **✎** on an existing field, to open the inline edito
 - **Field name** — required, unique on the board
 - **Type** — one of the seven types above, chosen from a row of buttons
 - **Help text** — optional hint shown next to the input wherever the field is edited
+- **Format** (number only) — optional **Prefix**, **Suffix**, and **Decimals**; see [Number formatting](#number-formatting) below
 - **Choices** (dropdown and multi-select) — add rows one at a time with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add choices from a newline-separated block of text in one step
 - **Pin to card face** — toggle to add this field's value to the card face (see [Pinned fields on the card face](#pinned-fields-on-the-card-face) below)
 
@@ -99,6 +100,28 @@ The card detail panel shows a collapsible **Custom fields** section (below Label
 Each field autosaves on change, the same way other card detail fields behave. The section opens automatically if any field already has a stored value on the card; otherwise it starts collapsed and expands on click.
 
 If the board has no custom fields defined, this section doesn't appear at all.
+
+### Number formatting
+
+A number field can show its value with a unit and a fixed number of decimal places — `$1,234.50`, `8 h`, `-$5.00` — while the value itself stays a plain number. Set it in the field editor's **Format** block, which appears only while the field's type is **Number**:
+
+| Option | What it does | Default |
+|---|---|---|
+| **Prefix** | Text shown before the number, e.g. `$`. Up to 10 characters; spaces are kept, so `$ ` shows `$ 5`. | none |
+| **Suffix** | Text shown after the number, e.g. ` h` or ` USD`. Up to 10 characters; spaces are kept. | none |
+| **Decimals** | Show exactly this many decimal places (0–10), rounding as needed, with thousands separators (`1,234.50`). Leave it empty to show the number exactly as typed — no separators, and written the way it was entered (`+5` shows `$+5`, `1e3` shows `$1e3`). | empty (as typed) |
+
+A **Preview** line under the block shows how `1234.5` will look with your settings. A decimals value outside 0–10 shows *Enter 0 to 10.* and the field can't be saved until it is fixed.
+
+- **Display only** — formatting changes how a value **looks** on the card face, in the card detail panel, in the hover peek, on swimlane row chips, and in the filter bar's active-filter chip. The stored value is never changed: editing still uses a plain number box, with the prefix and suffix shown beside it as non-editable labels.
+- **Very large numbers** — with Decimals set, a number beyond about 9 quadrillion (2^53) can show rounded digits. Only the display is affected; the stored value keeps every digit.
+- **Negative numbers** put the minus sign before the prefix: `-$5.00`, not `$-5.00`. A negative value that rounds to zero shows without a sign (`$0.00`).
+- **Separators** — grouping and the decimal point use US conventions (`1,234.50`) for every viewer. The **Number format** preference in your profile settings does not apply to custom field values. There is no currency model or conversion: `$` is just text.
+- **Exports stay raw** — CSV and JSON exports contain the stored number (`1234.5`), not the formatted text. The JSON export also lists each field's `number_prefix`, `number_suffix` and `number_decimals`, so a consumer can apply the format itself.
+- **Filtering uses the raw number** — type the number itself (`1234.5`) in the filter bar, not the formatted text.
+- **Changing the type** — switching a field away from Number clears its format options.
+
+The same options are available on [swimlane fields](#swimlane-row-custom-fields).
 
 ### URL fields
 
@@ -175,7 +198,7 @@ Open **Board Settings** and select the **Swimlane fields** tab, beside **Card fi
 
 The tab lists every swimlane field in display order, with the same type glyph, name, type label, and pin state that the Card fields tab uses. The tab header shows a running count, e.g. `12 of 15 · 2 of 3 pinned`. At **13–14 fields**, a warning line shows how many fields are left before **+ Add field** locks out; at **15 fields**, **+ Add field** is disabled with an inline explanation.
 
-The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns and multi-selects, and a pin toggle — plus one addition:
+The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns and multi-selects, the [number format](#number-formatting) options for number fields, and a pin toggle — plus one addition:
 
 - **Admin only** — toggle, **on by default** for a new field. An admin-only field's values are withheld from every non-admin role entirely: members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.
 
@@ -203,6 +226,7 @@ This page covers the UI. For the wire format:
 - Swimlane values — the `custom_field_values` field on the swimlane payload — [Boards API](../api/boards.md#swimlanes)
 - Swimlane real-time updates — schema changes arrive as `swimlane_custom_field.created`, `swimlane_custom_field.updated`, `swimlane_custom_field.deleted`, and `swimlane_custom_field.reordered`; value changes arrive on the existing `swimlane.updated` event — [WebSockets](../api/websockets.md#swimlane-field-events-since-12)
 - Board export (CSV and JSON) includes swimlane field values alongside card field values, with admin-only fields omitted entirely for a non-admin exporter — [Export & Import](../api/boards.md#export-import). In the CSV, a multi-select value is written as its picks joined with `; ` (for example `web; ios`); the JSON export keeps the stored JSON array string — see [Multi-select fields](../api/boards.md#multi-select-fields)
+- Number formatting options — `number_prefix`, `number_suffix`, `number_decimals` on both definition endpoints; values stay raw on the wire and in exports — see [Number formatting](../api/boards.md#number-formatting)
 
 ---
 
@@ -212,6 +236,7 @@ This page covers the UI. For the wire format:
 |---|---|
 | No conditional coloring | Custom field values cannot be color-coded by threshold (e.g. red above N) |
 | No range filtering | Number and date filters match an exact value only, not a range |
+| Number formatting ignores the Number format preference | Formatted custom field numbers always use US separators (`1,234.50`), not the per-user **Number format** setting |
 | `is_required` not enforced | The field definition has a "required" concept in the data model, but it is not enforced in the UI or API in this release — a field marked required can still be left blank |
 | Swimlane fields aren't filterable | The board's filter bar only offers controls for card fields; swimlane field values cannot be used as filter criteria in this release |
 | `is_required` not enforced (swimlane fields) | Same gap as the card-level entry above — a swimlane field marked required can still be left blank in the Edit Swimlane modal |

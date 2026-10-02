@@ -255,7 +255,36 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
         />
       );
 
-    case "number":
+    case "number": {
+      // #1391: a prefix/suffix renders as a non-editable adornment beside the
+      // raw numeric input — the value typed and stored is still the plain
+      // number. Without either, the input renders exactly as before.
+      const prefix = definition.number_prefix ?? "";
+      const suffix = definition.number_suffix ?? "";
+      if (prefix !== "" || suffix !== "") {
+        const unit = [prefix, suffix].map((a) => a.trim()).filter(Boolean).join(" ");
+        const adornment = `shrink-0 select-none whitespace-pre text-fg-muted ${size === "sm" ? "text-xs" : "text-sm"}`;
+        return (
+          // Not fixed-width: the wrapper grows with the adornments (up to 10
+          // characters each) so they never squeeze the number itself, which
+          // keeps the plain input's width with a 4rem floor.
+          <div className="inline-flex w-auto min-w-28 max-w-full items-center bg-surface border border-line rounded focus-within:ring-2 focus-within:ring-primary-emphasis focus-within:border-transparent">
+            {prefix !== "" && <span className={`${adornment} ${size === "sm" ? "pl-1.5" : "pl-2"}`} aria-hidden="true">{prefix}</span>}
+            <input
+              type="number"
+              aria-label={unit ? `${definition.name} (${unit})` : definition.name}
+              className={`bg-transparent text-fg-secondary focus:outline-none min-w-[4rem] flex-1 ${size === "sm" ? "w-20" : "w-32"} ${
+                size === "sm" ? "py-1 text-xs" : "py-1.5 text-sm"
+              } ${prefix !== "" ? "pl-1" : size === "sm" ? "pl-2" : "pl-3"} ${suffix !== "" ? "pr-1" : size === "sm" ? "pr-2" : "pr-3"}`}
+              value={local}
+              disabled={disabled}
+              autoFocus={autoFocus}
+              onChange={(e) => debouncedCommit(e.target.value)}
+            />
+            {suffix !== "" && <span className={`${adornment} ${size === "sm" ? "pr-1.5" : "pr-2"}`} aria-hidden="true">{suffix}</span>}
+          </div>
+        );
+      }
       return (
         <input
           type="number"
@@ -266,6 +295,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           onChange={(e) => debouncedCommit(e.target.value)}
         />
       );
+    }
 
     case "date": {
       // Exact parity with CardDetail's due-date pattern: a transparent native

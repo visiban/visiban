@@ -22,6 +22,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
   return {
     id: 1, uid: "cfuid001", name: "Sprint", field_type: "text", choices: [],
     position: 0, show_on_card: false, is_required: false, help_text: "",
+    number_prefix: "", number_suffix: "", number_decimals: null,
     created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
@@ -337,5 +338,103 @@ describe("BoardSettingsFieldsTab — multi-select type (#1391)", () => {
     render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition({ field_type: "multi_select", name: "Platforms", choices: ["web"] })])} isAdmin onFieldsUpdated={vi.fn()} />);
     expect(screen.getByText("Multi-select")).toBeInTheDocument();
     expect(screen.getByText("☰")).toBeInTheDocument();
+  });
+});
+
+describe("BoardSettingsFieldsTab — number format (#1391)", () => {
+  it("shows the Format block only for a number field, with a live preview, and sends the options", async () => {
+    const user = userEvent.setup();
+    const created = makeDefinition({ id: 9, name: "Budget", field_type: "number", number_prefix: "$", number_decimals: 2 });
+    vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(created);
+
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Budget");
+    // Text is the default type: no Format block.
+    expect(screen.queryByText("Format")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "# Number" }));
+    expect(screen.getByText("Format")).toBeInTheDocument();
+    // All defaults: the number exactly as typed.
+    expect(screen.getByText("Preview: 1234.5")).toBeInTheDocument();
+    // Only the error is announced; the preview is not an alert.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Prefix")).toHaveAttribute("maxLength", "10");
+    expect(screen.getByLabelText("Suffix")).toHaveAttribute("maxLength", "10");
+
+    await user.type(screen.getByLabelText("Prefix"), "$");
+    await user.type(screen.getByLabelText("Decimals"), "2");
+    expect(screen.getByText("Preview: $1,234.50")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Suffix"), " USD");
+    expect(screen.getByText("Preview: $1,234.50 USD")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => {
+      expect(boardsApi.createCustomFieldDefinition).toHaveBeenCalledWith(1, {
+        name: "Budget",
+        field_type: "number",
+        choices: undefined,
+        help_text: undefined,
+        number_prefix: "$",
+        number_suffix: " USD",
+        number_decimals: 2,
+      });
+    });
+  });
+
+  it("sends null decimals when the Decimals input is left empty", async () => {
+    const user = userEvent.setup();
+    vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(makeDefinition({ id: 9, field_type: "number" }));
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Hours");
+    await user.click(screen.getByRole("button", { name: "# Number" }));
+    await user.type(screen.getByLabelText("Suffix"), " h");
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => {
+      expect(boardsApi.createCustomFieldDefinition).toHaveBeenCalledWith(1, expect.objectContaining({
+        number_prefix: "", number_suffix: " h", number_decimals: null,
+      }));
+    });
+  });
+
+  it("flags decimals outside 0-10 inline and refuses to save", async () => {
+    const user = userEvent.setup();
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Budget");
+    await user.click(screen.getByRole("button", { name: "# Number" }));
+    await user.type(screen.getByLabelText("Decimals"), "11");
+    expect(screen.getByRole("alert")).toHaveTextContent("Enter 0 to 10.");
+    expect(screen.getByLabelText("Decimals")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.queryByText(/^Preview:/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    expect(boardsApi.createCustomFieldDefinition).not.toHaveBeenCalled();
+
+    await user.clear(screen.getByLabelText("Decimals"));
+    await user.type(screen.getByLabelText("Decimals"), "10");
+    expect(screen.queryByText("Enter 0 to 10.")).not.toBeInTheDocument();
+  });
+
+  it("loads an existing format, and retyping away from number hides the block and omits the options", async () => {
+    const user = userEvent.setup();
+    const def = makeDefinition({ id: 4, name: "Budget", field_type: "number", number_prefix: "$", number_suffix: "", number_decimals: 0 });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue({ ...def, field_type: "text", number_prefix: "", number_decimals: null });
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Edit Budget" }));
+    expect(screen.getByLabelText("Prefix")).toHaveValue("$");
+    expect(screen.getByLabelText("Decimals")).toHaveValue(0);
+    expect(screen.getByText("Preview: $1,235")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Aa Text" }));
+    await user.click(screen.getByRole("button", { name: "Change type" }));
+    expect(screen.queryByText("Format")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => {
+      // The server clears a stored format on a retype away from number.
+      expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 4, {
+        name: "Budget", field_type: "text", choices: undefined, help_text: undefined,
+      });
+    });
   });
 });

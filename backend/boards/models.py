@@ -865,6 +865,18 @@ class CustomFieldDefinition(models.Model):
         ),
     )
     help_text = models.CharField(max_length=255, blank=True)
+    # Display-only number formatting (#1391). Meaningful only when field_type is
+    # "number" — the serializer refuses them on any other type and clears them
+    # when a field is retyped away from number. They never touch the stored
+    # value: CustomFieldValue.value stays the plain number string, so export,
+    # filtering and sorting all keep working on the raw number. Typed columns
+    # rather than a JSON config blob so the API schema (and the fuzz/parity
+    # checks built on it) can describe each option exactly. ``db_default`` keeps
+    # a database DEFAULT so pre-0065 code still running mid-deploy can INSERT.
+    number_prefix = models.CharField(max_length=10, blank=True, default="", db_default="")
+    number_suffix = models.CharField(max_length=10, blank=True, default="", db_default="")
+    # Fixed decimal places for display; null means "as typed" (pre-#1391 behavior).
+    number_decimals = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1030,6 +1042,12 @@ class SwimlaneCustomFieldDefinition(models.Model):
         ),
     )
     help_text = models.CharField(max_length=255, blank=True)
+    # Display-only number formatting (#1391) — same columns and same rules as
+    # CustomFieldDefinition's; see the notes there. Duplicated because the two
+    # models deliberately share no abstract base.
+    number_prefix = models.CharField(max_length=10, blank=True, default="", db_default="")
+    number_suffix = models.CharField(max_length=10, blank=True, default="", db_default="")
+    number_decimals = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

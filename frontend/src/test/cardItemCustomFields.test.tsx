@@ -34,6 +34,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
   return {
     id: 5, uid: "cfuid005", name: "Sprint", field_type: "text", choices: [],
     position: 0, show_on_card: true, is_required: false, help_text: "",
+    number_prefix: "", number_suffix: "", number_decimals: null,
     created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
@@ -364,5 +365,29 @@ describe("CardItem — pinned multi-select chips (#1391)", () => {
     // No quick-edit chip and no dotted-underline affordance for this type.
     expect(screen.queryByRole("button", { name: /Platforms:/ })).not.toBeInTheDocument();
     expect(document.querySelector(".border-dotted")).toBeNull();
+  });
+});
+
+describe("CardItem — formatted number chips (#1391)", () => {
+  it("keeps the whole formatted value, suffix included, instead of slicing at 16 characters", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "1234567.5" }] })}
+        customFieldDefinitions={[makeDefinition({ name: "Budget", field_type: "number", number_prefix: "$", number_suffix: " USD", number_decimals: 2 })]}
+      />
+    );
+    // 17 characters: the old 16-character slice would have cut " USD" to " US…".
+    expect(screen.getByText("$1,234,567.50 USD")).toHaveClass("truncate");
+    expect(screen.getByTitle("Budget: $1,234,567.50 USD")).toBeInTheDocument();
+  });
+
+  it("still slices an unformatted long number at 16 characters, as before", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "12345678901234567890" }] })}
+        customFieldDefinitions={[makeDefinition({ name: "Big", field_type: "number" })]}
+      />
+    );
+    expect(screen.getByText("1234567890123456…")).toBeInTheDocument();
   });
 });

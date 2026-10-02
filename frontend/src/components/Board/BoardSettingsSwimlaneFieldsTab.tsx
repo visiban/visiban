@@ -12,6 +12,8 @@ import {
   deleteSwimlaneCustomFieldDefinition,
   reorderSwimlaneCustomFields,
 } from "../../api/boards";
+import NumberFormatFields from "./NumberFormatFields";
+import { EMPTY_NUMBER_FORMAT, numberFormatDraftFrom, numberFormatPayload, type NumberFormatDraft } from "../../utils/customFieldValue";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 
 interface Props {
@@ -56,6 +58,8 @@ interface FormState {
   field_type: CustomFieldType;
   choices: string[];
   help_text: string;
+  /** #1391: number-format options; sent only meaningfully when field_type is "number". */
+  number_format: NumberFormatDraft;
   show_on_row: boolean;
   is_admin_only: boolean;
 }
@@ -63,13 +67,13 @@ interface FormState {
 function emptyForm(): FormState {
   // is_admin_only defaults ON, matching the model default. Loosening a field
   // later is additive; tightening one changes what an install already exposes.
-  return { name: "", field_type: "text", choices: [], help_text: "", show_on_row: false, is_admin_only: true };
+  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, show_on_row: false, is_admin_only: true };
 }
 
 function formFromDefinition(d: SwimlaneCustomFieldDefinition): FormState {
   return {
     name: d.name, field_type: d.field_type, choices: [...d.choices],
-    help_text: d.help_text, show_on_row: d.show_on_row, is_admin_only: d.is_admin_only,
+    help_text: d.help_text, number_format: numberFormatDraftFrom(d), show_on_row: d.show_on_row, is_admin_only: d.is_admin_only,
   };
 }
 
@@ -200,6 +204,10 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       setFormError("A multi-select field needs at least one choice.");
       return;
     }
+    // #1391: an invalid decimals entry is already flagged inline under the
+    // Format block; refuse to save rather than send something the server 400s.
+    const numberFormat = numberFormatPayload(form.field_type === "number", form.number_format);
+    if (!numberFormat) return;
 
     setSaving(true);
     setFormError(null);
@@ -210,6 +218,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           field_type: form.field_type,
           choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
           help_text: form.help_text.trim() || undefined,
+          ...numberFormat,
           is_admin_only: form.is_admin_only,
         });
         let finalDef = created;
@@ -223,6 +232,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           field_type: form.field_type,
           choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
           help_text: form.help_text.trim() || undefined,
+          ...numberFormat,
           is_admin_only: form.is_admin_only,
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
@@ -657,6 +667,13 @@ function FieldEditPanel({
         className={`${inputClasses} mb-3`}
         placeholder="Shown as hint text"
       />
+
+      {form.field_type === "number" && (
+        <NumberFormatFields
+          draft={form.number_format}
+          onChange={(next) => setForm((f) => ({ ...f, number_format: next }))}
+        />
+      )}
 
       {hasChoices(form.field_type) && (
         <div className="mb-3">

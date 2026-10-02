@@ -11,7 +11,7 @@ import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import CustomFieldLink from "./CustomFieldLink";
 import MultiSelectChips from "./MultiSelectChips";
-import { choiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, withCustomFieldValue } from "../../utils/customFieldValue";
+import { chipValueText, choiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, withCustomFieldValue } from "../../utils/customFieldValue";
 import { updateCard } from "../../api/cards";
 import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
 import ExternalRefGlyph from "./ExternalRefGlyph";
@@ -658,7 +658,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                         <MultiSelectChips entries={multiEntries} max={2} />
                       ) : (
                         <span className={`text-fg-secondary truncate ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
-                          {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}
+                          {chipValueText(def, displayText, 16)}
                         </span>
                       )}
                     </span>

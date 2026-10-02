@@ -1,5 +1,5 @@
 import type { FieldDefinitionShape } from "../../types";
-import { choiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect } from "../../utils/customFieldValue";
+import { chipValueText, choiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect } from "../../utils/customFieldValue";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 import CustomFieldLink from "./CustomFieldLink";
 import MultiSelectChips from "./MultiSelectChips";
@@ -100,7 +100,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           <MultiSelectChips entries={multiEntries} max={3} wrap />
         ) : (
           <span className="text-fg-secondary truncate">
-            {displayText.length > 20 ? `${displayText.slice(0, 20)}…` : displayText}
+            {chipValueText(definition, displayText, 20)}
           </span>
         )}
       </span>
@@ -120,7 +120,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
         <MultiSelectChips entries={multiEntries} max={2} />
       ) : (
         <span className="text-fg-secondary truncate">
-          {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}
+          {chipValueText(definition, displayText, 16)}
         </span>
       )}
     </span>

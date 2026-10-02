@@ -757,6 +757,74 @@ def validate_definition_choices(attrs, instance, field_type):
         attrs["choices_json"] = []
 
 
+#: The three display-only number-format options (#1391), with the value each
+#: takes when unset. The defaults are the pre-#1391 rendering exactly, so an
+#: existing definition — and any client that never sends them — is unchanged.
+NUMBER_FORMAT_DEFAULTS = {
+    "number_prefix": "",
+    "number_suffix": "",
+    "number_decimals": None,
+}
+
+#: Upper bound on ``number_decimals``. Ten is past any real display need and
+#: inside what ``Intl.NumberFormat``'s fraction-digit options accept.
+NUMBER_DECIMALS_MAX = 10
+
+
+def number_affix_field():
+    """``number_prefix`` / ``number_suffix`` on both definition serializers (#1391).
+
+    Declared explicitly rather than left to ``ModelSerializer`` for
+    ``trim_whitespace=False``: a leading or trailing space (``"$ "``,
+    ``" h"``) is the user's spacing choice, and DRF's default would silently
+    eat it. NUL is already a 400 — DRF's ``CharField`` carries
+    ``ProhibitNullCharactersValidator`` — so no ``reject_nul_byte`` call is
+    needed.
+    """
+    return serializers.CharField(
+        max_length=10, allow_blank=True, required=False, trim_whitespace=False,
+    )
+
+
+def number_decimals_field():
+    """``number_decimals`` on both definition serializers (#1391).
+
+    The model column is a ``PositiveSmallIntegerField`` (0-32767), but the
+    useful and renderable range is 0-10; declaring ``max_value`` here puts that
+    range in the API schema too. ``null`` means "as typed".
+    """
+    return serializers.IntegerField(
+        min_value=0, max_value=NUMBER_DECIMALS_MAX, allow_null=True, required=False,
+    )
+
+
+def validate_number_format(attrs, instance, field_type):
+    """The number-format rules shared by both definition serializers (#1391).
+
+    The options only mean something on a ``number`` field. On any other type:
+
+    * a *submitted* non-default value is a 400 — the same "say so rather than
+      silently discard" reasoning as ``choices`` on a non-choice type;
+    * every option is then reset to its default, which is what clears stored
+      options when a field with no values is retyped away from ``number``
+      (``validate_field_type`` already blocks a retype once values exist). A
+      PATCH that only sends ``field_type`` must not leave a ``$`` prefix behind
+      on a text field, where it would reappear if the field were ever retyped
+      back.
+
+    Submitting the defaults on a non-number type is accepted, so a client can
+    always send all three keys. Mutates *attrs*.
+    """
+    if field_type == CustomFieldDefinition.FieldType.NUMBER:
+        return
+    for key, default in NUMBER_FORMAT_DEFAULTS.items():
+        if key in attrs and attrs[key] != default:
+            raise serializers.ValidationError({
+                key: "Number format options can only be set on a number field."
+            })
+    attrs.update(NUMBER_FORMAT_DEFAULTS)
+
+
 @extend_schema_field({"type": "array", "items": {"type": "string"}})
 class ChoicesField(serializers.JSONField):
     """``choices`` on the two custom-field-definition serializers (#1139).
@@ -793,12 +861,16 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     """
 
     choices = ChoicesField(source="choices_json", required=False)
+    number_prefix = number_affix_field()
+    number_suffix = number_affix_field()
+    number_decimals = number_decimals_field()
 
     class Meta:
         model = CustomFieldDefinition
         fields = [
             "id", "uid", "name", "field_type", "choices", "position",
-            "show_on_card", "is_required", "help_text", "created_at",
+            "show_on_card", "is_required", "help_text",
+            "number_prefix", "number_suffix", "number_decimals", "created_at",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
 
@@ -852,6 +924,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             instance.field_type if instance else CustomFieldDefinition.FieldType.TEXT,
         )
         validate_definition_choices(attrs, instance, field_type)
+        validate_number_format(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
         if board is not None:
@@ -1328,12 +1401,16 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
     """
 
     choices = ChoicesField(source="choices_json", required=False)
+    number_prefix = number_affix_field()
+    number_suffix = number_affix_field()
+    number_decimals = number_decimals_field()
 
     class Meta:
         model = SwimlaneCustomFieldDefinition
         fields = [
             "id", "uid", "name", "field_type", "choices", "position",
             "show_on_row", "is_admin_only", "is_required", "help_text",
+            "number_prefix", "number_suffix", "number_decimals",
             "created_at",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
@@ -1385,6 +1462,7 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "field_type", instance.field_type if instance else T.TEXT
         )
         validate_definition_choices(attrs, instance, field_type)
+        validate_number_format(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
         if board is not None:

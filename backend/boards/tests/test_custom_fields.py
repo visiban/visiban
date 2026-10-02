@@ -1631,3 +1631,337 @@ class CustomFieldMultiSelectTypeTests(CustomFieldTestBase):
         self.assertEqual(
             payload["cards"][0]["custom_field_values"], {"Platforms": '["web","ios"]'}
         )
+
+
+# ---------------------------------------------------------------------------
+# Number formatting (#1391, MR B)
+# ---------------------------------------------------------------------------
+
+class CustomFieldNumberFormatTests(CustomFieldTestBase):
+    """``number_prefix`` / ``number_suffix`` / ``number_decimals`` (#1391).
+
+    Display-only options on a number definition. The stored value stays the
+    plain number string everywhere on the wire — these tests pin both halves:
+    the options validate and round-trip, and nothing about a *value* changes.
+    """
+
+    def _create(self, **extra):
+        body = {"name": "Budget", "field_type": "number", **extra}
+        return self.client.post(self._fields_url(), body, format="json")
+
+    def test_defaults_when_omitted_preserve_the_old_rendering(self):
+        r = self._create()
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["number_prefix"], "")
+        self.assertEqual(r.data["number_suffix"], "")
+        self.assertIsNone(r.data["number_decimals"])
+
+    def test_create_with_a_full_format_round_trips(self):
+        r = self._create(number_prefix="$", number_suffix=" USD", number_decimals=2)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        definition = CustomFieldDefinition.objects.get(pk=r.data["id"])
+        self.assertEqual(definition.number_prefix, "$")
+        self.assertEqual(definition.number_suffix, " USD")
+        self.assertEqual(definition.number_decimals, 2)
+
+    def test_leading_and_trailing_spaces_are_kept_not_stripped(self):
+        r = self._create(number_prefix="$ ", number_suffix=" h")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["number_prefix"], "$ ")
+        self.assertEqual(r.data["number_suffix"], " h")
+
+    def test_patch_sets_and_clears_the_format(self):
+        definition = _definition(self.board, name="Budget", field_type=T.NUMBER)
+        r = self.client.patch(
+            self._field_url(definition), {"number_decimals": 0, "number_suffix": "h"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["number_decimals"], 0)
+        self.assertEqual(r.data["number_suffix"], "h")
+        r = self.client.patch(
+            self._field_url(definition),
+            {"number_decimals": None, "number_suffix": ""}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertIsNone(r.data["number_decimals"])
+        self.assertEqual(r.data["number_suffix"], "")
+
+    def test_decimal_bounds_are_inclusive_0_to_10(self):
+        for good in (0, 10):
+            with self.subTest(decimals=good):
+                r = self.client.post(
+                    self._fields_url(),
+                    {"name": f"N{good}", "field_type": "number", "number_decimals": good},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+
+    def test_out_of_range_or_non_integer_decimals_are_400(self):
+        for bad in (-1, 11, 2.5, "two", True, [], {}):
+            with self.subTest(decimals=bad):
+                r = self._create(number_decimals=bad)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertIn("number_decimals", r.data)
+
+    def test_over_long_prefix_or_suffix_is_400(self):
+        for key in ("number_prefix", "number_suffix"):
+            with self.subTest(key=key):
+                r = self._create(**{key: "x" * 11})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn(key, r.data)
+                ok = self.client.post(
+                    self._fields_url(),
+                    {"name": f"Ok {key}", "field_type": "number", key: "x" * 10},
+                    format="json",
+                )
+                self.assertEqual(ok.status_code, status.HTTP_201_CREATED, ok.data)
+
+    def test_nul_or_null_prefix_and_suffix_are_400_not_500(self):
+        for key in ("number_prefix", "number_suffix"):
+            for bad in ("$\x00", None, ["$"], {"a": 1}):
+                with self.subTest(key=key, value=bad):
+                    r = self._create(**{key: bad})
+                    self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                    self.assertIn(key, r.data)
+
+    def test_format_on_a_non_number_type_is_rejected(self):
+        for field_type in ("text", "date", "checkbox", "url"):
+            for key, value in (
+                ("number_prefix", "$"), ("number_suffix", "h"), ("number_decimals", 2),
+            ):
+                with self.subTest(field_type=field_type, key=key):
+                    r = self.client.post(
+                        self._fields_url(),
+                        {"name": "F", "field_type": field_type, key: value},
+                        format="json",
+                    )
+                    self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                    self.assertEqual(
+                        str(r.data[key][0]) if isinstance(r.data[key], list) else str(r.data[key]),
+                        "Number format options can only be set on a number field.",
+                    )
+
+    def test_defaults_on_a_non_number_type_are_accepted(self):
+        # A client may always send all three keys.
+        r = self.client.post(
+            self._fields_url(),
+            {
+                "name": "Notes", "field_type": "text",
+                "number_prefix": "", "number_suffix": "", "number_decimals": None,
+            },
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+
+    def test_patch_on_a_non_number_field_is_checked_against_its_stored_type(self):
+        definition = _definition(self.board, name="Notes", field_type=T.TEXT)
+        r = self.client.patch(
+            self._field_url(definition), {"number_prefix": "$"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("number_prefix", r.data)
+
+    def test_retyping_away_from_number_clears_the_format(self):
+        definition = _definition(
+            self.board, name="Budget", field_type=T.NUMBER,
+            number_prefix="$", number_suffix="k", number_decimals=1,
+        )
+        r = self.client.patch(
+            self._field_url(definition), {"field_type": "text"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(
+            (definition.number_prefix, definition.number_suffix, definition.number_decimals),
+            ("", "", None),
+        )
+        self.assertEqual(r.data["number_prefix"], "")
+        self.assertIsNone(r.data["number_decimals"])
+
+    def test_retyping_away_while_sending_a_format_is_rejected(self):
+        definition = _definition(
+            self.board, name="Budget", field_type=T.NUMBER, number_prefix="$",
+        )
+        r = self.client.patch(
+            self._field_url(definition),
+            {"field_type": "text", "number_prefix": "$"}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        definition.refresh_from_db()
+        self.assertEqual(definition.field_type, T.NUMBER)
+        self.assertEqual(definition.number_prefix, "$")
+
+    def test_retyping_to_number_may_set_the_format_in_the_same_request(self):
+        definition = _definition(self.board, name="Budget", field_type=T.TEXT)
+        r = self.client.patch(
+            self._field_url(definition),
+            {"field_type": "number", "number_decimals": 2}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["number_decimals"], 2)
+
+    def test_a_patch_that_only_renames_keeps_the_format(self):
+        definition = _definition(
+            self.board, name="Budget", field_type=T.NUMBER,
+            number_prefix="$", number_decimals=2,
+        )
+        r = self.client.patch(
+            self._field_url(definition), {"name": "Spend"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["number_prefix"], "$")
+        self.assertEqual(r.data["number_decimals"], 2)
+
+    def test_the_stored_value_is_unchanged_by_a_format(self):
+        definition = _definition(
+            self.board, name="Budget", field_type=T.NUMBER,
+            number_prefix="$", number_decimals=2,
+        )
+        r = self._set_values([{"field_definition": definition.id, "value": "1234.5"}])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(
+            CustomFieldValue.objects.get(card=self.card, field_definition=definition).value,
+            "1234.5",
+        )
+        self.assertIn(
+            {"field_definition": definition.id, "value": "1234.5"},
+            r.data["custom_field_values"],
+        )
+
+    def test_member_and_viewer_cannot_set_a_format(self):
+        definition = _definition(self.board, name="Budget", field_type=T.NUMBER)
+        for user in (self.member, self.viewer):
+            with self.subTest(user=user.username):
+                client = self._as(user)
+                self.assertEqual(
+                    client.patch(
+                        self._field_url(definition), {"number_prefix": "$"}, format="json"
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
+                self.assertEqual(
+                    client.post(
+                        self._fields_url(),
+                        {"name": "X", "field_type": "number", "number_decimals": 2},
+                        format="json",
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
+        definition.refresh_from_db()
+        self.assertEqual(definition.number_prefix, "")
+
+    def test_outsider_and_anonymous_cannot_set_a_format(self):
+        definition = _definition(self.board, name="Budget", field_type=T.NUMBER)
+        outsider = self._as(_make_user("cf_nf_outsider"))
+        anonymous = APIClient()
+        for label, client, expected in (
+            ("outsider", outsider, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND)),
+            ("anonymous", anonymous, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)),
+        ):
+            with self.subTest(client=label):
+                self.assertIn(
+                    client.post(
+                        self._fields_url(),
+                        {"name": "X", "field_type": "number", "number_prefix": "$"},
+                        format="json",
+                    ).status_code,
+                    expected,
+                )
+                self.assertIn(
+                    client.patch(
+                        self._field_url(definition), {"number_decimals": 2}, format="json"
+                    ).status_code,
+                    expected,
+                )
+        definition.refresh_from_db()
+        self.assertIsNone(definition.number_decimals)
+        self.assertEqual(CustomFieldDefinition.objects.filter(board=self.board).count(), 1)
+
+    def test_a_site_admin_may_set_a_format(self):
+        site_admin = self._as(_make_user(
+            "cf_nf_siteadmin", is_site_admin=True, can_access_all_content=True,
+        ))
+        r = site_admin.post(
+            self._fields_url(),
+            {"name": "Budget", "field_type": "number", "number_prefix": "$"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        r = site_admin.patch(
+            f"{self._fields_url()}{r.data['id']}/", {"number_decimals": 2}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["number_decimals"], 2)
+
+    def test_a_format_patch_cannot_reach_another_boards_definition(self):
+        """IDOR: board B's definition through board A's URL is a 404."""
+        other_owner = _make_user("cf_nf_other")
+        other_board = _make_board(other_owner, name="Other")
+        theirs = _definition(other_board, name="Budget", field_type=T.NUMBER)
+        r = self.client.patch(
+            f"{self._fields_url()}{theirs.id}/", {"number_prefix": "$"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.number_prefix, "")
+
+    def test_the_members_read_of_the_schema_carries_the_format(self):
+        _definition(
+            self.board, name="Budget", field_type=T.NUMBER,
+            number_prefix="$", number_suffix="", number_decimals=2,
+        )
+        r = self._as(self.viewer).get(self._fields_url())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        row = r.data["results"][0]
+        self.assertEqual(
+            (row["number_prefix"], row["number_suffix"], row["number_decimals"]),
+            ("$", "", 2),
+        )
+
+    def test_the_definition_broadcast_carries_the_format(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            created = self._create(number_prefix="$", number_decimals=2)
+        payloads = {c.args[1]: c.args[2] for c in self.broadcast.call_args_list}
+        self.assertEqual(payloads["custom_field.created"]["number_prefix"], "$")
+        self.assertEqual(payloads["custom_field.created"]["number_suffix"], "")
+        self.assertEqual(payloads["custom_field.created"]["number_decimals"], 2)
+        self.broadcast.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.patch(
+                f"{self._fields_url()}{created.data['id']}/",
+                {"number_suffix": " USD"}, format="json",
+            )
+        payloads = {c.args[1]: c.args[2] for c in self.broadcast.call_args_list}
+        self.assertEqual(payloads["custom_field.updated"]["number_suffix"], " USD")
+
+    def test_json_export_carries_the_format_and_the_raw_value(self):
+        definition = _definition(
+            self.board, name="Budget", field_type=T.NUMBER,
+            number_prefix="$", number_suffix=" USD", number_decimals=2,
+        )
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=definition, value="1234.5"
+        )
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
+        payload = json.loads(r.content.decode())
+        schema = next(f for f in payload["custom_fields"] if f["name"] == "Budget")
+        self.assertEqual(schema["number_prefix"], "$")
+        self.assertEqual(schema["number_suffix"], " USD")
+        self.assertEqual(schema["number_decimals"], 2)
+        # Existing keys are untouched.
+        self.assertEqual(schema["choices"], [])
+        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["cards"][0]["custom_field_values"], {"Budget": "1234.5"})
+
+    def test_csv_export_stays_raw(self):
+        definition = _definition(
+            self.board, name="Budget", field_type=T.NUMBER,
+            number_prefix="$", number_decimals=2,
+        )
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=definition, value="1234.5"
+        )
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
+        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        self.assertEqual(rows[1][rows[0].index("Custom: Budget")], "1234.5")
