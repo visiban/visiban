@@ -490,7 +490,7 @@ GitLab CI pipeline, grouped by what each gate protects:
 - All cards (including Backlog) have at least one creation movement so the History tab is never empty
 - `--wipe`: removes the existing demo board first (refuses on production without `--force`)
 - `--export`: regenerates seed JSON/CSV files
-- `--demo-site`: seeds Software, Marketing, and Hiring boards plus an admin and two member accounts, for hosted-demo deployments
+- `--demo-site`: seeds six showcase boards (Software Team, Property Management, Construction, Sales Territory, Content Moderation, Logistics Exceptions), each with a different swimlane entity and pinned row fields, plus an admin and two member accounts, for hosted-demo deployments
 
 `python manage.py seed_template_boards` — seeds all 10 non-blank board templates with 10–11 swimlanes, 110–121 unique cards each, domain-specific content, movement history, activities, labels, checklists, and comments. Seed files exported to `sample-boards/<slug>.json`. All templates also ship as ready-to-import JSON and CSV files at the repo root.
 

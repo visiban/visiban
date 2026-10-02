@@ -1,5 +1,6 @@
 """Tests for the seed_demo_data management command."""
 
+import datetime
 from io import StringIO
 from unittest import mock
 
@@ -634,13 +635,26 @@ class SeedNotificationsTests(TestCase):
 class SeedDemoSiteTests(TestCase):
     """#1034: --demo-site seeds the hosted-demo boards and accounts."""
 
-    BOARD_NAMES = ["Software Team", "Marketing Campaigns", "Hiring Pipeline"]
+    #: #1389: six boards, each a different workflow and swimlane entity.
+    BOARD_NAMES = [
+        "Software Team", "Property Management", "Construction",
+        "Sales Territory", "Content Moderation", "Logistics Exceptions",
+    ]
 
-    def test_seeds_three_boards_with_twenty_cards_each(self):
+    @staticmethod
+    def spec_card_count(name):
+        from boards.management.commands._demo_site_data import BOARDS
+
+        return next(len(spec["cards"]) for spec in BOARDS if spec["name"] == name)
+
+    def test_seeds_exactly_six_boards_with_at_least_fifteen_cards_each(self):
         _seed(demo_site=True)
+        seeded = set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True))
+        self.assertEqual(seeded, set(self.BOARD_NAMES))
         for name in self.BOARD_NAMES:
             board = Board.objects.get(name=name)
-            self.assertEqual(board.cards.count(), 20, name)
+            self.assertEqual(board.cards.count(), self.spec_card_count(name), name)
+            self.assertGreaterEqual(board.cards.count(), 15, name)
             self.assertEqual(board.columns.count(), 4, name)
             self.assertTrue(board.columns.filter(is_done=True).exists(), name)
             self.assertGreater(board.labels.count(), 0, name)
@@ -699,7 +713,7 @@ class SeedDemoSiteTests(TestCase):
         )
         self.assertFalse(Board.objects.filter(owner=visitor).exists())
         boards = Board.objects.all()
-        self.assertGreaterEqual(boards.count(), 4)  # the demo board + the three demo-site boards
+        self.assertEqual(boards.count(), 7)  # the demo board + the six demo-site boards
         for board in boards:
             membership = BoardMembership.objects.get(board=board, user=visitor)
             self.assertEqual(membership.role, BoardMembership.Role.MEMBER, board.name)
@@ -770,7 +784,7 @@ class SeedDemoSiteTests(TestCase):
         self.assertIn("already exists", out)
         for name in self.BOARD_NAMES:
             self.assertEqual(Board.objects.filter(name=name).count(), 1)
-            self.assertEqual(Card.objects.filter(board__name=name).count(), 20)
+            self.assertEqual(Card.objects.filter(board__name=name).count(), self.spec_card_count(name))
 
     def test_refuses_without_demo_mode(self):
         with override_settings(DEMO_MODE=False):
@@ -794,8 +808,23 @@ class SeedDemoSiteTests(TestCase):
         _seed(demo_site=True, wipe=True)
         for name in self.BOARD_NAMES:
             self.assertEqual(Board.objects.filter(name=name).count(), 1)
-            self.assertEqual(Card.objects.filter(board__name=name).count(), 20)
+            self.assertEqual(Card.objects.filter(board__name=name).count(), self.spec_card_count(name))
         self.assertEqual(User.objects.filter(username="admin").count(), 1)
+
+    def test_wipe_removes_boards_retired_by_1389(self):
+        """A database seeded before #1389 and reseeded with --wipe alone (no
+        --reset-database) must not keep the retired showcase boards."""
+        from boards.management.commands._demo_site_data import RETIRED_BOARD_NAMES
+
+        _seed(demo_site=True)
+        admin = User.objects.get(username="admin")
+        for name in RETIRED_BOARD_NAMES:
+            Board.objects.create(name=name, owner=admin)
+        _seed(demo_site=True, wipe=True)
+        self.assertFalse(Board.objects.filter(name__in=RETIRED_BOARD_NAMES).exists())
+        self.assertEqual(
+            set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True)), set(self.BOARD_NAMES)
+        )
 
     def test_without_flag_no_demo_site_content(self):
         _seed()
@@ -998,6 +1027,198 @@ class SeedDemoSiteShowcaseTests(TestCase):
         self.assertFalse(CardExternalRef.objects.filter(card__board=board).exists())
 
 
+@override_settings(**_DEMO_SITE_SETTINGS)
+class SeedDemoSiteEntityBoardsTests(TestCase):
+    """#1389: the swimlane-as-entity boards, as the visitor sees them."""
+
+    #: The five boards #1389 added, each with exactly three pinned row fields.
+    ENTITY_BOARDS = SeedDemoSiteTests.BOARD_NAMES[1:]
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed(demo_site=True)
+        cls.visitor = User.objects.get(username="visitor")
+
+    def _full_as_visitor(self, board):
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(self.visitor)
+        resp = client.get(f"/api/v1/boards/{board.id}/full/")
+        self.assertEqual(resp.status_code, 200, board.name)
+        return resp.json()
+
+    def test_each_entity_board_pins_three_public_row_fields_with_values_on_every_lane(self):
+        for name in self.ENTITY_BOARDS:
+            board = Board.objects.get(name=name)
+            pinned = SwimlaneCustomFieldDefinition.objects.filter(board=board, show_on_row=True)
+            self.assertEqual(pinned.count(), SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD, name)
+            # The model defaults to admin-only; the visitor is a plain member.
+            self.assertFalse(pinned.filter(is_admin_only=True).exists(), name)
+            for lane in board.swimlanes.all():
+                for definition in pinned:
+                    self.assertTrue(
+                        SwimlaneCustomFieldValue.objects.filter(swimlane=lane, field_definition=definition)
+                        .exclude(value="").exists(),
+                        (name, lane.name, definition.name),
+                    )
+
+    def test_visitor_reads_the_pinned_row_values_but_not_the_admin_only_ones(self):
+        for name in self.ENTITY_BOARDS:
+            board = Board.objects.get(name=name)
+            data = self._full_as_visitor(board)
+            pinned = set(
+                SwimlaneCustomFieldDefinition.objects.filter(board=board, show_on_row=True).values_list("id", flat=True)
+            )
+            hidden = set(
+                SwimlaneCustomFieldDefinition.objects.filter(board=board, is_admin_only=True).values_list("id", flat=True)
+            )
+            self.assertTrue(hidden, name)  # both visibility modes stay on show
+            for lane in data["swimlanes"]:
+                seen = {v["field_definition"] for v in lane["custom_field_values"]}
+                self.assertEqual(seen & pinned, pinned, (name, lane["name"]))
+                self.assertFalse(seen & hidden, (name, lane["name"]))
+
+    def test_person_fields_differ_per_row(self):
+        """AE, SA and manager values are distinct per swimlane (fictional names)."""
+        person_fields = {
+            "Property Management": ["Property manager"],
+            "Construction": ["Project manager"],
+            "Sales Territory": ["AE", "SA", "Region"],
+            "Content Moderation": ["Moderator lead"],
+        }
+        for board_name, fields in person_fields.items():
+            for field in fields:
+                values = list(
+                    SwimlaneCustomFieldValue.objects.filter(
+                        swimlane__board__name=board_name, field_definition__name=field
+                    ).values_list("value", flat=True)
+                )
+                lanes = Board.objects.get(name=board_name).swimlanes.count()
+                self.assertEqual(len(values), lanes, (board_name, field))
+                self.assertEqual(len(set(values)), lanes, (board_name, field))
+
+    def test_property_management_shows_unit_on_the_card_and_issue_type_labels(self):
+        board = Board.objects.get(name="Property Management")
+        self.assertEqual(
+            set(board.labels.values_list("name", flat=True)),
+            {"Plumbing", "Electrical", "HVAC", "Pest", "Appliance", "Turnover"},
+        )
+        unit = CustomFieldDefinition.objects.get(board=board, name="Unit")
+        self.assertEqual(unit.field_type, "text")
+        self.assertTrue(unit.show_on_card)
+        cards = board.cards.all()
+        self.assertEqual(CustomFieldValue.objects.filter(field_definition=unit).count(), cards.count())
+        self.assertFalse(cards.filter(labels__isnull=True).exists())
+
+    def test_sales_territory_shows_deal_value_and_crm_link_on_cards(self):
+        board = Board.objects.get(name="Sales Territory")
+        deal = CustomFieldDefinition.objects.get(board=board, name="Deal value")
+        crm = CustomFieldDefinition.objects.get(board=board, name="CRM record")
+        self.assertEqual((deal.field_type, deal.show_on_card), ("number", True))
+        self.assertEqual((crm.field_type, crm.show_on_card), ("url", True))
+        self.assertGreaterEqual(CustomFieldValue.objects.filter(field_definition=deal).count(), 5)
+        self.assertGreaterEqual(CustomFieldValue.objects.filter(field_definition=crm).count(), 5)
+
+    def test_every_url_value_points_at_a_reserved_domain(self):
+        from urllib.parse import urlsplit
+
+        card_urls = CustomFieldValue.objects.filter(field_definition__field_type="url")
+        row_urls = SwimlaneCustomFieldValue.objects.filter(field_definition__field_type="url")
+        boards_with_urls = set(card_urls.values_list("card__board__name", flat=True))
+        self.assertTrue({"Construction", "Sales Territory", "Logistics Exceptions"} <= boards_with_urls)
+        for value in list(card_urls.values_list("value", flat=True)) + list(row_urls.values_list("value", flat=True)):
+            host = urlsplit(value).hostname or ""
+            self.assertTrue(host == "example.com" or host.endswith(".example.com"), value)
+
+    def test_every_seeded_value_is_one_the_api_would_store(self):
+        """Values round-trip the API normalizer unchanged (URL, number, date,
+        multi-select canonical form), so editing a seeded card in the demo
+        never trips over a value the seed wrote but the API refuses."""
+        from boards.serializers import _normalize_custom_field_value
+
+        demo_boards = SeedDemoSiteTests.BOARD_NAMES
+        rows = list(
+            CustomFieldValue.objects.filter(card__board__name__in=demo_boards).select_related("field_definition")
+        ) + list(
+            SwimlaneCustomFieldValue.objects.filter(swimlane__board__name__in=demo_boards)
+            .select_related("field_definition")
+        )
+        types = set()
+        for row in rows:
+            types.add(row.field_definition.field_type)
+            self.assertEqual(_normalize_custom_field_value(row.field_definition, row.value), row.value, row.value)
+        self.assertTrue({"text", "number", "date", "dropdown", "url", "multi_select"} <= types, types)
+
+    def test_display_options_are_valid_and_used(self):
+        from boards.custom_field_types import CHOICE_COLOR_KEYS
+
+        demo_boards = SeedDemoSiteTests.BOARD_NAMES
+        defs = list(CustomFieldDefinition.objects.filter(board__name__in=demo_boards)) + list(
+            SwimlaneCustomFieldDefinition.objects.filter(board__name__in=demo_boards)
+        )
+        colored = formatted = 0
+        for d in defs:
+            if d.choice_colors:
+                colored += 1
+                self.assertIn(d.field_type, ("dropdown", "multi_select"), d.name)
+                self.assertLessEqual(set(d.choice_colors), set(d.choices_json), d.name)
+                self.assertLessEqual(set(d.choice_colors.values()), set(CHOICE_COLOR_KEYS), d.name)
+            if d.number_prefix or d.number_suffix or d.number_decimals is not None:
+                formatted += 1
+                self.assertEqual(d.field_type, "number", d.name)
+                self.assertLessEqual(len(d.number_prefix), 10, d.name)
+        self.assertGreater(colored, 0)
+        self.assertGreater(formatted, 0)
+
+    def test_date_values_count_from_the_day_of_the_reset(self):
+        today = timezone.localdate()
+        etas = CustomFieldValue.objects.filter(card__board__name="Logistics Exceptions", field_definition__name="ETA")
+        self.assertTrue(etas.exists())
+        for eta in etas:
+            self.assertGreaterEqual(datetime.date.fromisoformat(eta.value), today, eta.value)
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class DemoSiteResetIsDeterministicTests(TestCase):
+    """#1389: an hourly reset reproduces the same boards, fields and values."""
+
+    @staticmethod
+    def _snapshot():
+        names = SeedDemoSiteTests.BOARD_NAMES
+        cards = list(
+            Card.objects.filter(board__name__in=names).order_by("board__name", "title").values_list(
+                "board__name", "title", "column__name", "swimlane__name", "priority", "due_date", "assignee__username",
+            )
+        )
+        card_values = sorted(
+            CustomFieldValue.objects.filter(card__board__name__in=names).values_list(
+                "card__board__name", "card__title", "field_definition__name", "value",
+            )
+        )
+        row_values = sorted(
+            SwimlaneCustomFieldValue.objects.filter(swimlane__board__name__in=names).values_list(
+                "swimlane__board__name", "swimlane__name", "field_definition__name", "value",
+                "field_definition__is_admin_only", "field_definition__show_on_row",
+            )
+        )
+        labels = sorted(
+            Card.objects.filter(board__name__in=names).values_list("board__name", "title", "labels__name"),
+            key=str,
+        )
+        last_moves = sorted(
+            (c.board.name, c.title, (timezone.now() - c.movements.order_by("-moved_at").first().moved_at).days)
+            for c in Card.objects.filter(board__name__in=names).select_related("board")
+        )
+        return cards, card_values, row_values, labels, last_moves
+
+    def test_wipe_and_reseed_reproduces_the_same_content(self):
+        _seed(demo_site=True)
+        first = self._snapshot()
+        _seed(demo_site=True, wipe=True)
+        self.assertEqual(first, self._snapshot())
+
+
 class DemoSiteDataModuleTests(TestCase):
     """#1363: the showcase content stays deterministic and off the ``random`` stream."""
 
@@ -1032,6 +1253,50 @@ class DemoSiteDataModuleTests(TestCase):
                 if col_i in done:
                     self.assertIsNone(due, title)
                     self.assertLessEqual(last_moved, 2, title)
+
+
+    def test_every_in_flight_column_mixes_fresh_and_long_dwelling_cards(self):
+        """#1389: dwell and stale indicators need something to show in every
+        column, and a column of only stale cards hides what "fresh" looks like."""
+        from boards.management.commands._demo_site_data import BOARDS
+
+        for spec in BOARDS:
+            for col_i, (col_name, _color, is_done) in enumerate(spec["columns"]):
+                if is_done:
+                    continue
+                ages = [card[8] for card in spec["cards"] if card[2] == col_i]
+                self.assertTrue(any(age <= 2 for age in ages), (spec["name"], col_name, ages))
+                self.assertTrue(any(age >= 4 for age in ages), (spec["name"], col_name, ages))
+
+    def test_card_and_row_field_pin_caps_hold_in_the_spec(self):
+        """The seeder writes the models directly, past the serializer caps."""
+        from boards.management.commands._demo_site_data import BOARDS
+
+        for spec in BOARDS:
+            card_pinned = sum(1 for f in spec["card_fields"] if f[3])
+            row_pinned = sum(1 for f in spec["swimlane_fields"] if f[3])
+            self.assertLessEqual(card_pinned, CustomFieldDefinition.MAX_PINNED_PER_BOARD, spec["name"])
+            self.assertLessEqual(row_pinned, SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD, spec["name"])
+
+    def test_no_pricing_tiers_or_seat_caps_in_demo_copy(self):
+        """No product pricing in the demo (www rule, #33); walk every string."""
+        from boards.management.commands import _demo_site_data
+
+        def strings(obj):
+            if isinstance(obj, str):
+                yield obj
+            elif isinstance(obj, dict):
+                for k, v in obj.items():
+                    yield from strings(k)
+                    yield from strings(v)
+            elif isinstance(obj, (list, tuple)):
+                for item in obj:
+                    yield from strings(item)
+
+        for text in strings(_demo_site_data.BOARDS):
+            lowered = text.lower()
+            for word in ("pric", "per seat", "seats", "plan tier", "subscription"):
+                self.assertNotIn(word, lowered, text)
 
 
 @override_settings(**_DEMO_SITE_SETTINGS)
@@ -1086,7 +1351,7 @@ class SeedResetDatabaseTests(TransactionTestCase):
         # Back to seed state, with the PUBLISHED password re-applied.
         self.assertTrue(User.objects.get(username="visitor").check_password("test-visitor-pw-1"))
         for name in SeedDemoSiteTests.BOARD_NAMES:
-            self.assertEqual(Card.objects.filter(board__name=name).count(), 20, name)
+            self.assertEqual(Card.objects.filter(board__name=name).count(), SeedDemoSiteTests.spec_card_count(name), name)
         self.assertEqual(Site.objects.get(pk=1).domain, "try.visiban.test")
 
     def test_reset_database_requires_demo_site(self):
