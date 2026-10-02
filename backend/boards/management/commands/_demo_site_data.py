@@ -1,8 +1,15 @@
-"""Static content for the hosted demo site boards (#1034, #1363).
+"""Static content for the hosted demo site boards (#1034, #1363, #1389).
 
 Used only by ``seed_demo_data --demo-site``. Lives beside the command (the
 leading underscore keeps Django from registering it as a command of its own)
-so the ~60 hand-written cards do not bloat the generator module.
+so the ~100 hand-written cards do not bloat the generator module.
+
+Six boards, each a different workflow with a different swimlane entity
+(#1389): Software Team (service area), Property Management (property),
+Construction (project), Sales Territory (account), Content Moderation
+(content queue) and Logistics Exceptions (shipment). The point of the roster
+is that a visitor recognizes one domain within a click and sees the swimlane
+as a real entity with its own fields, not as a Trello-style grouping.
 
 Everything here is deterministic — no ``random`` — so the hourly reset
 produces the same boards every time, and it never touches the ``random``
@@ -30,14 +37,31 @@ and moved in the last two days.
 
 Each board dict also carries the showcase extras (#1363), all keyed by card
 title (titles are unique per board) or swimlane name:
-    card_fields          [(name, field_type, choices, show_on_card, help_text)]
+    card_fields          [(name, field_type, choices, show_on_card, help_text[, display])]
     card_field_values    {card_title: {field_name: value}}
-    swimlane_fields      [(name, field_type, choices, show_on_row, is_admin_only, help_text)]
+    swimlane_fields      [(name, field_type, choices, show_on_row, is_admin_only, help_text[, display])]
     swimlane_field_values {lane_name: {field_name: value}}
     checklists           {card_title: [(text, is_checked), ...]}
     relations            [(from_title, "blocks" | "relates_to", to_title)]
     external_refs        {card_title: (provider, ref, url)}
+
+``display`` is an optional dict of the #1391 display-only definition columns
+(``number_prefix``, ``number_suffix``, ``number_decimals``, ``choice_colors``).
+A field value is the string the API would store, except that a
+``multi_select`` value may be written as a list and a ``date`` value as
+``days_from_today(n)``; the seeder runs every value through the same
+normalizer the API uses, so a value the API would refuse fails the seed.
 """
+
+
+def days_from_today(days):
+    """A date field value ``days`` after the day of the reset.
+
+    Resolved at seed time, like ``due_offset_days``, so a date never drifts
+    into the past between resets. A marker tuple rather than a computed date
+    keeps this module free of clock reads.
+    """
+    return ("days_from_today", days)
 
 # key -> (username, first_name, last_name, is_admin). The "visitor" username is
 # overridden by settings.DEMO_LOGIN_USERNAME at seed time so the published
@@ -58,6 +82,11 @@ DEMO_SITE_USERS = {
     "maya": ("maya", "Maya", "Torres", False),
     "jordan": ("jordan", "Jordan", "Lee", False),
 }
+
+#: Showcase boards earlier releases seeded and #1389 retired. ``--wipe``
+#: deletes these too, so a database seeded before #1389 and reseeded without
+#: ``--reset-database`` does not keep them around forever.
+RETIRED_BOARD_NAMES = ("Marketing Campaigns", "Hiring Pipeline")
 
 BOARDS = [
     {
@@ -193,209 +222,645 @@ BOARDS = [
             ),
         },
     },
+    # ── Swimlane-as-entity boards (#1389) ─────────────────────────────────────
+    # Each board below makes the swimlane a real-world entity (a property, a
+    # project, an account, a content queue, a shipment) with three pinned row
+    # fields everyone can see, plus one admin-only row field so both
+    # visibility modes stay on show. Every URL points at an example.com
+    # subdomain (RFC 2606): the links are decorative, never an integration.
     {
-        "name": "Marketing Campaigns",
-        "description": "Content, campaigns, and events from idea to published.",
+        "name": "Property Management",
+        "description": "Maintenance requests across a small rental portfolio. Which properties have unresolved work?",
         "columns": [
-            ("Ideas", "#6B7280", False),
-            ("Drafting", "#F59E0B", False),
-            ("Review", "#8B5CF6", False),
-            ("Published", "#10B981", True),
+            ("Reported", "#6B7280", False),
+            ("Scheduled", "#3B82F6", False),
+            ("In Progress", "#F59E0B", False),
+            ("Resolved", "#10B981", True),
         ],
-        "swimlanes": [("Content", "#EC4899"), ("Campaigns", "#6366F1"), ("Events", "#14B8A6")],
-        "labels": [("Blog", "#3B82F6"), ("Social", "#EC4899"), ("Paid", "#F59E0B")],
+        "swimlanes": [
+            ("Maple Court Apartments", "#22C55E"),
+            ("Harbor View Lofts", "#3B82F6"),
+            ("Cedar Ridge Townhomes", "#F97316"),
+        ],
+        # Labels are board-wide, so they carry the small fixed set (issue
+        # type); the unit is a card field instead, or a label per unit would
+        # multiply by the number of properties.
+        "labels": [
+            ("Plumbing", "#3B82F6"), ("Electrical", "#F59E0B"), ("HVAC", "#14B8A6"),
+            ("Pest", "#84CC16"), ("Appliance", "#8B5CF6"), ("Turnover", "#EC4899"),
+        ],
         "cards": [
-            ("Why Kanban beats sprints for support teams", "Long-form post with two customer examples.", 1, 0, "high", "maya", ("Blog",),
-             [("admin", "Great angle. Please add a chart of cycle time.")], 2, 3),
-            ("Release notes: what shipped this quarter", "Friendly summary with screenshots of the top five changes.", 2, 0, "medium", "jordan", ("Blog",), [], 1, 0),
-            ("Ten keyboard shortcuts every board power user knows", "Listicle with animated GIFs.", 3, 0, "medium", "maya", ("Blog", "Social"), [], 1, None),
-            ("Case study: from spreadsheets to a shared board", "Interview with a design agency.", 0, 0, "high", None, ("Blog",), [], 5, 12),
-            ("Getting started video script", "Two-minute walkthrough for the landing page.", 1, 0, "medium", "admin", (), [], 9, -3),
-            ("Comparison page: Visiban vs. sticky notes", "Tongue-in-cheek but useful.", 0, 0, "low", None, ("Blog",), [], 13, None),
-            ("Spring launch email sequence", "Three emails over two weeks.", 2, 1, "high", "maya", (),
-             [("admin", "Subject lines look strong; tighten the second body."),
-              ("maya", "@{visitor} could you read email two with fresh eyes before it goes out?")], 0, 1),
-            ("Retargeting ads for trial abandoners", "Two creatives, capped at a small daily budget.", 1, 1, "medium", "jordan", ("Paid",), [], 4, 6),
-            ("Product Hunt launch plan", "Assets, hunter outreach, and a launch-day checklist.", 1, 1, "urgent", "maya", ("Social",),
-             [("jordan", "Hunter confirmed for Tuesday.")], 1, 0),
-            ("Referral program landing page", "Copy and layout for the invite-a-teammate page.", 0, 1, "medium", None, (), [], 2, None),
-            ("Newsletter template refresh", "Match the new brand colors.", 3, 1, "low", "jordan", (), [], 2, None),
-            ("A/B test the homepage hero", "Test two headlines against sign-up rate.", 2, 1, "medium", "admin", ("Paid",), [], 8, -1),
-            ("Social calendar for next month", "Twelve posts across two channels.", 3, 1, "medium", "maya", ("Social",), [], 0, None),
-            ("Conference booth design", "Banner, table cloth, and a demo loop on a laptop.", 1, 2, "high", "jordan", (),
-             [("maya", "Printer needs files by the 12th.")], 5, 4),
-            ("Webinar: running a flow-based standup", "Slides and a live board demo.", 2, 2, "medium", "admin", (), [], 2, 8),
-            ("Meetup sponsorship shortlist", "Five local meetups worth sponsoring.", 0, 2, "low", None, (), [], 6, None),
-            ("Swag order: stickers and notebooks", "Quote from two vendors.", 3, 2, "low", "maya", (), [], 1, None),
-            ("Post-event follow-up emails", "Segmented by booth conversation.", 0, 2, "medium", None, (), [], 0, 9),
-            ("Customer advisory call agenda", "Questions on onboarding friction.", 1, 2, "medium", "jordan", (), [], 11, -2),
-            ("Recap blog post: the community meetup", "Photos, quotes, and slides.", 3, 2, "low", "maya", ("Blog", "Social"), [], 2, None),
+            ("Kitchen sink leaking under cabinet", "Resident reports a slow drip and a swollen cabinet floor.", 2, 0, "high", "maya", ("Plumbing",),
+             [("jordan", "Plumber found a cracked P-trap; the replacement part arrives tomorrow.")], 1, 1),
+            ("No heat in bedroom radiator", "Bedroom radiator stays cold; the rest of the unit is fine.", 1, 0, "urgent", "jordan", ("HVAC",),
+             [("maya", "Resident has space heaters for now. @{visitor} can you confirm the HVAC tech's arrival window?")], 0, 0),
+            ("Mice reported in basement storage", "Droppings found near the storage cages.", 0, 0, "medium", None, ("Pest",), [], 9, -3),
+            ("Turnover: repaint and deep clean", "Move-out was last week; new lease starts on the first.", 2, 0, "medium", "maya", ("Turnover",), [], 5, 4),
+            ("Replace hallway light fixtures", "Third-floor hallway fixtures flicker.", 3, 0, "low", "jordan", ("Electrical",), [], 1, None),
+            ("Dishwasher not draining", "Standing water after every cycle.", 0, 1, "medium", None, ("Appliance", "Plumbing"), [], 2, 6),
+            ("Tripping breaker in unit kitchen", "Kitchen circuit trips when the microwave and kettle run together.", 1, 1, "high", "admin", ("Electrical",),
+             [("admin", "Electrician booked for Thursday morning.")], 4, 2),
+            ("Rooftop condenser making grinding noise", "Noise started after the last cold snap.", 2, 1, "high", "jordan", ("HVAC",),
+             [("jordan", "Fan bearing is going. Waiting on a quote for a replacement motor.")], 10, -2),
+            ("Turnover: replace carpet with vinyl plank", "Carpet is past its useful life.", 1, 1, "medium", "maya", ("Turnover",), [], 0, 9),
+            ("Refrigerator ice maker leaking", "Water pooling under the refrigerator.", 3, 1, "low", "admin", ("Appliance",), [], 2, None),
+            ("Annual smoke detector battery sweep", "Every unit and common area, logged per unit.", 0, 1, "low", None, ("Electrical",), [], 1, 14),
+            ("Water heater pilot keeps going out", "Second call this month for the same heater.", 2, 2, "urgent", "admin", ("Plumbing",),
+             [("maya", "Ask the vendor about replacing the thermocouple instead of relighting again.")], 1, 0),
+            ("Ants along the patio doors", "Trail of ants along the sliding door track.", 1, 2, "low", "maya", ("Pest",), [], 6, 3),
+            ("Turnover: unit 11 make-ready", "Paint, clean, rekey, and photos for the listing.", 0, 2, "high", None, ("Turnover",), [], 8, -1),
+            ("Garbage disposal jammed", "Resident reports a humming disposal that will not spin.", 3, 2, "low", "jordan", ("Appliance",), [], 0, None),
+            ("Bathroom exhaust fan not working", "Fan is silent; mirror fogs for an hour after a shower.", 0, 2, "medium", None, ("Electrical",), [], 2, None),
         ],
         "card_fields": [
-            ("Budget (USD)", "number", [], True, "Planned spend for this piece of work."),
-            ("Channel", "dropdown", ["Blog", "Email", "Social", "Paid ads", "Event"], True, "Where this reaches people."),
+            ("Unit", "text", [], True, "Unit number or area at the property."),
+            ("Vendor", "text", [], False, "Contractor booked for the work."),
+            ("Cost estimate", "number", [], True, "Estimated cost of the repair.",
+             {"number_prefix": "$", "number_decimals": 0}),
         ],
         "card_field_values": {
-            "Why Kanban beats sprints for support teams": {"Channel": "Blog", "Budget (USD)": "300"},
-            "Release notes: what shipped this quarter": {"Channel": "Blog"},
-            "Ten keyboard shortcuts every board power user knows": {"Channel": "Social", "Budget (USD)": "150"},
-            "Case study: from spreadsheets to a shared board": {"Channel": "Blog", "Budget (USD)": "800"},
-            "Getting started video script": {"Channel": "Social", "Budget (USD)": "2500"},
-            "Spring launch email sequence": {"Channel": "Email", "Budget (USD)": "400"},
-            "Retargeting ads for trial abandoners": {"Channel": "Paid ads", "Budget (USD)": "1200"},
-            "Product Hunt launch plan": {"Channel": "Social", "Budget (USD)": "500"},
-            "Referral program landing page": {"Channel": "Email"},
-            "Newsletter template refresh": {"Channel": "Email", "Budget (USD)": "200"},
-            "A/B test the homepage hero": {"Channel": "Paid ads", "Budget (USD)": "900"},
-            "Social calendar for next month": {"Channel": "Social"},
-            "Conference booth design": {"Channel": "Event", "Budget (USD)": "4500"},
-            "Webinar: running a flow-based standup": {"Channel": "Event", "Budget (USD)": "350"},
-            "Meetup sponsorship shortlist": {"Channel": "Event", "Budget (USD)": "3000"},
-            "Swag order: stickers and notebooks": {"Channel": "Event", "Budget (USD)": "1800"},
-            "Post-event follow-up emails": {"Channel": "Email"},
-            "Recap blog post: the community meetup": {"Channel": "Blog"},
+            "Kitchen sink leaking under cabinet": {"Unit": "4B", "Vendor": "Clearflow Plumbing", "Cost estimate": "240"},
+            "No heat in bedroom radiator": {"Unit": "2A", "Vendor": "Summit Heating and Air", "Cost estimate": "380"},
+            "Mice reported in basement storage": {"Unit": "Basement", "Cost estimate": "150"},
+            "Turnover: repaint and deep clean": {"Unit": "1C", "Vendor": "Brightline Painting", "Cost estimate": "1850"},
+            "Replace hallway light fixtures": {"Unit": "Common area", "Cost estimate": "320"},
+            "Dishwasher not draining": {"Unit": "3D"},
+            "Tripping breaker in unit kitchen": {"Unit": "3D", "Vendor": "Voltline Electric", "Cost estimate": "275"},
+            "Rooftop condenser making grinding noise": {"Unit": "Roof", "Vendor": "Summit Heating and Air", "Cost estimate": "1200"},
+            "Turnover: replace carpet with vinyl plank": {"Unit": "5A", "Vendor": "Floorcraft Interiors", "Cost estimate": "2600"},
+            "Refrigerator ice maker leaking": {"Unit": "2C", "Cost estimate": "90"},
+            "Annual smoke detector battery sweep": {"Unit": "All units"},
+            "Water heater pilot keeps going out": {"Unit": "14", "Vendor": "Clearflow Plumbing", "Cost estimate": "410"},
+            "Ants along the patio doors": {"Unit": "9", "Vendor": "Greenleaf Pest Control", "Cost estimate": "125"},
+            "Turnover: unit 11 make-ready": {"Unit": "11", "Cost estimate": "1400"},
+            "Garbage disposal jammed": {"Unit": "6"},
+            "Bathroom exhaust fan not working": {"Unit": "12"},
         },
         "swimlane_fields": [
-            ("Funnel stage", "dropdown", ["Awareness", "Conversion", "Retention"], True, False, "Which part of the funnel this lane feeds."),
-            ("Budget owner", "text", [], True, True, ""),
+            ("Property manager", "text", [], True, False, "Who owns resident communication for this property."),
+            ("Region", "dropdown", ["North", "Central", "South"], True, False, "",
+             {"choice_colors": {"North": "blue", "Central": "violet", "South": "amber"}}),
+            ("Unit count", "number", [], True, False, "Rentable units at this property.", {"number_decimals": 0}),
+            ("Owner entity", "text", [], False, True, "Visible to board admins only."),
         ],
         "swimlane_field_values": {
-            "Content": {"Funnel stage": "Awareness", "Budget owner": "M. Torres"},
-            "Campaigns": {"Funnel stage": "Conversion", "Budget owner": "D. Admin"},
-            "Events": {"Funnel stage": "Retention", "Budget owner": "J. Lee"},
+            "Maple Court Apartments": {
+                "Property manager": "Rosa Delgado", "Region": "North", "Unit count": "24",
+                "Owner entity": "Maple Court Holdings LLC",
+            },
+            "Harbor View Lofts": {
+                "Property manager": "Ethan Park", "Region": "Central", "Unit count": "48",
+                "Owner entity": "Harbor View Partners LP",
+            },
+            "Cedar Ridge Townhomes": {
+                "Property manager": "Nadia Okafor", "Region": "South", "Unit count": "16",
+                "Owner entity": "Cedar Ridge Residential LLC",
+            },
         },
         "checklists": {
-            "Why Kanban beats sprints for support teams": [
-                ("Outline", True), ("Customer quotes approved", True),
-                ("Cycle-time chart", False), ("SEO title and meta description", False),
+            "Kitchen sink leaking under cabinet": [
+                ("Photograph the damage", True), ("Replace the P-trap", False), ("Check the cabinet floor for mold", False),
             ],
-            "Spring launch email sequence": [
-                ("Email 1: announcement", True), ("Email 2: feature deep-dive", False),
-                ("Email 3: last call", False), ("Test send to the seed list", False),
+            "No heat in bedroom radiator": [
+                ("Drop off space heaters", True), ("Bleed the radiators", True),
+                ("HVAC tech diagnosis", False), ("Follow-up call with the resident", False),
             ],
-            "Product Hunt launch plan": [
-                ("Gallery images", True), ("Maker comment drafted", True), ("Hunter confirmed", True),
-                ("Launch-day schedule shared", False), ("Reply rota for comments", False),
+            "Turnover: repaint and deep clean": [
+                ("Patch and paint walls", True), ("Deep clean kitchen and bath", False),
+                ("Replace smoke detector batteries", False), ("Final walkthrough", False),
             ],
-            "Conference booth design": [
-                ("Banner artwork", True), ("Table cloth proof", False),
-                ("Demo loop video", False), ("Send files to the printer", False),
+            "Turnover: replace carpet with vinyl plank": [
+                ("Measure the unit", True), ("Order flooring", False), ("Schedule the install", False),
             ],
-            "Webinar: running a flow-based standup": [
-                ("Slides outline", True), ("Demo board prepared", True),
-                ("Registration page live", False), ("Dry run with a colleague", False),
+            "Rooftop condenser making grinding noise": [
+                ("Vendor diagnosis", True), ("Quote approved", False), ("Replace the fan motor", False),
             ],
-            "Social calendar for next month": [
-                ("Draft twelve posts", True), ("Pick images", True), ("Schedule in the tool", True),
+            "Replace hallway light fixtures": [
+                ("Buy fixtures", True), ("Install", True), ("Test the emergency lighting", True),
             ],
         },
         "relations": [
-            ("Getting started video script", "blocks", "Product Hunt launch plan"),
-            ("Retargeting ads for trial abandoners", "relates_to", "A/B test the homepage hero"),
-            ("Conference booth design", "relates_to", "Post-event follow-up emails"),
-            ("Meetup sponsorship shortlist", "relates_to", "Recap blog post: the community meetup"),
+            ("Tripping breaker in unit kitchen", "blocks", "Dishwasher not draining"),
+            ("Mice reported in basement storage", "relates_to", "Ants along the patio doors"),
+            ("Annual smoke detector battery sweep", "relates_to", "Replace hallway light fixtures"),
         ],
         "external_refs": {},
     },
     {
-        "name": "Hiring Pipeline",
-        "description": "Candidates moving from applied to offer across open roles.",
+        "name": "Construction",
+        "description": "Open issues across three active job sites. What is going to delay the project?",
         "columns": [
-            ("Applied", "#6B7280", False),
-            ("Screening", "#3B82F6", False),
-            ("Interview", "#8B5CF6", False),
-            ("Offer", "#10B981", True),
+            ("Not Started", "#6B7280", False),
+            ("Waiting", "#8B5CF6", False),
+            ("In Progress", "#F59E0B", False),
+            ("Complete", "#10B981", True),
         ],
-        "swimlanes": [("Engineering", "#3B82F6"), ("Design", "#EC4899"), ("Go-to-market", "#F97316")],
-        "labels": [("Strong fit", "#10B981"), ("Needs follow-up", "#F59E0B"), ("Referral", "#6366F1")],
+        "swimlanes": [
+            ("Riverside Library Renovation", "#3B82F6"),
+            ("Oakmont Medical Office", "#22C55E"),
+            ("Elm Street Mixed-Use", "#F97316"),
+        ],
+        "labels": [
+            ("Permit", "#3B82F6"), ("Inspection", "#8B5CF6"), ("Change order", "#F59E0B"),
+            ("Weather risk", "#14B8A6"), ("Safety", "#EF4444"),
+        ],
         "cards": [
-            ("Priya S. - Senior Backend Engineer", "Six years of Django and Postgres; open source maintainer.", 2, 0, "high", "jordan", ("Strong fit", "Referral"),
-             [("jordan", "Great systems-design round. Recommend moving to the panel.")], 1, 2),
-            ("Tomas R. - Backend Engineer", "Go and Python; wants to move to a smaller team.", 1, 0, "medium", "jordan", (), [], 5, 4),
-            ("Aiko N. - Frontend Engineer", "React and accessibility specialist.", 3, 0, "high", "admin", ("Strong fit",),
-             [("admin", "Offer approved. Sending Monday.")], 1, None),
-            ("Marcus D. - Full-stack Engineer", "Bootcamp graduate with a strong portfolio.", 0, 0, "low", None, (), [], 10, None),
-            ("Elena V. - Site Reliability Engineer", "Kubernetes and observability background.", 1, 0, "medium", "jordan", ("Needs follow-up",), [], 9, -2),
-            ("Sam K. - Staff Engineer", "Referred by an advisor; wants a remote role.", 2, 0, "high", "admin", ("Referral",),
-             [("admin", "@{visitor} you sat in on the architecture round — can you add your notes before the debrief?")], 0, 0),
-            ("Noah B. - QA Engineer", "Test automation with Playwright.", 0, 0, "low", None, (), [], 2, 6),
-            ("Chloe W. - Engineering Manager", "Managed a team of nine at a Series B.", 1, 0, "medium", "admin", (), [], 4, 3),
-            ("Lucia F. - Product Designer", "Portfolio shows strong design-system work.", 2, 1, "high", "maya", ("Strong fit",),
-             [("maya", "Whiteboard exercise on Thursday.")], 2, 0),
-            ("Ben H. - Product Designer", "Agency background; light on B2B.", 1, 1, "medium", "maya", (), [], 6, 5),
-            ("Rahul M. - UX Researcher", "Ran a diary study for a workflow tool.", 0, 1, "medium", None, ("Needs follow-up",), [], 12, -1),
-            ("Ines G. - Brand Designer", "Freelance; available in six weeks.", 3, 1, "low", "maya", (), [], 2, None),
-            ("Owen P. - Illustrator", "Would help with docs and marketing art.", 0, 1, "low", None, (), [], 1, None),
-            ("Dana C. - Sales Lead", "Sold to mid-size ops teams for five years.", 2, 2, "high", "admin", ("Strong fit",), [], 8, -3),
-            ("Kofi A. - Customer Success Manager", "Onboarding specialist.", 1, 2, "medium", "admin", ("Referral",),
-             [("jordan", "References were glowing.")], 0, 1),
-            ("Hannah L. - Content Marketer", "Ex-developer, writes well about tooling.", 3, 2, "medium", "maya", ("Strong fit",), [], 0, None),
-            ("Victor Z. - Growth Marketer", "Paid and lifecycle experience.", 0, 2, "low", None, (), [], 5, None),
-            ("Mei T. - Solutions Engineer", "Pre-sales for developer tools.", 1, 2, "medium", "admin", ("Needs follow-up",), [], 2, 7),
-            ("Leo J. - Community Manager", "Runs a 5k-member developer forum.", 2, 2, "medium", "maya", (), [], 1, 9),
-            ("Sofia Q. - Partnerships Manager", "Integrations background.", 0, 2, "low", None, (), [], 0, None),
+            ("Fire marshal final inspection", "Needed before the certificate of occupancy.", 1, 0, "urgent", "admin", ("Inspection",),
+             [("admin", "The marshal's office has no slots until next month; we are on the cancellation list.")], 9, -2),
+            ("Install reading room light fixtures", "Pendants arrived; lift is booked.", 2, 0, "medium", "jordan", (), [], 1, 4),
+            ("Replace ceiling tiles after roof leak", "Stained tiles in the children's section.", 3, 0, "low", "maya", ("Change order",), [], 0, None),
+            ("Elevator code compliance upgrade", "Controller swap plus a witnessed load test.", 1, 0, "high", "admin", ("Permit", "Inspection"),
+             [("jordan", "The state inspector wants the updated load test report before scheduling.")], 2, 1),
+            ("Paint and signage punch list", "Walkthrough items from the architect.", 0, 0, "low", None, (), [], 2, 12),
+            ("Structural steel delivery delayed", "The mill pushed the ship date by a week.", 1, 1, "urgent", "jordan", ("Weather risk",),
+             [("jordan", "Re-sequencing the crane schedule around the new delivery date.")], 4, 0),
+            ("Framing inspection, level 2", "Book once the shear walls are nailed off.", 0, 1, "high", "admin", ("Inspection",), [], 1, 2),
+            ("Change order: add exam room sink", "Owner request after the layout review.", 2, 1, "medium", "maya", ("Change order",),
+             [("admin", "Owner signed the change order; the plumber is estimating the rough-in.")], 0, 6),
+            ("Window submittal review", "Architect has not returned the storefront submittal.", 1, 1, "medium", None, (), [], 10, -4),
+            ("Temporary power to level 3", "Panel and temporary lighting for the upper floor.", 3, 1, "low", "jordan", ("Safety",), [], 1, None),
+            ("Rain plan for open roof deck", "Tarps and pumps on standby until the roof is dried in.", 2, 1, "high", "maya", ("Weather risk", "Safety"), [], 9, 1),
+            ("Permit amendment for revised footings", "Footings were redesigned after the soils report.", 1, 2, "urgent", "admin", ("Permit",),
+             [("maya", "The city wants stamped calculations for the revised footing. The engineer is on it.")], 8, -1),
+            ("Soil compaction testing", "Testing lab on site for the building pad.", 2, 2, "high", "jordan", ("Inspection",), [], 1, 0),
+            ("Dewatering pump rental", "Two pumps for the excavation.", 3, 2, "medium", "maya", (), [], 2, None),
+            ("Utility locate before excavation", "Mark-out request for the north property line.", 0, 2, "high", None, ("Safety",), [], 0, 5),
+            ("Concrete pour schedule", "Pour sequence for footings and stem walls.", 0, 2, "medium", "jordan", ("Weather risk",), [], 6, 9),
         ],
         "card_fields": [
-            ("Source", "dropdown", ["Referral", "Inbound", "Outbound", "Agency"], True, "How the candidate reached us."),
-            ("Interview score", "number", [], True, "Average panel score out of 5."),
-            ("Offer stage", "dropdown", ["Drafting", "Approved", "Sent", "Accepted"], False, "Where the offer stands."),
+            ("Subcontractor", "text", [], True, "Trade partner responsible for this work."),
+            ("Permit #", "text", [], False, "Municipal permit or ticket number."),
+            ("Permit portal", "url", [], True, "Link to the permit record (fictional)."),
         ],
         "card_field_values": {
-            "Priya S. - Senior Backend Engineer": {"Source": "Referral", "Interview score": "4.5"},
-            "Tomas R. - Backend Engineer": {"Source": "Inbound"},
-            "Aiko N. - Frontend Engineer": {"Source": "Inbound", "Interview score": "4.7", "Offer stage": "Approved"},
-            "Marcus D. - Full-stack Engineer": {"Source": "Inbound"},
-            "Elena V. - Site Reliability Engineer": {"Source": "Outbound"},
-            "Sam K. - Staff Engineer": {"Source": "Referral", "Interview score": "4.0"},
-            "Noah B. - QA Engineer": {"Source": "Agency"},
-            "Chloe W. - Engineering Manager": {"Source": "Outbound"},
-            "Lucia F. - Product Designer": {"Source": "Inbound", "Interview score": "4.2"},
-            "Ben H. - Product Designer": {"Source": "Agency"},
-            "Ines G. - Brand Designer": {"Source": "Outbound", "Interview score": "3.9", "Offer stage": "Sent"},
-            "Dana C. - Sales Lead": {"Source": "Outbound", "Interview score": "4.4"},
-            "Kofi A. - Customer Success Manager": {"Source": "Referral"},
-            "Hannah L. - Content Marketer": {"Source": "Inbound", "Interview score": "4.6", "Offer stage": "Accepted"},
-            "Mei T. - Solutions Engineer": {"Source": "Inbound"},
-            "Leo J. - Community Manager": {"Source": "Referral", "Interview score": "3.8"},
+            "Fire marshal final inspection": {
+                "Subcontractor": "Ironclad Fire Protection", "Permit #": "BP-2026-04417",
+                "Permit portal": "https://permits.example.com/records/BP-2026-04417",
+            },
+            "Install reading room light fixtures": {"Subcontractor": "Brightwire Electrical"},
+            "Replace ceiling tiles after roof leak": {"Subcontractor": "Northside Interiors"},
+            "Elevator code compliance upgrade": {
+                "Subcontractor": "Vertex Elevator Co.", "Permit #": "EL-2026-0193",
+                "Permit portal": "https://permits.example.com/records/EL-2026-0193",
+            },
+            "Paint and signage punch list": {"Subcontractor": "Northside Interiors"},
+            "Structural steel delivery delayed": {"Subcontractor": "Keystone Steel Erectors"},
+            "Framing inspection, level 2": {
+                "Subcontractor": "Timberline Framing", "Permit #": "BP-2026-03881",
+                "Permit portal": "https://permits.example.com/records/BP-2026-03881",
+            },
+            "Change order: add exam room sink": {"Subcontractor": "Clearwater Mechanical"},
+            "Window submittal review": {"Subcontractor": "Glassline Storefronts"},
+            "Rain plan for open roof deck": {"Subcontractor": "Summit Roofing"},
+            "Permit amendment for revised footings": {
+                "Permit #": "BP-2026-05102",
+                "Permit portal": "https://permits.example.com/records/BP-2026-05102",
+            },
+            "Soil compaction testing": {"Subcontractor": "Groundwork Testing Labs"},
+            "Utility locate before excavation": {"Subcontractor": "Groundwork Excavation", "Permit #": "UL-2026-7720"},
+            "Concrete pour schedule": {"Subcontractor": "Bedrock Concrete"},
         },
         "swimlane_fields": [
-            ("Hiring manager", "text", [], True, False, "Who signs off on candidates in this lane."),
-            ("Headcount", "dropdown", ["Approved", "Pending budget"], True, False, ""),
-            ("Salary band", "text", [], True, True, "Visible to board admins only."),
+            ("Project manager", "text", [], True, False, "Who runs the job site day to day."),
+            ("Region", "dropdown", ["North", "Central", "South"], True, False, "",
+             {"choice_colors": {"North": "blue", "Central": "violet", "South": "amber"}}),
+            ("Phase", "dropdown", ["Preconstruction", "Foundation", "Framing", "MEP rough-in", "Finishes"], True, False,
+             "Where the project is in the build.",
+             {"choice_colors": {
+                 "Preconstruction": "slate", "Foundation": "amber", "Framing": "blue",
+                 "MEP rough-in": "violet", "Finishes": "green",
+             }}),
+            ("Owner's representative", "text", [], False, True, "Visible to board admins only."),
         ],
         "swimlane_field_values": {
-            "Engineering": {"Hiring manager": "Jordan Lee", "Headcount": "Approved", "Salary band": "L4-L6"},
-            "Design": {"Hiring manager": "Maya Torres", "Headcount": "Approved", "Salary band": "L3-L5"},
-            "Go-to-market": {"Hiring manager": "Demo Admin", "Headcount": "Pending budget", "Salary band": "L4-L5 plus commission"},
+            "Riverside Library Renovation": {
+                "Project manager": "Grace Whitfield", "Region": "North", "Phase": "Finishes",
+                "Owner's representative": "L. Moreno, county facilities",
+            },
+            "Oakmont Medical Office": {
+                "Project manager": "Daniel Osei", "Region": "Central", "Phase": "Framing",
+                "Owner's representative": "P. Sandoval, Oakmont Health Partners",
+            },
+            "Elm Street Mixed-Use": {
+                "Project manager": "Hannah Kowalski", "Region": "South", "Phase": "Foundation",
+                "Owner's representative": "R. Iverson, Elm Street Development",
+            },
         },
         "checklists": {
-            "Priya S. - Senior Backend Engineer": [
-                ("Recruiter screen", True), ("Technical phone screen", True), ("Systems design", True),
-                ("Team panel", False), ("Reference checks", False),
+            "Fire marshal final inspection": [
+                ("Fire alarm acceptance test", True), ("Sprinkler certification uploaded", True),
+                ("Exit signage verified", False), ("Marshal walkthrough", False),
             ],
-            "Sam K. - Staff Engineer": [
-                ("Recruiter screen", True), ("Architecture deep-dive", True),
-                ("Leadership interview", False), ("Debrief", False),
+            "Elevator code compliance upgrade": [
+                ("Controller replaced", True), ("Load test", True),
+                ("Report sent to the inspector", False), ("State inspection", False),
             ],
-            "Lucia F. - Product Designer": [
-                ("Portfolio review", True), ("Whiteboard exercise", False), ("Panel with PM and engineering", False),
+            "Structural steel delivery delayed": [
+                ("Confirm the new ship date", True), ("Re-sequence the crane", False),
+                ("Tell the owner about the schedule impact", False),
             ],
-            "Dana C. - Sales Lead": [
-                ("Recruiter screen", True), ("Sales manager interview", True),
-                ("Mock discovery call", False), ("Executive chat", False),
+            "Change order: add exam room sink": [
+                ("Owner signature", True), ("Plumbing estimate", False), ("Update the drawings", False),
             ],
-            "Elena V. - Site Reliability Engineer": [
-                ("Schedule the screening call", False), ("Send the take-home exercise", False),
+            "Permit amendment for revised footings": [
+                ("Stamped calculations from the engineer", False), ("Submit the amendment", False),
+                ("Address plan review comments", False),
             ],
-            "Aiko N. - Frontend Engineer": [
-                ("Offer letter drafted", True), ("Compensation approved", True),
-                ("Offer sent", False), ("Start date confirmed", False),
+            "Temporary power to level 3": [
+                ("Panel set", True), ("Inspection", True), ("Energized", True),
             ],
         },
         "relations": [
-            ("Dana C. - Sales Lead", "blocks", "Mei T. - Solutions Engineer"),
-            ("Lucia F. - Product Designer", "relates_to", "Ben H. - Product Designer"),
-            ("Priya S. - Senior Backend Engineer", "relates_to", "Tomas R. - Backend Engineer"),
+            ("Permit amendment for revised footings", "blocks", "Concrete pour schedule"),
+            ("Soil compaction testing", "blocks", "Concrete pour schedule"),
+            ("Structural steel delivery delayed", "blocks", "Framing inspection, level 2"),
+            ("Rain plan for open roof deck", "relates_to", "Structural steel delivery delayed"),
+        ],
+        "external_refs": {},
+    },
+    {
+        "name": "Sales Territory",
+        "description": "Account work across one territory, one row per account. Which accounts are not getting attention?",
+        "columns": [
+            ("Up Next", "#6B7280", False),
+            ("In Progress", "#3B82F6", False),
+            ("Waiting on Customer", "#F59E0B", False),
+            ("Done", "#10B981", True),
+        ],
+        "swimlanes": [
+            ("Brightwater Health", "#14B8A6"),
+            ("Kestrel Aerospace", "#6366F1"),
+            ("Lumen Retail Group", "#EC4899"),
+            ("Pinecrest Manufacturing", "#F97316"),
+        ],
+        "labels": [("New logo", "#22C55E"), ("Expansion", "#3B82F6"), ("Renewal", "#8B5CF6"), ("At risk", "#EF4444")],
+        # Pinecrest is the deliberately neglected account: its row carries the
+        # board's stale work, so the aging tint answers the board's question.
+        "cards": [
+            ("Radiology department pilot", "Pilot with the imaging team ahead of a wider rollout.", 1, 0, "high", "maya", ("New logo",),
+             [("jordan", "Security questionnaire sent; 14 questions left on data residency.")], 1, 2),
+            ("Pilot success criteria sign-off", "Agree on what a successful pilot looks like.", 2, 0, "medium", "jordan", (),
+             [("maya", "Waiting on their clinical operations lead to sign off.")], 4, 3),
+            ("Executive business review deck", "Outcomes from the first quarter, for their CIO.", 0, 0, "medium", None, (), [], 2, 8),
+            ("Mutual close plan", "Shared timeline agreed with the champion.", 3, 0, "low", "maya", ("New logo",), [], 1, None),
+            ("Engineering org expansion", "Three more engineering teams want in.", 1, 1, "urgent", "admin", ("Expansion",),
+             [("admin", "Our champion is building the business case for the three new teams.")], 0, 0),
+            ("Procurement redlines on the MSA", "Their legal team returned the master agreement.", 2, 1, "high", "admin", (),
+             [("jordan", "Legal returned redlines on the liability clause."),
+              ("maya", "Our counsel is reviewing; expect a turn by Friday.")], 2, 1),
+            ("Technical deep-dive with the avionics team", "Architecture review with their platform leads.", 0, 1, "medium", "jordan", (), [], 1, 6),
+            ("Kestrel onboarding kickoff", "Kickoff for the first expansion team.", 3, 1, "low", "jordan", ("Expansion",), [], 0, None),
+            ("Renewal: store operations workspace", "Annual renewal for the store operations team.", 1, 2, "high", "maya", ("Renewal",), [], 5, 10),
+            ("Usage review ahead of renewal", "Adoption by region, to frame the renewal conversation.", 0, 2, "medium", None, ("Renewal",), [], 2, 5),
+            ("Reference call for a prospect", "Their operations director agreed to a reference call.", 3, 2, "low", "maya", (), [], 2, None),
+            ("EMEA data processing addendum", "Their privacy office needs the addendum countersigned.", 2, 2, "high", "admin", (),
+             [("admin", "Sent the addendum to their privacy office.")], 6, 1),
+            ("Follow up after the plant tour", "Send notes and next steps from the site visit.", 0, 3, "high", None, ("At risk",), [], 12, -5),
+            ("Proposal for the APAC plants", "Rollout proposal for four plants in the region.", 1, 3, "high", "jordan", ("Expansion", "At risk"),
+             [("jordan", "Our champion went quiet after the plant tour.")], 9, -2),
+            ("Quarterly check-in with the operations lead", "Standing check-in, missed last quarter.", 2, 3, "medium", None, ("At risk",), [], 8, None),
+            ("Find a new champion at Pinecrest", "Our champion moved roles; map the new org.", 0, 3, "urgent", "maya", ("At risk",), [], 1, 1),
+        ],
+        "card_fields": [
+            ("Deal value", "number", [], True, "Expected contract value of the opportunity.",
+             {"number_prefix": "$", "number_decimals": 0}),
+            ("CRM record", "url", [], True, "Link to the opportunity in the CRM (fictional)."),
+            ("Stage", "dropdown", ["Discovery", "Evaluation", "Proposal", "Negotiation", "Closed won"], False,
+             "Where the opportunity stands.",
+             {"choice_colors": {
+                 "Discovery": "slate", "Evaluation": "blue", "Proposal": "violet",
+                 "Negotiation": "amber", "Closed won": "green",
+             }}),
+        ],
+        "card_field_values": {
+            "Radiology department pilot": {
+                "Deal value": "84000", "CRM record": "https://crm.example.com/opportunities/OPP-1001", "Stage": "Evaluation",
+            },
+            "Pilot success criteria sign-off": {
+                "CRM record": "https://crm.example.com/opportunities/OPP-1001", "Stage": "Evaluation",
+            },
+            "Mutual close plan": {"Deal value": "84000", "Stage": "Negotiation"},
+            "Engineering org expansion": {
+                "Deal value": "215000", "CRM record": "https://crm.example.com/opportunities/OPP-1002", "Stage": "Proposal",
+            },
+            "Procurement redlines on the MSA": {
+                "Deal value": "215000", "CRM record": "https://crm.example.com/opportunities/OPP-1002", "Stage": "Negotiation",
+            },
+            "Kestrel onboarding kickoff": {
+                "Deal value": "60000", "CRM record": "https://crm.example.com/opportunities/OPP-0987", "Stage": "Closed won",
+            },
+            "Renewal: store operations workspace": {
+                "Deal value": "96000", "CRM record": "https://crm.example.com/opportunities/OPP-1003", "Stage": "Negotiation",
+            },
+            "Usage review ahead of renewal": {
+                "CRM record": "https://crm.example.com/opportunities/OPP-1003", "Stage": "Discovery",
+            },
+            "EMEA data processing addendum": {
+                "CRM record": "https://crm.example.com/opportunities/OPP-1003", "Stage": "Negotiation",
+            },
+            "Follow up after the plant tour": {"Stage": "Discovery"},
+            "Proposal for the APAC plants": {
+                "Deal value": "140000", "CRM record": "https://crm.example.com/opportunities/OPP-1004", "Stage": "Proposal",
+            },
+            "Find a new champion at Pinecrest": {"Stage": "Discovery"},
+        },
+        "swimlane_fields": [
+            ("AE", "text", [], True, False, "Account executive who owns the relationship."),
+            ("SA", "text", [], True, False, "Solutions architect on the account."),
+            ("Region", "dropdown", ["AMER East", "AMER West", "EMEA", "APAC"], True, False, "",
+             {"choice_colors": {"AMER East": "blue", "AMER West": "teal", "EMEA": "violet", "APAC": "amber"}}),
+            ("Executive sponsor", "text", [], False, True, "Visible to board admins only."),
+        ],
+        # Fictional names, distinct per account.
+        "swimlane_field_values": {
+            "Brightwater Health": {
+                "AE": "Olivia Grant", "SA": "Ravi Menon", "Region": "AMER East",
+                "Executive sponsor": "K. Alvarez, CIO",
+            },
+            "Kestrel Aerospace": {
+                "AE": "Tom Becker", "SA": "Leila Haddad", "Region": "AMER West",
+                "Executive sponsor": "S. Novak, VP Engineering",
+            },
+            "Lumen Retail Group": {
+                "AE": "Sophie Laurent", "SA": "Kenji Watanabe", "Region": "EMEA",
+                "Executive sponsor": "M. Dubois, COO",
+            },
+            "Pinecrest Manufacturing": {
+                "AE": "Daniel Cho", "SA": "Amara Nwosu", "Region": "APAC",
+                "Executive sponsor": "J. Tan, Head of Operations",
+            },
+        },
+        "checklists": {
+            "Radiology department pilot": [
+                ("Security questionnaire", True), ("Pilot environment ready", True),
+                ("Success criteria agreed", False), ("Executive readout", False),
+            ],
+            "Engineering org expansion": [
+                ("Business case draft", True), ("Champion review", False), ("Finance approval", False),
+            ],
+            "Procurement redlines on the MSA": [
+                ("Redlines received", True), ("Counsel review", False), ("Final signature", False),
+            ],
+            "Renewal: store operations workspace": [
+                ("Usage summary", True), ("Renewal paperwork sent", False), ("Signed order form", False),
+            ],
+            "Kestrel onboarding kickoff": [
+                ("Kickoff call", True), ("Admin training", True), ("Success plan shared", True),
+            ],
+        },
+        "relations": [
+            ("Pilot success criteria sign-off", "blocks", "Radiology department pilot"),
+            ("Procurement redlines on the MSA", "blocks", "Engineering org expansion"),
+            ("Find a new champion at Pinecrest", "blocks", "Proposal for the APAC plants"),
+            ("Usage review ahead of renewal", "relates_to", "Renewal: store operations workspace"),
+        ],
+        "external_refs": {},
+    },
+    {
+        "name": "Content Moderation",
+        "description": "User reports by content queue. What has waited longest for review?",
+        "columns": [
+            ("New Reports", "#6B7280", False),
+            ("In Review", "#3B82F6", False),
+            ("Escalated", "#EF4444", False),
+            ("Actioned", "#10B981", True),
+        ],
+        "swimlanes": [("Comments", "#3B82F6"), ("Marketplace listings", "#22C55E"), ("Live streams", "#8B5CF6")],
+        "labels": [("Appeal", "#8B5CF6"), ("Repeat account", "#F59E0B"), ("Legal hold", "#EF4444"), ("Coordinated", "#EC4899")],
+        "cards": [
+            ("Reply thread flooded with link spam", "Dozens of near-identical replies linking off-site.", 0, 0, "medium", None, ("Coordinated",), [], 9, -1),
+            ("Harassment reports on a pinned comment", "Several reports against replies to a creator's pinned comment.", 1, 0, "high", "maya", (),
+             [("maya", "Pattern matches last week's pile-on. @{visitor} can you check the card history and confirm when this was first reported?")], 1, 0),
+            ("Impersonation of a support account", "Account copying the official support handle and avatar.", 2, 0, "urgent", "admin", ("Repeat account",),
+             [("admin", "Escalated to the identity team; third report this month.")], 2, 1),
+            ("Off-topic posts in a help thread", "Unrelated promotions in a help thread.", 3, 0, "low", "jordan", (), [], 1, None),
+            ("Misleading health claim in a comment", "Comment presents an unproven remedy as a cure.", 0, 0, "medium", None, (), [], 5, 2),
+            ("Counterfeit sneaker listings", "Same photos reused across listings from new accounts.", 1, 1, "high", "jordan", ("Repeat account",),
+             [("jordan", "The seller relisted under a new handle; linking the accounts.")], 4, 1),
+            ("Listing photo shows a weapon", "Reported listing in the collectibles category.", 2, 1, "urgent", "admin", ("Legal hold",), [], 8, -2),
+            ("Too-good-to-be-true electronics deals", "Listings far below market value that ask buyers to pay off-platform.", 0, 1, "medium", None, ("Coordinated",), [], 2, 4),
+            ("Appeal: removed vintage poster listing", "Seller says the artwork is historical, not graphic.", 1, 1, "low", "maya", ("Appeal",), [], 6, 5),
+            ("Duplicate listings from one seller", "The same item listed eleven times.", 3, 1, "low", "jordan", (), [], 0, None),
+            ("Seller using a brand's logo as avatar", "Avatar suggests an official store.", 0, 1, "medium", None, (), [], 1, 6),
+            ("Stream showing a dangerous stunt", "Stream promoted a stunt that viewers could copy.", 2, 2, "urgent", "admin", ("Legal hold",),
+             [("maya", "The stream has ended; the recording is preserved for review.")], 1, 0),
+            ("Hateful messages in live chat", "Chat overlay repeated a slur during a stream.", 1, 2, "urgent", "jordan", (), [], 10, -3),
+            ("Viewer-bot inflation on a channel", "Viewer count jumps with no chat activity.", 0, 2, "medium", None, ("Coordinated",), [], 0, 3),
+            ("Appeal: stream ended for background music", "Streamer disputes the automated takedown.", 3, 2, "low", "maya", ("Appeal",), [], 2, None),
+            ("Fake giveaway in a stream title", "Title promises a prize for following a link.", 1, 2, "high", "maya", (), [], 2, 2),
+        ],
+        "card_fields": [
+            ("Report reason", "multi_select",
+             ["Spam", "Harassment", "Hate speech", "Misinformation", "Impersonation", "Graphic content", "Scam"], True,
+             "Every reason reporters selected.",
+             {"choice_colors": {
+                 "Spam": "slate", "Harassment": "red", "Hate speech": "red", "Misinformation": "amber",
+                 "Impersonation": "violet", "Graphic content": "pink", "Scam": "teal",
+             }}),
+            ("Reporter count", "number", [], True, "Distinct accounts that reported this item.", {"number_decimals": 0}),
+        ],
+        "card_field_values": {
+            "Reply thread flooded with link spam": {"Report reason": ["Spam", "Scam"], "Reporter count": "37"},
+            "Harassment reports on a pinned comment": {"Report reason": ["Harassment"], "Reporter count": "12"},
+            "Impersonation of a support account": {"Report reason": ["Impersonation", "Scam"], "Reporter count": "8"},
+            "Off-topic posts in a help thread": {"Report reason": ["Spam"], "Reporter count": "3"},
+            "Misleading health claim in a comment": {"Report reason": ["Misinformation"], "Reporter count": "6"},
+            "Counterfeit sneaker listings": {"Report reason": ["Scam"], "Reporter count": "21"},
+            "Listing photo shows a weapon": {"Report reason": ["Graphic content"], "Reporter count": "5"},
+            "Too-good-to-be-true electronics deals": {"Report reason": ["Spam", "Scam"], "Reporter count": "14"},
+            "Appeal: removed vintage poster listing": {"Report reason": ["Graphic content"], "Reporter count": "2"},
+            "Duplicate listings from one seller": {"Report reason": ["Spam"], "Reporter count": "4"},
+            "Seller using a brand's logo as avatar": {"Report reason": ["Impersonation"], "Reporter count": "3"},
+            "Stream showing a dangerous stunt": {"Report reason": ["Graphic content"], "Reporter count": "46"},
+            "Hateful messages in live chat": {"Report reason": ["Harassment", "Hate speech"], "Reporter count": "29"},
+            "Viewer-bot inflation on a channel": {"Report reason": ["Spam"], "Reporter count": "9"},
+            "Appeal: stream ended for background music": {"Reporter count": "1"},
+            "Fake giveaway in a stream title": {"Report reason": ["Impersonation", "Scam"], "Reporter count": "18"},
+        },
+        "swimlane_fields": [
+            ("Moderator lead", "text", [], True, False, "Who owns the queue this shift."),
+            ("Region", "dropdown", ["Americas", "EMEA", "APAC"], True, False, "",
+             {"choice_colors": {"Americas": "blue", "EMEA": "violet", "APAC": "amber"}}),
+            ("Policy tier", "dropdown", ["Tier 1: safety", "Tier 2: integrity", "Tier 3: quality"], True, False,
+             "How severe the policies enforced in this queue are.",
+             {"choice_colors": {"Tier 1: safety": "red", "Tier 2: integrity": "amber", "Tier 3: quality": "blue"}}),
+            ("Escalation contact", "text", [], False, True, "Visible to board admins only."),
+        ],
+        "swimlane_field_values": {
+            "Comments": {
+                "Moderator lead": "Bianca Ferreira", "Region": "Americas", "Policy tier": "Tier 3: quality",
+                "Escalation contact": "Trust and safety on-call, rota A",
+            },
+            "Marketplace listings": {
+                "Moderator lead": "Jonas Lindqvist", "Region": "EMEA", "Policy tier": "Tier 2: integrity",
+                "Escalation contact": "Marketplace integrity on-call",
+            },
+            "Live streams": {
+                "Moderator lead": "Mei Lin Zhou", "Region": "APAC", "Policy tier": "Tier 1: safety",
+                "Escalation contact": "Trust and safety on-call, rota B",
+            },
+        },
+        "checklists": {
+            "Harassment reports on a pinned comment": [
+                ("Review the reported replies", True), ("Check for coordinated accounts", False), ("Notify the creator", False),
+            ],
+            "Impersonation of a support account": [
+                ("Verify the official account", True), ("Suspend the impersonator", False), ("Post a support notice", False),
+            ],
+            "Counterfeit sneaker listings": [
+                ("Remove the active listings", True), ("Link related accounts", True), ("Notify the brand's rights contact", False),
+            ],
+            "Stream showing a dangerous stunt": [
+                ("End the stream", True), ("Preserve the recording", True),
+                ("Policy decision", False), ("Notify the streamer", False),
+            ],
+            "Duplicate listings from one seller": [
+                ("Merge the duplicates", True), ("Warn the seller", True),
+            ],
+        },
+        "relations": [
+            ("Counterfeit sneaker listings", "blocks", "Too-good-to-be-true electronics deals"),
+            ("Impersonation of a support account", "relates_to", "Seller using a brand's logo as avatar"),
+            ("Hateful messages in live chat", "relates_to", "Harassment reports on a pinned comment"),
+            ("Viewer-bot inflation on a channel", "relates_to", "Fake giveaway in a stream title"),
+        ],
+        "external_refs": {},
+    },
+    {
+        "name": "Logistics Exceptions",
+        "description": "Shipments that went off plan, one row per shipment. Which shipments need intervention?",
+        "columns": [
+            ("New Exception", "#6B7280", False),
+            ("Investigating", "#3B82F6", False),
+            ("Awaiting Carrier", "#F59E0B", False),
+            ("Resolved", "#10B981", True),
+        ],
+        "swimlanes": [
+            ("SHP-24817", "#3B82F6"),
+            ("SHP-25102", "#22C55E"),
+            ("SHP-25390", "#14B8A6"),
+            ("SHP-25544", "#F97316"),
+        ],
+        "labels": [
+            ("Expedite", "#EF4444"), ("Temperature-controlled", "#14B8A6"),
+            ("Hazmat", "#F59E0B"), ("Claim filed", "#8B5CF6"),
+        ],
+        "cards": [
+            ("Container held for customs inspection", "Selected for inspection at the port of entry.", 2, 0, "urgent", "admin", (),
+             [("admin", "The broker resubmitted the commercial invoice; waiting on the customs release.")], 9, -2),
+            ("Missing commercial invoice copy", "Customs needs a signed copy from the shipper.", 1, 0, "high", "maya", (), [], 1, 0),
+            ("Vessel rolled to the next sailing", "Carrier rolled the container one week.", 3, 0, "medium", "jordan", (), [], 1, None),
+            ("Notify the customer of the revised ETA", "Send the new arrival window and the reason.", 0, 0, "medium", None, ("Expedite",), [], 0, 1),
+            ("Pallet damaged at cross-dock", "Forklift damage reported at the transfer point.", 1, 1, "high", "jordan", ("Claim filed",),
+             [("jordan", "Photos uploaded to the carrier portal; the claim number is pending."),
+              ("maya", "The customer asked for a replacement shipment instead of a credit.")], 2, 2),
+            ("Missed pickup at the Dallas warehouse", "Driver did not arrive in the pickup window.", 2, 1, "medium", None, (), [], 5, 1),
+            ("Replacement order for the damaged pallet", "Pick, pack and ship a replacement pallet.", 0, 1, "high", "maya", ("Expedite",), [], 1, 4),
+            ("Carrier claim paperwork", "Bill of lading and inspection report attached.", 3, 1, "low", "jordan", ("Claim filed",), [], 2, None),
+            ("Temperature excursion during transfer", "Logger shows readings above range during the hub transfer.", 1, 2, "urgent", "admin", ("Temperature-controlled",),
+             [("admin", "The logger shows 40 minutes above 8 °C. The quality team is reviewing.")], 0, 0),
+            ("Quality hold on received vials", "Receiving placed the delivered lot on hold.", 0, 2, "high", None, ("Temperature-controlled",), [], 4, 5),
+            ("Dry ice replenishment at the transit hub", "Top up dry ice before the next leg.", 3, 2, "medium", "jordan", ("Temperature-controlled", "Hazmat"), [], 0, None),
+            ("Flight offloaded for weight", "Freight bumped to the next departure.", 2, 2, "high", "maya", (), [], 1, 3),
+            ("Wrong dock door on the delivery address", "Delivery went to the retail entrance, not receiving.", 1, 3, "medium", None, (), [], 8, -1),
+            ("Consignee closed on arrival", "Store receiving was closed for inventory.", 2, 3, "medium", "jordan", (), [], 10, -3),
+            ("Driver hours limit reached", "Driver hit the hours limit two stops short.", 0, 3, "low", None, (), [], 6, 2),
+            ("Reschedule the delivery appointment", "Book a new appointment with store receiving.", 0, 3, "high", "maya", ("Expedite",), [], 2, 1),
+        ],
+        "card_fields": [
+            ("Exception type", "dropdown",
+             ["Delay", "Damage", "Customs hold", "Address issue", "Temperature excursion", "Missed pickup"], True,
+             "What went off plan.",
+             {"choice_colors": {
+                 "Delay": "amber", "Damage": "red", "Customs hold": "violet", "Address issue": "blue",
+                 "Temperature excursion": "teal", "Missed pickup": "slate",
+             }}),
+            ("ETA", "date", [], False, "Current estimated arrival."),
+            ("Tracking link", "url", [], True, "Carrier tracking page (fictional)."),
+        ],
+        # ETAs are days from the day of the reset (see days_from_today), so
+        # they never drift into the past between resets.
+        "card_field_values": {
+            "Container held for customs inspection": {
+                "Exception type": "Customs hold", "ETA": days_from_today(6),
+                "Tracking link": "https://tracking.example.com/shipments/SHP-24817",
+            },
+            "Missing commercial invoice copy": {"Exception type": "Customs hold"},
+            "Vessel rolled to the next sailing": {
+                "Exception type": "Delay", "ETA": days_from_today(6),
+                "Tracking link": "https://tracking.example.com/shipments/SHP-24817",
+            },
+            "Notify the customer of the revised ETA": {"Exception type": "Delay", "ETA": days_from_today(6)},
+            "Pallet damaged at cross-dock": {
+                "Exception type": "Damage", "Tracking link": "https://tracking.example.com/shipments/SHP-25102",
+            },
+            "Missed pickup at the Dallas warehouse": {"Exception type": "Missed pickup", "ETA": days_from_today(3)},
+            "Replacement order for the damaged pallet": {"Exception type": "Damage"},
+            "Carrier claim paperwork": {"Exception type": "Damage"},
+            "Temperature excursion during transfer": {
+                "Exception type": "Temperature excursion", "ETA": days_from_today(2),
+                "Tracking link": "https://tracking.example.com/shipments/SHP-25390",
+            },
+            "Quality hold on received vials": {"Exception type": "Temperature excursion"},
+            "Dry ice replenishment at the transit hub": {"Exception type": "Delay"},
+            "Flight offloaded for weight": {
+                "Exception type": "Delay", "ETA": days_from_today(2),
+                "Tracking link": "https://tracking.example.com/shipments/SHP-25390",
+            },
+            "Wrong dock door on the delivery address": {"Exception type": "Address issue", "ETA": days_from_today(1)},
+            "Consignee closed on arrival": {
+                "Exception type": "Address issue", "Tracking link": "https://tracking.example.com/shipments/SHP-25544",
+            },
+            "Driver hours limit reached": {"Exception type": "Delay", "ETA": days_from_today(1)},
+            "Reschedule the delivery appointment": {"Exception type": "Address issue", "ETA": days_from_today(1)},
+        },
+        "swimlane_fields": [
+            ("Carrier", "text", [], True, False, "Carrier currently holding the freight."),
+            ("Lane", "text", [], True, False, "Origin to destination."),
+            ("Customer", "text", [], True, False, "Who the shipment is for."),
+            ("Customer contact", "text", [], False, True, "Visible to board admins only."),
+        ],
+        "swimlane_field_values": {
+            "SHP-24817": {
+                "Carrier": "Bluefin Ocean Lines", "Lane": "Rotterdam to Chicago", "Customer": "Harbor Goods Co.",
+                "Customer contact": "ops@harborgoods.example.com",
+            },
+            "SHP-25102": {
+                "Carrier": "Cedar Line Freight", "Lane": "Dallas to Denver", "Customer": "Alpine Outfitters",
+                "Customer contact": "receiving@alpineoutfitters.example.com",
+            },
+            "SHP-25390": {
+                "Carrier": "Skyward Air Cargo", "Lane": "Singapore to Los Angeles", "Customer": "Meridian Medical Supply",
+                "Customer contact": "quality@meridianmedical.example.com",
+            },
+            "SHP-25544": {
+                "Carrier": "Ridgeway Trucking", "Lane": "Atlanta to Charlotte", "Customer": "Fernway Grocers",
+                "Customer contact": "dock@fernwaygrocers.example.com",
+            },
+        },
+        "checklists": {
+            "Container held for customs inspection": [
+                ("Commercial invoice resubmitted", True), ("Broker confirms the filing", True),
+                ("Customs release", False), ("Book drayage", False),
+            ],
+            "Pallet damaged at cross-dock": [
+                ("Photos of the damage", True), ("Carrier claim opened", False), ("Customer notified", True),
+            ],
+            "Temperature excursion during transfer": [
+                ("Download the logger data", True), ("Quality review", False), ("Customer disposition", False),
+            ],
+            "Reschedule the delivery appointment": [
+                ("Call the consignee", True), ("Confirm the dock door", False),
+            ],
+            "Dry ice replenishment at the transit hub": [
+                ("Hub confirms dry ice stock", True), ("Repack", True), ("Update the hazmat paperwork", True),
+            ],
+        },
+        "relations": [
+            ("Missing commercial invoice copy", "blocks", "Container held for customs inspection"),
+            ("Pallet damaged at cross-dock", "relates_to", "Replacement order for the damaged pallet"),
+            ("Temperature excursion during transfer", "relates_to", "Quality hold on received vials"),
+            ("Wrong dock door on the delivery address", "relates_to", "Reschedule the delivery appointment"),
         ],
         "external_refs": {},
     },
@@ -424,11 +889,14 @@ VISITOR_NOTIFICATIONS = [
     ("Software Team", "Audit endpoints for IDOR", "card_moved", None),
     ("Software Team", "Investigate flaky concurrent-moves test", "stale", None),
     ("Software Team", "Add keyboard shortcut to create a card", "due_soon", None),
-    ("Marketing Campaigns", "Spring launch email sequence", "mentioned", None),
-    ("Marketing Campaigns", "Product Hunt launch plan", "due_soon", None),
-    ("Marketing Campaigns", "Referral program landing page", "assigned", "admin"),
-    ("Hiring Pipeline", "Sam K. - Staff Engineer", "mentioned", None),
-    ("Hiring Pipeline", "Dana C. - Sales Lead", "stale", None),
-    ("Hiring Pipeline", "Priya S. - Senior Backend Engineer", "card_moved", None),
-    ("Hiring Pipeline", "Lucia F. - Product Designer", "comment_added", None),
+    ("Property Management", "No heat in bedroom radiator", "mentioned", None),
+    ("Property Management", "Mice reported in basement storage", "stale", None),
+    ("Construction", "Structural steel delivery delayed", "due_soon", None),
+    ("Construction", "Change order: add exam room sink", "card_moved", None),
+    ("Sales Territory", "Procurement redlines on the MSA", "comment_added", None),
+    ("Sales Territory", "Renewal: store operations workspace", "assigned", "admin"),
+    ("Content Moderation", "Harassment reports on a pinned comment", "mentioned", None),
+    ("Content Moderation", "Listing photo shows a weapon", "stale", None),
+    ("Logistics Exceptions", "Temperature excursion during transfer", "due_soon", None),
+    ("Logistics Exceptions", "Pallet damaged at cross-dock", "comment_added", None),
 ]

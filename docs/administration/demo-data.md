@@ -85,16 +85,32 @@ The `@visiban.example` domain is deliberately not a real domain. If you need to 
 python manage.py seed_demo_data --force --wipe --demo-site
 ```
 
+`--wipe` deletes the showcase boards before recreating them. It also deletes the Marketing Campaigns and Hiring Pipeline boards that releases before #1389 seeded, so reseeding an older demo database does not leave them behind.
+
 It creates, alongside the normal demo board:
 
-- **Software Team** (Backlog / In Progress / Review / Done), **Marketing Campaigns**, and **Hiring Pipeline** boards, 20 cards each, with comments, assignees, labels, and movement history. Each board also shows off (#1363):
-    - partly done **checklists** — a release checklist on Software Team, interview loops on Hiring Pipeline
-    - **card custom fields** with values on most cards, at least one pinned to the card face — Story points and Target release; Budget and Channel; Source, Interview score and Offer stage
-    - **swimlane custom fields** — one visible to everyone and one admin-only per board (for example Hiring Pipeline's Salary band)
-    - **card relations** — a few blocks / relates-to pairs, including at least one card still blocked by unfinished work
-    - on Software Team, linked GitLab and GitHub **merge / pull requests** (fictional `*.example.com` URLs)
-    - a realistic **age mix**: most cards moved in the last few days, a few aging and a few stale, with due dates that are overdue, due today, upcoming, or unset. Stale and overdue cards are always in-flight work, never in the Done column. Ages are counted back from the day of the reset, so the mix looks the same after every reset
-- a seeded **notification inbox** for the published visitor: twelve unread notifications across the three boards (@mentions, assignments, card moves, a new comment, and stale and due-soon alerts), each from another account or from the system, never from the visitor. The demo fence refuses marking notifications read, so they stay unread until the next reset
+- six showcase boards, each a different workflow with a different **swimlane entity** (#1389). The swimlane is the thing being managed (a property, a project, an account), with its own fields pinned to the row header:
+
+    | Board | Swimlane is a… | Pinned row fields | On the cards | Question it answers |
+    |---|---|---|---|---|
+    | **Software Team** | service area | Service tier, Cost center | Story points, Target release | The familiar baseline |
+    | **Property Management** | property | Property manager, Region, Unit count | Unit, Vendor, Cost estimate; issue-type labels (Plumbing, Electrical, HVAC, Pest, Appliance, Turnover) | Which properties have unresolved work? |
+    | **Construction** | project | Project manager, Region, Phase | Subcontractor, Permit #, permit portal link; due dates | What is going to delay the project? |
+    | **Sales Territory** | account | AE, SA, Region | Deal value, CRM record link, Stage | Which accounts are not getting attention? |
+    | **Content Moderation** | content queue | Moderator lead, Region, Policy tier | Report reasons (multi-select), Reporter count | What has waited longest for review? |
+    | **Logistics Exceptions** | shipment | Carrier, Lane, Customer | Exception type, ETA, tracking link | Which shipments need intervention? |
+
+    Software Team has 20 cards and the other five boards 16 each, with comments, assignees, labels, and movement history. Each board also shows off (#1363):
+
+    - partly done **checklists**, such as a release checklist on Software Team and inspection steps on Construction
+    - **card custom fields** with values on most cards, at most two pinned to the card face. They use number formatting (a `$` prefix on Cost estimate and Deal value), colored dropdown and multi-select choices, URL fields and a date field (#1390, #1391)
+    - **swimlane custom fields**: on the five new boards, three pinned row fields that the visitor can see, with a different value on every row, plus one admin-only field (for example Sales Territory's Executive sponsor). Software Team keeps one public field and one admin-only field
+    - **card relations**: a few blocks / relates-to pairs, including at least one card still blocked by unfinished work
+    - on Software Team, linked GitLab and GitHub **merge / pull requests**
+    - a realistic **age mix**: most cards moved in the last few days, a few aging and a few stale, with due dates that are overdue, due today, upcoming, or unset. Stale and overdue cards are always in-flight work, never in the Done column. Ages, due dates and the Logistics ETAs are counted from the day of the reset, so the mix looks the same after every reset
+
+    Every link (merge requests, permit portals, CRM records, tracking pages) points at a fictional `*.example.com` address. The links are decorative; they do not imply an integration. All names, companies and accounts are fictional.
+- a seeded **notification inbox** for the published visitor: fifteen unread notifications across the six boards (@mentions, assignments, card moves, new comments, and stale and due-soon alerts), each from another account or from the system, never from the visitor. The demo fence refuses marking notifications read, so they stay unread until the next reset
 - the **published visitor** account (username from `DEMO_LOGIN_USERNAME`, default `visitor`; password from `DEMO_LOGIN_PASSWORD`) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While `DEMO_MODE` is on, this one account may also edit and archive cards other people created (every seeded card belongs to the admin); that exception is read from the setting at request time, so it disappears the moment `DEMO_MODE` is turned off rather than living on as a stored permission
 - a site **admin** account (`admin`, password from `DEMO_ADMIN_PASSWORD`, **never published**) that owns the seeded boards
 - two member accounts, `maya` and `jordan` (password from `DEMO_MEMBER_PASSWORD`)

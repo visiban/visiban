@@ -59,12 +59,15 @@ Usage:
 
     python manage.py seed_demo_data --force --wipe --demo-site
         Hosted demo instance (#1034, try.visiban.com). In addition to the
-        normal demo board, seeds Software / Marketing / Hiring boards
-        (20 cards each, with comments, assignees, labels, movement history,
-        checklists, card and swimlane custom fields, card relations and, on
-        Software, MR/PR links; #1363 also gives them a fresh/aging/stale and
-        due-date mix and seeds the visitor's notification inbox) plus a site admin, the published visitor account and two
-        member accounts. Passwords come from the DEMO_LOGIN_PASSWORD
+        normal demo board, seeds six showcase boards, each with a different
+        swimlane entity (#1389): Software Team, Property Management,
+        Construction, Sales Territory, Content Moderation and Logistics
+        Exceptions (16-20 cards each, with comments, assignees, labels,
+        movement history, checklists, card and swimlane custom fields, card
+        relations and, on Software Team, MR/PR links; #1363 also gives them a
+        fresh/aging/stale and due-date mix and seeds the visitor's
+        notification inbox) plus a site admin, the published visitor account
+        and two member accounts. Passwords come from the DEMO_LOGIN_PASSWORD
         (visitor, published), DEMO_ADMIN_PASSWORD (admin, never published) and
         DEMO_MEMBER_PASSWORD environment variables (never from source); the
         command refuses to run without all three. #1179: the visitor is a
@@ -94,9 +97,11 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from accounts.models import SiteSetting, User
 from boards.notifications_email import suppress_notification_email
+from boards.serializers import _normalize_custom_field_value
 from boards.services.notifications import quoted_card_verb
 from boards.models import (
     Board,
@@ -124,6 +129,7 @@ from groups.models import Group, GroupInviteLink, GroupLabel
 from ._demo_site_data import (
     BOARDS as DEMO_SITE_BOARDS,
     DEMO_SITE_USERS,
+    RETIRED_BOARD_NAMES as RETIRED_DEMO_SITE_BOARD_NAMES,
     VISITOR_NOTIFICATIONS as DEMO_SITE_VISITOR_NOTIFICATIONS,
 )
 
@@ -547,9 +553,10 @@ class Command(BaseCommand):
             "--demo-site",
             action="store_true",
             help=(
-                "Also seed the hosted-demo content (#1034): Software, Marketing "
-                "and Hiring boards plus a site admin, the published visitor "
-                "account and two member accounts. Passwords are read from "
+                "Also seed the hosted-demo content (#1034, #1389): six showcase "
+                "boards (Software Team, Property Management, Construction, Sales "
+                "Territory, Content Moderation, Logistics Exceptions) plus a site "
+                "admin, the published visitor account and two member accounts. Passwords are read from "
                 "DEMO_LOGIN_PASSWORD / DEMO_ADMIN_PASSWORD / "
                 "DEMO_MEMBER_PASSWORD. Off by default — the default output "
                 "(and the committed --export snapshot) is unchanged."
@@ -817,12 +824,14 @@ class Command(BaseCommand):
         production guard already ran in ``_seed``.
         """
         if options["wipe"]:
-            Board.objects.filter(name__in=[b["name"] for b in DEMO_SITE_BOARDS]).delete()
+            Board.objects.filter(
+                name__in=[b["name"] for b in DEMO_SITE_BOARDS] + list(RETIRED_DEMO_SITE_BOARD_NAMES)
+            ).delete()
 
         users = self._ensure_demo_site_users()
         self._lock_down_site_settings()
-        # Let the demo accounts see the main demo board too, so a first login
-        # lands on more than the three new boards.
+        # Let the demo accounts see the main demo board too, alongside the
+        # showcase boards.
         main = Board.objects.filter(name=BOARD_NAME).first()
         if main:
             for key, user in users.items():
@@ -1031,31 +1040,40 @@ class Command(BaseCommand):
         """
         admin = users["admin"]
         definitions = {}
-        for pos, (name, field_type, choices, show_on_card, help_text) in enumerate(spec["card_fields"]):
+        for pos, (name, field_type, choices, show_on_card, help_text, *display) in enumerate(spec["card_fields"]):
             definitions[name] = CustomFieldDefinition.objects.create(
                 board=board, name=name, field_type=field_type, choices_json=list(choices),
                 position=pos, show_on_card=show_on_card, help_text=help_text,
+                **(display[0] if display else {}),
             )
         for title, values in spec["card_field_values"].items():
             for name, value in values.items():
+                definition = definitions[name]
                 CustomFieldValue.objects.create(
-                    card=cards[title], field_definition=definitions[name], value=value,
+                    card=cards[title], field_definition=definition,
+                    value=self._demo_site_field_value(definition, value),
                 )
 
         # Same shape as _create_swimlane_custom_fields on the generic board: a
         # public field everyone sees plus an admin-only one, so both visibility
-        # modes are on show.
+        # modes are on show. Row fields the visitor must see (#1389) carry
+        # is_admin_only=False explicitly: the model default is True.
         row_definitions = {}
-        for pos, (name, field_type, choices, show_on_row, admin_only, help_text) in enumerate(spec["swimlane_fields"]):
+        for pos, (name, field_type, choices, show_on_row, admin_only, help_text, *display) in enumerate(
+            spec["swimlane_fields"]
+        ):
             row_definitions[name] = SwimlaneCustomFieldDefinition.objects.create(
                 board=board, name=name, field_type=field_type, choices_json=list(choices),
                 position=pos, show_on_row=show_on_row, is_admin_only=admin_only, help_text=help_text,
+                **(display[0] if display else {}),
             )
         lanes_by_name = {lane.name: lane for lane in lanes}
         for lane_name, values in spec["swimlane_field_values"].items():
             for name, value in values.items():
+                definition = row_definitions[name]
                 SwimlaneCustomFieldValue.objects.create(
-                    swimlane=lanes_by_name[lane_name], field_definition=row_definitions[name], value=value,
+                    swimlane=lanes_by_name[lane_name], field_definition=definition,
+                    value=self._demo_site_field_value(definition, value),
                 )
 
         for title, items in spec["checklists"].items():
@@ -1083,6 +1101,23 @@ class Command(BaseCommand):
             # validators themselves.
             link.full_clean()
             link.save()
+
+    @staticmethod
+    def _demo_site_field_value(definition, value):
+        """Return the stored form of one spec value, validated like an API write.
+
+        Runs the API's own normalizer (#1389) so a URL, number, date or
+        multi-select value the API would refuse fails the seed instead of
+        reaching the demo, and a multi-select list is stored in its canonical
+        JSON encoding. A ``days_from_today(n)`` marker becomes an ISO date
+        relative to the day of the reset.
+        """
+        if isinstance(value, tuple) and value[:1] == ("days_from_today",):
+            value = (timezone.localdate() + datetime.timedelta(days=value[1])).isoformat()
+        try:
+            return _normalize_custom_field_value(definition, value)
+        except DRFValidationError as exc:
+            raise CommandError(f"Demo field {definition.name!r} rejects {value!r}: {exc.detail}") from None
 
     def _create_demo_site_notifications(self, seeded, users):
         """Seed the published visitor's inbox (#1363); return the row count.
