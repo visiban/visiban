@@ -3854,10 +3854,6 @@ in <code>sonar-project.properties</code>:</p>
 <td>Repo tooling (CI gate scripts, release helpers). None of it ships in an image or bundle, and no test runner instruments it</td>
 </tr>
 <tr>
-<td><code>backend/**/management/commands/seed_*</code></td>
-<td>Demo and template data generators, run by hand</td>
-</tr>
-<tr>
 <td><code>backend/factories.py</code></td>
 <td>Test-data factory module</td>
 </tr>
@@ -3972,7 +3968,7 @@ README badge shows. Check the <code>coverage:</code> lines in <code>.gitlab-ci.y
 <tr>
 <td>Denominator</td>
 <td>Whatever each tool reports: everything <code>backend/.coveragerc</code> does not omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side</td>
-<td>Product source only: tests, migrations, scripts, seed commands, and factories are excluded</td>
+<td>Product source only: tests, migrations, scripts, seed-data generators, and factories are excluded</td>
 </tr>
 <tr>
 <td>Updates</td>
