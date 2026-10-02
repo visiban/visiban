@@ -120,6 +120,28 @@ describe('CardItem — MR/PR badge (#352)', () => {
     expect(screen.getByText('acme/web#13')).toBeInTheDocument()
   })
 
+  it('clips its own text instead of bleeding onto the next element (#1411)', () => {
+    // Same defect class as the custom-field chips: a `truncate` span with no
+    // `min-w-0` never actually shrinks inside a flex row, and a badge with a
+    // `max-w` but no `overflow-hidden` lets that overflow bleed onto whatever
+    // renders next. shrink-0 stays here deliberately (this badge is first in
+    // the row precisely so it's never hidden by the row's clip) — only the
+    // bleed is being fixed.
+    render(<CardItem card={makeCard()} density="standard" />)
+    const link = screen.getByRole('link', { name: 'acme/web#12, GitHub, opens in new tab' })
+    expect(link).toHaveClass('overflow-hidden')
+    const refSpan = screen.getByText('acme/web#12')
+    expect(refSpan).toHaveClass('truncate', 'min-w-0')
+  })
+
+  it('clips its own text instead of bleeding onto the next element for a non-http (img role) ref too (#1411)', () => {
+    render(<CardItem card={makeCard({ external_ref: { ...GH, url: 'javascript:alert(1)' } })} density="standard" />)
+    const badge = screen.getByRole('img', { name: 'acme/web#12, GitHub' })
+    expect(badge).toHaveClass('overflow-hidden')
+    const refSpan = screen.getByText('acme/web#12')
+    expect(refSpan).toHaveClass('truncate', 'min-w-0')
+  })
+
   it('lists the ref as plain text in the peek popover', async () => {
     vi.useFakeTimers()
     const { container } = render(<CardItem card={makeCard()} density="comfortable" />)

@@ -47,7 +47,7 @@ export default function MultiSelectChips({ entries, definition, max, wrap = fals
         return (
           <span
             key={entry}
-            className={`text-xs px-1.5 py-0.5 rounded truncate bg-surface-hover text-fg-secondary ${width}`}
+            className={`text-xs px-1.5 py-0.5 rounded truncate bg-surface-hover text-fg-secondary min-w-0 ${width}`}
             title={entry}
           >
             {entry}
