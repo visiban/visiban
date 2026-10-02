@@ -1,0 +1,1 @@
+Accepted the `braces` stack-exhaustion advisory (GHSA-vfj7-8cjw-p6xm) in `frontend/osv-scanner.toml` with an expiring ignore (until 2026-11-30), unblocking the `dep-scan-osv` gate. No patched release exists; `braces` is a dev-only, build-time transitive of Tailwind and is not shipped in the production bundle.
