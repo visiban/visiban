@@ -60,8 +60,11 @@ backend/htmlcov/
 backend/.schemathesis/
 backend/schemathesis-report/
 
-# SonarQube analysis cache
+# SonarQube analysis cache and local scanner working directory (#1369) — the
+# latter is created by a developer running `sonar-scanner` by hand; CI's
+# sonar:scan job runs in an ephemeral workspace that is never committed.
 .sonar/
+.scannerwork/
 
 # MkDocs generated site
 site/
