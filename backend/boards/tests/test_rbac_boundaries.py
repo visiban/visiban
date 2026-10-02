@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, BoardMembership, Card, CardAttachment, Column, Swimlane
+from boards.tests.conftest import assert_denied_write_noop
 
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
@@ -36,10 +37,11 @@ class ViewerPermissionBoundaryTests(TestCase):
         self.client.force_authenticate(self.viewer)
 
     def test_viewer_cannot_create_card(self):
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/",
-            {"title": "Sneaky Card", "column": self.col.pk, "swimlane": self.swim.pk},
-        )
+        with assert_denied_write_noop(self):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/",
+                {"title": "Sneaky Card", "column": self.col.pk, "swimlane": self.swim.pk},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_move_card(self):
@@ -47,10 +49,11 @@ class ViewerPermissionBoundaryTests(TestCase):
             board=self.board, column=self.col, swimlane=self.swim,
             title="Immovable", created_by=self.owner, position=0,
         )
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
-            {"column_id": self.col2.pk, "swimlane_id": self.swim.pk, "position": 0},
-        )
+        with assert_denied_write_noop(self, target=card):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
+                {"column_id": self.col2.pk, "swimlane_id": self.swim.pk, "position": 0},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_update_card(self):
@@ -58,10 +61,11 @@ class ViewerPermissionBoundaryTests(TestCase):
             board=self.board, column=self.col, swimlane=self.swim,
             title="Protected", created_by=self.owner, position=0,
         )
-        resp = self.client.patch(
-            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
-            {"title": "Changed"},
-        )
+        with assert_denied_write_noop(self, target=card):
+            resp = self.client.patch(
+                f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
+                {"title": "Changed"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_delete_card(self):
@@ -69,23 +73,26 @@ class ViewerPermissionBoundaryTests(TestCase):
             board=self.board, column=self.col, swimlane=self.swim,
             title="Undeletable", created_by=self.owner, position=0,
         )
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
-        )
+        with assert_denied_write_noop(self, target=card):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_create_column(self):
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/columns/",
-            {"name": "New Column", "position": 99},
-        )
+        with assert_denied_write_noop(self, extra_models=(Column,)):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/columns/",
+                {"name": "New Column", "position": 99},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_create_swimlane(self):
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/swimlanes/",
-            {"name": "New Swimlane"},
-        )
+        with assert_denied_write_noop(self, extra_models=(Swimlane,)):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/swimlanes/",
+                {"name": "New Swimlane"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -103,36 +110,41 @@ class CollaboratorPermissionBoundaryTests(TestCase):
         self.client.force_authenticate(self.collab)
 
     def test_collaborator_cannot_edit_column(self):
-        resp = self.client.patch(
-            f"/api/v1/boards/{self.board.pk}/columns/{self.col.pk}/",
-            {"name": "Renamed Column"},
-        )
+        with assert_denied_write_noop(self, target=self.col):
+            resp = self.client.patch(
+                f"/api/v1/boards/{self.board.pk}/columns/{self.col.pk}/",
+                {"name": "Renamed Column"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_delete_column(self):
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/columns/{self.col.pk}/",
-        )
+        with assert_denied_write_noop(self, target=self.col, extra_models=(Column,)):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/columns/{self.col.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_delete_swimlane(self):
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/swimlanes/{self.swim.pk}/",
-        )
+        with assert_denied_write_noop(self, target=self.swim, extra_models=(Swimlane,)):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/swimlanes/{self.swim.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_edit_swimlane(self):
-        resp = self.client.patch(
-            f"/api/v1/boards/{self.board.pk}/swimlanes/{self.swim.pk}/",
-            {"name": "Renamed Swimlane"},
-        )
+        with assert_denied_write_noop(self, target=self.swim):
+            resp = self.client.patch(
+                f"/api/v1/boards/{self.board.pk}/swimlanes/{self.swim.pk}/",
+                {"name": "Renamed Swimlane"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_create_card(self):
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/",
-            {"title": "Blocked Card", "column": self.col.pk, "swimlane": self.swim.pk},
-        )
+        with assert_denied_write_noop(self):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/",
+                {"title": "Blocked Card", "column": self.col.pk, "swimlane": self.swim.pk},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_move_card(self):
@@ -140,10 +152,11 @@ class CollaboratorPermissionBoundaryTests(TestCase):
             board=self.board, column=self.col, swimlane=self.swim,
             title="Stuck", created_by=self.owner, position=0,
         )
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
-            {"column_id": self.col2.pk, "swimlane_id": self.swim.pk, "position": 0},
-        )
+        with assert_denied_write_noop(self, target=card):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
+                {"column_id": self.col2.pk, "swimlane_id": self.swim.pk, "position": 0},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -163,18 +176,18 @@ class MemberCardOwnershipTests(TestCase):
             is_moderator=True,
         )
 
-    @patch(PATCH_BROADCAST)
-    def test_member_cannot_edit_card_created_by_another(self, _mock):
+    def test_member_cannot_edit_card_created_by_another(self):
         card = Card.objects.create(
             board=self.board, column=self.col, swimlane=self.swim,
             title="Owner Card", created_by=self.owner, position=0,
         )
         client = APIClient()
         client.force_authenticate(self.member)
-        resp = client.patch(
-            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
-            {"title": "Hijacked"},
-        )
+        with assert_denied_write_noop(self, target=card):
+            resp = client.patch(
+                f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
+                {"title": "Hijacked"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch(PATCH_BROADCAST)
@@ -240,16 +253,18 @@ class SiteAdminMembershipProtectionTests(TestCase):
         self.client.force_authenticate(self.admin)
 
     def test_board_admin_cannot_remove_site_admin(self):
-        resp = self.client.delete(
-            f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/",
-        )
+        with assert_denied_write_noop(self, extra_models=(BoardMembership,)):
+            resp = self.client.delete(
+                f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/",
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_board_admin_cannot_change_site_admin_role(self):
-        resp = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/members/",
-            {"user_id": self.site_admin.pk, "role": "viewer"},
-        )
+        with assert_denied_write_noop(self, extra_models=(BoardMembership,)):
+            resp = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/members/",
+                {"user_id": self.site_admin.pk, "role": "viewer"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_can_access_all_content_only_caller_cannot_remove_site_admin(self):
@@ -260,7 +275,8 @@ class SiteAdminMembershipProtectionTests(TestCase):
         caller.save()
         client = APIClient()
         client.force_authenticate(caller)
-        resp = client.delete(f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/")
+        with assert_denied_write_noop(self, extra_models=(BoardMembership,)):
+            resp = client.delete(f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_can_access_all_content_only_caller_cannot_change_site_admin_role(self):
@@ -270,10 +286,11 @@ class SiteAdminMembershipProtectionTests(TestCase):
         caller.save()
         client = APIClient()
         client.force_authenticate(caller)
-        resp = client.post(
-            f"/api/v1/boards/{self.board.pk}/members/",
-            {"user_id": self.site_admin.pk, "role": "viewer"},
-        )
+        with assert_denied_write_noop(self, extra_models=(BoardMembership,)):
+            resp = client.post(
+                f"/api/v1/boards/{self.board.pk}/members/",
+                {"user_id": self.site_admin.pk, "role": "viewer"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch(PATCH_BROADCAST)
@@ -346,12 +363,14 @@ class SiteAdminMembershipProtectionTests(TestCase):
         )
         client = APIClient()
         client.force_authenticate(caller)
-        resp = client.post(
-            f"/api/v1/boards/{self.board.pk}/members/",
-            {"user_id": self.site_admin.pk, "role": "viewer"},
-        )
+        with assert_denied_write_noop(self, extra_models=(BoardMembership,)):
+            resp = client.post(
+                f"/api/v1/boards/{self.board.pk}/members/",
+                {"user_id": self.site_admin.pk, "role": "viewer"},
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        resp = client.delete(f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/")
+        with assert_denied_write_noop(self, extra_models=(BoardMembership,)):
+            resp = client.delete(f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch(PATCH_BROADCAST)
@@ -414,20 +433,23 @@ class ViewerCannotPatchBoardTests(TestCase):
     def test_viewer_cannot_patch_board(self):
         client = APIClient()
         client.force_authenticate(self.viewer)
-        resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Hacked Name"})
+        with assert_denied_write_noop(self, target=self.board):
+            resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Hacked Name"})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_member_cannot_patch_board(self):
         """Members can edit cards but not board-level settings."""
         client = APIClient()
         client.force_authenticate(self.member)
-        resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Member Renamed"})
+        with assert_denied_write_noop(self, target=self.board):
+            resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Member Renamed"})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_patch_board(self):
         client = APIClient()
         client.force_authenticate(self.collab)
-        resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Collab Renamed"})
+        with assert_denied_write_noop(self, target=self.board):
+            resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Collab Renamed"})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_admin_can_patch_board(self):
@@ -466,17 +488,15 @@ class CollaboratorAttachmentOwnershipTests(TestCase):
             uploaded_by=uploaded_by,
         )
 
-    @patch("boards.broadcast.broadcast_board_event")
-    def test_collaborator_cannot_delete_another_users_attachment(self, _mock):
+    def test_collaborator_cannot_delete_another_users_attachment(self):
         attachment = self._make_attachment(uploaded_by=self.other_member)
         client = APIClient()
         client.force_authenticate(self.collab)
-        resp = client.delete(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
-        )
+        with assert_denied_write_noop(self, target=attachment):
+            resp = client.delete(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        # Attachment must not have been deleted
-        self.assertTrue(CardAttachment.objects.filter(pk=attachment.pk).exists())
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_can_delete_own_attachment(self, _mock):
@@ -518,16 +538,15 @@ class MemberAttachmentOwnershipTests(TestCase):
             card=self.card, file=f, filename="test.txt", size=5, uploaded_by=uploaded_by,
         )
 
-    @patch(PATCH_BROADCAST)
-    def test_member_cannot_delete_another_users_attachment(self, _mock):
+    def test_member_cannot_delete_another_users_attachment(self):
         attachment = self._make_attachment(uploaded_by=self.other_member)
         client = APIClient()
         client.force_authenticate(self.member)
-        resp = client.delete(
-            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
-        )
+        with assert_denied_write_noop(self, target=attachment):
+            resp = client.delete(
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+            )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertTrue(CardAttachment.objects.filter(pk=attachment.pk).exists())
 
     @patch(PATCH_BROADCAST)
     def test_member_can_delete_own_attachment(self, _mock):

@@ -8,6 +8,11 @@ Migrate per-file ``_make_*`` helper functions to use these factories incremental
 Files migrated so far: test_card_move, test_rbac, test_wip_enforcement (#557).
 """
 
+from contextlib import contextmanager
+from unittest.mock import patch
+
+from django.forms.models import model_to_dict
+
 try:
     import pytest
     _PYTEST_AVAILABLE = True
@@ -15,7 +20,19 @@ except ImportError:
     _PYTEST_AVAILABLE = False
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane, Card
+from boards.models import (
+    Board,
+    BoardEvent,
+    BoardMembership,
+    Card,
+    CardActivity,
+    CardAttachment,
+    CardChecklist,
+    CardComment,
+    CardMovement,
+    Column,
+    Swimlane,
+)
 
 # ---------------------------------------------------------------------------
 # Importable factory helpers (usable directly from TestCase setUp)
@@ -94,6 +111,111 @@ def _make_membership(board, user, role="member"):
         membership.role = role
         membership.save(update_fields=["role"])
     return membership
+
+
+# ---------------------------------------------------------------------------
+# RBAC denied-write assertions (#1402)
+# ---------------------------------------------------------------------------
+#
+# A bare `assertEqual(resp.status_code, 403)` only proves the *response* was
+# rejected. A regression that mutates state, records a CardMovement, writes a
+# CardActivity/BoardEvent row, or broadcasts an event and *then* returns 403
+# would pass every test in the RBAC matrix unnoticed. The movement audit
+# trail is the product's differentiator, so this is the highest-value gap a
+# permission test can leave open.
+
+PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
+
+# The row counts checked on every call. CardActivity and CardMovement are the
+# two audit-trail tables; BoardEvent is the persisted feed row a broadcast is
+# derived from (see boards.broadcast.broadcast_board_event and
+# boards.services.cards._broadcast_after_commit).
+_DENIED_WRITE_COUNT_MODELS = (
+    Card,
+    CardComment,
+    CardAttachment,
+    CardChecklist,
+    CardMovement,
+    CardActivity,
+    BoardEvent,
+)
+
+
+def _denied_write_counts(extra_models=None):
+    models = _DENIED_WRITE_COUNT_MODELS + tuple(extra_models or ())
+    return {m.__name__: m.objects.count() for m in models}
+
+
+def _denied_write_target_snapshot(target):
+    """Return a comparable snapshot of *target*'s persisted fields.
+
+    Returns the sentinel string ``"<deleted>"`` if the row no longer exists,
+    so a denied delete that actually ran is caught as a mutation rather than
+    raising ``DoesNotExist`` out of the helper.
+
+    Limitation: ``model_to_dict()`` skips non-editable fields, so a denied
+    write that silently re-saved the row touching only a non-editable field
+    (e.g. an ``auto_now=True`` ``updated_at`` with no other change, and no
+    row-count change) would not be caught here or by the count check.
+    """
+    if target is None:
+        return None
+    model_cls = type(target)
+    try:
+        fresh = model_cls.objects.get(pk=target.pk)
+    except model_cls.DoesNotExist:
+        return "<deleted>"
+    return model_to_dict(fresh)
+
+
+@contextmanager
+def assert_denied_write_noop(testcase, *, target=None, extra_models=None):
+    """Assert that a denied (expected-403) write request changed nothing.
+
+    Wrap only the client call that is expected to be denied::
+
+        with assert_denied_write_noop(self, target=self.card):
+            resp = self.client.patch(url, {"title": "Changed"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    On exit this asserts:
+
+    * Card / CardComment / CardAttachment / CardChecklist / CardMovement /
+      CardActivity / BoardEvent row counts are unchanged, plus any
+      ``extra_models`` (e.g. ``(Column,)``, ``(Swimlane,)``, ``(Board,)``,
+      ``(BoardMembership,)``) relevant to a non-card endpoint.
+    * *target*'s persisted fields (if given) are unchanged — including the
+      case where it was deleted outright.
+    * ``boards.broadcast.broadcast_board_event`` was never invoked — even
+      after any queued ``transaction.on_commit`` callbacks are flushed, so a
+      view that defers its broadcast cannot slip past a bare
+      ``assert_not_called()`` taken before the callbacks ever ran.
+
+    ``testcase`` must be a ``django.test.TestCase`` (this uses its
+    ``captureOnCommitCallbacks``). The caller is still responsible for
+    asserting the response status itself — this only proves the request was
+    a true no-op.
+    """
+    counts_before = _denied_write_counts(extra_models)
+    target_before = _denied_write_target_snapshot(target)
+
+    with patch(PATCH_BROADCAST) as mock_broadcast:
+        with testcase.captureOnCommitCallbacks(execute=True):
+            yield mock_broadcast
+        mock_broadcast.assert_not_called()
+
+    testcase.assertEqual(
+        _denied_write_counts(extra_models),
+        counts_before,
+        "Denied write changed a persisted row count "
+        "(see assert_denied_write_noop in boards/tests/conftest.py)",
+    )
+    if target is not None:
+        testcase.assertEqual(
+            _denied_write_target_snapshot(target),
+            target_before,
+            f"Denied write mutated {type(target).__name__} pk={getattr(target, 'pk', None)}",
+        )
 
 
 # ---------------------------------------------------------------------------
