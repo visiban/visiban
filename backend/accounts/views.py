@@ -11,6 +11,7 @@ from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from allauth.account.adapter import get_adapter
+from allauth.account.app_settings import EMAIL_VERIFICATION, EmailVerificationMethod
 from allauth.account.views import EmailView as AllauthEmailView
 from allauth.account.views import SignupView as AllauthSignupView
 from dj_rest_auth.registration.views import RegisterView
@@ -22,6 +23,7 @@ from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from dj_rest_auth.views import PasswordResetConfirmView as DjRestAuthPasswordResetConfirmView
 from dj_rest_auth.views import PasswordChangeView as DjRestAuthPasswordChangeView
 from dj_rest_auth.views import UserDetailsView as DjRestAuthUserDetailsView
+from dj_rest_auth.serializers import TokenSerializer as DjRestAuthTokenSerializer
 from rest_framework import serializers as drf_serializers
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
@@ -92,9 +94,28 @@ class PasswordResetThrottle(SimpleRateThrottle):
 
 
 class ThrottledPasswordResetView(DjRestAuthPasswordResetView):
-    """dj-rest-auth PasswordResetView with a project-specific rate limit applied."""
+    """dj-rest-auth PasswordResetView with a project-specific rate limit applied.
+
+    Same OpenAPI-schema gap as #1408's TokenRevokingPasswordChangeView:
+    drf-spectacular's RestAuthPasswordResetView fix matches
+    `dj_rest_auth.views.PasswordResetView` by exact class identity, not
+    subclass, so it never applies to this subclass. Without the override
+    below, the generated schema documents the 200 response using
+    PASSWORD_RESET_SERIALIZER's request-only `email` field instead of the
+    real `{"detail": ...}` body.
+    """
 
     throttle_classes = [PasswordResetThrottle]
+
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                name="PasswordResetResponse", fields={"detail": serializers.CharField()}
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
 
 class PasswordResetConfirmThrottle(SimpleRateThrottle):
@@ -114,9 +135,29 @@ class PasswordResetConfirmThrottle(SimpleRateThrottle):
 
 
 class ThrottledPasswordResetConfirmView(DjRestAuthPasswordResetConfirmView):
-    """dj-rest-auth PasswordResetConfirmView with a project-specific rate limit applied."""
+    """dj-rest-auth PasswordResetConfirmView with a project-specific rate limit applied.
+
+    Same OpenAPI-schema gap as #1408's TokenRevokingPasswordChangeView: the
+    drf-spectacular fix for this view matches
+    `dj_rest_auth.views.PasswordResetConfirmView` by exact class identity, not
+    subclass, so it never applies here. Without the override below, the
+    generated schema documents the 200 response using
+    PASSWORD_RESET_CONFIRM_SERIALIZER's request-only fields
+    (new_password1/new_password2/uid/token) instead of the real
+    `{"detail": ...}` body.
+    """
 
     throttle_classes = [PasswordResetConfirmThrottle]
+
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                name="PasswordResetConfirmResponse", fields={"detail": serializers.CharField()}
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
 
 class LoginRateThrottle(SimpleRateThrottle):
@@ -154,9 +195,23 @@ class ThrottledLoginView(DjRestAuthLoginView):
     The per-account lockout lives in ``ACCOUNT_RATE_LIMITS`` / the
     ``accounts.serializers.LoginSerializer`` set as ``REST_AUTH["LOGIN_SERIALIZER"]``
     (#1199) — this throttle only adds the per-IP layer on top.
+
+    Same OpenAPI-schema gap as #1408's TokenRevokingPasswordChangeView:
+    drf-spectacular's RestAuthLoginView fix matches `dj_rest_auth.views.LoginView`
+    by exact class identity, not subclass, so it never applies to this
+    subclass. Without the override below, the generated schema documents the
+    200 response using LOGIN_SERIALIZER's request-only fields
+    (username/email/password) instead of the real response body. Visiban
+    pins REST_AUTH["USE_JWT"] = False with the default TOKEN_MODEL, so the
+    real runtime response is `{"key": "<token>"}` (dj_rest_auth's
+    TokenSerializer) — confirmed by accounts/tests/test_login_by_email.py.
     """
 
     throttle_classes = [LoginRateThrottle]
+
+    @extend_schema(responses={200: DjRestAuthTokenSerializer})
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
 
 class VerifyEmailThrottle(AnonRateThrottle):
@@ -917,11 +972,27 @@ class TokenRevokingPasswordChangeView(DjRestAuthPasswordChangeView):
     must_change_password through the same finalize_password_change() helper.
     """
 
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                name="PasswordChangeResponse", fields={"detail": serializers.CharField()}
+            ),
+        },
+    )
     def post(self, request, *args, **kwargs):
         # The current-password check (#1257) lives in the configured
         # PASSWORD_CHANGE_SERIALIZER, accounts.serializers.VisibanPasswordChangeSerializer.
         # atomic() so the password save and finalize_password_change() commit
         # or roll back together.
+        #
+        # drf-spectacular's dj-rest-auth integration (RestAuthPasswordChangeView,
+        # drf_spectacular/contrib/rest_auth.py) already fixes this exact response
+        # to {"detail": ...} — but it matches `dj_rest_auth.views.PasswordChangeView`
+        # by exact class identity (OpenApiGeneratorExtension.match_subclasses
+        # defaults False), not by subclass, so it never applies to this view.
+        # Without the override above, drf-spectacular falls back to introspecting
+        # PASSWORD_CHANGE_SERIALIZER (VisibanPasswordChangeSerializer, the
+        # *request* shape: new_password1/new_password2) for the response too.
         with transaction.atomic():
             response = super().post(request, *args, **kwargs)
             if response.status_code == status.HTTP_200_OK:
@@ -1003,11 +1074,38 @@ class InviteRegisterView(RegisterView):
 
     In OPEN mode: delegates to the parent RegisterView unchanged.
     In CLOSED mode: adapter.save_user raises PermissionDenied before this runs.
+
+    Same OpenAPI-schema gap as #1408's other dj-rest-auth subclasses:
+    drf-spectacular's RestAuthRegisterView fix matches
+    `dj_rest_auth.registration.views.RegisterView` by exact class identity,
+    not subclass, so it never applies to this subclass. Without the override
+    below, the generated schema documents the 201 response using
+    REGISTER_SERIALIZER's request-only fields (username/email/password1/
+    password2) instead of the real body. Mirrors RestAuthRegisterView's own
+    branching on RegisterView.get_response_data(): EMAIL_VERIFICATION ==
+    MANDATORY returns {"detail": ...}; otherwise (Visiban pins
+    REST_AUTH["USE_JWT"] = False with the default TOKEN_MODEL) the real
+    runtime response is {"key": "<token>"} — confirmed against a live
+    request, matching ThrottledLoginView's fix above.
     """
 
     # Declared at the class level to override the parent RegisterView (which
     # sets no throttle classes) — applies in both OPEN and INVITE_ONLY modes.
     throttle_classes = [RegisterAnonThrottle]
+
+    @extend_schema(
+        responses={
+            201: (
+                inline_serializer(
+                    name="InviteRegisterResponse", fields={"detail": serializers.CharField()}
+                )
+                if EMAIL_VERIFICATION == EmailVerificationMethod.MANDATORY
+                else DjRestAuthTokenSerializer
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
