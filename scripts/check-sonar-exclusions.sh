@@ -60,7 +60,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 ant_to_regex() {
     local g="$1" a=$'\001' b=$'\002'
     printf '%s' "$g" |
-        sed -e 's/[.+^$(){}|]/\\&/g' \
+        sed -e 's/[][\\.+^$(){}|]/\\&/g' \
             -e "s|\\*\\*/|${a}|g" \
             -e "s|\\*\\*|${b}|g" \
             -e 's|\*|[^/]*|g' \
@@ -103,6 +103,10 @@ if [[ "${1:-}" == "--self-test" ]]; then
 $mc.zz.resourceKey=frontend/src/nope/gone.ts"
     run_case "ant-dead-glob" "matches no tracked file" "zz" "$mc.zz.ruleKey=typescript:S1
 $mc.zz.resourceKey=**/est/**"
+    # `Makefil[e]` read as a character class would match the tracked Makefile;
+    # read literally (as Ant does) it matches nothing, so it must be reported dead.
+    run_case "bracket-literal" "matches no tracked file" "zz" "$mc.zz.ruleKey=typescript:S1
+$mc.zz.resourceKey=Makefil[e]"
     run_case "drift-literal" "also contains" "zz" "$mc.zz.ruleKey=typescript:S1
 $mc.zz.resourceKey=frontend/src/components/Board/*.ts"
     run_case "drift-doublestar-prefix" "also contains" "zz" "$mc.zz.ruleKey=typescript:S1
