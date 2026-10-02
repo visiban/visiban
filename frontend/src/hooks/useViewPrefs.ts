@@ -7,7 +7,8 @@ export interface ViewPrefs {
   collapsedColumnIds: number[];
   // Swimlanes the user has explicitly collapsed. Seeded from swimlane.is_collapsed on first load.
   collapsedSwimlaneIds: number[];
-  swimlaneColumnWidth: number;
+  // null = never resized: BoardView sizes the column to its content (#auto-width).
+  swimlaneColumnWidth: number | null;
   columnWidths: Record<number, number>;
   swimlaneHeights: Record<number, number>;
 }
@@ -17,7 +18,7 @@ const DEFAULT_PREFS: ViewPrefs = {
   hiddenSwimlaneIds: [],
   collapsedColumnIds: [],
   collapsedSwimlaneIds: [],
-  swimlaneColumnWidth: 220,
+  swimlaneColumnWidth: null,
   columnWidths: {},
   swimlaneHeights: {},
 };
@@ -40,7 +41,9 @@ function load(boardId: number): ViewPrefs {
       hiddenSwimlaneIds: Array.isArray(parsed.hiddenSwimlaneIds) ? parsed.hiddenSwimlaneIds : [],
       collapsedColumnIds: Array.isArray(parsed.collapsedColumnIds) ? parsed.collapsedColumnIds : [],
       collapsedSwimlaneIds: Array.isArray(parsed.collapsedSwimlaneIds) ? parsed.collapsedSwimlaneIds : [],
-      swimlaneColumnWidth: typeof parsed.swimlaneColumnWidth === "number" ? parsed.swimlaneColumnWidth : 220,
+      // 220 was the old default and was persisted for every user who never dragged the
+      // separator, so it is treated as "never resized" rather than a deliberate choice.
+      swimlaneColumnWidth: typeof parsed.swimlaneColumnWidth === "number" && parsed.swimlaneColumnWidth !== 220 ? parsed.swimlaneColumnWidth : null,
       columnWidths: (typeof parsed.columnWidths === "object" && parsed.columnWidths !== null && !Array.isArray(parsed.columnWidths)) ? parsed.columnWidths as Record<number, number> : {},
       swimlaneHeights: (typeof parsed.swimlaneHeights === "object" && parsed.swimlaneHeights !== null && !Array.isArray(parsed.swimlaneHeights)) ? parsed.swimlaneHeights as Record<number, number> : {},
     };

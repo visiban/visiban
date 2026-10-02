@@ -202,13 +202,13 @@ Which extra field controls you've added via **+ Custom fields**, and the values 
 
 Board admins can also define typed fields on **swimlanes** (rows) instead of cards — a separate per-board schema from the card fields above. Use a swimlane field to capture something that belongs to the row as a whole rather than to any one card on it: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A pinned multi-select swimlane field shows up to three of its picks on the row, wrapping onto further lines.
 
-A board can have up to **15 swimlane fields**, and up to **3 of them pinned** to the swimlane label panel at once.
+A board can have up to **15 swimlane fields**, and up to **8 of them pinned** to the swimlane label panel at once.
 
 ### Managing swimlane fields (Board Settings → Swimlane fields)
 
 Open **Board Settings** and select the **Swimlane fields** tab, beside **Card fields**. Only board admins can create, edit, reorder, pin, or delete swimlane fields.
 
-The tab lists every swimlane field in display order, with the same type glyph, name, type label, and pin state that the Card fields tab uses. The tab header shows a running count, e.g. `12 of 15 · 2 of 3 pinned`. At **13–14 fields**, a warning line shows how many fields are left before **+ Add field** locks out; at **15 fields**, **+ Add field** is disabled with an inline explanation.
+The tab lists every swimlane field in display order, with the same type glyph, name, type label, and pin state that the Card fields tab uses. The tab header shows a running count, e.g. `12 of 15 · 2 of 8 pinned`. At **13–14 fields**, a warning line shows how many fields are left before **+ Add field** locks out; at **15 fields**, **+ Add field** is disabled with an inline explanation.
 
 The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns and multi-selects, the [number format](#number-formatting) options for number fields, and a pin toggle — plus one addition:
 
@@ -219,7 +219,7 @@ The field editor is the same shape as the card field editor — name, type, help
 
 ### Pinned fields in the swimlane label panel
 
-Up to 3 pinned swimlane fields render as chips in the swimlane's label panel — the sticky left column, alongside the swimlane's name — stacked below the row name. They're hidden while the swimlane is collapsed, the same way the rest of the label panel's detail is. If the swimlane has further, unpinned field values set, a trailing `+N` chip opens a read-only popover listing every value the current viewer may see.
+Up to 8 pinned swimlane fields render as chips in the swimlane's label panel — the sticky left column, alongside the swimlane's name — stacked below the row name. They're hidden while the swimlane is collapsed, the same way the rest of the label panel's detail is. If the swimlane has further, unpinned field values set, a trailing `+N` chip opens a read-only popover listing every value the current viewer may see.
 
 ### Editing values (Edit Swimlane modal)
 

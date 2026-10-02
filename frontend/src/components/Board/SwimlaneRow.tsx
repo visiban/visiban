@@ -103,7 +103,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     .map((v) => ({ def: swimlaneFieldsById.get(v.field_definition), value: v.value }))
     .filter((x): x is { def: SwimlaneCustomFieldDefinition; value: string } => !!x.def)
     .sort((a, b) => a.def.position - b.def.position);
-  const pinnedRowFields = rowFieldEntries.filter((x) => x.def.show_on_row).slice(0, 3);
+  const pinnedRowFields = rowFieldEntries.filter((x) => x.def.show_on_row).slice(0, 8);
   const unpinnedRowFields = rowFieldEntries.filter((x) => !x.def.show_on_row);
 
   const startRenaming = () => {
@@ -228,7 +228,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 chips would undo the gesture the user just made. The +N trigger
                 disappears with them, so nothing is silently truncated. */}
             {!collapsed && rowFieldEntries.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1 mt-1 min-w-0">
+              <div className="flex flex-col items-start gap-1 mt-1 min-w-0">
                 {pinnedRowFields.map(({ def, value }) => (
                   <CustomFieldValueDisplay
                     key={def.id}

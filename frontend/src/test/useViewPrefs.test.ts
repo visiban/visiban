@@ -23,7 +23,7 @@ describe('useViewPrefs', () => {
     expect(prefs.hiddenColumnIds).toEqual([])
     expect(prefs.hiddenSwimlaneIds).toEqual([])
     expect(prefs.collapsedColumnIds).toEqual([])
-    expect(prefs.swimlaneColumnWidth).toBe(220)
+    expect(prefs.swimlaneColumnWidth).toBeNull()
   })
 
   it('loads persisted prefs from localStorage', () => {
@@ -140,6 +140,13 @@ describe('useViewPrefs', () => {
     expect(result.current.prefs.swimlaneHeights[1]).toBe(200)
   })
 
+  it('treats a stored legacy 220 as never resized, but keeps a deliberate width', () => {
+    localStorage.setItem(storageKey(), JSON.stringify({ swimlaneColumnWidth: 220 }))
+    expect(renderHook(() => useViewPrefs(BOARD_ID)).result.current.prefs.swimlaneColumnWidth).toBeNull()
+    localStorage.setItem(storageKey(), JSON.stringify({ swimlaneColumnWidth: 310 }))
+    expect(renderHook(() => useViewPrefs(BOARD_ID)).result.current.prefs.swimlaneColumnWidth).toBe(310)
+  })
+
   it('uses board-scoped storage key (different boards are isolated)', () => {
     const { result: r1 } = renderHook(() => useViewPrefs(1))
     const { result: r2 } = renderHook(() => useViewPrefs(2))
@@ -152,7 +159,7 @@ describe('useViewPrefs', () => {
     localStorage.setItem(storageKey(), 'not-json{{{{')
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
     expect(result.current.prefs.hiddenColumnIds).toEqual([])
-    expect(result.current.prefs.swimlaneColumnWidth).toBe(220)
+    expect(result.current.prefs.swimlaneColumnWidth).toBeNull()
   })
 
   it('ignores legacy expandedColumnIds from old localStorage entries', () => {

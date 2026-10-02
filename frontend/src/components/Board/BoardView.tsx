@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { computeAutoSwimlaneWidth } from "../../utils/swimlaneAutoWidth";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
 import { useSearchParams } from "react-router-dom";
@@ -1402,7 +1403,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, [board.columns])();
 
   // Resizable swimlane name column
-  const swimlaneColWidth = viewPrefs.swimlaneColumnWidth;
+  const autoSwimlaneWidth = useMemo(
+    () => computeAutoSwimlaneWidth(board.swimlanes, board.swimlane_custom_field_definitions),
+    [board.swimlanes, board.swimlane_custom_field_definitions],
+  );
+  const swimlaneColWidth = viewPrefs.swimlaneColumnWidth ?? autoSwimlaneWidth;
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
 

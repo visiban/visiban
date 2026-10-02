@@ -658,7 +658,9 @@ class SeedDemoSiteTests(TestCase):
             board = Board.objects.get(name=name)
             self.assertEqual(board.cards.count(), self.spec_card_count(name), name)
             self.assertGreaterEqual(board.cards.count(), 15, name)
-            self.assertEqual(board.columns.count(), 4, name)
+            from boards.management.commands._demo_site_data import BOARDS
+
+            self.assertEqual(board.columns.count(), len(next(b for b in BOARDS if b["name"] == name)["columns"]), name)
             self.assertTrue(board.columns.filter(is_done=True).exists(), name)
             self.assertGreater(board.labels.count(), 0, name)
 
@@ -1055,7 +1057,8 @@ class SeedDemoSiteEntityBoardsTests(TestCase):
         for name in self.ENTITY_BOARDS:
             board = Board.objects.get(name=name)
             pinned = SwimlaneCustomFieldDefinition.objects.filter(board=board, show_on_row=True)
-            self.assertEqual(pinned.count(), SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD, name)
+            self.assertGreaterEqual(pinned.count(), 3, name)
+            self.assertLessEqual(pinned.count(), SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD, name)
             # The model defaults to admin-only; the visitor is a plain member.
             self.assertFalse(pinned.filter(is_admin_only=True).exists(), name)
             for lane in board.swimlanes.all():

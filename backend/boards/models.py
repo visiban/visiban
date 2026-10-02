@@ -996,11 +996,14 @@ class SwimlaneCustomFieldDefinition(models.Model):
     # full-width band — it is a sticky left column, `sidebarWidth ?? 220`px
     # wide, already carrying the drag handle, the name, contact_email and the
     # collapse control. It is narrower than the ~250px card face, not wider.
-    # The cap is 3 rather than the card face's 2 because row chips stack
-    # *vertically* down that column, so three pinned fields cost three lines
+    # The cap is 8 rather than the card face's 2 because row chips stack
+    # *vertically* down that column, so eight pinned fields cost eight lines
     # rather than competing for one line's width. Raising this trades rows
-    # visible on screen for metadata per row.
-    MAX_PINNED_PER_BOARD = 3
+    # visible on screen for metadata per row. It was 3 until #1416 raised it so
+    # the Sales Territory (Overlay) demo can pin AD, AE, OAE, OSA and SVC; 8 is
+    # a deliberately generous interim cap and the right number is to be revisited
+    # in 1.3 (see the follow-up UX issue).
+    MAX_PINNED_PER_BOARD = 8
     # Referenced, not re-chosen. The constraint behind the number is the same
     # one the card model documents: ``scfv_definition_value_idx`` is a btree,
     # and PostgreSQL rejects an index tuple over ~2704 bytes at INSERT time, so
