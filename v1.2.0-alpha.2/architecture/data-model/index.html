@@ -2474,129 +2474,8 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#cardrelation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CardRelation
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#cardexternalref" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CardExternalRef
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#boardevent" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        BoardEvent
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#boardexportlog" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        BoardExportLog
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#boardtemplate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        BoardTemplate
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#savedfilter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SavedFilter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#notification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#invitelink" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        InviteLink
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#grouplabel" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GroupLabel
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#git_lens-app-off-by-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        git_lens app (off by default)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#key-design-decisions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key design decisions
-      
-    </span>
-  </a>
   
 </li>
       
@@ -4115,6 +3994,16 @@ They are typed columns on the <em>definition</em>, not on the value — the valu
 number string, so exports, filtering and the value index are unaffected. They mean
 something only when <code>field_type</code> is <code>number</code>; the serializer rejects them on any other
 type and resets them when a definition is retyped away from <code>number</code> (migration <code>0065</code>).</p>
+<p>Both definition models also carry <code>choice_colors</code> (<code>jsonb</code>, <code>NOT NULL</code>, default <code>'{}'</code>,</p>
+<h1 id="1391-migration-0066-a-choice-text-palette-key-map-giving-dropdown-and">1391, migration <code>0066</code>): a <code>{choice text: palette key}</code> map giving dropdown and<a class="headerlink" href="#1391-migration-0066-a-choice-text-palette-key-map-giving-dropdown-and" title="Permanent link">&para;</a></h1>
+<p>multi-select choices an optional display color. It is a separate column rather than
+objects inside <code>choices_json</code>, so <code>choices</code> stays the plain string list every client,
+export and template already reads. Values are palette <em>keys</em> (<code>slate</code>, <code>blue</code>, <code>green</code>,
+<code>amber</code>, <code>red</code>, <code>violet</code>, <code>pink</code>, <code>teal</code> — <code>CHOICE_COLOR_KEYS</code> in
+<code>boards/custom_field_types.py</code>), never hex, so the frontend owns light/dark rendering and
+contrast. The serializer prunes keys that are no longer choices on every write (renaming
+a choice drops its color) and clears the map when a definition is retyped away from a
+choice type.</p>
 <p>The same shape exists one level up, for swimlanes rather than cards: <code>SwimlaneCustomFieldDefinition</code> / <code>SwimlaneCustomFieldValue</code> (#1140), capped at 15 definitions and 3 pinned per board — a swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a <code>target_type</code> discriminator on the card-level models, so that existing 1.0 response shapes (<code>BoardFullSerializer</code>, the CSV export header, the per-board cap count) never have to filter for scope. <code>is_admin_only</code> (default <code>true</code>) restricts a row field's values to board admins, reusing the existing <code>SwimlaneSerializer</code> / <code>SwimlaneAdminSerializer</code> split.</p>
 <h3 id="cardrelation">CardRelation<a class="headerlink" href="#cardrelation" title="Permanent link">&para;</a></h3>
 <p>A typed, directional link between two cards on the same board (#449): <code>blocks</code> or <code>relates_to</code>. Only one row is stored per pair — <code>outgoing_relations</code> reads it forwards ("blocks"), <code>incoming_relations</code> reads it backwards ("blocked by") — rather than two mirrored rows, so the pair cannot drift out of sync. <code>relates_to</code> is symmetric and normalized at write time (lower card id becomes <code>from_card</code>) so <code>unique_together</code> actually dedupes it. Same-board-only is enforced in the view, not the database (a <code>CheckConstraint</code> cannot span a join); a database <code>CheckConstraint</code> does block self-relations. Longer cycles (A→B→C→A) are deliberately not detected — nothing in v1 walks the graph as an ordering.</p>

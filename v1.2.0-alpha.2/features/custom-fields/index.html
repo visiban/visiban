@@ -1267,6 +1267,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#choice-colors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choice colors
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3978,7 +3989,7 @@
 <li><strong>Type</strong> — one of the seven types above, chosen from a row of buttons</li>
 <li><strong>Help text</strong> — optional hint shown next to the input wherever the field is edited</li>
 <li><strong>Format</strong> (number only) — optional <strong>Prefix</strong>, <strong>Suffix</strong>, and <strong>Decimals</strong>; see <a href="#number-formatting">Number formatting</a> below</li>
-<li><strong>Choices</strong> (dropdown and multi-select) — add rows one at a time with <strong>+ Add choice</strong>, drag to reorder, or click <strong>Paste a list</strong> to bulk-add choices from a newline-separated block of text in one step</li>
+<li><strong>Choices</strong> (dropdown and multi-select) — add rows one at a time with <strong>+ Add choice</strong>, drag to reorder, or click <strong>Paste a list</strong> to bulk-add choices from a newline-separated block of text in one step. The round swatch in front of each choice sets its color — see <a href="#choice-colors">Choice colors</a> below</li>
 <li><strong>Pin to card face</strong> — toggle to add this field's value to the card face (see <a href="#pinned-fields-on-the-card-face">Pinned fields on the card face</a> below)</li>
 </ul>
 <p>Click <strong>Save field</strong> to commit, or <strong>Cancel</strong> to discard.</p>
@@ -4005,7 +4016,7 @@
 <p>Members, collaborators, and viewers see a read-only list of the board's fields — name, type, and pin status — with a banner explaining that only board admins can add or edit fields.</p>
 <hr />
 <h2 id="custom-fields-on-the-card-face">Custom fields on the card face<a class="headerlink" href="#custom-fields-on-the-card-face" title="Permanent link">&para;</a></h2>
-<p>Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format <code>Field name: value</code>. A dropdown value shows a small color dot before the value; a checkbox value shows <strong>Yes</strong> or <strong>No</strong>; a URL value shows just the site's hostname (for example <code>wiki.example.com</code>) as a link; a multi-select value shows up to two of its picks as small chips, with a <code>+N</code> marker for the rest (hover it to see them all). Long values are truncated with an ellipsis; hover the chip to see the full value.</p>
+<p>Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format <code>Field name: value</code>. A dropdown value shows a small color dot before the value, or — if an admin gave its choice a color — a tinted badge (see <a href="#choice-colors">Choice colors</a>); a checkbox value shows <strong>Yes</strong> or <strong>No</strong>; a URL value shows just the site's hostname (for example <code>wiki.example.com</code>) as a link; a multi-select value shows up to two of its picks as small chips, with a <code>+N</code> marker for the rest (hover it to see them all). Long values are truncated with an ellipsis; hover the chip to see the full value.</p>
 <p>An unset pinned field is hidden at <strong>Comfortable</strong> and <strong>Standard</strong> card density (see <a href="../board/#card-density">Card density</a>) to keep the card face uncluttered. At <strong>Dense</strong> density, an unset pinned field shows as a dashed "ghost" chip instead, so power users always see the full set of pinned fields whether or not they're populated.</p>
 <h3 id="quick-edit-from-the-card-face">Quick edit from the card face<a class="headerlink" href="#quick-edit-from-the-card-face" title="Permanent link">&para;</a></h3>
 <p>Checkbox and dropdown chips are directly editable from the card face, without opening the card: click a checkbox chip to toggle it, or click a dropdown chip to open a small popover and pick a new value. The editable affordance is a dotted underline under the value — shown at all times, not just on hover, so it's discoverable without training. Text, number, date, URL, and multi-select fields are not quick-editable from the card face; edit them in the card detail panel. Clicking a URL chip's hostname opens the link in a new tab without opening the card.</p>
@@ -4081,8 +4092,19 @@
 <li><strong>Length</strong> — all of a card's picks together can be at most <strong>500 characters</strong> (the same cap as every other custom field value, measured on the stored form). A selection over the cap is refused, not shortened.</li>
 </ul>
 <h4 id="renaming-or-removing-a-choice">Renaming or removing a choice<a class="headerlink" href="#renaming-or-removing-a-choice" title="Permanent link">&para;</a></h4>
-<p>Renaming or removing a choice on a dropdown or multi-select field <strong>never changes values already on cards or swimlanes</strong>. A card that held the old choice keeps it as text: it still shows on the card (in the same neutral style as every other value), still appears in exports, and still matches nothing in the filter bar's choice list, which only offers current choices.</p>
+<p>Renaming or removing a choice on a dropdown or multi-select field <strong>never changes values already on cards or swimlanes</strong>. A card that held the old choice keeps it as text: it still shows on the card (in the same neutral style as every other value, with no <a href="#choice-colors">choice color</a>), still appears in exports, and still matches nothing in the filter bar's choice list, which only offers current choices.</p>
 <p>In a multi-select's checklist these leftover values are listed under <strong>No longer a choice</strong>, checked. You can keep them while you change the other picks, or uncheck them to drop them — but once dropped, a value that is no longer a choice can't be picked again.</p>
+<h3 id="choice-colors">Choice colors<a class="headerlink" href="#choice-colors" title="Permanent link">&para;</a></h3>
+<p><em>Since 1.2.</em> Each choice on a dropdown or multi-select field can have its own color, so a value like <strong>High</strong> or <strong>Blocked</strong> stands out at a glance. Colors work the same on card fields and <a href="#swimlane-row-custom-fields">swimlane fields</a>.</p>
+<ul>
+<li><strong>Setting a color</strong> — in the field editor, click the round swatch in front of a choice and pick one of eight colors: <strong>Slate</strong>, <strong>Blue</strong>, <strong>Green</strong>, <strong>Amber</strong>, <strong>Red</strong>, <strong>Violet</strong>, <strong>Pink</strong>, or <strong>Teal</strong>. <strong>Reset to automatic</strong> removes it again. The color is saved with the rest of the field when you click <strong>Save field</strong>.</li>
+<li><strong>Automatic</strong> — a choice with no color picked shows the small automatic color dot it always has, so boards created before 1.2 look exactly as they did. In the field editor its swatch is an empty dashed circle labelled <em>Automatic</em>.</li>
+<li><strong>Where it shows</strong> — a colored choice renders as a tinted badge on the card face and in the swimlane label panel (and in the card detail panel and the multi-select picker's selected chips), inside the field's usual bordered chip. The choice's text is always shown — the color is never the only way to read it — and every color meets WCAG AA contrast in both light and dark themes. The list of options you pick from is unchanged.</li>
+<li><strong>Renaming or removing a choice resets its color</strong> — the color belongs to the choice's text, so a renamed choice starts out <em>Automatic</em> again, and a removed choice's color is deleted. Values still stored under the old text (see <a href="#renaming-or-removing-a-choice">Renaming or removing a choice</a>) render neutral.</li>
+<li><strong>Changing the type</strong> — switching a field away from Dropdown or Multi-select clears its colors. Switching between Dropdown and Multi-select keeps them.</li>
+<li><strong>Keyboard</strong> — in the color popover, the arrow keys move between swatches, Space or Enter picks one, and Escape closes just the popover (not Board Settings), as does tabbing out of it.</li>
+<li>Colors are display-only: exports, filters and the API's <code>choices</code> list are unchanged.</li>
+</ul>
 <hr />
 <h2 id="hover-peek">Hover peek<a class="headerlink" href="#hover-peek" title="Permanent link">&para;</a></h2>
 <p>Hovering a card for 600 ms opens the existing <a href="../board/#card-peek">card peek popover</a>. Alongside weight, attachment count, and last-moved information, the peek now lists any <strong>non-pinned</strong> custom field values that have data — so a field's value is never hidden just because it isn't one of the board's 2 pinned slots.</p>
@@ -4167,6 +4189,7 @@
 <li>Swimlane real-time updates — schema changes arrive as <code>swimlane_custom_field.created</code>, <code>swimlane_custom_field.updated</code>, <code>swimlane_custom_field.deleted</code>, and <code>swimlane_custom_field.reordered</code>; value changes arrive on the existing <code>swimlane.updated</code> event — <a href="../../api/websockets/#swimlane-field-events-since-12">WebSockets</a></li>
 <li>Board export (CSV and JSON) includes swimlane field values alongside card field values, with admin-only fields omitted entirely for a non-admin exporter — <a href="../../api/boards/#export-import">Export &amp; Import</a>. In the CSV, a multi-select value is written as its picks joined with <code>;</code> (for example <code>web; ios</code>); the JSON export keeps the stored JSON array string — see <a href="../../api/boards/#multi-select-fields">Multi-select fields</a></li>
 <li>Number formatting options — <code>number_prefix</code>, <code>number_suffix</code>, <code>number_decimals</code> on both definition endpoints; values stay raw on the wire and in exports — see <a href="../../api/boards/#number-formatting">Number formatting</a></li>
+<li>Choice colors — <code>choice_colors</code> (<code>{choice: palette_key}</code>) on both definition endpoints; <code>choices</code> stays a plain list — see <a href="../../api/boards/#choice-colors">Choice colors</a></li>
 </ul>
 <hr />
 <h2 id="limitations-in-this-release">Limitations in this release<a class="headerlink" href="#limitations-in-this-release" title="Permanent link">&para;</a></h2>
@@ -4180,7 +4203,7 @@
 <tbody>
 <tr>
 <td>No conditional coloring</td>
-<td>Custom field values cannot be color-coded by threshold (e.g. red above N)</td>
+<td>Custom field values cannot be color-coded by threshold (e.g. red above N). Only dropdown and multi-select choices can carry a color, a fixed one per choice — see <a href="#choice-colors">Choice colors</a></td>
 </tr>
 <tr>
 <td>No range filtering</td>
