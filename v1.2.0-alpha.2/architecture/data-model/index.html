@@ -4084,7 +4084,8 @@ in). A fourth, <code>git_lens</code>, adds one model but is off by default — s
 <h3 id="customfielddefinition-customfieldvalue">CustomFieldDefinition / CustomFieldValue<a class="headerlink" href="#customfielddefinition-customfieldvalue" title="Permanent link">&para;</a></h3>
 <p>Per-board typed metadata on cards (#371), where a <code>Label</code> is an untyped tag. A
 <code>CustomFieldDefinition</code> is the board-scoped schema — a name, a <code>field_type</code> of <code>text</code> /
-<code>number</code> / <code>date</code> / <code>dropdown</code> / <code>checkbox</code> / <code>url</code>, and for dropdowns a <code>choices_json</code> list;
+<code>number</code> / <code>date</code> / <code>dropdown</code> / <code>checkbox</code> / <code>url</code> / <code>multi_select</code>, and for dropdowns and
+multi-selects a <code>choices_json</code> list;
 a <code>CustomFieldValue</code> is one card's value for one definition, unique per
 <code>(card, field_definition)</code>.</p>
 <p>Three decisions worth knowing before changing either model:</p>
@@ -4093,7 +4094,9 @@ a <code>CustomFieldValue</code> is one card's value for one definition, unique p
   nulls and a schema migration every time a type is added. Casting and validation live at
   the serializer boundary instead, and every value is normalized to a canonical string
   (ISO dates, <code>"true"</code> / <code>"false"</code>) so equality comparisons need not know the type.
-  The <code>url</code> type (#1390) is the proof: it added a validation branch, not a column. Typed
+  The <code>url</code> type (#1390) is the proof: it added a validation branch, not a column, and so
+  did <code>multi_select</code> (#1391), which stores a canonical JSON array <em>string</em> (deduplicated,
+  in choice order — <code>boards/custom_field_types.py</code>) in the same column. Typed
   columns are deferred to the enterprise analytics work that would actually need SUM/AVG.</li>
 <li><strong>EAV with a cap of 30 definitions per board</strong> (and 2 pinned to the card face). The
   <code>/full/</code> endpoint reads every card and every value, so an uncapped field count is a

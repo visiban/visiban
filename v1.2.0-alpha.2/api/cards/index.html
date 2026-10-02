@@ -4592,8 +4592,12 @@ returned can be sent straight back:</p>
   of the definition's current <code>choices</code>, and a <code>checkbox</code> accepts <code>true</code>/<code>false</code>, <code>"true"</code>/
   <code>"false"</code>, <code>"1"</code>/<code>"0"</code> and <code>"yes"</code>/<code>"no"</code> and stores <code>"true"</code> or <code>"false"</code>. A <code>url</code> must
   be an absolute <code>http://</code> or <code>https://</code> URL — see
-  <a href="../boards/#url-fields">URL fields</a>. A value may be at most 500 characters; a longer one
-  (a long URL included) is rejected, not truncated.</li>
+  <a href="../boards/#url-fields">URL fields</a>. A <code>multi_select</code> value is read back as a JSON array
+  <em>string</em> (<code>"[\"web\",\"ios\"]"</code>) and may be written as that string, as an array of
+  strings, or as one plain choice; every entry must be a current choice or one already on
+  the card — see <a href="../boards/#multi-select-fields">Multi-select fields</a>. A value may be at
+  most 500 characters; a longer one (a long URL or a long multi-select included) is
+  rejected, not truncated.</li>
 <li>A <code>field_definition</code> id that does not belong to this card's board is rejected with <code>400</code>,
   as is the same field appearing twice in one payload.</li>
 <li>Setting a value is a card edit: it goes through the same role allow-list and ownership

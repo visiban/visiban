@@ -2580,6 +2580,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#multi-select-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-select fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get-apiv1boardsidcustom-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5377,7 +5388,8 @@
 <p>Since 1.2, one further column is <strong>appended</strong> per <a href="#custom-fields-since-12">custom field</a>
 defined on the board, in the fields' display order, headed <code>Custom: &lt;field name&gt;</code>. The
 fixed columns above keep their positions, so a consumer reading by index is unaffected.
-The prefix keeps a field named e.g. <code>Title</code> from colliding with a built-in header.</p>
+The prefix keeps a field named e.g. <code>Title</code> from colliding with a built-in header.
+A <a href="#multi-select-fields">multi-select</a> value is written as its entries joined with <code>"; "</code>.</p>
 <p>Also since 1.2, one further column is appended per <a href="#swimlane-custom-fields-since-12">swimlane custom
 field</a> defined on the board, after the <code>Custom:</code> block,
 headed <code>Swimlane Custom: &lt;field name&gt;</code>. A row field's value is repeated on every card row
@@ -6369,13 +6381,13 @@ on board load. Card <strong>values</strong> are read and written through the
 <td><code>field_type</code></td>
 <td>string</td>
 <td>no*</td>
-<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code>, <code>"url"</code> (see <a href="#url-fields">URL fields</a>)</td>
+<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code>, <code>"url"</code> (see <a href="#url-fields">URL fields</a>), <code>"multi_select"</code> (see <a href="#multi-select-fields">Multi-select fields</a>)</td>
 </tr>
 <tr>
 <td><code>choices</code></td>
 <td>string[]</td>
 <td>no</td>
-<td>Permitted values; required and non-empty for <code>"dropdown"</code>, rejected for every other type</td>
+<td>Permitted values; required and non-empty (at most 100, unique) for <code>"dropdown"</code> and <code>"multi_select"</code>, rejected for every other type</td>
 </tr>
 <tr>
 <td><code>position</code></td>
@@ -6427,12 +6439,63 @@ columns or structure.</p>
 <li><strong>Stored as sent</strong> (after trimming surrounding whitespace) — the scheme's case and the
   rest of the URL are not rewritten. The API does not add a missing <code>https://</code>; the web
   UI does that before it sends the value.</li>
-<li><code>choices</code> is rejected for a <code>"url"</code> field, as for every non-dropdown type.</li>
+<li><code>choices</code> is rejected for a <code>"url"</code> field, as for every type that cannot carry choices
+  (anything but <code>"dropdown"</code> and <code>"multi_select"</code>).</li>
 <li><strong>Clients that do not recognize <code>"url"</code></strong> should fall back to rendering the value as
   plain text — the value is always a string. A client that renders it as a link must
   still check the scheme at render time and use <code>rel="noopener noreferrer"</code>.</li>
 <li>Enterprise <code>CUSTOM_FIELD_VALIDATORS</code> hooks receive <code>"url"</code> as the <code>field_type</code> and run
   after this validation.</li>
+</ul>
+<h4 id="multi-select-fields">Multi-select fields<a class="headerlink" href="#multi-select-fields" title="Permanent link">&para;</a></h4>
+<p><em>Since 1.2.</em> A <code>"multi_select"</code> field holds any number of the definition's <code>choices</code>. It
+applies to card and swimlane custom fields alike, and is text-backed like every other type:
+<strong>the <code>value</code> on the wire is still a string</strong> — a JSON array encoded as a string, never a
+JSON array.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"[\"web\",\"ios\"]"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><strong>Canonical form.</strong> The stored (and returned) string is compact JSON (<code>["web","ios"]</code>, no
+  spaces, non-ASCII characters unescaped), <strong>deduplicated</strong>, with entries that are current
+  choices <strong>in <code>choices</code> order</strong>, followed by any orphaned entries (see below). Resubmitting
+  the same set in a different order is therefore not a change: the stored row is not
+  rewritten and no <code>custom_field_value_changed</code> /
+  <code>swimlane_custom_field_value_changed</code> signal fires.</li>
+<li><strong>Accepted on write</strong> — any of: an array of strings (<code>"value": ["ios", "web"]</code>); the JSON
+  array string a read returned (so echoing a payload back is a no-op); a plain string, read
+  as a single entry (<code>"value": "web"</code>). <code>""</code>, <code>null</code> and <code>[]</code> (or an array of blank
+  strings) clear the field. Surrounding whitespace on each entry is trimmed.</li>
+<li><strong>Every entry must be a current choice — or already stored on that card or swimlane.</strong>
+  Anything else is a <code>400</code>: <code>'&lt;entry&gt;' is not a choice for '&lt;name&gt;'.</code> A non-string entry
+  (or a nested array) is a <code>400</code>: <code>Each value of '&lt;name&gt;' must be a string.</code> An object, a
+  boolean, or an entry containing NUL (<code>\u0000</code>) is also a <code>400</code>.</li>
+<li><strong>At most 500 characters, measured on the canonical string.</strong> Over the cap is a <code>400</code>,
+  never a truncation: <code>'&lt;name&gt;' value is longer than 500 characters.</code> The same message is
+  returned, without parsing, for an array of more than 500 entries or a JSON array string
+  longer than 2,000 characters.</li>
+<li><strong>Permissions</strong> are those of the owner's other writes: a card value needs board member
+  or above and is subject to the same ownership gate as any card edit; a swimlane value
+  can be written by board admins only.</li>
+<li><strong>Orphans are kept.</strong> Renaming or removing a choice never rewrites stored values: an
+  entry that is no longer a choice stays in the value, is returned as stored, and may be
+  kept (or dropped) on later writes to that same card or swimlane. It cannot be added
+  anywhere it is not already stored. Clients should render an orphaned entry like any
+  other value.</li>
+<li><code>field_type</code> follows the same freeze rule as every type — it cannot change once any value
+  exists — so there is no conversion path to or from <code>"dropdown"</code>.</li>
+<li><strong>Clients that do not recognize <code>"multi_select"</code></strong> should render the value as plain text;
+  it is always a string.</li>
+<li><strong>Export.</strong> The JSON export carries the stored string unchanged. The CSV export writes the
+  entries joined with <code>"; "</code> (<code>web; ios</code>), each entry formula-sanitized like every other CSV
+  cell.</li>
+<li><strong>Extension points.</strong> Enterprise <code>CUSTOM_FIELD_VALIDATORS</code> /
+  <code>SWIMLANE_CUSTOM_FIELD_VALIDATORS</code> hooks receive <code>field_type == "multi_select"</code> and the
+  canonical string (for example <code>'["web","ios"]'</code>), never a list; a hook that rewrites the
+  value must return a string of the same shape. A rewritten value is re-canonicalized and
+  re-checked against the 500-character cap; one that is not a JSON array of strings is
+  refused with a <code>400</code>. The <code>custom_field_value_changed</code> and
+  <code>swimlane_custom_field_value_changed</code> signals send <code>old_value</code>/<code>new_value</code> as the
+  canonical strings — the whole set, not a per-entry diff.</li>
 </ul>
 <h3 id="get-apiv1boardsidcustom-fields"><code>GET /api/v1/boards/{id}/custom-fields/</code><a class="headerlink" href="#get-apiv1boardsidcustom-fields" title="Permanent link">&para;</a></h3>
 <p>List the board's custom field definitions, in <code>position</code> order. Available to <strong>all board
@@ -6445,15 +6508,19 @@ can already see. Paginated with the project-wide offset pagination.</p>
 <p><strong>Request</strong> <code>{ "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "show_on_card": true }</code></p>
 <p><code>position</code> is server-assigned (appended to the end) and ignored if supplied.</p>
 <p><strong>Errors:</strong>
-- <code>400 Bad Request</code> if the name is blank or already used on this board, a dropdown has no
-  choices, a non-dropdown supplies choices, the board already has 30 definitions, or a
+- <code>400 Bad Request</code> if the name is blank or already used on this board, a dropdown or
+  multi-select has no choices, a type that cannot carry choices supplies them, the board
+  already has 30 definitions, or a
   third field is pinned with <code>show_on_card</code>.</p>
 <h3 id="patch-apiv1boardsidcustom-fieldsfield_id"><code>PATCH /api/v1/boards/{id}/custom-fields/{field_id}/</code><a class="headerlink" href="#patch-apiv1boardsidcustom-fieldsfield_id" title="Permanent link">&para;</a></h3>
 <p>Update a definition. Requires board admin.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>field_type</code>, <code>choices</code>, <code>show_on_card</code>, <code>is_required</code>, <code>help_text</code></p>
 <blockquote>
-<p>Removing a choice from a dropdown does <strong>not</strong> rewrite cards that already hold it: the
-stored value keeps reading back, but it can no longer be written again.</p>
+<p>Removing (or renaming) a choice on a dropdown or multi-select does <strong>not</strong> rewrite cards
+that already hold it: the stored value keeps reading back. A dropdown value that is no
+longer a choice can no longer be written again; a multi-select entry that is no longer a
+choice may be re-written on the same card (kept alongside other edits) but not added
+anywhere else — see <a href="#multi-select-fields">Multi-select fields</a>.</p>
 <p><strong>Since 1.2:</strong> <code>field_type</code> is frozen once any card holds a value for this field — a
 stale <code>CustomFieldValue</code> is never revalidated or migrated against a new type, so changing
 it out from under existing data would corrupt it silently. Delete and recreate the field
@@ -6522,13 +6589,13 @@ model docstring for the reasoning; do not assume they track each other.</p>
 <td><code>field_type</code></td>
 <td>string</td>
 <td>no</td>
-<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code>, <code>"url"</code> (see <a href="#url-fields">URL fields</a>). Immutable once any swimlane holds a value for this definition — see <strong>Errors</strong> below.</td>
+<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code>, <code>"url"</code> (see <a href="#url-fields">URL fields</a>), <code>"multi_select"</code> (see <a href="#multi-select-fields">Multi-select fields</a>). Immutable once any swimlane holds a value for this definition — see <strong>Errors</strong> below.</td>
 </tr>
 <tr>
 <td><code>choices</code></td>
 <td>string[]</td>
 <td>no</td>
-<td>Permitted values; required and non-empty for <code>"dropdown"</code>, rejected for every other type</td>
+<td>Permitted values; required, non-empty (at most 100, unique) for <code>"dropdown"</code> and <code>"multi_select"</code>, rejected for every other type</td>
 </tr>
 <tr>
 <td><code>position</code></td>
@@ -6583,7 +6650,8 @@ another board returns <code>404 Not Found</code>.</p>
 <p><code>position</code> is server-assigned (appended to the end) and ignored if supplied.</p>
 <p><strong>Errors:</strong>
 - <code>400 Bad Request</code> if the name is blank or already used on this board's swimlane fields, a
-  dropdown has no choices, a non-dropdown supplies choices, the board already has 15
+  dropdown or multi-select has no choices, a type that cannot carry choices supplies them,
+  the board already has 15
   swimlane field definitions, or a fourth field is pinned with <code>show_on_row</code>.</p>
 <h3 id="patch-apiv1boardsidswimlane-custom-fieldsfield_id"><code>PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/</code><a class="headerlink" href="#patch-apiv1boardsidswimlane-custom-fieldsfield_id" title="Permanent link">&para;</a></h3>
 <p>Update a definition. Requires board admin.</p>
@@ -6596,8 +6664,11 @@ another board returns <code>404 Not Found</code>.</p>
 - <code>400 Bad Request</code> with a <code>name</code> key if the new name collides with another swimlane field
   on this board.</p>
 <blockquote>
-<p>Removing a choice from a dropdown does <strong>not</strong> rewrite rows that already hold it: the
-stored value keeps reading back, but it can no longer be written again.</p>
+<p>Removing (or renaming) a choice on a dropdown or multi-select does <strong>not</strong> rewrite rows
+that already hold it: the stored value keeps reading back. A dropdown value that is no
+longer a choice can no longer be written again; a multi-select entry that is no longer a
+choice may be re-written on the same swimlane but not added anywhere else — see
+<a href="#multi-select-fields">Multi-select fields</a>.</p>
 </blockquote>
 <h3 id="delete-apiv1boardsidswimlane-custom-fieldsfield_id"><code>DELETE /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/</code><a class="headerlink" href="#delete-apiv1boardsidswimlane-custom-fieldsfield_id" title="Permanent link">&para;</a></h3>
 <p>Delete a definition. Requires board admin. <strong>Every swimlane's value for that field is
@@ -6618,48 +6689,48 @@ belonging to another board are silently ignored rather than reordered or exposed
 - <code>404 Not Found</code> if the token is invalid, has been revoked, or does not exist.
 - <code>410 Gone</code> if the token's TTL has elapsed (admin set an expiry at enable time and that timestamp has passed). The token is <em>not</em> auto-rotated — an admin must disable and re-enable sharing to get a fresh link. Body: <code>{"detail": "This share link has expired."}</code>. Added in 1.1 (#804).</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60001"</span><span class="p">,</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c0l0abc123456701"</span><span class="p">,</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span>
-<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#64748B"</span><span class="p">,</span>
-<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">      </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">      </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="w">      </span><span class="nt">"allow_card_creation"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="w">      </span><span class="nt">"is_done"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
-<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="w">  </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sw1mabcdef123401"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#3B82F6"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"crd0abc123456701"</span><span class="p">,</span>
-<a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="w">      </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
-<a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a><span class="w">      </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">,</span>
-<a id="__codelineno-15-27" name="__codelineno-15-27" href="#__codelineno-15-27"></a><span class="w">      </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-15-28" name="__codelineno-15-28" href="#__codelineno-15-28"></a><span class="w">      </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-15-29" name="__codelineno-15-29" href="#__codelineno-15-29"></a><span class="w">      </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-01"</span><span class="p">,</span>
-<a id="__codelineno-15-30" name="__codelineno-15-30" href="#__codelineno-15-30"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-15-31" name="__codelineno-15-31" href="#__codelineno-15-31"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-15-32" name="__codelineno-15-32" href="#__codelineno-15-32"></a><span class="w">      </span><span class="nt">"last_moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-25T14:30:00Z"</span><span class="p">,</span>
-<a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a><span class="w">      </span><span class="nt">"checklist_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a><span class="w">      </span><span class="nt">"checklist_done"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a><span class="w">      </span><span class="nt">"is_stale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a><span class="w">      </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a><span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60001"</span><span class="p">,</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c0l0abc123456701"</span><span class="p">,</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#64748B"</span><span class="p">,</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">      </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">      </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">      </span><span class="nt">"allow_card_creation"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">      </span><span class="nt">"is_done"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">  </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sw1mabcdef123401"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#3B82F6"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"crd0abc123456701"</span><span class="p">,</span>
+<a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a><span class="w">      </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
+<a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a><span class="w">      </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">,</span>
+<a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="w">      </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="w">      </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a><span class="w">      </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-01"</span><span class="p">,</span>
+<a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a><span class="w">      </span><span class="nt">"last_moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-25T14:30:00Z"</span><span class="p">,</span>
+<a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a><span class="w">      </span><span class="nt">"checklist_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a><span class="w">      </span><span class="nt">"checklist_done"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a><span class="w">      </span><span class="nt">"is_stale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a><span class="w">      </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-16-38" name="__codelineno-16-38" href="#__codelineno-16-38"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a><span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-16-42" name="__codelineno-16-42" href="#__codelineno-16-42"></a><span class="p">}</span>
 </code></pre></div></p>
 <p>Response fields:</p>
 <table>
