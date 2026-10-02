@@ -51,6 +51,16 @@ python3 scripts/kaizen_yield_watch.py --input mrs.json            # offline
 python3 scripts/kaizen_yield_watch.py --self-test                 # gate self-test (#1093)
 ```
 
+## Argument validation
+
+The kaizen scripts reject malformed arguments up front (#1377):
+
+- `--window` must be an integer from 1 to 100 (GitLab's `per_page` cap).
+- `--project` must be a plain `group/project` path (letters, digits, `_`, `.`, `-`; no leading `-`, no `.`/`..` segments).
+- File-path arguments (`--input`, `--state`, `--declined`, `--write-state`) must resolve under the repository, the current directory, or the temp directory, through `scripts/_paths.py`. A path that escapes (via `..` or a symlink) exits non-zero; a bad `--declined` path is never treated as "nothing declined".
+
+See [CI gate scripts and path containment](ci-gates.md#path-containment-for-cli-arguments) for the shared helper.
+
 ## Scheduled job
 
 `kaizen-yield-watch` runs only in scheduled pipelines that set `KAIZEN_YIELD_WATCH=true`

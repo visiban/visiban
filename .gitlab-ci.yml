@@ -1732,6 +1732,7 @@ serializer-ts-parity:
         - backend/**/*
         - frontend/src/types/index.ts
         - scripts/check-serializer-ts-parity.py
+        - scripts/_paths.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *serializer-ts-parity-paths
   variables:
@@ -1923,6 +1924,7 @@ ws-event-reachability:
         - frontend/src/pages/GroupDetail.tsx
         - docs/api/websockets.md
         - scripts/check-ws-event-reachability.py
+        - scripts/_paths.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *ws-event-reachability-paths
   script:
@@ -1964,11 +1966,15 @@ rbac-coverage:
         - backend/groups/views.py
         - backend/git_lens/views.py
         - scripts/check-rbac-coverage.py
+        - scripts/_paths.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *rbac-coverage-paths
   script:
     # Prove the detection logic fires against known-bad input before trusting
     # this job's verdict on the real tree.
+    # Shared path-containment helper (#1377) used by every gate script's CLI
+    # file sinks; its self-test covers `..` traversal and symlink escape.
+    - python scripts/_paths.py --self-test
     - python scripts/check-rbac-coverage.py --self-test
     # Exit 3 is "unhandled pattern — hand it to the rbac-check agent". It is a
     # failure, deliberately: a view whose authorization this script cannot read
@@ -2014,6 +2020,7 @@ broadcast-deferral:
         - backend/git_lens/**/*
         - scripts/check-broadcast-deferral.py
         - scripts/check-rbac-coverage.py
+        - scripts/_paths.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *broadcast-deferral-paths
   script:

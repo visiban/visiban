@@ -59,6 +59,11 @@ python3 scripts/kaizen_gate_ledger.py --window "$WINDOW" --json > /tmp/kaizen-re
 python3 scripts/kaizen_gate_ledger.py --window "$WINDOW"                  # human table, same run
 ```
 
+(`$WINDOW` defaults to 30 when unset; `--window` must be an integer 1..100 and
+`--project` a plain `group/project` path, or the script exits with a usage error.
+File paths such as `--input` must resolve under the repo, cwd, or temp dir — see
+`scripts/_paths.py`.)
+
 (`--input <file>` reads a local JSON array of MR objects instead of calling
 `glab` — this is what the test fixture and any offline re-run should use.)
 

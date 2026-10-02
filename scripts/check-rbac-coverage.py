@@ -67,6 +67,11 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Hyphenated gate scripts are also loaded via importlib by their tests, where
+# scripts/ is not on sys.path; make the sibling import work either way.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _paths import resolve_within  # noqa: E402
+
 EXIT_OK = 0
 EXIT_FINDINGS = 1
 EXIT_CANNOT_RUN = 2
@@ -367,7 +372,7 @@ def _scoped_models(root: Path) -> dict[str, tuple[str, ...]]:
         path = root / rel
         if not path.is_file():
             raise CheckerError(f"model module not found: {rel}")
-        tree = _parse(path, rel)
+        tree = _parse(root, path, rel)
         for node in tree.body:
             if not isinstance(node, ast.ClassDef):
                 continue
@@ -387,9 +392,14 @@ def _scoped_models(root: Path) -> dict[str, tuple[str, ...]]:
     return out
 
 
-def _parse(path: Path, rel: str) -> ast.Module:
+def _parse(root: Path, path: Path, rel: str) -> ast.Module:
     try:
-        return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        # Contain the read to --root: a symlinked module must not pull in a
+        # file from outside the tree being audited (#1377, S8707).
+        safe = resolve_within(root, path)
+        return ast.parse(safe.read_text(encoding="utf-8"), filename=str(safe))
+    except ValueError as exc:
+        raise CheckerError(f"{rel}: unreadable path: {exc}") from exc
     except SyntaxError as exc:
         raise CheckerError(f"{rel}: cannot parse: {exc}") from exc
 
@@ -412,7 +422,7 @@ def _load_module(root: Path, rel: str) -> Module:
     path = root / rel
     if not path.is_file():
         raise CheckerError(f"in-scope module not found: {rel}")
-    mod = Module(rel=rel, tree=_parse(path, rel))
+    mod = Module(rel=rel, tree=_parse(root, path, rel))
     for node in mod.tree.body:
         if isinstance(node, ast.Assign) and isinstance(node.value, (ast.List, ast.Tuple)):
             names = [_dotted(e) for e in node.value.elts]

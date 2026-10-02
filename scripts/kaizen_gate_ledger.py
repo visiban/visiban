@@ -39,8 +39,13 @@ import json
 import re
 import subprocess
 import sys
+import os
 import urllib.parse
 from dataclasses import dataclass, field
+
+# Sibling import must work however the script is loaded (direct run, importlib).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _paths import cli_roots, resolve_within  # noqa: E402
 
 DEFAULT_PROJECT = "visiban/visiban"
 DEFAULT_WINDOW = 30
@@ -225,17 +230,52 @@ def analyze(mrs):
     }
 
 
+# GitLab caps per_page at 100; a window outside 1..100 is a typo, not a request.
+MAX_WINDOW = 100
+_PROJECT_RE = re.compile(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")
+
+
+def validate_window(value) -> int:
+    """argparse ``type=`` and sink guard: a positive integer MR count."""
+    try:
+        window = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError(f"--window must be an integer, got {value!r}") from None
+    if not 1 <= window <= MAX_WINDOW:
+        raise argparse.ArgumentTypeError(f"--window must be between 1 and {MAX_WINDOW}, got {window}")
+    return window
+
+
+def validate_project(value: str) -> str:
+    """argparse ``type=`` and sink guard: a plain ``group/project`` path.
+
+    The value is interpolated into the ``glab api`` argv; whitelisting its
+    characters keeps option-like (``-x``) or query-smuggling (``?``/``&``/``#``)
+    input out of it even though argv is list-form (#1377, S8705).
+    """
+    # fullmatch (not `$`, which accepts a trailing newline); a segment made only
+    # of dots (`.`/`..`) would climb the API path.
+    if (
+        not _PROJECT_RE.fullmatch(value)
+        or value.startswith("-")
+        or any(set(seg) <= {"."} for seg in value.split("/"))
+    ):
+        raise argparse.ArgumentTypeError(f"--project must look like group/project, got {value!r}")
+    return value
+
+
 def load_mrs(args) -> list:
     if args.input:
-        with open(args.input, encoding="utf-8") as fh:
+        with open(resolve_within(cli_roots(), args.input), encoding="utf-8") as fh:
             data = json.load(fh)
     else:
-        project_path = urllib.parse.quote(args.project, safe="")
+        project_path = urllib.parse.quote(validate_project(args.project), safe="")
+        window = validate_window(args.window)
         cmd = [
             "glab",
             "api",
             f"projects/{project_path}/merge_requests"
-            f"?state=merged&per_page={args.window}&order_by=updated_at&sort=desc",
+            f"?state=merged&per_page={window}&order_by=updated_at&sort=desc",
         ]
         try:
             out = subprocess.check_output(cmd, text=True)
@@ -311,8 +351,8 @@ def to_jsonable(result):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--project", default=DEFAULT_PROJECT, help="GitLab project path (default: %(default)s)")
-    parser.add_argument("--window", type=int, default=DEFAULT_WINDOW, help="Number of most-recently-merged MRs to audit (default: %(default)s)")
+    parser.add_argument("--project", type=validate_project, default=DEFAULT_PROJECT, help="GitLab project path (default: %(default)s)")
+    parser.add_argument("--window", type=validate_window, default=DEFAULT_WINDOW, help="Number of most-recently-merged MRs to audit (default: %(default)s)")
     parser.add_argument("--input", help="Read MR objects from this local JSON file instead of calling glab (offline/test mode)")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON instead of a text table")
     args = parser.parse_args()

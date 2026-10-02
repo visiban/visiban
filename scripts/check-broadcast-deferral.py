@@ -321,7 +321,7 @@ def _build_graph(root: Path, rels: list[str]) -> tuple[dict[str, FuncNode], set[
     by_name: dict[str, list[str]] = {}
 
     for rel in rels:
-        tree = _parse(root / rel, rel)
+        tree = _parse(root, root / rel, rel)
         for key, name, node in _walk_functions(tree, rel):
             tails = _called_tails(node)
             nodes[key] = FuncNode(
@@ -527,7 +527,7 @@ def run(root: Path, *, quiet: bool = False) -> Report:
 
     # ── 2, 3, 4: every emit site ───────────────────────────────────────────
     for rel in rels:
-        tree = _parse(root / rel, rel)
+        tree = _parse(root, root / rel, rel)
         rep.modules += 1
         parents = _parents(tree)
         deferred, unresolved_regs = _deferred_callables(tree)

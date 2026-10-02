@@ -46,6 +46,8 @@ from datetime import datetime, timezone
 
 import requests
 
+from _paths import PathEscapeError, cli_roots, resolve_within
+
 
 def _wait_for_url(url: str, timeout: int = 60) -> None:
     """Poll *url* until it returns a non-5xx status or *timeout* seconds elapse."""
@@ -168,7 +170,7 @@ def _time_requests(session, url, iterations, warmup):
 
 
 def run(args):
-    with open(args.token_file, encoding="utf-8") as fh:
+    with open(resolve_within(cli_roots(), args.token_file), encoding="utf-8") as fh:
         token = fh.read().strip()
 
     session = requests.Session()
@@ -212,7 +214,7 @@ def run(args):
 
     budgets = {}
     if args.budget_file and not args.measure_only:
-        with open(args.budget_file, encoding="utf-8") as fh:
+        with open(resolve_within(cli_roots(), args.budget_file), encoding="utf-8") as fh:
             budgets = json.load(fh).get("endpoints", {})
 
     results = {}
@@ -250,9 +252,10 @@ def run(args):
         "results": results,
     }
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as fh:
+        out_path = resolve_within(cli_roots(), args.output)
+        with open(out_path, "w", encoding="utf-8") as fh:
             json.dump(output, fh, indent=2)
-        print(f"Wrote results to {args.output}")
+        print(f"Wrote results to {out_path}")
 
     if args.measure_only:
         print("\n--measure-only: not evaluating budgets. Use these p95 numbers "
@@ -305,7 +308,7 @@ def main():
 
     try:
         sys.exit(run(args))
-    except (RuntimeError, requests.exceptions.RequestException, OSError) as exc:
+    except (RuntimeError, requests.exceptions.RequestException, OSError, PathEscapeError) as exc:
         print(f"\nFAIL: {exc}", file=sys.stderr)
         sys.exit(1)
 

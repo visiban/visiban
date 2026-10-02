@@ -46,6 +46,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kaizen_gate_ledger as ledger  # noqa: E402
+from _paths import PathEscapeError, cli_roots, resolve_within  # noqa: E402
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_STATE = os.path.join(REPO_ROOT, ".claude", "kaizen-yield-state.json")
@@ -75,6 +76,7 @@ def empty_state():
 
 
 def load_state(path):
+    path = resolve_within(cli_roots(), path)
     if not os.path.exists(path):
         return empty_state()
     with open(path, encoding="utf-8") as fh:
@@ -85,8 +87,11 @@ def load_state(path):
 
 
 def load_declined(path):
+    # Resolve outside the try: a path escape must fail loudly. Swallowing it into
+    # an empty set would fail open and re-file candidates a human declined.
+    safe = resolve_within(cli_roots(), path)
     try:
-        with open(path, encoding="utf-8") as fh:
+        with open(safe, encoding="utf-8") as fh:
             return {d["id"] for d in json.load(fh)}
     except (OSError, ValueError, KeyError, TypeError):
         return set()
@@ -192,7 +197,7 @@ def api(method, url, token, data=None):
 def fetch_merged(args):
     """Merged MRs newer than the state watermark. Returns None on API failure."""
     if args.input:
-        with open(args.input, encoding="utf-8") as fh:
+        with open(resolve_within(cli_roots(), args.input), encoding="utf-8") as fh:
             return json.load(fh)
     base = os.environ.get("CI_API_V4_URL", "https://gitlab.com/api/v4")
     project = os.environ.get("CI_PROJECT_ID") or urllib.parse.quote(args.project, safe="")
@@ -271,10 +276,11 @@ def run(args):
     if found and args.file_issues:
         state["proposed"] = sorted(set(state["proposed"]) | set(file_issues(found, args, state["threshold"])))
     if args.write_state:
-        with open(args.write_state, "w", encoding="utf-8") as fh:
+        out_path = resolve_within(cli_roots(), args.write_state)
+        with open(out_path, "w", encoding="utf-8") as fh:
             json.dump(state, fh, indent=2, sort_keys=True)
             fh.write("\n")
-        print(f"State written to {args.write_state} (commit it to persist the running count).")
+        print(f"State written to {out_path} (commit it to persist the running count).")
     return 0
 
 
@@ -346,7 +352,7 @@ def main():
     ap.add_argument("--state", default=DEFAULT_STATE)
     ap.add_argument("--declined", default=DEFAULT_DECLINED)
     ap.add_argument("--input", help="offline: JSON list of MR objects (iid, merged_at, source_branch, description)")
-    ap.add_argument("--project", default=ledger.DEFAULT_PROJECT)
+    ap.add_argument("--project", type=ledger.validate_project, default=ledger.DEFAULT_PROJECT)
     ap.add_argument("--max-pages", type=int, default=5)
     ap.add_argument("--write-state", metavar="FILE")
     ap.add_argument("--file-issues", action="store_true", help="opt-in: file one issue per new candidate")
@@ -356,6 +362,11 @@ def main():
         sys.exit(self_test())
     try:
         sys.exit(run(args))
+    except PathEscapeError as exc:
+        # A bad path is operator error, not signal-gathering flakiness: exit
+        # non-zero without filing anything rather than failing open.
+        print(f"kaizen-yield-watch: {exc}", file=sys.stderr)
+        sys.exit(2)
     except Exception as exc:  # fail open: never block an MR on signal gathering
         warn(f"unexpected error ({type(exc).__name__}: {exc}); failing open")
         sys.exit(0)

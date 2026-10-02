@@ -48,6 +48,11 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Hyphenated gate scripts are also loaded via importlib by their tests, where
+# scripts/ is not on sys.path; make the sibling import work either way.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _paths import resolve_within  # noqa: E402
+
 # ─── Channel configuration ───────────────────────────────────────────────────
 #
 # Emit-function names are matched on the *called name* (``f(...)`` or
@@ -134,6 +139,18 @@ UNRESOLVED = object()    # the checker could not prove what goes on the wire
 
 class CheckerError(Exception):
     """The checker could not run. Never reported as a clean result."""
+
+
+def _contained(root: Path, rel: str) -> Path:
+    """``root / rel`` canonicalized and confined to *root* (#1377, S8707).
+
+    A symlink or ``..`` in a repo-relative path must not make the checker read
+    a file from outside the tree it was pointed at; fail closed instead.
+    """
+    try:
+        return resolve_within(root, root / rel)
+    except ValueError as exc:
+        raise CheckerError(f"{rel}: {exc}") from exc
 
 
 # ─── Registry loading ────────────────────────────────────────────────────────
@@ -383,7 +400,7 @@ def scan_emitted(root: Path, spec: ChannelSpec, consts: dict, registries):
     # broadcast helper, so no call site exists to scan. Count any registry
     # constant they reference as emitted by them.
     for rel in spec.consumers:
-        path = root / rel
+        path = _contained(root, rel)
         if not path.exists():
             raise CheckerError(f"consumer file not found: {rel}")
         src = path.read_text(encoding="utf-8")
@@ -398,7 +415,7 @@ def scan_emitted(root: Path, spec: ChannelSpec, consts: dict, registries):
 
 
 def parse_documented(root: Path, spec: ChannelSpec):
-    path = root / spec.doc
+    path = _contained(root, spec.doc)
     if not path.exists():
         raise CheckerError(f"docs page not found: {spec.doc}")
     text = path.read_text(encoding="utf-8")
@@ -415,7 +432,7 @@ def parse_documented(root: Path, spec: ChannelSpec):
 def parse_handled(root: Path, spec: ChannelSpec):
     handled = set()
     for rel in spec.handlers:
-        path = root / rel
+        path = _contained(root, rel)
         if not path.exists():
             raise CheckerError(f"frontend handler file not found: {rel}")
         handled |= set(HANDLER_BRANCH.findall(path.read_text(encoding="utf-8")))
@@ -516,7 +533,7 @@ def run(root: Path, quiet=False):
     consts: dict = {}
     collections: dict = {}
     for spec in CHANNELS:
-        path = root / spec.registry
+        path = _contained(root, spec.registry)
         if not path.exists():
             raise CheckerError(f"registry not found: {spec.registry}")
         c, coll = load_registry(path, consts)
