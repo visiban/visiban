@@ -761,7 +761,7 @@ describe('useBoard', () => {
     act(() => {
       result.current.applyCustomFieldDefinitions([
         {
-          id: 1, uid: 'cfduid0001', name: 'Points', field_type: 'number', choices: [], position: 0,
+          id: 1, uid: 'cfduid0001', name: 'Points', field_type: 'number', choices: [], choice_colors: {}, position: 0,
           show_on_card: false, is_required: false, help_text: '',
           number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
         },
@@ -779,7 +779,7 @@ describe('useBoard', () => {
     act(() => {
       result.current.applySwimlaneFieldDefinitions([
         {
-          id: 2, uid: 'sfduid0001', name: 'Owner', field_type: 'text', choices: [], position: 0,
+          id: 2, uid: 'sfduid0001', name: 'Owner', field_type: 'text', choices: [], choice_colors: {}, position: 0,
           show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
           number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
         },
