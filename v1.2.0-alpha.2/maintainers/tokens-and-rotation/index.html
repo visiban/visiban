@@ -2197,6 +2197,8 @@
       
         
       
+        
+      
     
     
     
@@ -2658,6 +2660,34 @@
     
   
     Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
   
 
     
@@ -3307,6 +3337,8 @@
       
         
       
+        
+      
     
     
     
@@ -3600,6 +3632,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3679,6 +3739,14 @@ describe where it lives instead.</p>
 <td>GitLab → Settings → Repository → Mirroring (push mirror URL for the OSS→enterprise mirror)</td>
 <td>Automatic push-mirror of every branch/tag from OSS to enterprise on every push</td>
 <td><strong>2027-03-10</strong></td>
+</tr>
+<tr>
+<td><code>SONAR_TOKEN</code></td>
+<td>SonarCloud user token (inherits its owner's permissions; the owner must be able to run analysis on the project)</td>
+<td>TBD — confirm current owner before rotating</td>
+<td>GitLab CI/CD variable (protected, masked)</td>
+<td><code>sonar:scan</code> (nightly, <code>SONAR_SCHEDULED=true</code>) — see <a href="../sonarcloud/#sonar_token">SonarCloud Runbook</a></td>
+<td><strong>UNKNOWN</strong> — record the expiry from SonarCloud → My Account → Security</td>
 </tr>
 <tr>
 <td>GitHub push-mirror PAT (<code>visiban-gitlab-mirror</code>)</td>
@@ -3835,6 +3903,8 @@ its <code>config.toml</code> follows the interpolated form — do not hardcode t
     <code>DOCS_VERSION</code> set (see the job's comment block in <code>.gitlab-ci.yml</code>).</li>
 <li>Mirror bot PAT: push any commit to <code>main</code> and confirm it appears on
     <code>visiban/visiban-enterprise</code> shortly after.</li>
+<li><code>SONAR_TOKEN</code>: run the Nightly schedule by hand (Build → Pipeline schedules → play) and
+    confirm <code>sonar:scan</code> publishes; see the <a href="../sonarcloud/#verify">SonarCloud Runbook</a>.</li>
 <li><code>RUNNER_STATUS_TOKEN</code>: re-run a past <code>arm64-runner-preflight</code> job (CI/CD → Pipelines →
     find a release-tag pipeline → retry that job), or trigger a new pipeline on a
     pre-release tag; it should log "OK: N online runner(s) tagged arm64" rather than the

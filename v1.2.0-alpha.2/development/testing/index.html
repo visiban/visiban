@@ -2199,6 +2199,8 @@
       
         
       
+        
+      
     
     
     
@@ -2719,6 +2721,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#coverage-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage targets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#diff-coverage-1076" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2937,6 +2950,34 @@
     
   
     Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
   
 
     
@@ -3584,6 +3625,8 @@
       
         
       
+        
+      
     
     
     
@@ -3737,6 +3780,34 @@
     
   
     Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
   
 
     
@@ -4037,6 +4108,45 @@ both rewrites and runs in the <code>sonar-scan-selftest</code> CI job.</p>
 <p>Test code, migrations, repo tooling, and seed/factory modules are removed from the
 coverage denominator by <code>sonar.coverage.exclusions</code>; each entry is justified in
 the properties file, and nothing under product source is excluded.</p>
+<h3 id="coverage-targets">Coverage targets<a class="headerlink" href="#coverage-targets" title="Permanent link">&para;</a></h3>
+<p>Three different numbers apply. They measure different things; see
+<a href="../sonarcloud/#why-gitlabs-coverage-badge-and-sonars-differ">SonarCloud § Why GitLab's coverage badge and Sonar's differ</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Target</th>
+<th>Enforced by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SonarCloud overall coverage (backend and frontend, product source only)</td>
+<td><strong>At least 85%</strong>, with <strong>80% as the floor</strong></td>
+<td>Policy, read on the SonarCloud dashboard. Not a CI gate</td>
+</tr>
+<tr>
+<td>Backend aggregate</td>
+<td><strong>90%</strong></td>
+<td><code>backend-test-coverage</code> runs <code>coverage report --fail-under=90</code> and blocks the pipeline</td>
+</tr>
+<tr>
+<td>Frontend aggregate</td>
+<td>Lines and statements <strong>70%</strong>, functions and branches <strong>60%</strong></td>
+<td><code>coverage.thresholds</code> in <code>frontend/vitest.config.ts</code></td>
+</tr>
+<tr>
+<td>Lines an MR adds or changes</td>
+<td><strong>80%</strong></td>
+<td><code>backend-diff-coverage</code> and <code>frontend-diff-coverage</code> (see <a href="#diff-coverage-1076">Diff coverage</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>The frontend thresholds are a floor that stops the aggregate from regressing; they are lower
+than the Sonar target. A change that leaves the frontend at its threshold can still pull
+Sonar's combined number under 85%, so aim higher on new code instead of treating the
+threshold as the goal. Raise a threshold when the aggregate has stayed comfortably above it;
+never lower one to make a pipeline pass.</p>
 <h3 id="diff-coverage-1076">Diff coverage (#1076)<a class="headerlink" href="#diff-coverage-1076" title="Permanent link">&para;</a></h3>
 <p><code>backend-test-coverage</code> and <code>frontend-test</code>'s vitest thresholds gate the <em>aggregate</em>
 coverage of the whole codebase. That number moves slowly — a large, well-tested

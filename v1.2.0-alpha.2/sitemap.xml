@@ -193,6 +193,10 @@
          <lastmod>2026-10-02</lastmod>
     </url>
     <url>
+         <loc>https://docs.visiban.com/v1.2.0-alpha.2/development/sonarcloud/</loc>
+         <lastmod>2026-10-02</lastmod>
+    </url>
+    <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.2/development/suppressions/</loc>
          <lastmod>2026-10-02</lastmod>
     </url>
@@ -362,6 +366,10 @@
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.2/maintainers/known-ci-failures/</loc>
+         <lastmod>2026-10-02</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.visiban.com/v1.2.0-alpha.2/maintainers/sonarcloud/</loc>
          <lastmod>2026-10-02</lastmod>
     </url>
     <url>

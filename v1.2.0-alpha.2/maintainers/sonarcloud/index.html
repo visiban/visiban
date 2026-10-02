@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.2/architecture/open-core-boundary/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.2/maintainers/sonarcloud/">
       
       
-        <link rel="prev" href="../service-layer/">
+        <link rel="prev" href="../demo-deploy/">
       
       
-        <link rel="next" href="../api-versioning/">
+        <link rel="next" href="../../changelog/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Open-Core Boundary - Visiban</title>
+        <title>SonarCloud Runbook - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#open-core-boundary" class="md-skip">
+        <a href="#sonarcloud-runbook" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Open-Core Boundary
+              SonarCloud Runbook
             
           </span>
         </div>
@@ -310,13 +310,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
           
   
   
@@ -356,11 +354,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../maintainers/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -2150,8 +2150,6 @@
       
   
   
-    
-  
   
   
     
@@ -2205,23 +2203,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../architecture/" class="md-nav__link ">
               
   
   
@@ -2239,13 +2234,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2265,7 +2260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../overview/" class="md-nav__link">
+      <a href="../../architecture/overview/" class="md-nav__link">
         
   
   
@@ -2293,7 +2288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../data-model/" class="md-nav__link">
+      <a href="../../architecture/data-model/" class="md-nav__link">
         
   
   
@@ -2321,7 +2316,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deployment/" class="md-nav__link">
+      <a href="../../architecture/deployment/" class="md-nav__link">
         
   
   
@@ -2349,7 +2344,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../scaling/" class="md-nav__link">
+      <a href="../../architecture/scaling/" class="md-nav__link">
         
   
   
@@ -2377,7 +2372,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../service-layer/" class="md-nav__link">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
         
   
   
@@ -2402,37 +2397,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Open-Core Boundary
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
         
   
   
@@ -2448,186 +2416,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#classification-table" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Classification table
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#detailed-rulings" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Detailed rulings
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Detailed rulings">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#oidc-authentication-oss-vs-saml-scim-enterprise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OIDC authentication (OSS) vs SAML / SCIM (Enterprise)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#audit-log-split" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Audit log (split)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wip-enforcement-oss" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WIP enforcement (OSS)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#movement-history-view-oss-vs-export-enterprise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Movement history: view (OSS) vs export (Enterprise)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#per-swimlane-analytics-basic-oss-vs-advanced-enterprise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Per-swimlane analytics: basic (OSS) vs advanced (Enterprise)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#outgoing-webhooks-oss-vs-webhook-operations-enterprise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Outgoing webhooks (OSS) vs webhook operations (Enterprise)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pats-oss-vs-service-account-tokens-enterprise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PATs (OSS) vs service account tokens (Enterprise)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#transactional-email-notifications-oss-vs-channel-integrations-enterprise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Transactional email notifications (OSS) vs channel integrations (Enterprise)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#data-retention-split" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Data retention (split)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-board-lens-oss" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue Board Lens (OSS)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mcp-server-oss-vs-mcp-enterprise-upgrade-enterprise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MCP server (OSS) vs MCP enterprise upgrade (Enterprise)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#oss-extension-points-implementation-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OSS extension points — implementation status
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2640,7 +2428,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api-versioning/" class="md-nav__link">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
         
   
   
@@ -2668,7 +2456,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../decisions/" class="md-nav__link">
+      <a href="../../architecture/decisions/" class="md-nav__link">
         
   
   
@@ -3530,6 +3318,8 @@
       
   
   
+    
+  
   
   
     
@@ -3553,20 +3343,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../maintainers/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -3584,13 +3377,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -3610,7 +3403,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+      <a href="../ci-runners/" class="md-nav__link">
         
   
   
@@ -3638,7 +3431,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+      <a href="../tokens-and-rotation/" class="md-nav__link">
         
   
   
@@ -3666,7 +3459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+      <a href="../known-ci-failures/" class="md-nav__link">
         
   
   
@@ -3694,7 +3487,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+      <a href="../demo-deploy/" class="md-nav__link">
         
   
   
@@ -3719,10 +3512,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -3738,6 +3558,137 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        At a glance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sonar_token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SONAR_TOKEN
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SONAR_TOKEN">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create-the-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create the token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rotate-the-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rotate the token
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pipeline-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The pipeline schedule
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The pipeline schedule">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create-or-restore-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create or restore it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-the-nightly-sonarscan-is-yellow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the nightly sonar:scan is yellow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-review-every-new-hotspot-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The "review every new hotspot" rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3797,606 +3748,269 @@
   
 
 
-<h1 id="open-core-boundary">Open-Core Boundary<a class="headerlink" href="#open-core-boundary" title="Permanent link">&para;</a></h1>
-<p>The OSS vs enterprise classification for every feature area where the boundary has been formally decided. This is the canonical reference — when a feature appears here, the ruling supersedes any informal discussion in issue comments.</p>
-<p><strong>Guiding principle:</strong> "Can a small team work together effectively without this?" If no → OSS core. If yes → enterprise candidate.</p>
-<hr />
-<h2 id="classification-table">Classification table<a class="headerlink" href="#classification-table" title="Permanent link">&para;</a></h2>
+<h1 id="sonarcloud-runbook">SonarCloud Runbook<a class="headerlink" href="#sonarcloud-runbook" title="Permanent link">&para;</a></h1>
+<p>Operational reference for the nightly SonarCloud scan: the token, the pipeline schedule, and
+what to do when something breaks. For what Sonar checks and the quality policy, see
+<a href="../../development/sonarcloud/">SonarCloud</a>.</p>
+<p>SonarCloud organization <code>visiban</code>, project key <code>visiban_visiban</code>
+(<code>sonar.projectKey</code> / <code>sonar.organization</code> in <code>sonar-project.properties</code>).</p>
+<h2 id="at-a-glance">At a glance<a class="headerlink" href="#at-a-glance" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Feature</th>
-<th>Classification</th>
-<th>Rationale summary</th>
-<th>Issue</th>
+<th>Item</th>
+<th>Value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Username/password login</td>
-<td>OSS</td>
-<td>Authentication prerequisite</td>
-<td>—</td>
+<td>Job</td>
+<td><code>sonar:scan</code> (<code>.gitlab-ci.yml</code>, <code>security</code> stage), <code>allow_failure: true</code></td>
 </tr>
 <tr>
-<td>Google OAuth</td>
-<td>OSS</td>
-<td>Existing stack</td>
-<td>—</td>
+<td>Trigger</td>
+<td>A scheduled pipeline whose variables include <code>SONAR_SCHEDULED=true</code></td>
 </tr>
 <tr>
-<td>GitHub OAuth</td>
-<td>OSS</td>
-<td>Existing stack</td>
-<td>—</td>
+<td>Schedule</td>
+<td>The <strong>Nightly (CVE/OSV, Sonar, deep fuzz, kaizen)</strong> schedule, cron <code>0 5 * * *</code> (05:00 UTC), target branch <code>main</code></td>
 </tr>
 <tr>
-<td>GitLab OAuth</td>
-<td>OSS</td>
-<td>Existing stack</td>
-<td>—</td>
+<td>Schedule variable</td>
+<td><code>SONAR_SCHEDULED=true</code></td>
 </tr>
 <tr>
-<td>OIDC authentication (generic)</td>
-<td>OSS</td>
-<td>Extension of existing OAuth stack; no new dependency</td>
-<td>#349</td>
+<td>Credential</td>
+<td><code>SONAR_TOKEN</code>, a masked, protected GitLab CI/CD variable</td>
 </tr>
 <tr>
-<td>SSO / SAML</td>
-<td>Enterprise</td>
-<td>See OIDC vs SAML ruling below</td>
-<td>—</td>
+<td>Token owner</td>
+<td><strong>TBD.</strong> Not recorded anywhere in this repository; see <a href="#sonar_token">below</a></td>
 </tr>
 <tr>
-<td>Card-level activity (CardMovement)</td>
-<td>OSS</td>
-<td>Core collaborative feature — teams need their own card history</td>
-<td>—</td>
-</tr>
-<tr>
-<td>AdminActionLog (instance admin control-plane actions)</td>
-<td>OSS</td>
-<td>Fixed, narrow record of a closed set of admin toggles (maintenance mode, registration mode, uploads, email config); no configurable retention or SIEM export. See <a href="#audit-log-split">Audit log (split)</a></td>
-<td>#1126</td>
-</tr>
-<tr>
-<td>BoardExportLog (board export history)</td>
-<td>OSS</td>
-<td>Fixed, narrow record of successful board exports (actor, role, format, row count); no configurable retention or SIEM export. See <a href="#audit-log-split">Audit log (split)</a></td>
-<td>#842</td>
-</tr>
-<tr>
-<td>Issue Board Lens (read-only GitHub/GitLab issue board)</td>
-<td>OSS</td>
-<td>A small team's own visibility into the external GitHub/GitLab work it tracks outside Visiban; <code>GIT_LENS_ENABLED</code>-gated, read-only, no write-back to the provider. See <a href="#issue-board-lens-oss">Issue Board Lens</a> below</td>
-<td>#1062</td>
-</tr>
-<tr>
-<td>MCP server (AI agent tool/resource access)</td>
-<td>OSS</td>
-<td>Core team-automation surface — the tools, resources, and Bearer-token auth a small team needs to let its own AI agents read and act on boards. See <a href="#mcp-server-oss-vs-mcp-enterprise-upgrade-enterprise">MCP server</a> below</td>
-<td>#511</td>
-</tr>
-<tr>
-<td>System-wide compliance audit log</td>
-<td>Enterprise</td>
-<td>Compliance tooling; card-level history in OSS is sufficient for small teams</td>
-<td>#350→enterprise</td>
-</tr>
-<tr>
-<td>Hard WIP enforcement</td>
-<td>OSS</td>
-<td>Core Kanban mechanism; soft-only enforcement does not work</td>
-<td>#344</td>
-</tr>
-<tr>
-<td>Outgoing webhooks (per-board, signed, best-effort)</td>
-<td>OSS</td>
-<td>Minimum integration surface for a team tool; delivered from the change feed with no task queue. Reversed from Enterprise on 2026-04-15</td>
-<td>#863</td>
-</tr>
-<tr>
-<td>Webhook operations layer (guaranteed delivery, delivery log + replay, account-wide subscriptions, delivery audit)</td>
-<td>Enterprise</td>
-<td>Reliability and support tooling for hosted and large operators; basic webhooks work without it</td>
-<td>enterprise #44</td>
-</tr>
-<tr>
-<td>Saved filters per user per board</td>
-<td>OSS</td>
-<td>Basic productivity feature for boards with many swimlanes</td>
-<td>#343</td>
-</tr>
-<tr>
-<td>Movement history search + filter view</td>
-<td>OSS</td>
-<td>Teams need to query their own audit trail</td>
-<td>#342</td>
-</tr>
-<tr>
-<td>Movement history delivery report export (CSV/PDF)</td>
-<td>Enterprise</td>
-<td>Formatted compliance/client reporting artifact</td>
-<td>#342 note</td>
-</tr>
-<tr>
-<td>Per-swimlane analytics (basic)</td>
-<td>OSS</td>
-<td>Teams managing work per client/swimlane need row-level visibility</td>
-<td>#341</td>
-</tr>
-<tr>
-<td>Advanced analytics (velocity trends, CFD, exports)</td>
-<td>Enterprise</td>
-<td>Beyond basic visibility; serves analytics/compliance buyers</td>
-<td>#341 note</td>
-</tr>
-<tr>
-<td>Single-swimlane focus mode</td>
-<td>OSS</td>
-<td>Core navigation for boards with many swimlanes</td>
-<td>#340</td>
-</tr>
-<tr>
-<td>Read-only board share / guest link (basic)</td>
-<td>OSS</td>
-<td>Sharing status with external stakeholders is a basic collaboration need</td>
-<td>#348</td>
-</tr>
-<tr>
-<td>Branded client portal / custom-domain share</td>
-<td>Enterprise</td>
-<td>White-label extension of base share link</td>
-<td>#348 note</td>
-</tr>
-<tr>
-<td>User offboarding flow (deactivate + transfer)</td>
-<td>OSS</td>
-<td>Basic team membership management</td>
-<td>#347</td>
-</tr>
-<tr>
-<td>Invite link controls (expiry, single-use, revoke)</td>
-<td>OSS</td>
-<td>Basic security hygiene for any team onboarding members</td>
-<td>#346</td>
-</tr>
-<tr>
-<td>External ref field on Card (PR/issue link)</td>
-<td>OSS</td>
-<td>Basic workflow data field; Phase 1 of GitHub/GitLab integration</td>
-<td>#352 Phase 1</td>
-</tr>
-<tr>
-<td>Auto PR-to-card link from commits/PRs</td>
-<td>OSS</td>
-<td>Superseded #352 Phase 2 once outgoing webhooks stopped being Enterprise; rescoped as a per-board <em>inbound</em> webhook from the git provider. The auto-transition-on-merge slice still needs an enterprise-check before build (see #857)</td>
-<td>#857</td>
-</tr>
-<tr>
-<td>URL filter state persistence (bookmarkable views)</td>
-<td>OSS</td>
-<td>Basic navigation feature for all users</td>
-<td>#353 OSS portion</td>
-</tr>
-<tr>
-<td>Filtered share link for external clients</td>
-<td>Enterprise</td>
-<td>Combines base share token with filter state; guest-link layer</td>
-<td>#353 enterprise portion</td>
-</tr>
-<tr>
-<td>Dark/light mode theme toggle</td>
-<td>OSS</td>
-<td>Basic accessibility; per-user preference</td>
-<td>#355</td>
-</tr>
-<tr>
-<td>Org-enforced theme policy (white-label)</td>
-<td>Enterprise</td>
-<td>Org-level branding control</td>
-<td>—</td>
-</tr>
-<tr>
-<td>Transactional email notifications (SMTP)</td>
-<td>OSS</td>
-<td>Core async-team collaboration; teams with absent members need email delivery</td>
-<td>#356</td>
-</tr>
-<tr>
-<td>External channel delivery (Slack, Teams)</td>
-<td>Enterprise</td>
-<td>Third-party service integrations</td>
-<td>enterprise #34</td>
-</tr>
-<tr>
-<td>Inbound card creation via email</td>
-<td>Enterprise</td>
-<td>Integration concern; teams can create cards directly</td>
-<td>enterprise #1</td>
-</tr>
-<tr>
-<td>PATs (user-tied, full-access)</td>
-<td>OSS</td>
-<td>Machine credentials for CI/CD</td>
-<td>—</td>
-</tr>
-<tr>
-<td>Service account tokens (board-scoped, read-only/write)</td>
-<td>Enterprise</td>
-<td>Strict security policy orgs; small teams work around it with PATs</td>
-<td>enterprise #17</td>
-</tr>
-<tr>
-<td>SAML 2.0 / ADFS</td>
-<td>Enterprise</td>
-<td>Separate library; enterprise identity buyers</td>
-<td>enterprise #4</td>
-</tr>
-<tr>
-<td>SCIM directory sync / JIT provisioning</td>
-<td>Enterprise</td>
-<td>Identity management at scale; invite links cover OSS onboarding</td>
-<td>#714</td>
-</tr>
-<tr>
-<td>Automation rules (if/then triggers)</td>
-<td>Enterprise</td>
-<td>Advanced automation; small teams work without it</td>
-<td>enterprise #8</td>
-</tr>
-<tr>
-<td>IP allowlisting</td>
-<td>Enterprise</td>
-<td>Organization-scale access control</td>
-<td>enterprise #7</td>
-</tr>
-<tr>
-<td>Custom RBAC roles</td>
-<td>Enterprise</td>
-<td>Granular permissions beyond admin/member/viewer</td>
-<td>enterprise #6</td>
-</tr>
-<tr>
-<td>SLA tracking and aging alerts</td>
-<td>Enterprise</td>
-<td>Advanced time-tracking; small teams use cycle time data in OSS</td>
-<td>enterprise #10</td>
-</tr>
-<tr>
-<td>Recurring cards</td>
-<td>Enterprise</td>
-<td>Automation concern</td>
-<td>enterprise #11</td>
-</tr>
-<tr>
-<td>Advanced analytics (cycle time dists, CFD)</td>
-<td>Enterprise</td>
-<td>Beyond OSS basic analytics</td>
-<td>enterprise #12</td>
-</tr>
-<tr>
-<td>Scheduled report emails</td>
-<td>Enterprise</td>
-<td>Automated digest delivery</td>
-<td>enterprise #13</td>
-</tr>
-<tr>
-<td>Custom dashboards (multi-board widgets)</td>
-<td>Enterprise</td>
-<td>Advanced cross-board visibility</td>
-<td>enterprise #14</td>
-</tr>
-<tr>
-<td>Slack/Teams notifications</td>
-<td>Enterprise</td>
-<td>Third-party integrations</td>
-<td>enterprise #16</td>
-</tr>
-<tr>
-<td>Board template visual editor</td>
-<td>Enterprise</td>
-<td>Basic template creation via API/admin, or installed-package registration (see <code>TEMPLATE_PROVIDERS</code>, #1115), is sufficient for OSS</td>
-<td>enterprise #3</td>
-</tr>
-<tr>
-<td>Data retention policies (auto-delete/archive)</td>
-<td>Enterprise</td>
-<td>Compliance/legal-hold tooling; manual archiving is OSS</td>
-<td>enterprise #19</td>
-</tr>
-<tr>
-<td>Multi-tenancy / organization management</td>
-<td>Enterprise</td>
-<td>Multiple groups under one billing entity</td>
-<td>enterprise #21</td>
-</tr>
-<tr>
-<td>Usage quotas and plan limits</td>
-<td>Enterprise</td>
-<td>SaaS tier management</td>
-<td>enterprise #22</td>
-</tr>
-<tr>
-<td>White-labeling</td>
-<td>Enterprise</td>
-<td>Custom branding</td>
-<td>enterprise #23</td>
-</tr>
-<tr>
-<td>External tool import wizard</td>
-<td>Enterprise</td>
-<td>Migration tooling</td>
-<td>enterprise #24</td>
-</tr>
-<tr>
-<td>Form engine for card intake</td>
-<td>Enterprise</td>
-<td>Borderline; revisit if intake teams are a common OSS persona</td>
-<td>enterprise #32</td>
-</tr>
-<tr>
-<td>Google Calendar integration</td>
-<td>Enterprise</td>
-<td>External service</td>
-<td>enterprise #2</td>
+<td>Token expiry</td>
+<td><strong>UNKNOWN.</strong> Not recorded anywhere in this repository; see <a href="#sonar_token">below</a></td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h2 id="detailed-rulings">Detailed rulings<a class="headerlink" href="#detailed-rulings" title="Permanent link">&para;</a></h2>
-<h3 id="oidc-authentication-oss-vs-saml-scim-enterprise">OIDC authentication (OSS) vs SAML / SCIM (Enterprise)<a class="headerlink" href="#oidc-authentication-oss-vs-saml-scim-enterprise" title="Permanent link">&para;</a></h3>
-<p><strong>Decided — #714.</strong> Generic OIDC via <code>allauth.socialaccount.providers.openid_connect</code> is OSS. It is an extension of the Google/GitHub/GitLab OAuth stack already in the codebase; the library (<code>django-allauth</code>) is already a dependency, so no new package is required. Keeping OIDC in OSS was confirmed as the right boundary before 1.0 — removing it post-1.0 would be a breaking API change.</p>
-<p>SAML and ADFS require a separate library (e.g. <code>python3-saml</code> or <code>djangosaml2</code>) and serve organizations with centralized IdP-managed identity. SCIM 2.0 directory sync and JIT provisioning are the additional enterprise identity differentiators — they handle automatic account lifecycle management at scale, which invite-link-based onboarding covers sufficiently for small teams in OSS.</p>
+<h2 id="sonar_token"><code>SONAR_TOKEN</code><a class="headerlink" href="#sonar_token" title="Permanent link">&para;</a></h2>
+<p><code>sonar-scanner</code> reads <code>SONAR_TOKEN</code> from the environment. There is no other credential: the
+host defaults to sonarcloud.io, so <code>SONAR_HOST_URL</code> is not set.</p>
 <table>
 <thead>
 <tr>
-<th>Method</th>
-<th>Classification</th>
-<th>Status</th>
-<th>Library</th>
+<th>Property</th>
+<th>Value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Google OAuth</td>
-<td>OSS</td>
-<td>Shipped</td>
-<td><code>allauth</code> (already present)</td>
+<td>Type</td>
+<td>SonarCloud user token</td>
 </tr>
 <tr>
-<td>GitHub OAuth</td>
-<td>OSS</td>
-<td>Shipped</td>
-<td><code>allauth</code> (already present)</td>
+<td>Needed permission</td>
+<td>A user token inherits its owner's permissions, so the owner needs permission to run analysis on the project (the "Execute Analysis" permission in the current SonarCloud UI)</td>
 </tr>
 <tr>
-<td>GitLab OAuth</td>
-<td>OSS</td>
-<td>Shipped</td>
-<td><code>allauth</code> (already present)</td>
+<td>Stored</td>
+<td>GitLab → Settings → CI/CD → Variables, key <code>SONAR_TOKEN</code>, <strong>masked</strong> and <strong>protected</strong></td>
 </tr>
 <tr>
-<td>Generic OIDC</td>
-<td>OSS</td>
-<td>Shipped</td>
-<td><code>allauth</code> (already present)</td>
+<td>Used by</td>
+<td><code>sonar:scan</code>, and a local <code>scripts/sonar-scan.sh</code> run if a maintainer exports their own token</td>
 </tr>
 <tr>
-<td>SAML 2.0 / ADFS</td>
-<td>Enterprise</td>
-<td>Planned</td>
-<td>separate library required</td>
+<td>Owner</td>
+<td><strong>TBD.</strong> A SonarCloud user token belongs to the person who generated it and stops working if that person loses access to the organization</td>
 </tr>
 <tr>
-<td>SCIM directory sync / JIT</td>
-<td>Enterprise</td>
-<td>Planned</td>
-<td>separate library required</td>
+<td>Expiry</td>
+<td><strong>UNKNOWN.</strong> Record it here and in the <a href="../tokens-and-rotation/#inventory">Tokens and Rotation</a> inventory the day the token is created or rotated</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>OIDC note.</strong> The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end — report findings on <a href="https://gitlab.com/visiban/visiban/-/issues/349">issue #349</a>. The boundary ruling is final; see <a href="../../administration/authentication/">Authentication docs</a> for details.</p>
-</blockquote>
-<p><strong>Issues:</strong> #349 (OIDC implementation), #714 (boundary decision), enterprise #4 (SAML), enterprise — (SCIM)</p>
-<hr />
-<h3 id="audit-log-split">Audit log (split)<a class="headerlink" href="#audit-log-split" title="Permanent link">&para;</a></h3>
-<p>The audit log is split across OSS and enterprise by scope:</p>
-<p><strong>OSS — card-level activity</strong></p>
-<p><code>CardMovement</code> and <code>CardActivity</code> record what happened to individual cards. This is a core collaborative feature that teams rely on daily. It exists in the OSS codebase and will stay there.</p>
-<p><strong>OSS — feature-scoped security logs</strong></p>
-<p>Two further OSS tables each record a <em>fixed, enumerable</em> set of privileged actions, narrow to a single feature rather than a general-purpose audit product:</p>
-<ul>
-<li><strong><code>AdminActionLog</code></strong> (#1126) records instance-wide admin control-plane actions — maintenance mode enabled/disabled, the maintenance notice changed, registration mode changed, uploads enabled/disabled, and email settings changes. Read-only via <code>GET /api/v1/admin/action-log/</code>, restricted to site admins (<code>_ADMIN_PERMISSIONS</code>); there is no write or delete endpoint. There is deliberately no retention pruner — the table grows by a handful of rows a month — and no configurable retention, arbitrary per-object diffing, or SIEM export. See the "Scope — deliberately narrow" section of the model docstring (<code>backend/accounts/models.py</code>).</li>
-<li><strong><code>BoardExportLog</code></strong> (#842) records successful board exports for a single board — actor, role held at export time, export format, row count, and timestamp. Read-only via <code>GET /api/v1/boards/{id}/export-history/</code>, restricted to board admins (and site admins). <code>AdminActionLog</code> explicitly reuses this table's shape, lifted to instance scope (see its docstring).</li>
-</ul>
-<p>Both exist to answer "who did this privileged thing, and when?" for a specific, bounded action — not to serve as a general compliance audit trail. Neither table takes configuration, diffs arbitrary objects, or exports anywhere; that is what keeps them in OSS rather than the enterprise product below.</p>
-<p><strong>Enterprise — system-wide compliance audit log</strong></p>
-<p>A compliance audit log records board lifecycle events (created, deleted, archived), membership changes, and admin actions <strong>beyond the closed set <code>AdminActionLog</code> already covers in OSS</strong> — configurable per the operator's compliance policy rather than a fixed enum. It may export to a SIEM and enforce configurable retention policies. This serves security and compliance buyers, not small teams.</p>
-<blockquote>
-<p><strong>Reconciling with <code>AdminActionLog</code> / <code>BoardExportLog</code> (#1248).</strong> "Admin actions" in the paragraph above describes the enterprise product's <em>configurable, system-wide</em> scope, not a rule that any record of an admin action belongs in enterprise. The two OSS tables above are deliberately narrow — a closed set of control-plane toggles, and board exports, respectively — with no retention configuration and no SIEM export; that narrowness, not the mere existence of an admin-action record, is what keeps them in OSS. If either table ever grows configurable retention, arbitrary diffing, or SIEM export, revisit this ruling — until then they are the OSS side of the split this section describes, not candidates for it.</p>
-</blockquote>
-<p><strong>OSS extension points required</strong> (before the enterprise audit log can be built):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># boards/signals.py — OSS fires these; enterprise subscribes</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">post_board_created</span>    <span class="c1"># sender=Board, kwargs: board, actor</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">post_board_deleted</span>    <span class="c1"># sender=Board, kwargs: board_id, name, actor</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">post_member_added</span>     <span class="c1"># sender=BoardMembership, kwargs: board, user, role, actor</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">post_member_removed</span>   <span class="c1"># sender=BoardMembership, kwargs: board, user, actor</span>
-</code></pre></div>
-<p>A <code>VISIBAN_AUDIT_BACKEND</code> setting (defaulting to <code>NullAuditBackend</code>) must be defined in OSS settings so enterprise can register its audit recorder without modifying OSS files.</p>
-<p><strong>Issue:</strong> OSS extension points tracked in #350 (transferred to enterprise repo; OSS signal work tracked separately).</p>
-<hr />
-<h3 id="wip-enforcement-oss">WIP enforcement (OSS)<a class="headerlink" href="#wip-enforcement-oss" title="Permanent link">&para;</a></h3>
-<p>WIP limits (<code>wip_limit</code> field on Column) exist in OSS. The enforcement mode — soft (advisory toast) vs hard (blocked move) — is a board-level setting that belongs in OSS. A small team using WIP limits cannot manage capacity effectively with soft-only enforcement.</p>
-<p>The board setting <code>enforce_wip_hard</code> (boolean, default <code>false</code>) toggles between modes. No enterprise extension point is needed.</p>
-<p><strong>Issue:</strong> #344. Note: enterprise repo issue #9 was closed as a duplicate; work belongs here.</p>
-<hr />
-<h3 id="movement-history-view-oss-vs-export-enterprise">Movement history: view (OSS) vs export (Enterprise)<a class="headerlink" href="#movement-history-view-oss-vs-export-enterprise" title="Permanent link">&para;</a></h3>
-<p>The board-level movement history view — filterable by swimlane, column, date range, and assignee — is OSS. Without it, teams cannot query their own audit trail.</p>
-<p>Structured delivery report export (CSV/PDF, formatted for client or QBR presentation) is enterprise. The OSS view must expose a <code>movement_history_export</code> signal/hook so enterprise can attach export formatters without modifying OSS view code.</p>
-<p><strong>Issue:</strong> #342</p>
-<hr />
-<h3 id="per-swimlane-analytics-basic-oss-vs-advanced-enterprise">Per-swimlane analytics: basic (OSS) vs advanced (Enterprise)<a class="headerlink" href="#per-swimlane-analytics-basic-oss-vs-advanced-enterprise" title="Permanent link">&para;</a></h3>
-<p>Basic per-swimlane analytics — cards in flight, average cycle time, cards moved to Done in the last 30 days — is OSS. Teams managing work per client/swimlane need row-level visibility.</p>
-<p>Advanced analytics (velocity trends over time, bottleneck detection, historical period comparisons, exportable reports) are enterprise.</p>
-<p>The OSS analytics page must expose an <code>ANALYTICS_EXTENSIONS</code> registration point so enterprise can add panels without modifying OSS view files.</p>
-<p><strong>Issue:</strong> #341</p>
-<hr />
-<h3 id="outgoing-webhooks-oss-vs-webhook-operations-enterprise">Outgoing webhooks (OSS) vs webhook operations (Enterprise)<a class="headerlink" href="#outgoing-webhooks-oss-vs-webhook-operations-enterprise" title="Permanent link">&para;</a></h3>
-<p>Basic outgoing webhooks are OSS: per-board subscriptions, HMAC-signed, delivered in order from the <a href="../../api/events/">board change feed</a> by a scheduled command, with best-effort retry. This reverses the original Enterprise ruling. On 2026-04-15 enterprise #39 was closed in favor of an OSS implementation (#740, consolidated into #863 on 2026-09-14). Webhooks are the minimum integration surface a team tool is evaluated on, and self-hosted alternatives commonly ship them free.</p>
-<p>The operations layer is Enterprise: guaranteed delivery on a durable queue, a delivery log with replay, account-wide subscriptions, and a delivery audit trail. These make webhooks supportable at hosted or large-operator scale. A small team works without them, and consumers that need exact delivery can poll the change feed directly.</p>
-<p><strong>OSS extension points:</strong></p>
-<ul>
-<li><strong>The change feed</strong> (#1114, shipped in 1.2) is the delivery source. It is durable, ordered, and replayable by cursor, and it covers every board event type. The Enterprise dispatcher reads it exactly as the OSS one does.</li>
-<li><strong><code>BOARD_EVENT_HOOKS</code></strong> (<code>boards/hooks.py</code>, planned in #863) is a list-append hook called on commit from <code>record_board_event()</code> with <code>(board_id, event_type, event_id)</code>. It is a nudge only ("check the feed now"), so a missed call self-heals from the cursor.</li>
-</ul>
-<p>The earlier design, <code>post_card_created/moved/closed/updated</code> signals plus a <code>VISIBAN_WEBHOOK_BACKEND</code> setting, is <strong>superseded and will not be built</strong>. The change feed covers far more than four card events. For in-process card lifecycle reactions (such as automation), use <code>CARD_MUTATION_HOOKS</code>.</p>
-<p><strong>Issue:</strong> OSS webhooks in #863. Enterprise operations layer in enterprise #44. Slack/Teams channel apps are separate — see <a href="#transactional-email-notifications-oss-vs-channel-integrations-enterprise">Transactional email notifications vs channel integrations</a>.</p>
-<hr />
-<h3 id="pats-oss-vs-service-account-tokens-enterprise">PATs (OSS) vs service account tokens (Enterprise)<a class="headerlink" href="#pats-oss-vs-service-account-tokens-enterprise" title="Permanent link">&para;</a></h3>
-<p>OSS Personal Access Tokens are user-tied and limited to 10 per user. Since 1.2 they also carry <a href="../../features/personal-access-tokens/#scopes">scopes</a> (<code>read</code>, <code>write</code>, <code>admin</code>, <code>mcp:read</code>, <code>mcp:write</code>), so a token can be issued with less authority than its owner. They are sufficient for small teams doing CI/CD automation and for granting an AI agent least-privilege access.</p>
-<p>Scoped tokens moved into OSS with #1110 and are no longer an enterprise differentiator. The project's own test decides it: the MCP server is OSS, agent credentials are issued against OSS PATs, and least privilege for a credential a user is <em>told</em> to hand to an agent is necessary rather than premium. Withholding it would have meant shipping an OSS feature that can only be used unsafely.</p>
-<p>Enterprise service account tokens remain distinct on the axis that actually separates them: they are <strong>not tied to a real user account</strong>, so they survive offboarding, do not inherit a person's board memberships, and are intended for strict security environments where personal-credential use in automation is prohibited. Enterprise may also add <strong>per-board</strong> scoping; OSS scopes constrain the kind of operation, not the set of boards.</p>
-<p><strong>Boundary documentation:</strong> see <a href="../../features/personal-access-tokens/">Personal Access Tokens</a> for OSS PAT scope. The service-account distinction must be documented in the enterprise repo before enterprise #17 is implemented.</p>
-<hr />
-<h3 id="transactional-email-notifications-oss-vs-channel-integrations-enterprise">Transactional email notifications (OSS) vs channel integrations (Enterprise)<a class="headerlink" href="#transactional-email-notifications-oss-vs-channel-integrations-enterprise" title="Permanent link">&para;</a></h3>
-<p>SMTP delivery of in-app notification events (card assigned, @mention, due date, card moved) is OSS. Teams with members who are not watching the board all day need email delivery to collaborate effectively.</p>
-<p>Slack/Teams channel delivery and other third-party integrations are enterprise.</p>
-<p><strong>OSS extension point:</strong> <code>post_notification_created</code> (<code>boards/signals.py</code>), shipped in 1.2 — enterprise subscribes additional delivery backends (Slack, Teams, richer email templates) without modifying OSS files. Every notification creation path in OSS routes through <code>boards.services.notifications.create_notifications</code>, which is what makes the seam complete: three of the six creation sites use <code>bulk_create</code>, which sends no <code>post_save</code>, so a per-model signal would have silently skipped them. A test in <code>boards/tests/test_extensibility.py</code> fails if a new creation site bypasses the funnel.</p>
-<p><strong>Issue:</strong> OSS transactional email tracked in #356. Enterprise channel delivery in enterprise #34.</p>
-<hr />
-<h3 id="data-retention-split">Data retention (split)<a class="headerlink" href="#data-retention-split" title="Permanent link">&para;</a></h3>
-<p>Manual card archiving is OSS (existing feature). Automated retention policies (auto-archive or delete cards older than an admin-configured threshold) are enterprise compliance tooling.</p>
-<p><strong>Issue:</strong> enterprise #19.</p>
-<hr />
-<h3 id="issue-board-lens-oss">Issue Board Lens (OSS)<a class="headerlink" href="#issue-board-lens-oss" title="Permanent link">&para;</a></h3>
-<p>The <a href="../../features/issue-board-lens/">Issue Board Lens</a> — a read-only kanban view of a public GitHub or GitLab repository's issues, pivoted onto columns and swimlanes — is OSS. Per this doc's guiding principle, a small team needs visibility into the external work (issues, PRs) it tracks outside Visiban to work together effectively; that is a core day-to-day workflow concern, not an advanced add-on. The feature is flag-gated (<code>GIT_LENS_ENABLED</code>, off by default) and strictly read-only — no sync, no webhooks, no write-back to the provider — which keeps it a bounded visibility feature rather than an integration platform.</p>
-<p><strong>Issue:</strong> #1062 (tracking issue — "Classified OSS (enterprise-check)"; base lens shipped via MR !842 and follow-ups).</p>
-<hr />
-<h3 id="mcp-server-oss-vs-mcp-enterprise-upgrade-enterprise">MCP server (OSS) vs MCP enterprise upgrade (Enterprise)<a class="headerlink" href="#mcp-server-oss-vs-mcp-enterprise-upgrade-enterprise" title="Permanent link">&para;</a></h3>
-<p>The <a href="../../features/mcp-server/">MCP server</a> — exposing boards, columns, swimlanes, cards, and the movement audit trail to an MCP-compatible AI agent over Bearer-token auth — is OSS. Letting a team's own agents and automations read and act on its boards, scoped by the same PATs the team already issues for CI/CD, is as core a day-to-day workflow concern as the human UI; withholding it would mean shipping an OSS feature (scoped PATs, #1110) that can only be used safely with a client enterprise alone provides.</p>
-<p>The feature doc's <a href="../../features/mcp-server/#upgrade-path-to-enterprise">"Upgrade path to enterprise"</a> section names the planned enterprise differentiators: OAuth 2.1 (so a client no longer needs a long-lived Bearer token managed by hand), analytics tools, prompt templates, and RBAC-scoped tool visibility (hiding tools a caller's role could never use, rather than returning <code>permission_denied</code> when they're called). <strong>None of this is implemented yet</strong> — it is a planned boundary, not a shipped one. Revisit this ruling's enterprise half once any part of it lands.</p>
-<p><strong>Issue:</strong> #511 (MCP server OSS scaffold). The planned enterprise upgrade path has no enterprise issue recorded yet.</p>
-<hr />
-<h2 id="oss-extension-points-implementation-status">OSS extension points — implementation status<a class="headerlink" href="#oss-extension-points-implementation-status" title="Permanent link">&para;</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">The owner and expiry are not recorded yet</p>
+<p>Neither value can be read from GitLab's API or from this repository, so this page does not
+guess them. Whoever holds the token must open SonarCloud → My Account → Security, find
+it, and write the expiry date in both places. Until then, treat the token as one that could
+expire at any time. The first symptom is a yellow <code>sonar:scan</code> on the nightly pipeline, and
+nothing alerts on it.</p>
+</div>
+<p><code>SONAR_TOKEN</code> is <strong>protected</strong>, so GitLab injects it only into pipelines on a protected branch
+or tag. That is why the schedule must target <code>main</code>: a schedule on an unprotected branch runs
+<code>sonar:scan</code> with no token.</p>
+<h3 id="create-the-token">Create the token<a class="headerlink" href="#create-the-token" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Sign in to SonarCloud as a member of the <code>visiban</code> organization with permission to run
+   analysis. Prefer a dedicated service account over a personal one, so the token outlives any
+   one person's access.</li>
+<li>In the current SonarCloud UI, go to <strong>My Account → Security</strong> and generate a token. Name it so its purpose is obvious (for
+   example <code>visiban-gitlab-nightly</code>), choose an expiry if the UI offers one, and generate it. Copy the value now;
+   SonarCloud shows it once.</li>
+<li>In GitLab, open <strong>Settings → CI/CD → Variables → Add variable</strong>. Key <code>SONAR_TOKEN</code>, paste
+   the value, enable <strong>Mask variable</strong> and <strong>Protect variable</strong>, and leave the environment scope
+   as <code>*</code>.</li>
+<li>Record the owner and the expiry in the
+   <a href="../tokens-and-rotation/#inventory">Tokens and Rotation</a> inventory.</li>
+<li>Run the scan once by hand to confirm it works; see <a href="#verify">Verify</a>.</li>
+</ol>
+<h3 id="rotate-the-token">Rotate the token<a class="headerlink" href="#rotate-the-token" title="Permanent link">&para;</a></h3>
+<p>Follow the <a href="../tokens-and-rotation/#rotation-procedure-general">general rotation procedure</a>.
+For this token:</p>
+<ol>
+<li>Generate the replacement in SonarCloud <strong>before</strong> the old one expires, as above.</li>
+<li>Edit the existing <code>SONAR_TOKEN</code> variable and replace its value. Do not create a second
+   variable.</li>
+<li>Trigger the schedule by hand (see <a href="#verify">Verify</a>) and confirm <code>sonar:scan</code> publishes.</li>
+<li>Revoke the old token in SonarCloud, and update the expiry in the inventory in the same MR.</li>
+</ol>
+<h2 id="the-pipeline-schedule">The pipeline schedule<a class="headerlink" href="#the-pipeline-schedule" title="Permanent link">&para;</a></h2>
+<p>Schedules are GitLab project configuration, not files in the repository, so a deleted or
+deactivated schedule leaves no commit to review. The Sonar job rides on the <strong>Nightly</strong>
+schedule shared with the CVE/OSV scans, the deep schema fuzz, and kaizen. The full table of
+what each schedule runs is in <a href="../../development/ci-gates/">CI Gate Self-Tests</a>.</p>
+<h3 id="create-or-restore-it">Create or restore it<a class="headerlink" href="#create-or-restore-it" title="Permanent link">&para;</a></h3>
+<p><strong>Build → Pipeline schedules → New schedule</strong>:</p>
 <table>
 <thead>
 <tr>
-<th>Extension point</th>
-<th>Required by</th>
-<th>Status</th>
+<th>Field</th>
+<th>Value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Enterprise URL extension point (<code>enterprise.urls.enterprise_urlpatterns</code>)</td>
-<td>All enterprise URL registrations</td>
-<td>✅ Implemented — <code>visiban/urls.py</code> (#715)</td>
+<td>Description</td>
+<td><code>Nightly (CVE/OSV, Sonar, deep fuzz, kaizen)</code></td>
 </tr>
 <tr>
-<td>Enterprise settings include (<code>enterprise.settings.*</code>)</td>
-<td>All enterprise settings overrides</td>
-<td>✅ Implemented — <code>visiban/settings.py</code> (#716). Constraint (#1337): the include must not replace <code>ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR</code> with anything that is not <code>accounts.tokens.VisibanPasswordResetTokenGenerator</code> or a subclass of it — subclasses are accepted. System check <code>accounts.E001</code> (Error) stops startup otherwise; <code>SILENCED_SYSTEM_CHECKS = ["accounts.E001"]</code> is the explicit opt-out.</td>
+<td>Interval pattern</td>
+<td>Custom: <code>0 5 * * *</code></td>
 </tr>
 <tr>
-<td>Enterprise WebSocket routing extension point (<code>enterprise.routing.enterprise_websocket_urlpatterns</code>)</td>
-<td>All enterprise WebSocket URL registrations</td>
-<td>✅ Implemented — <code>visiban/asgi.py</code>, mirrors the HTTP URL extension point above; silently skipped (<code>ImportError</code>) when the enterprise package is not installed (#1009)</td>
+<td>Cron timezone</td>
+<td><code>UTC</code></td>
 </tr>
 <tr>
-<td><code>post_board_created/deleted/member_added/removed</code> signals</td>
-<td>Enterprise audit log (enterprise #28)</td>
-<td>Not yet implemented</td>
+<td>Target branch</td>
+<td><code>main</code></td>
 </tr>
 <tr>
-<td><code>VISIBAN_AUDIT_BACKEND</code> setting</td>
-<td>Enterprise audit log</td>
-<td>Not yet implemented</td>
+<td>Variables (type: Variable)</td>
+<td><code>CVE_SCAN=true</code>, <code>OSV_SCAN=true</code>, <code>SONAR_SCHEDULED=true</code>, <code>FUZZ_DEEP=true</code>, <code>KAIZEN_YIELD_WATCH=true</code></td>
 </tr>
 <tr>
-<td><code>post_card_created/moved/closed/updated</code> signals (superseded)</td>
-<td>—</td>
-<td>Superseded, will not be built: card lifecycle is covered by <code>CARD_MUTATION_HOOKS</code> (below) and every board event by the change feed (#1114)</td>
-</tr>
-<tr>
-<td><code>VISIBAN_WEBHOOK_BACKEND</code> setting (superseded)</td>
-<td>—</td>
-<td>Superseded, will not be built: webhooks are OSS (#863); the Enterprise operations layer (enterprise #44) consumes the change feed and <code>BOARD_EVENT_HOOKS</code></td>
-</tr>
-<tr>
-<td><code>CARD_MUTATION_HOOKS</code> list (<code>boards/hooks.py</code>)</td>
-<td>Enterprise automation (enterprise #69) and any in-process reaction to card create/update/move/delete/archive/restore</td>
-<td>✅ Implemented — <code>boards/hooks.py</code>, fired on commit from <code>boards/services/cards.py</code>; pinned by <code>boards/tests/test_card_mutation_hooks.py</code></td>
-</tr>
-<tr>
-<td>Board change feed (<code>GET /api/v1/boards/{id}/events/</code>)</td>
-<td>OSS webhooks (#863), Enterprise webhook operations (enterprise #44), any out-of-process consumer</td>
-<td>✅ Implemented — #1114, contract in <a href="../../api/events/"><code>docs/api/events.md</code></a></td>
-</tr>
-<tr>
-<td><code>BOARD_EVENT_HOOKS</code> list (<code>boards/hooks.py</code>)</td>
-<td>Enterprise webhook operations (enterprise #44) — wake signal for a queue-backed dispatcher</td>
-<td>Not yet implemented — planned in #863</td>
-</tr>
-<tr>
-<td><code>VISIBAN_AUTOMATION_BACKEND</code> setting</td>
-<td>Enterprise automation (enterprise #69)</td>
-<td>Not yet implemented</td>
-</tr>
-<tr>
-<td><code>MOVEMENT_EXPORT_BACKENDS</code> list (<code>boards/hooks.py</code>)</td>
-<td>Enterprise delivery report export (#342 enterprise)</td>
-<td>✅ Implemented — <code>boards/hooks.py</code></td>
-</tr>
-<tr>
-<td><code>ANALYTICS_EXTENSIONS</code> list (<code>boards/hooks.py</code>)</td>
-<td>Enterprise advanced analytics (#341 enterprise)</td>
-<td>✅ Implemented — <code>boards/hooks.py</code></td>
-</tr>
-<tr>
-<td><code>TEMPLATE_PROVIDERS</code> list (<code>boards/hooks.py</code>)</td>
-<td>External board-template registration by installed packages (#1115; tracked further in #504)</td>
-<td>✅ Implemented — <code>boards/hooks.py</code> + <code>boards/template_sync.py</code>, synced via <code>post_migrate</code> in <code>BoardsConfig.ready()</code></td>
-</tr>
-<tr>
-<td><code>CUSTOM_FIELD_VALIDATORS</code> list (<code>boards/hooks.py</code>)</td>
-<td>Enterprise per-type custom field validators, <strong>card</strong> values (#371)</td>
-<td>✅ Implemented — <code>boards/hooks.py</code>, applied at the serializer boundary</td>
-</tr>
-<tr>
-<td><code>SWIMLANE_CUSTOM_FIELD_VALIDATORS</code> list (<code>boards/hooks.py</code>)</td>
-<td>Enterprise per-type custom field validators, <strong>swimlane row</strong> values (#1140)</td>
-<td>✅ Implemented — <code>boards/hooks.py</code>, applied at the serializer boundary. A separate list from the card one, not a widening of it: a validator registered against the card signature may read card-only attributes, so feeding it a swimlane definition could raise. A validator that is generic across both levels registers in both lists.</td>
-</tr>
-<tr>
-<td><code>custom_field_value_changed</code> signal (<code>boards/signals.py</code>)</td>
-<td>Enterprise custom field change audit trail, <strong>card</strong> values (#371)</td>
-<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code></td>
-</tr>
-<tr>
-<td><code>swimlane_custom_field_value_changed</code> signal (<code>boards/signals.py</code>)</td>
-<td>Enterprise custom field change audit trail, <strong>swimlane row</strong> values (#1140)</td>
-<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code>. Separate from the card signal for the same reason as the validator list above — reusing it would mean sending <code>card=None</code> to receivers that guarantee a card.</td>
-</tr>
-<tr>
-<td><code>post_notification_created</code> signal (<code>boards/signals.py</code>)</td>
-<td>Enterprise channel delivery (enterprise #34)</td>
-<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/notifications.py</code> (#356). <strong>Opposite dispatch convention to the two custom-field signals above:</strong> sent <em>after</em> the enclosing transaction commits (via <code>transaction.on_commit</code>) and with <code>send_robust</code>, so a receiver that raises is logged and dropped and cannot roll back the notification it is reporting or fail the request. When no transaction is open — both notification management commands, and the description-mention path — <code>on_commit</code> runs the callback immediately and synchronously, so a receiver doing network I/O owns its own timeout. Kwargs: <code>notification</code>, <code>recipient</code>, <code>actor</code>, <code>context</code> (a per-<code>action_type</code> dict carrying detail that is not reachable from the row, such as the comment body or the from/to column names).</td>
-</tr>
-<tr>
-<td><code>BaseSnapshotStorage</code> / <code>SNAPSHOT_STORAGE_BACKEND</code></td>
-<td>Enterprise S3 snapshots (enterprise #37)</td>
-<td>Not yet implemented</td>
-</tr>
-<tr>
-<td><code>post_reminder_due</code> signal</td>
-<td>Enterprise reminder delivery (enterprise #35)</td>
-<td>Not yet implemented</td>
+<td>Activated</td>
+<td>Yes</td>
 </tr>
 </tbody>
 </table>
+<p>If the schedule already exists, only confirm that <code>SONAR_SCHEDULED=true</code> is among its
+variables. The Sonar job needs only that one variable; the others belong to the neighboring
+jobs. The nightly load test has its own separate schedule (<code>LOAD_TEST_SCHEDULE=true</code>) and is
+unrelated.</p>
+<p>A schedule runs as the user who owns it. If that user is removed from the project, GitLab can
+stop running their schedules, so after any membership change check that the schedule still
+shows a next-run time, and use <strong>Take ownership</strong> if it does not.</p>
+<h3 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h3>
+<p>Use the play button on the schedule row (<strong>Run schedule</strong>), or <strong>Build → Pipelines → New
+pipeline</strong> on <code>main</code> with <code>SONAR_SCHEDULED=true</code>. Then:</p>
+<ol>
+<li>Open the pipeline and check that <code>sonar:scan</code> ran. It is a late job: it waits for
+   <code>backend-test-coverage</code> and <code>frontend-test</code>.</li>
+<li>In its log, find the two lines from <code>scripts/sonar-scan.sh</code>:
+   <code>backend/coverage.sonar.xml resolved: N class entries</code> and
+   <code>frontend/coverage/lcov.sonar.info resolved: N SF files</code>. Both counts must be above zero.</li>
+<li>Confirm the SonarCloud dashboard's last-analysis date is current and Coverage is above 0%.</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">The schedule is audited only when a read token exists</p>
+<p><code>schedule-config-check</code> fails the next scheduled pipeline when a <code>schedule &amp;&amp; $VAR ==
+"true"</code> rule has no active schedule setting <code>VAR=true</code>. It can only read schedules when a
+<code>GITLAB_API_TOKEN</code> variable is configured; without one it warns and passes. See
+<a href="../../development/ci-gates/#scheduled-pipelines">CI Gate Self-Tests § Scheduled pipelines</a>.
+Do not rely on it to catch a deleted schedule until that token exists.</p>
+</div>
+<h2 id="when-the-nightly-sonarscan-is-yellow">When the nightly <code>sonar:scan</code> is yellow<a class="headerlink" href="#when-the-nightly-sonarscan-is-yellow" title="Permanent link">&para;</a></h2>
+<p><code>sonar:scan</code> is <code>allow_failure: true</code>, so it never makes the pipeline red, and nothing alerts
+on it. Check the schedule's pipeline history periodically, or the dashboard's last-analysis
+date. To diagnose a yellow job, read its log and match the symptom:</p>
+<table>
+<thead>
+<tr>
+<th>Symptom in the log</th>
+<th>Likely cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Not authorized</code>, <code>401</code>, or a token error</td>
+<td><code>SONAR_TOKEN</code> expired, was revoked, or its owner lost access</td>
+<td><a href="#rotate-the-token">Rotate the token</a></td>
+</tr>
+<tr>
+<td><code>SONAR_TOKEN</code> empty, or no token error but no analysis</td>
+<td>The variable is missing, or the pipeline ran on a ref where a protected variable is not injected</td>
+<td>Confirm the variable exists and the schedule targets <code>main</code></td>
+</tr>
+<tr>
+<td>An error saying CI analysis cannot run while Automatic Analysis is enabled (exact wording varies)</td>
+<td>Someone turned on Automatic Analysis in SonarCloud</td>
+<td>Turn it off in the project's administration settings (in the current SonarCloud UI this is under <strong>Administration → Analysis Method</strong>). Automatic Analysis also ignores <code>sonar-project.properties</code>, so all the suppressions would stop applying</td>
+</tr>
+<tr>
+<td><code>resolved: 0 class entries</code> or <code>0 SF files</code>, or Coverage reads 0.0%</td>
+<td>A report rewrite regressed, or a producer job failed and its report is missing</td>
+<td>Check <code>sonar-scan-selftest</code>, then run <code>scripts/sonar-scan.sh --prep-only</code> locally against fresh reports</td>
+</tr>
+<tr>
+<td><code>! backend/coverage.xml not found</code> or <code>! frontend/coverage/lcov.info not found</code></td>
+<td><code>backend-test-coverage</code> or <code>frontend-test</code> failed on <code>main</code> that night</td>
+<td>Fix that job first; the scan still ran for the other half</td>
+</tr>
+<tr>
+<td>Image pull failure, or a network or timeout error</td>
+<td>A transient registry or SonarCloud problem</td>
+<td>Re-run the job. If it persists, check the pinned <code>sonar-scanner-cli</code> image in <code>.gitlab-ci.yml</code></td>
+</tr>
+<tr>
+<td>Job did not appear in the pipeline at all</td>
+<td>The schedule is missing, inactive, or lacks <code>SONAR_SCHEDULED=true</code></td>
+<td><a href="#create-or-restore-it">Create or restore the schedule</a></td>
+</tr>
+</tbody>
+</table>
+<p>A red <code>lint:sonar-exclusions</code> is a different problem: a suppression glob matches no tracked
+file. Delete the criterion or repoint it at the new path. Never widen the glob to make the
+guard pass.</p>
+<h2 id="the-review-every-new-hotspot-rule">The "review every new hotspot" rule<a class="headerlink" href="#the-review-every-new-hotspot-rule" title="Permanent link">&para;</a></h2>
+<p>SonarCloud security hotspots are code that is security-sensitive but not necessarily wrong. A
+human must decide, and the dashboard counts unreviewed ones against the Security Review
+rating. The policy is <strong>no unreviewed hotspots</strong>.</p>
+<ol>
+<li>When a hotspot appears (the dashboard or a new-code notification shows it), open <strong>Security
+   Hotspots</strong> and read the finding and its guidance.</li>
+<li>Decide: <strong>Fix</strong> it in code, or mark it <strong>Safe</strong> or <strong>Acknowledged</strong> if the code is
+   deliberate.</li>
+<li>Always add a comment saying why. "Safe" with no reason is the same as unreviewed.</li>
+<li>If the safe call is a recurring pattern in specific files, prefer a narrowly scoped
+   <code>sonar.issue.ignore.multicriteria</code> criterion with a rationale comment, per the
+   <a href="../../development/sonarcloud/#quality-policy">suppression policy</a>.</li>
+<li>Do this when it appears, not at release time. Hotspots reviewed late are reviewed from
+   memory.</li>
+</ol>
+<p>Reviewing a hotspot needs a specific project permission in SonarCloud (called "Administer
+Security Hotspots" in the current UI). If you cannot see the status controls, ask an
+organization admin.</p>
+<div class="admonition note">
+<p class="admonition-title">SonarCloud UI details are not yet verified</p>
+<p>The SonarCloud menu paths, permission names, and error wording on this page were written
+from general knowledge of the product and were last verified: not yet. SonarCloud changes
+its UI and plans; if a step does not match what you see, trust the UI and fix this page.</p>
+</div>
 
 
 
