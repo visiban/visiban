@@ -3962,21 +3962,81 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 <p><code>seed_demo_data --demo-site</code> additionally seeds the content a public demo needs. It is opt-in; without the flag the command behaves exactly as described above.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--wipe<span class="w"> </span>--demo-site
 </code></pre></div>
+<p><code>--wipe</code> deletes the showcase boards before recreating them. It also deletes the Marketing Campaigns and Hiring Pipeline boards that releases before #1389 seeded, so reseeding an older demo database does not leave them behind.</p>
 <p>It creates, alongside the normal demo board:</p>
 <ul>
-<li><strong>Software Team</strong> (Backlog / In Progress / Review / Done), <strong>Marketing Campaigns</strong>, and <strong>Hiring Pipeline</strong> boards, 20 cards each, with comments, assignees, labels, and movement history. Each board also shows off (#1363):<ul>
-<li>partly done <strong>checklists</strong> — a release checklist on Software Team, interview loops on Hiring Pipeline</li>
-<li><strong>card custom fields</strong> with values on most cards, at least one pinned to the card face — Story points and Target release; Budget and Channel; Source, Interview score and Offer stage</li>
-<li><strong>swimlane custom fields</strong> — one visible to everyone and one admin-only per board (for example Hiring Pipeline's Salary band)</li>
-<li><strong>card relations</strong> — a few blocks / relates-to pairs, including at least one card still blocked by unfinished work</li>
-<li>on Software Team, linked GitLab and GitHub <strong>merge / pull requests</strong> (fictional <code>*.example.com</code> URLs)</li>
-<li>a realistic <strong>age mix</strong>: most cards moved in the last few days, a few aging and a few stale, with due dates that are overdue, due today, upcoming, or unset. Stale and overdue cards are always in-flight work, never in the Done column. Ages are counted back from the day of the reset, so the mix looks the same after every reset</li>
+<li>
+<p>six showcase boards, each a different workflow with a different <strong>swimlane entity</strong> (#1389). The swimlane is the thing being managed (a property, a project, an account), with its own fields pinned to the row header:</p>
+<table>
+<thead>
+<tr>
+<th>Board</th>
+<th>Swimlane is a…</th>
+<th>Pinned row fields</th>
+<th>On the cards</th>
+<th>Question it answers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Software Team</strong></td>
+<td>service area</td>
+<td>Service tier, Cost center</td>
+<td>Story points, Target release</td>
+<td>The familiar baseline</td>
+</tr>
+<tr>
+<td><strong>Property Management</strong></td>
+<td>property</td>
+<td>Property manager, Region, Unit count</td>
+<td>Unit, Vendor, Cost estimate; issue-type labels (Plumbing, Electrical, HVAC, Pest, Appliance, Turnover)</td>
+<td>Which properties have unresolved work?</td>
+</tr>
+<tr>
+<td><strong>Construction</strong></td>
+<td>project</td>
+<td>Project manager, Region, Phase</td>
+<td>Subcontractor, Permit #, permit portal link; due dates</td>
+<td>What is going to delay the project?</td>
+</tr>
+<tr>
+<td><strong>Sales Territory</strong></td>
+<td>account</td>
+<td>AE, SA, Region</td>
+<td>Deal value, CRM record link, Stage</td>
+<td>Which accounts are not getting attention?</td>
+</tr>
+<tr>
+<td><strong>Content Moderation</strong></td>
+<td>content queue</td>
+<td>Moderator lead, Region, Policy tier</td>
+<td>Report reasons (multi-select), Reporter count</td>
+<td>What has waited longest for review?</td>
+</tr>
+<tr>
+<td><strong>Logistics Exceptions</strong></td>
+<td>shipment</td>
+<td>Carrier, Lane, Customer</td>
+<td>Exception type, ETA, tracking link</td>
+<td>Which shipments need intervention?</td>
+</tr>
+</tbody>
+</table>
+<p>Software Team has 20 cards and the other five boards 16 each, with comments, assignees, labels, and movement history. Each board also shows off (#1363):</p>
+<ul>
+<li>partly done <strong>checklists</strong>, such as a release checklist on Software Team and inspection steps on Construction</li>
+<li><strong>card custom fields</strong> with values on most cards, at most two pinned to the card face. They use number formatting (a <code>$</code> prefix on Cost estimate and Deal value), colored dropdown and multi-select choices, URL fields and a date field (#1390, #1391)</li>
+<li><strong>swimlane custom fields</strong>: on the five new boards, three pinned row fields that the visitor can see, with a different value on every row, plus one admin-only field (for example Sales Territory's Executive sponsor). Software Team keeps one public field and one admin-only field</li>
+<li><strong>card relations</strong>: a few blocks / relates-to pairs, including at least one card still blocked by unfinished work</li>
+<li>on Software Team, linked GitLab and GitHub <strong>merge / pull requests</strong></li>
+<li>a realistic <strong>age mix</strong>: most cards moved in the last few days, a few aging and a few stale, with due dates that are overdue, due today, upcoming, or unset. Stale and overdue cards are always in-flight work, never in the Done column. Ages, due dates and the Logistics ETAs are counted from the day of the reset, so the mix looks the same after every reset</li>
 </ul>
+<p>Every link (merge requests, permit portals, CRM records, tracking pages) points at a fictional <code>*.example.com</code> address. The links are decorative; they do not imply an integration. All names, companies and accounts are fictional.
+- a seeded <strong>notification inbox</strong> for the published visitor: fifteen unread notifications across the six boards (@mentions, assignments, card moves, new comments, and stale and due-soon alerts), each from another account or from the system, never from the visitor. The demo fence refuses marking notifications read, so they stay unread until the next reset
+- the <strong>published visitor</strong> account (username from <code>DEMO_LOGIN_USERNAME</code>, default <code>visitor</code>; password from <code>DEMO_LOGIN_PASSWORD</code>) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While <code>DEMO_MODE</code> is on, this one account may also edit and archive cards other people created (every seeded card belongs to the admin); that exception is read from the setting at request time, so it disappears the moment <code>DEMO_MODE</code> is turned off rather than living on as a stored permission
+- a site <strong>admin</strong> account (<code>admin</code>, password from <code>DEMO_ADMIN_PASSWORD</code>, <strong>never published</strong>) that owns the seeded boards
+- two member accounts, <code>maya</code> and <code>jordan</code> (password from <code>DEMO_MEMBER_PASSWORD</code>)</p>
 </li>
-<li>a seeded <strong>notification inbox</strong> for the published visitor: twelve unread notifications across the three boards (@mentions, assignments, card moves, a new comment, and stale and due-soon alerts), each from another account or from the system, never from the visitor. The demo fence refuses marking notifications read, so they stay unread until the next reset</li>
-<li>the <strong>published visitor</strong> account (username from <code>DEMO_LOGIN_USERNAME</code>, default <code>visitor</code>; password from <code>DEMO_LOGIN_PASSWORD</code>) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While <code>DEMO_MODE</code> is on, this one account may also edit and archive cards other people created (every seeded card belongs to the admin); that exception is read from the setting at request time, so it disappears the moment <code>DEMO_MODE</code> is turned off rather than living on as a stored permission</li>
-<li>a site <strong>admin</strong> account (<code>admin</code>, password from <code>DEMO_ADMIN_PASSWORD</code>, <strong>never published</strong>) that owns the seeded boards</li>
-<li>two member accounts, <code>maya</code> and <code>jordan</code> (password from <code>DEMO_MEMBER_PASSWORD</code>)</li>
 </ul>
 <p>It also turns file uploads off and sets registration to <strong>closed</strong>.</p>
 <p>Passwords come only from the environment and are re-applied on every run. The command refuses to run unless <code>DEMO_MODE=true</code> and <code>DEMO_LOGIN_PASSWORD</code>, <code>DEMO_ADMIN_PASSWORD</code> and <code>DEMO_MEMBER_PASSWORD</code> are all set, refuses an admin password equal to the published one, refuses a <code>DEMO_LOGIN_USERNAME</code> that names another seeded account, and cannot be combined with <code>--export</code> or <code>--scale</code>. The onboarding tour is marked <strong>completed</strong> for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.</p>
