@@ -277,7 +277,7 @@ Three different numbers apply. They measure different things; see
 |---|---|---|
 | SonarCloud overall coverage (backend and frontend, product source only) | **At least 85%**, with **80% as the floor** | Policy, read on the SonarCloud dashboard. Not a CI gate |
 | Backend aggregate | **90%** | `backend-test-coverage` runs `coverage report --fail-under=90` and blocks the pipeline |
-| Frontend aggregate | Lines and statements **70%**, functions and branches **60%** | `coverage.thresholds` in `frontend/vitest.config.ts` |
+| Frontend aggregate | Lines **83%**, statements **80%**, functions and branches **77%** | `coverage.thresholds` in `frontend/vitest.config.ts` |
 | Lines an MR adds or changes | **80%** | `backend-diff-coverage` and `frontend-diff-coverage` (see [Diff coverage](#diff-coverage-1076)) |
 
 The frontend thresholds are a floor that stops the aggregate from regressing; they are lower

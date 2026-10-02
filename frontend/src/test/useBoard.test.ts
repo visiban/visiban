@@ -37,14 +37,16 @@ vi.mock('../api/cards', () => ({
   moveCard: vi.fn(),
 }))
 
-import { getBoardFull, reorderColumns, deleteSwimlane, deleteColumn } from '../api/boards'
+import { getBoardFull, reorderColumns, reorderSwimlanes, deleteSwimlane, deleteColumn, patchBoard } from '../api/boards'
 import { moveCard } from '../api/cards'
 
 const mockGetBoardFull = getBoardFull as ReturnType<typeof vi.fn>
 const mockMoveCard = moveCard as ReturnType<typeof vi.fn>
 const mockReorderColumns = reorderColumns as ReturnType<typeof vi.fn>
+const mockReorderSwimlanes = reorderSwimlanes as ReturnType<typeof vi.fn>
 const mockDeleteSwimlane = deleteSwimlane as ReturnType<typeof vi.fn>
 const mockDeleteColumn = deleteColumn as ReturnType<typeof vi.fn>
+const mockPatchBoard = patchBoard as ReturnType<typeof vi.fn>
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
@@ -267,6 +269,17 @@ describe('useBoard', () => {
     expect(result.current.board!.columns).toHaveLength(2)
   })
 
+  it('addColumn updates an existing column with a matching id instead of duplicating it', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    const updated: Column = { ...result.current.board!.columns[0], name: 'Renamed via echo' }
+    act(() => { result.current.addColumn(updated) })
+    expect(result.current.board!.columns).toHaveLength(1)
+    expect(result.current.board!.columns[0].name).toBe('Renamed via echo')
+  })
+
   it('removeColumn removes column and its cards', async () => {
     mockDeleteColumn.mockResolvedValue(undefined)
     mockGetBoardFull.mockResolvedValue(makeBoard())
@@ -286,6 +299,17 @@ describe('useBoard', () => {
     const newSwimlane: Swimlane = { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '2026-01-01' }
     act(() => { result.current.addSwimlane(newSwimlane) })
     expect(result.current.board!.swimlanes).toHaveLength(2)
+  })
+
+  it('addSwimlane updates an existing swimlane with a matching id instead of duplicating it', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    const updated: Swimlane = { ...result.current.board!.swimlanes[0], name: 'Renamed via echo' }
+    act(() => { result.current.addSwimlane(updated) })
+    expect(result.current.board!.swimlanes).toHaveLength(1)
+    expect(result.current.board!.swimlanes[0].name).toBe('Renamed via echo')
   })
 
   it('removeSwimlane removes swimlane and its cards', async () => {
@@ -327,6 +351,16 @@ describe('useBoard', () => {
     const label: Label = { id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }
     act(() => { result.current.addLabel(label) })
     expect(result.current.board!.labels).toHaveLength(1)
+  })
+
+  it('updateLabel updates the label with the matching id', async () => {
+    const board = makeBoard({ labels: [{ id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }] })
+    mockGetBoardFull.mockResolvedValue(board)
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.updateLabel({ id: 1, uid: 'lbluid000001', name: 'Critical Bug', color: '#B91C1C' }) })
+    expect(result.current.board!.labels[0]).toEqual({ id: 1, uid: 'lbluid000001', name: 'Critical Bug', color: '#B91C1C' })
   })
 
   it('updateSwimlane updates existing swimlane', async () => {
@@ -692,6 +726,345 @@ describe('useBoard', () => {
     // A frame that does carry the field wins.
     act(() => { result.current.updateMember({ id: 30, user: root, role: 'admin', is_site_admin: false, joined_at: '' }) })
     expect(result.current.board!.members[0].is_site_admin).toBe(false)
+  })
+
+  it('addMember appends a membership that is not already present', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    const newUser = { id: 99, username: 'newbie', display_name: 'Newbie', avatar_url: '' }
+    act(() => {
+      result.current.addMember({ id: 40, user: newUser, role: 'member', joined_at: '' })
+    })
+    expect(result.current.board!.members).toHaveLength(1)
+    expect(result.current.board!.members[0].user.id).toBe(99)
+  })
+
+  it('removeMember removes the membership for the given user id', async () => {
+    const root = { id: 3, username: 'root', display_name: 'Root', avatar_url: '' }
+    mockGetBoardFull.mockResolvedValue(makeBoard({
+      members: [{ id: 30, user: root, role: 'member', joined_at: '' }],
+    }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.removeMember(3) })
+    expect(result.current.board!.members).toHaveLength(0)
+  })
+
+  it('applyCustomFieldDefinitions replaces the board-level definitions wholesale', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => {
+      result.current.applyCustomFieldDefinitions([
+        {
+          id: 1, uid: 'cfduid0001', name: 'Points', field_type: 'number', choices: [], position: 0,
+          show_on_card: false, is_required: false, help_text: '',
+          number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
+        },
+      ])
+    })
+    expect(result.current.board!.custom_field_definitions).toHaveLength(1)
+    expect(result.current.board!.custom_field_definitions[0].name).toBe('Points')
+  })
+
+  it('applySwimlaneFieldDefinitions replaces the swimlane-level definitions wholesale', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => {
+      result.current.applySwimlaneFieldDefinitions([
+        {
+          id: 2, uid: 'sfduid0001', name: 'Owner', field_type: 'text', choices: [], position: 0,
+          show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+          number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
+        },
+      ])
+    })
+    expect(result.current.board!.swimlane_custom_field_definitions).toHaveLength(1)
+    expect(result.current.board!.swimlane_custom_field_definitions[0].name).toBe('Owner')
+  })
+
+  it('applyColumnOrder and applySwimlaneOrder replace the board arrays wholesale', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    const reorderedColumns = [...board.columns].reverse()
+    act(() => { result.current.applyColumnOrder(reorderedColumns) })
+    expect(result.current.board!.columns).toEqual(reorderedColumns)
+
+    const reorderedSwimlanes = [...board.swimlanes].reverse()
+    act(() => { result.current.applySwimlaneOrder(reorderedSwimlanes) })
+    expect(result.current.board!.swimlanes).toEqual(reorderedSwimlanes)
+  })
+
+  // ─── silentReload (#…) — invisible tab-focus resync ────────────────────────
+
+  it('silentReload replaces the board without flashing the loading flag', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    expect(result.current.loading).toBe(false)
+
+    mockGetBoardFull.mockResolvedValue(makeBoard({ name: 'Silently Reloaded' }))
+    await act(async () => { result.current.silentReload() })
+
+    expect(result.current.board!.name).toBe('Silently Reloaded')
+    // Never flips loading back to true — that's the whole point of "silent".
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('silentReload navigates away on 404/403 like the initial load', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    mockGetBoardFull.mockRejectedValue({ response: { status: 403 } })
+    await act(async () => { result.current.silentReload() })
+
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+  })
+
+  it('silentReload swallows a non-404/403 error without surfacing it', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const boardBefore = result.current.board
+
+    mockGetBoardFull.mockRejectedValue(new Error('transient network blip'))
+    await act(async () => { result.current.silentReload() })
+
+    // Board state is untouched and no error/navigate side effect fires.
+    expect(result.current.board).toEqual(boardBefore)
+    expect(result.current.error).toBeNull()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  // ─── moveCard — remaining 409/403 branches ──────────────────────────────────
+
+  it('moveCard sets moveError on 403 permission_denied and rolls back', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({
+      response: { status: 403, data: { detail: 'Viewers cannot move cards.' } },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+
+    expect(result.current.board!.cards[0].column).toBe(10)
+    expect(result.current.moveError).toEqual({
+      code: 'permission_denied',
+      detail: 'Viewers cannot move cards.',
+    })
+  })
+
+  it('moveCard falls back to generic copy on 403 with no detail', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({ response: { status: 403, data: {} } })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+
+    expect(result.current.moveError).toEqual({
+      code: 'permission_denied',
+      detail: 'You do not have permission to move this card.',
+    })
+  })
+
+  it('moveCard reloads the board on 409 version_conflict', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValueOnce(board)
+    mockMoveCard.mockRejectedValue({
+      response: {
+        status: 409,
+        data: { code: 'version_conflict', detail: 'Card changed since you loaded it.', current_version: 2 },
+      },
+    })
+    // The version-conflict branch calls load() to refetch — give it a fresh snapshot.
+    const reloaded = makeBoard({ name: 'Reloaded After Conflict' })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    mockGetBoardFull.mockResolvedValue(reloaded)
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+
+    expect(result.current.moveError).toEqual({
+      code: 'version_conflict',
+      detail: 'Card changed since you loaded it.',
+      current_version: 2,
+    })
+    await waitFor(() => {
+      expect(result.current.board!.name).toBe('Reloaded After Conflict')
+    })
+  })
+
+  it('moveCard sets pendingMove on 409 weight_limit_exceeded so forceMoveCard can retry', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { code: 'weight_limit_exceeded', column_name: 'In Progress', current_weight: 20, weight_limit: 15, card_weight: 5 },
+      },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+    expect(result.current.moveError).toMatchObject({ code: 'weight_limit_exceeded' })
+
+    // forceMoveCard replays the pending move with force=true.
+    const movedCard = { ...board.cards[0], column: 11, position: 0 }
+    mockMoveCard.mockResolvedValueOnce({ card: movedCard })
+    await act(async () => { await result.current.forceMoveCard() })
+
+    expect(mockMoveCard).toHaveBeenLastCalledWith(1, 100, { column_id: 11, swimlane_id: 20, position: 0 }, true)
+    expect(result.current.moveError).toBeNull()
+    expect(result.current.board!.cards[0].column).toBe(11)
+  })
+
+  it('forceMoveCard rolls back and surfaces a structured error when the retry itself fails', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { code: 'wip_limit_exceeded', column_name: 'In Progress', current_count: 3, wip_limit: 3 },
+      },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+
+    mockMoveCard.mockRejectedValueOnce({
+      response: { status: 500, data: { code: 'server_error', detail: 'Boom' } },
+    })
+    await act(async () => { await result.current.forceMoveCard() })
+
+    // Rolled back to the original column, and the retry's own error is surfaced.
+    expect(result.current.board!.cards[0].column).toBe(10)
+    expect(result.current.moveError).toMatchObject({ code: 'server_error' })
+  })
+
+  // ─── reorderColumns / reorderSwimlanes — failure paths ──────────────────────
+
+  it('reorderColumns rolls back to the previous order on API failure', async () => {
+    const board = makeBoard({
+      columns: [
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+      ],
+    })
+    mockGetBoardFull.mockResolvedValue(board)
+    mockReorderColumns.mockRejectedValue(new Error('server error'))
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.reorderColumns([11, 10]) })
+
+    expect(result.current.board!.columns.map((c) => c.id)).toEqual([10, 11])
+  })
+
+  it('reorderSwimlanes optimistically updates and applies the server response', async () => {
+    const board = makeBoard({
+      swimlanes: [
+        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
+        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '' },
+      ],
+    })
+    mockGetBoardFull.mockResolvedValue(board)
+    const reordered = [board.swimlanes[1], board.swimlanes[0]]
+    mockReorderSwimlanes.mockResolvedValue(reordered)
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.reorderSwimlanes([21, 20]) })
+
+    expect(mockReorderSwimlanes).toHaveBeenCalledWith(1, [21, 20])
+    expect(result.current.board!.swimlanes.map((s) => s.id)).toEqual([21, 20])
+  })
+
+  it('removeSwimlane re-fetches the board on API failure', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValueOnce(board)
+    mockDeleteSwimlane.mockRejectedValue(new Error('server error'))
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    // The mock still returns the original board on reload, restoring the swimlane and its cards.
+    mockGetBoardFull.mockResolvedValue(board)
+    await act(async () => { await result.current.removeSwimlane(20) })
+
+    await waitFor(() => {
+      expect(result.current.board!.swimlanes).toHaveLength(1)
+    })
+    expect(result.current.board!.cards).toHaveLength(1)
+  })
+
+  it('reorderSwimlanes re-fetches the board on API failure rather than rolling back to a stale snapshot', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValueOnce(board)
+    mockReorderSwimlanes.mockRejectedValue(new Error('server error'))
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    const reloaded = makeBoard({ name: 'Reloaded After Reorder Failure' })
+    mockGetBoardFull.mockResolvedValue(reloaded)
+    await act(async () => { await result.current.reorderSwimlanes([20]) })
+
+    await waitFor(() => {
+      expect(result.current.board!.name).toBe('Reloaded After Reorder Failure')
+    })
+  })
+
+  // ─── updateBoardSettings — optimistic patch + rollback-via-reload ──────────
+
+  it('updateBoardSettings applies the patch optimistically and persists it', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    mockPatchBoard.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.updateBoardSettings({ name: 'Patched Name' }) })
+
+    expect(mockPatchBoard).toHaveBeenCalledWith(1, { name: 'Patched Name' })
+    expect(result.current.board!.name).toBe('Patched Name')
+  })
+
+  it('updateBoardSettings reloads fresh state when the patch API call fails', async () => {
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard())
+    mockPatchBoard.mockRejectedValue(new Error('validation failed'))
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    const reloaded = makeBoard({ name: 'Reloaded After Patch Failure' })
+    mockGetBoardFull.mockResolvedValue(reloaded)
+    await act(async () => { await result.current.updateBoardSettings({ name: 'Will Not Stick' }) })
+
+    await waitFor(() => {
+      expect(result.current.board!.name).toBe('Reloaded After Patch Failure')
+    })
   })
 })
 
