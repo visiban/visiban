@@ -639,13 +639,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   />
                 ) : (
                   <div className="flex items-center gap-2">
-                    <h1
-                      onClick={handleRenameStart}
-                      className="text-fg text-2xl font-bold cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 transition-colors"
-                    >
-                      {group.name}
+                    <h1 className="text-fg text-2xl font-bold">
+                      {/* Button inside the heading keeps heading semantics and gives keyboard users Tab + Enter/Space rename (#1376). */}
+                      <button
+                        type="button"
+                        onClick={handleRenameStart}
+                        className="font-bold text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 -my-px transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      >
+                        {group.name}
+                      </button>
                     </h1>
+                    {/* Mouse-only shortcut: the name button above is the single keyboard tab stop (#1376). */}
                     <button
+                      type="button"
+                      tabIndex={-1}
                       onClick={handleRenameStart}
                       className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                       title="Rename group"
@@ -677,18 +684,25 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   placeholder="Add a description…"
                 />
               ) : isAdmin ? (
-                <div
-                  onClick={handleDescriptionStart}
-                  className="cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors"
-                >
-                  {group.description ? (
-                    <p className="text-sm text-fg-tertiary whitespace-pre-wrap">{group.description}</p>
-                  ) : (
-                    <p className="text-sm text-fg-faint">Add a description…</p>
-                  )}
+                <div className="relative">
+                  {/* Text region is a real button (Tab + Enter/Space) rather than a click handler on a div (#1376). */}
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDescriptionStart(); }}
-                    className="opacity-0 group-hover/description:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs mt-0.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                    type="button"
+                    onClick={handleDescriptionStart}
+                    className="block w-[calc(100%+1rem)] pr-8 text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  >
+                    {group.description ? (
+                      <span className="block text-sm text-fg-tertiary whitespace-pre-wrap">{group.description}</span>
+                    ) : (
+                      <span className="block text-sm text-fg-faint">Add a description…</span>
+                    )}
+                  </button>
+                  {/* Overlay pencil: mouse-only shortcut, adds no height; the text button is the single tab stop (#1376). */}
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={handleDescriptionStart}
+                    className="absolute top-1 right-1 opacity-0 group-hover/description:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                     title="Edit description"
                     aria-label="Edit description"
                   >

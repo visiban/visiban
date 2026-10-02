@@ -80,17 +80,22 @@ export function ToggleField({ checked, onChange, label, description, disabled, a
   const inert = disabled || ariaDisabled;
 
   return (
-    <div
-      className={`flex items-center justify-between ${inert ? "cursor-not-allowed" : "cursor-pointer"}`}
-      onClick={() => !inert && onChange(!checked)}
-    >
-      <div className="min-w-0 pr-4">
+    <div className="flex items-center justify-between">
+      {/* A real <label htmlFor> forwards clicks on the text to the switch (a native
+          button is labelable), so the whole text area stays clickable while the
+          switch itself is the only keyboard target — no click handler on a div (#1376).
+          Its click goes through Toggle's own inert guard. */}
+      <label
+        htmlFor={id}
+        className={`min-w-0 flex-1 pr-4 ${inert ? "cursor-not-allowed" : "cursor-pointer"}`}
+      >
         <span id={labelId} className={`${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-secondary`}>{label}</span>
         {description && (
-          <p className={`${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-muted mt-0.5`}>{description}</p>
+          <span className={`block ${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-muted mt-0.5`}>{description}</span>
         )}
-      </div>
+      </label>
       <Toggle
+        id={id}
         checked={checked}
         onChange={onChange}
         disabled={disabled}

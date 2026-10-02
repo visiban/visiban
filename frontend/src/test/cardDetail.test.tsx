@@ -663,6 +663,41 @@ describe('CardDetail', () => {
     expect(activeInput.className).toContain('cursor-pointer')
   })
 
+  it('due date picker opens from the focusable date input itself, for both empty and set states (#1376)', () => {
+    const showPicker = vi.fn()
+    const proto = HTMLInputElement.prototype as HTMLInputElement & { showPicker?: () => void }
+    const original = proto.showPicker
+    proto.showPicker = showPicker
+    try {
+      const { unmount } = render(<CardDetail {...defaultProps()} />)
+      const emptyInput = document.querySelector<HTMLInputElement>('input[type="date"]')!
+      expect(emptyInput).toHaveAccessibleName('Due date')
+      emptyInput.focus()
+      expect(emptyInput).toHaveFocus()
+      fireEvent.click(emptyInput)
+      expect(showPicker).toHaveBeenCalledTimes(1)
+      unmount()
+
+      const props = defaultProps()
+      props.card = makeCard({ due_date: '2099-06-15' })
+      render(<CardDetail {...props} />)
+      const setInput = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]')).find((el) => el.value !== '')!
+      fireEvent.click(setInput)
+      expect(showPicker).toHaveBeenCalledTimes(2)
+    } finally {
+      proto.showPicker = original
+    }
+  })
+
+  it('click-only backdrop is hidden from assistive tech; Escape/Close are the keyboard paths (#1376)', async () => {
+    const props = defaultProps()
+    render(<CardDetail {...props} />)
+    const backdrop = document.querySelector('.bg-backdrop\\/40')!
+    expect(backdrop).toHaveAttribute('aria-hidden', 'true')
+    await userEvent.setup().keyboard('{Escape}')
+    expect(props.onClose).toHaveBeenCalled()
+  })
+
   it('renders comments with author initials', async () => {
     const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
     mockGetComments.mockResolvedValue([
@@ -692,6 +727,19 @@ describe('CardDetail', () => {
     await userEvent.setup().click(screen.getByText('Bulk'))
     expect(screen.getByText('Add checklist items')).toBeInTheDocument()
     expect(screen.getByText('One item per line')).toBeInTheDocument()
+  })
+
+  it('Escape closes the bulk-add overlay first, without closing the card panel (#1376)', async () => {
+    const props = defaultProps()
+    const user = userEvent.setup()
+    render(<CardDetail {...props} />)
+    await user.click(screen.getByText('Bulk'))
+    expect(screen.getByText('Add checklist items')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument()
+    expect(props.onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
   it('renders checklist progress when items exist', async () => {

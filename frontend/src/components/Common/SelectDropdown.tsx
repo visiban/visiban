@@ -164,8 +164,17 @@ export default function SelectDropdown<T extends string>({
                 id={`${optionIdPrefix}-${i}`}
                 role="option"
                 aria-selected={opt.value === value}
+                tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(opt.value)}
+                // The trigger (combobox) drives keyboard selection via aria-activedescendant;
+                // this keeps Enter/Space parity if an option ever holds focus (#1376).
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleSelect(opt.value);
+                  }
+                }}
                 className={`w-full text-left px-3 py-1.5 text-sm transition cursor-pointer hover:bg-surface-hover
                   ${i === activeIndex ? "bg-surface-hover" : ""}
                   ${opt.value === value ? "text-info" : "text-fg-secondary"}`}

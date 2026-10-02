@@ -489,3 +489,16 @@ describe('CheckboxDropdown', () => {
     expect(ref.current).toBe(screen.getByRole('button'))
   })
 })
+
+describe('SelectDropdown option keyboard parity (#1376)', () => {
+  it('an option that holds focus selects on Enter and Space', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<SelectDropdown value="a" onChange={onChange} options={options} />)
+    await user.click(screen.getByRole('combobox'))
+    const opts = screen.getAllByRole('option')
+    opts[1].focus()
+    await user.keyboard('{Enter}')
+    expect(onChange).toHaveBeenCalledWith(options[1].value)
+  })
+})

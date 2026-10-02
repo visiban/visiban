@@ -169,3 +169,31 @@ describe('ToggleField ariaDisabled passthrough (#1179)', () => {
     expect(onChange).toHaveBeenCalledWith(true)
   })
 })
+
+describe('ToggleField keyboard and label activation (#1376)', () => {
+  it('Space and Enter on the switch toggle it', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ToggleField checked={false} onChange={onChange} label="Single use" />)
+    screen.getByRole('switch').focus()
+    await user.keyboard(' ')
+    await user.keyboard('{Enter}')
+    expect(onChange).toHaveBeenCalledTimes(2)
+    expect(onChange).toHaveBeenCalledWith(true)
+  })
+
+  it('clicking the label text toggles exactly once via the native label association', async () => {
+    const onChange = vi.fn()
+    render(<ToggleField checked={false} onChange={onChange} label="Single use" description="Expires after one join." />)
+    await userEvent.setup().click(screen.getByText('Single use'))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith(true)
+  })
+
+  it('clicking the label does nothing while ariaDisabled', async () => {
+    const onChange = vi.fn()
+    render(<ToggleField checked={false} onChange={onChange} label="Single use" ariaDisabled />)
+    await userEvent.setup().click(screen.getByText('Single use'))
+    expect(onChange).not.toHaveBeenCalled()
+  })
+})

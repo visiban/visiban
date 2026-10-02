@@ -192,3 +192,31 @@ describe('ArchivedCardsPanel', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 })
+
+// #1376 — the pointer-only backdrop is decorative: keyboard parity is the Close button + Escape
+describe('ArchivedCardsPanel — keyboard (#1376)', () => {
+  it('hides the click-only backdrop from assistive tech and offers a keyboard-operable Close', async () => {
+    mockGetArchivedCards.mockResolvedValue(makePage([]))
+    const onClose = vi.fn()
+    const { container } = render(<ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
+    expect(container.querySelector('.bg-backdrop\\/50')).toHaveAttribute('aria-hidden', 'true')
+    const user = userEvent.setup()
+    const close = screen.getAllByRole('button').find((b) => /close/i.test(b.getAttribute('aria-label') ?? ''))!
+    close.focus()
+    await user.keyboard('{Enter}')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
+  it('backdrop has no focusable descendant and Escape closes the panel', async () => {
+    mockGetArchivedCards.mockResolvedValue(makePage([]))
+    const onClose = vi.fn()
+    const { container } = render(<ArchivedCardsPanel board={fakeBoard} onClose={onClose} onUnarchived={vi.fn()} />)
+    const backdrop = container.querySelector('[aria-hidden="true"].absolute.inset-0') as HTMLElement
+    expect(backdrop).not.toBeNull()
+    expect(backdrop.querySelector('button, a, input, [tabindex]')).toBeNull()
+    await userEvent.setup().keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})

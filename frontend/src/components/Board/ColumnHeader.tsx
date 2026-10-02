@@ -114,8 +114,16 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         data-no-pan
         tabIndex={0}
         role="button"
-        onClick={onToggleCollapse}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleCollapse(); } }}
+        onClick={(e) => {
+          // The color-dot drag handle must not expand the column when a click lands on it.
+          if ((e.target as HTMLElement).closest("[data-column-drag-handle]")) return;
+          onToggleCollapse();
+        }}
+        onKeyDown={(e) => {
+          // Keydowns bubbling from the focusable drag-handle dot belong to the sortable sensor.
+          if ((e.target as HTMLElement).closest("[data-column-drag-handle]")) return;
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleCollapse(); }
+        }}
         title={
           overWip
             ? `Expand "${column.name}" · Over WIP limit (${cardCount}/${column.wip_limit})`
@@ -129,7 +137,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
           style={{ backgroundColor: column.color }}
           title={isAdmin ? "Drag to reorder" : undefined}
-          onClick={(e) => e.stopPropagation()}
+          data-column-drag-handle
           {...(isAdmin ? { ...attributes, ...listeners } : {})}
         />
         <span
@@ -182,7 +190,6 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             style={{ backgroundColor: column.color }}
             title={isAdmin ? "Drag to reorder" : undefined}
             {...(isAdmin ? { ...attributes, ...listeners } : {})}
-            onClick={(e) => e.stopPropagation()}
           />
           {renaming ? (
             <input
@@ -199,13 +206,21 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               className="flex-1 min-w-0 text-sm font-medium bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
             />
           ) : (
-            <span
-              className={`font-medium text-fg text-sm truncate ${isAdmin ? "cursor-text hover:text-fg" : ""}`}
-              title={isAdmin ? "Click to rename" : column.name}
-              onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
-            >
-              {column.name}
-            </span>
+            isAdmin ? (
+              // A real button so keyboard users can reach inline rename with Tab + Enter/Space (#1376).
+              <button
+                type="button"
+                className="font-medium text-fg text-sm truncate min-w-0 text-left cursor-text hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                title="Click to rename"
+                onClick={(e) => { e.stopPropagation(); startRenaming(); }}
+              >
+                {column.name}
+              </button>
+            ) : (
+              <span className="font-medium text-fg text-sm truncate" title={column.name}>
+                {column.name}
+              </span>
+            )
           )}
           {/* Column overflow kebab — discoverable surface for Rename, Edit settings,
               and Delete. Replaces the prior `✎` icon button (per #965): the kebab is
@@ -213,10 +228,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               trash now requires holding ⌥. Non-admins get no affordance at all per
               the conditional-admin-only-elements rule — never a greyed-out control. */}
           {isAdmin && (
-            <div
-              className="ml-auto opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 transition"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="ml-auto opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 transition">
               <OverflowMenu items={kebabItems} ariaLabel={`Actions for column "${column.name}"`} />
             </div>
           )}

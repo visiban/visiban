@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import type { Element as HastElement, Root } from 'hast'
 import { useEditor } from '@tiptap/react'
 import RichTextEditor from '../components/Card/RichTextEditor'
@@ -334,5 +334,16 @@ describe('XSS sanitization schema', () => {
     const result = sanitize({ type: 'root', children: [spanNode] }, schema as Parameters<typeof sanitize>[1]) as Root
     const span = result.children.find((n) => 'tagName' in n && n.tagName === 'span') as HastElement | undefined
     expect(span?.properties?.style).toBeUndefined()
+  })
+})
+
+describe('RichTextEditor view mode — keyboard path (#1376)', () => {
+  it('click-to-edit surface is presentational; the pencil button is the keyboard path', () => {
+    const { container } = render(<RichTextEditor value="some text" onSave={vi.fn()} />)
+    expect(container.firstChild).toHaveAttribute('role', 'presentation')
+    const pencil = screen.getByTitle('Edit description')
+    // Focusing the pencil enters edit mode, so Tab alone reaches the editor
+    act(() => pencil.focus())
+    expect(screen.getByTestId('tiptap-editor')).toBeInTheDocument()
   })
 })

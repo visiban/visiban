@@ -104,30 +104,32 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
             <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
               File
             </label>
-            <div
-              className="border border-dashed border-line-strong rounded-lg p-4 text-center cursor-pointer hover:border-line-emphasis transition"
+            <button
+              type="button"
+              className="block w-full border border-dashed border-line-strong rounded-lg p-4 text-center cursor-pointer hover:border-line-emphasis transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               onClick={() => fileRef.current?.click()}
             >
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".json,.csv"
-                onChange={handleFileChange}
-                className="hidden"
-              />
               {file ? (
-                <div className="text-sm">
-                  <p className="text-fg font-medium truncate">{file.name}</p>
-                  <p className="text-fg-tertiary text-xs mt-0.5">
+                <span className="block text-sm">
+                  <span className="block text-fg font-medium truncate">{file.name}</span>
+                  <span className="block text-fg-tertiary text-xs mt-0.5">
                     {formatFileSize(file.size)} &middot; {format}
-                  </p>
-                </div>
+                  </span>
+                </span>
               ) : (
-                <p className="text-fg-muted text-sm">
+                <span className="block text-fg-muted text-sm">
                   Click to select a .json or .csv file
-                </p>
+                </span>
               )}
-            </div>
+            </button>
+            {/* Sibling, not a child: interactive content may not nest inside a <button>. */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json,.csv"
+              onChange={handleFileChange}
+              className="hidden"
+            />
           </div>
 
           {/* Optional name override */}

@@ -249,3 +249,35 @@ describe('ModalWrapper', () => {
     expect(child.parentElement?.getAttribute('role')).toBe('dialog')
   })
 })
+
+describe('ModalWrapper — backdrop semantics (#1376)', () => {
+  it('marks the click-to-dismiss backdrop presentational; Close button is keyboard-operable', async () => {
+    const onClose = vi.fn()
+    render(
+      <ModalWrapper open={true} onClose={onClose} title="Kbd Modal">
+        <p>Body</p>
+      </ModalWrapper>
+    )
+    expect(screen.getByRole('dialog').parentElement).toHaveAttribute('role', 'presentation')
+    const user = userEvent.setup()
+    screen.getByRole('button', { name: 'Close' }).focus()
+    await user.keyboard('{Enter}')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ModalWrapper — keyboard operation of the presentational backdrop (#1376)', () => {
+  it('Escape closes via the keyboard and the presentation backdrop wraps the dialog', async () => {
+    const onClose = vi.fn()
+    render(
+      <ModalWrapper open={true} onClose={onClose} title="Kbd">
+        <p>Body</p>
+      </ModalWrapper>
+    )
+    const backdrop = screen.getByRole('dialog').parentElement as HTMLElement
+    expect(backdrop).toHaveAttribute('role', 'presentation')
+    expect(backdrop).toContainElement(screen.getByRole('dialog'))
+    await userEvent.setup().keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
