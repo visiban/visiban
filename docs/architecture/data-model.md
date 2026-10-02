@@ -231,7 +231,7 @@ History consumers can filter out system events to focus on workflow transitions.
 
 Per-board typed metadata on cards (#371), where a `Label` is an untyped tag. A
 `CustomFieldDefinition` is the board-scoped schema — a name, a `field_type` of `text` /
-`number` / `date` / `dropdown` / `checkbox`, and for dropdowns a `choices_json` list;
+`number` / `date` / `dropdown` / `checkbox` / `url`, and for dropdowns a `choices_json` list;
 a `CustomFieldValue` is one card's value for one definition, unique per
 `(card, field_definition)`.
 
@@ -240,7 +240,8 @@ Three decisions worth knowing before changing either model:
 - **One untyped `value` text column, not a column per type.** Typed columns mean sparse
   nulls and a schema migration every time a type is added. Casting and validation live at
   the serializer boundary instead, and every value is normalized to a canonical string
-  (ISO dates, `"true"` / `"false"`) so equality comparisons need not know the type. Typed
+  (ISO dates, `"true"` / `"false"`) so equality comparisons need not know the type.
+  The `url` type (#1390) is the proof: it added a validation branch, not a column. Typed
   columns are deferred to the enterprise analytics work that would actually need SUM/AVG.
 - **EAV with a cap of 30 definitions per board** (and 2 pinned to the card face). The
   `/full/` endpoint reads every card and every value, so an uncapped field count is a

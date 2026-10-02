@@ -25,6 +25,7 @@ const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; glyph: string
   { value: "date", label: "Date", glyph: "📅" },
   { value: "dropdown", label: "Dropdown", glyph: "▾" },
   { value: "checkbox", label: "Checkbox", glyph: "☑" },
+  { value: "url", label: "URL", glyph: "↗" },
 ];
 
 const TYPE_LABEL: Record<CustomFieldType, string> = {
@@ -33,6 +34,7 @@ const TYPE_LABEL: Record<CustomFieldType, string> = {
   date: "Date",
   dropdown: "Dropdown",
   checkbox: "Checkbox",
+  url: "URL",
 };
 
 const TYPE_GLYPH: Record<CustomFieldType, string> = {
@@ -41,6 +43,7 @@ const TYPE_GLYPH: Record<CustomFieldType, string> = {
   date: "📅",
   dropdown: "▾",
   checkbox: "☑",
+  url: "↗",
 };
 
 const FIELD_CAP = 30;

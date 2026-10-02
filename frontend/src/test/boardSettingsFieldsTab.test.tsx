@@ -264,3 +264,36 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     expect(screen.getByPlaceholderText("e.g. Sprint")).toHaveValue("In progress");
   });
 });
+
+describe("BoardSettingsFieldsTab — URL type (#1390)", () => {
+  it("offers URL last in the type picker and creates a url field", async () => {
+    const user = userEvent.setup();
+    const created = makeDefinition({ id: 9, name: "Runbook", field_type: "url" });
+    vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(created);
+
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    const typeButtons = ["Aa Text", "# Number", "📅 Date", "▾ Dropdown", "☑ Checkbox", "↗ URL"].map((name) =>
+      screen.getByRole("button", { name })
+    );
+    expect(typeButtons[typeButtons.length - 1]).toHaveTextContent("URL");
+    await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Runbook");
+    await user.click(screen.getByRole("button", { name: "↗ URL" }));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+
+    await waitFor(() => {
+      expect(boardsApi.createCustomFieldDefinition).toHaveBeenCalledWith(1, {
+        name: "Runbook",
+        field_type: "url",
+        choices: undefined,
+        help_text: undefined,
+      });
+    });
+  });
+
+  it("lists an existing url field with the URL label and glyph", () => {
+    render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition({ field_type: "url", name: "Runbook" })])} isAdmin onFieldsUpdated={vi.fn()} />);
+    expect(screen.getByText("URL")).toBeInTheDocument();
+    expect(screen.getByText("↗")).toBeInTheDocument();
+  });
+});

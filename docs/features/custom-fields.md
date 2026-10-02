@@ -6,7 +6,7 @@ Board admins can define typed metadata fields scoped to a single board — where
 
 Custom fields come in two independent flavors, scoped to different objects on the board: **card fields**, described on the rest of this page, and **swimlane fields**, described in [Swimlane (row) custom fields](#swimlane-row-custom-fields) below. The two are separate per-board schemas — a board may define a card field and a swimlane field with the same name, and they are never merged or compared.
 
-Five field types are available:
+Six field types are available:
 
 | Type | Glyph | Stored as | Notes |
 |---|---|---|---|
@@ -15,6 +15,7 @@ Five field types are available:
 | Date | `📅` | ISO date | Rendered with a calendar picker in the card detail panel |
 | Dropdown | `▾` | One of a fixed list of choices | Requires at least one choice |
 | Checkbox | `☑` | `true` / `false` | Displayed as **Yes** / **No** |
+| URL | `↗` | A web address | Must start with `http://` or `https://` (a bare `example.com` gets `https://` added for you); at most 500 characters. See [URL fields](#url-fields) |
 
 A board can have up to **30 card fields**, and up to **2 of them pinned** to the card face at once. (Swimlane fields have their own, smaller caps — see [Swimlane (row) custom fields](#swimlane-row-custom-fields).)
 
@@ -34,7 +35,7 @@ The tab lists every field defined on the board in display order, showing the typ
 Click **+ Add field**, or **✎** on an existing field, to open the inline editor:
 
 - **Field name** — required, unique on the board
-- **Type** — one of the five types above, chosen from a row of buttons
+- **Type** — one of the six types above, chosen from a row of buttons
 - **Help text** — optional hint shown next to the input wherever the field is edited
 - **Choices** (dropdown only) — add rows one at a time with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add choices from a newline-separated block of text in one step
 - **Pin to card face** — toggle to add this field's value to the card face (see [Pinned fields on the card face](#pinned-fields-on-the-card-face) below)
@@ -72,13 +73,13 @@ Members, collaborators, and viewers see a read-only list of the board's fields �
 
 ## Custom fields on the card face
 
-Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format `Field name: value`. A dropdown value shows a small color dot before the value; a checkbox value shows **Yes** or **No**. Long values are truncated with an ellipsis; hover the chip to see the full value.
+Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format `Field name: value`. A dropdown value shows a small color dot before the value; a checkbox value shows **Yes** or **No**; a URL value shows just the site's hostname (for example `wiki.example.com`) as a link. Long values are truncated with an ellipsis; hover the chip to see the full value.
 
 An unset pinned field is hidden at **Comfortable** and **Standard** card density (see [Card density](board.md#card-density)) to keep the card face uncluttered. At **Dense** density, an unset pinned field shows as a dashed "ghost" chip instead, so power users always see the full set of pinned fields whether or not they're populated.
 
 ### Quick edit from the card face
 
-Checkbox and dropdown chips are directly editable from the card face, without opening the card: click a checkbox chip to toggle it, or click a dropdown chip to open a small popover and pick a new value. The editable affordance is a dotted underline under the value — shown at all times, not just on hover, so it's discoverable without training. Text, number, and date fields are not quick-editable from the card face; edit them in the card detail panel.
+Checkbox and dropdown chips are directly editable from the card face, without opening the card: click a checkbox chip to toggle it, or click a dropdown chip to open a small popover and pick a new value. The editable affordance is a dotted underline under the value — shown at all times, not just on hover, so it's discoverable without training. Text, number, date, and URL fields are not quick-editable from the card face; edit them in the card detail panel. Clicking a URL chip's hostname opens the link in a new tab without opening the card.
 
 ---
 
@@ -91,10 +92,20 @@ The card detail panel shows a collapsible **Custom fields** section (below Label
 - **Date** — calendar picker
 - **Dropdown** — select from the field's defined choices
 - **Checkbox** — toggle
+- **URL** — web address input; saves when you leave the field or press Enter (see [URL fields](#url-fields))
 
 Each field autosaves on change, the same way other card detail fields behave. The section opens automatically if any field already has a stored value on the card; otherwise it starts collapsed and expands on click.
 
 If the board has no custom fields defined, this section doesn't appear at all.
+
+### URL fields
+
+A URL field holds one web address — a runbook, a design file, a CRM record — as a clickable link instead of an unclickable string in a text field. Unlike a card's single [pull / merge request link](card-links.md), a board can have several URL fields, and they work on swimlanes too.
+
+- **Entering a value** — type or paste the address and leave the field (or press Enter). If you leave off the scheme, `https://` is added for you, so `example.com` saves as `https://example.com`. Only `http://` and `https://` addresses are accepted; anything else (for example `javascript:` or `ftp:`) shows an inline error under the input and is **not** saved — your typed text stays in the box so you can fix it. Press Escape to put back the last saved value.
+- **Length** — an address can be at most **500 characters**, the same cap as every other custom field value. Longer addresses are rejected rather than shortened.
+- **Opening the link** — under an editable URL field, an **Open link ↗** line opens the saved address in a new tab. Read-only viewers see the full address as a link. Pinned chips on the card face and in the swimlane label panel show just the hostname (with a leading `www.` dropped); hover the chip to see the full address.
+- **Links always open in a new tab**, and only `http://`/`https://` values are ever rendered as links. A stored value that isn't a valid web address is shown as plain text.
 
 ---
 
@@ -121,6 +132,7 @@ The board's filter bar shows one filter control per **pinned** custom field by d
 | Date | Exact value match |
 | Dropdown | Multi-select of choices |
 | Checkbox | Multi-select of Yes / No |
+| URL | Substring match on the full address |
 
 !!! note
     Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release.
@@ -131,7 +143,7 @@ Which extra field controls you've added via **+ Custom fields**, and the values 
 
 ## Swimlane (row) custom fields
 
-Board admins can also define typed fields on **swimlanes** (rows) instead of cards — a separate per-board schema from the card fields above. Use a swimlane field to capture something that belongs to the row as a whole rather than to any one card on it: an owner, a region, a renewal date. Swimlane fields use the same five types as card fields — Text, Number, Date, Dropdown, and Checkbox.
+Board admins can also define typed fields on **swimlanes** (rows) instead of cards — a separate per-board schema from the card fields above. Use a swimlane field to capture something that belongs to the row as a whole rather than to any one card on it: an owner, a region, a renewal date. Swimlane fields use the same six types as card fields — Text, Number, Date, Dropdown, Checkbox, and URL.
 
 A board can have up to **15 swimlane fields**, and up to **3 of them pinned** to the swimlane label panel at once.
 

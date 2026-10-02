@@ -809,6 +809,10 @@ class CustomFieldDefinition(models.Model):
         DATE = "date"
         DROPDOWN = "dropdown"
         CHECKBOX = "checkbox"
+        # Text-backed like every other type; the value is validated as an
+        # absolute http(s) URL on write (#1390, see
+        # ``boards.serializers._normalize_custom_field_value``).
+        URL = "url", "URL"
 
     # EAV with a cap: /full/ joins every card against every value row, so an
     # uncapped field count is a Cartesian blow-up waiting to happen. 500 cards
@@ -940,7 +944,7 @@ class SwimlaneCustomFieldDefinition(models.Model):
     outright. Same pattern, second owner.
     """
 
-    #: One enum, referenced rather than copied — a second five-member enum would
+    #: One enum, referenced rather than copied — a second copy of the enum would
     #: be free to drift, and the TypeScript side has a single ``CustomFieldType``
     #: union that both models' definitions are checked against.
     FieldType = CustomFieldDefinition.FieldType

@@ -571,3 +571,26 @@ describe('FilterBar — MyCardsButton', () => {
     expect(btn).toHaveAttribute('aria-pressed', 'false')
   })
 })
+
+describe('FilterBar — URL custom fields (#1390)', () => {
+  it('gives a url field a text "contains" filter, not an empty choice dropdown', () => {
+    const board = makeBoard()
+    board.custom_field_definitions = [{
+      id: 7, uid: 'cfuid007', name: 'Docs', field_type: 'url', choices: [], position: 0,
+      show_on_card: true, is_required: false, help_text: '', created_at: '',
+    }]
+    const onChange = vi.fn()
+    render(
+      <FilterBar
+        board={board}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [7] }}
+        onChange={onChange}
+      />
+    )
+    const input = screen.getByPlaceholderText('Docs contains…')
+    fireEvent.change(input, { target: { value: 'wiki' } })
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      customFields: { 7: { kind: 'text', query: 'wiki' } },
+    }))
+  })
+})

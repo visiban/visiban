@@ -911,6 +911,24 @@ def _normalize_custom_field_value(definition, raw):
             )
         return text
 
+    if definition.field_type == T.URL:
+        # Reuses the CardExternalRef.url rule (#352) rather than a second URL
+        # validator: the value is rendered as an ``href`` on the card face and
+        # the swimlane row header, so anything but an absolute http(s) URL with
+        # a host is an XSS vector, and two validators for the same sink would be
+        # free to drift. The validator raises *Django's* ValidationError, which
+        # DRF does not translate inside a nested value — re-raise it as a DRF
+        # error or a ``javascript:`` value becomes a 500 instead of a 400.
+        # The value is stored as typed (scheme case included); the 500-char cap
+        # above already applies, so longer URLs are rejected, not truncated.
+        try:
+            validate_external_ref_url(text)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                [f"'{definition.name}': {message}" for message in exc.messages]
+            ) from None
+        return text
+
     # TEXT falls through to here, as does any field type this function does not
     # special-case above. Unlike NUMBER/DATE/CHECKBOX/DROPDOWN, none of which can
     # carry a NUL past their own parsing, free text can — and Postgres refuses to

@@ -204,8 +204,10 @@ returned can be sent straight back:
 - Values are validated and normalized per the definition's `field_type`: a `number` must
   parse as a finite decimal, a `date` must be `YYYY-MM-DD`, a `dropdown` value must be one
   of the definition's current `choices`, and a `checkbox` accepts `true`/`false`, `"true"`/
-  `"false"`, `"1"`/`"0"` and `"yes"`/`"no"` and stores `"true"` or `"false"`. A value may be
-  at most 500 characters.
+  `"false"`, `"1"`/`"0"` and `"yes"`/`"no"` and stores `"true"` or `"false"`. A `url` must
+  be an absolute `http://` or `https://` URL — see
+  [URL fields](boards.md#url-fields). A value may be at most 500 characters; a longer one
+  (a long URL included) is rejected, not truncated.
 - A `field_definition` id that does not belong to this card's board is rejected with `400`,
   as is the same field appearing twice in one payload.
 - Setting a value is a card edit: it goes through the same role allow-list and ownership
