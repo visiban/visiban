@@ -142,11 +142,12 @@ its `config.toml` follows the interpolated form — do not hardcode the values a
         stage). Test via a pre-release tag (e.g. `v1.2.0-rc.1`) instead — it exercises
         `backend-docker-push` / `frontend-docker-push` (kaniko, pushes `-amd64`-suffixed GHCR
         tags) and, if the arm64 leg and preflight also pass, `backend-manifest` /
-        `frontend-manifest` (assembles the real GHCR `:<tag>`/`:latest`). **Caveat, pre-existing
-        and not specific to this token:** a pre-release tag's `TAGS_ARG` includes `latest`
-        (`.gitlab-ci.yml` `backend-manifest`/`frontend-manifest`), so this test moves the real
-        `:latest` reference to the rc build on both registries — expected for an actual rc
-        release, but worth knowing before using it purely as a credential smoke test.
+        `frontend-manifest` (assembles the real GHCR `:<tag>`). A pre-release tag only ever
+        gets its own exact `:<tag>` — `backend-manifest`/`frontend-manifest` alias `:latest`
+        (and `:MAJOR.MINOR`) onto a stable release tag only, so this test never touches the
+        real `:latest` reference on either registry (a bug that did exactly that, from
+        v1.2.0-alpha.1 through v1.2.0-alpha.3, was fixed; see the `STABLE_TAGS` gating in
+        both jobs).
       - `DOCS_DEPLOY_TOKEN`: run the `docs-deploy` job manually on `main` with a
         `DOCS_VERSION` set (see the job's comment block in `.gitlab-ci.yml`).
       - Mirror bot PAT: push any commit to `main` and confirm it appears on

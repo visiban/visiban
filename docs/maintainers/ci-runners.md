@@ -62,8 +62,9 @@ point of failure for amd64.
 plan. `backend-docker-push-arm64` / `frontend-docker-push-arm64` (`.arm64-docker-push-base`)
 instead run natively on `Max1-Runner-Visiban` (see Inventory above), on release tags only.
 `backend-manifest` / `frontend-manifest` then assemble the amd64 and arm64 single-arch images
-into real multi-arch manifest lists under `:<tag>`, `:latest`, and (stable releases)
-`:MAJOR.MINOR`, via `manifest-tool`, on both the GitLab registry and GHCR.
+into real multi-arch manifest lists under `:<tag>` always, plus `:latest` and `:MAJOR.MINOR`
+for a stable release tag only (a pre-release tag gets no alias), via `manifest-tool`, on both
+the GitLab registry and GHCR.
 
 `arm64-runner-preflight` runs before either arm64 leg and fails the pipeline within seconds if
 no runner tagged `arm64` is online — see "Fail-loud, not hang" below. This is deliberately
@@ -202,8 +203,11 @@ persistent shared host must not accumulate registry credentials between releases
 ## Related open items
 
 - **#1084** — resolved: native arm64 image publishing restored via `Max1-Runner-Visiban` +
-  `manifest-tool`. Acceptance criteria (multi-arch `:<tag>`/`:latest`/`:MAJOR.MINOR` on both
-  registries) are verified at the next release tag pipeline, not by this change alone.
+  `manifest-tool`. Acceptance criteria (multi-arch `:<tag>` on both registries, plus
+  `:latest`/`:MAJOR.MINOR` for a stable release) are verified at the next release tag
+  pipeline, not by this change alone. (The original acceptance criteria applied `:latest` to
+  every release tag, pre-release included — a bug fixed later; see "arm64 is published again"
+  above.)
 - **#1204** — resolved: the arm64 release jobs' base-image pulls now route through
   `${DOCKERHUB_MIRROR}` like every other Docker Hub pull in this file (see "Dependency Proxy"
   above). Like #1084, full verification (a clean release-tag pipeline with no anonymous Docker
