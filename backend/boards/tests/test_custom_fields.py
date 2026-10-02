@@ -29,6 +29,7 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from accounts.models import get_maintenance_state
 from boards import hooks
 from boards.models import (
     BoardMembership, Card, CustomFieldDefinition, CustomFieldValue,
@@ -1055,6 +1056,13 @@ class CustomFieldQueryCountTests(CustomFieldTestBase):
 
 
     def _patch_cost(self, definition, value):
+        # MaintenanceModeMiddleware reads a 60s-TTL LocMemCache entry on every
+        # request and falls back to SiteSetting.get_or_create on a miss. Another
+        # test in the same pytest-split shard can evict that entry (LocMem culls
+        # past 300 keys), which would add site_settings queries to whichever
+        # measurement lands first and break the exact-delta assertion. Prime it
+        # here so the count depends only on the write path under test.
+        get_maintenance_state()
         with CaptureQueriesContext(connection) as ctx:
             r = self._set_values([{"field_definition": definition.id, "value": value}])
             self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)

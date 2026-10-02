@@ -35,6 +35,7 @@ from drf_spectacular.generators import SchemaGenerator
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from accounts.models import get_maintenance_state
 from boards import hooks
 from boards.models import (
     BoardMembership, Swimlane, SwimlaneCustomFieldDefinition,
@@ -910,6 +911,9 @@ class SwimlaneCustomFieldQueryCountTests(SwimlaneCustomFieldTestBase):
         )
 
         def cost(definition, value):
+            # See CustomFieldQueryCountTests._patch_cost: prime the maintenance
+            # cache so a shard-dependent eviction can't skew the exact delta.
+            get_maintenance_state()
             with CaptureQueriesContext(connection) as ctx:
                 r = self.client.patch(
                     self.lane_url,
