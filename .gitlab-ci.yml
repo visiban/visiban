@@ -2803,8 +2803,10 @@ frontend-docker-build:
 # A `*-manifest` job per image assembles the amd64 (kaniko) and arm64 (native)
 # single-arch images — each pushed under a `-amd64`/`-arm64` suffixed tag on
 # BOTH registries, since a manifest list can only reference digests in its own
-# repository — into the real `:<tag>`, `:latest`, and (for stable releases)
-# `:MAJOR.MINOR` tags as proper multi-arch manifest lists, via `manifest-tool`.
+# repository — into the real `:<tag>` tag always, plus `:latest` and (for
+# stable releases only) `:MAJOR.MINOR`, as proper multi-arch manifest lists,
+# via `manifest-tool`. A pre-release tag gets no `:latest`/`:MAJOR.MINOR`
+# alias at all — only its own exact `:<tag>`.
 #
 # Fail-loud, not hang: a `no_matching_runner` job sits pending forever rather
 # than failing, which would silently hang a release pipeline (the exact
@@ -2818,10 +2820,11 @@ frontend-docker-build:
 # (amd64 only — arm64 and the manifest jobs run on release tags only, see
 # their `rules:`).
 # On release tags: this leg pushes only arch-suffixed intermediate tags (see
-# the destinations() comment below) — the real :<tag>, :latest, and (for
-# stable releases) :MAJOR.MINOR alias are written exclusively by
+# the destinations() comment below) — the real :<tag> tag, and (for stable
+# releases only) the :latest/:MAJOR.MINOR aliases, are written exclusively by
 # `*-manifest`, on both the GitLab registry and GHCR, as multi-arch
-# (linux/amd64 + linux/arm64) manifest lists.
+# (linux/amd64 + linux/arm64) manifest lists. A pre-release tag gets no
+# :latest/:MAJOR.MINOR alias at all.
 
 .kaniko-push-common:
   stage: deploy
@@ -3028,8 +3031,9 @@ arm64-runner-preflight:
 #
 # Pushes ONLY the `-arm64`-suffixed tag, to BOTH registries (a manifest list
 # can only reference digests in its own repository) — `*-manifest` assembles
-# the real `:<tag>` / `:latest` / `:MINOR` tags from this plus the amd64 leg's
-# `-amd64`-suffixed tag. `resource_group` serializes the backend/frontend legs
+# the real `:<tag>` tag (always) plus `:latest` / `:MINOR` (stable releases
+# only) from this plus the amd64 leg's `-amd64`-suffixed tag. `resource_group`
+# serializes the backend/frontend legs
 # since both run against the one physical host's Docker Desktop daemon.
 # `after_script` always logs out and removes the tags this job pushed, so the
 # arch-suffixed images and registry credentials don't linger on the shared
@@ -3156,10 +3160,14 @@ frontend-docker-push-arm64:
 #
 # Combines the amd64 (kaniko, `-amd64`-suffixed) and arm64 (native leg above,
 # `-arm64`-suffixed) single-arch images into real multi-arch manifest lists
-# under `:<tag>`, `:latest`, and (for stable releases) `:MAJOR.MINOR`, on both
-# the GitLab registry and GHCR. `manifest-tool push from-args --template
-# <repo>:<tag>-ARCH --target <repo>:<tag> --tags latest[,MINOR]` was verified
-# to expand this tag set correctly.
+# under `:<tag>` always, plus `:latest` and (for stable releases only)
+# `:MAJOR.MINOR`, on both the GitLab registry and GHCR. A pre-release tag
+# (`-alpha`/`-beta`/`-rc`) gets no `--tags` at all — only its own exact
+# `:<tag>` — so it never re-points `:latest` at an in-development build (a
+# bug that did exactly that from v1.2.0-alpha.1 through v1.2.0-alpha.3 on
+# both registries, fixed here). `manifest-tool push from-args --template
+# <repo>:<tag>-ARCH --target <repo>:<tag> [--tags latest[,MINOR]]` was
+# verified to expand this tag set correctly.
 #
 # `manifest-tool` reads registry credentials from an existing Docker client
 # config file (its 3rd, non-interactive auth option) — built the same way
@@ -3217,17 +3225,33 @@ backend-manifest:
       set -eu
       IMG="backend"
       TAG="${CI_COMMIT_TAG}"
-      TAGS_ARG="latest"
+      # `latest`/`MINOR` are stable-release aliases only. The stable-vs-pre-release
+      # regex below used to gate `MINOR` alone while `TAGS_ARG` defaulted to
+      # "latest" unconditionally — so every alpha/beta/rc tag silently re-pointed
+      # `:latest` (on both registries) at that in-development build. Confirmed
+      # live from v1.2.0-alpha.1 through v1.2.0-alpha.3: `backend:latest` and
+      # `frontend:latest` matched the alpha digest on both GHCR and the GitLab
+      # registry, not v1.1.0. A pre-release tag now gets no extra alias at all —
+      # only its own exact `${TAG}` — matching docs-deploy's stable/pre-release
+      # split for the same CI_COMMIT_TAG.
+      STABLE_TAGS=""
       if echo "${TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
         MINOR="$(echo "${TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
-        TAGS_ARG="latest,${MINOR}"
+        STABLE_TAGS="latest,${MINOR}"
       fi
       for REG in "${CI_REGISTRY_IMAGE}" "ghcr.io/visiban/visiban"; do
-        manifest-tool push from-args \
-          --platforms linux/amd64,linux/arm64 \
-          --template "${REG}/${IMG}:${TAG}-ARCH" \
-          --target "${REG}/${IMG}:${TAG}" \
-          --tags "${TAGS_ARG}"
+        if [ -n "${STABLE_TAGS}" ]; then
+          manifest-tool push from-args \
+            --platforms linux/amd64,linux/arm64 \
+            --template "${REG}/${IMG}:${TAG}-ARCH" \
+            --target "${REG}/${IMG}:${TAG}" \
+            --tags "${STABLE_TAGS}"
+        else
+          manifest-tool push from-args \
+            --platforms linux/amd64,linux/arm64 \
+            --template "${REG}/${IMG}:${TAG}-ARCH" \
+            --target "${REG}/${IMG}:${TAG}"
+        fi
       done
 
 frontend-manifest:
@@ -3240,17 +3264,26 @@ frontend-manifest:
       set -eu
       IMG="frontend"
       TAG="${CI_COMMIT_TAG}"
-      TAGS_ARG="latest"
+      # See backend-manifest above: `latest`/`MINOR` are stable-release aliases
+      # only — a pre-release tag gets no extra alias, just its own exact `${TAG}`.
+      STABLE_TAGS=""
       if echo "${TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
         MINOR="$(echo "${TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
-        TAGS_ARG="latest,${MINOR}"
+        STABLE_TAGS="latest,${MINOR}"
       fi
       for REG in "${CI_REGISTRY_IMAGE}" "ghcr.io/visiban/visiban"; do
-        manifest-tool push from-args \
-          --platforms linux/amd64,linux/arm64 \
-          --template "${REG}/${IMG}:${TAG}-ARCH" \
-          --target "${REG}/${IMG}:${TAG}" \
-          --tags "${TAGS_ARG}"
+        if [ -n "${STABLE_TAGS}" ]; then
+          manifest-tool push from-args \
+            --platforms linux/amd64,linux/arm64 \
+            --template "${REG}/${IMG}:${TAG}-ARCH" \
+            --target "${REG}/${IMG}:${TAG}" \
+            --tags "${STABLE_TAGS}"
+        else
+          manifest-tool push from-args \
+            --platforms linux/amd64,linux/arm64 \
+            --template "${REG}/${IMG}:${TAG}-ARCH" \
+            --target "${REG}/${IMG}:${TAG}"
+        fi
       done
 
 # ─── Helm — publish chart to GHCR (release tags) ─────────────────────────────

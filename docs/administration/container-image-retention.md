@@ -193,22 +193,24 @@ registry. Check that registry's retention/cleanup policy first (see the sections
 re-run the FULL tag pipeline's publish chain to restore the image: `backend-docker-push` /
 `frontend-docker-push` alone (amd64) is **not** sufficient — as of the 2026-09-28 #1084
 re-audit, those jobs only push `-amd64`-suffixed intermediate tags on a release tag, never the
-real `:<tag>`/`:latest` names directly. The real names are written exclusively by
-`backend-manifest` / `frontend-manifest`, which `needs:` both the amd64 leg above and the
-arm64 leg (`backend-docker-push-arm64` / `frontend-docker-push-arm64`). Re-running only the
-amd64 leg will not bring the tag back at all — all six jobs (`arm64-runner-preflight`,
+real `:<tag>` name directly. The real name is written exclusively by `backend-manifest` /
+`frontend-manifest`, which `needs:` both the amd64 leg above and the arm64 leg
+(`backend-docker-push-arm64` / `frontend-docker-push-arm64`). Re-running only the amd64 leg
+will not bring the tag back at all — all six jobs (`arm64-runner-preflight`,
 `backend-docker-push` + `backend-docker-push-arm64`, `frontend-docker-push` +
 `frontend-docker-push-arm64`, and `backend-manifest` + `frontend-manifest`) must complete for
 the real, multi-arch tag to exist again.
 
-**Caution if you're restoring an OLD release's tag** (not the newest one): both manifest jobs
-always pass `--tags latest` (and `:MAJOR.MINOR` for a stable release) to `manifest-tool`, with
-no check that the tag being rebuilt is actually the newest release. Re-running the full chain
-for an old tag will move the real `:latest` (and `:MAJOR.MINOR`) reference back to that old
-release on both registries, not just restore the specific `:<tag>` this check flagged. Confirm
-that's intended — or restore the missing tag by other means (e.g. re-pushing the specific
-digest, if still available on the other registry) — before re-running the chain for anything
-other than the current newest release.
+**Caution if you're restoring an OLD *stable* release's tag** (not the newest one): the
+manifest jobs pass `--tags latest,MAJOR.MINOR` to `manifest-tool` only for a stable
+(non-pre-release) tag, with no check that the stable tag being rebuilt is actually the newest
+release. Re-running the full chain for an old stable tag will move the real `:latest` (and
+`:MAJOR.MINOR`) reference back to that old release on both registries, not just restore the
+specific `:<tag>` this check flagged. Confirm that's intended — or restore the missing tag by
+other means (e.g. re-pushing the specific digest, if still available on the other registry) —
+before re-running the chain for anything other than the current newest stable release. A
+pre-release tag (`-alpha.N`/`-beta.N`/`-rc.N`) gets no `--tags` at all — restoring one only
+ever recreates its own exact `:<tag>`, never touches `:latest`.
 
 ## GitLab-registry `:latest` is amd64-only between releases
 
@@ -216,8 +218,8 @@ The two registries do not behave the same for `:latest`:
 
 | Registry | What updates `:latest` | Architectures |
 |---|---|---|
-| GHCR | Release tags only (`backend-manifest` / `frontend-manifest`) | linux/amd64 + linux/arm64, persistently, until the next release |
-| GitLab | Release tags (multi-arch manifest) **and** every `main`-branch merge (`backend-docker-push` / `frontend-docker-push`, via kaniko) | Multi-arch right after a release tag, then **amd64 only** after the next `main` merge |
+| GHCR | **Stable** release tags only (`backend-manifest` / `frontend-manifest`) — a pre-release tag (`-alpha`/`-beta`/`-rc`) never touches `:latest` | linux/amd64 + linux/arm64, persistently, until the next stable release |
+| GitLab | Stable release tags (multi-arch manifest) **and** every `main`-branch merge (`backend-docker-push` / `frontend-docker-push`, via kaniko) | Multi-arch right after a stable release tag, then **amd64 only** after the next `main` merge |
 
 The native arm64 legs (`*-docker-push-arm64`), `arm64-runner-preflight`, and the manifest jobs
 all have release-tag-only `rules:`. A `main` merge therefore pushes an amd64-only `:latest`
