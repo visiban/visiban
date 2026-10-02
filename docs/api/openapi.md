@@ -75,7 +75,18 @@ describes, checking `response_schema_conformance`, `status_code_conformance`, an
 
 Runs on any MR or `main`-branch push that touches `backend/**/views/**`, `**/serializers.py`,
 or `**/urls.py` — no unconditional fallback on `main`, since nothing downstream depends on
-this job (#1266).
+this job (#1266). It never runs on a scheduled pipeline.
+
+**Deep nightly run (`backend-schema-fuzz-deep`).** The Nightly schedule (`FUZZ_DEEP=true`,
+#1383) runs the same job with a bigger budget: `--max-examples 100` and `--max-time 2400`
+seconds, against the MR job's 10 and 600. Boot, seed, token, checks, and
+`backend/schemathesis-baseline.json` are shared, because the deep job `extends:` the MR job.
+It gets a fresh seed each night, printed the same way. It is `allow_failure: true` so a
+finding does not turn the shared Nightly pipeline red. A finding is still a real defect: on
+failure the job files one tracking issue titled
+`backend-schema-fuzz-deep: nightly schema-fuzz finding`, or comments on it if it is already
+open. That needs a `FUZZ_DEEP_API_TOKEN` (or `KAIZEN_API_TOKEN`) CI variable with `api`
+scope. Without one, the job log shows what would have been filed.
 
 **Error envelope.** Visiban has no custom DRF `EXCEPTION_HANDLER`, so authentication,
 permission, lookup, and throttling failures all render as DRF's default `{"detail": "<message>"}`.
@@ -119,7 +130,9 @@ failures are auto-retried, by the pipeline-wide `default:` block.)
    serializer or its annotation.
 3. Replay it: the job prints `seed=<n>` at the start and the failure block ends with an
    `st replay <id>` line. Re-run the job with the pipeline variable `FUZZ_SEED=<n>` to pin the
-   same seed. Locally, boot the app against `seed_demo_data` and run
+   same seed. To replay a deep nightly run, start a pipeline on `main` (**Build → Pipelines →
+   Run pipeline**) with `FUZZ_SEED=<n>`, `FUZZ_MAX_EXAMPLES=100` and `FUZZ_MAX_TIME=2400`.
+   That runs `backend-schema-fuzz` at the deep budget. Locally, boot the app against `seed_demo_data` and run
    `st run <url>/api/schema/ --seed <n> ...` with the flags from the job.
 
 **Path-parameter seeding.** `backend/schemathesis_hooks.py`, loaded via the job's

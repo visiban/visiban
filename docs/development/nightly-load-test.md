@@ -165,5 +165,7 @@ budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5
 The scheduled run is blocking (not `allow_failure`), so a budget violation fails the pipeline.
 GitLab emails every project maintainer who has "Failed pipeline" notifications enabled
 (**Profile → Notifications → Global notification level → "Watch"**, or per-project under
-**Project → Notification settings**) — the same mechanism the weekly CVE scan
-(`backend-dep-scan` / `frontend-dep-scan`) already relies on.
+**Project → Notification settings**) — the same mechanism the nightly CVE scan
+(`backend-dep-scan` / `frontend-dep-scan`, on the separate Nightly schedule) already relies
+on. The load test keeps its own schedule rather than joining that one because its latency
+budgets are noisy on a busy runner — see [Scheduled pipelines](ci-gates.md#scheduled-pipelines).
