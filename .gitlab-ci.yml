@@ -3186,7 +3186,10 @@ frontend-docker-push-arm64:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:
-    - apk add --no-cache curl tar
+    # bash: scripts/classify-release-tag.sh (stable-vs-pre-release alias
+    # decision, below) is a bash script, kept consistent with
+    # resolve-docs-version.sh and scripts/release.sh's own classification.
+    - apk add --no-cache bash curl tar
     - |
       set -eu
       MANIFEST_TOOL_VERSION=2.2.2
@@ -3221,24 +3224,27 @@ backend-manifest:
     - job: backend-docker-push
     - job: backend-docker-push-arm64
   script:
+    # Self-test runs first, per #1093's gate-selftest-parity rule. Also run in
+    # frontend-manifest below, deliberately duplicated rather than relying on
+    # "the classifier is deterministic, one proof covers both": the two jobs
+    # have no `needs:` on each other and run in parallel within the same
+    # stage, so a self-test only in one job would still let the other race
+    # ahead and push a possibly-wrong alias before the pipeline reads red.
+    - bash scripts/classify-release-tag.sh --self-test
     - |
       set -eu
       IMG="backend"
       TAG="${CI_COMMIT_TAG}"
-      # `latest`/`MINOR` are stable-release aliases only. The stable-vs-pre-release
-      # regex below used to gate `MINOR` alone while `TAGS_ARG` defaulted to
-      # "latest" unconditionally — so every alpha/beta/rc tag silently re-pointed
-      # `:latest` (on both registries) at that in-development build. Confirmed
-      # live from v1.2.0-alpha.1 through v1.2.0-alpha.3: `backend:latest` and
-      # `frontend:latest` matched the alpha digest on both GHCR and the GitLab
-      # registry, not v1.1.0. A pre-release tag now gets no extra alias at all —
-      # only its own exact `${TAG}` — matching docs-deploy's stable/pre-release
-      # split for the same CI_COMMIT_TAG.
-      STABLE_TAGS=""
-      if echo "${TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-        MINOR="$(echo "${TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
-        STABLE_TAGS="latest,${MINOR}"
-      fi
+      # `latest`/`MINOR` are stable-release aliases only — delegated to
+      # scripts/classify-release-tag.sh so this and frontend-manifest below
+      # share one classifier instead of two copies of the same regex that can
+      # silently drift apart (exactly how this bug happened the first time:
+      # TAGS_ARG defaulted to "latest" unconditionally while only MINOR was
+      # gated, so every alpha/beta/rc tag re-pointed backend:latest/
+      # frontend:latest, on both registries, at that pre-release build, from
+      # v1.2.0-alpha.1 through v1.2.0-alpha.3). See classify-release-tag.sh
+      # for the regex and its --self-test.
+      STABLE_TAGS="$(bash scripts/classify-release-tag.sh "${TAG}" | sed -n 's/^ALIASES=//p')"
       for REG in "${CI_REGISTRY_IMAGE}" "ghcr.io/visiban/visiban"; do
         if [ -n "${STABLE_TAGS}" ]; then
           manifest-tool push from-args \
@@ -3260,17 +3266,16 @@ frontend-manifest:
     - job: frontend-docker-push
     - job: frontend-docker-push-arm64
   script:
+    # See backend-manifest above: self-test runs here too, not shared across
+    # the two jobs — they race in parallel with no `needs:` between them.
+    - bash scripts/classify-release-tag.sh --self-test
     - |
       set -eu
       IMG="frontend"
       TAG="${CI_COMMIT_TAG}"
-      # See backend-manifest above: `latest`/`MINOR` are stable-release aliases
-      # only — a pre-release tag gets no extra alias, just its own exact `${TAG}`.
-      STABLE_TAGS=""
-      if echo "${TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-        MINOR="$(echo "${TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
-        STABLE_TAGS="latest,${MINOR}"
-      fi
+      # Classification itself is shared via scripts/classify-release-tag.sh,
+      # not duplicated here — only the self-test call above is per-job.
+      STABLE_TAGS="$(bash scripts/classify-release-tag.sh "${TAG}" | sed -n 's/^ALIASES=//p')"
       for REG in "${CI_REGISTRY_IMAGE}" "ghcr.io/visiban/visiban"; do
         if [ -n "${STABLE_TAGS}" ]; then
           manifest-tool push from-args \
@@ -3285,6 +3290,48 @@ frontend-manifest:
             --target "${REG}/${IMG}:${TAG}"
         fi
       done
+
+# ─── Latest-tag stability check (release tags) ───────────────────────────────
+#
+# Fails the TAG PIPELINE ITSELF, immediately, if backend:latest/frontend:latest
+# on either registry does not point at the current newest STABLE release —
+# the automatic version of the manual check that caught the 2026-10 incident
+# (backend-manifest/frontend-manifest re-pointing :latest at every alpha/beta/
+# rc tag for ~3 days before anyone noticed). A fixed bug with nothing watching
+# it is one unrelated refactor away from quietly coming back; this is that
+# watch. See scripts/check-latest-tag-stability.sh for the full rationale.
+#
+# needs: both manifest jobs, so this only runs once the (possibly-wrong)
+# :latest alias has actually been written and there's something real to check
+# — not racing them.
+#
+# Deliberately NOT allow_failure: a self-hoster doing a plain `docker pull`
+# with no tag getting a different, unvetted build than the one the docs
+# describe is exactly the failure class check-release-images.sh (below) also
+# refuses to let go green silently.
+latest-tag-stability-check:
+  stage: deploy
+  needs: [backend-manifest, frontend-manifest]
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
+  before_script:
+    - apk add --no-cache bash git crane
+    - |
+      mkdir -p "$HOME/.docker"
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS="\"${CI_REGISTRY}\":{\"auth\":\"$(b64 "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}")\"}"
+      if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_TOKEN}" ]; then
+        AUTHS="${AUTHS},\"ghcr.io\":{\"auth\":\"$(b64 "${GHCR_USER}" "${GHCR_TOKEN}")\"}"
+      fi
+      printf '{"auths":{%s}}' "${AUTHS}" > "$HOME/.docker/config.json"
+    # Tag pipelines may otherwise clone at the project's default depth, which
+    # can miss historical tags — fetch them explicitly so
+    # resolve_latest_stable_tag() sees the real newest stable release.
+    - git fetch origin --tags --force
+  script:
+    - bash scripts/check-latest-tag-stability.sh --self-test
+    - bash scripts/check-latest-tag-stability.sh
 
 # ─── Helm — publish chart to GHCR (release tags) ─────────────────────────────
 #

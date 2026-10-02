@@ -391,6 +391,23 @@ if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$'; th
   exit 1
 fi
 
+# State what this tag will do to :latest, via the same classifier
+# backend-manifest/frontend-manifest use (scripts/classify-release-tag.sh) —
+# printed now, before anything is tagged or pushed, so a wrong expectation is
+# visible immediately rather than discovered after the fact. This can't prove
+# the CI jobs themselves behave correctly (that's what
+# latest-tag-stability-check, run inside the tag pipeline, is for) — it only
+# proves the two agree on intent. See classify-release-tag.sh for the
+# 2026-10 incident both exist to prevent a recurrence of.
+CLASSIFY_OUT="$(bash "$(dirname "$0")/classify-release-tag.sh" "$TAG")"
+STABLE="$(echo "$CLASSIFY_OUT" | sed -n 's/^STABLE=//p')"
+ALIASES="$(echo "$CLASSIFY_OUT" | sed -n 's/^ALIASES=//p')"
+if [[ "$STABLE" == "true" ]]; then
+  echo "This is a STABLE release: backend:latest/frontend:latest (and :${ALIASES#latest,}) will move to ${TAG} on both registries once the tag pipeline's manifest jobs run."
+else
+  echo "This is a PRE-RELEASE (${TAG}): backend:latest/frontend:latest will NOT be touched — only the exact ${TAG} image tag is published."
+fi
+
 # Clean working tree required
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Error: working tree is not clean" >&2
