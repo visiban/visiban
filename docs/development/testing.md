@@ -268,6 +268,24 @@ Test code, migrations, repo tooling, and seed/factory modules are removed from t
 coverage denominator by `sonar.coverage.exclusions`; each entry is justified in
 the properties file, and nothing under product source is excluded.
 
+### Coverage targets
+
+Three different numbers apply. They measure different things; see
+[SonarCloud § Why GitLab's coverage badge and Sonar's differ](sonarcloud.md#why-gitlabs-coverage-badge-and-sonars-differ).
+
+| Measure | Target | Enforced by |
+|---|---|---|
+| SonarCloud overall coverage (backend and frontend, product source only) | **At least 85%**, with **80% as the floor** | Policy, read on the SonarCloud dashboard. Not a CI gate |
+| Backend aggregate | **90%** | `backend-test-coverage` runs `coverage report --fail-under=90` and blocks the pipeline |
+| Frontend aggregate | Lines and statements **70%**, functions and branches **60%** | `coverage.thresholds` in `frontend/vitest.config.ts` |
+| Lines an MR adds or changes | **80%** | `backend-diff-coverage` and `frontend-diff-coverage` (see [Diff coverage](#diff-coverage-1076)) |
+
+The frontend thresholds are a floor that stops the aggregate from regressing; they are lower
+than the Sonar target. A change that leaves the frontend at its threshold can still pull
+Sonar's combined number under 85%, so aim higher on new code instead of treating the
+threshold as the goal. Raise a threshold when the aggregate has stayed comfortably above it;
+never lower one to make a pipeline pass.
+
 ### Diff coverage (#1076)
 
 `backend-test-coverage` and `frontend-test`'s vitest thresholds gate the *aggregate*
