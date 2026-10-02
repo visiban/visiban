@@ -31,7 +31,14 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
   const [urlServerError, setUrlServerError] = useState<string | null>(null);
   const isUrl = definition.field_type === "url";
 
-  const commit = (v: string) => {
+  const commit = (v: string): Promise<void> | void => {
+    if (definition.field_type === "multi_select") {
+      // #1391: hand the save back so the editor can revert its selection and
+      // say which field failed; runSave still drives the row's indicator.
+      const saving = onSave(v);
+      void runSave(saving);
+      return saving;
+    }
     if (!isUrl) { void runSave(onSave(v)); return; }
     setUrlServerError(null);
     void runSave(

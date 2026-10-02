@@ -742,6 +742,28 @@ describe('CardDetail', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('Escape closes an open multi-select field menu first, without closing the card panel (#1391)', async () => {
+    const props = defaultProps()
+    props.board = makeBoard({
+      custom_field_definitions: [{
+        id: 5, uid: 'cfuid005', name: 'Platforms', field_type: 'multi_select',
+        choices: ['web', 'ios'], position: 0, show_on_card: false, is_required: false,
+        help_text: '', created_at: '',
+      }],
+    })
+    // A stored value opens the Custom fields section automatically.
+    props.card = makeCard({ custom_field_values: [{ field_definition: 5, value: '["web"]' }] })
+    const user = userEvent.setup()
+    render(<CardDetail {...props} />)
+    await user.click(screen.getByRole('button', { name: 'Platforms: web' }))
+    expect(screen.getByRole('listbox', { name: 'Platforms' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox', { name: 'Platforms' })).not.toBeInTheDocument()
+    expect(props.onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('renders checklist progress when items exist', async () => {
     const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
     mockGetChecklist.mockResolvedValue([

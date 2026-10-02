@@ -66,6 +66,22 @@ describe('usePersistedFilters', () => {
     expect(result.current.filters.visibleCustomFieldFilterIds).toEqual([7])
   })
 
+  // #1391
+  it('restores a multi_choice filter and drops a malformed one', () => {
+    mockStorage.setItem(
+      'board:1:filters',
+      JSON.stringify({
+        ...EMPTY_FILTER,
+        customFields: {
+          4: { kind: 'multi_choice', values: ['web', 'ios'] },
+          5: { kind: 'multi_choice', values: [1] }, // malformed — values must be string[]
+        },
+      }),
+    )
+    const { result } = renderHook(() => usePersistedFilters(1))
+    expect(result.current.filters.customFields).toEqual({ 4: { kind: 'multi_choice', values: ['web', 'ios'] } })
+  })
+
   it('drops a malformed custom field filter entry without failing the whole load', () => {
     mockStorage.setItem(
       'board:1:filters',

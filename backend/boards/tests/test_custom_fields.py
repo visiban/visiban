@@ -17,6 +17,9 @@ Phase 1 (backend) of #371. The tests are grouped by the thing that can break:
   ``CustomFieldExtensionPointTests``, ``CustomFieldQueryCountTests``.
 """
 
+import csv
+import io
+import json
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -1051,6 +1054,32 @@ class CustomFieldQueryCountTests(CustomFieldTestBase):
         self.assertEqual(self._full_query_count(), baseline)
 
 
+    def _patch_cost(self, definition, value):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._set_values([{"field_definition": definition.id, "value": value}])
+            self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        return len(ctx.captured_queries)
+
+    def test_a_multi_select_write_costs_exactly_one_extra_query(self):
+        """#1391: the orphan check reads the stored value once, and only for a
+        multi-select field — a text write pays nothing for it."""
+        text = _definition(self.board, name="Notes", position=0)
+        multi = _definition(
+            self.board, name="Platforms", field_type=T.MULTI_SELECT, position=1,
+            choices_json=["web", "ios"],
+        )
+        CustomFieldValue.objects.create(card=self.card, field_definition=text, value="a")
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=multi, value='["web"]'
+        )
+        # Warm any per-process caches so the two measurements compare like
+        # with like.
+        self._patch_cost(text, "warm")
+        text_cost = self._patch_cost(text, "b")
+        multi_cost = self._patch_cost(multi, ["ios"])
+        self.assertEqual(multi_cost, text_cost + 1)
+
+
 # ---------------------------------------------------------------------------
 # URL field type (#1390)
 # ---------------------------------------------------------------------------
@@ -1216,3 +1245,389 @@ class CustomFieldUrlTypeTests(CustomFieldTestBase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
         text_field.refresh_from_db()
         self.assertEqual(text_field.field_type, T.TEXT)
+
+
+# ---------------------------------------------------------------------------
+# Multi-select type (#1391)
+# ---------------------------------------------------------------------------
+
+class CustomFieldMultiSelectTypeTests(CustomFieldTestBase):
+    """``multi_select``: several of a definition's choices, stored as one
+    canonical JSON array string in the existing text column (#1391)."""
+
+    def setUp(self):
+        super().setUp()
+        self.field = _definition(
+            self.board, name="Platforms", field_type=T.MULTI_SELECT,
+            choices_json=["web", "ios", "android"],
+        )
+
+    def _write(self, value, **kwargs):
+        return self._set_values(
+            [{"field_definition": self.field.id, "value": value}], **kwargs
+        )
+
+    def _stored(self, card=None):
+        row = CustomFieldValue.objects.filter(
+            card=card or self.card, field_definition=self.field
+        ).first()
+        return row.value if row else None
+
+    # -- definitions --------------------------------------------------------
+
+    def test_a_multi_select_definition_can_be_created(self):
+        r = self.client.post(
+            self._fields_url(),
+            {"name": "Teams", "field_type": "multi_select", "choices": [" a ", "b"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["field_type"], "multi_select")
+        self.assertEqual(r.data["choices"], ["a", "b"])
+
+    def test_a_multi_select_definition_needs_choices(self):
+        r = self.client.post(
+            self._fields_url(), {"name": "Teams", "field_type": "multi_select"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            str(r.data["choices"][0]), "A multi-select field needs at least one choice."
+        )
+
+    def test_multi_select_choices_follow_the_dropdown_rules(self):
+        for choices in (["a", "a"], ["a", ""], ["a\x00"], [1], [f"c{i}" for i in range(101)]):
+            with self.subTest(choices=choices):
+                r = self.client.post(
+                    self._fields_url(),
+                    {"name": "Teams", "field_type": "multi_select", "choices": choices},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertIn("choices", r.data)
+
+    def test_the_dropdown_messages_are_unchanged(self):
+        r = self.client.post(
+            self._fields_url(), {"name": "Tier", "field_type": "dropdown"},
+            format="json",
+        )
+        self.assertEqual(
+            str(r.data["choices"][0]), "A dropdown field needs at least one choice."
+        )
+
+    def test_choices_on_a_non_choice_type_name_both_choice_types(self):
+        r = self.client.post(
+            self._fields_url(),
+            {"name": "Notes", "field_type": "text", "choices": ["a"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            str(r.data["choices"][0]),
+            "Only a dropdown or multi-select field can have choices.",
+        )
+
+    def test_type_is_frozen_once_a_value_exists(self):
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=self.field, value='["web"]'
+        )
+        r = self.client.patch(
+            self._field_url(self.field), {"field_type": "dropdown"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("field_type", r.data)
+
+    # -- values -------------------------------------------------------------
+
+    def test_a_list_is_stored_canonically_and_read_back_as_a_string(self):
+        r = self._write(["android", "web", "android", " ios "])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        # Deduplicated, trimmed, in choice order, compact separators.
+        self.assertEqual(self._stored(), '["web","ios","android"]')
+        self.assertEqual(
+            r.data["custom_field_values"],
+            [{"field_definition": self.field.id, "value": '["web","ios","android"]'}],
+        )
+
+    def test_the_read_value_can_be_echoed_back(self):
+        self._write(["ios", "web"])
+        r = self._write('[ "web" , "ios" ]')
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["web","ios"]')
+
+    def test_a_plain_string_is_one_entry(self):
+        r = self._write("ios")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["ios"]')
+
+    def test_non_ascii_choices_are_stored_unescaped(self):
+        self.field.choices_json = ["Zürich", "東京"]
+        self.field.save()
+        self._write(["東京", "Zürich"])
+        self.assertEqual(self._stored(), '["Zürich","東京"]')
+
+    def test_a_value_outside_the_choices_is_a_400(self):
+        for value in (["web", "blackberry"], "blackberry", '["blackberry"]'):
+            with self.subTest(value=value):
+                r = self._write(value)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_malformed_entries_are_a_400_not_a_500(self):
+        for value in ([1], [None], [["web"]], [{"a": 1}], {"web": True}, True, '["web", 1]'):
+            with self.subTest(value=value):
+                r = self._write(value)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_a_nul_byte_is_a_400_not_a_500(self):
+        r = self._write(["web\x00"])
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIn("NUL", str(r.data))
+
+    def test_an_encoded_value_over_the_length_cap_is_a_400(self):
+        choices = [f"{i:02d}" + "x" * 20 for i in range(30)]
+        self.field.choices_json = choices
+        self.field.save()
+        # 30 entries x 24 encoded chars = well over 500 once encoded.
+        r = self._write(choices)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIn("500 characters", str(r.data))
+        # Under the cap still works.
+        r = self._write(choices[:5])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+
+    def test_an_absurdly_long_list_is_refused_on_length(self):
+        r = self._write(["web"] * 10_000)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+
+    def test_empty_values_clear_the_field(self):
+        for empty in ([], "", None, "[]", ["", "  "]):
+            with self.subTest(empty=empty):
+                self._write(["web"])
+                r = self._write(empty)
+                self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+                self.assertIsNone(self._stored())
+
+    def test_an_orphaned_entry_is_kept_on_edit_but_cannot_be_added(self):
+        self._write(["web", "ios"])
+        # Rename a choice: the stored value is not rewritten.
+        r = self.client.patch(
+            self._field_url(self.field), {"choices": ["web", "iOS", "android"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["web","ios"]')
+
+        # Editing the card while keeping the orphan works; it sorts after the
+        # current choices.
+        r = self._write(["ios", "android", "web"])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["web","android","ios"]')
+
+        # The orphan can be dropped ...
+        r = self._write(["web"])
+        self.assertEqual(self._stored(), '["web"]')
+        # ... and once dropped it cannot come back, nor be added to another card.
+        r = self._write(["web", "ios"])
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        other = _make_card(self.column, self.lane, title="Other", position=1)
+        r = self._write(["ios"], card=other)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+
+    def test_a_reordered_resubmission_is_not_a_change(self):
+        received = []
+
+        def handler(sender, **kwargs):
+            received.append((kwargs["old_value"], kwargs["new_value"]))
+
+        custom_field_value_changed.connect(handler)
+        try:
+            self._write(["ios", "web"])
+            self._write(["web", "ios", "web"])
+            self._write('["ios","web"]')
+            self._write(["web"])
+        finally:
+            custom_field_value_changed.disconnect(handler)
+        self.assertEqual(received, [
+            ("", '["web","ios"]'),
+            ('["web","ios"]', '["web"]'),
+        ])
+
+    def test_a_validator_hook_sees_the_canonical_string(self):
+        seen = []
+
+        def record(definition, value):
+            seen.append(value)
+
+        hooks.CUSTOM_FIELD_VALIDATORS.append(record)
+        try:
+            self._write(["android", "web"])
+        finally:
+            hooks.CUSTOM_FIELD_VALIDATORS.remove(record)
+        self.assertEqual(seen, ['["web","android"]'])
+
+    def test_a_deeply_nested_array_string_is_a_400_not_a_500(self):
+        r = self._write("[" * 1000 + "]" * 1000)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_an_oversize_array_string_is_refused_before_parsing(self):
+        text = json.dumps(["web"] * 1000)  # > 2,000 characters
+        real_loads = json.loads
+        with patch("boards.serializers.json.loads", side_effect=real_loads) as loads:
+            r = self._write(text)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIn("500 characters", str(r.data))
+        # The request body itself is parsed with json.loads; the value never is.
+        self.assertNotIn(text, [c.args[0] for c in loads.call_args_list if c.args])
+
+    def test_a_hook_replacement_is_recanonicalized(self):
+        def rewrite(definition, value):
+            return '[ "android" , "web", "web" ]'
+
+        hooks.CUSTOM_FIELD_VALIDATORS.append(rewrite)
+        try:
+            r = self._write(["ios"])
+        finally:
+            hooks.CUSTOM_FIELD_VALIDATORS.remove(rewrite)
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["web","android"]')
+
+    def test_a_hook_returning_a_non_array_is_a_400(self):
+        def broken(definition, value):
+            return "web, ios"
+
+        hooks.CUSTOM_FIELD_VALIDATORS.append(broken)
+        try:
+            r = self._write(["ios"])
+        finally:
+            hooks.CUSTOM_FIELD_VALIDATORS.remove(broken)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_values_can_be_set_when_creating_a_card(self):
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/",
+            {
+                "title": "New", "column": self.column.id, "swimlane": self.lane.id,
+                "custom_field_values": [
+                    {"field_definition": self.field.id, "value": ["ios"]}
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(
+            CustomFieldValue.objects.get(card_id=r.data["id"]).value, '["ios"]'
+        )
+
+    # -- permission boundary --------------------------------------------------
+
+    def test_a_member_may_write_their_own_card(self):
+        own = _make_card(
+            self.column, self.lane, title="Mine", created_by=self.member, position=1
+        )
+        r = self._write(["web"], user=self.member, card=own)
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(own), '["web"]')
+
+    def test_a_member_cannot_write_someone_elses_card(self):
+        r = self._write(["web"], user=self.member)
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_a_viewer_cannot_write(self):
+        own = _make_card(
+            self.column, self.lane, title="Mine", created_by=self.viewer, position=1
+        )
+        r = self._write(["web"], user=self.viewer, card=own)
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIsNone(self._stored(own))
+
+    def test_a_non_member_cannot_write(self):
+        outsider = _make_user("cf_ms_outsider")
+        r = self._write(["web"], user=outsider)
+        self.assertIn(
+            r.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND)
+        )
+        self.assertIsNone(self._stored())
+
+    def test_a_definition_from_another_board_is_rejected(self):
+        other_board = _make_board(self.admin, name="Elsewhere")
+        foreign = _definition(
+            other_board, name="Platforms", field_type=T.MULTI_SELECT,
+            choices_json=["web"],
+        )
+        r = self._set_values([{"field_definition": foreign.id, "value": ["web"]}])
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(CustomFieldValue.objects.exists())
+
+    # -- broadcast and export -----------------------------------------------
+
+    def test_the_card_updated_broadcast_carries_the_string_value(self):
+        self.broadcast.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            self._write(["android", "web"])
+            # Deferred with transaction.on_commit, never sent inline.
+            self.assertEqual(self.broadcast.call_count, 0)
+        self.assertTrue(callbacks)
+        payload = next(
+            call.args[2] for call in self.broadcast.call_args_list
+            if call.args[1] == "card.updated"
+        )
+        self.assertEqual(
+            payload["custom_field_values"],
+            [{"field_definition": self.field.id, "value": '["web","android"]'}],
+        )
+
+    def test_the_definition_broadcast_carries_type_and_choices(self):
+        self.broadcast.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.client.post(
+                self._fields_url(),
+                {"name": "Teams", "field_type": "multi_select", "choices": ["a", "b"]},
+                format="json",
+            )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        payload = next(
+            call.args[2] for call in self.broadcast.call_args_list
+            if call.args[1] == "custom_field.created"
+        )
+        self.assertEqual(payload["field_type"], "multi_select")
+        self.assertEqual(payload["choices"], ["a", "b"])
+
+    def test_csv_export_joins_entries_and_sanitizes_each(self):
+        self.field.choices_json = ["web", "=cmd|'/c calc'!A1", "-1"]
+        self.field.save()
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=self.field,
+            value=json.dumps(["=cmd|'/c calc'!A1", "web", "-1"]),
+        )
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        col = rows[0].index("Custom: Platforms")
+        self.assertEqual(rows[1][col], "cmd|'/c calc'!A1; web; 1")
+
+    def test_csv_export_of_an_unparseable_value_is_empty_not_a_500(self):
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=self.field, value="not json"
+        )
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        self.assertEqual(rows[1][rows[0].index("Custom: Platforms")], "")
+
+    def test_json_export_keeps_the_stored_string_and_the_schema(self):
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=self.field, value='["web","ios"]'
+        )
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
+        payload = json.loads(r.content.decode())
+        schema = next(f for f in payload["custom_fields"] if f["name"] == "Platforms")
+        self.assertEqual(schema["field_type"], "multi_select")
+        self.assertEqual(schema["choices"], ["web", "ios", "android"])
+        self.assertEqual(
+            payload["cards"][0]["custom_field_values"], {"Platforms": '["web","ios"]'}
+        )

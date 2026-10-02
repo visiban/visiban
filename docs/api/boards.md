@@ -443,6 +443,7 @@ Since 1.2, one further column is **appended** per [custom field](#custom-fields-
 defined on the board, in the fields' display order, headed `Custom: <field name>`. The
 fixed columns above keep their positions, so a consumer reading by index is unaffected.
 The prefix keeps a field named e.g. `Title` from colliding with a built-in header.
+A [multi-select](#multi-select-fields) value is written as its entries joined with `"; "`.
 
 Also since 1.2, one further column is appended per [swimlane custom
 field](#swimlane-custom-fields-since-12) defined on the board, after the `Custom: ` block,
@@ -1124,8 +1125,8 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `id` | integer | yes | Database primary key |
 | `uid` | string | yes | Stable 16-character hex UID |
 | `name` | string | no | Field name; unique within the board |
-| `field_type` | string | no\* | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`, `"url"` (see [URL fields](#url-fields)) |
-| `choices` | string[] | no | Permitted values; required and non-empty for `"dropdown"`, rejected for every other type |
+| `field_type` | string | no\* | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`, `"url"` (see [URL fields](#url-fields)), `"multi_select"` (see [Multi-select fields](#multi-select-fields)) |
+| `choices` | string[] | no | Permitted values; required and non-empty (at most 100, unique) for `"dropdown"` and `"multi_select"`, rejected for every other type |
 | `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
 | `show_on_card` | boolean | no | Pin the value to the card face. Max 2 per board |
 | `is_required` | boolean | no | Declared but **not enforced** in this release |
@@ -1152,12 +1153,66 @@ columns or structure.
 - **Stored as sent** (after trimming surrounding whitespace) — the scheme's case and the
   rest of the URL are not rewritten. The API does not add a missing `https://`; the web
   UI does that before it sends the value.
-- `choices` is rejected for a `"url"` field, as for every non-dropdown type.
+- `choices` is rejected for a `"url"` field, as for every type that cannot carry choices
+  (anything but `"dropdown"` and `"multi_select"`).
 - **Clients that do not recognize `"url"`** should fall back to rendering the value as
   plain text — the value is always a string. A client that renders it as a link must
   still check the scheme at render time and use `rel="noopener noreferrer"`.
 - Enterprise `CUSTOM_FIELD_VALIDATORS` hooks receive `"url"` as the `field_type` and run
   after this validation.
+
+#### Multi-select fields
+
+*Since 1.2.* A `"multi_select"` field holds any number of the definition's `choices`. It
+applies to card and swimlane custom fields alike, and is text-backed like every other type:
+**the `value` on the wire is still a string** — a JSON array encoded as a string, never a
+JSON array.
+
+```json
+{ "field_definition": 14, "value": "[\"web\",\"ios\"]" }
+```
+
+- **Canonical form.** The stored (and returned) string is compact JSON (`["web","ios"]`, no
+  spaces, non-ASCII characters unescaped), **deduplicated**, with entries that are current
+  choices **in `choices` order**, followed by any orphaned entries (see below). Resubmitting
+  the same set in a different order is therefore not a change: the stored row is not
+  rewritten and no `custom_field_value_changed` /
+  `swimlane_custom_field_value_changed` signal fires.
+- **Accepted on write** — any of: an array of strings (`"value": ["ios", "web"]`); the JSON
+  array string a read returned (so echoing a payload back is a no-op); a plain string, read
+  as a single entry (`"value": "web"`). `""`, `null` and `[]` (or an array of blank
+  strings) clear the field. Surrounding whitespace on each entry is trimmed.
+- **Every entry must be a current choice — or already stored on that card or swimlane.**
+  Anything else is a `400`: `'<entry>' is not a choice for '<name>'.` A non-string entry
+  (or a nested array) is a `400`: `Each value of '<name>' must be a string.` An object, a
+  boolean, or an entry containing NUL (`\u0000`) is also a `400`.
+- **At most 500 characters, measured on the canonical string.** Over the cap is a `400`,
+  never a truncation: `'<name>' value is longer than 500 characters.` The same message is
+  returned, without parsing, for an array of more than 500 entries or a JSON array string
+  longer than 2,000 characters.
+- **Permissions** are those of the owner's other writes: a card value needs board member
+  or above and is subject to the same ownership gate as any card edit; a swimlane value
+  can be written by board admins only.
+- **Orphans are kept.** Renaming or removing a choice never rewrites stored values: an
+  entry that is no longer a choice stays in the value, is returned as stored, and may be
+  kept (or dropped) on later writes to that same card or swimlane. It cannot be added
+  anywhere it is not already stored. Clients should render an orphaned entry like any
+  other value.
+- `field_type` follows the same freeze rule as every type — it cannot change once any value
+  exists — so there is no conversion path to or from `"dropdown"`.
+- **Clients that do not recognize `"multi_select"`** should render the value as plain text;
+  it is always a string.
+- **Export.** The JSON export carries the stored string unchanged. The CSV export writes the
+  entries joined with `"; "` (`web; ios`), each entry formula-sanitized like every other CSV
+  cell.
+- **Extension points.** Enterprise `CUSTOM_FIELD_VALIDATORS` /
+  `SWIMLANE_CUSTOM_FIELD_VALIDATORS` hooks receive `field_type == "multi_select"` and the
+  canonical string (for example `'["web","ios"]'`), never a list; a hook that rewrites the
+  value must return a string of the same shape. A rewritten value is re-canonicalized and
+  re-checked against the 500-character cap; one that is not a JSON array of strings is
+  refused with a `400`. The `custom_field_value_changed` and
+  `swimlane_custom_field_value_changed` signals send `old_value`/`new_value` as the
+  canonical strings — the whole set, not a per-entry diff.
 
 ### `GET /api/v1/boards/{id}/custom-fields/`
 List the board's custom field definitions, in `position` order. Available to **all board
@@ -1175,8 +1230,9 @@ Create a definition. Requires board admin.
 `position` is server-assigned (appended to the end) and ignored if supplied.
 
 **Errors:**
-- `400 Bad Request` if the name is blank or already used on this board, a dropdown has no
-  choices, a non-dropdown supplies choices, the board already has 30 definitions, or a
+- `400 Bad Request` if the name is blank or already used on this board, a dropdown or
+  multi-select has no choices, a type that cannot carry choices supplies them, the board
+  already has 30 definitions, or a
   third field is pinned with `show_on_card`.
 
 ### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/`
@@ -1184,8 +1240,11 @@ Update a definition. Requires board admin.
 
 **Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`
 
-> Removing a choice from a dropdown does **not** rewrite cards that already hold it: the
-> stored value keeps reading back, but it can no longer be written again.
+> Removing (or renaming) a choice on a dropdown or multi-select does **not** rewrite cards
+> that already hold it: the stored value keeps reading back. A dropdown value that is no
+> longer a choice can no longer be written again; a multi-select entry that is no longer a
+> choice may be re-written on the same card (kept alongside other edits) but not added
+> anywhere else — see [Multi-select fields](#multi-select-fields).
 
 > **Since 1.2:** `field_type` is frozen once any card holds a value for this field — a
 > stale `CustomFieldValue` is never revalidated or migrated against a new type, so changing
@@ -1239,8 +1298,8 @@ model docstring for the reasoning; do not assume they track each other.
 | `id` | integer | yes | Database primary key |
 | `uid` | string | yes | Stable 16-character hex UID |
 | `name` | string | no | Field name; unique within the board's swimlane fields (a card field may reuse the same name) |
-| `field_type` | string | no | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`, `"url"` (see [URL fields](#url-fields)). Immutable once any swimlane holds a value for this definition — see **Errors** below. |
-| `choices` | string[] | no | Permitted values; required and non-empty for `"dropdown"`, rejected for every other type |
+| `field_type` | string | no | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`, `"url"` (see [URL fields](#url-fields)), `"multi_select"` (see [Multi-select fields](#multi-select-fields)). Immutable once any swimlane holds a value for this definition — see **Errors** below. |
+| `choices` | string[] | no | Permitted values; required, non-empty (at most 100, unique) for `"dropdown"` and `"multi_select"`, rejected for every other type |
 | `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
 | `show_on_row` | boolean | no | Pin the value to the swimlane row header. Max 3 per board |
 | `is_admin_only` | boolean | no | When `true` (the default), this field's **values** are served only to `admin` and `site_admin` role members and are omitted entirely from share-link payloads. Does not affect who can read the *definition* — see [Swimlanes](#swimlanes) for the values visibility rule. |
@@ -1268,7 +1327,8 @@ Create a definition. Requires board admin.
 
 **Errors:**
 - `400 Bad Request` if the name is blank or already used on this board's swimlane fields, a
-  dropdown has no choices, a non-dropdown supplies choices, the board already has 15
+  dropdown or multi-select has no choices, a type that cannot carry choices supplies them,
+  the board already has 15
   swimlane field definitions, or a fourth field is pinned with `show_on_row`.
 
 ### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
@@ -1284,8 +1344,11 @@ Update a definition. Requires board admin.
 - `400 Bad Request` with a `name` key if the new name collides with another swimlane field
   on this board.
 
-> Removing a choice from a dropdown does **not** rewrite rows that already hold it: the
-> stored value keeps reading back, but it can no longer be written again.
+> Removing (or renaming) a choice on a dropdown or multi-select does **not** rewrite rows
+> that already hold it: the stored value keeps reading back. A dropdown value that is no
+> longer a choice can no longer be written again; a multi-select entry that is no longer a
+> choice may be re-written on the same swimlane but not added anywhere else — see
+> [Multi-select fields](#multi-select-fields).
 
 ### `DELETE /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
 Delete a definition. Requires board admin. **Every swimlane's value for that field is

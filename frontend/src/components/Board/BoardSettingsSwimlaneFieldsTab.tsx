@@ -27,15 +27,22 @@ const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; glyph: string
   { value: "dropdown", label: "Dropdown", glyph: "▾" },
   { value: "checkbox", label: "Checkbox", glyph: "☑" },
   { value: "url", label: "URL", glyph: "↗" },
+  { value: "multi_select", label: "Multi-select", glyph: "☰" },
 ];
 
 const TYPE_LABEL: Record<CustomFieldType, string> = {
-  text: "Text", number: "Number", date: "Date", dropdown: "Dropdown", checkbox: "Checkbox", url: "URL",
+  text: "Text", number: "Number", date: "Date", dropdown: "Dropdown", checkbox: "Checkbox", url: "URL", multi_select: "Multi-select",
 };
 
 const TYPE_GLYPH: Record<CustomFieldType, string> = {
-  text: "Aa", number: "#", date: "📅", dropdown: "▾", checkbox: "☑", url: "↗",
+  text: "Aa", number: "#", date: "📅", dropdown: "▾", checkbox: "☑", url: "↗", multi_select: "☰",
 };
+
+/** Types whose definition carries a `choices` list (#1391: dropdown, multi-select). */
+function hasChoices(t: CustomFieldType): boolean {
+  return t === "dropdown" || t === "multi_select";
+}
+
 
 // Mirror SwimlaneCustomFieldDefinition.MAX_PER_BOARD / MAX_PINNED_PER_BOARD.
 // Deliberately different from the card tab's 30/2 — see the derivation on the
@@ -189,6 +196,10 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       setFormError("A dropdown field needs at least one choice.");
       return;
     }
+    if (form.field_type === "multi_select" && cleanedChoices.length === 0) {
+      setFormError("A multi-select field needs at least one choice.");
+      return;
+    }
 
     setSaving(true);
     setFormError(null);
@@ -197,7 +208,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
         const created = await createSwimlaneCustomFieldDefinition(board.id, {
           name,
           field_type: form.field_type,
-          choices: form.field_type === "dropdown" ? cleanedChoices : undefined,
+          choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
           help_text: form.help_text.trim() || undefined,
           is_admin_only: form.is_admin_only,
         });
@@ -210,7 +221,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
         const updated = await updateSwimlaneCustomFieldDefinition(board.id, editingId, {
           name,
           field_type: form.field_type,
-          choices: form.field_type === "dropdown" ? cleanedChoices : undefined,
+          choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
           help_text: form.help_text.trim() || undefined,
           is_admin_only: form.is_admin_only,
         });
@@ -281,7 +292,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
               <div key={f.id} className="flex items-center gap-3 py-2.5 border-b border-line/60 last:border-0">
                 <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[f.field_type]}</span>
                 <span className="flex-1 min-w-0 truncate text-sm text-fg" title={f.name}>{f.name}</span>
-                <span className="text-xs text-fg-muted capitalize w-16 shrink-0">{TYPE_LABEL[f.field_type]}</span>
+                <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[f.field_type]}</span>
                 {f.is_admin_only && <AdminOnlyFieldGlyph />}
                 {f.show_on_row && (
                   <span className="text-xs text-fg-muted bg-surface-hover rounded px-2 py-0.5 shrink-0">Pinned</span>
@@ -508,7 +519,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
         </span>
         <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[def.field_type]}</span>
         <span className="flex-1 min-w-0 truncate text-sm text-fg" title={def.name}>{def.name}</span>
-        <span className="text-xs text-fg-muted capitalize w-16 shrink-0">{TYPE_LABEL[def.field_type]}</span>
+        <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[def.field_type]}</span>
         {/* Only the exception is marked. Admin-only is the default, so marking
             it everywhere would be noise; a public field is the surprise. */}
         {def.is_admin_only && (
@@ -628,6 +639,10 @@ function FieldEditPanel({
         })}
       </div>
 
+      {form.field_type === "multi_select" && (
+        <p className="text-xs text-fg-muted mb-3">People can pick more than one choice.</p>
+      )}
+
       {typeLocked && (
         <p id="swimlane-field-type-lock" className="text-xs text-fg-muted mb-3">
           Type is locked — swimlanes already have values for this field. Delete the field and add it again to change the type.
@@ -643,7 +658,7 @@ function FieldEditPanel({
         placeholder="Shown as hint text"
       />
 
-      {form.field_type === "dropdown" && (
+      {hasChoices(form.field_type) && (
         <div className="mb-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Choices</p>
           <div className="flex flex-col gap-1 mb-1.5">

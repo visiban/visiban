@@ -813,6 +813,11 @@ class CustomFieldDefinition(models.Model):
         # absolute http(s) URL on write (#1390, see
         # ``boards.serializers._normalize_custom_field_value``).
         URL = "url", "URL"
+        # Several of the definition's ``choices_json`` at once (#1391). Still
+        # text-backed: the value is a canonical compact JSON array string,
+        # entries ordered as in ``choices_json`` (see
+        # ``boards.custom_field_types``). The wire value stays a string.
+        MULTI_SELECT = "multi_select", "Multi-select"
 
     # EAV with a cap: /full/ joins every card against every value row, so an
     # uncapped field count is a Cartesian blow-up waiting to happen. 500 cards

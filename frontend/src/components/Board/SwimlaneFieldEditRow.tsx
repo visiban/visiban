@@ -47,7 +47,8 @@ export default function SwimlaneFieldEditRow({ definition, value, onChange, onIn
         debounceMs={0}
         // Above ModalWrapper's 40, so Escape inside an open dropdown closes the
         // dropdown rather than the modal and the half-filled form with it.
-        escapePriority={45}
+        // 46 for the multi-select menu (#1391) — see frontend/CLAUDE.md.
+        escapePriority={definition.field_type === "multi_select" ? 46 : 45}
         onInvalidChange={onInvalidChange}
         serverError={serverError}
       />
