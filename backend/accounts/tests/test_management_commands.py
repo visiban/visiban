@@ -81,6 +81,48 @@ class EnsureSiteAdminTests(TestCase):
             if os.path.exists(pw_file):
                 os.remove(pw_file)
 
+    def _run_with_pw_path(self, path):
+        out = StringIO()
+        with patch("accounts.management.commands.ensure_site_admin._PASSWORD_FILE", path):
+            call_command("ensure_site_admin", stdout=out)
+        return out.getvalue()
+
+    def test_password_file_replaces_stale_own_file_with_0600(self):
+        """A stale own file (even world-readable) is replaced by a fresh 0600 file (S5443, #1379)."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "pw")
+            with open(path, "w") as f:
+                f.write("old\n")
+            os.chmod(path, 0o666)
+            output = self._run_with_pw_path(path)
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+            with open(path) as f:
+                self.assertNotEqual(f.read().strip(), "old")
+            self.assertIn("REDACTED", output)
+
+    def test_password_file_refuses_planted_symlink(self):
+        """A symlink planted at the path is never followed or removed; password goes to stdout."""
+        with tempfile.TemporaryDirectory() as d:
+            target = os.path.join(d, "victim")
+            path = os.path.join(d, "pw")
+            os.symlink(target, path)
+            output = self._run_with_pw_path(path)
+            self.assertFalse(os.path.exists(target))
+            self.assertTrue(os.path.islink(path))
+            self.assertNotIn("REDACTED", output)
+
+    def test_password_file_refuses_file_owned_by_another_user(self):
+        """A pre-existing file not owned by us is not reused or unlinked (fail closed to stdout)."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "pw")
+            with open(path, "w") as f:
+                f.write("attacker\n")
+            with patch("accounts.management.commands.ensure_site_admin.os.geteuid", return_value=os.geteuid() + 1):
+                output = self._run_with_pw_path(path)
+            with open(path) as f:
+                self.assertEqual(f.read(), "attacker\n")
+            self.assertNotIn("REDACTED", output)
+
     def test_password_printed_to_stdout_when_file_write_fails(self):
         """When the password file cannot be written, the password is printed directly to stdout.
 
