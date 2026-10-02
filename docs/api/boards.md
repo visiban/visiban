@@ -1124,7 +1124,7 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `id` | integer | yes | Database primary key |
 | `uid` | string | yes | Stable 16-character hex UID |
 | `name` | string | no | Field name; unique within the board |
-| `field_type` | string | no\* | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"` |
+| `field_type` | string | no\* | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`, `"url"` (see [URL fields](#url-fields)) |
 | `choices` | string[] | no | Permitted values; required and non-empty for `"dropdown"`, rejected for every other type |
 | `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
 | `show_on_card` | boolean | no | Pin the value to the card face. Max 2 per board |
@@ -1134,6 +1134,30 @@ Definition objects include a `uid` field — stable across renames, read-only.
 
 \* `field_type` is writable only while the definition has zero values — see the `PATCH`
 errors below.
+
+#### URL fields
+
+A `"url"` field stores a web address. It applies to card and swimlane custom fields alike,
+and is text-backed like every other type — the value is the stored string, with no extra
+columns or structure.
+
+- **Validated on write**, through the same rule as a card's
+  [external ref](cards.md#external-ref-since-12) URL: the value must be an absolute
+  `http://` or `https://` URL with a host. Any other scheme (`javascript:`, `data:`,
+  `ftp:`, `mailto:` — matched case-insensitively), a missing scheme (`example.com`),
+  embedded whitespace or control characters, a backslash, a percent-encoded host,
+  credentials (`user:pass@`), or an invalid port is rejected with `400 Bad Request`.
+- **At most 500 characters**, the cap that applies to every custom field value. A longer
+  URL is rejected, never truncated.
+- **Stored as sent** (after trimming surrounding whitespace) — the scheme's case and the
+  rest of the URL are not rewritten. The API does not add a missing `https://`; the web
+  UI does that before it sends the value.
+- `choices` is rejected for a `"url"` field, as for every non-dropdown type.
+- **Clients that do not recognize `"url"`** should fall back to rendering the value as
+  plain text — the value is always a string. A client that renders it as a link must
+  still check the scheme at render time and use `rel="noopener noreferrer"`.
+- Enterprise `CUSTOM_FIELD_VALIDATORS` hooks receive `"url"` as the `field_type` and run
+  after this validation.
 
 ### `GET /api/v1/boards/{id}/custom-fields/`
 List the board's custom field definitions, in `position` order. Available to **all board
@@ -1215,7 +1239,7 @@ model docstring for the reasoning; do not assume they track each other.
 | `id` | integer | yes | Database primary key |
 | `uid` | string | yes | Stable 16-character hex UID |
 | `name` | string | no | Field name; unique within the board's swimlane fields (a card field may reuse the same name) |
-| `field_type` | string | no | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`. Immutable once any swimlane holds a value for this definition — see **Errors** below. |
+| `field_type` | string | no | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`, `"url"` (see [URL fields](#url-fields)). Immutable once any swimlane holds a value for this definition — see **Errors** below. |
 | `choices` | string[] | no | Permitted values; required and non-empty for `"dropdown"`, rejected for every other type |
 | `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
 | `show_on_row` | boolean | no | Pin the value to the swimlane row header. Max 3 per board |

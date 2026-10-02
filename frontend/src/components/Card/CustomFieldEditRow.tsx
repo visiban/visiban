@@ -1,8 +1,10 @@
+import { useState } from "react";
 import type { CustomFieldDefinition } from "../../types";
 import CustomFieldValueInput from "./CustomFieldValueInput";
 import CustomFieldValueDisplay from "./CustomFieldValueDisplay";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
+import { urlErrorFromServer } from "../../utils/customFieldValue";
 
 interface Props {
   definition: CustomFieldDefinition;
@@ -24,6 +26,21 @@ interface Props {
  */
 export default function CustomFieldEditRow({ definition, value, disabled, onSave, userDateFormat }: Props) {
   const { status, fadingOut, runSave } = useAutosaveStatus();
+  // #1390: a URL the server refused (400) gets the editor's inline copy next
+  // to the input, not just the row's generic "Failed to save".
+  const [urlServerError, setUrlServerError] = useState<string | null>(null);
+  const isUrl = definition.field_type === "url";
+
+  const commit = (v: string) => {
+    if (!isUrl) { void runSave(onSave(v)); return; }
+    setUrlServerError(null);
+    void runSave(
+      onSave(v).catch((err: unknown) => {
+        setUrlServerError(urlErrorFromServer(err));
+        throw err;
+      })
+    );
+  };
 
   // checkbox's ToggleField renders the field name + help text internally —
   // duplicating them in this row's own label would show the name twice.
@@ -41,7 +58,8 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
           definition={definition}
           value={value}
           disabled={disabled}
-          onCommit={(v) => { void runSave(onSave(v)); }}
+          onCommit={commit}
+          serverError={isUrl ? urlServerError : undefined}
         />
       )}
       {!isCheckbox && definition.help_text && (

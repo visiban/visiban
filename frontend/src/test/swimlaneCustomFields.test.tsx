@@ -850,3 +850,82 @@ describe('SwimlaneFieldEditRow (#1140, #1236)', () => {
   })
 })
 
+
+describe('Swimlane URL fields (#1390)', () => {
+  it('renders a pinned url value as a hostname link with the full URL in the chip title', () => {
+    const def = makeDef({ id: 1, name: 'CRM', field_type: 'url' })
+    renderRow(
+      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'https://www.crm.example.com/acct/42' }] }),
+      [def]
+    )
+    const link = screen.getByRole('link', { name: 'Open crm.example.com in new tab' })
+    expect(link).toHaveTextContent('crm.example.com')
+    expect(link).toHaveAttribute('href', 'https://www.crm.example.com/acct/42')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.getByTitle('CRM: https://www.crm.example.com/acct/42')).toBeInTheDocument()
+  })
+
+  it('truncates a long hostname on the row chip at 20 characters', () => {
+    const def = makeDef({ id: 1, name: 'CRM', field_type: 'url' })
+    renderRow(
+      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'https://a-very-long-subdomain.example.com/' }] }),
+      [def]
+    )
+    expect(screen.getByRole('link')).toHaveTextContent('a-very-long-subdomai…')
+  })
+
+  it('double-clicking the link does not open the swimlane editor', () => {
+    const def = makeDef({ id: 1, name: 'CRM', field_type: 'url' })
+    renderRow(
+      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'https://crm.example.com' }] }),
+      [def]
+    )
+    fireEvent.doubleClick(screen.getByRole('link'))
+    expect(screen.queryByTestId('edit-swimlane-modal')).not.toBeInTheDocument()
+  })
+
+  it('renders a legacy non-http value as plain text', () => {
+    const def = makeDef({ id: 1, name: 'CRM', field_type: 'url' })
+    renderRow(
+      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'data:text/html,hi' }] }),
+      [def]
+    )
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByText('data:text/html,hi')).toBeInTheDocument()
+  })
+
+  it('renders the full URL as a link in the fields popover', async () => {
+    const user = userEvent.setup()
+    const defs = [
+      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'CRM', field_type: 'url', show_on_row: false, position: 1 }),
+    ]
+    renderRow(
+      makeSwimlane({ custom_field_values: [
+        { field_definition: 1, value: 'J. Rivera' },
+        { field_definition: 2, value: 'https://crm.example.com/acct/42' },
+      ] }),
+      defs
+    )
+    await user.click(screen.getByRole('button', { name: /Show all 2 field values/ }))
+    expect(screen.getByRole('link', { name: 'Open https://crm.example.com/acct/42 in new tab' })).toBeInTheDocument()
+  })
+
+  it('offers URL in the swimlane field type picker', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '+ Add field' }))
+    expect(screen.getByRole('button', { name: /↗ URL/ })).toBeInTheDocument()
+  })
+
+  it('the Edit Swimlane field row commits a normalized URL on blur, not per keystroke', () => {
+    const onChange = vi.fn()
+    render(<SwimlaneFieldEditRow definition={makeDef({ name: 'CRM', field_type: 'url' })} value="" onChange={onChange} />)
+    const input = screen.getByRole('textbox', { name: 'CRM' })
+    fireEvent.change(input, { target: { value: 'crm.example.com' } })
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.blur(input)
+    expect(onChange).toHaveBeenCalledWith('https://crm.example.com')
+  })
+})

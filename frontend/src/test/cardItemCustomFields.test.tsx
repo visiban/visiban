@@ -286,3 +286,62 @@ describe("CardItem — pinned custom field chips (#371)", () => {
     expect(screen.getByTitle("Stage: Beta")).toBeInTheDocument();
   });
 });
+
+describe("CardItem — pinned URL chip (#1390)", () => {
+  const urlDef = () => makeDefinition({ field_type: "url", name: "Docs" });
+
+  it("shows the hostname without www. as a safe link, with the full URL in the chip title", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "https://www.example.com/runbooks/raid" }] })}
+        customFieldDefinitions={[urlDef()]}
+      />
+    );
+    expect(screen.getByTitle("Docs: https://www.example.com/runbooks/raid")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Open example.com in new tab" });
+    expect(link).toHaveTextContent("example.com");
+    expect(link).toHaveAttribute("href", "https://www.example.com/runbooks/raid");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("clicking the link does not open the card", () => {
+    const onClick = vi.fn();
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "https://example.com" }] })}
+        customFieldDefinitions={[urlDef()]}
+        onClick={onClick}
+      />
+    );
+    const link = screen.getByRole("link", { name: "Open example.com in new tab" });
+    fireEvent.pointerDown(link);
+    fireEvent.mouseDown(link);
+    fireEvent.keyDown(link, { key: "Enter" });
+    const notPrevented = fireEvent.click(link);
+    expect(onClick).not.toHaveBeenCalled();
+    // stopPropagation only — the link itself must still open.
+    expect(notPrevented).toBe(true);
+  });
+
+  it("renders a legacy javascript: value as plain text with no link", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "javascript:alert(1)" }] })}
+        customFieldDefinitions={[urlDef()]}
+      />
+    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByTitle("Docs: javascript:alert(1)")).toBeInTheDocument();
+  });
+
+  it("is not a quick-edit chip", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "https://example.com" }] })}
+        customFieldDefinitions={[urlDef()]}
+      />
+    );
+    expect(screen.queryByRole("button", { name: /Docs:/ })).not.toBeInTheDocument();
+  });
+});

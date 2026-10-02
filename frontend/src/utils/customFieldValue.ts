@@ -47,6 +47,8 @@ export function isValidForType(definition: FieldDefinitionShape, value: string):
       return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
     case "checkbox":
       return value === "true" || value === "false";
+    case "url":
+      return normalizeUrl(value).ok;
     case "text":
     case "dropdown":
     default:
@@ -71,6 +73,10 @@ export function formatCustomFieldValue(
       return formatDateStr(value, userDateFormat);
     case "checkbox":
       return value === "true" ? "Yes" : "No";
+    // url: the full URL, not the hostname — this is the peek popover's text
+    // and the chips' `title`, where the reader verifies where a link goes.
+    // Only the pinned chips shorten it to a hostname (`urlDisplayHostname`).
+    case "url":
     case "number":
     case "text":
     case "dropdown":
@@ -104,4 +110,106 @@ export function withCustomFieldValue(
   const next = current.slice();
   next[idx] = { field_definition: fieldDefinitionId, value };
   return next;
+}
+
+/** Server-side cap on any stored custom field value (`MAX_VALUE_LENGTH`). */
+export const CUSTOM_FIELD_VALUE_MAX = 500;
+
+export type UrlNormalizeError = "scheme" | "invalid" | "length";
+
+export type UrlNormalizeResult =
+  | { ok: true; url: string }
+  | { ok: false; error: UrlNormalizeError };
+
+/** User-facing copy for each `normalizeUrl` failure (#1390). */
+export const URL_ERROR_COPY: Record<UrlNormalizeError, string> = {
+  scheme: "Enter a web address starting with http:// or https://",
+  invalid: "Enter a valid web address",
+  length: `Web addresses can be at most ${CUSTOM_FIELD_VALUE_MAX} characters`,
+};
+
+// A `scheme:` prefix — but `localhost:8080` and `example.com:8443/x` are a
+// bare host with a port, not a scheme, so a colon followed only by digits up
+// to the end or a path/query/fragment does not count.
+const SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
+const HOST_PORT_RE = /^[^/:?#]+:\d+(?:[/?#]|$)/;
+// Mirrors the server's `_has_unsafe_chars`: whitespace, C0/C1 controls, and
+// the invisible formatting characters a pasted URL can smuggle in.
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const UNSAFE_CHARS_RE = /[\s\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]/;
+
+/**
+ * Normalize and validate a URL custom field value (#1390).
+ *
+ * Mirrors the server's `validate_external_ref_url` so the editor rejects what
+ * the API would 400, with one deliberate addition: a bare domain
+ * (`example.com`) is accepted and gets `https://` prepended, because nobody
+ * types the scheme. A *non*-http(s) scheme (`javascript:`, `data:`, `ftp:`)
+ * is rejected, never rewritten — prepending `https://` to `javascript:alert(1)`
+ * would turn an attack into a link to a host called "javascript".
+ *
+ * The returned `url` is the trimmed input (plus any added scheme), not
+ * `URL.href`: the server stores the value as typed, and re-serializing here
+ * would make the editor and the stored value disagree on every save.
+ */
+export function normalizeUrl(raw: string): UrlNormalizeResult {
+  const trimmed = raw.trim();
+  if (trimmed === "") return { ok: false, error: "invalid" };
+
+  const scheme = SCHEME_RE.exec(trimmed);
+  let candidate = trimmed;
+  if (scheme && !HOST_PORT_RE.test(trimmed)) {
+    const lowered = scheme[1].toLowerCase();
+    if (lowered !== "http" && lowered !== "https") return { ok: false, error: "scheme" };
+  } else {
+    candidate = `https://${trimmed}`;
+  }
+
+  if (candidate.length > CUSTOM_FIELD_VALUE_MAX) return { ok: false, error: "length" };
+  // Browsers read `\` as `/` in http(s) URLs while Python does not, so the
+  // two would disagree on the host — the server rejects it, so do we.
+  if (UNSAFE_CHARS_RE.test(candidate) || candidate.includes("\\")) {
+    return { ok: false, error: "invalid" };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return { ok: false, error: "invalid" };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return { ok: false, error: "scheme" };
+  // `new URL("https://")` throws, but `https:///x` can parse with an empty
+  // host in some engines; credentials are rejected so they are never stored.
+  if (!parsed.hostname || parsed.username || parsed.password) return { ok: false, error: "invalid" };
+  // `%` in the authority: the browser decodes it, Python does not — reject it
+  // like the server does. Checked on the raw authority because `URL` has
+  // already decoded `parsed.hostname`.
+  const authority = candidate.replace(/^[a-z]+:\/\//i, "").split(/[/?#]/, 1)[0];
+  if (authority.includes("%") || authority.includes("@")) return { ok: false, error: "invalid" };
+
+  return { ok: true, url: candidate };
+}
+
+/** The hostname shown on a pinned chip: `www.` stripped, otherwise as parsed. */
+export function urlDisplayHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "");
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Map a failed URL-value save to the editor's inline copy, or null when the
+ * failure is not a validation 400 (network, 403, 5xx) — those stay with the
+ * row's generic autosave error rather than claiming the address was wrong.
+ */
+export function urlErrorFromServer(err: unknown): string | null {
+  const response = (err as { response?: { status?: number; data?: unknown } } | null)?.response;
+  if (!response || response.status !== 400) return null;
+  const body = JSON.stringify(response.data ?? "");
+  if (body.includes("longer than")) return URL_ERROR_COPY.length;
+  if (body.includes("http and https")) return URL_ERROR_COPY.scheme;
+  return URL_ERROR_COPY.invalid;
 }

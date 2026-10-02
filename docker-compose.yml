@@ -43,6 +43,9 @@ services:
       - "${REDIS_PORT:-6379}:6379"
 
   backend:
+    # The image installs backend/requirements.lock (hash-pinned), not
+    # requirements.txt. After editing requirements.txt run
+    # scripts/lock-backend-requirements.sh and commit the regenerated lock (#1378).
     build:
       context: ./backend
       dockerfile: Dockerfile

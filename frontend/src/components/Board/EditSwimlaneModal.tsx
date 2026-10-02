@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { updateSwimlane, deleteSwimlane } from "../../api/boards";
 import type { Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ModalWrapper from "../shared/ModalWrapper";
 import SwimlaneFieldEditRow from "./SwimlaneFieldEditRow";
+import { urlErrorFromServer } from "../../utils/customFieldValue";
 
 interface Props {
   boardId: number;
@@ -31,9 +32,25 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
   );
   const [fieldValues, setFieldValues] = useState<Record<number, string>>(initialValues);
 
+  // #1390 — URL fields whose input currently holds invalid, uncommitted text.
+  // A ref, not state: clicking Save blurs the input first, and the blur's
+  // refusal must be visible to the click handler that runs right after it.
+  const invalidFieldIds = useRef<Set<number>>(new Set());
+  const fieldsRef = useRef<HTMLDivElement>(null);
+  // Server 400s mapped back onto the URL field they were about.
+  const [fieldErrors, setFieldErrors] = useState<Record<number, string>>({});
+
   const handleSave = async () => {
     if (!name.trim()) return;
+    if (invalidFieldIds.current.size > 0) {
+      // Never save without the invalid text and close as if it had been
+      // saved: stay open, and put the user back on the field with its
+      // inline error still showing.
+      fieldsRef.current?.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus();
+      return;
+    }
     setSaving(true);
+    setFieldErrors({});
     setSaveError(null);
     try {
       // Diff, not the whole array: apply_swimlane_custom_field_values leaves
@@ -52,8 +69,23 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
       });
       onUpdated(updated);
       onClose();
-    } catch {
-      setSaveError("Couldn't save this swimlane. Try again.");
+    } catch (err) {
+      // The value serializer prefixes each message with the field's name, so
+      // a refused URL can be pinned to its input; anything else keeps the
+      // generic message.
+      const body = JSON.stringify((err as { response?: { data?: unknown } } | null)?.response?.data ?? "");
+      const mapped: Record<number, string> = {};
+      for (const d of defs) {
+        if (d.field_type !== "url" || !body.includes(`'${d.name}'`)) continue;
+        const message = urlErrorFromServer(err);
+        if (message) mapped[d.id] = message;
+      }
+      setFieldErrors(mapped);
+      setSaveError(
+        Object.keys(mapped).length > 0
+          ? "Couldn't save this swimlane. Fix the highlighted field and try again."
+          : "Couldn't save this swimlane. Try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -144,13 +176,18 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               </p>
               {/* Not collapsible: this is one of two sections in a focused
                   modal, and a collapsed section behind a Save button is a trap. */}
-              <div className="flex flex-col gap-4 max-h-[45vh] overflow-y-auto pr-1 -mr-1">
+              <div ref={fieldsRef} className="flex flex-col gap-4 max-h-[45vh] overflow-y-auto pr-1 -mr-1">
                 {defs.map((def) => (
                   <SwimlaneFieldEditRow
                     key={def.id}
                     definition={def}
                     value={fieldValues[def.id]}
                     onChange={(v) => setFieldValues((prev) => ({ ...prev, [def.id]: v }))}
+                    onInvalidChange={(invalid) => {
+                      if (invalid) invalidFieldIds.current.add(def.id);
+                      else invalidFieldIds.current.delete(def.id);
+                    }}
+                    serverError={fieldErrors[def.id] ?? null}
                   />
                 ))}
               </div>

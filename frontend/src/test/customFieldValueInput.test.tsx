@@ -256,3 +256,174 @@ describe('CustomFieldValueInput date — picker owned by the input (#1376)', () 
     }
   })
 })
+
+describe('CustomFieldValueInput — url (#1390)', () => {
+  const urlDef = (): FieldDefinitionShape => ({ name: 'Runbook', field_type: 'url', choices: [], help_text: '' })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('renders a url input with the specified attributes', () => {
+    render(<CustomFieldValueInput definition={urlDef()} value="" onCommit={vi.fn()} />)
+    const input = screen.getByRole('textbox', { name: 'Runbook' })
+    expect(input).toHaveAttribute('type', 'url')
+    expect(input).toHaveAttribute('inputmode', 'url')
+    expect(input).toHaveAttribute('placeholder', 'https://example.com')
+    expect(input).toHaveAttribute('maxlength', '500')
+    expect(input).toHaveAttribute('autocomplete', 'off')
+  })
+
+  it('does not commit per keystroke, even with debounceMs=0', () => {
+    const onCommit = vi.fn()
+    render(<CustomFieldValueInput definition={urlDef()} value="" onCommit={onCommit} debounceMs={0} />)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://example.com' } })
+    expect(onCommit).not.toHaveBeenCalled()
+  })
+
+  it('normalizes a bare domain and commits on blur', () => {
+    const onCommit = vi.fn()
+    render(<CustomFieldValueInput definition={urlDef()} value="" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'example.com' } })
+    fireEvent.blur(input)
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    expect(onCommit).toHaveBeenCalledWith('https://example.com')
+    expect(input).toHaveValue('https://example.com')
+  })
+
+  it('commits on Enter, and a following blur does not save twice', () => {
+    const onCommit = vi.fn()
+    render(<CustomFieldValueInput definition={urlDef()} value="" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'https://example.com/a' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.blur(input)
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    expect(onCommit).toHaveBeenCalledWith('https://example.com/a')
+  })
+
+  it('does not commit an invalid scheme, keeps the typed text and shows the error', () => {
+    const onCommit = vi.fn()
+    render(<CustomFieldValueInput definition={urlDef()} value="https://saved.example" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'javascript:alert(1)' } })
+    fireEvent.blur(input)
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(input).toHaveValue('javascript:alert(1)')
+    expect(screen.getByText('Enter a web address starting with http:// or https://')).toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input.className).toContain('border-danger')
+    // The danger indicator survives focus.
+    expect(input.className).toContain('focus:ring-danger-emphasis')
+    expect(input.className).not.toContain('focus:border-transparent')
+    expect(input.className).not.toContain('focus:ring-primary-emphasis')
+    const slot = document.getElementById(input.getAttribute('aria-describedby')!)
+    expect(slot).toHaveTextContent('Enter a web address starting with http:// or https://')
+  })
+
+  it('shows the generic copy for an unparseable address', () => {
+    const onCommit = vi.fn()
+    render(<CustomFieldValueInput definition={urlDef()} value="" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'https://exa mple.com' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(screen.getByText('Enter a valid web address')).toBeInTheDocument()
+  })
+
+  it('Escape reverts to the saved value and clears the error', () => {
+    const onCommit = vi.fn()
+    render(<CustomFieldValueInput definition={urlDef()} value="https://saved.example" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'ftp://nope' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getByText('Enter a web address starting with http:// or https://')).toBeInTheDocument()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input).toHaveValue('https://saved.example')
+    expect(screen.queryByText('Enter a web address starting with http:// or https://')).not.toBeInTheDocument()
+    expect(input).not.toHaveAttribute('aria-invalid')
+  })
+
+  it('commits "" when cleared', () => {
+    const onCommit = vi.fn()
+    render(<CustomFieldValueInput definition={urlDef()} value="https://saved.example" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: '' } })
+    fireEvent.blur(input)
+    expect(onCommit).toHaveBeenCalledWith('')
+  })
+
+  it('always renders the reserved slot, with an Open link helper for a saved value', () => {
+    render(<CustomFieldValueInput definition={urlDef()} value="https://saved.example/x" onCommit={vi.fn()} />)
+    const link = screen.getByRole('link', { name: 'Open link in new tab' })
+    expect(link).toHaveTextContent('Open link ↗')
+    expect(link).toHaveAttribute('href', 'https://saved.example/x')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('shows a server error only while the rejected value is still in the input', () => {
+    const onCommit = vi.fn()
+    const { rerender } = render(<CustomFieldValueInput definition={urlDef()} value="" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox')
+    // A value the client accepts but the server (hypothetically) refuses.
+    fireEvent.change(input, { target: { value: 'https://example.com' } })
+    fireEvent.blur(input)
+    expect(onCommit).toHaveBeenCalledWith('https://example.com')
+    rerender(<CustomFieldValueInput definition={urlDef()} value="" onCommit={onCommit} serverError="Enter a valid web address" />)
+    expect(screen.getByText('Enter a valid web address')).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'https://example.com/other' } })
+    expect(screen.queryByText('Enter a valid web address')).not.toBeInTheDocument()
+  })
+
+  it('hides the Open link helper while the input holds unsaved text', () => {
+    render(<CustomFieldValueInput definition={urlDef()} value="https://saved.example" onCommit={vi.fn()} />)
+    expect(screen.getByRole('link', { name: 'Open link in new tab' })).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://typed.example' } })
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('points aria-describedby at the error only while one is shown, and announces it', () => {
+    render(<CustomFieldValueInput definition={urlDef()} value="https://saved.example" onCommit={vi.fn()} />)
+    const input = screen.getByRole('textbox')
+    // The helper link is not the input's description.
+    expect(input).not.toHaveAttribute('aria-describedby')
+    fireEvent.change(input, { target: { value: 'ftp://nope' } })
+    fireEvent.blur(input)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Enter a web address starting with http:// or https://')
+    expect(input).toHaveAttribute('aria-describedby', alert.id)
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input).not.toHaveAttribute('aria-describedby')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('edits a legacy javascript: value through the blur/Enter editor, never per keystroke', () => {
+    const onCommit = vi.fn()
+    render(<CustomFieldValueInput definition={urlDef()} value="javascript:alert(1)" onCommit={onCommit} debounceMs={0} />)
+    expect(screen.getByText(/Stored value doesn't match/)).toBeInTheDocument()
+    const input = screen.getByRole('textbox', { name: 'Runbook' })
+    expect(input).toHaveAttribute('type', 'url')
+    // No link for the legacy value.
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'example.com' } })
+    expect(onCommit).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    expect(onCommit).toHaveBeenCalledWith('https://example.com')
+  })
+
+  it('shows a server error in the legacy editor too', () => {
+    const onCommit = vi.fn()
+    const { rerender } = render(<CustomFieldValueInput definition={urlDef()} value="javascript:alert(1)" onCommit={onCommit} />)
+    const input = screen.getByRole('textbox', { name: 'Runbook' })
+    fireEvent.change(input, { target: { value: 'https://example.com' } })
+    fireEvent.blur(input)
+    expect(onCommit).toHaveBeenCalledWith('https://example.com')
+    // The save is refused; the stored legacy value is unchanged.
+    rerender(<CustomFieldValueInput definition={urlDef()} value="javascript:alert(1)" onCommit={onCommit} serverError="Enter a valid web address" />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a valid web address')
+    expect(input).toHaveValue('https://example.com')
+  })
+})

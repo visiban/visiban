@@ -970,3 +970,93 @@ class SwimlaneCustomFieldReorderSchemaTests(SwimlaneCustomFieldTestBase):
             self.assertIsInstance(r.json(), list)
             self.assertEqual([d["name"] for d in r.json()], ["A"])
 
+
+
+class SwimlaneCustomFieldUrlTypeTests(SwimlaneCustomFieldTestBase):
+    """#1390 — the URL type on the row write path, which shares the card's
+    ``_normalize_custom_field_value`` chokepoint."""
+
+    def setUp(self):
+        super().setUp()
+        self.definition = _definition(self.board, name="Account page", field_type=T.URL)
+
+    def _patch_value(self, value, client=None):
+        return (client or self.client).patch(
+            self.lane_url,
+            {"custom_field_values": [
+                {"field_definition": self.definition.id, "value": value}
+            ]},
+            format="json",
+        )
+
+    def test_a_url_definition_can_be_created(self):
+        r = self.client.post(
+            self.url, {"name": "CRM", "field_type": "url"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["field_type"], "url")
+
+    def test_choices_on_a_url_definition_are_rejected(self):
+        r = self.client.post(
+            self.url,
+            {"name": "CRM", "field_type": "url", "choices": ["https://a.example"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_http_and_https_values_round_trip_as_typed(self):
+        for raw in ("https://crm.example.com/acct/42", "HTTP://Example.com/"):
+            with self.subTest(raw=raw):
+                r = self._patch_value(raw)
+                self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+                self.assertEqual(
+                    r.data["custom_field_values"],
+                    [{"field_definition": self.definition.id, "value": raw}],
+                )
+
+    def test_unsafe_and_malformed_values_are_a_400_not_a_500(self):
+        from boards.tests.test_custom_fields import INVALID_URL_VALUES
+
+        for raw in INVALID_URL_VALUES + ("https://exa\x00mple.com/",):
+            with self.subTest(raw=raw):
+                r = self._patch_value(raw)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertFalse(SwimlaneCustomFieldValue.objects.exists())
+
+    def test_a_url_over_the_length_cap_is_refused(self):
+        too_long = "https://example.com/" + "a" * SwimlaneCustomFieldDefinition.MAX_VALUE_LENGTH
+        r = self._patch_value(too_long)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(SwimlaneCustomFieldValue.objects.exists())
+
+    def test_an_empty_string_clears_the_value(self):
+        self._patch_value("https://example.com")
+        r = self._patch_value("")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertFalse(SwimlaneCustomFieldValue.objects.exists())
+
+    def test_member_and_viewer_cannot_write_a_url_value(self):
+        for user in (self.member, self.viewer):
+            with self.subTest(user=user.username):
+                r = self._patch_value("https://example.com", client=self._client_for(user))
+                self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(SwimlaneCustomFieldValue.objects.exists())
+
+    def test_a_non_member_cannot_write_a_url_value(self):
+        outsider = _make_user("scf_url_outsider")
+        r = self._patch_value("https://example.com", client=self._client_for(outsider))
+        self.assertIn(
+            r.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND)
+        )
+        self.assertFalse(SwimlaneCustomFieldValue.objects.exists())
+
+    def test_url_type_is_frozen_once_a_row_holds_a_value(self):
+        SwimlaneCustomFieldValue.objects.create(
+            swimlane=self.lane, field_definition=self.definition,
+            value="https://example.com",
+        )
+        r = self.client.patch(
+            f"{self.url}{self.definition.id}/", {"field_type": "text"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("field_type", r.data)

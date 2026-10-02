@@ -95,6 +95,7 @@ own header — is never mistaken for a real exemption.
 |---|---|---|
 | `scripts/check-added-files-covered.mjs` | `added-files-coverage-check` (+ its own `added-files-coverage-check-self-test` job) | First adopter, predates #1093's general rule. |
 | `scripts/helm-structure-check.sh` | `helm-lint` | `--self-test` injects each defect class into a throwaway copy of the chart. |
+| `scripts/lock-backend-requirements.sh` | `backend-lock-check` | Network-free self-test swaps in a stub `uv` and a synthetic `backend/` tree, then proves a fresh lock passes `--check`, a drifted `requirements.txt` makes `--check` exit non-zero, and an unknown argument is rejected ([#1378](https://gitlab.com/visiban/visiban/-/issues/1378)). |
 | `scripts/check-migration-numbering.sh` | `migration-numbering-check` | Self-test builds a synthetic two-branch git repo and reproduces a numbering collision. Wiring the invocation into the job was itself a #1093 fix — the script had the mode, the job just never called it. |
 | `scripts/osv-severity-gate.sh` | `dep-scan-osv` | Covers the block/warn/clean/fail-safe boundary with synthetic OSV-Scanner JSON. Full 11-case regression suite lives in `scripts/tests/osv-severity-gate.test.sh`; the in-script self-test is the smaller, CI-wired proof. |
 | `scripts/check-issue-collision.sh` | pre-push git hook only (not a CI job — see [Known gaps](#known-gaps-and-deferred-work)) | Offline self-test against stubbed forge responses. |

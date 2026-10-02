@@ -62,6 +62,7 @@ function emptyCustomFieldFilterValue(def: CustomFieldDefinition): CustomFieldFil
     case "checkbox":
       return { kind: "choice", values: [] };
     case "text":
+    case "url": // #1390 — a URL is matched as text ("contains"), like a text field
     default:
       return { kind: "text", query: "" };
   }
@@ -519,7 +520,10 @@ interface CustomFieldFilterControlProps {
  * consistently in both places).
  */
 function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFilterControlProps) {
-  if (definition.field_type === "text" && value.kind === "text") {
+  // URL fields (#1390) filter exactly like text — a "contains" match on the
+  // stored address — rather than falling through to the choice dropdown,
+  // which would render with no options.
+  if ((definition.field_type === "text" || definition.field_type === "url") && value.kind === "text") {
     return (
       <input
         type="text"

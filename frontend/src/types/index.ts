@@ -326,7 +326,11 @@ export type CustomFieldType =
   | "number"
   | "date"
   | "dropdown"
-  | "checkbox";
+  | "checkbox"
+  // #1390. Text-backed and validated server-side as an absolute http(s) URL.
+  // Code that switches on this union must keep a default branch that renders
+  // the raw value as text — a newer server may send a type this build lacks.
+  | "url";
 
 /**
  * A board's declaration of one typed custom field (#371). Mirrors

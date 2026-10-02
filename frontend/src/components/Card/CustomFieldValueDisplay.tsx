@@ -1,6 +1,7 @@
 import type { FieldDefinitionShape } from "../../types";
 import { choiceColor, formatCustomFieldValue, isValidForType } from "../../utils/customFieldValue";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
+import CustomFieldLink from "./CustomFieldLink";
 
 interface Props {
   definition: FieldDefinitionShape;
@@ -45,8 +46,12 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
 
   const valid = isValidForType(definition, value);
   const displayText = valid ? formatCustomFieldValue(definition, value, userDateFormat) : value;
+  // #1390: a URL value renders through the one shared link component, which
+  // itself falls back to plain text for anything that is not an http(s) URL.
+  const isUrl = definition.field_type === "url" && value !== "";
 
   if (variant === "detail") {
+    if (isUrl) return <CustomFieldLink value={value} variant="full" className={className} />;
     return <span className={`text-sm text-fg-secondary ${className ?? ""}`}>{displayText || "—"}</span>;
   }
 
@@ -73,9 +78,15 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
         {adminOnly && <AdminOnlyFieldGlyph />}
         {dot}
         <span className="text-fg-muted truncate">{definition.name}:</span>
-        <span className="text-fg-secondary truncate">
-          {displayText.length > 20 ? `${displayText.slice(0, 20)}…` : displayText}
-        </span>
+        {isUrl ? (
+          // stopPropagation: the row label panel is a double-click-to-edit
+          // surface for admins, and the link must not select or edit the row.
+          <CustomFieldLink value={value} variant="host" maxHostChars={20} stopPropagation />
+        ) : (
+          <span className="text-fg-secondary truncate">
+            {displayText.length > 20 ? `${displayText.slice(0, 20)}…` : displayText}
+          </span>
+        )}
       </span>
     );
   }
@@ -87,9 +98,13 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
     >
       {dot}
       <span className="text-fg-muted truncate">{definition.name}:</span>
-      <span className="text-fg-secondary truncate">
-        {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}
-      </span>
+      {isUrl ? (
+        <CustomFieldLink value={value} variant="host" maxHostChars={16} stopPropagation />
+      ) : (
+        <span className="text-fg-secondary truncate">
+          {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}
+        </span>
+      )}
     </span>
   );
 }
