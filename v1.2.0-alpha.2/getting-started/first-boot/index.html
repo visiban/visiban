@@ -3692,6 +3692,7 @@
 <p>The first time Visiban starts, it creates a one-time admin password — retrieve it, log in, and set your own password before inviting anyone else.</p>
 <h2 id="automatic-admin-bootstrap">Automatic admin bootstrap<a class="headerlink" href="#automatic-admin-bootstrap" title="Permanent link">&para;</a></h2>
 <p>On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (<code>/tmp/visiban_admin_password</code> by default). The password is <strong>not</strong> printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.</p>
+<p>The file is created exclusively with mode <code>0600</code> and symlinks are never followed. If something other than a regular file you own already exists at that path, Visiban refuses to use it and prints the password to the command's stdout instead. Set <code>VISIBAN_ADMIN_PASSWORD_FILE</code> to use a private directory instead of <code>/tmp</code>.</p>
 <p>The stdout output looks like this:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>============================================================
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  VISIBAN INITIAL ADMIN CREDENTIALS
