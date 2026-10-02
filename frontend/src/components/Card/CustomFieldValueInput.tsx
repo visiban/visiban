@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { FieldDefinitionShape } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { ToggleField } from "../Common/Toggle";
-import { isValidForType } from "../../utils/customFieldValue";
+import { CUSTOM_FIELD_VALUE_MAX, URL_ERROR_COPY, isValidForType, normalizeUrl } from "../../utils/customFieldValue";
+import CustomFieldLink from "./CustomFieldLink";
 
 interface Props {
   definition: FieldDefinitionShape;
@@ -11,7 +12,8 @@ interface Props {
    * "" clears. The component owns its own commit timing per type — text and
    * number debounce 600ms (mirrors `CardDetail`'s Weight field), date /
    * dropdown / checkbox commit immediately (mirrors the priority / label
-   * pattern) — so every call site gets consistent behavior without
+   * pattern), url commits only on blur / Enter and only a valid address
+   * (#1390) — so every call site gets consistent behavior without
    * reimplementing a timer. The caller is responsible for turning this into
    * an actual save (building the full `custom_field_values` array and
    * calling the API), and for wrapping that in whatever autosave/optimistic
@@ -36,12 +38,35 @@ interface Props {
    * Escape closes the modal instead of the open menu.
    */
   escapePriority?: number;
+  /**
+   * URL type only (#1390): inline copy for a save the server refused, mapped
+   * by the caller (`urlErrorFromServer`). Shown in the same reserved slot as
+   * the client-side error, and only while the input still holds the value
+   * that was rejected — editing or Escape hides it.
+   */
+  serverError?: string | null;
+  /**
+   * URL type only (#1390): called from the blur / Enter / Escape handlers with
+   * whether the input now holds text that failed validation (and so was *not*
+   * committed). A Save-button surface (EditSwimlaneModal) needs this: clicking
+   * Save blurs the input first, the invalid text is refused, and without this
+   * signal the form would save without it and close as if nothing was wrong.
+   * Called synchronously in the event handler, not from an effect, so the
+   * Save click that caused the blur already sees it.
+   */
+  onInvalidChange?: (invalid: boolean) => void;
 }
 
 const DEBOUNCE_MS = 600;
 
-export default function CustomFieldValueInput({ definition, value, onCommit, disabled, size = "md", autoFocus, debounceMs = DEBOUNCE_MS, escapePriority }: Props) {
+export default function CustomFieldValueInput({ definition, value, onCommit, disabled, size = "md", autoFocus, debounceMs = DEBOUNCE_MS, escapePriority, serverError, onInvalidChange }: Props) {
   const [local, setLocal] = useState(value ?? "");
+  // URL type (#1390): client-side validation error, and the last value handed
+  // to onCommit — so a blur right after an Enter does not save twice, and a
+  // server error is shown only against the value it was about.
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [lastCommitted, setLastCommitted] = useState(value ?? "");
+  const slotId = useId();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +74,8 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
   // replaced the whole card) while this input isn't mid-edit.
   useEffect(() => {
     setLocal(value ?? "");
+    setUrlError(null);
+    setLastCommitted(value ?? "");
   }, [value]);
 
   useEffect(() => () => {
@@ -66,11 +93,115 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
     size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm"
   }`;
 
+  // #1390: the URL editor, shared by the normal path and the legacy
+  // type-mismatch fallback below so both commit on blur / Enter only — never
+  // per keystroke, and never debounced, whatever `debounceMs` says. A
+  // half-typed address is not a value worth a round trip, and an invalid one
+  // must not be saved at all. Clicking a Save button blurs the input first, so
+  // Save-button surfaces (EditSwimlaneModal) still receive the final value —
+  // or, for invalid text, an `onInvalidChange(true)` so they can refuse to save.
+  const renderUrlEditor = () => {
+    const setError = (error: string | null) => {
+      setUrlError(error);
+      onInvalidChange?.(error !== null);
+    };
+    const commitUrl = (): boolean => {
+      // Untouched (including an untouched legacy value): nothing to save, and
+      // no error for a value the user has not edited yet.
+      if (local === (value ?? "")) { setError(null); return true; }
+      if (local.trim() === "") {
+        setError(null);
+        setLocal("");
+        if (lastCommitted !== "") { setLastCommitted(""); onCommit(""); }
+        return true;
+      }
+      const result = normalizeUrl(local);
+      if (!result.ok) {
+        // Keep the typed text visible with the error; the saved value is untouched.
+        setError(URL_ERROR_COPY[result.error]);
+        return false;
+      }
+      setError(null);
+      setLocal(result.url);
+      if (result.url !== lastCommitted) { setLastCommitted(result.url); onCommit(result.url); }
+      return true;
+    };
+    const shownError = urlError ?? (serverError && local === lastCommitted ? serverError : null);
+    // The invalid state keeps a danger indicator while focused: the base
+    // classes' focus:border-transparent + primary ring would otherwise hide it
+    // exactly while the user is fixing the value.
+    const urlInputClasses = [
+      "bg-surface border rounded text-fg-secondary focus:outline-none focus:ring-2 w-full placeholder-fg-muted",
+      shownError ? "border-danger focus:ring-danger-emphasis" : "border-line focus:ring-primary-emphasis focus:border-transparent",
+      size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm",
+    ].join(" ");
+    // The helper links the *saved* value, so it is hidden while the input
+    // holds unsaved text — it would otherwise open something other than what
+    // the user sees.
+    const showHelper = !shownError && !disabled && !!value && local === value;
+    return (
+      <div>
+        <input
+          type="url"
+          inputMode="url"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="https://example.com"
+          maxLength={CUSTOM_FIELD_VALUE_MAX}
+          className={urlInputClasses}
+          value={local}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          aria-label={definition.name}
+          aria-invalid={shownError ? true : undefined}
+          // Only the error describes the input; the Open link helper is a
+          // separate control, not a description of this field.
+          aria-describedby={shownError ? slotId : undefined}
+          onChange={(e) => setLocal(e.target.value)}
+          onBlur={() => { commitUrl(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              // An invalid value must not submit an enclosing form either —
+              // the form would save the *previous* value without saying so.
+              if (!commitUrl()) e.preventDefault();
+            } else if (e.key === "Escape") {
+              setLocal(value ?? "");
+              setError(null);
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+        />
+        {/* Reserved slot (frontend/CLAUDE.md § Inline status messages):
+            always rendered, so the row never jumps; it holds the error when
+            there is one and otherwise the `Open link ↗` helper for the saved
+            value. min-h-4 because the scheme error can wrap. */}
+        <p className="text-xs min-h-4 mt-1">
+          {shownError ? (
+            <span id={slotId} role="alert" className="text-danger">{shownError}</span>
+          ) : (
+            showHelper ? <CustomFieldLink value={value!} variant="action" /> : null
+          )}
+        </p>
+      </div>
+    );
+  };
+
   // §5(b) defensive-rendering contract: a stored value that doesn't parse for
   // the field's *current* type (e.g. after a retype — #1121) must never be
   // fed into a typed control. A broken date string silently clears a native
   // <input type=date>, which would be a silent data-loss risk on next save.
   if (value !== undefined && value !== "" && !isValidForType(definition, value)) {
+    if (definition.field_type === "url") {
+      // A legacy URL value (e.g. a stored `javascript:`) is fixed through the
+      // same blur/Enter editor and error slot as a normal one — the plain
+      // fallback below saves on every keystroke, which would 400 repeatedly.
+      return (
+        <div>
+          <p className="text-xs text-warning h-4 mb-1">Stored value doesn't match this field's current type. Edit to replace it.</p>
+          {renderUrlEditor()}
+        </div>
+      );
+    }
     return (
       <div>
         <p className="text-xs text-warning h-4 mb-1">Stored value doesn't match this field's current type. Edit to replace it.</p>
@@ -189,6 +320,9 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
         />
       );
     }
+
+    case "url":
+      return renderUrlEditor();
 
     case "checkbox":
       // Per-type layout exception (ux-design spec §6): ToggleField renders

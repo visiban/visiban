@@ -258,3 +258,93 @@ describe('EditSwimlaneModal', () => {
     swatches.forEach(btn => expect(btn.className).toContain('focus:ring-2'))
   })
 })
+
+describe('EditSwimlaneModal — URL fields (#1390)', () => {
+  const onUpdated = vi.fn()
+  const onClose = vi.fn()
+  const crmDef = {
+    id: 7, uid: 'sfuid0000007', name: 'CRM', field_type: 'url' as const, choices: [], position: 0,
+    show_on_row: true, is_admin_only: false, is_required: false, help_text: '', created_at: '',
+  }
+
+  beforeEach(() => { vi.clearAllMocks() })
+
+  function renderModal() {
+    render(
+      <EditSwimlaneModal
+        boardId={1}
+        swimlane={makeSwimlane({ custom_field_values: [] })}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onDeleted={vi.fn()}
+        onClose={onClose}
+        swimlaneFieldDefinitions={[crmDef]}
+      />
+    )
+  }
+
+  it('sends the normalized URL when Save is clicked straight from the url input', async () => {
+    mockUpdateSwimlane.mockResolvedValue(makeSwimlane())
+    renderModal()
+    const user = userEvent.setup()
+    await user.type(screen.getByRole('textbox', { name: 'CRM' }), 'crm.example.com/acct/42')
+    // No explicit blur: the Save click itself blurs the input.
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(mockUpdateSwimlane).toHaveBeenCalledWith(1, 1, expect.objectContaining({
+      custom_field_values: [{ field_definition: 7, value: 'https://crm.example.com/acct/42' }],
+    }))
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('does not save or close with an invalid URL, and keeps the error on the focused input', async () => {
+    renderModal()
+    const user = userEvent.setup()
+    const input = screen.getByRole('textbox', { name: 'CRM' })
+    await user.type(input, 'javascript:alert(1)')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(mockUpdateSwimlane).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a web address starting with http:// or https://')
+    expect(input).toHaveValue('javascript:alert(1)')
+    expect(input).toHaveFocus()
+  })
+
+  it('saves once the invalid URL is corrected', async () => {
+    mockUpdateSwimlane.mockResolvedValue(makeSwimlane())
+    renderModal()
+    const user = userEvent.setup()
+    const input = screen.getByRole('textbox', { name: 'CRM' })
+    await user.type(input, 'ftp://x')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(mockUpdateSwimlane).not.toHaveBeenCalled()
+    await user.clear(input)
+    await user.type(input, 'https://crm.example.com')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(mockUpdateSwimlane).toHaveBeenCalledWith(1, 1, expect.objectContaining({
+      custom_field_values: [{ field_definition: 7, value: 'https://crm.example.com' }],
+    }))
+  })
+
+  it('routes a server 400 for the url field into its error slot', async () => {
+    mockUpdateSwimlane.mockRejectedValue({
+      response: { status: 400, data: { custom_field_values: ["'CRM': Enter a valid URL."] } },
+    })
+    renderModal()
+    const user = userEvent.setup()
+    await user.type(screen.getByRole('textbox', { name: 'CRM' }), 'https://crm.example.com')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter a valid web address')
+    expect(screen.getByText(/Fix the highlighted field/)).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('keeps the generic message for a failure it cannot pin to a field', async () => {
+    mockUpdateSwimlane.mockRejectedValue(new Error('network'))
+    renderModal()
+    const user = userEvent.setup()
+    await user.type(screen.getByRole('textbox', { name: 'CRM' }), 'https://crm.example.com')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText("Couldn't save this swimlane. Try again.")).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})

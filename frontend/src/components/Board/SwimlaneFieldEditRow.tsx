@@ -7,6 +7,10 @@ interface Props {
   value: string | undefined;
   /** Updates local form state only — no network call. */
   onChange: (value: string) => void;
+  /** URL fields (#1390): the input holds invalid, uncommitted text. */
+  onInvalidChange?: (invalid: boolean) => void;
+  /** URL fields (#1390): a server 400 for this field, mapped to inline copy. */
+  serverError?: string | null;
 }
 
 /**
@@ -23,7 +27,7 @@ interface Props {
  * debounce, clicking Save within that window of the last keystroke would drop
  * those characters, because the timer never fires before the form is read.
  */
-export default function SwimlaneFieldEditRow({ definition, value, onChange }: Props) {
+export default function SwimlaneFieldEditRow({ definition, value, onChange, onInvalidChange, serverError }: Props) {
   // ToggleField renders its own label and description, so a checkbox row must
   // not print them again — same carve-out CustomFieldEditRow makes.
   const isCheckbox = definition.field_type === "checkbox";
@@ -44,6 +48,8 @@ export default function SwimlaneFieldEditRow({ definition, value, onChange }: Pr
         // Above ModalWrapper's 40, so Escape inside an open dropdown closes the
         // dropdown rather than the modal and the half-filled form with it.
         escapePriority={45}
+        onInvalidChange={onInvalidChange}
+        serverError={serverError}
       />
       {!isCheckbox && definition.help_text && (
         <p className="text-xs text-fg-muted mt-1">{definition.help_text}</p>

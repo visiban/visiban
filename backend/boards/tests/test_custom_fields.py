@@ -1049,3 +1049,170 @@ class CustomFieldQueryCountTests(CustomFieldTestBase):
                     card=card, field_definition=d, value="x"
                 )
         self.assertEqual(self._full_query_count(), baseline)
+
+
+# ---------------------------------------------------------------------------
+# URL field type (#1390)
+# ---------------------------------------------------------------------------
+
+#: Values every URL write path must refuse. Each one is either an XSS vector
+#: once rendered as an ``href`` or a URL whose host a browser would read
+#: differently from Python (see ``validate_external_ref_url``).
+INVALID_URL_VALUES = (
+    "javascript:alert(1)",
+    "JaVaScript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "ftp://files.example.com/a",
+    "example.com",              # no scheme: the frontend normalizes, the API does not
+    "https://",                 # no host
+    "http://a\\b",              # backslash: browsers read it as "/"
+    "https://user:pass@example.com/",
+    "\x01https://example.com",  # leading control character (not stripped)
+    "https://exa mple.com/",    # embedded whitespace
+    "https://ex%61mple.com/",   # percent-encoded host
+    "https://example.com:99999/",
+)
+
+
+class CustomFieldUrlTypeTests(CustomFieldTestBase):
+    def setUp(self):
+        super().setUp()
+        self.url_field = _definition(
+            self.board, name="Runbook", field_type=T.URL, position=0
+        )
+
+    def test_a_url_definition_can_be_created(self):
+        r = self.client.post(
+            self._fields_url(), {"name": "Docs", "field_type": "url"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["field_type"], "url")
+        self.assertEqual(r.data["choices"], [])
+
+    def test_choices_on_a_url_definition_are_rejected(self):
+        r = self.client.post(
+            self._fields_url(),
+            {"name": "Docs", "field_type": "url", "choices": ["https://a.example"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("choices", r.data)
+
+    def test_http_and_https_values_are_accepted_and_stored_as_typed(self):
+        for raw in (
+            "https://wiki.example.com/runbooks/raid?x=1#top",
+            "http://10.0.0.5:8080/status",
+            "HTTPS://Example.COM/Path",
+        ):
+            with self.subTest(raw=raw):
+                r = self._set_values([{"field_definition": self.url_field.id, "value": raw}])
+                self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+                # Stored exactly as typed — no scheme lower-casing, no rewrite.
+                self.assertEqual(
+                    CustomFieldValue.objects.get(field_definition=self.url_field).value,
+                    raw,
+                )
+
+    def test_surrounding_whitespace_is_trimmed_like_every_other_type(self):
+        r = self._set_values(
+            [{"field_definition": self.url_field.id, "value": "  https://example.com/  "}]
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(
+            CustomFieldValue.objects.get(field_definition=self.url_field).value,
+            "https://example.com/",
+        )
+
+    def test_unsafe_and_malformed_values_are_a_400_not_a_500(self):
+        for raw in INVALID_URL_VALUES:
+            with self.subTest(raw=raw):
+                r = self._set_values([{"field_definition": self.url_field.id, "value": raw}])
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertIn("custom_field_values", r.data)
+                self.assertFalse(CustomFieldValue.objects.exists())
+
+    def test_the_error_names_the_field_and_the_scheme_rule(self):
+        r = self._set_values(
+            [{"field_definition": self.url_field.id, "value": "javascript:alert(1)"}]
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Runbook", str(r.data))
+        self.assertIn("Only http and https URLs are allowed.", str(r.data))
+
+    def test_a_nul_byte_is_a_400_not_a_500(self):
+        r = self._set_values(
+            [{"field_definition": self.url_field.id, "value": "https://exa\x00mple.com/"}]
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertFalse(CustomFieldValue.objects.exists())
+
+    def test_a_url_over_the_length_cap_is_refused(self):
+        base = "https://example.com/"
+        too_long = base + "a" * (CustomFieldDefinition.MAX_VALUE_LENGTH + 1 - len(base))
+        self.assertEqual(len(too_long), CustomFieldDefinition.MAX_VALUE_LENGTH + 1)
+        r = self._set_values([{"field_definition": self.url_field.id, "value": too_long}])
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(CustomFieldValue.objects.exists())
+
+        at_cap = too_long[:-1]
+        r = self._set_values([{"field_definition": self.url_field.id, "value": at_cap}])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+
+    def test_an_empty_string_clears_the_value(self):
+        self._set_values(
+            [{"field_definition": self.url_field.id, "value": "https://example.com"}]
+        )
+        r = self._set_values([{"field_definition": self.url_field.id, "value": ""}])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertFalse(CustomFieldValue.objects.exists())
+
+    def test_a_viewer_cannot_write_a_url_value(self):
+        own_card = _make_card(
+            self.column, self.lane, title="Member's card",
+            created_by=self.member, position=1,
+        )
+        r = self._set_values(
+            [{"field_definition": self.url_field.id, "value": "https://example.com"}],
+            user=self.member, card=own_card,
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        r = self._set_values(
+            [{"field_definition": self.url_field.id, "value": "https://evil.example"}],
+            user=self.viewer, card=own_card,
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            CustomFieldValue.objects.get(card=own_card).value, "https://example.com"
+        )
+
+    def test_a_non_member_cannot_write_a_url_value(self):
+        outsider = _make_user("cf_url_outsider")
+        r = self._set_values(
+            [{"field_definition": self.url_field.id, "value": "https://example.com"}],
+            user=outsider,
+        )
+        self.assertIn(
+            r.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND)
+        )
+        self.assertFalse(CustomFieldValue.objects.exists())
+
+    def test_url_type_is_frozen_once_a_value_exists(self):
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=self.url_field, value="https://example.com"
+        )
+        r = self.client.patch(
+            self._field_url(self.url_field), {"field_type": "text"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIn("field_type", r.data)
+
+        text_field = _definition(self.board, name="Notes", field_type=T.TEXT, position=1)
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=text_field, value="not a url"
+        )
+        r = self.client.patch(
+            self._field_url(text_field), {"field_type": "url"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        text_field.refresh_from_db()
+        self.assertEqual(text_field.field_type, T.TEXT)

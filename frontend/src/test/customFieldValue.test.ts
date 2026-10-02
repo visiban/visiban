@@ -1,8 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  CUSTOM_FIELD_VALUE_MAX,
+  URL_ERROR_COPY,
   choiceColor,
   formatCustomFieldValue,
   isValidForType,
+  normalizeUrl,
+  urlDisplayHostname,
+  urlErrorFromServer,
   withCustomFieldValue,
 } from "../utils/customFieldValue";
 import type { CustomFieldDefinition } from "../types";
@@ -42,7 +47,7 @@ describe("choiceColor", () => {
 
 describe("isValidForType", () => {
   it("treats an empty string as always valid, regardless of type", () => {
-    for (const field_type of ["text", "number", "date", "dropdown", "checkbox"] as const) {
+    for (const field_type of ["text", "number", "date", "dropdown", "checkbox", "url"] as const) {
       expect(isValidForType(makeDefinition({ field_type }), "")).toBe(true);
     }
   });
@@ -134,5 +139,72 @@ describe("withCustomFieldValue", () => {
     const current = [{ field_definition: 1, value: "a" }];
     withCustomFieldValue(current, 1, "b");
     expect(current).toEqual([{ field_definition: 1, value: "a" }]);
+  });
+});
+
+describe("normalizeUrl (#1390)", () => {
+  it("accepts http and https URLs as typed", () => {
+    expect(normalizeUrl("https://wiki.example.com/a?b=1#c")).toEqual({ ok: true, url: "https://wiki.example.com/a?b=1#c" });
+    expect(normalizeUrl("http://10.0.0.5:8080/status")).toEqual({ ok: true, url: "http://10.0.0.5:8080/status" });
+    // Scheme case is preserved — the server stores as typed.
+    expect(normalizeUrl("HTTPS://Example.com/")).toEqual({ ok: true, url: "HTTPS://Example.com/" });
+  });
+
+  it("prepends https:// to a bare domain, including host:port forms", () => {
+    expect(normalizeUrl("example.com")).toEqual({ ok: true, url: "https://example.com" });
+    expect(normalizeUrl("example.com/path")).toEqual({ ok: true, url: "https://example.com/path" });
+    expect(normalizeUrl("localhost:8080")).toEqual({ ok: true, url: "https://localhost:8080" });
+    expect(normalizeUrl("example.com:8443/x")).toEqual({ ok: true, url: "https://example.com:8443/x" });
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(normalizeUrl("  https://example.com  ")).toEqual({ ok: true, url: "https://example.com" });
+  });
+
+  it("rejects — never rewrites — a non-http(s) scheme", () => {
+    for (const raw of ["javascript:alert(1)", "JaVaScript:alert(1)", "data:text/html,<b>x</b>", "ftp://files.example.com", "mailto:a@example.com"]) {
+      expect(normalizeUrl(raw)).toEqual({ ok: false, error: "scheme" });
+    }
+  });
+
+  it("rejects values with no hostname or that the server would refuse", () => {
+    for (const raw of ["", "   ", "https://", "http://a\\b", "https://user:pass@example.com", "https://exa mple.com", "https://ex%61mple.com", "https://example.com:99999", "\u0001https://example.com"]) {
+      expect(normalizeUrl(raw).ok).toBe(false);
+    }
+  });
+
+  it("enforces the 500-character cap, counting an added scheme", () => {
+    const base = "https://example.com/";
+    const atCap = base + "a".repeat(CUSTOM_FIELD_VALUE_MAX - base.length);
+    expect(normalizeUrl(atCap).ok).toBe(true);
+    expect(normalizeUrl(atCap + "a")).toEqual({ ok: false, error: "length" });
+    const bare = "example.com/" + "a".repeat(CUSTOM_FIELD_VALUE_MAX - "example.com/".length);
+    expect(normalizeUrl(bare)).toEqual({ ok: false, error: "length" });
+  });
+
+  it("drives isValidForType for url fields", () => {
+    const url = makeDefinition({ field_type: "url" });
+    expect(isValidForType(url, "https://example.com")).toBe(true);
+    expect(isValidForType(url, "javascript:alert(1)")).toBe(false);
+  });
+
+  it("formats a url value as the full address", () => {
+    expect(formatCustomFieldValue(makeDefinition({ field_type: "url" }), "https://www.example.com/x", "MM/DD/YYYY")).toBe("https://www.example.com/x");
+  });
+});
+
+describe("urlDisplayHostname / urlErrorFromServer (#1390)", () => {
+  it("strips only a leading www.", () => {
+    expect(urlDisplayHostname("https://www.example.com/a")).toBe("example.com");
+    expect(urlDisplayHostname("https://docs.www.example.com")).toBe("docs.www.example.com");
+  });
+
+  it("maps a 400 to the editor copy and ignores other failures", () => {
+    const err400 = (msg: string) => ({ response: { status: 400, data: { custom_field_values: [msg] } } });
+    expect(urlErrorFromServer(err400("'Docs': Only http and https URLs are allowed."))).toBe(URL_ERROR_COPY.scheme);
+    expect(urlErrorFromServer(err400("'Docs' value is longer than 500 characters."))).toBe(URL_ERROR_COPY.length);
+    expect(urlErrorFromServer(err400("'Docs': Enter a valid URL."))).toBe(URL_ERROR_COPY.invalid);
+    expect(urlErrorFromServer({ response: { status: 500, data: {} } })).toBeNull();
+    expect(urlErrorFromServer(new Error("network"))).toBeNull();
   });
 });

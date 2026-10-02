@@ -9,6 +9,7 @@ import { agingTint, idleDays } from "../../utils/agingTint";
 import { classifyCardUrgency } from "../../utils/cardUrgency";
 import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
+import CustomFieldLink from "./CustomFieldLink";
 import { choiceColor, formatCustomFieldValue, isValidForType, withCustomFieldValue } from "../../utils/customFieldValue";
 import { updateCard } from "../../api/cards";
 import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
@@ -642,9 +643,17 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           (dotted underline) stays visible at rest, never
                           hover-reveal-only, so an occasional user can
                           discover it without training. */}
-                      <span className={`text-fg-secondary truncate ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
-                        {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}
-                      </span>
+                      {def.field_type === "url" ? (
+                        // #1390: hostname-only link. `url` is never a
+                        // quick-edit type, so the chip itself is inert and
+                        // the link stops propagation so it neither opens the
+                        // card nor starts a dnd-kit drag.
+                        <CustomFieldLink value={value} variant="host" maxHostChars={16} stopPropagation />
+                      ) : (
+                        <span className={`text-fg-secondary truncate ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
+                          {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}
+                        </span>
+                      )}
                     </span>
                   );
                 })}
