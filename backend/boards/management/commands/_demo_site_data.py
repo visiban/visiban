@@ -1,15 +1,17 @@
-"""Static content for the hosted demo site boards (#1034, #1363, #1389).
+"""Static content for the hosted demo site boards (#1034, #1363, #1389, #1412).
 
 Used only by ``seed_demo_data --demo-site``. Lives beside the command (the
 leading underscore keeps Django from registering it as a command of its own)
 so the ~100 hand-written cards do not bloat the generator module.
 
-Six boards, each a different workflow with a different swimlane entity
-(#1389): Software Team (service area), Property Management (property),
-Construction (project), Sales Territory (account), Content Moderation
-(content queue) and Logistics Exceptions (shipment). The point of the roster
-is that a visitor recognizes one domain within a click and sees the swimlane
-as a real entity with its own fields, not as a Trello-style grouping.
+Seven boards, each a different workflow with a different swimlane entity
+(#1389, #1412): Software Team (service area), Property Management (property),
+Construction (project), Sales Territory (account), Sales Territory (Overlay)
+(account — a second, richer account-coverage shape, deliberately overlapping
+Sales Territory per #1412), Content Moderation (content queue) and Logistics
+Exceptions (shipment). The point of the roster is that a visitor recognizes
+one domain within a click and sees the swimlane as a real entity with its own
+fields, not as a Trello-style grouping.
 
 Everything here is deterministic — no ``random`` — so the hourly reset
 produces the same boards every time, and it never touches the ``random``
@@ -616,6 +618,133 @@ BOARDS = [
         ],
         "external_refs": {},
     },
+    # ── #1412: a second account-coverage board, deliberately overlapping ──────
+    # Sales Territory above. Where Sales Territory shows the simplest coverage
+    # shape (one AE, one SA), this board shows a layered enterprise overlay
+    # model: a primary AE plus overlay specialists (OAE, OSA) on top, with an
+    # admin-only Account Director, people shared across multiple accounts, and
+    # one account left with a visible coverage gap.
+    {
+        "name": "Sales Territory (Overlay)",
+        "description": "Account coverage under an enterprise overlay model — AE plus overlay AE/SA specialists. Which accounts have a coverage gap?",
+        "columns": [
+            ("Identify", "#6B7280", False),
+            ("Qualify", "#3B82F6", False),
+            ("Shape", "#F59E0B", False),
+            ("Committed", "#10B981", True),
+        ],
+        "swimlanes": [
+            ("Meridian Financial Group", "#14B8A6"),
+            ("Cascade Energy Partners", "#F97316"),
+            ("Nimbus Cloud Systems", "#6366F1"),
+            ("Solaris Biotech", "#22C55E"),
+            ("Vantage Insurance Group", "#EC4899"),
+            ("Ironwood Logistics", "#78716C"),
+        ],
+        "labels": [
+            ("New Workload", "#3B82F6"), ("Expansion", "#22C55E"), ("Competitive Displacement", "#EF4444"),
+            ("Cross-Sell", "#8B5CF6"), ("Strategic Initiative", "#F59E0B"), ("Renewal", "#14B8A6"),
+        ],
+        # Ironwood is the deliberately under-covered account (no OAE, and its
+        # cards carry the board's stale/overdue work) — the same device as
+        # Sales Territory's Pinecrest Manufacturing.
+        "cards": [
+            ("Core banking platform migration", "Modernizing the core ledger and payments engine ahead of a regulatory deadline.", 2, 0, "high", "maya", ("Strategic Initiative",),
+             [("jordan", "OSA walked the architecture team through the integration plan; no open blockers on our side.")], 1, 3),
+            ("Fraud detection module pilot", "Pilot scoring engine against a sample of flagged transactions.", 1, 0, "medium", "jordan", ("New Workload",),
+             [("admin", "Risk team wants two more weeks of sample data before they'll sign off on the pilot.")], 4, 7),
+            ("Mutual close plan sign-off", "Shared timeline with the CTO office ahead of signature.", 3, 0, "low", "maya", (), [], 1, None),
+            ("Grid analytics expansion", "Expanding the analytics platform to two additional regional substations.", 2, 1, "high", "admin", ("Expansion",),
+             [("admin", "OAE is coordinating the multi-region rollout plan with their infrastructure team.")], 0, 5),
+            ("Field service mobile rollout", "Mobile app rollout for the field technician workforce.", 0, 1, "medium", None, ("New Workload",), [], 2, 0),
+            ("Renewal: SCADA integration support", "Annual renewal for the SCADA integration support contract.", 3, 1, "low", "jordan", ("Renewal",), [], 0, None),
+            ("Kubernetes cost optimization", "Rightsizing clusters after the Q3 usage review flagged overprovisioning.", 2, 2, "urgent", "admin", ("Cross-Sell",),
+             [("admin", "Cost baseline is in; drafting the rightsizing recommendations with the OSA now.")], 5, 1),
+            ("Multi-region DR architecture review", "Disaster recovery architecture review ahead of a board-level resilience audit.", 1, 2, "high", "jordan", ("Strategic Initiative",),
+             [("jordan", "Our OSA is leading a technical workshop next week. @{visitor} want to sit in and see how we structure overlay technical reviews?")], 1, 10),
+            ("Developer platform access expansion", "Expanding platform access to two engineering teams onboarding next quarter.", 0, 2, "low", None, ("Expansion",), [], 2, None),
+            ("Lab data pipeline modernization", "Replacing a batch ETL pipeline with a streaming architecture for research data.", 2, 3, "high", "maya", ("Strategic Initiative",),
+             [("maya", "Compliance flagged a data residency question; OSA is drafting the response.")], 2, 4),
+            ("Compliance reporting add-on", "Add-on module for automated regulatory reporting.", 1, 3, "medium", "admin", ("Cross-Sell",), [], 6, None),
+            ("Renewal: research workspace licenses", "Annual renewal for the research workspace licenses.", 3, 3, "low", "maya", ("Renewal",), [], 2, None),
+            ("Claims automation proof of concept", "Proof of concept for automating first-notice-of-loss triage.", 0, 4, "medium", "jordan", ("New Workload",), [], 1, None),
+            ("Underwriting workflow expansion", "Expanding automated underwriting to two additional policy lines.", 1, 4, "high", "admin", ("Expansion",),
+             [("admin", "Underwriting leadership wants a reference call before expanding further.")], 9, -1),
+            ("Fleet telematics expansion", "Extending telematics coverage to the refrigerated trailer fleet.", 0, 5, "medium", None, ("Expansion",), [], 10, -3),
+            ("Warehouse automation competitive eval", "A competitor is proposing a rival automation platform for the new distribution center.", 1, 5, "urgent", "maya", ("Competitive Displacement",),
+             [("maya", "No overlay AE assigned to help position against the competitor's pitch — flagging for coverage.")], 8, -2),
+            ("Proposal for cross-dock pilot", "Pilot proposal for the new cross-dock facility opening next quarter.", 2, 5, "high", "jordan", ("Competitive Displacement",),
+             [("jordan", "Still waiting on an OAE to be assigned here — the champion is asking what the overlay engagement costs and nobody is driving it.")], 1, 1),
+        ],
+        "card_fields": [
+            ("Deal value", "number", [], True, "Expected contract value of the opportunity.",
+             {"number_prefix": "$", "number_decimals": 0}),
+            ("Champion", "text", [], True, "Internal champion driving the opportunity."),
+            ("Services", "text", [], False, "Services resource(s) engaged on this specific opportunity."),
+        ],
+        "card_field_values": {
+            "Core banking platform migration": {"Deal value": "725000", "Champion": "CTO office sponsor", "Services": "Mike Brown"},
+            "Fraud detection module pilot": {"Deal value": "180000", "Champion": "Head of Risk"},
+            "Mutual close plan sign-off": {"Deal value": "725000", "Champion": "CTO office sponsor"},
+            "Grid analytics expansion": {"Deal value": "410000", "Champion": "VP Grid Operations", "Services": "Jane Davis"},
+            "Field service mobile rollout": {"Deal value": "150000"},
+            "Renewal: SCADA integration support": {"Deal value": "95000", "Champion": "Plant operations lead"},
+            "Kubernetes cost optimization": {"Deal value": "260000", "Champion": "VP Platform Engineering", "Services": "Mike Brown"},
+            "Multi-region DR architecture review": {"Champion": "VP Platform Engineering"},
+            "Developer platform access expansion": {"Deal value": "90000"},
+            "Lab data pipeline modernization": {"Deal value": "540000", "Champion": "Head of Research IT", "Services": "Jane Davis"},
+            "Compliance reporting add-on": {"Deal value": "120000"},
+            "Renewal: research workspace licenses": {"Deal value": "75000", "Champion": "Head of Research IT"},
+            "Claims automation proof of concept": {"Deal value": "95000"},
+            "Underwriting workflow expansion": {"Deal value": "310000", "Champion": "VP Underwriting"},
+            "Warehouse automation competitive eval": {"Deal value": "220000"},
+            "Proposal for cross-dock pilot": {"Deal value": "175000"},
+        },
+        "swimlane_fields": [
+            ("AE", "text", [], True, False, "Account executive who owns the commercial relationship."),
+            ("OAE", "text", [], True, False, "Overlay account executive driving the overlay sales motion across accounts."),
+            ("OSA", "text", [], True, False, "Overlay solutions architect providing technical coverage across accounts."),
+            ("AD", "text", [], False, True, "Account director who owns the overall strategic relationship. Visible to board admins only."),
+        ],
+        # Fictional names, shared across accounts on purpose (an OAE/OSA/AD
+        # covers more than one account under this model). Ironwood's OAE is
+        # the one deliberate coverage gap — an explicit "Unassigned" value
+        # rather than an omitted key, so every lane still carries a value for
+        # every field (see test_each_board_has_public_and_admin_only_swimlane_fields_on_every_lane)
+        # while the gap stays visible on the card face.
+        "swimlane_field_values": {
+            "Meridian Financial Group": {"AD": "Diane Foster", "AE": "Sarah Chen", "OAE": "Bob Jones", "OSA": "Lisa Wang"},
+            "Cascade Energy Partners": {"AD": "Marcus Webb", "AE": "Tom Wilson", "OAE": "Bob Jones", "OSA": "Carlos Ruiz"},
+            "Nimbus Cloud Systems": {"AD": "Marcus Webb", "AE": "James Brown", "OAE": "Elena Rossi", "OSA": "Priya Shah"},
+            "Solaris Biotech": {"AD": "Renee Okafor", "AE": "Sarah Chen", "OAE": "Elena Rossi", "OSA": "Lisa Wang"},
+            "Vantage Insurance Group": {"AD": "Renee Okafor", "AE": "Tom Wilson", "OAE": "Bob Jones", "OSA": "Carlos Ruiz"},
+            "Ironwood Logistics": {"AD": "Diane Foster", "AE": "Amy Patel", "OAE": "Unassigned", "OSA": "Priya Shah"},
+        },
+        "checklists": {
+            "Core banking platform migration": [
+                ("Discovery workshop completed", True), ("Security review scheduled", False), ("Reference architecture drafted", False),
+            ],
+            "Grid analytics expansion": [
+                ("Data source inventory", True), ("Pilot environment provisioned", True), ("Success metrics agreed", False),
+            ],
+            "Kubernetes cost optimization": [
+                ("Cost baseline captured", True), ("Rightsizing recommendations delivered", False),
+            ],
+            "Lab data pipeline modernization": [
+                ("Data governance review", True), ("Pipeline architecture proposal", False), ("Sign-off from compliance", False),
+            ],
+            "Claims automation proof of concept": [
+                ("POC scope agreed", True), ("Sample claims data received", False),
+            ],
+        },
+        "relations": [
+            ("Multi-region DR architecture review", "blocks", "Kubernetes cost optimization"),
+            ("Fraud detection module pilot", "relates_to", "Core banking platform migration"),
+            ("Compliance reporting add-on", "relates_to", "Lab data pipeline modernization"),
+            ("Underwriting workflow expansion", "relates_to", "Claims automation proof of concept"),
+        ],
+        "external_refs": {},
+    },
     {
         "name": "Content Moderation",
         "description": "User reports by content queue. What has waited longest for review?",
@@ -895,6 +1024,8 @@ VISITOR_NOTIFICATIONS = [
     ("Construction", "Change order: add exam room sink", "card_moved", None),
     ("Sales Territory", "Procurement redlines on the MSA", "comment_added", None),
     ("Sales Territory", "Renewal: store operations workspace", "assigned", "admin"),
+    ("Sales Territory (Overlay)", "Proposal for cross-dock pilot", "comment_added", None),
+    ("Sales Territory (Overlay)", "Warehouse automation competitive eval", "stale", None),
     ("Content Moderation", "Harassment reports on a pinned comment", "mentioned", None),
     ("Content Moderation", "Listing photo shows a weapon", "stale", None),
     ("Logistics Exceptions", "Temperature excursion during transfer", "due_soon", None),
