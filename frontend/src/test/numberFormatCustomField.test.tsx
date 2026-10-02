@@ -15,7 +15,7 @@ import type { FieldDefinitionShape } from "../types";
 function numDef(overrides: Partial<FieldDefinitionShape> = {}): FieldDefinitionShape {
   return {
     name: "Budget", field_type: "number", choices: [], help_text: "",
-    number_prefix: "", number_suffix: "", number_decimals: null,
+    number_prefix: "", number_suffix: "", number_decimals: null, choice_colors: {},
     ...overrides,
   };
 }

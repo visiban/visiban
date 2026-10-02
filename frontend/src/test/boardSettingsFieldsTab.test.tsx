@@ -22,7 +22,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
   return {
     id: 1, uid: "cfuid001", name: "Sprint", field_type: "text", choices: [],
     position: 0, show_on_card: false, is_required: false, help_text: "",
-    number_prefix: "", number_suffix: "", number_decimals: null,
+    number_prefix: "", number_suffix: "", number_decimals: null, choice_colors: {},
     created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
@@ -329,6 +329,7 @@ describe("BoardSettingsFieldsTab — multi-select type (#1391)", () => {
         name: "Platforms",
         field_type: "multi_select",
         choices: ["web", "ios"],
+        choice_colors: {},
         help_text: undefined,
       });
     });

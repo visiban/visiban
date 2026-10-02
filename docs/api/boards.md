@@ -501,10 +501,10 @@ caller below `admin` — the same role gate this export already applies to a swi
   ],
   "labels": [{ "name": "Bug", "color": "#EF4444" }],
   "custom_fields": [
-    { "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "position": 0, "show_on_card": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null }
+    { "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "position": 0, "show_on_card": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null, "choice_colors": { "raid10": "green" } }
   ],
   "swimlane_custom_fields": [
-    { "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "position": 0, "show_on_row": true, "is_admin_only": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null }
+    { "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "position": 0, "show_on_row": true, "is_admin_only": true, "is_required": false, "help_text": "", "number_prefix": "", "number_suffix": "", "number_decimals": null, "choice_colors": {} }
   ],
   "cards": [
     {
@@ -1134,6 +1134,7 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
 | `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
 | `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
+| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: palette_key}` map; `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
 
 \* `field_type` is writable only while the definition has zero values — see the `PATCH`
@@ -1264,6 +1265,58 @@ the user entered.
   `swimlane_custom_field.created` / `swimlane_custom_field.updated` carry the full
   definition, so the three fields arrive with them.
 
+#### Choice colors
+
+*Since 1.2.* An optional, **display-only** color per choice on a `"dropdown"` or
+`"multi_select"` definition, on card and swimlane custom fields alike. `choices` is
+unchanged — still a plain list of strings — and the colors live beside it in a separate
+map keyed by the choice text. Values are never touched.
+
+```json
+{ "name": "Severity", "field_type": "dropdown", "choices": ["Low", "High"], "choice_colors": { "High": "red" } }
+```
+
+- **Shape.** An object mapping a choice (its text, exactly as in `choices`) to a palette
+  key. Default `{}`. A choice with no entry has no explicit color; the web UI renders it
+  with its automatic dot, the same as before 1.2.
+- **Palette keys only, never hex:** `slate`, `blue`, `green`, `amber`, `red`, `violet`,
+  `pink`, `teal`. The client owns how each key looks in light and dark themes and
+  guarantees its contrast; a hex or CSS color is refused.
+- **Optional** on create and `PATCH`; omitted, the map keeps its default (or current
+  value). Sending `{}` is always accepted, for every `field_type`.
+- **Stale keys are pruned, not refused.** On every write, entries whose key is not one of
+  the definition's current `choices` (after the choices in the same request are applied,
+  or the stored ones when `choices` is not sent) are dropped silently. Keys are matched
+  after trimming surrounding whitespace, like `choices`. So **renaming or removing a
+  choice drops its color** — the choice text is the key, and a color is not carried over
+  to a renamed choice. A `PATCH` that only changes `choices` prunes the stored map the
+  same way.
+- **Changing the type clears it.** When a definition is retyped away from `"dropdown"` /
+  `"multi_select"`, the map is reset to `{}` in the same write. Retyping between
+  `"dropdown"` and `"multi_select"` keeps it.
+- **Errors** — all `400 Bad Request`, keyed by `choice_colors`:
+
+    | Cause | Message |
+    |---|---|
+    | A non-empty map on any other `field_type` (judged against the stored type when the body does not change it) | `Choice colors can only be set on a dropdown or multi-select field.` |
+    | Not an object (a list, string, number, boolean) | `Choice colors must be an object mapping a choice to a color.` |
+    | `null` | `This field may not be null.` |
+    | More than 100 entries (the per-field choice cap) | `At most 100 choice colors are allowed.` |
+    | A key containing NUL (`\u0000`) | `Choice color keys must be choice names without NUL (0x00) characters.` |
+    | A value that is not one of the palette keys (including hex, other case, or a non-string) | `Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal.` |
+
+- **Rendering (the web UI's rule, recommended for other clients):** a value whose choice
+  has a known color key renders as a tinted badge **with its text label** — color never
+  carries meaning alone. A value that is no longer a choice (an orphan), or a key the
+  client does not recognize (one added by a newer server), renders neutral, label shown.
+- **Export.** The JSON export's `custom_fields` and `swimlane_custom_fields` entries carry
+  `choice_colors` (additive — `schema_version` is unchanged; `choices` is unchanged). Card
+  and swimlane values are unchanged in JSON and CSV. A non-admin exporter does not receive
+  an `is_admin_only` swimlane definition at all, colors included.
+- **Events.** `custom_field.created` / `custom_field.updated` and
+  `swimlane_custom_field.created` / `swimlane_custom_field.updated` carry the full
+  definition, so `choice_colors` arrives with them (an additive field).
+
 ### `GET /api/v1/boards/{id}/custom-fields/`
 List the board's custom field definitions, in `position` order. Available to **all board
 members, including viewers** — a reader needs the schema to make sense of the values they
@@ -1280,19 +1333,23 @@ Create a definition. Requires board admin.
 A number field may also carry display-only formatting — see [Number formatting](#number-formatting):
 `{ "name": "Budget", "field_type": "number", "number_prefix": "$", "number_suffix": " USD", "number_decimals": 2 }`
 
+A dropdown or multi-select field may also color its choices — see [Choice colors](#choice-colors):
+`{ "name": "Severity", "field_type": "dropdown", "choices": ["Low", "High"], "choice_colors": { "High": "red" } }`
+
 `position` is server-assigned (appended to the end) and ignored if supplied.
 
 **Errors:**
 - `400 Bad Request` if the name is blank or already used on this board, a dropdown or
   multi-select has no choices, a type that cannot carry choices supplies them, a
   non-number type supplies a [number format](#number-formatting) option, a number format
-  option is out of range, the board already has 30 definitions, or a
+  option is out of range, `choice_colors` is malformed or set on a type without choices
+  (see [Choice colors](#choice-colors)), the board already has 30 definitions, or a
   third field is pinned with `show_on_card`.
 
 ### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/`
 Update a definition. Requires board admin.
 
-**Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`
+**Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`, `choice_colors`
 
 > Removing (or renaming) a choice on a dropdown or multi-select does **not** rewrite cards
 > that already hold it: the stored value keeps reading back. A dropdown value that is no
@@ -1313,6 +1370,10 @@ Update a definition. Requires board admin.
 - `400 Bad Request` for a [number format](#number-formatting) option on a non-number field
   (judged against the stored `field_type` when the body does not change it), or out of
   range.
+- `400 Bad Request` with a `choice_colors` key for a malformed map, an unknown palette key,
+  or a non-empty map on a type without choices — see [Choice colors](#choice-colors).
+  Renaming or removing a choice prunes its color; retyping away from a choice type clears
+  the map.
 
 ### `DELETE /api/v1/boards/{id}/custom-fields/{field_id}/`
 Delete a definition. Requires board admin. **Every card's value for that field is deleted
@@ -1365,6 +1426,7 @@ model docstring for the reasoning; do not assume they track each other.
 | `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
 | `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
 | `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
+| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: palette_key}` map; `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
 
 ### `GET /api/v1/boards/{id}/swimlane-custom-fields/`
@@ -1386,19 +1448,23 @@ Create a definition. Requires board admin.
 A number field may also carry display-only formatting — see [Number formatting](#number-formatting):
 `{ "name": "ARR", "field_type": "number", "number_prefix": "$", "number_suffix": "", "number_decimals": 0 }`
 
+A dropdown or multi-select field may also color its choices — see [Choice colors](#choice-colors):
+`{ "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Enterprise"], "choice_colors": { "Enterprise": "violet" } }`
+
 `position` is server-assigned (appended to the end) and ignored if supplied.
 
 **Errors:**
 - `400 Bad Request` if the name is blank or already used on this board's swimlane fields, a
   dropdown or multi-select has no choices, a type that cannot carry choices supplies them,
   a non-number type supplies a [number format](#number-formatting) option, a number format
-  option is out of range, the board already has 15
+  option is out of range, `choice_colors` is malformed or set on a type without choices
+  (see [Choice colors](#choice-colors)), the board already has 15
   swimlane field definitions, or a fourth field is pinned with `show_on_row`.
 
 ### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
 Update a definition. Requires board admin.
 
-**Writable fields:** `name`, `field_type`, `choices`, `show_on_row`, `is_admin_only`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`
+**Writable fields:** `name`, `field_type`, `choices`, `show_on_row`, `is_admin_only`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`, `choice_colors`
 
 **Errors:**
 - `400 Bad Request` with a `field_type` key if the request changes `field_type` and at
@@ -1410,6 +1476,10 @@ Update a definition. Requires board admin.
 - `400 Bad Request` keyed by the offending field for a [number format](#number-formatting)
   option on a non-number field, or out of range. Retyping a definition away from
   `"number"` clears its format options.
+- `400 Bad Request` with a `choice_colors` key for a malformed map, an unknown palette key,
+  or a non-empty map on a type without choices — see [Choice colors](#choice-colors).
+  Renaming or removing a choice prunes its color; retyping away from a choice type clears
+  the map.
 
 > Removing (or renaming) a choice on a dropdown or multi-select does **not** rewrite rows
 > that already hold it: the stored value keeps reading back. A dropdown value that is no

@@ -1965,3 +1965,396 @@ class CustomFieldNumberFormatTests(CustomFieldTestBase):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         rows = list(csv.reader(io.StringIO(r.content.decode())))
         self.assertEqual(rows[1][rows[0].index("Custom: Budget")], "1234.5")
+
+
+# ---------------------------------------------------------------------------
+# Colored choices (#1391, MR C)
+# ---------------------------------------------------------------------------
+
+_ALLOWED_COLORS_MSG = (
+    "Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal."
+)
+
+
+def _error_text(data, key):
+    value = data[key]
+    return str(value[0]) if isinstance(value, list) else str(value)
+
+
+class CustomFieldChoiceColorTests(CustomFieldTestBase):
+    """``choice_colors`` on card field definitions (#1391).
+
+    A ``{choice: palette_key}`` map beside ``choices`` — which stays a plain
+    string list. Palette keys only; stale keys are pruned, a bad shape or an
+    unknown key is a 400, and a non-choice type may not carry colors.
+    """
+
+    def _create(self, **extra):
+        body = {
+            "name": "Severity", "field_type": "dropdown",
+            "choices": ["Low", "High"], **extra,
+        }
+        return self.client.post(self._fields_url(), body, format="json")
+
+    def _dropdown(self, **kwargs):
+        kwargs.setdefault("choices_json", ["Low", "High"])
+        return _definition(self.board, name="Severity", field_type=T.DROPDOWN, **kwargs)
+
+    def test_defaults_to_an_empty_map_and_choices_stay_a_string_list(self):
+        r = self._create()
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["choice_colors"], {})
+        self.assertEqual(r.data["choices"], ["Low", "High"])
+        self.assertEqual(
+            CustomFieldDefinition.objects.get(pk=r.data["id"]).choice_colors, {}
+        )
+
+    def test_a_valid_map_round_trips_on_dropdown_and_multi_select(self):
+        for field_type in ("dropdown", "multi_select"):
+            with self.subTest(field_type=field_type):
+                r = self.client.post(
+                    self._fields_url(),
+                    {"name": f"F {field_type}", "field_type": field_type,
+                     "choices": ["Low", "High"],
+                     "choice_colors": {"Low": "green", "High": "red"}},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+                self.assertEqual(r.data["choice_colors"], {"Low": "green", "High": "red"})
+                self.assertEqual(
+                    CustomFieldDefinition.objects.get(pk=r.data["id"]).choice_colors,
+                    {"Low": "green", "High": "red"},
+                )
+
+    def test_every_palette_key_is_accepted(self):
+        keys = ["slate", "blue", "green", "amber", "red", "violet", "pink", "teal"]
+        r = self._create(
+            choices=[f"C{i}" for i in range(len(keys))],
+            choice_colors={f"C{i}": key for i, key in enumerate(keys)},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(sorted(r.data["choice_colors"].values()), sorted(keys))
+
+    def test_an_unknown_palette_key_or_a_hex_is_400_with_the_allowed_list(self):
+        for bad in ("purple", "#FF0000", "RED", "", " red"):
+            with self.subTest(value=bad):
+                r = self._create(choice_colors={"Low": bad})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(_error_text(r.data, "choice_colors"), _ALLOWED_COLORS_MSG)
+
+    def test_a_non_object_or_non_string_value_is_400_not_500(self):
+        for bad in (None, [], ["Low"], "red", 3, True, {"Low": 1}, {"Low": None},
+                    {"Low": ["red"]}, {"Low": {"c": "red"}}):
+            with self.subTest(value=bad):
+                r = self._create(choice_colors=bad)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertIn("choice_colors", r.data)
+
+    def test_the_non_object_message_is_exact(self):
+        r = self._create(choice_colors=["red"])
+        self.assertEqual(
+            _error_text(r.data, "choice_colors"),
+            "Choice colors must be an object mapping a choice to a color.",
+        )
+
+    def test_a_nul_in_a_key_is_400(self):
+        r = self._create(choice_colors={"Lo\x00w": "red"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            _error_text(r.data, "choice_colors"),
+            "Choice color keys must be choice names without NUL (0x00) characters.",
+        )
+
+    def test_more_than_100_entries_is_400(self):
+        r = self._create(choice_colors={f"c{i}": "red" for i in range(101)})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            _error_text(r.data, "choice_colors"), "At most 100 choice colors are allowed."
+        )
+
+    def test_keys_that_are_not_choices_are_pruned_silently(self):
+        r = self._create(choice_colors={"Low": "green", "Medium": "amber"})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Low": "green"})
+
+    def test_a_key_is_matched_against_the_stripped_choice(self):
+        r = self._create(choices=[" Low ", "High"], choice_colors={" Low ": "green"})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Low": "green"})
+
+    def test_choices_named_like_js_prototype_members_keep_their_colors(self):
+        """A choice literally named ``__proto__`` (or ``constructor``) is an
+        ordinary JSON object key here; it must persist and round-trip."""
+        names = ["__proto__", "constructor", "toString"]
+        r = self.client.post(
+            self._fields_url(),
+            '{"name": "Odd", "field_type": "dropdown", '
+            '"choices": ["__proto__", "constructor", "toString"], '
+            '"choice_colors": {"__proto__": "red", "constructor": "blue", "toString": "teal"}}',
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        expected = {"__proto__": "red", "constructor": "blue", "toString": "teal"}
+        self.assertEqual(r.data["choice_colors"], expected)
+        definition = CustomFieldDefinition.objects.get(pk=r.data["id"])
+        self.assertEqual(definition.choice_colors, expected)
+        self.assertEqual(definition.choices_json, names)
+        body = self.client.get(self._field_url(definition)).content.decode()
+        self.assertIn('"__proto__":"red"', body.replace(" ", ""))
+        self.assertEqual(json.loads(body)["choice_colors"], expected)
+
+    def test_a_non_empty_map_on_a_non_choice_type_is_400(self):
+        for field_type in ("text", "number", "date", "checkbox", "url"):
+            with self.subTest(field_type=field_type):
+                r = self.client.post(
+                    self._fields_url(),
+                    {"name": "F", "field_type": field_type, "choice_colors": {"x": "red"}},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(
+                    _error_text(r.data, "choice_colors"),
+                    "Choice colors can only be set on a dropdown or multi-select field.",
+                )
+
+    def test_an_empty_map_is_always_accepted(self):
+        r = self.client.post(
+            self._fields_url(),
+            {"name": "Notes", "field_type": "text", "choice_colors": {}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["choice_colors"], {})
+        r = self._create(choice_colors={})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+
+    def test_patch_of_only_colors_is_checked_against_the_stored_choices(self):
+        definition = self._dropdown()
+        r = self.client.patch(
+            self._field_url(definition),
+            {"choice_colors": {"High": "red", "Gone": "blue"}}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {"High": "red"})
+        r = self.client.patch(
+            self._field_url(definition), {"choice_colors": {"High": "magenta"}}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {"High": "red"})
+
+    def test_patch_on_a_non_choice_field_is_checked_against_its_stored_type(self):
+        definition = _definition(self.board, name="Notes", field_type=T.TEXT)
+        r = self.client.patch(
+            self._field_url(definition), {"choice_colors": {"a": "red"}}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("choice_colors", r.data)
+
+    def test_renaming_or_removing_a_choice_prunes_its_stored_color(self):
+        definition = self._dropdown(choice_colors={"Low": "green", "High": "red"})
+        # Rename High -> Critical, without re-sending colors.
+        r = self.client.patch(
+            self._field_url(definition), {"choices": ["Low", "Critical"]}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Low": "green"})
+        # Remove Low.
+        r = self.client.patch(
+            self._field_url(definition), {"choices": ["Critical"]}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {})
+        self.assertEqual(definition.choices_json, ["Critical"])
+
+    def test_a_rename_that_still_sends_the_old_key_drops_it(self):
+        definition = self._dropdown(choice_colors={"High": "red"})
+        r = self.client.patch(
+            self._field_url(definition),
+            {"choices": ["Low", "Critical"], "choice_colors": {"High": "red"}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {})
+
+    def test_retyping_away_from_a_choice_type_clears_the_colors(self):
+        definition = self._dropdown(choice_colors={"Low": "green"})
+        r = self.client.patch(
+            self._field_url(definition), {"field_type": "text", "choices": []}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {})
+        self.assertEqual(r.data["choice_colors"], {})
+
+    def test_retyping_dropdown_to_multi_select_keeps_the_colors(self):
+        definition = self._dropdown(choice_colors={"Low": "green"})
+        r = self.client.patch(
+            self._field_url(definition), {"field_type": "multi_select"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Low": "green"})
+
+    def test_a_patch_that_only_renames_the_field_keeps_the_colors(self):
+        definition = self._dropdown(choice_colors={"High": "red"})
+        r = self.client.patch(self._field_url(definition), {"name": "Risk"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {"High": "red"})
+
+    def test_values_are_unchanged_by_colors(self):
+        definition = self._dropdown(choice_colors={"High": "red"})
+        r = self._set_values([{"field_definition": definition.id, "value": "High"}])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertIn(
+            {"field_definition": definition.id, "value": "High"},
+            r.data["custom_field_values"],
+        )
+
+    def test_member_and_viewer_cannot_set_colors(self):
+        definition = self._dropdown()
+        for user in (self.member, self.viewer):
+            with self.subTest(user=user.username):
+                client = self._as(user)
+                self.assertEqual(
+                    client.patch(
+                        self._field_url(definition),
+                        {"choice_colors": {"Low": "red"}}, format="json",
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
+                self.assertEqual(
+                    client.post(
+                        self._fields_url(),
+                        {"name": "X", "field_type": "dropdown", "choices": ["a"],
+                         "choice_colors": {"a": "red"}},
+                        format="json",
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {})
+
+    def test_outsider_and_anonymous_cannot_set_colors(self):
+        definition = self._dropdown()
+        outsider = self._as(_make_user("cf_cc_outsider"))
+        anonymous = APIClient()
+        for label, client, expected in (
+            ("outsider", outsider, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND)),
+            ("anonymous", anonymous, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)),
+        ):
+            with self.subTest(client=label):
+                self.assertIn(
+                    client.post(
+                        self._fields_url(),
+                        {"name": "X", "field_type": "dropdown", "choices": ["a"],
+                         "choice_colors": {"a": "red"}},
+                        format="json",
+                    ).status_code,
+                    expected,
+                )
+                self.assertIn(
+                    client.patch(
+                        self._field_url(definition),
+                        {"choice_colors": {"Low": "red"}}, format="json",
+                    ).status_code,
+                    expected,
+                )
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {})
+        self.assertEqual(CustomFieldDefinition.objects.filter(board=self.board).count(), 1)
+
+    def test_a_site_admin_may_set_colors(self):
+        site_admin = self._as(_make_user(
+            "cf_cc_siteadmin", is_site_admin=True, can_access_all_content=True,
+        ))
+        r = site_admin.post(
+            self._fields_url(),
+            {"name": "Severity", "field_type": "dropdown", "choices": ["Low"],
+             "choice_colors": {"Low": "teal"}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        r = site_admin.patch(
+            f"{self._fields_url()}{r.data['id']}/",
+            {"choice_colors": {"Low": "pink"}}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Low": "pink"})
+
+    def test_a_color_patch_cannot_reach_another_boards_definition(self):
+        """IDOR: board B's definition through board A's URL is a 404."""
+        other_board = _make_board(_make_user("cf_cc_other"), name="Other")
+        theirs = _definition(
+            other_board, name="Severity", field_type=T.DROPDOWN, choices_json=["Low"],
+        )
+        r = self.client.patch(
+            f"{self._fields_url()}{theirs.id}/",
+            {"choice_colors": {"Low": "red"}}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.choice_colors, {})
+
+    def test_a_viewer_reads_the_colors_with_the_schema(self):
+        self._dropdown(choice_colors={"High": "red"})
+        r = self._as(self.viewer).get(self._fields_url())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["results"][0]["choice_colors"], {"High": "red"})
+
+    def test_the_definition_broadcast_carries_the_colors(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            created = self._create(choice_colors={"High": "red"})
+        payloads = {c.args[1]: c.args[2] for c in self.broadcast.call_args_list}
+        self.assertEqual(payloads["custom_field.created"]["choice_colors"], {"High": "red"})
+        self.assertEqual(payloads["custom_field.created"]["choices"], ["Low", "High"])
+        self.broadcast.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.patch(
+                f"{self._fields_url()}{created.data['id']}/",
+                {"choice_colors": {"Low": "blue"}}, format="json",
+            )
+        payloads = {c.args[1]: c.args[2] for c in self.broadcast.call_args_list}
+        self.assertEqual(payloads["custom_field.updated"]["choice_colors"], {"Low": "blue"})
+
+    def test_json_export_carries_the_colors_additively(self):
+        definition = self._dropdown(choice_colors={"High": "red"})
+        CustomFieldValue.objects.create(card=self.card, field_definition=definition, value="High")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
+        payload = json.loads(r.content.decode())
+        schema = next(f for f in payload["custom_fields"] if f["name"] == "Severity")
+        self.assertEqual(schema["choice_colors"], {"High": "red"})
+        self.assertEqual(schema["choices"], ["Low", "High"])
+        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["cards"][0]["custom_field_values"], {"Severity": "High"})
+
+    def test_csv_export_is_unchanged_by_colors(self):
+        definition = self._dropdown(choice_colors={"High": "red"})
+        CustomFieldValue.objects.create(card=self.card, field_definition=definition, value="High")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
+        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        self.assertEqual(rows[1][rows[0].index("Custom: Severity")], "High")
+
+
+class ChoiceColorKeyParityTests(TestCase):
+    """The backend allowlist and the frontend palette must name the same keys,
+    in the same order (#1391). A key the server accepts but the frontend cannot
+    render would show as an uncolored chip; one the frontend offers but the
+    server refuses would 400 on save."""
+
+    def test_backend_and_frontend_palette_keys_match(self):
+        import re
+        from pathlib import Path
+
+        from boards.custom_field_types import CHOICE_COLOR_KEYS
+
+        source = (
+            Path(__file__).resolve().parents[3]
+            / "frontend" / "src" / "constants" / "choiceColors.ts"
+        ).read_text(encoding="utf-8")
+        match = re.search(
+            r"export const CHOICE_COLOR_KEYS = \[(.*?)\] as const;", source, re.S
+        )
+        self.assertIsNotNone(match, "CHOICE_COLOR_KEYS not found in choiceColors.ts")
+        frontend_keys = tuple(re.findall(r'"([a-z]+)"', match.group(1)))
+        self.assertEqual(frontend_keys, CHOICE_COLOR_KEYS)

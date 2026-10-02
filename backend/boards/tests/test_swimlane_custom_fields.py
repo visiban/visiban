@@ -1516,3 +1516,250 @@ class SwimlaneCustomFieldNumberFormatTests(SwimlaneCustomFieldTestBase):
         )
         rows = list(csv.reader(io.StringIO(self.client.get(export_url).content.decode())))
         self.assertEqual(rows[1][rows[0].index("Swimlane Custom: ARR")], "250000")
+
+
+class SwimlaneCustomFieldChoiceColorTests(SwimlaneCustomFieldTestBase):
+    """``choice_colors`` on row field definitions (#1391, MR C) — the same
+    shared ``validate_choice_colors`` rules as the card level."""
+
+    ALLOWED_MSG = (
+        "Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal."
+    )
+
+    def _create(self, **extra):
+        body = {
+            "name": "Tier", "field_type": "dropdown", "choices": ["Gold", "Silver"],
+            "is_admin_only": False, **extra,
+        }
+        return self.client.post(self.url, body, format="json")
+
+    def _detail(self, definition):
+        return f"{self.url}{definition.id}/"
+
+    def _dropdown(self, **kwargs):
+        kwargs.setdefault("choices_json", ["Gold", "Silver"])
+        return _definition(self.board, name="Tier", field_type=T.DROPDOWN, **kwargs)
+
+    def test_defaults_to_an_empty_map(self):
+        r = self._create()
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["choice_colors"], {})
+        self.assertEqual(r.data["choices"], ["Gold", "Silver"])
+
+    def test_a_valid_map_round_trips_on_dropdown_and_multi_select(self):
+        for field_type in ("dropdown", "multi_select"):
+            with self.subTest(field_type=field_type):
+                r = self._create(
+                    name=f"T {field_type}", field_type=field_type,
+                    choice_colors={"Gold": "amber", "Silver": "slate"},
+                )
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+                definition = SwimlaneCustomFieldDefinition.objects.get(pk=r.data["id"])
+                self.assertEqual(definition.choice_colors, {"Gold": "amber", "Silver": "slate"})
+
+    def test_invalid_maps_are_400_keyed_to_choice_colors(self):
+        for bad in ("amber", ["Gold"], None, {"Gold": "gold"}, {"Gold": "#FFD700"},
+                    {"Gold": 3}, {"G\x00": "red"}, {f"k{i}": "red" for i in range(101)}):
+            with self.subTest(value=bad if not isinstance(bad, dict) or len(bad) < 5 else "101 keys"):
+                r = self._create(choice_colors=bad)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+                self.assertIn("choice_colors", r.data)
+        r = self._create(choice_colors={"Gold": "gold"})
+        self.assertIn(self.ALLOWED_MSG, str(r.data["choice_colors"]))
+
+    def test_unknown_keys_are_pruned(self):
+        r = self._create(choice_colors={"Gold": "amber", "Bronze": "red"})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Gold": "amber"})
+
+    def test_a_non_empty_map_on_a_non_choice_type_is_rejected_and_empty_accepted(self):
+        r = self.client.post(
+            self.url,
+            {"name": "Owner", "field_type": "text", "choice_colors": {"x": "red"}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Choice colors can only be set on a dropdown or multi-select field.",
+            str(r.data["choice_colors"]),
+        )
+        r = self.client.post(
+            self.url, {"name": "Owner", "field_type": "text", "choice_colors": {}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        text = SwimlaneCustomFieldDefinition.objects.get(pk=r.data["id"])
+        r = self.client.patch(self._detail(text), {"choice_colors": {"x": "red"}}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_only_colors_against_stored_choices(self):
+        definition = self._dropdown()
+        r = self.client.patch(
+            self._detail(definition), {"choice_colors": {"Silver": "slate", "Nope": "red"}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {"Silver": "slate"})
+
+    def test_renaming_or_removing_a_choice_prunes_its_color(self):
+        definition = self._dropdown(choice_colors={"Gold": "amber", "Silver": "slate"})
+        r = self.client.patch(
+            self._detail(definition), {"choices": ["Platinum", "Silver"]}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Silver": "slate"})
+        r = self.client.patch(self._detail(definition), {"choices": ["Platinum"]}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {})
+
+    def test_retyping_away_from_a_choice_type_clears_the_colors(self):
+        definition = self._dropdown(choice_colors={"Gold": "amber"})
+        r = self.client.patch(self._detail(definition), {"field_type": "number"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {})
+
+    def test_member_and_viewer_cannot_set_colors(self):
+        definition = self._dropdown()
+        for user in (self.member, self.viewer):
+            with self.subTest(user=user.username):
+                client = self._client_for(user)
+                self.assertEqual(
+                    client.patch(
+                        self._detail(definition), {"choice_colors": {"Gold": "red"}},
+                        format="json",
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
+                self.assertEqual(
+                    client.post(
+                        self.url,
+                        {"name": "X", "field_type": "dropdown", "choices": ["a"],
+                         "choice_colors": {"a": "red"}},
+                        format="json",
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {})
+
+    def test_outsider_and_anonymous_cannot_set_colors(self):
+        definition = self._dropdown()
+        outsider = self._client_for(_make_user("scf_cc_outsider"))
+        anonymous = APIClient()
+        for label, client, expected in (
+            ("outsider", outsider, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND)),
+            ("anonymous", anonymous, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)),
+        ):
+            with self.subTest(client=label):
+                self.assertIn(
+                    client.post(
+                        self.url,
+                        {"name": "X", "field_type": "dropdown", "choices": ["a"],
+                         "choice_colors": {"a": "red"}},
+                        format="json",
+                    ).status_code,
+                    expected,
+                )
+                self.assertIn(
+                    client.patch(
+                        self._detail(definition), {"choice_colors": {"Gold": "red"}},
+                        format="json",
+                    ).status_code,
+                    expected,
+                )
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {})
+        self.assertEqual(
+            SwimlaneCustomFieldDefinition.objects.filter(board=self.board).count(), 1
+        )
+
+    def test_a_site_admin_may_set_colors(self):
+        site_admin = self._client_for(_make_user(
+            "scf_cc_siteadmin", is_site_admin=True, can_access_all_content=True,
+        ))
+        r = site_admin.post(
+            self.url,
+            {"name": "Tier", "field_type": "multi_select", "choices": ["Gold"],
+             "choice_colors": {"Gold": "amber"}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        r = site_admin.patch(
+            f"{self.url}{r.data['id']}/", {"choice_colors": {"Gold": "violet"}}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Gold": "violet"})
+
+    def test_a_color_patch_cannot_reach_another_boards_definition(self):
+        other_board = _make_board(_make_user("scf_cc_other"), name="Other")
+        theirs = _definition(
+            other_board, name="Tier", field_type=T.DROPDOWN, choices_json=["Gold"],
+        )
+        r = self.client.patch(
+            f"{self.url}{theirs.id}/", {"choice_colors": {"Gold": "red"}}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.choice_colors, {})
+
+    def test_json_export_withholds_an_admin_only_definition_and_its_colors(self):
+        secret = _definition(
+            self.board, name="Risk", field_type=T.DROPDOWN, is_admin_only=True,
+            choices_json=["Churning", "Healthy"], choice_colors={"Churning": "red"},
+        )
+        SwimlaneCustomFieldValue.objects.create(
+            swimlane=self.lane, field_definition=secret, value="Churning"
+        )
+        url = f"/api/v1/boards/{self.board.id}/export/?format=json"
+        member_payload = json.loads(self._client_for(self.member).get(url).content.decode())
+        self.assertNotIn(
+            "Risk", [f["name"] for f in member_payload["swimlane_custom_fields"]]
+        )
+        dumped = json.dumps(member_payload)
+        self.assertNotIn("Churning", dumped)
+        self.assertNotIn("choice_colors\": {\"Churning", dumped)
+        admin_payload = json.loads(self.client.get(url).content.decode())
+        schema = next(f for f in admin_payload["swimlane_custom_fields"] if f["name"] == "Risk")
+        self.assertEqual(schema["choice_colors"], {"Churning": "red"})
+        self.assertEqual(schema["choices"], ["Churning", "Healthy"])
+
+    def test_the_definition_event_carries_the_colors(self):
+        from boards.models import BoardEvent
+
+        r = self._create(choice_colors={"Gold": "amber"})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        event = BoardEvent.objects.latest("id")
+        self.assertEqual(event.event, "swimlane_custom_field.created")
+        self.assertEqual(event.data["choice_colors"], {"Gold": "amber"})
+
+
+class ChoiceColorsSchemaTests(TestCase):
+    """The OpenAPI document types ``choice_colors`` exactly (#1391), on both
+    definition components and their write bodies — the shape the TS parity
+    check, generated clients and the schema fuzzer (``backend-schema-fuzz``,
+    whose hooks already map both definition paths to the demo board) read."""
+
+    def test_both_definition_components_type_choice_colors_as_a_palette_map(self):
+        components = SchemaGenerator().get_schema(request=None, public=True)[
+            "components"
+        ]["schemas"]
+        expected = {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string",
+                "enum": ["slate", "blue", "green", "amber", "red", "violet", "pink", "teal"],
+            },
+        }
+        for name in (
+            "CustomFieldDefinition", "CustomFieldDefinitionRequest",
+            "PatchedCustomFieldDefinitionRequest",
+            "SwimlaneCustomFieldDefinition", "SwimlaneCustomFieldDefinitionRequest",
+            "PatchedSwimlaneCustomFieldDefinitionRequest",
+        ):
+            with self.subTest(component=name):
+                self.assertIn(name, components)
+                self.assertEqual(components[name]["properties"]["choice_colors"], expected)
+                self.assertNotIn("choice_colors", components[name].get("required", []))

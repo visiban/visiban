@@ -156,6 +156,25 @@ body {
 }
 
 /*
+  Colored custom-field choice badge (#1391). The element carries
+  --cf-{bg,fg}-{light,dark} inline (choiceBadgeStyle() in
+  src/constants/choiceColors.ts, the only place the hex lives); this class
+  picks the pair for the active theme. Dark is the default to match :root
+  above; [data-theme="light"] switches it, the same selector as the token layer.
+*/
+.cf-choice-badge {
+  --cf-bg: var(--cf-bg-dark);
+  --cf-fg: var(--cf-fg-dark);
+  background-color: var(--cf-bg);
+  color: var(--cf-fg);
+}
+
+[data-theme="light"] .cf-choice-badge {
+  --cf-bg: var(--cf-bg-light);
+  --cf-fg: var(--cf-fg-light);
+}
+
+/*
   Board scroll container — always-visible custom scrollbars.
   macOS hides native scrollbars until scrolling (System Preference), making the
   board look non-scrollable to new users. Scoped to .board-scroll only to avoid

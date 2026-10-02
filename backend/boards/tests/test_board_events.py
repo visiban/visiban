@@ -367,6 +367,40 @@ class EveryEmittedEventIsPersistedTests(BoardEventTestBase):
             {"number_prefix": "", "number_suffix": "k", "number_decimals": None},
         )
 
+    def test_choice_color_definition_events_are_persisted(self):
+        """#1391 (MR C): ``choice_colors`` rides the definition events for both
+        card and swimlane fields — an additive key on the full serializer,
+        with ``choices`` still a plain string list."""
+        c = self.client_for(self.owner)
+        b = self.board.pk
+        created = c.post(
+            f"/api/v1/boards/{b}/custom-fields/",
+            {"name": "Severity", "field_type": "dropdown", "choices": ["Low", "High"],
+             "choice_colors": {"High": "red"}},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        updated = c.patch(
+            f"/api/v1/boards/{b}/custom-fields/{created.data['id']}/",
+            {"choices": ["Low", "Critical"]}, format="json",
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        row = c.post(
+            f"/api/v1/boards/{b}/swimlane-custom-fields/",
+            {"name": "Tier", "field_type": "multi_select", "choices": ["Gold"],
+             "choice_colors": {"Gold": "amber"}},
+            format="json",
+        )
+        self.assertEqual(row.status_code, 201, row.data)
+        events = {e.event: e.data for e in self.events()}
+        self.assertEqual(events["custom_field.created"]["choice_colors"], {"High": "red"})
+        self.assertEqual(events["custom_field.created"]["choices"], ["Low", "High"])
+        # The rename pruned High's color, and the event says so.
+        self.assertEqual(events["custom_field.updated"]["choice_colors"], {})
+        self.assertEqual(
+            events["swimlane_custom_field.created"]["choice_colors"], {"Gold": "amber"}
+        )
+
     def test_custom_field_schema_change_replays_from_a_cursor(self):
         c = self.client_for(self.owner)
         cursor = record_board_event(self.board.id, "card.created", {"n": 0})

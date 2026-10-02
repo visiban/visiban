@@ -47,7 +47,7 @@ export default function MultiSelectValueInput({ definition, value, onCommit, dis
       disabled={disabled}
       escapePriority={escapePriority}
       saveErrorMessage={`Couldn't save ${definition.name}. Try again.`}
-      renderValue={(entries) => <MultiSelectChips entries={entries} wrap />}
+      renderValue={(entries) => <MultiSelectChips entries={entries} definition={definition} wrap />}
     />
   );
 }

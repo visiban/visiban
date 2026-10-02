@@ -34,7 +34,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
   return {
     id: 5, uid: "cfuid005", name: "Sprint", field_type: "text", choices: [],
     position: 0, show_on_card: true, is_required: false, help_text: "",
-    number_prefix: "", number_suffix: "", number_decimals: null,
+    number_prefix: "", number_suffix: "", number_decimals: null, choice_colors: {},
     created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
@@ -389,5 +389,106 @@ describe("CardItem — formatted number chips (#1391)", () => {
       />
     );
     expect(screen.getByText("1234567890123456…")).toBeInTheDocument();
+  });
+});
+
+describe("CardItem — colored choices on the card face (#1391)", () => {
+  const stage = (overrides: Partial<CustomFieldDefinition> = {}) =>
+    makeDefinition({ field_type: "dropdown", name: "Stage", choices: ["Beta", "GA"], choice_colors: { Beta: "amber" }, ...overrides });
+
+  it("renders an explicitly colored dropdown value as a tinted badge inside the neutral chip, label shown", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] })}
+        customFieldDefinitions={[stage()]}
+      />
+    );
+    const chip = screen.getByTitle("Stage: Beta");
+    expect(chip).toHaveClass("border", "border-line");
+    const badge = chip.querySelector<HTMLElement>(".cf-choice-badge");
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent("Beta");
+    expect(badge).toHaveAttribute("data-choice-color", "amber");
+    expect(badge!.style.getPropertyValue("--cf-bg-dark")).toBe("#4D4330");
+    // The automatic dot is replaced, not doubled up.
+    expect(container.querySelector(".rounded-full")).toBeNull();
+  });
+
+  it("keeps the dotted quick-edit underline on a tinted badge", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] })}
+        customFieldDefinitions={[stage()]}
+        boardId={1}
+        onCardUpdated={vi.fn()}
+      />
+    );
+    const chip = screen.getByRole("button", { name: /Stage: Beta/ });
+    const badge = chip.querySelector(".cf-choice-badge")!;
+    // On an inner text span, in currentColor (the badge fg) — never a border
+    // on the badge, which would change its height.
+    expect(badge.className).not.toMatch(/border/);
+    const hint = badge.querySelector("[data-quick-edit-hint]");
+    expect(hint).toHaveClass("underline", "decoration-dotted", "underline-offset-2");
+    expect(hint).toHaveTextContent("Beta");
+  });
+
+  it("a read-only tinted badge carries no quick-edit underline", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] })}
+        customFieldDefinitions={[stage()]}
+      />
+    );
+    expect(container.querySelector("[data-quick-edit-hint]")).toBeNull();
+  });
+
+  it("an unset color keeps today's neutral chip and hash dot", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "GA" }] })}
+        customFieldDefinitions={[stage()]}
+      />
+    );
+    expect(container.querySelector(".cf-choice-badge")).toBeNull();
+    expect(container.querySelector(".rounded-full")).not.toBeNull();
+    expect(screen.getByText("GA")).toHaveClass("text-fg-secondary");
+  });
+
+  it("an orphaned value (choice renamed away) renders neutral with its label", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] })}
+        customFieldDefinitions={[stage({ choices: ["Preview", "GA"] })]}
+      />
+    );
+    expect(container.querySelector(".cf-choice-badge")).toBeNull();
+    expect(screen.getByText("Beta")).toBeInTheDocument();
+  });
+
+  it("an unknown color key from a newer server renders neutral", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "Beta" }] })}
+        customFieldDefinitions={[stage({ choice_colors: { Beta: "chartreuse" } })]}
+      />
+    );
+    expect(container.querySelector(".cf-choice-badge")).toBeNull();
+    expect(screen.getByText("Beta")).toBeInTheDocument();
+  });
+
+  it("tints multi-select chips per choice on the card face", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: '["web","ios"]' }] })}
+        customFieldDefinitions={[makeDefinition({
+          field_type: "multi_select", name: "Platforms", choices: ["web", "ios"], choice_colors: { ios: "blue" },
+        })]}
+      />
+    );
+    const badges = container.querySelectorAll(".cf-choice-badge");
+    expect(badges).toHaveLength(1);
+    expect(badges[0]).toHaveTextContent("ios");
+    expect(screen.getByTitle("web")).toHaveClass("bg-surface-hover");
   });
 });

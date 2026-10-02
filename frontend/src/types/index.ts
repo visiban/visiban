@@ -360,6 +360,12 @@ export interface CustomFieldDefinition {
   number_suffix: string;
   /** Fixed decimal places (0-10) for display; `null` = show the number as typed (#1391). */
   number_decimals: number | null;
+  /**
+   * Per-choice display color (#1391): `{choice text: palette key}` — keys are
+   * a subset of `choices`, values a `CHOICE_COLOR_KEYS` key (never hex). `{}`
+   * when none is set; a choice with no entry renders with its automatic dot.
+   */
+  choice_colors: Record<string, string>;
   created_at: string;
 }
 
@@ -397,6 +403,8 @@ export interface FieldDefinitionShape {
   number_prefix?: string;
   number_suffix?: string;
   number_decimals?: number | null;
+  /** #1391 per-choice colors; optional here for the same reason as the number options. */
+  choice_colors?: Record<string, string>;
 }
 
 /**
@@ -437,6 +445,12 @@ export interface SwimlaneCustomFieldDefinition {
   number_suffix: string;
   /** Fixed decimal places (0-10) for display; `null` = show the number as typed (#1391). */
   number_decimals: number | null;
+  /**
+   * Per-choice display color (#1391): `{choice text: palette key}` — keys are
+   * a subset of `choices`, values a `CHOICE_COLOR_KEYS` key (never hex). `{}`
+   * when none is set; a choice with no entry renders with its automatic dot.
+   */
+  choice_colors: Record<string, string>;
   created_at: string;
 }
 

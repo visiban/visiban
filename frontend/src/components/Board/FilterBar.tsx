@@ -5,7 +5,8 @@ import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
 import Avatar from "../Common/Avatar";
 import FilterChip from "./FilterChip";
-import { choiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
+import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
+import { CHOICE_COLORS } from "../../constants/choiceColors";
 
 // #371 — one filter value per custom field, keyed by field_definition id in
 // FilterState.customFields. Number/date are equality-only (the value is
@@ -526,9 +527,10 @@ interface CustomFieldFilterControlProps {
  * One toolbar control for one custom field (#371), styling matched to the
  * existing dimension controls (plain `<input>` for text/number/date — the
  * board search input already establishes that inline-input pattern in this
- * toolbar; `CheckboxDropdown` for dropdown/checkbox, sharing the same
- * deterministic color-dot helper as the card-face chip so a choice reads
- * consistently in both places).
+ * toolbar; `CheckboxDropdown` for dropdown/checkbox). A dropdown option's
+ * dot matches the card face: the choice's explicit palette color (#1391) as
+ * its `base` swatch when one is set, else the same deterministic hash dot as
+ * the card-face chip. Multi-select options carry no dot.
  */
 function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFilterControlProps) {
   // URL fields (#1390) filter exactly like text — a "contains" match on the
@@ -552,7 +554,8 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
     return (
       <CheckboxDropdown
         label={definition.name}
-        // No color dot: multi-select entries are colorless everywhere else.
+        // No color dot: a multi-select entry never shows a dot anywhere (an
+        // explicitly colored one is a tinted chip, an uncolored one neutral).
         options={definition.choices.map((c) => ({ value: c, label: c }))}
         selected={value.kind === "multi_choice" ? value.values : []}
         onChange={(values) => onChange({ kind: "multi_choice", values })}
@@ -578,7 +581,10 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
   const options =
     definition.field_type === "checkbox"
       ? [{ value: "true", label: "Yes" }, { value: "false", label: "No" }]
-      : definition.choices.map((c) => ({ value: c, label: c, color: choiceColor(c) }));
+      : definition.choices.map((c) => {
+          const key = explicitChoiceColor(definition, c);
+          return { value: c, label: c, color: key ? CHOICE_COLORS[key].base : choiceColor(c) };
+        });
   const selected = value.kind === "choice" ? value.values : [];
 
   return (

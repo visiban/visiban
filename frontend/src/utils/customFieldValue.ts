@@ -8,15 +8,16 @@
  */
 import type { FieldDefinitionShape } from "../types";
 import { PALETTE_COLORS } from "../constants/colors";
+import { isChoiceColorKey, type ChoiceColorKey } from "../constants/choiceColors";
 import { formatDateStr } from "./date";
 
 /**
  * Deterministic string → palette color, same hashing technique as
  * `Avatar.tsx`'s `hashUsername`, applied to a dropdown choice string instead
- * of a username. `CustomFieldDefinition.choices` carries no stored color
- * (see the model — a per-choice color field would be a backend change, out
- * of scope for this frontend-only phase), so the color must be derivable
- * from the string alone and stay stable across renders without one.
+ * of a username. This is the *automatic* color: a choice with no explicit
+ * `choice_colors` entry (#1391) — every choice on a board created before
+ * per-choice colors — keeps exactly this dot, so existing boards look
+ * unchanged. Explicit colors go through `explicitChoiceColor` instead.
  */
 export function choiceColor(choice: string): string {
   let hash = 0;
@@ -24,6 +25,64 @@ export function choiceColor(choice: string): string {
     hash = (hash * 31 + choice.charCodeAt(i)) >>> 0;
   }
   return PALETTE_COLORS[hash % PALETTE_COLORS.length];
+}
+
+/**
+ * The explicit palette key an admin picked for `choice` (#1391), or `null`
+ * when the choice should render with its automatic hash dot.
+ *
+ * `null` — never a guess — for: a choice with no entry; an *orphaned* value
+ * (no longer in `choices`, e.g. renamed — the server prunes its color too);
+ * and a key this client does not know (one added by a newer server). In
+ * each case the value still renders, as the neutral chip it was before
+ * colors existed, so color never decides whether a label is shown.
+ */
+export function explicitChoiceColor(definition: FieldDefinitionShape, choice: string): ChoiceColorKey | null {
+  if (!definition.choices.includes(choice)) return null;
+  const colors = definition.choice_colors;
+  // Own properties only: a choice named "constructor" or "toString" must not
+  // read Object.prototype's member as its color.
+  const key = colors && Object.hasOwn(colors, choice) ? colors[choice] : undefined;
+  return isChoiceColorKey(key) ? key : null;
+}
+
+/**
+ * Build the `choice_colors` payload for a save from an editor draft (#1391).
+ * The draft is keyed by the choice text as typed; the payload keeps only
+ * entries for choices that survive cleaning (trimmed, non-empty) with a known
+ * key. The server prunes the same way — this keeps the request honest rather
+ * than relying on it.
+ */
+export function choiceColorsPayload(choices: string[], draft: Record<string, string>): Record<string, string> {
+  const entries: [string, string][] = [];
+  for (const raw of choices) {
+    const key = Object.hasOwn(draft, raw) ? draft[raw] : undefined;
+    const choice = raw.trim();
+    if (choice !== "" && isChoiceColorKey(key)) entries.push([choice, key]);
+  }
+  // Object.fromEntries defines own data properties, so a choice literally
+  // named "__proto__" becomes a real key (and is serialized by
+  // JSON.stringify) instead of hitting the prototype setter and vanishing.
+  return Object.fromEntries(entries);
+}
+
+/** Drop `choice`'s entry from an editor's color draft (a rename or removal resets its color). */
+export function withoutChoiceColor(draft: Record<string, string>, choice: string): Record<string, string> {
+  if (!Object.hasOwn(draft, choice)) return draft;
+  // Rebuilt from own entries (never `delete` on a copy) so every surviving
+  // key — "__proto__" included — stays an own data property.
+  return Object.fromEntries(Object.entries(draft).filter(([k]) => k !== choice));
+}
+
+/** Set (or, with `null`, clear) `choice`'s color in an editor draft, as an own property. */
+export function withChoiceColor(draft: Record<string, string>, choice: string, key: string | null): Record<string, string> {
+  if (key === null) return withoutChoiceColor(draft, choice);
+  return Object.fromEntries([...Object.entries(draft).filter(([k]) => k !== choice), [choice, key]]);
+}
+
+/** The draft's color for `choice`, reading own properties only. */
+export function draftChoiceColor(draft: Record<string, string>, choice: string): string | undefined {
+  return Object.hasOwn(draft, choice) ? draft[choice] : undefined;
 }
 
 /**

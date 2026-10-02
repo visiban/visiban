@@ -748,7 +748,7 @@ describe('CardDetail', () => {
       custom_field_definitions: [{
         id: 5, uid: 'cfuid005', name: 'Platforms', field_type: 'multi_select',
         choices: ['web', 'ios'], position: 0, show_on_card: false, is_required: false,
-        help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, created_at: '',
+        help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
       }],
     })
     // A stored value opens the Custom fields section automatically.
@@ -1376,7 +1376,7 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
   const statusField = {
     id: 500, uid: 'cfduid00001', name: 'Status', field_type: 'dropdown' as const,
     choices: ['Red', 'Green', 'Blue'], position: 0, show_on_card: false,
-    is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01T00:00:00Z',
+    is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '2026-01-01T00:00:00Z',
   }
 
   // #1236 — CustomFieldEditRow wraps CustomFieldValueInput with no

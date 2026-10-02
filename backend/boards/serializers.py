@@ -33,7 +33,8 @@ from .models import (
     validate_external_ref_ref, validate_external_ref_url,
 )
 from .custom_field_types import (
-    CHOICE_TYPES, canonical_multi_select, encode_multi_select, parse_multi_select,
+    CHOICE_COLOR_KEYS, CHOICE_TYPES, canonical_multi_select, encode_multi_select,
+    parse_multi_select,
 )
 
 
@@ -825,6 +826,110 @@ def validate_number_format(attrs, instance, field_type):
     attrs.update(NUMBER_FORMAT_DEFAULTS)
 
 
+#: Upper bound on ``choice_colors`` entries: one per choice, and a choice-bearing
+#: field may have at most 100 choices (``validate_definition_choices``). Checked
+#: before anything else so an oversized map is refused without walking it.
+CHOICE_COLORS_MAX = 100
+
+
+def validate_choice_colors(attrs, instance, field_type):
+    """The ``choice_colors`` rules shared by both definition serializers (#1391).
+
+    ``choice_colors`` maps a choice's text to a palette key from
+    :data:`boards.custom_field_types.CHOICE_COLOR_KEYS`. Must run *after*
+    :func:`validate_definition_choices`, which leaves ``attrs["choices_json"]``
+    holding the effective, cleaned choice list (submitted or stored).
+
+    * The shape is always checked when submitted — a non-object, a non-string
+      or NUL-bearing key, a value outside the palette, or more than
+      :data:`CHOICE_COLORS_MAX` entries is a 400 keyed to ``choice_colors``.
+      Palette keys only: a hex or CSS value is refused, never stored, because
+      the frontend can only guarantee contrast for colors it defines.
+    * On a choice-bearing type, entries whose key is not one of the effective
+      choices are **pruned**, not refused. The choice text is the key, so a
+      request that renames or removes a choice and still carries the old
+      color (or a stale editor that never saw the rename) just loses that
+      entry — "renaming a choice resets its color". The same pruning runs on
+      a PATCH that changes only ``choices``: the stored map is re-filtered
+      against the new list, so a stale key never survives in the column.
+    * On any other type, a submitted *non-empty* map is a 400 (say so rather
+      than silently discard, the ``choices`` rule); ``{}`` is always
+      accepted so a client can send the key unconditionally. The column is
+      then reset to ``{}``, which is what clears colors when a field is
+      retyped away from dropdown / multi-select.
+
+    Mutates *attrs*.
+    """
+    submitted = "choice_colors" in attrs
+    colors = attrs["choice_colors"] if submitted else (
+        instance.choice_colors if instance is not None else {}
+    )
+    if submitted:
+        _check_choice_colors_shape(colors)
+
+    if field_type not in CHOICE_TYPES:
+        if submitted and colors:
+            raise serializers.ValidationError({
+                "choice_colors": (
+                    "Choice colors can only be set on a dropdown or "
+                    "multi-select field."
+                )
+            })
+        attrs["choice_colors"] = {}
+        return
+
+    # Read side of a stored map: tolerate anything malformed by dropping it,
+    # rather than failing a PATCH that never touched colors.
+    if not isinstance(colors, dict):
+        colors = {}
+    choices = set(attrs.get("choices_json") or [])
+    attrs["choice_colors"] = {
+        key.strip(): value
+        for key, value in colors.items()
+        if isinstance(key, str) and key.strip() in choices
+        and value in CHOICE_COLOR_KEYS
+    }
+
+
+def _check_choice_colors_shape(colors):
+    """Raise a 400 keyed to ``choice_colors`` unless *colors* is well-formed."""
+    if not isinstance(colors, dict):
+        raise serializers.ValidationError({
+            "choice_colors": "Choice colors must be an object mapping a choice to a color."
+        })
+    if len(colors) > CHOICE_COLORS_MAX:
+        raise serializers.ValidationError({
+            "choice_colors": f"At most {CHOICE_COLORS_MAX} choice colors are allowed."
+        })
+    allowed = ", ".join(CHOICE_COLOR_KEYS)
+    for key, value in colors.items():
+        # JSON object keys are always strings; the NUL check is the reachable
+        # one (Postgres refuses \x00 inside a jsonb string — a 500 otherwise).
+        if not isinstance(key, str) or "\x00" in key:
+            raise serializers.ValidationError({
+                "choice_colors": "Choice color keys must be choice names without NUL (0x00) characters."
+            })
+        if not isinstance(value, str) or value not in CHOICE_COLOR_KEYS:
+            raise serializers.ValidationError({
+                "choice_colors": f"Choice colors must be one of: {allowed}."
+            })
+
+
+@extend_schema_field({
+    "type": "object",
+    "additionalProperties": {"type": "string", "enum": list(CHOICE_COLOR_KEYS)},
+})
+class ChoiceColorsField(serializers.JSONField):
+    """``choice_colors`` on the two custom-field-definition serializers (#1391).
+
+    Schema-only subclass, the :class:`ChoicesField` pattern: the model column
+    is a ``JSONField``, which drf-spectacular would describe with no ``type``,
+    and generated clients would get ``any``. Validation is cross-field (keys
+    are checked against the effective ``choices`` and the effective type), so
+    it lives in :func:`validate_choice_colors`, called from ``validate()``.
+    """
+
+
 @extend_schema_field({"type": "array", "items": {"type": "string"}})
 class ChoicesField(serializers.JSONField):
     """``choices`` on the two custom-field-definition serializers (#1139).
@@ -864,13 +969,15 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     number_prefix = number_affix_field()
     number_suffix = number_affix_field()
     number_decimals = number_decimals_field()
+    choice_colors = ChoiceColorsField(required=False)
 
     class Meta:
         model = CustomFieldDefinition
         fields = [
             "id", "uid", "name", "field_type", "choices", "position",
             "show_on_card", "is_required", "help_text",
-            "number_prefix", "number_suffix", "number_decimals", "created_at",
+            "number_prefix", "number_suffix", "number_decimals", "choice_colors",
+            "created_at",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
 
@@ -925,6 +1032,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         )
         validate_definition_choices(attrs, instance, field_type)
         validate_number_format(attrs, instance, field_type)
+        validate_choice_colors(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
         if board is not None:
@@ -1404,13 +1512,14 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
     number_prefix = number_affix_field()
     number_suffix = number_affix_field()
     number_decimals = number_decimals_field()
+    choice_colors = ChoiceColorsField(required=False)
 
     class Meta:
         model = SwimlaneCustomFieldDefinition
         fields = [
             "id", "uid", "name", "field_type", "choices", "position",
             "show_on_row", "is_admin_only", "is_required", "help_text",
-            "number_prefix", "number_suffix", "number_decimals",
+            "number_prefix", "number_suffix", "number_decimals", "choice_colors",
             "created_at",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
@@ -1463,6 +1572,7 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
         )
         validate_definition_choices(attrs, instance, field_type)
         validate_number_format(attrs, instance, field_type)
+        validate_choice_colors(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
         if board is not None:

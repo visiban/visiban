@@ -11,7 +11,8 @@ import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import CustomFieldLink from "./CustomFieldLink";
 import MultiSelectChips from "./MultiSelectChips";
-import { chipValueText, choiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, withCustomFieldValue } from "../../utils/customFieldValue";
+import { chipValueText, explicitChoiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, withCustomFieldValue } from "../../utils/customFieldValue";
+import { ChoiceBadge, ChoiceDot } from "./ChoiceValue";
 import { updateCard } from "../../api/cards";
 import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
 import ExternalRefGlyph from "./ExternalRefGlyph";
@@ -611,9 +612,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   const valid = isValidForType(def, value);
                   const displayText = valid ? formatCustomFieldValue(def, value, userDateFormat) : value;
                   const multiEntries = valid && def.field_type === "multi_select" ? parseMultiSelect(value) : null;
-                  const dot = valid && def.field_type === "dropdown" ? (
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: choiceColor(value) }} aria-hidden="true" />
-                  ) : null;
+                  // #1391: explicit choice color → tinted badge (no dot);
+                  // otherwise the automatic hash dot, exactly as before.
+                  const colorKey = valid && def.field_type === "dropdown" ? explicitChoiceColor(def, value) : null;
+                  const dot = valid && def.field_type === "dropdown" && !colorKey ? <ChoiceDot choice={value} /> : null;
 
                   return (
                     <span
@@ -655,7 +657,19 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       ) : multiEntries ? (
                         // #1391: read-only here (no quick edit, no dotted
                         // underline) — a multi-select is edited in card detail.
-                        <MultiSelectChips entries={multiEntries} max={2} />
+                        <MultiSelectChips entries={multiEntries} definition={def} max={2} />
+                      ) : colorKey ? (
+                        // The quick-edit hint stays on a tinted badge, as a
+                        // dotted text underline in the badge's own fg
+                        // (currentColor) — a border would grow the badge and
+                        // a fixed gray would vanish on some tints.
+                        <ChoiceBadge colorKey={colorKey}>
+                          {interactive ? (
+                            <span className="underline decoration-dotted underline-offset-2" data-quick-edit-hint>
+                              {chipValueText(def, displayText, 16)}
+                            </span>
+                          ) : chipValueText(def, displayText, 16)}
+                        </ChoiceBadge>
                       ) : (
                         <span className={`text-fg-secondary truncate ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
                           {chipValueText(def, displayText, 16)}
