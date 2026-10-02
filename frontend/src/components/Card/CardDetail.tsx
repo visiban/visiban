@@ -90,6 +90,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [bulkText, setBulkText] = useState("");
   const [checklistOpen, setChecklistOpen] = useState(true);
   const [attachmentsOpen, setAttachmentsOpen] = useState(true);
+  // Surfaces a failure in the comments/checklist/attachments load effects
+  // below — previously silent (#1375): the panel just stayed on whatever it
+  // had before (empty on first mount), with nothing telling the user a
+  // section failed to load.
+  const [loadError, setLoadError] = useState(false);
+  // Checklist-only error slot for handleAddChecklistItem / handleBulkAdd.
+  const [checklistError, setChecklistError] = useState<string | null>(null);
   // #371 — expanded by default only when the card already has ≥1 populated
   // custom-field value; a board with fields defined but none filled in on
   // this card starts collapsed so an empty structure doesn't dominate the
@@ -135,15 +142,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [moveToSeen, setMoveToSeen] = useMoveToSeenPref();
 
   useEffect(() => {
-    getCardComments(board.id, card.id).then(setComments);
+    // Each fetch keeps its own .catch() rather than a single Promise.all/try-
+    // catch wrapper, so a slow section's failure doesn't block the other two
+    // from populating as soon as they resolve (unchanged success-path timing).
+    getCardComments(board.id, card.id).then(setComments).catch(() => setLoadError(true));
     getCardAttachments(board.id, card.id).then((data) => {
       setAttachments(data);
       setAttachmentsOpen(data.length > 0);
-    });
+    }).catch(() => setLoadError(true));
     getChecklist(board.id, card.id).then((data) => {
       setChecklist(data);
       setChecklistOpen(data.length > 0);
-    });
+    }).catch(() => setLoadError(true));
   }, [board.id, card.id]);
 
   // Refetch comments/checklist/attachments when another session mutates this
@@ -157,9 +167,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       skipInitialRefreshRef.current = false;
       return;
     }
-    getCardComments(board.id, card.id).then(setComments);
-    getCardAttachments(board.id, card.id).then(setAttachments);
-    getChecklist(board.id, card.id).then(setChecklist);
+    getCardComments(board.id, card.id).then(setComments).catch(() => setLoadError(true));
+    getCardAttachments(board.id, card.id).then(setAttachments).catch(() => setLoadError(true));
+    getChecklist(board.id, card.id).then(setChecklist).catch(() => setLoadError(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetches only in response to refreshSignal; board.id/card.id are stable for this instance's lifetime (BoardView remounts CardDetail via `key={selectedCard.id}` on card change)
   }, [refreshSignal]);
 
@@ -308,24 +318,54 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const handleAddChecklistItem = async () => {
     if (!newItemText.trim()) return;
-    const item = await addChecklistItem(board.id, card.id, newItemText.trim());
-    setChecklist((prev) => [...prev, item]);
-    setNewItemText("");
-    onUpdated({ ...localCard, checklist_total: localCard.checklist_total + 1 });
+    setChecklistError(null);
+    try {
+      // Previously unhandled (#1375): a rejected add left the typed text in
+      // place with the input otherwise unresponsive — nothing told the user
+      // it had failed, so the keystroke looked lost.
+      const item = await addChecklistItem(board.id, card.id, newItemText.trim());
+      setChecklist((prev) => [...prev, item]);
+      setNewItemText("");
+      onUpdated({ ...localCard, checklist_total: localCard.checklist_total + 1 });
+    } catch {
+      setChecklistError("Could not add item.");
+    }
   };
 
   const handleBulkAdd = async () => {
     const items = bulkText.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!items.length) return;
+    setChecklistError(null);
     const added: CardChecklistItem[] = [];
-    for (const text of items) {
-      const item = await addChecklistItem(board.id, card.id, text);
-      added.push(item);
+    try {
+      // Previously unhandled (#1375): a mid-loop rejection left every item
+      // already persisted on the server but never applied to local state —
+      // they'd only reappear on the next full reload, with no error shown and
+      // the "Add checklist items" dialog stuck open with no explanation.
+      for (const text of items) {
+        const item = await addChecklistItem(board.id, card.id, text);
+        added.push(item);
+      }
+      setBulkText("");
+      setShowBulkAdd(false);
+    } catch {
+      // Rewrite the textarea to only the items that didn't make it in yet —
+      // the failed one plus anything after it that was never attempted — so a
+      // literal retry (clicking "Add items" again without editing) resubmits
+      // only the remainder instead of re-posting the ones already committed.
+      const remaining = items.slice(added.length);
+      setBulkText(remaining.join("\n"));
+      setChecklistError(
+        added.length > 0
+          ? `Added ${added.length} of ${items.length} items — the rest failed.`
+          : "Could not add items."
+      );
+    } finally {
+      if (added.length > 0) {
+        setChecklist((prev) => [...prev, ...added]);
+        onUpdated({ ...localCard, checklist_total: localCard.checklist_total + added.length });
+      }
     }
-    setChecklist((prev) => [...prev, ...added]);
-    onUpdated({ ...localCard, checklist_total: localCard.checklist_total + added.length });
-    setBulkText("");
-    setShowBulkAdd(false);
   };
 
   const handleToggleChecklistItem = async (item: CardChecklistItem) => {
@@ -531,6 +571,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           ))}
         </div>
 
+        {loadError && (
+          <p role="alert" className="px-5 pt-2 text-xs text-danger">
+            Some card details failed to load — try reopening the card.
+          </p>
+        )}
+
         <div className="relative flex-1 overflow-hidden">
           <div className="h-full overflow-y-auto px-5 py-4">
           {tab === "details" ? (
@@ -543,7 +589,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   value={localCard.description ?? ""}
                   onSave={(md) => {
                     setLocalCard((c) => ({ ...c, description: md }));
-                    descRunSave(save({ description: md }));
+                    // void: runSave awaits the passed promise in its own
+                    // try/catch and drives descStatus/AutosaveIndicator to
+                    // "error" on failure — it never rejects itself.
+                    void descRunSave(save({ description: md }));
                   }}
                   readOnly={!canEdit}
                   showActions={canEdit}
@@ -719,7 +768,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           autoFocus
                           value={newLabelName}
                           onChange={(e) => { setNewLabelName(e.target.value); setLabelError(null); }}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleCreateLabel(); if (e.key === "Escape") { setAddingLabel(false); setLabelError(null); } }}
+                          // void: handleCreateLabel already catches its own rejection and surfaces it via labelError.
+                          onKeyDown={(e) => { if (e.key === "Enter") void handleCreateLabel(); if (e.key === "Escape") { setAddingLabel(false); setLabelError(null); } }}
                           placeholder="Label name"
                           className="text-xs bg-sunken border border-info rounded-full px-2.5 py-1 outline-none w-28 text-fg"
                         />
@@ -727,7 +777,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           {PALETTE_COLORS.map((c) => (
                             <button
                               key={c}
-                              onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) handleCreateLabel(c); }}
+                              // void: handleCreateLabel already catches its own rejection and surfaces it via labelError.
+                              onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) void handleCreateLabel(c); }}
                               aria-label={newLabelName.trim() ? `Create "${newLabelName.trim()}" with color ${c}` : `Select color ${c}`}
                               aria-pressed={newLabelColor === c}
                               className={`w-5 h-5 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${newLabelColor === c ? "border-white scale-110" : "border-transparent"}`}
@@ -934,17 +985,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <input
                       value={newItemText}
                       onChange={(e) => setNewItemText(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
+                      // void: handleAddChecklistItem now catches its own rejection and surfaces it via checklistError.
+                      onKeyDown={(e) => { if (e.key === "Enter") void handleAddChecklistItem(); }}
                       placeholder="Add item (Enter)…"
                       className="flex-1 text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary placeholder-fg-muted"
                     />
                     <button
-                      onClick={() => { setBulkText(""); setShowBulkAdd(true); }}
+                      onClick={() => { setBulkText(""); setChecklistError(null); setShowBulkAdd(true); }}
                       className="text-sm text-info hover:text-info font-medium px-2 whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                     >
                       Bulk
                     </button>
                   </div>
+                )}
+                {canComment && !showBulkAdd && (
+                  <p className="text-xs h-4 mt-1">
+                    {checklistError && <span className="text-danger">{checklistError}</span>}
+                  </p>
                 )}
 
                 {showBulkAdd && (
@@ -957,14 +1014,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         autoFocus
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleBulkAdd(); if (e.key === "Escape") setShowBulkAdd(false); }}
+                        // void: handleBulkAdd now catches its own rejection and surfaces it via checklistError.
+                        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleBulkAdd(); if (e.key === "Escape") setShowBulkAdd(false); }}
                         placeholder={"Buy milk\nCall client\nReview PR"}
                         rows={6}
                         className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                       />
+                      {checklistError && (
+                        <p role="alert" className="text-xs text-danger -mt-2">{checklistError}</p>
+                      )}
                       <div className="flex justify-end gap-3">
-                        <button onClick={() => setShowBulkAdd(false)} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
-                        <button onClick={handleBulkAdd} className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add items</button>
+                        <button onClick={() => { setShowBulkAdd(false); setChecklistError(null); }} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
+                        <button onClick={() => void handleBulkAdd()} className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add items</button>
                       </div>
                     </div>
                   </div>

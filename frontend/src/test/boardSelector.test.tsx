@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardSelector from '../components/Layout/BoardSelector'
 import type { User } from '../types'
@@ -11,9 +11,10 @@ vi.mock('../api/boards', () => ({
   listBoardTemplates: vi.fn().mockResolvedValue([]),
 }))
 
-import { listBoards } from '../api/boards'
+import { listBoards, deleteBoard } from '../api/boards'
 
 const mockListBoards = listBoards as ReturnType<typeof vi.fn>
+const mockDeleteBoard = deleteBoard as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -147,6 +148,92 @@ describe('BoardSelector', () => {
     ])
     render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
     expect(await screen.findByText('A test board')).toBeInTheDocument()
+  })
+
+  // ----------------------------------------------------------------
+  // Delete confirmation — success and rejection paths (#1375)
+  // ----------------------------------------------------------------
+
+  it('removes the board from the list after a successful delete', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, uid: 'my-board', name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
+    ])
+    mockDeleteBoard.mockResolvedValue(undefined)
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('My Board')
+    await user.click(screen.getByTitle('Delete board'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(mockDeleteBoard).toHaveBeenCalledWith(1)
+    expect(screen.queryByText('My Board')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('restores the board and shows an error when delete fails', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, uid: 'my-board', name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
+    ])
+    mockDeleteBoard.mockRejectedValue(new Error('server error'))
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('My Board')
+    await user.click(screen.getByTitle('Delete board'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    // The optimistic removal is rolled back — the board reappears — and an
+    // error explains why, rather than the board just vanishing or silently
+    // reappearing with no explanation at all (#1375).
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to delete board.')
+    expect(await screen.findByText('My Board')).toBeInTheDocument()
+  })
+
+  it('clears a previous delete error when a new delete is attempted', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, uid: 'board-a', name: 'Board A', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
+    ])
+    // Only the first delete is actually submitted below (the second click just
+    // reopens the dialog) — a single mockRejectedValueOnce is all this needs;
+    // a leftover queued mockResolvedValueOnce would jump ahead of a later
+    // test's own mockImplementation and resolve its call prematurely.
+    mockDeleteBoard.mockRejectedValueOnce(new Error('server error'))
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('Board A')
+    await user.click(screen.getByTitle('Delete board'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to delete board.')
+
+    await user.click(screen.getByTitle('Delete board'))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('disables every delete trigger while a delete is in flight, re-enabling once it settles', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, uid: 'board-a', name: 'Board A', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
+      { id: 2, uid: 'board-b', name: 'Board B', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
+    ])
+    let resolveDelete: () => void = () => {}
+    // mockReset (not just a fresh mockImplementation) clears any queued
+    // mockResolvedValueOnce/mockRejectedValueOnce left over from an earlier
+    // test — those take priority over a plain mockImplementation and would
+    // resolve this call immediately instead of leaving it pending.
+    mockDeleteBoard.mockReset()
+    mockDeleteBoard.mockImplementation(() => new Promise<void>((resolve) => { resolveDelete = resolve }))
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('Board A')
+
+    await user.click(screen.getByRole('button', { name: 'Delete Board A' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    // Board A's deleteBoard() call is still pending — Board B's trigger must be
+    // disabled too, otherwise a second, overlapping delete could be started and
+    // its rollback snapshot could clobber Board A's outcome (#1375 follow-up).
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Delete Board B' })).toBeDisabled())
+
+    resolveDelete()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Delete Board B' })).not.toBeDisabled())
   })
 })
 

@@ -80,7 +80,11 @@ export default function App() {
       const safePath = returnTo.startsWith("/") && !returnTo.startsWith("//")
         ? returnTo
         : "/";
-      navigate(safePath);
+      // navigate() is typed as void | Promise<void> for data-router mode; this
+      // app uses the declarative <Routes> router, where it resolves
+      // synchronously and any navigation failure is handled by React Router's
+      // own error boundary, not by the caller.
+      void navigate(safePath);
       return;
     }
     // If the user has a default board set, navigate there directly instead of
@@ -89,7 +93,7 @@ export default function App() {
     // membership revoked), so there is no IDOR risk — we only use the ID to
     // construct the URL, not to bypass any authorization.
     if (loggedInUser.default_board_id) {
-      navigate(`/boards/${loggedInUser.default_board_id}`);
+      void navigate(`/boards/${loggedInUser.default_board_id}`);
     }
   };
 
@@ -252,9 +256,10 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 
   const handleBack = () => {
     if (board?.group) {
-      navigate(`/groups/${board.group}`);
+      // See the navigate() comment in handleLogin above — fire-and-forget by design.
+      void navigate(`/groups/${board.group}`);
     } else {
-      navigate("/");
+      void navigate("/");
     }
   };
 
@@ -263,7 +268,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
     // navigate(-1) is referrer-based; fall back to semantic parent if there is
     // no history entry to go back to (e.g. board opened directly via URL).
-    if (window.history.length > 1) { navigate(-1); return; }
+    if (window.history.length > 1) { void navigate(-1); return; }
     handleBack();
   }, 0);
 
