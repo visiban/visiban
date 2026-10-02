@@ -107,5 +107,43 @@ else
 fi
 rm -rf "$TMPCLONE"
 
+# Pre-tag :latest-intent announcement (classify-release-tag.sh wiring, added
+# after the 2026-10 backend:latest/frontend:latest-tracking-a-pre-release
+# incident): printed before anything is tagged or pushed, so it must appear
+# before even the "tag already exists" guard. Using a tag that already
+# exists stops the script immediately afterward with no network calls.
+TMPCLONE2="$(mktemp -d)"
+git clone --quiet "$REPO_ROOT" "$TMPCLONE2/repo"
+(
+  cd "$TMPCLONE2/repo"
+  git -c user.email=t@t -c user.name=t tag v9.9.9
+  git -c user.email=t@t -c user.name=t tag v9.9.9-rc.1
+)
+
+set +e
+OUT="$(cd "$TMPCLONE2/repo" && bash scripts/release.sh 9.9.9 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -ne 0 ] && grep -q "This is a STABLE release" <<<"$OUT" && grep -q "tag v9.9.9 already exists" <<<"$OUT"; then
+  pass=$((pass + 1))
+else
+  echo "  FAIL: a stable version should print the STABLE pre-tag announcement before the tag-exists guard stops it"
+  echo "${OUT}" | sed 's/^/    /'
+  fail=$((fail + 1))
+fi
+
+set +e
+OUT="$(cd "$TMPCLONE2/repo" && bash scripts/release.sh 9.9.9-rc.1 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -ne 0 ] && grep -q "This is a PRE-RELEASE" <<<"$OUT" && grep -q "tag v9.9.9-rc.1 already exists" <<<"$OUT"; then
+  pass=$((pass + 1))
+else
+  echo "  FAIL: a pre-release version should print the PRE-RELEASE pre-tag announcement before the tag-exists guard stops it"
+  echo "${OUT}" | sed 's/^/    /'
+  fail=$((fail + 1))
+fi
+rm -rf "$TMPCLONE2"
+
 echo "release.test.sh: ${pass} passed, ${fail} failed"
 [ "$fail" -eq 0 ]
