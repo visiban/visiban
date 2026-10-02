@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import FilterBar, { EMPTY_FILTER } from '../components/Board/FilterBar'
 import type { FilterState } from '../components/Board/FilterBar'
 import type { BoardFull, User } from '../types'
+import { choiceColor } from '../utils/customFieldValue'
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -577,7 +578,7 @@ describe('FilterBar — URL custom fields (#1390)', () => {
     const board = makeBoard()
     board.custom_field_definitions = [{
       id: 7, uid: 'cfuid007', name: 'Docs', field_type: 'url', choices: [], position: 0,
-      show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, created_at: '',
+      show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
     }]
     const onChange = vi.fn()
     render(
@@ -601,7 +602,7 @@ describe('FilterBar — multi-select custom fields (#1391)', () => {
     board.custom_field_definitions = [{
       id: 8, uid: 'cfuid008', name: 'Platforms', field_type: 'multi_select',
       choices: ['web', 'ios'], position: 0, show_on_card: true, is_required: false,
-      help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, created_at: '',
+      help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
     }]
     return board
   }
@@ -636,5 +637,44 @@ describe('FilterBar — multi-select custom fields (#1391)', () => {
       />
     )
     expect(screen.getByText('Platforms: web, ios')).toBeInTheDocument()
+  })
+})
+
+describe('FilterBar — choice color dots (#1391)', () => {
+  // jsdom normalizes a hex backgroundColor to rgb(); compare like for like.
+  function rgb(hex: string): string {
+    const probe = document.createElement('span')
+    probe.style.backgroundColor = hex
+    return probe.style.backgroundColor
+  }
+  function dotFor(name: string): HTMLElement | null {
+    const label = screen.getByRole('checkbox', { name }).closest('label')!
+    return label.querySelector<HTMLElement>('span.rounded-full')
+  }
+  function board(fieldType: 'dropdown' | 'multi_select') {
+    const b = makeBoard()
+    b.custom_field_definitions = [{
+      id: 9, uid: 'cfuid009', name: 'Severity', field_type: fieldType,
+      choices: ['Low', 'High'], position: 0, show_on_card: true, is_required: false,
+      help_text: '', number_prefix: '', number_suffix: '', number_decimals: null,
+      choice_colors: { High: 'red' }, created_at: '',
+    }]
+    return b
+  }
+
+  it('a dropdown option uses the explicit palette base, else the unchanged hash dot', async () => {
+    const user = userEvent.setup()
+    render(<FilterBar board={board('dropdown')} filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9] }} onChange={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /^Severity/ }))
+    expect(dotFor('High')!.style.backgroundColor).toBe(rgb('#EF4444'))
+    expect(dotFor('Low')!.style.backgroundColor).toBe(rgb(choiceColor('Low')))
+  })
+
+  it('a multi-select option has no dot, colored or not', async () => {
+    const user = userEvent.setup()
+    render(<FilterBar board={board('multi_select')} filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [9] }} onChange={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /^Severity/ }))
+    expect(dotFor('High')).toBeNull()
+    expect(dotFor('Low')).toBeNull()
   })
 })

@@ -264,7 +264,7 @@ describe('EditSwimlaneModal — URL fields (#1390)', () => {
   const onClose = vi.fn()
   const crmDef = {
     id: 7, uid: 'sfuid0000007', name: 'CRM', field_type: 'url' as const, choices: [], position: 0,
-    show_on_row: true, is_admin_only: false, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, created_at: '',
+    show_on_row: true, is_admin_only: false, is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
   }
 
   beforeEach(() => { vi.clearAllMocks() })
@@ -361,7 +361,7 @@ describe('EditSwimlaneModal — URL fields (#1390)', () => {
         swimlaneFieldDefinitions={[{
           id: 3, uid: 'sfuid0000003', name: 'Markets', field_type: 'multi_select',
           choices: ['EMEA', 'APAC'], position: 0, show_on_row: true, is_admin_only: false,
-          is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
+          is_required: false, help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '2026-01-01',
         }]}
       />
     )

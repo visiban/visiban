@@ -877,6 +877,19 @@ class CustomFieldDefinition(models.Model):
     number_suffix = models.CharField(max_length=10, blank=True, default="", db_default="")
     # Fixed decimal places for display; null means "as typed" (pre-#1391 behavior).
     number_decimals = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Per-choice display color (#1391): ``{choice_text: palette_key}``, keys a
+    # subset of ``choices_json`` and values from the closed palette in
+    # ``boards.custom_field_types.CHOICE_COLOR_KEYS`` — palette *keys*, never
+    # hex, so the frontend owns the light/dark rendering and contrast. A
+    # separate map rather than objects inside ``choices_json`` so ``choices``
+    # stays the plain string list every existing client, export and template
+    # reads. Display-only: values are never touched. The serializer prunes
+    # entries for choices that no longer exist and clears the map when the
+    # field is retyped away from a choice type. ``db_default`` keeps a database
+    # DEFAULT so pre-0066 code still running mid-deploy can INSERT.
+    choice_colors = models.JSONField(
+        default=dict, blank=True, db_default=models.Value({}, output_field=models.JSONField()),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1048,6 +1061,11 @@ class SwimlaneCustomFieldDefinition(models.Model):
     number_prefix = models.CharField(max_length=10, blank=True, default="", db_default="")
     number_suffix = models.CharField(max_length=10, blank=True, default="", db_default="")
     number_decimals = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Per-choice display color (#1391) — same column and same rules as
+    # CustomFieldDefinition.choice_colors; see the notes there.
+    choice_colors = models.JSONField(
+        default=dict, blank=True, db_default=models.Value({}, output_field=models.JSONField()),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

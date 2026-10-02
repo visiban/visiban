@@ -23,7 +23,7 @@ function makeDefinition(overrides: Partial<CustomFieldDefinition> = {}): CustomF
     show_on_card: false,
     is_required: false,
     help_text: "",
-    number_prefix: "", number_suffix: "", number_decimals: null,
+    number_prefix: "", number_suffix: "", number_decimals: null, choice_colors: {},
     created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };

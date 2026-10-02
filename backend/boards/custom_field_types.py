@@ -33,6 +33,20 @@ T = CustomFieldDefinition.FieldType
 #: is one edit, not two copies to keep in step.
 CHOICE_TYPES = frozenset({T.DROPDOWN, T.MULTI_SELECT})
 
+#: The closed palette a choice may be colored from (#1391), as *keys* — never
+#: hex. The frontend owns how each key renders (a ``{light, dark}`` fg/bg pair
+#: with a recorded contrast ratio), so the server stores only which key was
+#: picked and a theme or contrast change never needs a data migration.
+#:
+#: Mirrored exactly, in this order, by ``CHOICE_COLOR_KEYS`` in
+#: ``frontend/src/constants/choiceColors.ts``.
+#: ``boards/tests/test_custom_fields.py::ChoiceColorKeyParityTests`` reads that
+#: file and fails on any drift, so adding a key means editing both files (and
+#: recording the new key's contrast ratio — see frontend/CLAUDE.md).
+CHOICE_COLOR_KEYS = (
+    "slate", "blue", "green", "amber", "red", "violet", "pink", "teal",
+)
+
 
 def parse_multi_select(value):
     """Return the entries of a stored multi-select value as a list of strings.

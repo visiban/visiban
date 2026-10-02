@@ -72,7 +72,7 @@ function makeDef(overrides: Partial<SwimlaneCustomFieldDefinition> = {}): Swimla
   return {
     id: 1, uid: 'sfuid0000001', name: 'Owner', field_type: 'text', choices: [], position: 0,
     show_on_row: true, is_admin_only: false, is_required: false, help_text: '',
-    number_prefix: '', number_suffix: '', number_decimals: null,
+    number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
     created_at: '2026-01-01', ...overrides,
   }
 }
@@ -536,7 +536,7 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       await user.click(screen.getByRole('button', { name: 'Save field' }))
       await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([pinned]))
       expect(mockApi.createSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, {
-        name: 'Region', field_type: 'dropdown', choices: ['APAC', 'AMER'],
+        name: 'Region', field_type: 'dropdown', choices: ['APAC', 'AMER'], choice_colors: {},
         help_text: 'Sales region', is_admin_only: false,
       })
       // Pinning is a second call: the create endpoint does not take show_on_row.
@@ -1025,5 +1025,56 @@ describe('BoardSettingsSwimlaneFieldsTab — number format (#1391)', () => {
     await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 3, expect.objectContaining({
       number_prefix: '$', number_suffix: '', number_decimals: null,
     })))
+  })
+})
+
+describe('BoardSettingsSwimlaneFieldsTab — choice colors (#1391)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function renderTab(defs: SwimlaneCustomFieldDefinition[]) {
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
+  }
+
+  it('picks, renames and saves row field colors through Save field', async () => {
+    const user = userEvent.setup()
+    const def = makeDef({ id: 4, name: 'Tier', field_type: 'dropdown', choices: ['Gold', 'Silver'], choice_colors: { Gold: 'amber', Silver: 'slate' } })
+    mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(def)
+    renderTab([def])
+    await user.click(screen.getByTitle('Edit Tier'))
+    expect(screen.getByRole('button', { name: 'Color for Gold: Amber' })).toBeInTheDocument()
+    expect(screen.getByText('Renaming a choice resets its color.')).toBeInTheDocument()
+    // Rename Silver: its color goes.
+    const silver = screen.getByDisplayValue('Silver')
+    await user.clear(silver)
+    await user.type(silver, 'Platinum')
+    expect(screen.getByRole('button', { name: 'Color for Platinum: Automatic' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Color for Platinum: Automatic' }))
+    await user.click(screen.getByRole('radio', { name: 'Violet' }))
+    expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Save field' }))
+    await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 4, expect.objectContaining({
+      choices: ['Gold', 'Platinum'], choice_colors: { Gold: 'amber', Platinum: 'violet' },
+    })))
+  })
+
+  it('shows no swatches for a non-choice type and sends no colors', async () => {
+    const user = userEvent.setup()
+    mockApi.createSwimlaneCustomFieldDefinition.mockResolvedValue(makeDef({ id: 9, name: 'ARR', field_type: 'number' }))
+    renderTab([])
+    await user.click(screen.getByRole('button', { name: '+ Add field' }))
+    await user.type(screen.getByPlaceholderText('e.g. Account owner'), 'ARR')
+    await user.click(screen.getByRole('button', { name: /# Number/ }))
+    expect(screen.queryByRole('button', { name: /Color for/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save field' }))
+    await waitFor(() => expect(mockApi.createSwimlaneCustomFieldDefinition).toHaveBeenCalled())
+    expect(mockApi.createSwimlaneCustomFieldDefinition.mock.calls[0][1].choice_colors).toBeUndefined()
+  })
+
+  it('renders a colored row-header chip through the row', () => {
+    const def = makeDef({ id: 4, name: 'Tier', field_type: 'dropdown', choices: ['Gold'], choice_colors: { Gold: 'amber' } })
+    const { container } = renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 4, value: 'Gold' }] }), [def])
+    const badge = container.querySelector('.cf-choice-badge')
+    expect(badge).not.toBeNull()
+    expect(badge).toHaveTextContent('Gold')
   })
 })

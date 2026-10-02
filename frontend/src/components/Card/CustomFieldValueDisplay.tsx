@@ -1,8 +1,9 @@
 import type { FieldDefinitionShape } from "../../types";
-import { chipValueText, choiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect } from "../../utils/customFieldValue";
+import { chipValueText, explicitChoiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect } from "../../utils/customFieldValue";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 import CustomFieldLink from "./CustomFieldLink";
 import MultiSelectChips from "./MultiSelectChips";
+import { ChoiceBadge, ChoiceDot } from "./ChoiceValue";
 
 interface Props {
   definition: FieldDefinitionShape;
@@ -56,12 +57,25 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
   // An empty set renders nothing at all, never an empty bordered chip.
   if (multiEntries !== null && multiEntries.length === 0) return null;
 
+  // #1391: a dropdown value whose choice has an explicit color renders as a
+  // tinted badge (label always shown); otherwise the automatic hash dot, as
+  // before. Orphans and unknown keys resolve to null here — see explicitChoiceColor.
+  const isDropdown = valid && definition.field_type === "dropdown" && value !== "";
+  const colorKey = isDropdown ? explicitChoiceColor(definition, value) : null;
+
   if (variant === "detail") {
     if (isUrl) return <CustomFieldLink value={value} variant="full" className={className} />;
+    if (colorKey) {
+      return (
+        <span className={`inline-flex min-w-0 ${className ?? ""}`}>
+          <ChoiceBadge colorKey={colorKey} className="max-w-full" title={displayText}>{displayText}</ChoiceBadge>
+        </span>
+      );
+    }
     if (multiEntries) {
       return (
         <span className={`inline-flex ${className ?? ""}`}>
-          <MultiSelectChips entries={multiEntries} wrap />
+          <MultiSelectChips entries={multiEntries} definition={definition} wrap />
         </span>
       );
     }
@@ -69,9 +83,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
   }
 
   // chip
-  const dot = valid && definition.field_type === "dropdown" && value !== "" ? (
-    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: choiceColor(value) }} aria-hidden="true" />
-  ) : null;
+  const dot = isDropdown && !colorKey ? <ChoiceDot choice={value} /> : null;
 
   if (variant === "row-chip") {
     // Same neutral bordered chip as the card face — not a fourth pill
@@ -97,7 +109,9 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           <CustomFieldLink value={value} variant="host" maxHostChars={20} stopPropagation />
         ) : multiEntries ? (
           // Up to three, wrapping: the row header is a narrow vertical column.
-          <MultiSelectChips entries={multiEntries} max={3} wrap />
+          <MultiSelectChips entries={multiEntries} definition={definition} max={3} wrap />
+        ) : colorKey ? (
+          <ChoiceBadge colorKey={colorKey}>{chipValueText(definition, displayText, 20)}</ChoiceBadge>
         ) : (
           <span className="text-fg-secondary truncate">
             {chipValueText(definition, displayText, 20)}
@@ -117,7 +131,9 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
       {isUrl ? (
         <CustomFieldLink value={value} variant="host" maxHostChars={16} stopPropagation />
       ) : multiEntries ? (
-        <MultiSelectChips entries={multiEntries} max={2} />
+        <MultiSelectChips entries={multiEntries} definition={definition} max={2} />
+      ) : colorKey ? (
+        <ChoiceBadge colorKey={colorKey}>{chipValueText(definition, displayText, 16)}</ChoiceBadge>
       ) : (
         <span className="text-fg-secondary truncate">
           {chipValueText(definition, displayText, 16)}

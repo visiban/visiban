@@ -13,7 +13,9 @@ import {
   reorderCustomFields,
 } from "../../api/boards";
 import NumberFormatFields from "./NumberFormatFields";
-import { EMPTY_NUMBER_FORMAT, numberFormatDraftFrom, numberFormatPayload, type NumberFormatDraft } from "../../utils/customFieldValue";
+import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
+import ChoiceColorPicker from "./ChoiceColorPicker";
+import { isChoiceColorKey } from "../../constants/choiceColors";
 
 interface Props {
   board: BoardFull;
@@ -67,15 +69,17 @@ interface FormState {
   help_text: string;
   /** #1391: number-format options; sent only meaningfully when field_type is "number". */
   number_format: NumberFormatDraft;
+  /** #1391: per-choice colors keyed by the choice text as typed; sent only for choice types. */
+  choice_colors: Record<string, string>;
   show_on_card: boolean;
 }
 
 function emptyForm(): FormState {
-  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, show_on_card: false };
+  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, show_on_card: false };
 }
 
 function formFromDefinition(d: CustomFieldDefinition): FormState {
-  return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), show_on_card: d.show_on_card };
+  return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, show_on_card: d.show_on_card };
 }
 
 /**
@@ -203,9 +207,19 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   };
 
   const addChoice = () => setForm((f) => ({ ...f, choices: [...f.choices, ""] }));
-  const removeChoice = (i: number) => setForm((f) => ({ ...f, choices: f.choices.filter((_, idx) => idx !== i) }));
+  // #1391: the color is keyed by the choice text, so removing or renaming a
+  // choice drops its color from the draft ("Renaming a choice resets its color").
+  const removeChoice = (i: number) => setForm((f) => ({
+    ...f,
+    choices: f.choices.filter((_, idx) => idx !== i),
+    choice_colors: withoutChoiceColor(f.choice_colors, f.choices[i]),
+  }));
   const updateChoice = (i: number, value: string) =>
-    setForm((f) => ({ ...f, choices: f.choices.map((c, idx) => (idx === i ? value : c)) }));
+    setForm((f) => ({
+      ...f,
+      choices: f.choices.map((c, idx) => (idx === i ? value : c)),
+      choice_colors: f.choices[i] === value ? f.choice_colors : withoutChoiceColor(f.choice_colors, f.choices[i]),
+    }));
   const moveChoice = (from: number, to: number) =>
     setForm((f) => ({ ...f, choices: arrayMove(f.choices, from, to) }));
 
@@ -245,6 +259,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           name,
           field_type: form.field_type,
           choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
+          choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(form.choices, form.choice_colors) : undefined,
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
         });
@@ -258,6 +273,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           name,
           field_type: form.field_type,
           choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
+          choice_colors: hasChoices(form.field_type) ? choiceColorsPayload(form.choices, form.choice_colors) : undefined,
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
         });
@@ -689,6 +705,14 @@ function FieldEditPanel({
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); moveChoice(Number(e.dataTransfer.getData("text/plain")), i); }}
                 >⋮⋮</span>
+                <ChoiceColorPicker
+                  choice={choice}
+                  colorKey={draftChoiceColor(form.choice_colors, choice)}
+                  onChange={(key) => setForm((f) => ({
+                    ...f,
+                    choice_colors: withChoiceColor(f.choice_colors, choice, key),
+                  }))}
+                />
                 <input
                   type="text"
                   value={choice}
@@ -699,6 +723,10 @@ function FieldEditPanel({
               </div>
             ))}
           </div>
+          {/* Shown only once a choice actually has a color to lose. */}
+          {form.choices.some((c) => isChoiceColorKey(draftChoiceColor(form.choice_colors, c))) && (
+            <p className="text-xs text-fg-muted mb-1.5">Renaming a choice resets its color.</p>
+          )}
           <div className="flex items-center gap-3">
             <button onClick={addChoice} className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">+ Add choice</button>
             <button onClick={() => setPasteListOpen(!pasteListOpen)} className="text-xs text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Paste a list</button>

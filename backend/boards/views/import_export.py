@@ -1514,6 +1514,10 @@ class BoardImportExportMixin:
                         "number_prefix": cf.number_prefix,
                         "number_suffix": cf.number_suffix,
                         "number_decimals": cf.number_decimals,
+                        # Per-choice display colors (#1391): additive
+                        # {choice: palette_key} map; "choices" stays the
+                        # plain string list and values are unchanged.
+                        "choice_colors": cf.choice_colors,
                     }
                     for cf in custom_field_definitions
                 ],
@@ -1539,6 +1543,8 @@ class BoardImportExportMixin:
                         "number_prefix": sf.number_prefix,
                         "number_suffix": sf.number_suffix,
                         "number_decimals": sf.number_decimals,
+                        # Per-choice display colors (#1391); see above.
+                        "choice_colors": sf.choice_colors,
                     }
                     for sf in swimlane_field_definitions
                 ],

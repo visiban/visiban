@@ -265,6 +265,17 @@ number string, so exports, filtering and the value index are unaffected. They me
 something only when `field_type` is `number`; the serializer rejects them on any other
 type and resets them when a definition is retyped away from `number` (migration `0065`).
 
+Both definition models also carry `choice_colors` (`jsonb`, `NOT NULL`, default `'{}'`,
+#1391, migration `0066`): a `{choice text: palette key}` map giving dropdown and
+multi-select choices an optional display color. It is a separate column rather than
+objects inside `choices_json`, so `choices` stays the plain string list every client,
+export and template already reads. Values are palette *keys* (`slate`, `blue`, `green`,
+`amber`, `red`, `violet`, `pink`, `teal` — `CHOICE_COLOR_KEYS` in
+`boards/custom_field_types.py`), never hex, so the frontend owns light/dark rendering and
+contrast. The serializer prunes keys that are no longer choices on every write (renaming
+a choice drops its color) and clears the map when a definition is retyped away from a
+choice type.
+
 The same shape exists one level up, for swimlanes rather than cards: `SwimlaneCustomFieldDefinition` / `SwimlaneCustomFieldValue` (#1140), capped at 15 definitions and 3 pinned per board — a swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a `target_type` discriminator on the card-level models, so that existing 1.0 response shapes (`BoardFullSerializer`, the CSV export header, the per-board cap count) never have to filter for scope. `is_admin_only` (default `true`) restricts a row field's values to board admins, reusing the existing `SwimlaneSerializer` / `SwimlaneAdminSerializer` split.
 
 ### CardRelation

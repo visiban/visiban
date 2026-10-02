@@ -39,7 +39,7 @@ Click **+ Add field**, or **✎** on an existing field, to open the inline edito
 - **Type** — one of the seven types above, chosen from a row of buttons
 - **Help text** — optional hint shown next to the input wherever the field is edited
 - **Format** (number only) — optional **Prefix**, **Suffix**, and **Decimals**; see [Number formatting](#number-formatting) below
-- **Choices** (dropdown and multi-select) — add rows one at a time with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add choices from a newline-separated block of text in one step
+- **Choices** (dropdown and multi-select) — add rows one at a time with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add choices from a newline-separated block of text in one step. The round swatch in front of each choice sets its color — see [Choice colors](#choice-colors) below
 - **Pin to card face** — toggle to add this field's value to the card face (see [Pinned fields on the card face](#pinned-fields-on-the-card-face) below)
 
 Click **Save field** to commit, or **Cancel** to discard.
@@ -75,7 +75,7 @@ Members, collaborators, and viewers see a read-only list of the board's fields �
 
 ## Custom fields on the card face
 
-Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format `Field name: value`. A dropdown value shows a small color dot before the value; a checkbox value shows **Yes** or **No**; a URL value shows just the site's hostname (for example `wiki.example.com`) as a link; a multi-select value shows up to two of its picks as small chips, with a `+N` marker for the rest (hover it to see them all). Long values are truncated with an ellipsis; hover the chip to see the full value.
+Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format `Field name: value`. A dropdown value shows a small color dot before the value, or — if an admin gave its choice a color — a tinted badge (see [Choice colors](#choice-colors)); a checkbox value shows **Yes** or **No**; a URL value shows just the site's hostname (for example `wiki.example.com`) as a link; a multi-select value shows up to two of its picks as small chips, with a `+N` marker for the rest (hover it to see them all). Long values are truncated with an ellipsis; hover the chip to see the full value.
 
 An unset pinned field is hidden at **Comfortable** and **Standard** card density (see [Card density](board.md#card-density)) to keep the card face uncluttered. At **Dense** density, an unset pinned field shows as a dashed "ghost" chip instead, so power users always see the full set of pinned fields whether or not they're populated.
 
@@ -145,9 +145,21 @@ A multi-select field holds **several** of a fixed list of choices at once — th
 
 #### Renaming or removing a choice
 
-Renaming or removing a choice on a dropdown or multi-select field **never changes values already on cards or swimlanes**. A card that held the old choice keeps it as text: it still shows on the card (in the same neutral style as every other value), still appears in exports, and still matches nothing in the filter bar's choice list, which only offers current choices.
+Renaming or removing a choice on a dropdown or multi-select field **never changes values already on cards or swimlanes**. A card that held the old choice keeps it as text: it still shows on the card (in the same neutral style as every other value, with no [choice color](#choice-colors)), still appears in exports, and still matches nothing in the filter bar's choice list, which only offers current choices.
 
 In a multi-select's checklist these leftover values are listed under **No longer a choice**, checked. You can keep them while you change the other picks, or uncheck them to drop them — but once dropped, a value that is no longer a choice can't be picked again.
+
+### Choice colors
+
+*Since 1.2.* Each choice on a dropdown or multi-select field can have its own color, so a value like **High** or **Blocked** stands out at a glance. Colors work the same on card fields and [swimlane fields](#swimlane-row-custom-fields).
+
+- **Setting a color** — in the field editor, click the round swatch in front of a choice and pick one of eight colors: **Slate**, **Blue**, **Green**, **Amber**, **Red**, **Violet**, **Pink**, or **Teal**. **Reset to automatic** removes it again. The color is saved with the rest of the field when you click **Save field**.
+- **Automatic** — a choice with no color picked shows the small automatic color dot it always has, so boards created before 1.2 look exactly as they did. In the field editor its swatch is an empty dashed circle labelled *Automatic*.
+- **Where it shows** — a colored choice renders as a tinted badge on the card face and in the swimlane label panel (and in the card detail panel and the multi-select picker's selected chips), inside the field's usual bordered chip. The choice's text is always shown — the color is never the only way to read it — and every color meets WCAG AA contrast in both light and dark themes. The list of options you pick from is unchanged.
+- **Renaming or removing a choice resets its color** — the color belongs to the choice's text, so a renamed choice starts out *Automatic* again, and a removed choice's color is deleted. Values still stored under the old text (see [Renaming or removing a choice](#renaming-or-removing-a-choice)) render neutral.
+- **Changing the type** — switching a field away from Dropdown or Multi-select clears its colors. Switching between Dropdown and Multi-select keeps them.
+- **Keyboard** — in the color popover, the arrow keys move between swatches, Space or Enter picks one, and Escape closes just the popover (not Board Settings), as does tabbing out of it.
+- Colors are display-only: exports, filters and the API's `choices` list are unchanged.
 
 ---
 
@@ -227,6 +239,7 @@ This page covers the UI. For the wire format:
 - Swimlane real-time updates — schema changes arrive as `swimlane_custom_field.created`, `swimlane_custom_field.updated`, `swimlane_custom_field.deleted`, and `swimlane_custom_field.reordered`; value changes arrive on the existing `swimlane.updated` event — [WebSockets](../api/websockets.md#swimlane-field-events-since-12)
 - Board export (CSV and JSON) includes swimlane field values alongside card field values, with admin-only fields omitted entirely for a non-admin exporter — [Export & Import](../api/boards.md#export-import). In the CSV, a multi-select value is written as its picks joined with `; ` (for example `web; ios`); the JSON export keeps the stored JSON array string — see [Multi-select fields](../api/boards.md#multi-select-fields)
 - Number formatting options — `number_prefix`, `number_suffix`, `number_decimals` on both definition endpoints; values stay raw on the wire and in exports — see [Number formatting](../api/boards.md#number-formatting)
+- Choice colors — `choice_colors` (`{choice: palette_key}`) on both definition endpoints; `choices` stays a plain list — see [Choice colors](../api/boards.md#choice-colors)
 
 ---
 
@@ -234,7 +247,7 @@ This page covers the UI. For the wire format:
 
 | Limitation | Detail |
 |---|---|
-| No conditional coloring | Custom field values cannot be color-coded by threshold (e.g. red above N) |
+| No conditional coloring | Custom field values cannot be color-coded by threshold (e.g. red above N). Only dropdown and multi-select choices can carry a color, a fixed one per choice — see [Choice colors](#choice-colors) |
 | No range filtering | Number and date filters match an exact value only, not a range |
 | Number formatting ignores the Number format preference | Formatted custom field numbers always use US separators (`1,234.50`), not the per-user **Number format** setting |
 | `is_required` not enforced | The field definition has a "required" concept in the data model, but it is not enforced in the UI or API in this release — a field marked required can still be left blank |

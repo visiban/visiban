@@ -207,6 +207,16 @@ class BoardFullQueryCountTests(TestCase):
             board=self.board, name="ARR", field_type="number", position=90,
             number_prefix="$", number_decimals=2,
         )
+        # #1391 (MR C): a colored-choice dropdown at each level — choice_colors
+        # is a plain column on the definition row, so the budget must not move.
+        CustomFieldDefinition.objects.create(
+            board=self.board, name="Severity", field_type="dropdown", position=91,
+            choices_json=["Low", "High"], choice_colors={"High": "red"},
+        )
+        SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Tier", field_type="dropdown", position=91,
+            choices_json=["Gold"], choice_colors={"Gold": "amber"},
+        )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
@@ -222,6 +232,10 @@ class BoardFullQueryCountTests(TestCase):
         self.assertEqual((budget["number_prefix"], budget["number_decimals"]), ("$", 2))
         arr = next(d for d in r.data["swimlane_custom_field_definitions"] if d["name"] == "ARR")
         self.assertEqual((arr["number_prefix"], arr["number_decimals"]), ("$", 2))
+        severity = next(d for d in r.data["custom_field_definitions"] if d["name"] == "Severity")
+        self.assertEqual(severity["choice_colors"], {"High": "red"})
+        tier = next(d for d in r.data["swimlane_custom_field_definitions"] if d["name"] == "Tier")
+        self.assertEqual(tier["choice_colors"], {"Gold": "amber"})
         self.assertLessEqual(
             len(ctx), self.BUDGET,
             f"full/ used {len(ctx)} queries — budget is {self.BUDGET}.",
@@ -367,6 +381,16 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
         SwimlaneCustomFieldDefinition.objects.create(
             board=self.board, name="ARR", field_type="number", position=90,
             number_prefix="$", number_decimals=2,
+        )
+        # #1391 (MR C): a colored-choice dropdown at each level — choice_colors
+        # is a plain column on the definition row, so the budget must not move.
+        CustomFieldDefinition.objects.create(
+            board=self.board, name="Severity", field_type="dropdown", position=91,
+            choices_json=["Low", "High"], choice_colors={"High": "red"},
+        )
+        SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Tier", field_type="dropdown", position=91,
+            choices_json=["Gold"], choice_colors={"Gold": "amber"},
         )
 
         # Seed cards
