@@ -4108,6 +4108,13 @@ a <code>CustomFieldValue</code> is one card's value for one definition, unique p
 </ul>
 <p><code>is_required</code> exists as a column but is <strong>not enforced</strong>; turning it on would make
 previously valid card writes fail, so it needs a release note, not a quiet change.</p>
+<p>Both definition models also carry three display-only number-format columns (#1391):
+<code>number_prefix</code> and <code>number_suffix</code> (<code>varchar(10)</code>, default <code>""</code>) and <code>number_decimals</code>
+(<code>smallint</code> with a <code>&gt;= 0</code> check, nullable; <code>NULL</code> = "as typed", the API caps it at 10).
+They are typed columns on the <em>definition</em>, not on the value — the value stays the plain
+number string, so exports, filtering and the value index are unaffected. They mean
+something only when <code>field_type</code> is <code>number</code>; the serializer rejects them on any other
+type and resets them when a definition is retyped away from <code>number</code> (migration <code>0065</code>).</p>
 <p>The same shape exists one level up, for swimlanes rather than cards: <code>SwimlaneCustomFieldDefinition</code> / <code>SwimlaneCustomFieldValue</code> (#1140), capped at 15 definitions and 3 pinned per board — a swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a <code>target_type</code> discriminator on the card-level models, so that existing 1.0 response shapes (<code>BoardFullSerializer</code>, the CSV export header, the per-board cap count) never have to filter for scope. <code>is_admin_only</code> (default <code>true</code>) restricts a row field's values to board admins, reusing the existing <code>SwimlaneSerializer</code> / <code>SwimlaneAdminSerializer</code> split.</p>
 <h3 id="cardrelation">CardRelation<a class="headerlink" href="#cardrelation" title="Permanent link">&para;</a></h3>
 <p>A typed, directional link between two cards on the same board (#449): <code>blocks</code> or <code>relates_to</code>. Only one row is stored per pair — <code>outgoing_relations</code> reads it forwards ("blocks"), <code>incoming_relations</code> reads it backwards ("blocked by") — rather than two mirrored rows, so the pair cannot drift out of sync. <code>relates_to</code> is symmetric and normalized at write time (lower card id becomes <code>from_card</code>) so <code>unique_together</code> actually dedupes it. Same-board-only is enforced in the view, not the database (a <code>CheckConstraint</code> cannot span a join); a database <code>CheckConstraint</code> does block self-relations. Longer cycles (A→B→C→A) are deliberately not detected — nothing in v1 walks the graph as an ordering.</p>

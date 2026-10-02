@@ -1218,6 +1218,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#number-formatting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Number formatting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#url-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3966,6 +3977,7 @@
 <li><strong>Field name</strong> — required, unique on the board</li>
 <li><strong>Type</strong> — one of the seven types above, chosen from a row of buttons</li>
 <li><strong>Help text</strong> — optional hint shown next to the input wherever the field is edited</li>
+<li><strong>Format</strong> (number only) — optional <strong>Prefix</strong>, <strong>Suffix</strong>, and <strong>Decimals</strong>; see <a href="#number-formatting">Number formatting</a> below</li>
 <li><strong>Choices</strong> (dropdown and multi-select) — add rows one at a time with <strong>+ Add choice</strong>, drag to reorder, or click <strong>Paste a list</strong> to bulk-add choices from a newline-separated block of text in one step</li>
 <li><strong>Pin to card face</strong> — toggle to add this field's value to the card face (see <a href="#pinned-fields-on-the-card-face">Pinned fields on the card face</a> below)</li>
 </ul>
@@ -4011,6 +4023,45 @@
 </ul>
 <p>Each field autosaves on change, the same way other card detail fields behave. The section opens automatically if any field already has a stored value on the card; otherwise it starts collapsed and expands on click.</p>
 <p>If the board has no custom fields defined, this section doesn't appear at all.</p>
+<h3 id="number-formatting">Number formatting<a class="headerlink" href="#number-formatting" title="Permanent link">&para;</a></h3>
+<p>A number field can show its value with a unit and a fixed number of decimal places — <code>$1,234.50</code>, <code>8 h</code>, <code>-$5.00</code> — while the value itself stays a plain number. Set it in the field editor's <strong>Format</strong> block, which appears only while the field's type is <strong>Number</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>What it does</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Prefix</strong></td>
+<td>Text shown before the number, e.g. <code>$</code>. Up to 10 characters; spaces are kept, so <code>$</code> shows <code>$ 5</code>.</td>
+<td>none</td>
+</tr>
+<tr>
+<td><strong>Suffix</strong></td>
+<td>Text shown after the number, e.g. <code>h</code> or <code>USD</code>. Up to 10 characters; spaces are kept.</td>
+<td>none</td>
+</tr>
+<tr>
+<td><strong>Decimals</strong></td>
+<td>Show exactly this many decimal places (0–10), rounding as needed, with thousands separators (<code>1,234.50</code>). Leave it empty to show the number exactly as typed — no separators, and written the way it was entered (<code>+5</code> shows <code>$+5</code>, <code>1e3</code> shows <code>$1e3</code>).</td>
+<td>empty (as typed)</td>
+</tr>
+</tbody>
+</table>
+<p>A <strong>Preview</strong> line under the block shows how <code>1234.5</code> will look with your settings. A decimals value outside 0–10 shows <em>Enter 0 to 10.</em> and the field can't be saved until it is fixed.</p>
+<ul>
+<li><strong>Display only</strong> — formatting changes how a value <strong>looks</strong> on the card face, in the card detail panel, in the hover peek, on swimlane row chips, and in the filter bar's active-filter chip. The stored value is never changed: editing still uses a plain number box, with the prefix and suffix shown beside it as non-editable labels.</li>
+<li><strong>Very large numbers</strong> — with Decimals set, a number beyond about 9 quadrillion (2^53) can show rounded digits. Only the display is affected; the stored value keeps every digit.</li>
+<li><strong>Negative numbers</strong> put the minus sign before the prefix: <code>-$5.00</code>, not <code>$-5.00</code>. A negative value that rounds to zero shows without a sign (<code>$0.00</code>).</li>
+<li><strong>Separators</strong> — grouping and the decimal point use US conventions (<code>1,234.50</code>) for every viewer. The <strong>Number format</strong> preference in your profile settings does not apply to custom field values. There is no currency model or conversion: <code>$</code> is just text.</li>
+<li><strong>Exports stay raw</strong> — CSV and JSON exports contain the stored number (<code>1234.5</code>), not the formatted text. The JSON export also lists each field's <code>number_prefix</code>, <code>number_suffix</code> and <code>number_decimals</code>, so a consumer can apply the format itself.</li>
+<li><strong>Filtering uses the raw number</strong> — type the number itself (<code>1234.5</code>) in the filter bar, not the formatted text.</li>
+<li><strong>Changing the type</strong> — switching a field away from Number clears its format options.</li>
+</ul>
+<p>The same options are available on <a href="#swimlane-row-custom-fields">swimlane fields</a>.</p>
 <h3 id="url-fields">URL fields<a class="headerlink" href="#url-fields" title="Permanent link">&para;</a></h3>
 <p>A URL field holds one web address — a runbook, a design file, a CRM record — as a clickable link instead of an unclickable string in a text field. Unlike a card's single <a href="../card-links/">pull / merge request link</a>, a board can have several URL fields, and they work on swimlanes too.</p>
 <ul>
@@ -4092,7 +4143,7 @@
 <h3 id="managing-swimlane-fields-board-settings-swimlane-fields">Managing swimlane fields (Board Settings → Swimlane fields)<a class="headerlink" href="#managing-swimlane-fields-board-settings-swimlane-fields" title="Permanent link">&para;</a></h3>
 <p>Open <strong>Board Settings</strong> and select the <strong>Swimlane fields</strong> tab, beside <strong>Card fields</strong>. Only board admins can create, edit, reorder, pin, or delete swimlane fields.</p>
 <p>The tab lists every swimlane field in display order, with the same type glyph, name, type label, and pin state that the Card fields tab uses. The tab header shows a running count, e.g. <code>12 of 15 · 2 of 3 pinned</code>. At <strong>13–14 fields</strong>, a warning line shows how many fields are left before <strong>+ Add field</strong> locks out; at <strong>15 fields</strong>, <strong>+ Add field</strong> is disabled with an inline explanation.</p>
-<p>The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns and multi-selects, and a pin toggle — plus one addition:</p>
+<p>The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns and multi-selects, the <a href="#number-formatting">number format</a> options for number fields, and a pin toggle — plus one addition:</p>
 <ul>
 <li><strong>Admin only</strong> — toggle, <strong>on by default</strong> for a new field. An admin-only field's values are withheld from every non-admin role entirely: members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.</li>
 </ul>
@@ -4115,6 +4166,7 @@
 <li>Swimlane values — the <code>custom_field_values</code> field on the swimlane payload — <a href="../../api/boards/#swimlanes">Boards API</a></li>
 <li>Swimlane real-time updates — schema changes arrive as <code>swimlane_custom_field.created</code>, <code>swimlane_custom_field.updated</code>, <code>swimlane_custom_field.deleted</code>, and <code>swimlane_custom_field.reordered</code>; value changes arrive on the existing <code>swimlane.updated</code> event — <a href="../../api/websockets/#swimlane-field-events-since-12">WebSockets</a></li>
 <li>Board export (CSV and JSON) includes swimlane field values alongside card field values, with admin-only fields omitted entirely for a non-admin exporter — <a href="../../api/boards/#export-import">Export &amp; Import</a>. In the CSV, a multi-select value is written as its picks joined with <code>;</code> (for example <code>web; ios</code>); the JSON export keeps the stored JSON array string — see <a href="../../api/boards/#multi-select-fields">Multi-select fields</a></li>
+<li>Number formatting options — <code>number_prefix</code>, <code>number_suffix</code>, <code>number_decimals</code> on both definition endpoints; values stay raw on the wire and in exports — see <a href="../../api/boards/#number-formatting">Number formatting</a></li>
 </ul>
 <hr />
 <h2 id="limitations-in-this-release">Limitations in this release<a class="headerlink" href="#limitations-in-this-release" title="Permanent link">&para;</a></h2>
@@ -4133,6 +4185,10 @@
 <tr>
 <td>No range filtering</td>
 <td>Number and date filters match an exact value only, not a range</td>
+</tr>
+<tr>
+<td>Number formatting ignores the Number format preference</td>
+<td>Formatted custom field numbers always use US separators (<code>1,234.50</code>), not the per-user <strong>Number format</strong> setting</td>
 </tr>
 <tr>
 <td><code>is_required</code> not enforced</td>
