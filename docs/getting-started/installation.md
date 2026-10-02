@@ -180,6 +180,9 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+# Docker images install the hash-pinned backend/requirements.lock instead. If
+# you edit requirements.txt, run scripts/lock-backend-requirements.sh and commit
+# the regenerated lock (see docs/development/dependency-lock.md).
 
 cp ../.env.example .env
 # Set DATABASE_URL=sqlite:///db.sqlite3 for local SQLite

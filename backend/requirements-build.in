@@ -1,0 +1,5 @@
+# Build backend for the one sdist-only dependency (dj-rest-auth, setup.py based,
+# no pyproject.toml). Locked with hashes into requirements-build.lock and
+# installed in the Docker builder stage so the sdist is built with
+# --no-build-isolation instead of pip fetching an unpinned setuptools (#1378).
+setuptools
