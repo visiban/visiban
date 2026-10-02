@@ -929,3 +929,43 @@ describe('Swimlane URL fields (#1390)', () => {
     expect(onChange).toHaveBeenCalledWith('https://crm.example.com')
   })
 })
+
+describe('Swimlane multi-select fields (#1391)', () => {
+  it('renders up to three entries on the row chip, then +N', () => {
+    const def = makeDef({ id: 1, name: 'Markets', field_type: 'multi_select', choices: ['EMEA', 'AMER', 'APAC', 'LATAM'] })
+    renderRow(
+      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: '["EMEA","AMER","APAC","LATAM"]' }] }),
+      [def]
+    )
+    expect(screen.getByText('EMEA')).toBeInTheDocument()
+    expect(screen.getByText('APAC')).toBeInTheDocument()
+    expect(screen.queryByText('LATAM')).not.toBeInTheDocument()
+    expect(screen.getByText('+1')).toHaveAttribute('title', 'EMEA, AMER, APAC, LATAM')
+  })
+
+  it('offers Multi-select in the swimlane field type picker', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '+ Add field' }))
+    await user.click(screen.getByRole('button', { name: /☰ Multi-select/ }))
+    expect(screen.getByText('People can pick more than one choice.')).toBeInTheDocument()
+    expect(screen.getByText('Choices')).toBeInTheDocument()
+  })
+
+  it('the Edit Swimlane field row hands the canonical value to the form on Done', async () => {
+    const onChange = vi.fn()
+    render(
+      <SwimlaneFieldEditRow
+        definition={makeDef({ name: 'Markets', field_type: 'multi_select', choices: ['EMEA', 'APAC'] })}
+        value=""
+        onChange={onChange}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Markets: No value' }))
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'APAC' }))
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'EMEA' }))
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(onChange).toHaveBeenCalledWith('["EMEA","APAC"]')
+  })
+})

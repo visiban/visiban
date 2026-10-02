@@ -21,6 +21,14 @@ from .models import CardMovement, Card, Notification
 # a receiver that must not be able to do that should defer its own work with
 # ``transaction.on_commit``.
 #
+# Value format: ``old_value``/``new_value`` are the stored strings. For a
+# ``multi_select`` field (#1391) that is a canonical JSON array string such as
+# ``'["EMEA","APAC"]'`` (deduplicated, in choice order), so a receiver that
+# wants entries should ``json.loads`` it; the whole set is reported, never a
+# per-entry diff. Canonical encoding is what keeps a re-ordered resubmission of
+# the same set from firing this signal at all. The same applies to
+# ``swimlane_custom_field_value_changed`` below.
+#
 # Stability: this signal's name and keyword arguments are part of the 1.0+
 # extension surface. Arguments may be added; none may be removed or renamed
 # without a major version bump.

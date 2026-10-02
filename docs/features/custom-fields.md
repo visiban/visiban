@@ -6,7 +6,7 @@ Board admins can define typed metadata fields scoped to a single board — where
 
 Custom fields come in two independent flavors, scoped to different objects on the board: **card fields**, described on the rest of this page, and **swimlane fields**, described in [Swimlane (row) custom fields](#swimlane-row-custom-fields) below. The two are separate per-board schemas — a board may define a card field and a swimlane field with the same name, and they are never merged or compared.
 
-Six field types are available:
+Seven field types are available:
 
 | Type | Glyph | Stored as | Notes |
 |---|---|---|---|
@@ -16,6 +16,7 @@ Six field types are available:
 | Dropdown | `▾` | One of a fixed list of choices | Requires at least one choice |
 | Checkbox | `☑` | `true` / `false` | Displayed as **Yes** / **No** |
 | URL | `↗` | A web address | Must start with `http://` or `https://` (a bare `example.com` gets `https://` added for you); at most 500 characters. See [URL fields](#url-fields) |
+| Multi-select | `☰` | Any number of a fixed list of choices | Requires at least one choice. See [Multi-select fields](#multi-select-fields) |
 
 A board can have up to **30 card fields**, and up to **2 of them pinned** to the card face at once. (Swimlane fields have their own, smaller caps — see [Swimlane (row) custom fields](#swimlane-row-custom-fields).)
 
@@ -35,9 +36,9 @@ The tab lists every field defined on the board in display order, showing the typ
 Click **+ Add field**, or **✎** on an existing field, to open the inline editor:
 
 - **Field name** — required, unique on the board
-- **Type** — one of the six types above, chosen from a row of buttons
+- **Type** — one of the seven types above, chosen from a row of buttons
 - **Help text** — optional hint shown next to the input wherever the field is edited
-- **Choices** (dropdown only) — add rows one at a time with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add choices from a newline-separated block of text in one step
+- **Choices** (dropdown and multi-select) — add rows one at a time with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add choices from a newline-separated block of text in one step
 - **Pin to card face** — toggle to add this field's value to the card face (see [Pinned fields on the card face](#pinned-fields-on-the-card-face) below)
 
 Click **Save field** to commit, or **Cancel** to discard.
@@ -73,13 +74,13 @@ Members, collaborators, and viewers see a read-only list of the board's fields �
 
 ## Custom fields on the card face
 
-Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format `Field name: value`. A dropdown value shows a small color dot before the value; a checkbox value shows **Yes** or **No**; a URL value shows just the site's hostname (for example `wiki.example.com`) as a link. Long values are truncated with an ellipsis; hover the chip to see the full value.
+Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format `Field name: value`. A dropdown value shows a small color dot before the value; a checkbox value shows **Yes** or **No**; a URL value shows just the site's hostname (for example `wiki.example.com`) as a link; a multi-select value shows up to two of its picks as small chips, with a `+N` marker for the rest (hover it to see them all). Long values are truncated with an ellipsis; hover the chip to see the full value.
 
 An unset pinned field is hidden at **Comfortable** and **Standard** card density (see [Card density](board.md#card-density)) to keep the card face uncluttered. At **Dense** density, an unset pinned field shows as a dashed "ghost" chip instead, so power users always see the full set of pinned fields whether or not they're populated.
 
 ### Quick edit from the card face
 
-Checkbox and dropdown chips are directly editable from the card face, without opening the card: click a checkbox chip to toggle it, or click a dropdown chip to open a small popover and pick a new value. The editable affordance is a dotted underline under the value — shown at all times, not just on hover, so it's discoverable without training. Text, number, date, and URL fields are not quick-editable from the card face; edit them in the card detail panel. Clicking a URL chip's hostname opens the link in a new tab without opening the card.
+Checkbox and dropdown chips are directly editable from the card face, without opening the card: click a checkbox chip to toggle it, or click a dropdown chip to open a small popover and pick a new value. The editable affordance is a dotted underline under the value — shown at all times, not just on hover, so it's discoverable without training. Text, number, date, URL, and multi-select fields are not quick-editable from the card face; edit them in the card detail panel. Clicking a URL chip's hostname opens the link in a new tab without opening the card.
 
 ---
 
@@ -93,6 +94,7 @@ The card detail panel shows a collapsible **Custom fields** section (below Label
 - **Dropdown** — select from the field's defined choices
 - **Checkbox** — toggle
 - **URL** — web address input; saves when you leave the field or press Enter (see [URL fields](#url-fields))
+- **Multi-select** — a checklist of the field's choices; saves when you close it (see [Multi-select fields](#multi-select-fields))
 
 Each field autosaves on change, the same way other card detail fields behave. The section opens automatically if any field already has a stored value on the card; otherwise it starts collapsed and expands on click.
 
@@ -106,6 +108,23 @@ A URL field holds one web address — a runbook, a design file, a CRM record —
 - **Length** — an address can be at most **500 characters**, the same cap as every other custom field value. Longer addresses are rejected rather than shortened.
 - **Opening the link** — under an editable URL field, an **Open link ↗** line opens the saved address in a new tab. Read-only viewers see the full address as a link. Pinned chips on the card face and in the swimlane label panel show just the hostname (with a leading `www.` dropped); hover the chip to see the full address.
 - **Links always open in a new tab**, and only `http://`/`https://` values are ever rendered as links. A stored value that isn't a valid web address is shown as plain text.
+
+### Multi-select fields
+
+A multi-select field holds **several** of a fixed list of choices at once — the platforms a change touches, the teams involved, the regions affected — where a dropdown holds exactly one.
+
+- **Picking values** — click the field to open a checklist of its choices. Type to narrow the list, then check or uncheck as many as you like; the footer shows how many are selected. Nothing is saved while the list is open: closing it saves the whole selection once. Click **Done**, press Escape or Tab, or click anywhere outside the list to close it.
+- **Keyboard** — ↑ and ↓ move through the list, Enter (or Space, while the search box is empty) checks or unchecks the highlighted choice, and typing filters. With a search typed, the first Escape clears the search and the second closes the list.
+- **Order** — selected values are always stored and shown in the order of the field's choices, whatever order you picked them in.
+- **Clearing** — uncheck everything and close the list; the field becomes unset.
+- **If the save fails**, the field goes back to what it was before and a message names the field: *Couldn't save Platforms. Try again.*
+- **Length** — all of a card's picks together can be at most **500 characters** (the same cap as every other custom field value, measured on the stored form). A selection over the cap is refused, not shortened.
+
+#### Renaming or removing a choice
+
+Renaming or removing a choice on a dropdown or multi-select field **never changes values already on cards or swimlanes**. A card that held the old choice keeps it as text: it still shows on the card (in the same neutral style as every other value), still appears in exports, and still matches nothing in the filter bar's choice list, which only offers current choices.
+
+In a multi-select's checklist these leftover values are listed under **No longer a choice**, checked. You can keep them while you change the other picks, or uncheck them to drop them — but once dropped, a value that is no longer a choice can't be picked again.
 
 ---
 
@@ -133,9 +152,12 @@ The board's filter bar shows one filter control per **pinned** custom field by d
 | Dropdown | Multi-select of choices |
 | Checkbox | Multi-select of Yes / No |
 | URL | Substring match on the full address |
+| Multi-select | Checklist of choices; matches a card holding **any** of the checked choices |
 
 !!! note
     Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release.
+
+A multi-select filter matches whole values only: checking `web` matches a card holding `web`, never one holding only `webhooks`. Within one field the checked choices are **or**-ed (any of them); different fields, and every other filter, are **and**-ed together.
 
 Which extra field controls you've added via **+ Custom fields**, and the values you've set in them, persist per-board in your browser alongside the rest of the filter bar state.
 
@@ -143,7 +165,7 @@ Which extra field controls you've added via **+ Custom fields**, and the values 
 
 ## Swimlane (row) custom fields
 
-Board admins can also define typed fields on **swimlanes** (rows) instead of cards — a separate per-board schema from the card fields above. Use a swimlane field to capture something that belongs to the row as a whole rather than to any one card on it: an owner, a region, a renewal date. Swimlane fields use the same six types as card fields — Text, Number, Date, Dropdown, Checkbox, and URL.
+Board admins can also define typed fields on **swimlanes** (rows) instead of cards — a separate per-board schema from the card fields above. Use a swimlane field to capture something that belongs to the row as a whole rather than to any one card on it: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A pinned multi-select swimlane field shows up to three of its picks on the row, wrapping onto further lines.
 
 A board can have up to **15 swimlane fields**, and up to **3 of them pinned** to the swimlane label panel at once.
 
@@ -153,7 +175,7 @@ Open **Board Settings** and select the **Swimlane fields** tab, beside **Card fi
 
 The tab lists every swimlane field in display order, with the same type glyph, name, type label, and pin state that the Card fields tab uses. The tab header shows a running count, e.g. `12 of 15 · 2 of 3 pinned`. At **13–14 fields**, a warning line shows how many fields are left before **+ Add field** locks out; at **15 fields**, **+ Add field** is disabled with an inline explanation.
 
-The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns, and a pin toggle — plus one addition:
+The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns and multi-selects, and a pin toggle — plus one addition:
 
 - **Admin only** — toggle, **on by default** for a new field. An admin-only field's values are withheld from every non-admin role entirely: members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.
 
@@ -180,7 +202,7 @@ This page covers the UI. For the wire format:
 - Swimlane field definition CRUD and reordering — [`/api/v1/boards/{id}/swimlane-custom-fields/`](../api/boards.md#swimlane-custom-fields-since-12)
 - Swimlane values — the `custom_field_values` field on the swimlane payload — [Boards API](../api/boards.md#swimlanes)
 - Swimlane real-time updates — schema changes arrive as `swimlane_custom_field.created`, `swimlane_custom_field.updated`, `swimlane_custom_field.deleted`, and `swimlane_custom_field.reordered`; value changes arrive on the existing `swimlane.updated` event — [WebSockets](../api/websockets.md#swimlane-field-events-since-12)
-- Board export (CSV and JSON) includes swimlane field values alongside card field values, with admin-only fields omitted entirely for a non-admin exporter — [Export & Import](../api/boards.md#export-import)
+- Board export (CSV and JSON) includes swimlane field values alongside card field values, with admin-only fields omitted entirely for a non-admin exporter — [Export & Import](../api/boards.md#export-import). In the CSV, a multi-select value is written as its picks joined with `; ` (for example `web; ios`); the JSON export keeps the stored JSON array string — see [Multi-select fields](../api/boards.md#multi-select-fields)
 
 ---
 

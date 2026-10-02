@@ -10,7 +10,8 @@ import { classifyCardUrgency } from "../../utils/cardUrgency";
 import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import CustomFieldLink from "./CustomFieldLink";
-import { choiceColor, formatCustomFieldValue, isValidForType, withCustomFieldValue } from "../../utils/customFieldValue";
+import MultiSelectChips from "./MultiSelectChips";
+import { choiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, withCustomFieldValue } from "../../utils/customFieldValue";
 import { updateCard } from "../../api/cards";
 import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
 import ExternalRefGlyph from "./ExternalRefGlyph";
@@ -609,6 +610,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   const value = entry!.value;
                   const valid = isValidForType(def, value);
                   const displayText = valid ? formatCustomFieldValue(def, value, userDateFormat) : value;
+                  const multiEntries = valid && def.field_type === "multi_select" ? parseMultiSelect(value) : null;
                   const dot = valid && def.field_type === "dropdown" ? (
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: choiceColor(value) }} aria-hidden="true" />
                   ) : null;
@@ -634,11 +636,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                         }
                       } : undefined}
                       aria-label={interactive ? `${def.name}: ${displayText}. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
-                      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line shrink-0 max-w-[10rem] ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
+                      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line ${multiEntries ? "max-w-[14rem] min-w-0" : "shrink-0 max-w-[10rem]"} ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
                       title={`${def.name}: ${displayText}`}
                     >
                       {dot}
-                      <span className="text-fg-muted truncate">{def.name}:</span>
+                      {/* #1391: on a multi-select chip the name yields width before the value chips do. */}
+                      <span className={`text-fg-muted truncate ${multiEntries ? "min-w-0 shrink-[3]" : ""}`}>{def.name}:</span>
                       {/* Firm VoC requirement — the editable-badge affordance
                           (dotted underline) stays visible at rest, never
                           hover-reveal-only, so an occasional user can
@@ -649,6 +652,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                         // the link stops propagation so it neither opens the
                         // card nor starts a dnd-kit drag.
                         <CustomFieldLink value={value} variant="host" maxHostChars={16} stopPropagation />
+                      ) : multiEntries ? (
+                        // #1391: read-only here (no quick edit, no dotted
+                        // underline) — a multi-select is edited in card detail.
+                        <MultiSelectChips entries={multiEntries} max={2} />
                       ) : (
                         <span className={`text-fg-secondary truncate ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
                           {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}

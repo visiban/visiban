@@ -101,6 +101,14 @@ TEMPLATE_PROVIDERS: list = []
 #   * raises django.core.exceptions.ValidationError to reject it, which the
 #     serializer surfaces as a 400 on the `custom_field_values` field.
 # Validators run in registration order and each sees the previous one's output.
+# For a "multi_select" definition (#1391) `value` is the canonical JSON array
+# string the built-in validation produced (e.g. '["EMEA","APAC"]', or "" to
+# clear), never a Python list; a replacement must be a string of the same shape.
+# After the last validator runs, a multi_select replacement is re-canonicalized
+# (deduplicated, choice order, compact JSON) and re-checked against the
+# 500-character cap; a replacement that is not a JSON array of strings is
+# refused with a 400 rather than stored or silently dropped. The same applies to
+# SWIMLANE_CUSTOM_FIELD_VALIDATORS below.
 # Register via: from boards.hooks import CUSTOM_FIELD_VALIDATORS
 #               CUSTOM_FIELD_VALIDATORS.append(my_validator)
 # OSS behaviour is unchanged when this list is empty. Per the stability guarantee

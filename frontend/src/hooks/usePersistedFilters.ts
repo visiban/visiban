@@ -15,7 +15,7 @@ function validCustomFieldFilterValue(v: unknown): v is CustomFieldFilterValue {
   const obj = v as Record<string, unknown>;
   if (obj.kind === "text") return typeof obj.query === "string";
   if (obj.kind === "number" || obj.kind === "date") return typeof obj.equals === "string";
-  if (obj.kind === "choice") return Array.isArray(obj.values) && obj.values.every((x) => typeof x === "string");
+  if (obj.kind === "choice" || obj.kind === "multi_choice") return Array.isArray(obj.values) && obj.values.every((x) => typeof x === "string");
   return false;
 }
 

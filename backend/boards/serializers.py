@@ -1,5 +1,6 @@
 import datetime
 import decimal
+import json
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models as _db_models
@@ -30,6 +31,9 @@ from .models import (
     CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
     validate_external_ref_ref, validate_external_ref_url,
+)
+from .custom_field_types import (
+    CHOICE_TYPES, canonical_multi_select, encode_multi_select, parse_multi_select,
 )
 
 
@@ -258,6 +262,36 @@ class ColumnSerializer(serializers.ModelSerializer):
         return attrs
 
 
+def _parent_instance(field, model):
+    """The *model* instance a values field's parent serializer is updating.
+
+    ``None`` on create, or when the parent is not bound to one *model* row.
+    """
+    instance = getattr(field.parent, "instance", None)
+    return instance if isinstance(instance, model) and instance.pk else None
+
+
+def _stored_multi_select_values(value_model, owner_field, owner, definitions):
+    """``{definition_id: stored value}`` for the submitted multi-select fields.
+
+    Needed only so a multi-select write may keep an orphaned entry (see
+    :func:`_normalize_multi_select_value`). One query, and only when the
+    payload names a multi-select field on an existing owner — every other
+    write pays nothing.
+    """
+    ids = [
+        pk for pk, definition in definitions.items()
+        if definition.field_type == CustomFieldDefinition.FieldType.MULTI_SELECT
+    ]
+    if owner is None or not ids:
+        return {}
+    return dict(
+        value_model.objects.filter(
+            **{owner_field: owner}, field_definition_id__in=ids
+        ).values_list("field_definition_id", "value")
+    )
+
+
 @extend_schema_field({
     "type": "array",
     "items": {
@@ -273,7 +307,9 @@ class ColumnSerializer(serializers.ModelSerializer):
                 "type": "string",
                 "description": (
                     "Value as a string; empty string clears the field. Numbers as "
-                    "written, dates as YYYY-MM-DD, checkboxes as 'true'/'false'."
+                    "written, dates as YYYY-MM-DD, checkboxes as 'true'/'false', "
+                    "multi-selects as a JSON array string such as '[\"a\",\"b\"]' "
+                    "(a write may also send an array of strings)."
                 ),
             },
         },
@@ -391,6 +427,10 @@ class SwimlaneCustomFieldValuesField(serializers.Field):
                 + "."
             )
 
+        stored = _stored_multi_select_values(
+            SwimlaneCustomFieldValue, "swimlane", _parent_instance(self, Swimlane),
+            definitions,
+        )
         pairs = []
         for definition_id, raw in wanted.items():
             definition = definitions[definition_id]
@@ -400,7 +440,9 @@ class SwimlaneCustomFieldValuesField(serializers.Field):
             # field_type and choices_json, so it is duck-type safe. The
             # validator hooks are not: they run third-party code written
             # against the card definition, so row values get their own list.
-            value = _normalize_custom_field_value(definition, raw)
+            value = _normalize_custom_field_value(
+                definition, raw, stored.get(definition_id, "")
+            )
             value = _run_custom_field_validator_hooks(
                 definition, value, hook_name="SWIMLANE_CUSTOM_FIELD_VALIDATORS"
             )
@@ -648,6 +690,73 @@ def assert_definition_caps(
             })
 
 
+#: How each choice-bearing type is named in a validation message. Dropdown's
+#: wording is unchanged from before #1391 — the frontend and its tests match on
+#: it ("A dropdown field needs at least one choice.").
+_CHOICE_TYPE_LABELS = {
+    CustomFieldDefinition.FieldType.DROPDOWN: "dropdown",
+    CustomFieldDefinition.FieldType.MULTI_SELECT: "multi-select",
+}
+
+
+def validate_definition_choices(attrs, instance, field_type):
+    """The ``choices`` rules shared by both definition serializers (#1391).
+
+    Before #1391 these rules were pasted into
+    :class:`CustomFieldDefinitionSerializer` and
+    :class:`SwimlaneCustomFieldDefinitionSerializer` separately; a second
+    choice-bearing type (``multi_select``) would have made it four places to
+    edit. One helper means the card and row field editors cannot disagree on
+    what a legal choice list is.
+
+    A choice-bearing type (:data:`boards.custom_field_types.CHOICE_TYPES`)
+    needs 1-100 unique, non-empty, NUL-free strings, stored stripped. Any other
+    type may not carry choices: a 400 rather than a silent discard, because a
+    client sending choices for a checkbox has misunderstood something, and an
+    empty list written behind its back would not say so.
+
+    Reads through to *instance* for an unsubmitted ``choices_json``, so a PATCH
+    that only renames a dropdown is still checked against its stored choices.
+    Mutates ``attrs["choices_json"]`` to the cleaned list.
+    """
+    choices_submitted = "choices_json" in attrs
+    choices = attrs.get("choices_json", instance.choices_json if instance else [])
+
+    if field_type in CHOICE_TYPES:
+        label = _CHOICE_TYPE_LABELS[field_type]
+        if not isinstance(choices, list) or not choices:
+            raise serializers.ValidationError({
+                "choices": f"A {label} field needs at least one choice."
+            })
+        cleaned = []
+        for choice in choices:
+            if not isinstance(choice, str) or not choice.strip():
+                raise serializers.ValidationError({
+                    "choices": "Every choice must be a non-empty string."
+                })
+            choice = choice.strip()
+            if "\x00" in choice:
+                raise serializers.ValidationError({
+                    "choices": "Choices must not contain NUL (0x00) characters."
+                })
+            cleaned.append(choice)
+        if len(set(cleaned)) != len(cleaned):
+            raise serializers.ValidationError({
+                "choices": "Choices must be unique."
+            })
+        if len(cleaned) > 100:
+            raise serializers.ValidationError({
+                "choices": f"A {label} field may have at most 100 choices."
+            })
+        attrs["choices_json"] = cleaned
+    elif choices_submitted and choices:
+        raise serializers.ValidationError({
+            "choices": "Only a dropdown or multi-select field can have choices."
+        })
+    else:
+        attrs["choices_json"] = []
+
+
 @extend_schema_field({"type": "array", "items": {"type": "string"}})
 class ChoicesField(serializers.JSONField):
     """``choices`` on the two custom-field-definition serializers (#1139).
@@ -731,7 +840,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Cross-field rules: dropdown choices, and the two per-board caps.
+        """Cross-field rules: choices (dropdown, multi-select), and the two caps.
 
         Reads through to the instance for fields the caller did not submit, so
         a PATCH that only flips ``show_on_card`` is still checked against the
@@ -742,46 +851,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "field_type",
             instance.field_type if instance else CustomFieldDefinition.FieldType.TEXT,
         )
-        choices_submitted = "choices_json" in attrs
-        choices = attrs.get(
-            "choices_json", instance.choices_json if instance else []
-        )
-
-        if field_type == CustomFieldDefinition.FieldType.DROPDOWN:
-            if not isinstance(choices, list) or not choices:
-                raise serializers.ValidationError({
-                    "choices": "A dropdown field needs at least one choice."
-                })
-            cleaned = []
-            for choice in choices:
-                if not isinstance(choice, str) or not choice.strip():
-                    raise serializers.ValidationError({
-                        "choices": "Every choice must be a non-empty string."
-                    })
-                choice = choice.strip()
-                if "\x00" in choice:
-                    raise serializers.ValidationError({
-                        "choices": "Choices must not contain NUL (0x00) characters."
-                    })
-                cleaned.append(choice)
-            if len(set(cleaned)) != len(cleaned):
-                raise serializers.ValidationError({
-                    "choices": "Choices must be unique."
-                })
-            if len(cleaned) > 100:
-                raise serializers.ValidationError({
-                    "choices": "A dropdown field may have at most 100 choices."
-                })
-            attrs["choices_json"] = cleaned
-        elif choices_submitted and choices:
-            # Not a silent discard: a client sending choices for a checkbox has
-            # misunderstood something, and a 400 says so while an empty list
-            # written behind their back would not.
-            raise serializers.ValidationError({
-                "choices": "Only a dropdown field can have choices."
-            })
-        else:
-            attrs["choices_json"] = []
+        validate_definition_choices(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
         if board is not None:
@@ -825,11 +895,101 @@ class CustomFieldValueSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-def _normalize_custom_field_value(definition, raw):
+def _normalize_multi_select_value(definition, raw, stored=""):
+    """Validate a ``multi_select`` value and return its canonical string (#1391).
+
+    Accepted inputs, so that a client can round-trip what it read as well as
+    send the natural shape:
+
+    * a list of strings — the natural write shape;
+    * a JSON array string — exactly what a read returns, so echoing a card's
+      ``custom_field_values`` back is a no-op rather than a 400;
+    * a plain non-JSON string — one entry, the way a dropdown value is written;
+    * ``""``, ``null`` or ``[]`` — clear the field.
+
+    Every entry must be one of the definition's ``choices`` **or** an entry
+    already in *stored* (the owner's current value). The second half is the
+    "orphan and keep" rule: renaming or removing a choice never rewrites stored
+    values, so a card can carry an entry that is no longer a choice, and
+    editing that card's other entries must not 400 on it. An orphan can be
+    kept or dropped, never added.
+
+    The 500-character cap applies to the *encoded* string, since that is what
+    reaches the indexed column; overflow is a 400. NUL is rejected like any
+    other text value (#1184).
+    """
+    if isinstance(raw, list):
+        entries = raw
+    else:
+        text = str(raw).strip()
+        if text == "":
+            return ""
+        entries = None
+        if text.startswith("["):
+            # Bounded before parsing: no legal value is longer than the cap
+            # once canonical, and whitespace padding cannot plausibly make an
+            # honest echo four times longer. json.loads on a deeply nested
+            # "[[[[..." raises RecursionError, which must stay a 400 (the
+            # text is then read as one entry and refused as not a choice),
+            # never a 500.
+            if len(text) > CustomFieldDefinition.MAX_VALUE_LENGTH * 4:
+                raise serializers.ValidationError(
+                    f"'{definition.name}' value is longer than "
+                    f"{CustomFieldDefinition.MAX_VALUE_LENGTH} characters."
+                )
+            try:
+                decoded = json.loads(text)
+            except (ValueError, RecursionError):
+                decoded = None
+            if isinstance(decoded, list):
+                entries = decoded
+        if entries is None:
+            entries = [text]
+
+    # A list longer than the cap cannot encode under it (each entry costs at
+    # least three characters), so refuse it before walking it.
+    if len(entries) > CustomFieldDefinition.MAX_VALUE_LENGTH:
+        raise serializers.ValidationError(
+            f"'{definition.name}' value is longer than "
+            f"{CustomFieldDefinition.MAX_VALUE_LENGTH} characters."
+        )
+
+    allowed = set(definition.choices_json or []) | set(parse_multi_select(stored))
+    cleaned = []
+    for entry in entries:
+        if not isinstance(entry, str):
+            raise serializers.ValidationError(
+                f"Each value of '{definition.name}' must be a string."
+            )
+        entry = reject_nul_byte(entry.strip(), field_label=definition.name)
+        if entry == "":
+            continue
+        if entry not in allowed:
+            raise serializers.ValidationError(
+                f"'{entry}' is not a choice for '{definition.name}'."
+            )
+        cleaned.append(entry)
+
+    encoded = encode_multi_select(
+        canonical_multi_select(cleaned, definition.choices_json)
+    )
+    if len(encoded) > CustomFieldDefinition.MAX_VALUE_LENGTH:
+        raise serializers.ValidationError(
+            f"'{definition.name}' value is longer than "
+            f"{CustomFieldDefinition.MAX_VALUE_LENGTH} characters."
+        )
+    return encoded
+
+
+def _normalize_custom_field_value(definition, raw, stored=""):
     """Cast and validate one submitted value for *definition*.
 
     Returns the string to store; ``""`` means "clear this field". Raises
     ``serializers.ValidationError`` for anything the type does not accept.
+
+    *stored* is the owner's current value for this definition (``""`` when
+    unset or on create). Only ``multi_select`` reads it — see
+    :func:`_normalize_multi_select_value` for why.
 
     Every type funnels through one text column, so this is the only thing
     standing between "number" meaning a number and it meaning whatever the
@@ -840,6 +1000,11 @@ def _normalize_custom_field_value(definition, raw):
     T = CustomFieldDefinition.FieldType
     if raw is None:
         return ""
+    if definition.field_type == T.MULTI_SELECT and not isinstance(raw, (bool, dict)):
+        # Before the generic list rejection and length cap below: a list is
+        # this type's natural shape, and the cap applies to the canonical
+        # encoding, not to whatever spacing the client sent.
+        return _normalize_multi_select_value(definition, raw, stored)
     if isinstance(raw, bool):
         # Checked before the str() below: str(True) is "True", which would then
         # have to be special-cased in every branch.
@@ -940,6 +1105,41 @@ def _normalize_custom_field_value(definition, raw):
     return reject_nul_byte(text, field_label=definition.name)
 
 
+def _recanonicalize_multi_select_hook_value(definition, value):
+    """Re-canonicalize a multi-select value after the validator hooks ran.
+
+    A hook may legitimately rewrite the value (``boards/hooks.py``), but the
+    service diffs by string equality and every reader assumes the canonical
+    encoding, so whatever a hook returns is put back into canonical form here.
+    A hook that returns something that is not a JSON array of strings is a bug
+    in that hook; the write is refused with a 400 rather than storing a value
+    no reader can parse or silently discarding the hook's decision. The
+    500-character cap is re-checked, since a hook can lengthen the value.
+    """
+    if value == "":
+        return ""
+    try:
+        decoded = json.loads(value) if isinstance(value, str) else None
+    except (ValueError, RecursionError):
+        decoded = None
+    if not isinstance(decoded, list) or not all(isinstance(e, str) for e in decoded):
+        raise serializers.ValidationError(
+            f"'{definition.name}' was rewritten by a validator into an invalid "
+            "multi-select value."
+        )
+    encoded = encode_multi_select(
+        canonical_multi_select(
+            [entry for entry in decoded if entry.strip()], definition.choices_json
+        )
+    )
+    if len(encoded) > CustomFieldDefinition.MAX_VALUE_LENGTH:
+        raise serializers.ValidationError(
+            f"'{definition.name}' value is longer than "
+            f"{CustomFieldDefinition.MAX_VALUE_LENGTH} characters."
+        )
+    return encoded
+
+
 def _run_custom_field_validator_hooks(definition, value, *, hook_name="CUSTOM_FIELD_VALIDATORS"):
     """Apply a ``boards.hooks`` validator list to a normalized value.
 
@@ -962,6 +1162,8 @@ def _run_custom_field_validator_hooks(definition, value, *, hook_name="CUSTOM_FI
             raise serializers.ValidationError(list(exc.messages)) from None
         if replacement is not None:
             value = replacement
+    if definition.field_type == CustomFieldDefinition.FieldType.MULTI_SELECT:
+        value = _recanonicalize_multi_select_hook_value(definition, value)
     return value
 
 
@@ -978,7 +1180,9 @@ def _run_custom_field_validator_hooks(definition, value, *, hook_name="CUSTOM_FI
                 "type": "string",
                 "description": (
                     "Value as a string; empty string clears the field. Numbers as "
-                    "written, dates as YYYY-MM-DD, checkboxes as 'true'/'false'."
+                    "written, dates as YYYY-MM-DD, checkboxes as 'true'/'false', "
+                    "multi-selects as a JSON array string such as '[\"a\",\"b\"]' "
+                    "(a write may also send an array of strings)."
                 ),
             },
         },
@@ -1099,10 +1303,15 @@ class CustomFieldValuesField(serializers.Field):
                 + "."
             )
 
+        stored = _stored_multi_select_values(
+            CustomFieldValue, "card", _parent_instance(self, Card), definitions
+        )
         pairs = []
         for definition_id, raw in wanted.items():
             definition = definitions[definition_id]
-            value = _normalize_custom_field_value(definition, raw)
+            value = _normalize_custom_field_value(
+                definition, raw, stored.get(definition_id, "")
+            )
             value = _run_custom_field_validator_hooks(definition, value)
             pairs.append((definition, value))
         return pairs
@@ -1169,49 +1378,13 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Cross-field rules: dropdown choices, name uniqueness, and the caps."""
+        """Cross-field rules: choices (dropdown, multi-select), name uniqueness, caps."""
         instance = self.instance
         T = CustomFieldDefinition.FieldType
         field_type = attrs.get(
             "field_type", instance.field_type if instance else T.TEXT
         )
-        choices_submitted = "choices_json" in attrs
-        choices = attrs.get(
-            "choices_json", instance.choices_json if instance else []
-        )
-
-        if field_type == T.DROPDOWN:
-            if not isinstance(choices, list) or not choices:
-                raise serializers.ValidationError({
-                    "choices": "A dropdown field needs at least one choice."
-                })
-            cleaned = []
-            for choice in choices:
-                if not isinstance(choice, str) or not choice.strip():
-                    raise serializers.ValidationError({
-                        "choices": "Every choice must be a non-empty string."
-                    })
-                choice = choice.strip()
-                if "\x00" in choice:
-                    raise serializers.ValidationError({
-                        "choices": "Choices must not contain NUL (0x00) characters."
-                    })
-                cleaned.append(choice)
-            if len(set(cleaned)) != len(cleaned):
-                raise serializers.ValidationError({
-                    "choices": "Choices must be unique."
-                })
-            if len(cleaned) > 100:
-                raise serializers.ValidationError({
-                    "choices": "A dropdown field may have at most 100 choices."
-                })
-            attrs["choices_json"] = cleaned
-        elif choices_submitted and choices:
-            raise serializers.ValidationError({
-                "choices": "Only a dropdown field can have choices."
-            })
-        else:
-            attrs["choices_json"] = []
+        validate_definition_choices(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
         if board is not None:

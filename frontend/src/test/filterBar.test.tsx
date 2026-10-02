@@ -594,3 +594,47 @@ describe('FilterBar — URL custom fields (#1390)', () => {
     }))
   })
 })
+
+describe('FilterBar — multi-select custom fields (#1391)', () => {
+  function msBoard() {
+    const board = makeBoard()
+    board.custom_field_definitions = [{
+      id: 8, uid: 'cfuid008', name: 'Platforms', field_type: 'multi_select',
+      choices: ['web', 'ios'], position: 0, show_on_card: true, is_required: false,
+      help_text: '', created_at: '',
+    }]
+    return board
+  }
+
+  it('renders a checkbox dropdown of the choices that sets a multi_choice filter', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <FilterBar
+        board={msBoard()}
+        filters={{ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [8] }}
+        onChange={onChange}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: /^Platforms/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'ios' }))
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      customFields: { 8: { kind: 'multi_choice', values: ['ios'] } },
+    }))
+  })
+
+  it('shows an active filter chip labeled with the picked entries', () => {
+    render(
+      <FilterBar
+        board={msBoard()}
+        filters={{
+          ...EMPTY_FILTER,
+          visibleCustomFieldFilterIds: [8],
+          customFields: { 8: { kind: 'multi_choice', values: ['web', 'ios'] } },
+        }}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Platforms: web, ios')).toBeInTheDocument()
+  })
+})

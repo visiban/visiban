@@ -26,6 +26,7 @@ const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; glyph: string
   { value: "dropdown", label: "Dropdown", glyph: "▾" },
   { value: "checkbox", label: "Checkbox", glyph: "☑" },
   { value: "url", label: "URL", glyph: "↗" },
+  { value: "multi_select", label: "Multi-select", glyph: "☰" },
 ];
 
 const TYPE_LABEL: Record<CustomFieldType, string> = {
@@ -35,6 +36,7 @@ const TYPE_LABEL: Record<CustomFieldType, string> = {
   dropdown: "Dropdown",
   checkbox: "Checkbox",
   url: "URL",
+  multi_select: "Multi-select",
 };
 
 const TYPE_GLYPH: Record<CustomFieldType, string> = {
@@ -44,7 +46,14 @@ const TYPE_GLYPH: Record<CustomFieldType, string> = {
   dropdown: "▾",
   checkbox: "☑",
   url: "↗",
+  multi_select: "☰",
 };
+
+/** Types whose definition carries a `choices` list (#1391: dropdown, multi-select). */
+function hasChoices(t: CustomFieldType): boolean {
+  return t === "dropdown" || t === "multi_select";
+}
+
 
 const FIELD_CAP = 30;
 const PIN_CAP = 2;
@@ -215,6 +224,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
       setFormError("A dropdown field needs at least one choice.");
       return;
     }
+    if (form.field_type === "multi_select" && cleanedChoices.length === 0) {
+      setFormError("A multi-select field needs at least one choice.");
+      return;
+    }
 
     setSaving(true);
     setFormError(null);
@@ -223,7 +236,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
         const created = await createCustomFieldDefinition(board.id, {
           name,
           field_type: form.field_type,
-          choices: form.field_type === "dropdown" ? cleanedChoices : undefined,
+          choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
           help_text: form.help_text.trim() || undefined,
         });
         let finalDef = created;
@@ -235,7 +248,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
         const updated = await updateCustomFieldDefinition(board.id, editingId, {
           name,
           field_type: form.field_type,
-          choices: form.field_type === "dropdown" ? cleanedChoices : undefined,
+          choices: hasChoices(form.field_type) ? cleanedChoices : undefined,
           help_text: form.help_text.trim() || undefined,
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
@@ -295,7 +308,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
               <div key={f.id} className="flex items-center gap-3 py-2.5 border-b border-line/60 last:border-0">
                 <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[f.field_type]}</span>
                 <span className="flex-1 min-w-0 truncate text-sm text-fg" title={f.name}>{f.name}</span>
-                <span className="text-xs text-fg-muted capitalize w-16 shrink-0">{TYPE_LABEL[f.field_type]}</span>
+                <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[f.field_type]}</span>
                 {f.show_on_card && (
                   <span className="text-xs text-fg-muted bg-surface-hover rounded px-2 py-0.5 shrink-0">Pinned</span>
                 )}
@@ -522,7 +535,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
         </span>
         <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[def.field_type]}</span>
         <span className="flex-1 min-w-0 truncate text-sm text-fg" title={def.name}>{def.name}</span>
-        <span className="text-xs text-fg-muted capitalize w-16 shrink-0">{TYPE_LABEL[def.field_type]}</span>
+        <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[def.field_type]}</span>
         <button
           onClick={onPin}
           aria-label={`${def.show_on_card ? "Unpin" : "Pin"} ${def.name} ${def.show_on_card ? "from" : "to"} card face`}
@@ -625,6 +638,10 @@ function FieldEditPanel({
         ))}
       </div>
 
+      {form.field_type === "multi_select" && (
+        <p className="text-xs text-fg-muted mb-3">People can pick more than one choice.</p>
+      )}
+
       {pendingTypeChange && (
         <div className="mb-3 flex items-center gap-2 text-xs">
           <span className="text-warning">Changing this field's type may make existing values unreadable. Continue?</span>
@@ -642,7 +659,7 @@ function FieldEditPanel({
         placeholder="Shown as hint text"
       />
 
-      {form.field_type === "dropdown" && (
+      {hasChoices(form.field_type) && (
         <div className="mb-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Choices</p>
           <div className="flex flex-col gap-1 mb-1.5">

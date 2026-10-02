@@ -304,6 +304,34 @@ class EveryEmittedEventIsPersistedTests(BoardEventTestBase):
         )
         self.assertEqual(events[4].data, {"custom_field_uid": first.data["uid"]})
 
+    def test_multi_select_definition_and_value_events_are_persisted(self):
+        """#1391: a multi-select schema and value reach the feed as the
+        serializer renders them — ``choices`` a list, ``value`` a string."""
+        c = self.client_for(self.owner)
+        b = self.board.pk
+        created = c.post(
+            f"/api/v1/boards/{b}/custom-fields/",
+            {"name": "Platforms", "field_type": "multi_select", "choices": ["web", "ios"]},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        card = _make_card(self.col_a, self.lane, title="Ship it")
+        updated = c.patch(
+            f"/api/v1/boards/{b}/cards/{card.pk}/",
+            {"custom_field_values": [
+                {"field_definition": created.data["id"], "value": ["ios", "web"]}
+            ]},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        events = {e.event: e for e in self.events()}
+        self.assertEqual(events["custom_field.created"].data["field_type"], "multi_select")
+        self.assertEqual(events["custom_field.created"].data["choices"], ["web", "ios"])
+        self.assertEqual(
+            events["card.updated"].data["custom_field_values"],
+            [{"field_definition": created.data["id"], "value": '["web","ios"]'}],
+        )
+
     def test_custom_field_schema_change_replays_from_a_cursor(self):
         c = self.client_for(self.owner)
         cursor = record_board_event(self.board.id, "card.created", {"n": 0})

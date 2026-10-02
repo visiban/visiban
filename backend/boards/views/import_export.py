@@ -26,10 +26,11 @@ from groups.models import Group, GroupMembership
 
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
-    CardActivity, CardChecklist, CardComment, CardExternalRef, CardMovement, Column, Label,
-    Swimlane,
+    CardActivity, CardChecklist, CardComment, CardExternalRef, CardMovement, Column,
+    CustomFieldDefinition, Label, Swimlane,
 )
 from .. import broadcast as _broadcast
+from ..custom_field_types import parse_multi_select
 from ..permissions import SITE_ADMIN
 from ..serializers import (
     BoardExportLogSerializer, BoardSerializer, ExternalRefSerializer,
@@ -153,6 +154,24 @@ def _sanitize_csv_field(value: str) -> str:
     if not isinstance(value, str):
         return value
     return value.lstrip("=+-@\t\r")
+
+
+def _csv_custom_field_cell(definition, value):
+    """One CSV cell for a custom field value, formula-sanitized.
+
+    A ``multi_select`` value is stored as a JSON array string (#1391); a
+    spreadsheet reader wants the entries, not JSON, so they are joined with
+    ``"; "`` — the separator the Movement History column already uses. Each
+    entry is sanitized and so is the joined cell, so no entry can smuggle a
+    formula prefix to the start of the cell. Every other type is the stored
+    string, sanitized as before. The JSON export keeps the stored string
+    unchanged: that format is read by tools, and its values are strings.
+    """
+    if definition.field_type == CustomFieldDefinition.FieldType.MULTI_SELECT:
+        value = "; ".join(
+            _sanitize_csv_field(entry) for entry in parse_multi_select(value)
+        )
+    return _sanitize_csv_field(value)
 
 
 class BoardImportExportMixin:
@@ -1588,7 +1607,8 @@ class BoardImportExportMixin:
             # a value beginning with = + - @ is a formula to a spreadsheet.
             card_custom = _custom_values_by_name(card)
             custom_cells = [
-                s(card_custom.get(cf.name, "")) for cf in custom_field_definitions
+                _csv_custom_field_cell(cf, card_custom.get(cf.name, ""))
+                for cf in custom_field_definitions
             ]
             # Row field values denormalize onto every card row (#1140): the CSV
             # is one row per card, so a row field's value repeats for each card
@@ -1596,7 +1616,8 @@ class BoardImportExportMixin:
             # without a second file to join against.
             swimlane_custom = _swimlane_values_by_name(card.swimlane)
             swimlane_cells = [
-                s(swimlane_custom.get(sf.name, "")) for sf in swimlane_field_definitions
+                _csv_custom_field_cell(sf, swimlane_custom.get(sf.name, ""))
+                for sf in swimlane_field_definitions
             ]
 
             writer.writerow([

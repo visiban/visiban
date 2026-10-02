@@ -22,6 +22,8 @@ the thing that can break:
   shape matches what the endpoint sends.
 """
 
+import csv
+import io
 import json
 from unittest.mock import patch
 
@@ -893,6 +895,37 @@ class SwimlaneCustomFieldQueryCountTests(SwimlaneCustomFieldTestBase):
             self.client.get(url)
         self.assertEqual(len(ctx.captured_queries), baseline)
 
+    def test_a_multi_select_write_costs_exactly_one_extra_query(self):
+        """#1391: one stored-value read for the orphan check, multi-select only."""
+        text = self.board.swimlane_custom_field_definitions.get(name="F0")
+        multi = _definition(
+            self.board, name="Markets", field_type=T.MULTI_SELECT, position=9,
+            choices_json=["EMEA", "APAC"],
+        )
+        SwimlaneCustomFieldValue.objects.create(
+            swimlane=self.lane, field_definition=text, value="a"
+        )
+        SwimlaneCustomFieldValue.objects.create(
+            swimlane=self.lane, field_definition=multi, value='["EMEA"]'
+        )
+
+        def cost(definition, value):
+            with CaptureQueriesContext(connection) as ctx:
+                r = self.client.patch(
+                    self.lane_url,
+                    {"custom_field_values": [
+                        {"field_definition": definition.id, "value": value}
+                    ]},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+            return len(ctx.captured_queries)
+
+        cost(text, "warm")
+        text_cost = cost(text, "b")
+        multi_cost = cost(multi, ["APAC"])
+        self.assertEqual(multi_cost, text_cost + 1)
+
     def test_csv_export_does_not_scale_queries_with_card_count(self):
         """The export denormalizes row values onto every card row.
 
@@ -1060,3 +1093,201 @@ class SwimlaneCustomFieldUrlTypeTests(SwimlaneCustomFieldTestBase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("field_type", r.data)
+
+
+class SwimlaneCustomFieldMultiSelectTypeTests(SwimlaneCustomFieldTestBase):
+    """``multi_select`` on row fields (#1391) — the same normalization as the
+    card level, through the admin-only swimlane write path."""
+
+    def setUp(self):
+        super().setUp()
+        self.definition = _definition(
+            self.board, name="Markets", field_type=T.MULTI_SELECT,
+            choices_json=["EMEA", "AMER", "APAC"],
+        )
+
+    def _patch_value(self, value, client=None, lane_url=None):
+        return (client or self.client).patch(
+            lane_url or self.lane_url,
+            {"custom_field_values": [
+                {"field_definition": self.definition.id, "value": value}
+            ]},
+            format="json",
+        )
+
+    def _stored(self):
+        row = SwimlaneCustomFieldValue.objects.filter(
+            swimlane=self.lane, field_definition=self.definition
+        ).first()
+        return row.value if row else None
+
+    def test_a_multi_select_definition_can_be_created(self):
+        r = self.client.post(
+            self.url,
+            {"name": "Teams", "field_type": "multi_select", "choices": ["a", "b"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["field_type"], "multi_select")
+
+    def test_a_multi_select_definition_needs_choices(self):
+        r = self.client.post(
+            self.url, {"name": "Teams", "field_type": "multi_select"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            str(r.data["choices"][0]), "A multi-select field needs at least one choice."
+        )
+
+    def test_choices_on_a_non_choice_type_are_rejected(self):
+        r = self.client.post(
+            self.url, {"name": "Notes", "field_type": "number", "choices": ["a"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("choices", r.data)
+
+    def test_a_list_is_stored_canonically(self):
+        r = self._patch_value(["APAC", "EMEA", "APAC"])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["EMEA","APAC"]')
+        self.assertEqual(
+            r.data["custom_field_values"],
+            [{"field_definition": self.definition.id, "value": '["EMEA","APAC"]'}],
+        )
+
+    def test_the_read_value_can_be_echoed_back(self):
+        self._patch_value(["APAC"])
+        r = self._patch_value('["APAC"]')
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["APAC"]')
+
+    def test_invalid_values_are_a_400_not_a_500(self):
+        for value in (["LATAM"], [1], ["EMEA\x00"], {"EMEA": 1}, ["EMEA"] * 5000):
+            with self.subTest(value=str(value)[:40]):
+                r = self._patch_value(value)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_an_encoded_value_over_the_length_cap_is_a_400(self):
+        choices = [f"{i:02d}" + "x" * 30 for i in range(20)]
+        self.definition.choices_json = choices
+        self.definition.save()
+        r = self._patch_value(choices)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_an_empty_list_clears_the_row(self):
+        self._patch_value(["EMEA"])
+        r = self._patch_value([])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_an_orphaned_entry_is_kept_on_edit(self):
+        self._patch_value(["EMEA", "APAC"])
+        self.definition.choices_json = ["EMEA", "AMER"]
+        self.definition.save()
+        r = self._patch_value(["AMER", "APAC", "EMEA"])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["EMEA","AMER","APAC"]')
+        other = _make_swimlane(self.board, "Globex", 1)
+        r = self._patch_value(
+            ["APAC"], lane_url=f"/api/v1/boards/{self.board.id}/swimlanes/{other.id}/"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+
+    def test_a_dropped_orphan_cannot_be_re_added_or_moved_to_another_lane(self):
+        self._patch_value(["EMEA", "APAC"])
+        self.definition.choices_json = ["EMEA", "AMER"]
+        self.definition.save()
+        other = _make_swimlane(self.board, "Initech", 2)
+        other_url = f"/api/v1/boards/{self.board.id}/swimlanes/{other.id}/"
+        # Another lane cannot pick up this lane's orphan ...
+        r = self._patch_value(["APAC"], lane_url=other_url)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        # ... and once dropped here, it cannot come back.
+        r = self._patch_value(["EMEA"])
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        r = self._patch_value(["EMEA", "APAC"])
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertEqual(self._stored(), '["EMEA"]')
+
+    def test_a_definition_from_another_board_is_rejected(self):
+        other_board = _make_board(self.admin, name="Elsewhere")
+        foreign = _definition(
+            other_board, name="Markets", field_type=T.MULTI_SELECT,
+            choices_json=["EMEA"],
+        )
+        r = self.client.patch(
+            self.lane_url,
+            {"custom_field_values": [{"field_definition": foreign.id, "value": ["EMEA"]}]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(SwimlaneCustomFieldValue.objects.exists())
+
+    def test_a_deeply_nested_array_string_is_a_400_not_a_500(self):
+        r = self._patch_value("[" * 1000 + "]" * 1000)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        r = self._patch_value(json.dumps(["EMEA"] * 1000))
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIsNone(self._stored())
+
+    def test_a_row_hook_replacement_is_recanonicalized(self):
+        def rewrite(definition, value):
+            return '["APAC","EMEA"]'
+
+        hooks.SWIMLANE_CUSTOM_FIELD_VALIDATORS.append(rewrite)
+        try:
+            r = self._patch_value(["AMER"])
+        finally:
+            hooks.SWIMLANE_CUSTOM_FIELD_VALIDATORS.remove(rewrite)
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._stored(), '["EMEA","APAC"]')
+
+    def test_a_reordered_resubmission_does_not_fire_the_signal(self):
+        received = []
+
+        def handler(sender, **kwargs):
+            received.append((kwargs["old_value"], kwargs["new_value"]))
+
+        swimlane_custom_field_value_changed.connect(handler)
+        try:
+            self._patch_value(["APAC", "EMEA"])
+            self._patch_value(["EMEA", "APAC"])
+        finally:
+            swimlane_custom_field_value_changed.disconnect(handler)
+        self.assertEqual(received, [("", '["EMEA","APAC"]')])
+
+    def test_only_a_board_admin_can_write(self):
+        outsider = _make_user("scf_ms_outsider")
+        for user in (self.member, self.viewer, outsider):
+            with self.subTest(user=user.username):
+                r = self._patch_value(["EMEA"], client=self._client_for(user))
+                self.assertIn(
+                    r.status_code,
+                    (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND),
+                )
+        self.assertIsNone(self._stored())
+
+    def test_the_broadcast_carries_the_string_value_after_commit(self):
+        self.broadcast.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            self._patch_value(["APAC", "AMER"])
+            self.assertEqual(self.broadcast.call_count, 0)
+        self.assertTrue(callbacks)
+        payload = self.broadcast.call_args[0][2]
+        self.assertIn(
+            {"field_definition": self.definition.id, "value": '["AMER","APAC"]'},
+            payload["custom_field_values"],
+        )
+
+    def test_csv_export_joins_entries(self):
+        SwimlaneCustomFieldValue.objects.create(
+            swimlane=self.lane, field_definition=self.definition,
+            value='["EMEA","APAC"]',
+        )
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
+        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        col = rows[0].index("Swimlane Custom: Markets")
+        self.assertEqual(rows[1][col], "EMEA; APAC")

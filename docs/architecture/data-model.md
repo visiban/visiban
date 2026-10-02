@@ -231,7 +231,8 @@ History consumers can filter out system events to focus on workflow transitions.
 
 Per-board typed metadata on cards (#371), where a `Label` is an untyped tag. A
 `CustomFieldDefinition` is the board-scoped schema — a name, a `field_type` of `text` /
-`number` / `date` / `dropdown` / `checkbox` / `url`, and for dropdowns a `choices_json` list;
+`number` / `date` / `dropdown` / `checkbox` / `url` / `multi_select`, and for dropdowns and
+multi-selects a `choices_json` list;
 a `CustomFieldValue` is one card's value for one definition, unique per
 `(card, field_definition)`.
 
@@ -241,7 +242,9 @@ Three decisions worth knowing before changing either model:
   nulls and a schema migration every time a type is added. Casting and validation live at
   the serializer boundary instead, and every value is normalized to a canonical string
   (ISO dates, `"true"` / `"false"`) so equality comparisons need not know the type.
-  The `url` type (#1390) is the proof: it added a validation branch, not a column. Typed
+  The `url` type (#1390) is the proof: it added a validation branch, not a column, and so
+  did `multi_select` (#1391), which stores a canonical JSON array *string* (deduplicated,
+  in choice order — `boards/custom_field_types.py`) in the same column. Typed
   columns are deferred to the enterprise analytics work that would actually need SUM/AVG.
 - **EAV with a cap of 30 definitions per board** (and 2 pinned to the card face). The
   `/full/` endpoint reads every card and every value, so an uncapped field count is a

@@ -330,7 +330,11 @@ export type CustomFieldType =
   // #1390. Text-backed and validated server-side as an absolute http(s) URL.
   // Code that switches on this union must keep a default branch that renders
   // the raw value as text — a newer server may send a type this build lacks.
-  | "url";
+  | "url"
+  // #1391. Several of `choices` at once. Still a string on the wire: a
+  // canonical JSON array string (`'["a","b"]'`), parsed with
+  // `parseMultiSelect` in utils/customFieldValue.ts.
+  | "multi_select";
 
 /**
  * A board's declaration of one typed custom field (#371). Mirrors
@@ -341,7 +345,7 @@ export interface CustomFieldDefinition {
   uid: string;
   name: string;
   field_type: CustomFieldType;
-  /** Permitted values; non-empty only when `field_type` is `"dropdown"`. */
+  /** Permitted values; non-empty only when `field_type` is `"dropdown"` or `"multi_select"`. */
   choices: string[];
   /** Display order within the board. Changed only via the reorder endpoint. */
   position: number;
@@ -356,7 +360,7 @@ export interface CustomFieldDefinition {
 /**
  * One card's value for one definition (#371). Every type is carried as a
  * string: numbers as written, dates as `YYYY-MM-DD`, checkboxes as
- * `"true"` / `"false"`. A field with no value has no entry at all rather than
+ * `"true"` / `"false"`, multi-selects as a JSON array string (#1391). A field with no value has no entry at all rather than
  * an entry holding `""`.
  *
  * The same shape is accepted on a card PATCH, so the representation the client
@@ -397,7 +401,7 @@ export interface SwimlaneCustomFieldDefinition {
   uid: string;
   name: string;
   field_type: CustomFieldType;
-  /** Permitted values; non-empty only when `field_type` is `"dropdown"`. */
+  /** Permitted values; non-empty only when `field_type` is `"dropdown"` or `"multi_select"`. */
   choices: string[];
   /** Display order within the board. Changed only via the reorder endpoint. */
   position: number;

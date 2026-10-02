@@ -1,7 +1,8 @@
 import type { FieldDefinitionShape } from "../../types";
-import { choiceColor, formatCustomFieldValue, isValidForType } from "../../utils/customFieldValue";
+import { choiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect } from "../../utils/customFieldValue";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 import CustomFieldLink from "./CustomFieldLink";
+import MultiSelectChips from "./MultiSelectChips";
 
 interface Props {
   definition: FieldDefinitionShape;
@@ -49,9 +50,21 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
   // #1390: a URL value renders through the one shared link component, which
   // itself falls back to plain text for anything that is not an http(s) URL.
   const isUrl = definition.field_type === "url" && value !== "";
+  // #1391: a parseable multi-select renders its entries as chips; an
+  // unparseable one falls through to the raw text like any invalid value.
+  const multiEntries = valid && definition.field_type === "multi_select" ? parseMultiSelect(value) : null;
+  // An empty set renders nothing at all, never an empty bordered chip.
+  if (multiEntries !== null && multiEntries.length === 0) return null;
 
   if (variant === "detail") {
     if (isUrl) return <CustomFieldLink value={value} variant="full" className={className} />;
+    if (multiEntries) {
+      return (
+        <span className={`inline-flex ${className ?? ""}`}>
+          <MultiSelectChips entries={multiEntries} wrap />
+        </span>
+      );
+    }
     return <span className={`text-sm text-fg-secondary ${className ?? ""}`}>{displayText || "—"}</span>;
   }
 
@@ -82,6 +95,9 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           // stopPropagation: the row label panel is a double-click-to-edit
           // surface for admins, and the link must not select or edit the row.
           <CustomFieldLink value={value} variant="host" maxHostChars={20} stopPropagation />
+        ) : multiEntries ? (
+          // Up to three, wrapping: the row header is a narrow vertical column.
+          <MultiSelectChips entries={multiEntries} max={3} wrap />
         ) : (
           <span className="text-fg-secondary truncate">
             {displayText.length > 20 ? `${displayText.slice(0, 20)}…` : displayText}
@@ -93,13 +109,15 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line shrink-0 max-w-[10rem] ${className ?? ""}`}
+      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line ${multiEntries ? "max-w-[14rem] min-w-0" : "shrink-0 max-w-[10rem]"} ${className ?? ""}`}
       title={`${definition.name}: ${displayText}`}
     >
       {dot}
-      <span className="text-fg-muted truncate">{definition.name}:</span>
+      <span className={`text-fg-muted truncate ${multiEntries ? "min-w-0 shrink-[3]" : ""}`}>{definition.name}:</span>
       {isUrl ? (
         <CustomFieldLink value={value} variant="host" maxHostChars={16} stopPropagation />
+      ) : multiEntries ? (
+        <MultiSelectChips entries={multiEntries} max={2} />
       ) : (
         <span className="text-fg-secondary truncate">
           {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}

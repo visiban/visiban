@@ -14,10 +14,17 @@ import { choiceColor, formatCustomFieldValue } from "../../utils/customFieldValu
 // spec's explicit non-goal). Dropdown and checkbox share the multi-select
 // "choice" shape since a checkbox is just a 2-choice dropdown for filtering
 // purposes.
+//
+// #1391 — a multi-select field gets its own "multi_choice" kind rather than
+// reusing "choice": the stored value is a JSON array, so matching must parse
+// it and test exact membership, where "choice" compares the whole stored
+// string. Same OR-within-the-field semantics as "choice": a card matches when
+// it holds any of the picked entries.
 export type CustomFieldFilterValue =
   | { kind: "text"; query: string }
   | { kind: "number" | "date"; equals: string }
-  | { kind: "choice"; values: string[] };
+  | { kind: "choice"; values: string[] }
+  | { kind: "multi_choice"; values: string[] };
 
 export interface FilterState {
   search: string;
@@ -50,7 +57,9 @@ export const EMPTY_FILTER: FilterState = {
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
 export function isCustomFieldFilterActive(v: CustomFieldFilterValue): boolean {
-  return v.kind === "choice" ? v.values.length > 0 : v.kind === "text" ? v.query !== "" : v.equals !== "";
+  return v.kind === "choice" || v.kind === "multi_choice"
+    ? v.values.length > 0
+    : v.kind === "text" ? v.query !== "" : v.equals !== "";
 }
 
 function emptyCustomFieldFilterValue(def: CustomFieldDefinition): CustomFieldFilterValue {
@@ -61,6 +70,8 @@ function emptyCustomFieldFilterValue(def: CustomFieldDefinition): CustomFieldFil
     case "dropdown":
     case "checkbox":
       return { kind: "choice", values: [] };
+    case "multi_select":
+      return { kind: "multi_choice", values: [] };
     case "text":
     case "url": // #1390 — a URL is matched as text ("contains"), like a text field
     default:
@@ -283,7 +294,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   for (const def of board.custom_field_definitions) {
     const v = filters.customFields[def.id];
     if (!v || !isCustomFieldFilterActive(v)) continue;
-    const displayValue = v.kind === "choice" ? v.values.join(", ") : v.kind === "text" ? v.query : formatCustomFieldValue(def, v.equals, "MM/DD/YYYY");
+    const displayValue = v.kind === "choice" || v.kind === "multi_choice" ? v.values.join(", ") : v.kind === "text" ? v.query : formatCustomFieldValue(def, v.equals, "MM/DD/YYYY");
     chips.push({
       key: `cf:${def.id}`,
       label: `${def.name}: ${displayValue}`,
@@ -535,7 +546,21 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
     );
   }
 
-  if ((definition.field_type === "number" || definition.field_type === "date") && value.kind !== "choice" && value.kind !== "text") {
+  if (definition.field_type === "multi_select") {
+    // #1391 — the same CheckboxDropdown as a dropdown field; only the
+    // matching in filterCards differs (exact membership in the stored array).
+    return (
+      <CheckboxDropdown
+        label={definition.name}
+        // No color dot: multi-select entries are colorless everywhere else.
+        options={definition.choices.map((c) => ({ value: c, label: c }))}
+        selected={value.kind === "multi_choice" ? value.values : []}
+        onChange={(values) => onChange({ kind: "multi_choice", values })}
+      />
+    );
+  }
+
+  if ((definition.field_type === "number" || definition.field_type === "date") && (value.kind === "number" || value.kind === "date")) {
     return (
       <input
         type={definition.field_type === "number" ? "number" : "date"}

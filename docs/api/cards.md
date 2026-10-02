@@ -206,8 +206,12 @@ returned can be sent straight back:
   of the definition's current `choices`, and a `checkbox` accepts `true`/`false`, `"true"`/
   `"false"`, `"1"`/`"0"` and `"yes"`/`"no"` and stores `"true"` or `"false"`. A `url` must
   be an absolute `http://` or `https://` URL — see
-  [URL fields](boards.md#url-fields). A value may be at most 500 characters; a longer one
-  (a long URL included) is rejected, not truncated.
+  [URL fields](boards.md#url-fields). A `multi_select` value is read back as a JSON array
+  *string* (`"[\"web\",\"ios\"]"`) and may be written as that string, as an array of
+  strings, or as one plain choice; every entry must be a current choice or one already on
+  the card — see [Multi-select fields](boards.md#multi-select-fields). A value may be at
+  most 500 characters; a longer one (a long URL or a long multi-select included) is
+  rejected, not truncated.
 - A `field_definition` id that does not belong to this card's board is rejected with `400`,
   as is the same field appearing twice in one payload.
 - Setting a value is a card edit: it goes through the same role allow-list and ownership

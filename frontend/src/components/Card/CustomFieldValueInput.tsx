@@ -4,6 +4,7 @@ import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { ToggleField } from "../Common/Toggle";
 import { CUSTOM_FIELD_VALUE_MAX, URL_ERROR_COPY, isValidForType, normalizeUrl } from "../../utils/customFieldValue";
 import CustomFieldLink from "./CustomFieldLink";
+import MultiSelectValueInput from "./MultiSelectValueInput";
 
 interface Props {
   definition: FieldDefinitionShape;
@@ -19,7 +20,7 @@ interface Props {
    * calling the API), and for wrapping that in whatever autosave/optimistic
    * pattern its surface uses.
    */
-  onCommit: (value: string) => void;
+  onCommit: (value: string) => void | Promise<void>;
   disabled?: boolean;
   /** `sm` = quick-edit popover chrome (card face). `md` = card-detail / Fields-tab. */
   size?: "sm" | "md";
@@ -33,9 +34,10 @@ interface Props {
    */
   debounceMs?: number;
   /**
-   * Forwarded to the dropdown type's `SingleSelectDropdown` (#1140). Pass a
-   * value above 40 when this input is rendered inside a `ModalWrapper`, or
-   * Escape closes the modal instead of the open menu.
+   * Forwarded to the dropdown type's `SingleSelectDropdown` (#1140) and the
+   * multi-select menu (#1391). Pass a value above 40 when this input is
+   * rendered inside a `ModalWrapper`, or Escape closes the modal instead of
+   * the open menu. Unset, the multi-select menu uses 39 (inside `CardDetail`).
    */
   escapePriority?: number;
   /**
@@ -185,6 +187,22 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
       </div>
     );
   };
+
+  // #1391: multi-select owns its commit timing (once, on menu close) and its
+  // own defensive parse — an unparseable stored value reads as no entries
+  // rather than going through the per-keystroke text fallback below, which
+  // would send free text the server refuses.
+  if (definition.field_type === "multi_select") {
+    return (
+      <MultiSelectValueInput
+        definition={definition}
+        value={value}
+        onCommit={onCommit}
+        disabled={disabled}
+        escapePriority={escapePriority}
+      />
+    );
+  }
 
   // §5(b) defensive-rendering contract: a stored value that doesn't parse for
   // the field's *current* type (e.g. after a retype — #1121) must never be

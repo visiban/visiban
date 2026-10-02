@@ -49,6 +49,8 @@ export function isValidForType(definition: FieldDefinitionShape, value: string):
       return value === "true" || value === "false";
     case "url":
       return normalizeUrl(value).ok;
+    case "multi_select":
+      return isMultiSelectEncoding(value);
     case "text":
     case "dropdown":
     default:
@@ -73,6 +75,8 @@ export function formatCustomFieldValue(
       return formatDateStr(value, userDateFormat);
     case "checkbox":
       return value === "true" ? "Yes" : "No";
+    case "multi_select":
+      return parseMultiSelect(value).join(", ");
     // url: the full URL, not the hostname — this is the peek popover's text
     // and the chips' `title`, where the reader verifies where a link goes.
     // Only the pinned chips shorten it to a hostname (`urlDisplayHostname`).
@@ -212,4 +216,52 @@ export function urlErrorFromServer(err: unknown): string | null {
   if (body.includes("longer than")) return URL_ERROR_COPY.length;
   if (body.includes("http and https")) return URL_ERROR_COPY.scheme;
   return URL_ERROR_COPY.invalid;
+}
+
+/**
+ * A stored multi-select value is a JSON array of strings (#1391). True for
+ * that shape only — a newer server or a hand-edited row that sent anything
+ * else fails, so display falls back to the raw text (§5b contract).
+ */
+function isMultiSelectEncoding(value: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((entry) => typeof entry === "string");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The entries of a stored multi-select value (#1391). Tolerant: `undefined`,
+ * `""`, malformed JSON or a non-array yields `[]` (no entries) and non-string
+ * members are dropped — never a throw, because this runs while rendering.
+ */
+export function parseMultiSelect(value: string | undefined | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Encode multi-select entries the way the server stores them (#1391):
+ * deduplicated, entries that are current `choices` first in choice order,
+ * then any orphaned entries in their given order, compact JSON. `""` for the
+ * empty set, which clears the field.
+ *
+ * Mirrors `boards.custom_field_types` on the server so the editor can tell
+ * "nothing changed" (no request) from a real edit by string comparison.
+ */
+export function serializeMultiSelect(entries: string[], choices: string[]): string {
+  const wanted = Array.from(new Set(entries));
+  if (wanted.length === 0) return "";
+  const wantedSet = new Set(wanted);
+  const ordered = choices.filter((choice) => wantedSet.has(choice));
+  const inChoices = new Set(ordered);
+  ordered.push(...wanted.filter((entry) => !inChoices.has(entry)));
+  return JSON.stringify(ordered);
 }

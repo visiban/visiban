@@ -2,6 +2,7 @@ import type { Card } from "../types";
 import { userDisplayName } from "../types";
 import type { FilterState } from "../components/Board/FilterBar";
 import { isCustomFieldFilterActive } from "../components/Board/FilterBar";
+import { parseMultiSelect } from "./customFieldValue";
 
 /**
  * Whether any *client-side* filter dimension is active — everything
@@ -106,8 +107,8 @@ export function filterCards(
       // "no value = doesn't match a specific-value filter" dimension above.
       for (const [idStr, cf] of Object.entries(filters.customFields)) {
         if (cf.kind === "text" && cf.query === "") continue;
-        if (cf.kind !== "text" && cf.kind !== "choice" && cf.equals === "") continue;
-        if (cf.kind === "choice" && cf.values.length === 0) continue;
+        if ((cf.kind === "number" || cf.kind === "date") && cf.equals === "") continue;
+        if ((cf.kind === "choice" || cf.kind === "multi_choice") && cf.values.length === 0) continue;
 
         const fieldId = Number(idStr);
         const cardValue = card.custom_field_values.find((v) => v.field_definition === fieldId)?.value;
@@ -122,6 +123,12 @@ export function filterCards(
           if (cardValue !== cf.equals) return false;
         } else if (cf.kind === "choice") {
           if (cardValue === undefined || !cf.values.includes(cardValue)) return false;
+        } else if (cf.kind === "multi_choice") {
+          // #1391 — exact membership in the parsed array, never a substring
+          // test on the JSON text ("web" must not match "webhooks"). OR within
+          // the field; an empty or unparseable value matches nothing.
+          const entries = parseMultiSelect(cardValue);
+          if (!cf.values.some((v) => entries.includes(v))) return false;
         }
       }
 

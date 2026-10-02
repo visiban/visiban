@@ -345,3 +345,24 @@ describe("CardItem — pinned URL chip (#1390)", () => {
     expect(screen.queryByRole("button", { name: /Docs:/ })).not.toBeInTheDocument();
   });
 });
+
+describe("CardItem — pinned multi-select chips (#1391)", () => {
+  const msDef = () => makeDefinition({ name: "Platforms", field_type: "multi_select", choices: ["web", "ios", "android"] });
+
+  it("shows two entries and a +N overflow, read-only", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: '["web","ios","android"]' }] })}
+        customFieldDefinitions={[msDef()]}
+      />
+    );
+    expect(screen.getByTitle("Platforms: web, ios, android")).toBeInTheDocument();
+    expect(screen.getByText("web")).toBeInTheDocument();
+    expect(screen.getByText("ios")).toBeInTheDocument();
+    expect(screen.queryByText("android")).not.toBeInTheDocument();
+    expect(screen.getByText("+1")).toHaveAttribute("title", "web, ios, android");
+    // No quick-edit chip and no dotted-underline affordance for this type.
+    expect(screen.queryByRole("button", { name: /Platforms:/ })).not.toBeInTheDocument();
+    expect(document.querySelector(".border-dotted")).toBeNull();
+  });
+});

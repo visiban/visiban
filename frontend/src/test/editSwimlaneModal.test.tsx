@@ -347,4 +347,31 @@ describe('EditSwimlaneModal — URL fields (#1390)', () => {
     expect(await screen.findByText("Couldn't save this swimlane. Try again.")).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
+
+  it('Escape closes an open multi-select field menu before the modal (#1391)', async () => {
+    const onClose = vi.fn()
+    render(
+      <EditSwimlaneModal
+        boardId={1}
+        swimlane={makeSwimlane({ custom_field_values: [] })}
+        cardCount={0}
+        onUpdated={vi.fn()}
+        onDeleted={vi.fn()}
+        onClose={onClose}
+        swimlaneFieldDefinitions={[{
+          id: 3, uid: 'sfuid0000003', name: 'Markets', field_type: 'multi_select',
+          choices: ['EMEA', 'APAC'], position: 0, show_on_row: true, is_admin_only: false,
+          is_required: false, help_text: '', created_at: '2026-01-01',
+        }]}
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Markets: No value' }))
+    expect(screen.getByRole('listbox', { name: 'Markets' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox', { name: 'Markets' })).not.toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
 })

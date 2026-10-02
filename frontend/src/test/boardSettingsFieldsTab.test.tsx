@@ -297,3 +297,45 @@ describe("BoardSettingsFieldsTab — URL type (#1390)", () => {
     expect(screen.getByText("↗")).toBeInTheDocument();
   });
 });
+
+describe("BoardSettingsFieldsTab — multi-select type (#1391)", () => {
+  it("offers Multi-select with the choices editor and helper text, and sends choices", async () => {
+    const user = userEvent.setup();
+    const created = makeDefinition({ id: 9, name: "Platforms", field_type: "multi_select", choices: ["web", "ios"] });
+    vi.mocked(boardsApi.createCustomFieldDefinition).mockResolvedValue(created);
+
+    render(<BoardSettingsFieldsTab board={makeBoard()} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "+ Add field" }));
+    await user.type(screen.getByPlaceholderText("e.g. Sprint"), "Platforms");
+    await user.click(screen.getByRole("button", { name: "☰ Multi-select" }));
+    expect(screen.getByText("People can pick more than one choice.")).toBeInTheDocument();
+    expect(screen.getByText("Choices")).toBeInTheDocument();
+
+    // Like a dropdown, a multi-select needs a choice before it can be saved.
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    expect(await screen.findByText("A multi-select field needs at least one choice.")).toBeInTheDocument();
+    expect(boardsApi.createCustomFieldDefinition).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "+ Add choice" }));
+    await user.click(screen.getByRole("button", { name: "+ Add choice" }));
+    const [first, second] = screen.getAllByRole("textbox").filter((el) => !el.getAttribute("placeholder"));
+    await user.type(first, "web");
+    await user.type(second, "ios");
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+
+    await waitFor(() => {
+      expect(boardsApi.createCustomFieldDefinition).toHaveBeenCalledWith(1, {
+        name: "Platforms",
+        field_type: "multi_select",
+        choices: ["web", "ios"],
+        help_text: undefined,
+      });
+    });
+  });
+
+  it("lists an existing multi-select field with its label and glyph", () => {
+    render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition({ field_type: "multi_select", name: "Platforms", choices: ["web"] })])} isAdmin onFieldsUpdated={vi.fn()} />);
+    expect(screen.getByText("Multi-select")).toBeInTheDocument();
+    expect(screen.getByText("☰")).toBeInTheDocument();
+  });
+});
