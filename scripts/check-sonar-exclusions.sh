@@ -20,12 +20,15 @@
 # `git ls-files`.
 #
 # WHAT IS CHECKED
-#   1. every `<id>.resourceKey` glob matches >= 1 tracked file
+#   1. every `<id>.resourceKey` glob matches >= 1 tracked file, using real Ant
+#      semantics (`**/` = zero or more dirs, `**` = anything, `*` = no `/`,
+#      `?` = one non-`/` char). Never errs toward "matched": a glob like
+#      `**/est/**` is dead under Ant and must be reported dead.
 #   1b. no glob is pinned to `*.ts`/`*.js` in a directory that also holds
-#      `.tsx`/`.jsx` files (the #2517 drift shape)
+#      `.tsx`/`.jsx` files (the #2517 drift shape), including `**` spellings
 #   2. every criterion in the `multicriteria=` index has both a `.ruleKey` and a
 #      `.resourceKey` defined
-#   3. every defined criterion appears in the `multicriteria=` index - a
+#   3. every defined criterion (any `.ruleKey` OR `.resourceKey`) appears in the `multicriteria=` index - a
 #      criterion defined but unlisted is silently inert, the same bug from the
 #      other direction
 #
@@ -49,50 +52,77 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# --- Ant glob -> ERE ----------------------------------------------------------
+# Sonar's matcher is Ant-style. Translate to an anchored extended regex:
+# `**/` = zero or more directories, `**` = anything, `*` = anything but `/`,
+# `?` = one non-`/` char. Placeholders (control chars) keep the passes from
+# re-reading each other's output.
+ant_to_regex() {
+    local g="$1" a=$'\001' b=$'\002'
+    printf '%s' "$g" |
+        sed -e 's/[.+^$(){}|]/\\&/g' \
+            -e "s|\\*\\*/|${a}|g" \
+            -e "s|\\*\\*|${b}|g" \
+            -e 's|\*|[^/]*|g' \
+            -e 's|?|[^/]|g' \
+            -e "s|${a}|(.*/)?|g" \
+            -e "s|${b}|.*|g" \
+            -e 's|^|^|' -e 's|$|$|'
+}
+
 # --- Self-test ---------------------------------------------------------------
-# A gate nobody has seen fail is a gate nobody knows works. Mirrors the
-# `check-todo-grep.sh --self-test` convention: inject each fault this script is
-# supposed to catch and assert a non-zero exit.
+# A gate nobody has seen fail is a gate nobody knows works. Each fault case
+# asserts BOTH a non-zero exit AND the specific message of the check that is
+# supposed to fire, so disabling any one check turns its case red.
 if [[ "${1:-}" == "--self-test" ]]; then
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
-        pass=0
+    pass=0
+    idx_re='^sonar\.issue\.ignore\.multicriteria='
 
+    # run_case <name> <expected message> <new index ids, comma-joined or ""> <extra lines>
     run_case() {
-        local name="$1" body="$2"
-        printf '%s\n' "$body" >"$tmp/$name.properties"
-        if bash "$0" "$tmp/$name.properties" >/dev/null 2>&1; then
-            echo "✖ self-test '$name': expected failure, got success"
+        local name="$1" want="$2" ids="$3" extra="$4" out
+        # Anchor on the real index line, not the first "multicriteria=" in the
+        # file (the policy header comment mentions it too).
+        sed -E "s/(${idx_re})/\1${ids:+${ids},}/" sonar-project.properties >"$tmp/$name.properties"
+        [[ -n "$extra" ]] && printf '%s\n' "$extra" >>"$tmp/$name.properties"
+        if out="$(bash "$0" "$tmp/$name.properties" 2>&1)"; then
+            echo "x self-test '$name': expected failure, got success"
+            pass=1
+        elif ! grep -qF -- "$want" <<<"$out"; then
+            echo "x self-test '$name': failed, but not with '$want'"
             pass=1
         else
-            echo "✓ self-test '$name': correctly rejected"
+            echo "ok self-test '$name': rejected by the intended check"
         fi
     }
 
-    base="$(cat sonar-project.properties)"
-    run_case "dead-glob" "${base/multicriteria=/multicriteria=zzdead,}
-sonar.issue.ignore.multicriteria.zzdead.ruleKey=typescript:S1
-sonar.issue.ignore.multicriteria.zzdead.resourceKey=frontend/src/nope/gone.ts"
-
-    run_case "drift-prone-glob" "${base/multicriteria=/multicriteria=zzdrift,}
-sonar.issue.ignore.multicriteria.zzdrift.ruleKey=typescript:S1
-sonar.issue.ignore.multicriteria.zzdrift.resourceKey=frontend/src/components/Board/*.ts"
-
-    run_case "unlisted-criterion" "$base
-sonar.issue.ignore.multicriteria.zzunlisted.ruleKey=typescript:S1
-sonar.issue.ignore.multicriteria.zzunlisted.resourceKey=Makefile"
-
-    run_case "missing-resourceKey" "${base/multicriteria=/multicriteria=zzpartial,}
-sonar.issue.ignore.multicriteria.zzpartial.ruleKey=typescript:S1"
+    mc='sonar.issue.ignore.multicriteria'
+    run_case "dead-glob" "matches no tracked file" "zz" "$mc.zz.ruleKey=typescript:S1
+$mc.zz.resourceKey=frontend/src/nope/gone.ts"
+    run_case "ant-dead-glob" "matches no tracked file" "zz" "$mc.zz.ruleKey=typescript:S1
+$mc.zz.resourceKey=**/est/**"
+    run_case "drift-literal" "also contains" "zz" "$mc.zz.ruleKey=typescript:S1
+$mc.zz.resourceKey=frontend/src/components/Board/*.ts"
+    run_case "drift-doublestar-prefix" "also contains" "zz" "$mc.zz.ruleKey=typescript:S1
+$mc.zz.resourceKey=**/components/Board/*.ts"
+    run_case "drift-doublestar-mid" "also contains" "zz" "$mc.zz.ruleKey=typescript:S1
+$mc.zz.resourceKey=frontend/src/**/*.ts"
+    run_case "unlisted-criterion" "missing from the multicriteria index" "" "$mc.zz.ruleKey=typescript:S1
+$mc.zz.resourceKey=Makefile"
+    run_case "orphan-resourceKey" "missing from the multicriteria index" "" "$mc.zz.resourceKey=Makefile"
+    run_case "missing-resourceKey" "has no .resourceKey" "zz" "$mc.zz.ruleKey=typescript:S1"
+    run_case "ghost-index-id" "has no .ruleKey" "zz" ""
 
     if bash "$0" >/dev/null 2>&1; then
-        echo "✓ self-test 'clean-tree': correctly accepted"
+        echo "ok self-test 'clean-tree': correctly accepted"
     else
-        echo "✖ self-test 'clean-tree': the real file should pass"
+        echo "x self-test 'clean-tree': the real file should pass"
         pass=1
     fi
 
-    [[ "$pass" -eq 0 ]] && echo "" && echo "✓ self-test passed"
+    [[ "$pass" -eq 0 ]] && echo "" && echo "ok self-test passed"
     exit "$pass"
 fi
 
@@ -102,19 +132,15 @@ PROPS="${1:-sonar-project.properties}"
     exit 1
 }
 
-# Tracked files only. A glob matching solely untracked/generated output is dead
-# for Sonar's purposes too — the scanner analyses what is committed.
-#
-# `mapfile` is bash 4+; macOS ships bash 3.2 and developers run this locally, so
-# every array is built with a portable read loop instead.
+# Tracked files only: the scanner analyses what is committed. Portable read
+# loop (macOS ships bash 3.2, no mapfile). TRACKED_NL is the same list for grep.
 TRACKED=()
 while IFS= read -r f; do TRACKED+=("$f"); done < <(git ls-files)
+TRACKED_NL="$(printf '%s\n' "${TRACKED[@]}")"
 
 fail=0
 
 # --- Parse ------------------------------------------------------------------
-# The index line, comma-separated. Criteria are declared once here and defined
-# as `<id>.ruleKey` / `<id>.resourceKey` further down the file.
 index_line="$(grep -E '^sonar\.issue\.ignore\.multicriteria=' "$PROPS" || true)"
 if [[ -z "$index_line" ]]; then
     echo "check-sonar-exclusions: no multicriteria index line found" >&2
@@ -122,87 +148,60 @@ if [[ -z "$index_line" ]]; then
 fi
 IFS=',' read -r -a INDEXED <<<"${index_line#*=}"
 
-DEFINED_RULE=()
-while IFS= read -r id; do DEFINED_RULE+=("$id"); done < <(
-    grep -oE '^sonar\.issue\.ignore\.multicriteria\.[A-Za-z0-9_]+\.ruleKey' "$PROPS" |
-        sed -E 's/^sonar\.issue\.ignore\.multicriteria\.([A-Za-z0-9_]+)\.ruleKey$/\1/' | sort -u
+# Every id that has ANY definition line (.ruleKey or .resourceKey): an orphan
+# .resourceKey must not slip past check 3.
+DEFINED=()
+while IFS= read -r id; do DEFINED+=("$id"); done < <(
+    grep -oE '^sonar\.issue\.ignore\.multicriteria\.[A-Za-z0-9_]+\.(ruleKey|resourceKey)' "$PROPS" |
+        sed -E 's/^sonar\.issue\.ignore\.multicriteria\.([A-Za-z0-9_]+)\..*$/\1/' | sort -u
 )
 
+RES_LINES="$(grep -E '^sonar\.issue\.ignore\.multicriteria\.[A-Za-z0-9_]+\.resourceKey=' "$PROPS" || true)"
+
 # --- 1. every resourceKey glob still matches a tracked file -----------------
-# Sonar's matcher is Ant-style: `**` spans directories, `*` and `?` do not. Bash
-# extglob gets close enough for this check — translate `**/` to a `*` that may
-# span `/`, which is what `[[ $path == $glob ]]` gives us once globstar-ish
-# patterns are flattened. Anything ambiguous errs toward "matched" so this gate
-# never blocks a push on its own approximation.
 while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
     id="$(sed -E 's/^sonar\.issue\.ignore\.multicriteria\.([A-Za-z0-9_]+)\.resourceKey=.*/\1/' <<<"$line")"
     glob="${line#*=}"
-
-    # Flatten Ant `**` into a bash `*`; bash `*` already crosses `/` inside [[ ]].
-    pattern="${glob//\*\*\//*}"
-    pattern="${pattern//\*\*/*}"
-
-    matched=0
-    for f in "${TRACKED[@]}"; do
-        # shellcheck disable=SC2053  # intentional glob match, not string compare
-        if [[ "$f" == $pattern ]]; then
-            matched=1
-            break
-        fi
-    done
-
-    if [[ "$matched" -eq 0 ]]; then
-        echo "✖ $id: resourceKey matches no tracked file"
+    if ! grep -Eq "$(ant_to_regex "$glob")" <<<"$TRACKED_NL"; then
+        echo "x $id: resourceKey matches no tracked file"
         echo "    glob: $glob"
-        echo "    This criterion is dead or has drifted — the code it excused was"
+        echo "    This criterion is dead or has drifted - the code it excused was"
         echo "    renamed, moved, or deleted. Delete it, or repoint it at the new"
         echo "    path. Do NOT widen the glob to make this pass."
         fail=1
     fi
-done < <(grep -E '^sonar\.issue\.ignore\.multicriteria\.[A-Za-z0-9_]+\.resourceKey=' "$PROPS")
+done <<<"$RES_LINES"
 
 # --- 1b. extension-narrow globs in mixed-extension directories ---------------
-# Check 1 only catches a glob that matches NOTHING. #2517 was a *partial* drift:
-# `activity/*.ts` kept matching one file, so it stayed "live" while
-# silently dropping another once it became .tsx. A dead-glob check
-# cannot see that, and no offline check can tell which findings a rule would
-# have raised.
-#
-# What IS detectable is the shape that makes the drift possible: a glob pinned to
-# `*.ts` (or `*.js`) in a directory that ALSO holds `.tsx`/`.jsx`. In such a
-# directory a file is one JSX addition away from falling out of the glob, and
-# nothing about that rename looks related to Sonar. That directory already held .tsx
-# files when the glob was written, so this flags it at authoring time.
-#
-# Fix by listing the files explicitly or widening to
-# `*.ts*` — but only once you have confirmed the wider set is what you meant.
+# Check 1 only catches a glob that matches NOTHING. TruePPM #2517 was a partial
+# drift: `activity/*.ts` kept matching one file, so it stayed "live" while
+# silently dropping another once it became .tsx. What IS detectable is the
+# shape: a glob ending `*.ts` (or `*.js`) that covers a directory also holding
+# `.tsx`/`.jsx`. Take the glob, swap the extension for its JSX sibling, and see
+# whether it matches anything tracked - this handles `**` spellings for free
+# because it reuses the Ant matcher on the whole glob.
 while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
     id="$(sed -E 's/^sonar\.issue\.ignore\.multicriteria\.([A-Za-z0-9_]+)\.resourceKey=.*/\1/' <<<"$line")"
     glob="${line#*=}"
-
     case "$glob" in
-        *'*.ts' | *'*.js') ;;
+        *'*.ts') sibling="${glob}x"; ext="ts" ;;
+        *'*.js') sibling="${glob}x"; ext="js" ;;
         *) continue ;;
     esac
-
-    dir="${glob%/*}"
-    sibling_ext="tsx"
-    [[ "$glob" == *'*.js' ]] && sibling_ext="jsx"
-
-    for f in "${TRACKED[@]}"; do
-        if [[ "$f" == "$dir"/*".$sibling_ext" ]]; then
-            echo "✖ $id: '*.${sibling_ext%x}' glob in a directory that also contains .$sibling_ext files"
-            echo "    glob: $glob"
-            echo "    e.g.: $f"
-            echo "    This under-matches silently: a file in this directory that grows"
-            echo "    JSX gets renamed to .$sibling_ext and drops out of the glob, with no"
-            echo "    job going red. That is the TruePPM #2517 failure. List the files"
-            echo "    explicitly, or widen to '*.ts*' if the wider set is what you mean."
-            fail=1
-            break
-        fi
-    done
-done < <(grep -E '^sonar\.issue\.ignore\.multicriteria\.[A-Za-z0-9_]+\.resourceKey=' "$PROPS")
+    hit="$(grep -E "$(ant_to_regex "$sibling")" <<<"$TRACKED_NL" | head -n 1 || true)"
+    if [[ -n "$hit" ]]; then
+        echo "x $id: '*.$ext' glob in a directory that also contains .${ext}x files"
+        echo "    glob: $glob"
+        echo "    e.g.: $hit"
+        echo "    This under-matches silently: a file here that grows JSX gets renamed"
+        echo "    to .${ext}x and drops out of the glob, with no job going red (the"
+        echo "    TruePPM #2517 failure). List the files explicitly, or widen to"
+        echo "    '*.${ext}*' if the wider set is what you mean."
+        fail=1
+    fi
+done <<<"$RES_LINES"
 
 # --- 2. every indexed criterion is fully defined ----------------------------
 for id in "${INDEXED[@]}"; do
@@ -210,7 +209,7 @@ for id in "${INDEXED[@]}"; do
     [[ -z "$id" ]] && continue
     for key in ruleKey resourceKey; do
         if ! grep -qE "^sonar\.issue\.ignore\.multicriteria\.${id}\.${key}=" "$PROPS"; then
-            echo "✖ $id: listed in the multicriteria index but has no .$key"
+            echo "x $id: listed in the multicriteria index but has no .$key"
             fail=1
         fi
     done
@@ -219,21 +218,21 @@ done
 # --- 3. every defined criterion is indexed ----------------------------------
 # Sonar only reads criteria named in the index line, so a defined-but-unlisted
 # one suppresses nothing while looking like it does.
-for id in "${DEFINED_RULE[@]}"; do
+for id in "${DEFINED[@]}"; do
     listed=0
     for indexed in "${INDEXED[@]}"; do
         [[ "${indexed// /}" == "$id" ]] && listed=1 && break
     done
     if [[ "$listed" -eq 0 ]]; then
-        echo "✖ $id: defined but missing from the multicriteria index — it is inert"
+        echo "x $id: defined but missing from the multicriteria index - it is inert"
         fail=1
     fi
 done
 
 if [[ "$fail" -ne 0 ]]; then
     echo ""
-    echo "Sonar exclusion integrity check FAILED — see $PROPS"
+    echo "Sonar exclusion integrity check FAILED - see $PROPS"
     exit 1
 fi
 
-echo "✓ sonar exclusions: ${#INDEXED[@]} criteria, all live and consistent"
+echo "ok sonar exclusions: ${#INDEXED[@]} criteria, all live and consistent"
