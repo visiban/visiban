@@ -196,7 +196,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               value={name}
               onChange={(e) => { setName(e.target.value); setSubmitError(null); }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSubmit();
+                if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
                 if (e.key === "Escape") onCancel();
               }}
               placeholder="e.g. Q3 Pipeline, Acme Onboarding…"
@@ -348,7 +348,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               value={swimlaneName}
               onChange={(e) => setSwimlaneName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSubmit();
+                if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
                 if (e.key === "Escape") onCancel();
               }}
               placeholder={selected?.lane_placeholder || "e.g. General"}

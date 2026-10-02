@@ -68,12 +68,13 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations, addCardComment } from '../api/cards'
+import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations, addCardComment, addChecklistItem } from '../api/cards'
 
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
 const mockGetCardRelations = getCardRelations as ReturnType<typeof vi.fn>
 const mockUpdateChecklistItem = updateChecklistItem as ReturnType<typeof vi.fn>
 const mockDeleteChecklistItem = deleteChecklistItem as ReturnType<typeof vi.fn>
+const mockAddChecklistItem = addChecklistItem as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -864,6 +865,125 @@ describe('CardDetail', () => {
         expect(lastCall.checklist_total).toBe(1)
         expect(lastCall.checklist_done).toBe(0)
       })
+    })
+  })
+
+  describe('load failure and checklist add rejection paths (#1375)', () => {
+    it('shows a load error when the initial comments/attachments/checklist fetch fails', async () => {
+      const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
+      mockGetComments.mockRejectedValueOnce(new Error('network error'))
+      render(<CardDetail {...defaultProps()} />)
+      expect(await screen.findByRole('alert')).toHaveTextContent(/failed to load/i)
+    })
+
+    it('does not show a load error when all three initial fetches succeed', async () => {
+      render(<CardDetail {...defaultProps()} />)
+      await waitFor(() => expect(getCardComments as ReturnType<typeof vi.fn>).toHaveBeenCalled())
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('shows a load error when the refreshSignal-triggered refetch fails', async () => {
+      const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
+      const props = defaultProps()
+      // Initial mount load succeeds — the error must come from the refreshSignal
+      // effect specifically, not leak over from the mount effect (#1375).
+      const { rerender } = render(<CardDetail {...props} refreshSignal={0} />)
+      await waitFor(() => expect(mockGetComments).toHaveBeenCalledTimes(1))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+      mockGetComments.mockRejectedValueOnce(new Error('network error'))
+      rerender(<CardDetail {...props} refreshSignal={1} />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/failed to load/i)
+    })
+
+    it('shows an inline error and keeps the typed text when adding a checklist item fails', async () => {
+      mockAddChecklistItem.mockRejectedValueOnce(new Error('server error'))
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      const input = screen.getByPlaceholderText('Add item (Enter)…')
+      await user.type(input, 'New task')
+      await user.keyboard('{Enter}')
+
+      expect(await screen.findByText('Could not add item.')).toBeInTheDocument()
+      // The failed item never appears in the list.
+      expect(screen.queryByText('New task')).not.toBeInTheDocument()
+    })
+
+    it('adds the checklist item and clears the input on success', async () => {
+      mockAddChecklistItem.mockResolvedValueOnce({ id: 99, text: 'New task', is_checked: false, position: 0 })
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      const input = screen.getByPlaceholderText('Add item (Enter)…') as HTMLInputElement
+      await user.type(input, 'New task')
+      await user.keyboard('{Enter}')
+
+      await waitFor(() => expect(screen.getByText('New task')).toBeInTheDocument())
+      expect(input.value).toBe('')
+      expect(screen.queryByText('Could not add item.')).not.toBeInTheDocument()
+    })
+
+    it('bulk add: a mid-batch failure still applies the items that succeeded and reports the rest', async () => {
+      mockAddChecklistItem
+        .mockResolvedValueOnce({ id: 1, text: 'One', is_checked: false, position: 0 })
+        .mockRejectedValueOnce(new Error('server error'))
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByText('Bulk'))
+      const textarea = screen.getByPlaceholderText(/Buy milk/) as HTMLTextAreaElement
+      await user.type(textarea, 'One\nTwo')
+      await user.click(screen.getByRole('button', { name: 'Add items' }))
+
+      await waitFor(() => expect(screen.getByText('Added 1 of 2 items — the rest failed.')).toBeInTheDocument())
+      // The dialog stays open on failure — the user can see what happened and retry.
+      expect(screen.getByText('Add checklist items')).toBeInTheDocument()
+      // The textarea is rewritten to only the remainder — a literal retry must
+      // not re-post "One", which already made it to the server (#1375 follow-up).
+      expect(textarea.value).toBe('Two')
+      // The one item that did succeed is still reflected once the dialog is dismissed.
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.getByText('One')).toBeInTheDocument()
+    })
+
+    it('bulk add: retrying after a partial failure resubmits only the remainder, with no duplicates', async () => {
+      mockAddChecklistItem
+        .mockResolvedValueOnce({ id: 1, text: 'One', is_checked: false, position: 0 })
+        .mockRejectedValueOnce(new Error('server error'))
+        .mockResolvedValueOnce({ id: 2, text: 'Two', is_checked: false, position: 1 })
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByText('Bulk'))
+      const textarea = screen.getByPlaceholderText(/Buy milk/) as HTMLTextAreaElement
+      await user.type(textarea, 'One\nTwo')
+      await user.click(screen.getByRole('button', { name: 'Add items' }))
+      await waitFor(() => expect(screen.getByText('Added 1 of 2 items — the rest failed.')).toBeInTheDocument())
+      expect(textarea.value).toBe('Two')
+
+      // Retry without editing — only the remainder ("Two") is resubmitted.
+      await user.click(screen.getByRole('button', { name: 'Add items' }))
+      await waitFor(() => expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument())
+
+      expect(mockAddChecklistItem).toHaveBeenCalledTimes(3)
+      // The 3rd call (the retry) only resubmits "Two" — "One" is never re-posted.
+      expect(mockAddChecklistItem.mock.calls[2][2]).toBe('Two')
+      // Exactly one "One" and one "Two" in the final list — no duplicate.
+      expect(screen.getAllByText('One')).toHaveLength(1)
+      expect(screen.getAllByText('Two')).toHaveLength(1)
+    })
+
+    it('bulk add: all items succeed, closes the dialog, and lists every item', async () => {
+      mockAddChecklistItem
+        .mockResolvedValueOnce({ id: 1, text: 'One', is_checked: false, position: 0 })
+        .mockResolvedValueOnce({ id: 2, text: 'Two', is_checked: false, position: 1 })
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByText('Bulk'))
+      await user.type(screen.getByPlaceholderText(/Buy milk/), 'One\nTwo')
+      await user.click(screen.getByRole('button', { name: 'Add items' }))
+
+      await waitFor(() => expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument())
+      expect(screen.getByText('One')).toBeInTheDocument()
+      expect(screen.getByText('Two')).toBeInTheDocument()
     })
   })
 

@@ -728,6 +728,17 @@ describe('BoardView', () => {
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
+  // #1373 — the getCardStatus() call used to be a floating promise: a
+  // rejection (e.g. a network error) left the deep link silently stripped
+  // from the URL with no feedback at all.
+  it('?card= param falls back to the generic "not found" message when the status lookup itself fails', async () => {
+    mockedGetCardStatus.mockRejectedValue(new Error('network error'))
+    mockSearchParams = new URLSearchParams('card=999')
+    render(<BoardView {...defaultProps()} />)
+    await waitFor(() => expect(screen.getByText(/Card not found/)).toBeInTheDocument())
+    expect(mockSetSearchParams).toHaveBeenCalled()
+  })
+
   it('?card= param shows "This card has been archived" when card is archived', async () => {
     mockedGetCardStatus.mockResolvedValue({ archived: true })
     mockSearchParams = new URLSearchParams('card=999')

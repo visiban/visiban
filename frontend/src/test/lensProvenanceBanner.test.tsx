@@ -55,4 +55,39 @@ describe('LensProvenanceBanner', () => {
     render(<LensProvenanceBanner {...base} truncated shownCount={300} />)
     expect(screen.getByText(/300/)).toBeInTheDocument()
   })
+
+  // #1372 — the provider glyph used to be `provider === "github" ? "" : ""`: an
+  // empty string in both branches, so no glyph ever rendered regardless of
+  // provider. Per "No brand logos for external providers" in frontend/CLAUDE.md,
+  // the fix is the SAME generic, decorative glyph for every provider (shared with
+  // the card-face PR/MR badge) — not a per-provider brand logo. The provider
+  // identity still reaches the user as text, via the repo link's title.
+  it('renders the same generic, decorative glyph for every provider', () => {
+    const { container: gitlabContainer } = render(<LensProvenanceBanner {...base} provider="gitlab" />)
+    const gitlabSvg = gitlabContainer.querySelector('svg')
+    expect(gitlabSvg).toBeInTheDocument()
+    expect(gitlabSvg).toHaveAttribute('aria-hidden', 'true')
+
+    const { container: githubContainer } = render(<LensProvenanceBanner {...base} provider="github" />)
+    const githubSvg = githubContainer.querySelector('svg')
+    expect(githubSvg).toBeInTheDocument()
+    expect(githubSvg).toHaveAttribute('aria-hidden', 'true')
+
+    // One generic glyph, not a per-provider brand logo.
+    expect(githubSvg?.innerHTML).toEqual(gitlabSvg?.innerHTML)
+  })
+
+  it('still names the provider in text for each provider', () => {
+    const { rerender } = render(<LensProvenanceBanner {...base} provider="gitlab" />)
+    expect(screen.getByRole('link', { name: /acme\/widgets/i })).toHaveAttribute(
+      'title',
+      'Open acme/widgets on GitLab',
+    )
+
+    rerender(<LensProvenanceBanner {...base} provider="github" />)
+    expect(screen.getByRole('link', { name: /acme\/widgets/i })).toHaveAttribute(
+      'title',
+      'Open acme/widgets on GitHub',
+    )
+  })
 })

@@ -20,12 +20,17 @@ from boards.models import (
     Card,
     CardAttachment,
     CardChecklist,
+    CardComment,
+    CardExternalRef,
     CardMovement,
+    CardRelation,
     Column,
     CustomFieldDefinition,
     CustomFieldValue,
     Notification,
     SavedFilter,
+    SwimlaneCustomFieldDefinition,
+    SwimlaneCustomFieldValue,
 )
 from groups.models import Group, GroupInviteLink, GroupLabel
 
@@ -707,6 +712,11 @@ class SeedDemoSiteTests(TestCase):
         visitor = User.objects.get(username="visitor")
         self.assertFalse(CardMovement.objects.filter(moved_by=visitor).exists())
         self.assertFalse(Card.objects.filter(assignee=visitor).exists())
+        # #1363 narrows the rule to "receives notifications, may be @mentioned";
+        # the visitor still never authors seeded content.
+        self.assertFalse(CardComment.objects.filter(author=visitor).exists())
+        self.assertFalse(CardChecklist.objects.filter(created_by=visitor).exists())
+        self.assertFalse(CardRelation.objects.filter(created_by=visitor).exists())
 
     def test_locks_down_uploads_and_registration(self):
         from accounts.models import SiteSetting
@@ -801,6 +811,243 @@ _DEMO_SITE_SETTINGS = dict(
     DEMO_ADMIN_PASSWORD="test-admin-pw-1",
     DEMO_MEMBER_PASSWORD="test-member-pw-1",
 )
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class SeedDemoSiteShowcaseTests(TestCase):
+    """#1363: the showcase boards show off the product and do not read as all-stale."""
+
+    BOARD_NAMES = SeedDemoSiteTests.BOARD_NAMES
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed(demo_site=True)
+        cls.visitor = User.objects.get(username="visitor")
+
+    def _cards(self, name):
+        return Card.objects.filter(board__name=name)
+
+    def test_each_board_has_checklists_partly_done(self):
+        for name in self.BOARD_NAMES:
+            items = CardChecklist.objects.filter(card__board__name=name)
+            self.assertGreaterEqual(items.values("card").distinct().count(), 5, name)
+            self.assertTrue(items.filter(is_checked=True).exists(), name)
+            self.assertTrue(items.filter(is_checked=False).exists(), name)
+
+    def test_each_board_has_card_custom_fields_with_one_pinned_and_values_on_most_cards(self):
+        for name in self.BOARD_NAMES:
+            defs = CustomFieldDefinition.objects.filter(board__name=name)
+            self.assertTrue(1 <= defs.count() <= 3, name)
+            self.assertTrue(defs.filter(show_on_card=True).exists(), name)
+            self.assertLessEqual(
+                defs.filter(show_on_card=True).count(), CustomFieldDefinition.MAX_PINNED_PER_BOARD, name
+            )
+            with_values = self._cards(name).filter(custom_field_values__isnull=False).distinct().count()
+            self.assertGreater(with_values, self._cards(name).count() // 2, name)
+            # Dropdown values must be one of the definition's choices, or the
+            # card editor would show a value it cannot offer.
+            for value in CustomFieldValue.objects.filter(field_definition__in=defs, field_definition__field_type="dropdown"):
+                self.assertIn(value.value, value.field_definition.choices_json, name)
+
+    def test_each_board_has_public_and_admin_only_swimlane_fields_on_every_lane(self):
+        for name in self.BOARD_NAMES:
+            board = Board.objects.get(name=name)
+            defs = SwimlaneCustomFieldDefinition.objects.filter(board=board)
+            self.assertTrue(defs.filter(is_admin_only=False).exists(), name)
+            self.assertTrue(defs.filter(is_admin_only=True).exists(), name)
+            for lane in board.swimlanes.all():
+                self.assertEqual(
+                    SwimlaneCustomFieldValue.objects.filter(swimlane=lane).count(), defs.count(), lane.name
+                )
+
+    def test_each_board_has_relations_including_an_active_blocker(self):
+        for name in self.BOARD_NAMES:
+            rels = CardRelation.objects.filter(from_card__board__name=name)
+            self.assertGreaterEqual(rels.count(), 3, name)
+            self.assertFalse(rels.exclude(to_card__board__name=name).exists(), name)
+            # An active blocker: the blocking card is not yet done.
+            self.assertTrue(
+                rels.filter(relation_type=CardRelation.Type.BLOCKS, from_card__column__is_done=False).exists(),
+                name,
+            )
+            # Symmetric relations are stored normalized, as the API stores them.
+            for rel in rels.filter(relation_type=CardRelation.Type.RELATES_TO):
+                self.assertLess(rel.from_card_id, rel.to_card_id, name)
+
+    def test_software_team_has_fictional_mr_and_pr_refs(self):
+        refs = CardExternalRef.objects.filter(card__board__name="Software Team")
+        self.assertGreaterEqual(refs.count(), 3)
+        self.assertEqual(
+            set(refs.values_list("provider", flat=True)),
+            {CardExternalRef.Provider.GITLAB, CardExternalRef.Provider.GITHUB},
+        )
+        for ref in refs:
+            ref.full_clean()
+            self.assertIn(".example.com/", ref.url)
+
+    def test_visitor_has_a_nonempty_unread_inbox(self):
+        inbox = Notification.objects.filter(recipient=self.visitor)
+        self.assertGreaterEqual(inbox.count(), 5)
+        # Spread across every showcase board, and every row points at a card.
+        self.assertEqual(set(inbox.values_list("board__name", flat=True)), set(self.BOARD_NAMES))
+        self.assertFalse(inbox.filter(card__isnull=True).exists())
+
+    def test_visitor_sees_every_seeded_notification_through_the_api(self):
+        """The list endpoint (and so the navbar inbox) returns unread rows only,
+        so a row seeded as read would be invisible. Every seeded row must come
+        back, covering all six action types."""
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(self.visitor)
+        resp = client.get("/api/v1/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        rows = resp.json()
+        rows = rows["results"] if isinstance(rows, dict) else rows
+        seeded = Notification.objects.filter(recipient=self.visitor)
+        self.assertEqual({r["id"] for r in rows}, set(seeded.values_list("pk", flat=True)))
+        self.assertEqual(
+            {r["action_type"] for r in rows},
+            {"mentioned", "assigned", "card_moved", "comment_added", "stale", "due_soon"},
+        )
+
+    def test_no_seeded_notification_credits_the_recipient(self):
+        """Product invariant: nobody is notified about their own action."""
+        for notification in Notification.objects.all():
+            self.assertNotEqual(notification.actor_id, notification.recipient_id, notification.verb)
+        people = set(User.objects.filter(username__in=["admin", "maya", "jordan"]).values_list("pk", flat=True))
+        for notification in Notification.objects.filter(recipient=self.visitor):
+            if notification.action_type in ("stale", "due_soon"):
+                # System alerts, as notify_stale_cards / notify_due_soon create them.
+                self.assertIsNone(notification.actor_id, notification.verb)
+            else:
+                self.assertIn(notification.actor_id, people, notification.verb)
+
+    def test_visitor_notifications_agree_with_their_cards(self):
+        inbox = Notification.objects.filter(recipient=self.visitor).select_related("card", "actor")
+        for n in inbox:
+            last = n.card.movements.order_by("-moved_at").first()
+            if n.action_type == "mentioned":
+                self.assertTrue(
+                    n.card.comments.filter(author=n.actor, body__contains="@visitor").exists(), n.verb
+                )
+            elif n.action_type == "card_moved":
+                self.assertEqual(n.actor_id, last.moved_by_id, n.verb)
+                self.assertIn(last.to_column_name, n.verb)
+            elif n.action_type == "stale":
+                self.assertFalse(n.card.column.is_done, n.verb)
+                self.assertLess(last.moved_at, timezone.now() - timezone.timedelta(days=7), n.verb)
+            elif n.action_type == "due_soon":
+                self.assertIsNotNone(n.card.due_date, n.verb)
+                self.assertLessEqual(n.card.due_date, timezone.localdate() + timezone.timedelta(days=1), n.verb)
+            self.assertLessEqual(n.created_at, timezone.now(), n.verb)
+
+    def test_staleness_mix_per_board_and_never_on_done_cards(self):
+        """Fresh, aging and stale all present; stale is the minority (#1363).
+
+        Mirrors the card tint: stale at >= staleness_threshold_days since the
+        last move, aging from stale_warning_pct of the threshold.
+        """
+        now = timezone.now()
+        for name in self.BOARD_NAMES:
+            board = Board.objects.get(name=name)
+            threshold = board.staleness_threshold_days
+            warn = threshold * (1 - board.stale_warning_pct / 100)
+            buckets = {"fresh": 0, "aging": 0, "stale": 0}
+            for card in self._cards(name).select_related("column"):
+                last = card.movements.order_by("-moved_at").first().moved_at
+                days = (now - last).total_seconds() / 86400
+                bucket = "stale" if days >= threshold else "aging" if days >= warn else "fresh"
+                buckets[bucket] += 1
+                if card.column.is_done:
+                    self.assertEqual(bucket, "fresh", f"{name}: {card.title}")
+            self.assertGreaterEqual(buckets["fresh"], 8, (name, buckets))
+            self.assertGreaterEqual(buckets["aging"], 2, (name, buckets))
+            self.assertGreaterEqual(buckets["stale"], 2, (name, buckets))
+            self.assertLessEqual(buckets["stale"], 5, (name, buckets))
+
+    def test_staleness_matches_the_api_annotation(self):
+        from boards.serializers import _annotate_is_stale
+
+        for name in self.BOARD_NAMES:
+            board = Board.objects.get(name=name)
+            cutoff = timezone.now() - timezone.timedelta(days=board.staleness_threshold_days)
+            stale = _annotate_is_stale(self._cards(name), cutoff).filter(_is_stale_annotated=True)
+            self.assertTrue(2 <= stale.count() <= 5, (name, stale.count()))
+            self.assertFalse(stale.filter(column__is_done=True).exists(), name)
+
+    def test_due_date_mix_per_board_and_never_overdue_when_done(self):
+        today = timezone.localdate()
+        for name in self.BOARD_NAMES:
+            cards = self._cards(name)
+            overdue = cards.filter(due_date__lt=today)
+            self.assertTrue(1 <= overdue.count() <= 5, name)
+            self.assertTrue(cards.filter(due_date=today).exists(), name)
+            self.assertTrue(cards.filter(due_date__gt=today).exists(), name)
+            self.assertTrue(cards.filter(due_date__isnull=True).exists(), name)
+            self.assertFalse(overdue.filter(column__is_done=True).exists(), name)
+            self.assertFalse(cards.filter(column__is_done=True, due_date__isnull=False).exists(), name)
+
+    def test_generic_board_fixtures_are_unchanged_by_demo_site(self):
+        """The #1125 schemathesis rows on the generic board are untouched."""
+        board = Board.objects.get(name=BOARD_NAME)
+        field = CustomFieldDefinition.objects.get(board=board)
+        self.assertEqual((field.name, field.field_type, field.show_on_card), ("Story Points", "number", True))
+        self.assertEqual(CustomFieldValue.objects.filter(field_definition=field).count(), 1)
+        self.assertFalse(CardRelation.objects.filter(from_card__board=board).exists())
+        self.assertFalse(CardExternalRef.objects.filter(card__board=board).exists())
+
+
+class DemoSiteDataModuleTests(TestCase):
+    """#1363: the showcase content stays deterministic and off the ``random`` stream."""
+
+    def test_demo_site_data_never_uses_random(self):
+        import ast
+        import inspect
+
+        from boards.management.commands import _demo_site_data
+
+        tree = ast.parse(inspect.getsource(_demo_site_data))
+        names = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                names.add(node.module or "")
+            elif isinstance(node, ast.Name):
+                names.add(node.id)
+        self.assertNotIn("random", names)
+
+    def test_every_card_has_an_explicit_age_and_due_offset(self):
+        from boards.management.commands._demo_site_data import BOARDS
+
+        for spec in BOARDS:
+            done = {i for i, (_n, _c, is_done) in enumerate(spec["columns"]) if is_done}
+            for card in spec["cards"]:
+                title, col_i, last_moved, due = card[0], card[2], card[8], card[9]
+                self.assertIsInstance(last_moved, int, title)
+                # 3 and 7 straddle the aging / stale boundary depending on
+                # the hour of the reset, so they are never authored.
+                self.assertNotIn(last_moved, (3, 7), title)
+                if col_i in done:
+                    self.assertIsNone(due, title)
+                    self.assertLessEqual(last_moved, 2, title)
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class DemoSiteDoesNotPerturbDefaultSeedTests(TestCase):
+    def test_generic_board_is_identical_with_and_without_demo_site(self):
+        def snapshot():
+            return list(
+                Card.objects.filter(board__name=BOARD_NAME)
+                .order_by("id")
+                .values_list("title", "priority", "due_date", "column__name", "swimlane__name")
+            )
+
+        _seed()
+        plain = snapshot()
+        _seed(wipe=True, demo_site=True)
+        self.assertEqual(plain, snapshot())
 
 
 @override_settings(**_DEMO_SITE_SETTINGS)

@@ -74,6 +74,34 @@ describe('EditSwimlaneModal', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  // #1373 — handleSave's floating-promise call site is the name input's
+  // Enter key (the Save button is a plain function reference and was never
+  // flagged). handleSave already catches internally (saveError); this test
+  // exercises that path through the actual fixed call site.
+  it('shows saveError and does not close when saving via Enter fails', async () => {
+    mockUpdateSwimlane.mockRejectedValueOnce(new Error('network error'))
+
+    render(
+      <EditSwimlaneModal
+        boardId={1}
+        swimlane={makeSwimlane({ name: 'Default' })}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onDeleted={onDeleted}
+        onClose={onClose}
+      />
+    )
+
+    const user = userEvent.setup()
+    const input = screen.getByDisplayValue('Default')
+    await user.clear(input)
+    await user.type(input, 'Renamed{Enter}')
+
+    expect(await screen.findByText("Couldn't save this swimlane. Try again.")).toBeInTheDocument()
+    expect(onUpdated).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('shows delete confirmation when Delete swimlane is clicked', async () => {
     render(
       <EditSwimlaneModal

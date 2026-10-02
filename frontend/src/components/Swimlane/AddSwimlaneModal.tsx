@@ -15,14 +15,22 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
   const [email, setEmail] = useState("");
   const [color, setColor] = useState(PALETTE_COLORS[0]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       const swimlane = await createSwimlane(boardId, { name: name.trim(), contact_email: email.trim(), color });
       onAdded(swimlane);
       onClose();
+    } catch (err: unknown) {
+      // This call had no error surface at all before #1375 — a failed create
+      // silently reset the saving spinner with no indication anything went
+      // wrong. Reuse the same inline-error pattern as CreateGroupModal.
+      const detail = (err as { response?: { data?: { detail?: string; name?: string[] } } })?.response?.data;
+      setError(detail?.detail ?? detail?.name?.[0] ?? "Failed to add swimlane.");
     } finally {
       setSaving(false);
     }
@@ -37,7 +45,8 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+            // void: handleSave now catches its own rejection and surfaces it via `error`.
+            onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }}
             placeholder="Swimlane name"
             className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />
@@ -52,6 +61,9 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
             className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />
         </div>
+        <p className="text-xs h-4">
+          {error && <span className="text-danger">{error}</span>}
+        </p>
         <div>
           <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
           <div className="flex gap-2 flex-wrap">

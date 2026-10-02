@@ -217,7 +217,9 @@ export default function CommandPalette({
       if (newTab) {
         window.open(path, "_blank", "noreferrer");
       } else {
-        navigate(path);
+        // Fire-and-forget: the declarative router resolves navigate()
+        // synchronously, and any failure is handled by its own error boundary.
+        void navigate(path);
       }
     } else if (item.kind === "action" && item.action) {
       onClose();

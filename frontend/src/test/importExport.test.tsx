@@ -180,6 +180,26 @@ describe('ImportBoardModal', () => {
       expect(screen.getByText('Invalid board format')).toBeInTheDocument()
     })
   })
+
+  // #1373 — handleSubmit's floating-promise call site is the board-name
+  // input's Enter key (not the Import button, which is a plain function
+  // reference and was never flagged). Exercise that exact site.
+  it('shows import error when submitting via Enter on the board name field', async () => {
+    const user = userEvent.setup()
+    onImport.mockRejectedValue({ response: { data: { detail: 'Invalid board format' } } })
+
+    render(<ImportBoardModal onImport={onImport} onCancel={onCancel} />)
+
+    const file = new File(['{}'], 'board.json', { type: 'application/json' })
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(fileInput, file)
+
+    const nameInput = screen.getByPlaceholderText('Leave blank to use name from file')
+    await user.type(nameInput, 'My Board{Enter}')
+
+    expect(await screen.findByText('Invalid board format')).toBeInTheDocument()
+    expect(onImport).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('Export dropdown (BoardView)', () => {

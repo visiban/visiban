@@ -60,8 +60,10 @@ Usage:
     python manage.py seed_demo_data --force --wipe --demo-site
         Hosted demo instance (#1034, try.visiban.com). In addition to the
         normal demo board, seeds Software / Marketing / Hiring boards
-        (20 cards each, with comments, assignees, labels, and movement
-        history) plus a site admin, the published visitor account and two
+        (20 cards each, with comments, assignees, labels, movement history,
+        checklists, card and swimlane custom fields, card relations and, on
+        Software, MR/PR links; #1363 also gives them a fresh/aging/stale and
+        due-date mix and seeds the visitor's notification inbox) plus a site admin, the published visitor account and two
         member accounts. Passwords come from the DEMO_LOGIN_PASSWORD
         (visitor, published), DEMO_ADMIN_PASSWORD (admin, never published) and
         DEMO_MEMBER_PASSWORD environment variables (never from source); the
@@ -91,9 +93,11 @@ from django.core.management import call_command
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
 
 from accounts.models import SiteSetting, User
 from boards.notifications_email import suppress_notification_email
+from boards.services.notifications import quoted_card_verb
 from boards.models import (
     Board,
     BoardMembership,
@@ -102,7 +106,9 @@ from boards.models import (
     CardAttachment,
     CardChecklist,
     CardComment,
+    CardExternalRef,
     CardMovement,
+    CardRelation,
     Column,
     CustomFieldDefinition,
     CustomFieldValue,
@@ -115,7 +121,11 @@ from boards.models import (
 )
 from groups.models import Group, GroupInviteLink, GroupLabel
 
-from ._demo_site_data import BOARDS as DEMO_SITE_BOARDS, DEMO_SITE_USERS
+from ._demo_site_data import (
+    BOARDS as DEMO_SITE_BOARDS,
+    DEMO_SITE_USERS,
+    VISITOR_NOTIFICATIONS as DEMO_SITE_VISITOR_NOTIFICATIONS,
+)
 
 BOARD_NAME = "Visiban Demo Board"
 # Distinct name for the --scale > 1 fixture (#1082) so a large-fixture run can
@@ -820,14 +830,19 @@ class Command(BaseCommand):
                     board=main, user=user, defaults=self._demo_site_membership(key),
                 )
 
+        seeded = {}
         for spec in DEMO_SITE_BOARDS:
             if Board.objects.filter(name=spec["name"]).exists():
                 self.stdout.write(
                     self.style.WARNING(f"'{spec['name']}' already exists — skipping. Use --wipe to recreate.")
                 )
                 continue
-            n = self._create_demo_site_board(spec, users)
-            self.stdout.write(self.style.SUCCESS(f"Seeded '{spec['name']}': {n} cards."))
+            board, cards = self._create_demo_site_board(spec, users)
+            seeded[spec["name"]] = (board, cards)
+            self.stdout.write(self.style.SUCCESS(f"Seeded '{spec['name']}': {len(cards)} cards."))
+        n = self._create_demo_site_notifications(seeded, users)
+        if n:
+            self.stdout.write(self.style.SUCCESS(f"Seeded {n} notifications for the published visitor."))
 
     def _ensure_demo_site_users(self):
         """Create/refresh the admin and member accounts; return {key: User}.
@@ -924,50 +939,76 @@ class Command(BaseCommand):
             for name, color in spec["labels"]
         }
 
-        today = datetime.date.today()
-        anchor = datetime.datetime(today.year, today.month, today.day, tzinfo=datetime.timezone.utc)
+        today = timezone.localdate()
+        anchor = self._demo_site_anchor()
+        visitor_name = users["visitor"].username
         positions = {}
-        for idx, (title, desc, col_i, lane_i, priority, assignee, label_names, comments) in enumerate(spec["cards"]):
+        cards = {}
+        for idx, (title, desc, col_i, lane_i, priority, assignee, label_names, comments,
+                  last_moved, due_offset) in enumerate(spec["cards"]):
             column, lane = columns[col_i], lanes[lane_i]
             pos = positions.get(column.id, 0)
             positions[column.id] = pos + 1
             card = Card.objects.create(
                 board=board, column=column, swimlane=lane, title=title, description=desc,
                 priority=priority, assignee=users[assignee] if assignee else None,
-                # Deterministic spread: some overdue, some upcoming, some undated.
-                due_date=(today + datetime.timedelta(days=(idx % 9) - 2)) if idx % 3 != 2 else None,
+                # Explicit per card in _demo_site_data (#1363): overdue, due
+                # today, upcoming and undated, never overdue in a Done column.
+                due_date=(today + datetime.timedelta(days=due_offset)) if due_offset is not None else None,
                 weight=(idx % 5) + 1, position=pos, created_by=admin,
             )
             if label_names:
                 card.labels.set([labels[n] for n in label_names])
+            created_age = self._add_demo_site_history(card, columns, col_i, anchor, idx, last_moved, users)
             for c_i, (author, body) in enumerate(comments):
-                comment = CardComment.objects.create(card=card, author=users[author], body=body)
-                CardComment.objects.filter(pk=comment.pk).update(
-                    created_at=anchor - datetime.timedelta(days=1 + c_i + idx % 4)
+                comment = CardComment.objects.create(
+                    card=card, author=users[author], body=body.replace("{visitor}", visitor_name),
                 )
-            self._add_demo_site_history(card, columns, col_i, anchor, idx, users)
-        return len(spec["cards"])
+                # The last comment lands on the day of the card's last move and
+                # earlier ones a day apart before it, never before the card existed.
+                age = min(last_moved + len(comments) - 1 - c_i, created_age)
+                CardComment.objects.filter(pk=comment.pk).update(
+                    created_at=anchor - datetime.timedelta(days=age)
+                )
+            cards[title] = card
+        self._add_demo_site_extras(board, spec, cards, lanes, users)
+        return board, cards
 
-    def _add_demo_site_history(self, card, columns, col_i, anchor, idx, users):
+    @staticmethod
+    def _demo_site_anchor():
+        """Today's midnight (UTC): the instant every demo-site age counts back from.
+
+        The UTC date (timezone.now() is UTC-aware) rather than date.today():
+        the host's local date can run a day ahead of UTC, which would put the
+        anchor — and every "0 days ago" move and notification — in the future.
+        """
+        today = timezone.now().date()
+        return datetime.datetime(today.year, today.month, today.day, tzinfo=datetime.timezone.utc)
+
+    def _add_demo_site_history(self, card, columns, col_i, anchor, idx, last_moved, users):
         """Backdated created + one movement per stage the card has passed.
 
         Every card gets a created event so the History tab is never empty.
-        Mirrors _add_movement_history but with deterministic offsets.
+        Mirrors _add_movement_history but with deterministic offsets. The most
+        recent movement lands exactly ``last_moved`` days before ``anchor`` —
+        that one value drives the staleness tint, so it is authored per card
+        (#1363); the earlier stages are spaced back from it by a 3-6 day dwell.
+        Returns the card's age in days (its created event).
         """
         # The visitor is excluded: it is every visitor at once, so seeded
         # history attributed to it would read as the current visitor's moves.
         people = [u for key, u in users.items() if key != "visitor"]
         mover = people[idx % len(people)]
         lane = card.swimlane
-        step = 4 + idx % 3
-        age = step * (col_i + 1) + 2 + idx % 5
+        dwell = 3 + idx % 4
+        created_age = last_moved + dwell * col_i
         created = CardMovement.objects.create(
             card=card, from_column=None, to_column=columns[0], from_swimlane=None, to_swimlane=lane,
             from_column_name="", to_column_name=columns[0].name, from_column_uid="",
             to_column_uid=columns[0].uid, from_swimlane_name="", to_swimlane_name=lane.name,
             from_swimlane_uid="", to_swimlane_uid=lane.uid, moved_by=mover, notes="",
         )
-        CardMovement.objects.filter(pk=created.pk).update(moved_at=anchor - datetime.timedelta(days=age))
+        CardMovement.objects.filter(pk=created.pk).update(moved_at=anchor - datetime.timedelta(days=created_age))
         for i in range(col_i):
             src, dst = columns[i], columns[i + 1]
             mv = CardMovement.objects.create(
@@ -977,8 +1018,124 @@ class Command(BaseCommand):
                 from_swimlane_uid=lane.uid, to_swimlane_uid=lane.uid, moved_by=mover, notes="",
             )
             CardMovement.objects.filter(pk=mv.pk).update(
-                moved_at=anchor - datetime.timedelta(days=age - step * (i + 1))
+                moved_at=anchor - datetime.timedelta(days=last_moved + dwell * (col_i - 1 - i))
             )
+        return created_age
+
+    def _add_demo_site_extras(self, board, spec, cards, lanes, users):
+        """Custom fields, row fields, checklists, relations and MR/PR links (#1363).
+
+        Everything is read from the board spec, so a typo in a card title or
+        field name raises a KeyError at seed time (and in the tests) instead of
+        silently seeding less than the demo promises.
+        """
+        admin = users["admin"]
+        definitions = {}
+        for pos, (name, field_type, choices, show_on_card, help_text) in enumerate(spec["card_fields"]):
+            definitions[name] = CustomFieldDefinition.objects.create(
+                board=board, name=name, field_type=field_type, choices_json=list(choices),
+                position=pos, show_on_card=show_on_card, help_text=help_text,
+            )
+        for title, values in spec["card_field_values"].items():
+            for name, value in values.items():
+                CustomFieldValue.objects.create(
+                    card=cards[title], field_definition=definitions[name], value=value,
+                )
+
+        # Same shape as _create_swimlane_custom_fields on the generic board: a
+        # public field everyone sees plus an admin-only one, so both visibility
+        # modes are on show.
+        row_definitions = {}
+        for pos, (name, field_type, choices, show_on_row, admin_only, help_text) in enumerate(spec["swimlane_fields"]):
+            row_definitions[name] = SwimlaneCustomFieldDefinition.objects.create(
+                board=board, name=name, field_type=field_type, choices_json=list(choices),
+                position=pos, show_on_row=show_on_row, is_admin_only=admin_only, help_text=help_text,
+            )
+        lanes_by_name = {lane.name: lane for lane in lanes}
+        for lane_name, values in spec["swimlane_field_values"].items():
+            for name, value in values.items():
+                SwimlaneCustomFieldValue.objects.create(
+                    swimlane=lanes_by_name[lane_name], field_definition=row_definitions[name], value=value,
+                )
+
+        for title, items in spec["checklists"].items():
+            card = cards[title]
+            for pos, (text, checked) in enumerate(items):
+                CardChecklist.objects.create(
+                    card=card, text=text, is_checked=checked, position=pos,
+                    created_by=card.assignee or admin,
+                )
+
+        for from_title, relation_type, to_title in spec["relations"]:
+            low, high = cards[from_title], cards[to_title]
+            # Symmetric types are stored with the lower card id first, the
+            # same normalization CardRelationSerializer applies, so the seeded
+            # rows look exactly like ones created through the API.
+            if relation_type in CardRelation.SYMMETRIC_TYPES and low.pk > high.pk:
+                low, high = high, low
+            CardRelation.objects.create(
+                from_card=low, to_card=high, relation_type=relation_type, created_by=low.assignee or admin,
+            )
+
+        for title, (provider, ref, url) in spec["external_refs"].items():
+            link = CardExternalRef(card=cards[title], provider=provider, ref=ref, url=url)
+            # The model's docstring: writers outside the API must run the field
+            # validators themselves.
+            link.full_clean()
+            link.save()
+
+    def _create_demo_site_notifications(self, seeded, users):
+        """Seed the published visitor's inbox (#1363); return the row count.
+
+        Every actor and timestamp is derived from the seeded card (see the
+        VISITOR_NOTIFICATIONS docstring), so a notification can never disagree
+        with the card it points at. The actor is never the visitor: the product
+        does not notify anyone about their own action.
+        """
+        visitor = users["visitor"]
+        anchor = self._demo_site_anchor()
+        ActionType = Notification.ActionType
+        count = 0
+        for board_name, title, action_type, assigned_by in DEMO_SITE_VISITOR_NOTIFICATIONS:
+            if board_name not in seeded:
+                continue  # board skipped (already existed without --wipe)
+            board, cards = seeded[board_name]
+            card = cards[title]
+            last_move = card.movements.order_by("-moved_at").first()
+            if action_type == ActionType.MENTIONED:
+                mention = f"@{visitor.username}"
+                comment = next(c for c in card.comments.order_by("created_at") if mention in c.body)
+                actor, at = comment.author, comment.created_at
+                verb = quoted_card_verb(f"{actor.username} mentioned you in", card.title)
+            elif action_type == ActionType.COMMENT_ADDED:
+                comment = card.comments.order_by("-created_at").first()
+                actor, at = comment.author, comment.created_at
+                verb = quoted_card_verb(f"{actor.username} commented on", card.title)
+            elif action_type == ActionType.CARD_MOVED:
+                actor, at = last_move.moved_by, last_move.moved_at
+                verb = f"{actor.username} moved \"{card.title}\" to {last_move.to_column_name}"
+            elif action_type == ActionType.ASSIGNED:
+                actor, at = users[assigned_by], last_move.moved_at
+                verb = f"You were assigned to \"{card.title}\""
+            elif action_type == ActionType.STALE:
+                actor, at = None, anchor
+                days = (anchor - last_move.moved_at).days
+                verb = f"\"{card.title}\" hasn't moved in {days} days (board: {board.name})"
+            elif action_type == ActionType.DUE_SOON:
+                actor, at = None, anchor
+                verb = f'"{card.title}" is due soon'
+            else:
+                raise CommandError(f"Unsupported demo notification type {action_type!r}.")
+            if actor is not None and actor.pk == visitor.pk:
+                raise CommandError(f"Demo notification on {title!r} would credit the visitor's own action.")
+            notification = Notification.objects.create(
+                recipient=visitor, actor=actor, action_type=action_type, verb=verb,
+                card=card, board=board, read=False,
+            )
+            # auto_now_add ignores a value passed to create().
+            Notification.objects.filter(pk=notification.pk).update(created_at=at)
+            count += 1
+        return count
 
     # ── Private helpers ────────────────────────────────────────────────────────
 

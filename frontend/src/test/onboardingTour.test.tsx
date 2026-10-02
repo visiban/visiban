@@ -128,6 +128,20 @@ describe('OnboardingTour', () => {
     })
   })
 
+  // #1373 — finish() is deliberately best-effort (see its own comment): the
+  // tour must still dismiss locally even when the completeTour API call
+  // rejects. The escape-key call site used to be a floating promise.
+  it('still dismisses via Escape when completeTour rejects', async () => {
+    mockCompleteTour.mockRejectedValueOnce(new Error('network error'))
+    render(<OnboardingTour onComplete={onComplete} />)
+    const escapeHandler = mockEscapeHandlers.find(h => h.priority === 40)!
+    escapeHandler.fn()
+    await waitFor(() => {
+      expect(mockCompleteTour).toHaveBeenCalled()
+      expect(onComplete).toHaveBeenCalled()
+    })
+  })
+
   it('calls completeTour API and onComplete on Got it (last fullScreen step)', async () => {
     render(<OnboardingTour onComplete={onComplete} />)
     // Advance through all 7 spotlight steps to reach the fullScreen step (step 8)

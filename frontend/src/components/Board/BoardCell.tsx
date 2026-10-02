@@ -168,7 +168,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
-                if (closeEditorOnEnter) { e.preventDefault(); handleAdd(); }
+                if (closeEditorOnEnter) { e.preventDefault(); void handleAdd(); } // handleAdd manages its own error state (addError) and never rejects
                 // else: fall through so the browser inserts a newline (default textarea behavior)
               }
               if (e.key === "Escape") setAdding(false);

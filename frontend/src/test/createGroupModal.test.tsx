@@ -272,6 +272,37 @@ describe('CreateGroupModal', () => {
   })
 
   // ----------------------------------------------------------------
+  // Subgroup Enter-key submit — rejection path (#1375)
+  // ----------------------------------------------------------------
+
+  it('shows a subgroup error when Enter is pressed in the subgroup input and createGroup rejects', async () => {
+    const parentCreated = makeGroup({ id: 5, name: 'Infra' })
+    mockCreateGroup.mockResolvedValueOnce(parentCreated)
+
+    render(<CreateGroupModal onCreated={onCreated} onClose={onClose} />)
+    const user = userEvent.setup()
+
+    // Create the parent group first to reach the post-creation phase.
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Infra')
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(screen.getByPlaceholderText('Subgroup name')).toBeInTheDocument())
+
+    mockCreateGroup.mockRejectedValueOnce({
+      response: { data: { detail: 'A group with this name already exists.' } },
+    })
+
+    await user.type(screen.getByPlaceholderText('Subgroup name'), 'Duplicate')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() =>
+      expect(screen.getByText('A group with this name already exists.')).toBeInTheDocument()
+    )
+    // Only the parent creation reached onCreated — the failed subgroup never did.
+    expect(onCreated).toHaveBeenCalledTimes(1)
+    expect(onCreated).toHaveBeenCalledWith(parentCreated)
+  })
+
+  // ----------------------------------------------------------------
   // Description character counter
   // ----------------------------------------------------------------
 

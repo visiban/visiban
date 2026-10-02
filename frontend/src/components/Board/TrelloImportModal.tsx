@@ -416,7 +416,7 @@ export default function TrelloImportModal({ groupId, groupName, onCancel, onImpo
                         document.getElementById(createBlockedField)?.focus();
                         return;
                       }
-                      handleCreate();
+                      void handleCreate(); // handleCreate manages its own phase/error state and never rejects
                     }}
                     aria-disabled={!!createBlockedReason}
                     aria-describedby={createBlockedReason ? "trello-create-blocked" : undefined}

@@ -67,7 +67,9 @@ function GroupNode({
         tabIndex={0}
         className="w-full flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-surface-hover/50 transition cursor-pointer group/row focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         onClick={() => navigate(`/groups/${group.id}`)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/groups/${group.id}`); } }}
+        // void: declarative-router navigate() resolves synchronously here; any
+        // failure is handled by React Router's own error boundary.
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void navigate(`/groups/${group.id}`); } }}
       >
         {/* Chevron — reserves space for leaf nodes to keep alignment */}
         <button
