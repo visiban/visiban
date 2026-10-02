@@ -254,10 +254,9 @@ def _enclosing_functions(tree):
 
 
 def _params(fn):
-    if isinstance(fn, ast.Lambda):
-        a = fn.args
-    else:
-        a = fn.args
+    # ast.Lambda and ast.FunctionDef/AsyncFunctionDef both carry an `args: ast.arguments`
+    # with the same shape (posonlyargs/args/vararg/kwonlyargs/kwarg) — no branch needed.
+    a = fn.args
     names = [p.arg for p in (*a.posonlyargs, *a.args, *a.kwonlyargs)]
     if a.vararg:
         names.append(a.vararg.arg)

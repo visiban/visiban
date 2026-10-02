@@ -26,6 +26,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}`, disabled: !isAdmin });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : undefined };
@@ -57,8 +58,13 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
     const trimmed = draft.trim();
     setRenaming(false);
     if (!trimmed || trimmed === column.name) return;
-    const updated = await updateColumn(boardId, column.id, { name: trimmed });
-    onColumnUpdated(updated);
+    setRenameError(null);
+    try {
+      const updated = await updateColumn(boardId, column.id, { name: trimmed });
+      onColumnUpdated(updated);
+    } catch {
+      setRenameError("Failed to rename column. Please try again.");
+    }
   };
 
   const cancelRename = () => {
@@ -185,7 +191,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); commitRename(); }
+                if (e.key === "Enter") { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
                 if (e.key === "Escape") { e.preventDefault(); cancelRename(); }
               }}
               onBlur={commitRename}
@@ -215,6 +221,10 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             </div>
           )}
         </div>
+
+        {renameError && (
+          <p className="mt-1 pl-[26px] text-xs text-danger" role="alert">{renameError}</p>
+        )}
 
         {/* Stat row — surface only the worst-offender (WIP > weight); calm state shows
             just the card count. Drops the "WIP" / "Weight" label words when nothing is

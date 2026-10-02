@@ -447,7 +447,7 @@ describe('CardRelationsSection — hosted demo (#1193)', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
-  it('hides "Remove relation" outright — defensive, since no demo board can seed one today, but protects against a future seed-data change', async () => {
+  it('hides "Remove relation" outright, since the demo fence refuses relation DELETE and seeded demo boards have relations', async () => {
     mockGet.mockResolvedValue([makeRelation()])
     renderSection({ demoMode: true })
     expect(await screen.findByText('Blocker card')).toBeInTheDocument()

@@ -139,7 +139,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSubmit();
+                if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
                 if (e.key === "Escape") onCancel();
               }}
               placeholder="Leave blank to use name from file"

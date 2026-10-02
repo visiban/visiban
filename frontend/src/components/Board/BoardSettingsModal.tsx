@@ -105,6 +105,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
+  // #1373 — role/moderator/remove mutations used to have no catch at all (not
+  // just an unsurfaced error — a genuine unhandled promise rejection). Shared
+  // across the three Members-tab row actions since they all mutate the same
+  // list and only one can be in flight per row (gated by `saving`).
+  const [memberActionError, setMemberActionError] = useState<string | null>(null);
 
   const [inviteQuery, setInviteQuery] = useState("");
   const [suggestions, setSuggestions] = useState<User[]>([]);
@@ -118,6 +123,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const [stalenessThreshold, setStalenessThreshold] = useState(board.staleness_threshold_days ?? 14);
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
+  const [cardAgingError, setCardAgingError] = useState<string | null>(null);
+  // Tracks the last value actually persisted to the server, independent of the
+  // (already-updated-on-keystroke) state above, so a failed save can revert to
+  // the right value instead of the just-typed one.
+  const syncedStalenessThresholdRef = useRef(board.staleness_threshold_days ?? 14);
+  const syncedStalenessWarningPctRef = useRef(board.stale_warning_pct ?? 50);
   // Inline confirmation before enabling hard WIP mode — mirrors the member-removal confirm pattern.
   const [pendingHardWip, setPendingHardWip] = useState(false);
 
@@ -204,9 +215,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     };
   }, []);
 
-  const handleCopyShareUrl = () => {
+  const handleCopyShareUrl = async () => {
     if (!shareUrl) return;
-    navigator.clipboard.writeText(shareUrl);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      setShareStatus("Failed to copy link. Please copy it manually.");
+      return;
+    }
     setShareCopied(true);
     if (shareCopiedTimerRef.current !== null) {
       clearTimeout(shareCopiedTimerRef.current);
@@ -257,6 +273,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const handleRoleChange = async (userId: number, role: BoardRole) => {
     setSaving(userId);
+    setMemberActionError(null);
     try {
       const updated = await setBoardMember(board.id, userId, role);
       setMembers((prev) => {
@@ -264,6 +281,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         if (!next.find((m) => m.user.id === userId)) next.push(updated);
         return next;
       });
+    } catch {
+      setMemberActionError("Failed to update role. Please try again.");
     } finally {
       setSaving(null);
     }
@@ -271,9 +290,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const handleModeratorToggle = async (userId: number, currentRole: BoardRole, isModerator: boolean) => {
     setSaving(userId);
+    setMemberActionError(null);
     try {
       const updated = await setBoardMember(board.id, userId, currentRole, !isModerator);
       setMembers((prev) => prev.map((m) => m.user.id === userId ? { ...m, is_moderator: updated.is_moderator } : m));
+    } catch {
+      setMemberActionError("Failed to update moderator status. Please try again.");
     } finally {
       setSaving(null);
     }
@@ -281,9 +303,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const handleRemoveConfirm = async (userId: number) => {
     setSaving(userId);
+    setMemberActionError(null);
     try {
       await removeBoardMember(board.id, userId);
       setMembers((prev) => prev.filter((m) => m.user.id !== userId));
+    } catch {
+      setMemberActionError("Failed to remove member. Please try again.");
     } finally {
       setSaving(null);
       setPendingRemove(null);
@@ -324,14 +349,32 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   };
 
 
-  const handleStalenessBlur = () => {
-    patchBoard(board.id, { staleness_threshold_days: stalenessThreshold });
+  const handleStalenessBlur = async () => {
+    const previous = syncedStalenessThresholdRef.current;
+    if (stalenessThreshold === previous) return;
+    setCardAgingError(null);
+    try {
+      await patchBoard(board.id, { staleness_threshold_days: stalenessThreshold });
+      syncedStalenessThresholdRef.current = stalenessThreshold;
+    } catch {
+      setStalenessThreshold(previous);
+      setCardAgingError("Failed to save stale card threshold. Please try again.");
+    }
   };
 
-  const handleStalenessWarningPctBlur = () => {
+  const handleStalenessWarningPctBlur = async () => {
     const clamped = Math.max(0, Math.min(100, stalenessWarningPct));
+    const previous = syncedStalenessWarningPctRef.current;
     setStalenessWarningPct(clamped);
-    patchBoard(board.id, { stale_warning_pct: clamped });
+    if (clamped === previous) return;
+    setCardAgingError(null);
+    try {
+      await patchBoard(board.id, { stale_warning_pct: clamped });
+      syncedStalenessWarningPctRef.current = clamped;
+    } catch {
+      setStalenessWarningPct(previous);
+      setCardAgingError("Failed to save warning percentage. Please try again.");
+    }
   };
 
   // #843 — save export_min_role immediately on change. Admins only; non-admins
@@ -587,6 +630,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 <p className="text-sm text-fg-muted py-4 text-center">No members yet.</p>
               )}
 
+              <p className="text-xs h-4 mt-1">
+                {memberActionError && <span className="text-danger">{memberActionError}</span>}
+              </p>
+
               {isAdmin && (
                 <div className="border-t border-line pt-4 mt-2">
                   <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-3">Add member</p>
@@ -829,6 +876,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         Warning tint appears when a card has used this percentage of the threshold. Example: 14 days threshold, 50% warning → warning tint after 7 days, stale tint at 14 days.
                       </p>
                     </div>
+                    <p className="text-xs h-4">
+                      {cardAgingError && <span className="text-danger">{cardAgingError}</span>}
+                    </p>
                   </div>
                 ) : (
                   <p className="text-sm text-fg-secondary">{board.staleness_threshold_days ?? 14} days · {board.stale_warning_pct ?? 50}% warning</p>
@@ -856,9 +906,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     disabled={shareLoading}
                     onChange={() => {
                       if (shareToken !== null) {
-                        handleDisableShare();
+                        // handleDisableShare manages its own loading/error state (shareStatus) and never rejects.
+                        void handleDisableShare();
                       } else {
-                        handleEnableShare();
+                        // handleEnableShare manages its own loading/error state (shareStatus) and never rejects.
+                        void handleEnableShare();
                       }
                     }}
                     aria-label="Enable public share link"
@@ -898,7 +950,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         {shareUrl}
                       </div>
                       <button
-                        onClick={handleCopyShareUrl}
+                        // handleCopyShareUrl manages its own copied/error state (shareStatus) and never rejects.
+                        onClick={() => void handleCopyShareUrl()}
                         className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
                       >
                         {shareCopied ? "Copied!" : "Copy"}

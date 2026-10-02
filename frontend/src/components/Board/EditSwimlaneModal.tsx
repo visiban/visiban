@@ -112,7 +112,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }} // handleSave manages its own saving/error state (saveError) and never rejects
                 className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
               />
             </div>

@@ -27,6 +27,15 @@ describe('parseLensLabels', () => {
   it('caps the label count to match the server', () => {
     expect(parseLensLabels('a,b,c,d,e,f,g')).toHaveLength(MAX_LENS_LABELS)
   })
+
+  it('sorts with localeCompare, not a bare .sort()\'s UTF-16 code-unit order (#1372)', () => {
+    // A bare `.sort()` would put every uppercase letter before every lowercase one
+    // ("Bug" before "ant"). The server independently re-sorts `labels` for its own
+    // cache key (_board_cache_key derives it from _parse_filters, not from the raw
+    // query string), so this comparator only needs to be deterministic here — but
+    // it should read naturally to a person looking at the canonical `?labels=` value.
+    expect(parseLensLabels('Bug,ant,café')).toEqual(['ant', 'Bug', 'café'])
+  })
 })
 
 describe('serializeLensLabels', () => {

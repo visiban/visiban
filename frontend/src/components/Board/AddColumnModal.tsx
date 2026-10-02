@@ -16,10 +16,12 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
   const [wipLimit, setWipLimit] = useState("");
   const [weightLimit, setWeightLimit] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       const column = await createColumn(boardId, {
         name: name.trim(),
@@ -29,6 +31,8 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
       });
       onAdded(column);
       onClose();
+    } catch {
+      setError("Failed to add column. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -43,7 +47,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+            onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }} // handleSave manages its own saving/error state and never rejects
             placeholder="e.g. In Progress"
             className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />
@@ -85,7 +89,8 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
         </div>
       </div>
 
-      <div className="flex justify-end gap-3 mt-5">
+      <div className="flex items-center gap-3 mt-5">
+        <p className="text-xs h-4 flex-1"><span className="text-danger">{error}</span></p>
         <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           onClick={handleSave}

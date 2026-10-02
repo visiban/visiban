@@ -31,12 +31,11 @@ interface Props {
   /**
    * Hosted demo (#1193): neither POST nor DELETE on the relations endpoints
    * is on DEMO_ALLOWED_WRITES, so a visitor's "+ Add relation" would always
-   * 403 and fall through to DemoWriteBlockedToast. "Remove relation" is
-   * unreachable today (add is refused fleet-wide, so no demo board can ever
-   * have a relation to remove) but is gated defensively anyway — hidden
-   * outright, same as card delete — so a future seed-data change that adds
-   * example relations cannot silently reopen this gap without a matching
-   * frontend change (ux-review, #1193).
+   * 403 and fall through to DemoWriteBlockedToast. So "+ Add relation" is
+   * disabled up front for the demo visitor, and "Remove relation" is hidden
+   * outright, same as card delete (ux-review, #1193). The seeded demo boards
+   * carry example relations (#1363), so the remove control is reachable and
+   * this gate is what keeps a visitor off a refused DELETE.
    */
   demoMode?: boolean;
   /**
@@ -250,12 +249,11 @@ export default function CardRelationsSection({
                               key={rel.id}
                               rel={rel}
                               columnName={columnName(rel.card.column)}
-                              // #1193: DELETE is refused too, and no demo board
-                              // can seed a relation today (add is refused
-                              // fleet-wide), so this is defensive rather than
-                              // reachable — hidden outright like card delete,
-                              // so a future seed change that adds relations
-                              // does not silently reopen a fallback-toast gap.
+                              // #1193: the demo fence refuses relation DELETE
+                              // too, and the seeded demo boards have relations
+                              // (#1363), so the control is hidden outright for
+                              // the demo visitor, like card delete, instead of
+                              // falling through to the fallback toast.
                               canEdit={canEdit && !demoMode}
                               onRemove={() => handleRemove(rel)}
                             />

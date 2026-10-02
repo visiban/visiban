@@ -1415,7 +1415,12 @@ helm-install:
   rules:
     # Advisory on the nightly schedule: a blip on a shared runner pulling Calico
     # manifests or base images is a signal, not a hard red.
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    #
+    # Excludes the Sonar nightly (#1369): this 40min drill has nothing to do
+    # with a coverage-import-only scan, and SONAR_SCHEDULED is meant to run
+    # every night — without the exclusion, adding it would turn a weekly-ish
+    # cost into a nightly one for zero benefit to either job.
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
       allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes: *helm-paths
@@ -1454,7 +1459,10 @@ helm-netpol:
     - job: helm-template
       optional: true
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    # Excludes the Sonar nightly (#1369) — see helm-install's identical note
+    # above; this is a separate 45min cluster drill with nothing to do with a
+    # coverage-import scan.
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
       allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes: *helm-paths
@@ -1511,7 +1519,11 @@ compose-prod-drill:
     # pipelines predate the drill's merge), so it stays advisory until it
     # does. Note this job's `changes:` includes `.gitlab-ci.yml`, so it now
     # also blocks any MR touching that file — intended, since it is proven.
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    #
+    # Excludes the Sonar nightly (#1369) — same reasoning as helm-install /
+    # helm-netpol: a 20min compose boot drill has nothing to do with a
+    # coverage-import scan, and SONAR_SCHEDULED runs every night.
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
       allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes: &compose-prod-paths
@@ -2457,6 +2469,76 @@ gitleaks-scan:
     - chmod +x /usr/local/bin/gitleaks
   script:
     - gitleaks dir . --config .gitleaks.toml --no-banner --redact --exit-code 1
+
+# ─── Nightly SonarCloud scan (#1369, part of the #1368 quality epic) ─────────
+#
+# There is no SonarCloud job in this file today — the dashboard only refreshes
+# when someone runs `sonar-scanner` by hand, so it is stale and never carries
+# coverage. Mirrors TruePPM's `sonar:scan` (trueppm/.gitlab-ci.yml).
+#
+# Trigger: ONLY the dedicated nightly schedule (SONAR_SCHEDULED == "true"),
+# never MR or push pipelines, so day-to-day pipeline latency is unchanged.
+# SonarCloud does not run tests; it imports the coverage reports the `test`
+# stage already produces via the `sonar.*.reportPaths` in
+# sonar-project.properties.
+#
+# `needs:` backend-test-coverage and frontend-test with `artifacts: true` so
+# their reports land in this job's workspace. Both already run on every
+# scheduled pipeline (their rules fall back to `$CI_COMMIT_BRANCH ==
+# $CI_DEFAULT_BRANCH`, which is true for any schedule targeting main, Sonar's
+# included) — no rule change needed on either job. stage: security keeps this
+# job after `test` (a job cannot `needs:` a later-stage job).
+#
+# allow_failure: true so a Sonar/network hiccup never turns the nightly red.
+# Failure visibility: this job is NOT wired to any alert — a red run is only
+# visible by looking at the schedule's pipeline history or the SonarCloud
+# dashboard itself (no new analysis for that day). That is a known, accepted
+# gap for this first cut; #1382 owns writing it up in the maintainer runbook.
+#
+# Each report rewrite below is guarded on the source file existing. Until
+# #1370 lands (it adds the `sonar.*.reportPaths` entries and the frontend LCOV
+# reporter), both guards are no-ops and the scan imports no coverage — see
+# #1369's description. Once #1370 lands, a single failed producer (e.g. an
+# allow_failure coverage job) still lets the rest of the import proceed
+# instead of aborting the whole scan.
+sonar:scan:
+  stage: security
+  image: ${DOCKERHUB_MIRROR}/sonarsource/sonar-scanner-cli:12.2.0.4256_8.1.0@sha256:a3f4215076706c95a17a68c19322ee916e40a3acd081a8c1a1e839e0194afa57
+  needs:
+    - job: backend-test-coverage
+      artifacts: true
+    - job: frontend-test
+      artifacts: true
+  variables:
+    # Full history so SonarCloud's new-code detection and SCM blame are
+    # accurate (the default shallow clone makes Sonar warn and skip blame
+    # attribution).
+    GIT_DEPTH: "0"
+    # Keep the analysis cache inside the workspace so it can be cached below.
+    SONAR_USER_HOME: "$CI_PROJECT_DIR/.sonar"
+  cache:
+    key: sonar-scanner
+    paths:
+      - .sonar/cache
+  script:
+    # backend/coverage.xml emits an EMPTY `<source></source>` because
+    # backend/.coveragerc sets `relative_files = true` (needed so the three
+    # parallel backend-test shards combine across runners). With no source
+    # root the scanner would resolve class filenames from the repo root and
+    # drop them; inject the real package root instead.
+    - if [ -f backend/coverage.xml ]; then sed "s#<source></source>#<source>${CI_PROJECT_DIR}/backend</source>#" backend/coverage.xml > backend/coverage.sonar.xml; fi
+    # frontend/coverage/lcov.info records `SF:src/...` paths relative to
+    # frontend/; the scanner runs from the checkout root, so rewrite them to
+    # `SF:frontend/src/...`.
+    - if [ -f frontend/coverage/lcov.info ]; then sed 's|^SF:src/|SF:frontend/src/|' frontend/coverage/lcov.info > frontend/coverage/lcov.sonar.info; fi
+    # SONAR_TOKEN (masked, protected CI/CD variable) and SONAR_HOST_URL
+    # (defaults to sonarcloud.io) are read from the environment by
+    # sonar-scanner automatically. Don't block on the quality-gate compute
+    # task — this is a dashboard refresh, not a merge gate.
+    - sonar-scanner -Dsonar.qualitygate.wait=false
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
+  allow_failure: true
 
 # ─── Build verification (MR only) ─────────────────────────────────────────────
 #
@@ -3602,7 +3684,13 @@ schedule-config-check:
     # and kaizen-yield-watch have never had a schedule configured either —
     # filed as its own issue rather than fixed here so #1213 stays scoped to
     # nightly-load-test. Remove each name as #1232 closes it.
-    SCHEDULE_AUDIT_ACCEPTED_GAPS: "OSV_SCAN SEED_SCHEDULE KAIZEN_YIELD_WATCH"
+    #
+    # SUPPRESSED-UNTIL(#1369): sonar:scan's SONAR_SCHEDULED is new in this
+    # commit. Creating the actual GitLab pipeline schedule (and the
+    # SONAR_TOKEN variable) is a maintainer-only step listed under #1369's
+    # "Maintainer follow-up" — remove SONAR_SCHEDULED from this list once
+    # that schedule exists, so this gate starts asserting it stays configured.
+    SCHEDULE_AUDIT_ACCEPTED_GAPS: "OSV_SCAN SEED_SCHEDULE KAIZEN_YIELD_WATCH SONAR_SCHEDULED"
   before_script:
     - apk add --no-cache bash curl jq
   script:

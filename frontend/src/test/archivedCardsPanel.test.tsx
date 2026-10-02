@@ -85,6 +85,16 @@ describe('ArchivedCardsPanel', () => {
     await waitFor(() => expect(screen.getByText(/No archived cards/)).toBeInTheDocument())
   })
 
+  // #1373 — the initial getArchivedCards() call used to be a floating promise:
+  // a rejection left `loading` false and `cards` empty, rendering the same
+  // "No archived cards" message as a genuinely empty board.
+  it('shows a load error distinct from the empty state when the initial fetch fails', async () => {
+    mockGetArchivedCards.mockRejectedValue(new Error('network error'))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+    expect(await screen.findByText('Could not load archived cards. Please try again.')).toBeInTheDocument()
+    expect(screen.queryByText('No archived cards')).not.toBeInTheDocument()
+  })
+
   it('fetches using the board id', async () => {
     mockGetArchivedCards.mockResolvedValue(makePage([]))
     render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
@@ -102,6 +112,21 @@ describe('ArchivedCardsPanel', () => {
     render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
     await waitFor(() => screen.getByText('Old feature'))
     expect(screen.queryByText(/Load more/)).not.toBeInTheDocument()
+  })
+
+  // #1373 — the handleLoadMore() getArchivedCards() call used to be a floating
+  // promise: a rejection left the existing cards in place with no indication
+  // the "Load more" click had failed.
+  it('shows an error without losing existing cards when load-more fails', async () => {
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 75))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+    await waitFor(() => screen.getByText(/Load more/))
+
+    mockGetArchivedCards.mockRejectedValueOnce(new Error('network error'))
+    await userEvent.click(screen.getByText(/Load more/))
+
+    expect(await screen.findByText('Could not load more archived cards. Please try again.')).toBeInTheDocument()
+    expect(screen.getByText('Old feature')).toBeInTheDocument()
   })
 
   it('calls onUnarchived and removes card from list after restore', async () => {
