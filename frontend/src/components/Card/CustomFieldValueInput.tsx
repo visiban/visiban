@@ -87,7 +87,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
   const debouncedCommit = (next: string) => {
     setLocal(next);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    if (debounceMs === 0) { onCommit(next); return; }
+    if (debounceMs === 0) { void onCommit(next); return; }
     debounceTimer.current = setTimeout(() => onCommit(next), debounceMs);
   };
 
@@ -114,7 +114,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
       if (local.trim() === "") {
         setError(null);
         setLocal("");
-        if (lastCommitted !== "") { setLastCommitted(""); onCommit(""); }
+        if (lastCommitted !== "") { setLastCommitted(""); void onCommit(""); }
         return true;
       }
       const result = normalizeUrl(local);
@@ -125,7 +125,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
       }
       setError(null);
       setLocal(result.url);
-      if (result.url !== lastCommitted) { setLastCommitted(result.url); onCommit(result.url); }
+      if (result.url !== lastCommitted) { setLastCommitted(result.url); void onCommit(result.url); }
       return true;
     };
     const shownError = urlError ?? (serverError && local === lastCommitted ? serverError : null);
@@ -332,7 +332,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           label="— No value —"
           options={options}
           selected={local || null}
-          onChange={(v) => { const next = v ?? ""; setLocal(next); onCommit(next); }}
+          onChange={(v) => { const next = v ?? ""; setLocal(next); void onCommit(next); }}
           className={size === "md" ? "w-full justify-between" : undefined}
           escapePriority={escapePriority}
         />
@@ -350,7 +350,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
       return (
         <ToggleField
           checked={local === "true"}
-          onChange={(checked) => { const next = checked ? "true" : "false"; setLocal(next); onCommit(next); }}
+          onChange={(checked) => { const next = checked ? "true" : "false"; setLocal(next); void onCommit(next); }}
           label={definition.name}
           description={definition.help_text || undefined}
           disabled={disabled}
