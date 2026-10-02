@@ -1,9 +1,49 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import type { User, Group } from '../types'
 import type { BoardEvent } from '../hooks/useBoardSocket'
+
+// #1374 — real useNavigate so the many `void navigate(...)` sites (escape,
+// 404/403 redirect, create/import board, delete group, breadcrumb, Trello
+// import) can be asserted on without wiring up extra routes per test.
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
+
+vi.mock('../components/Board/CreateBoardModal', () => ({
+  default: ({ onConfirm, onCancel }: { onConfirm: (n: string, t: string, s: string, d: boolean) => void; onCancel: () => void }) => (
+    <div data-testid="create-board-modal">
+      <button onClick={() => onConfirm('New Board', 'simple_kanban', '', false)}>Confirm create board</button>
+      <button onClick={onCancel}>Cancel create board</button>
+    </div>
+  ),
+}))
+
+vi.mock('../components/Board/ImportBoardModal', () => ({
+  default: ({ onImport, onCancel, onSwitchToTrello }: { onImport: (file: File, name?: string) => void; onCancel: () => void; onSwitchToTrello?: () => void }) => (
+    <div data-testid="import-board-modal">
+      <button onClick={() => onImport(new File(['{}'], 'board.json'), 'Imported Board')}>Confirm import board</button>
+      <button onClick={onCancel}>Cancel import board</button>
+      {onSwitchToTrello && <button onClick={onSwitchToTrello}>Switch to Trello</button>}
+    </div>
+  ),
+}))
+
+vi.mock('../components/Board/TrelloImportModal', () => ({
+  default: ({ onCancel, onImported }: { onCancel: () => void; onImported: (board: { id: number }) => void }) => (
+    <div data-testid="trello-import-modal">
+      <button onClick={() => onImported({ id: 77 })}>Confirm trello import</button>
+      <button onClick={onCancel}>Cancel trello import</button>
+    </div>
+  ),
+}))
 
 // Capture the onEvent callback passed to useGroupSocket so tests can simulate
 // server-pushed board.created/updated/deleted events.
@@ -60,7 +100,8 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup } from '../api/groups'
+import { importBoard } from '../api/boards'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
@@ -72,6 +113,9 @@ const mockStarGroup = starGroup as ReturnType<typeof vi.fn>
 const mockUnstarGroup = unstarGroup as ReturnType<typeof vi.fn>
 const mockCreateGroupLabel = createGroupLabel as ReturnType<typeof vi.fn>
 const mockUpdateGroupBoardDefaults = updateGroupBoardDefaults as ReturnType<typeof vi.fn>
+const mockCreateGroupBoard = createGroupBoard as ReturnType<typeof vi.fn>
+const mockDeleteGroup = deleteGroup as ReturnType<typeof vi.fn>
+const mockImportBoard = importBoard as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -1263,5 +1307,121 @@ describe('GroupDetail', () => {
         expect(mockGetGroup.mock.calls.length).toBe(before + 1)
       })
     })
+  })
+})
+
+// #1374 — every `navigate(...)` call on this page was wrapped in `void` to
+// silence the floating-promise lint rule. These tests exercise the actual
+// navigation targets so a future regression (wrong path, wrong args) still
+// fails loudly even though the lint rule itself can no longer catch it.
+describe('GroupDetail — navigation (#1374)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    capturedOnEvent = null
+    capturedOnReconnected = null
+    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockStarGroup.mockResolvedValue({})
+    mockUnstarGroup.mockResolvedValue({})
+  })
+
+  function setupAdmin(overrides: Partial<Group> = {}) {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, ...overrides })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+  }
+
+  it('Escape navigates to / when there is no browser history to go back to', async () => {
+    setupAdmin()
+    renderGroupDetail()
+    // JSDOM has no real history, so history.length === 1 → navigate("/")
+    await screen.findByText('+ New board')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('Escape navigates back when browser history has previous entries', async () => {
+    setupAdmin()
+    const historySpy = vi.spyOn(window.history, 'length', 'get').mockReturnValue(2)
+    try {
+      renderGroupDetail()
+      await screen.findByText('+ New board')
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(mockNavigate).toHaveBeenCalledWith(-1)
+    } finally {
+      historySpy.mockRestore()
+    }
+  })
+
+  it('redirects to / when the group fails to load with 404 or 403', async () => {
+    mockGetGroup.mockRejectedValue({ response: { status: 404 } })
+    mockGetGroupMembers.mockRejectedValue({ response: { status: 404 } })
+    mockGetSubgroups.mockRejectedValue({ response: { status: 404 } })
+    mockGetGroupBoards.mockRejectedValue({ response: { status: 404 } })
+    renderGroupDetail()
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+  })
+
+  it('navigates to the new board after creating one', async () => {
+    setupAdmin()
+    mockCreateGroupBoard.mockResolvedValue({
+      id: 42, name: 'New Board', description: '', owner: fakeUser,
+      group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '',
+    })
+    renderGroupDetail()
+    fireEvent.click(await screen.findByText('+ New board'))
+    fireEvent.click(screen.getByText('Confirm create board'))
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/boards/42')
+    })
+  })
+
+  it('navigates to the new board after importing one', async () => {
+    setupAdmin()
+    mockImportBoard.mockResolvedValue({
+      id: 55, name: 'Imported Board', description: '', owner: fakeUser,
+      group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '',
+    })
+    renderGroupDetail()
+    fireEvent.click(await screen.findByText('Import'))
+    fireEvent.click(screen.getByText('Confirm import board'))
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/boards/55')
+    })
+  })
+
+  it('navigates to the new board after a Trello import', async () => {
+    setupAdmin()
+    renderGroupDetail()
+    fireEvent.click(await screen.findByText('Import'))
+    fireEvent.click(screen.getByText('Switch to Trello'))
+    fireEvent.click(screen.getByText('Confirm trello import'))
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/boards/77')
+    })
+  })
+
+  it('navigates to / after deleting the group', async () => {
+    setupAdmin()
+    mockDeleteGroup.mockResolvedValue(undefined)
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete group' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete group' }))
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/')
+    })
+  })
+
+  it('navigates to the ancestor group when its breadcrumb link is clicked', async () => {
+    setupAdmin({ ancestors: [{ id: 10, name: 'RootOrg' }, { id: 11, name: 'PlatformTeam' }] })
+    renderGroupDetail()
+    await screen.findAllByText('RootOrg')
+    const breadcrumbNav = screen.getByRole('navigation', { name: 'Group breadcrumb' })
+    fireEvent.click(within(breadcrumbNav).getByText('RootOrg'))
+    expect(mockNavigate).toHaveBeenCalledWith('/groups/10')
   })
 })
