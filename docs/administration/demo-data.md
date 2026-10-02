@@ -87,7 +87,14 @@ python manage.py seed_demo_data --force --wipe --demo-site
 
 It creates, alongside the normal demo board:
 
-- **Software Team** (Backlog / In Progress / Review / Done), **Marketing Campaigns**, and **Hiring Pipeline** boards, 20 cards each, with comments, assignees, labels, and movement history
+- **Software Team** (Backlog / In Progress / Review / Done), **Marketing Campaigns**, and **Hiring Pipeline** boards, 20 cards each, with comments, assignees, labels, and movement history. Each board also shows off (#1363):
+    - partly done **checklists** — a release checklist on Software Team, interview loops on Hiring Pipeline
+    - **card custom fields** with values on most cards, at least one pinned to the card face — Story points and Target release; Budget and Channel; Source, Interview score and Offer stage
+    - **swimlane custom fields** — one visible to everyone and one admin-only per board (for example Hiring Pipeline's Salary band)
+    - **card relations** — a few blocks / relates-to pairs, including at least one card still blocked by unfinished work
+    - on Software Team, linked GitLab and GitHub **merge / pull requests** (fictional `*.example.com` URLs)
+    - a realistic **age mix**: most cards moved in the last few days, a few aging and a few stale, with due dates that are overdue, due today, upcoming, or unset. Stale and overdue cards are always in-flight work, never in the Done column. Ages are counted back from the day of the reset, so the mix looks the same after every reset
+- a seeded **notification inbox** for the published visitor: twelve unread notifications across the three boards (@mentions, assignments, card moves, a new comment, and stale and due-soon alerts), each from another account or from the system, never from the visitor. The demo fence refuses marking notifications read, so they stay unread until the next reset
 - the **published visitor** account (username from `DEMO_LOGIN_USERNAME`, default `visitor`; password from `DEMO_LOGIN_PASSWORD`) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While `DEMO_MODE` is on, this one account may also edit and archive cards other people created (every seeded card belongs to the admin); that exception is read from the setting at request time, so it disappears the moment `DEMO_MODE` is turned off rather than living on as a stored permission
 - a site **admin** account (`admin`, password from `DEMO_ADMIN_PASSWORD`, **never published**) that owns the seeded boards
 - two member accounts, `maya` and `jordan` (password from `DEMO_MEMBER_PASSWORD`)
@@ -135,7 +142,7 @@ A refusal is `403` with a stable body:
 > - **The theme-preference sync** (`ThemeServerSync`) silently skips its PATCH; the local theme still applies via `localStorage`, only the cross-device sync is skipped.
 > - **The onboarding tour's completion save** doesn't need a skip at all: `seed_demo_data` seeds the published visitor's `has_completed_tour` flag `true`, so the tour — and its completion save — never fires.
 >
-> Removing a card relation was left ungated: with adding one refused fleet-wide, no demo board can ever have a relation to remove.
+> Removing a card relation is refused by the fence too, and its control is hidden outright in demo mode, like card delete. When #1193 shipped no demo board had a relation, so that gate was defensive; since #1363 the seed adds relations, so it is what visitors actually see.
 
 **The reset is containment, not a control.** Every hour, on the hour (`DEMO_RESET_SCHEDULE`), the reset job wipes the **whole database** and reseeds it (`--reset-database`). That also ends every session, because sessions are database-backed — visitors are told so on the login page and in the in-app demo bar, get a warning five minutes before, and land back on the login page with a "demo was reset" notice. The reset must stay a whole-database wipe: some tables (for example `BoardEvent`, whose `board_id` is deliberately not a foreign key) are not cleaned up by deleting boards, so a per-row reset would leak rows across resets.
 
