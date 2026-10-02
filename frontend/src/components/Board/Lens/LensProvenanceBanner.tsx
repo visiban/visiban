@@ -1,4 +1,5 @@
 import type { LensProvider } from "../../../types";
+import ExternalRefGlyph from "../../Card/ExternalRefGlyph";
 import LensFreshness from "./LensFreshness";
 
 interface Props {
@@ -26,7 +27,6 @@ interface Props {
  * frontend/CLAUDE.md.
  */
 export default function LensProvenanceBanner({ provider, repo, url, truncated, shownCount, filtersActive, fetchedAt, refetching, onRefresh }: Props) {
-  const glyph = provider === "github" ? "" : "";
   const providerName = provider === "github" ? "GitHub" : "GitLab";
 
   return (
@@ -35,7 +35,10 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
       aria-atomic="true"
       className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info shrink-0"
     >
-      <span aria-hidden="true" className="text-base leading-none">{glyph}</span>
+      {/* No brand logos for external providers (frontend/CLAUDE.md) — one generic
+          glyph for every provider, same as the card-face PR/MR badge. The provider
+          is named in text via the link's title below. */}
+      <ExternalRefGlyph className="w-4 h-4 shrink-0" />
       <span className="truncate max-w-[24rem]">
         Read-only lens ·{" "}
         <a

@@ -105,8 +105,12 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
     for (const label of parseLensLabels(labelsCsv)) acc.labels.add(label);
     if (assignee) acc.assignees.add(assignee);
     return {
-      availableLabels: Array.from(acc.labels).sort(),
-      availableAssignees: Array.from(acc.assignees).sort(),
+      // Explicit locale (not the environment default) so a label/assignee list with
+      // accented or mixed-case values sorts the same in every browser and in CI —
+      // and so it differs deliberately from a bare `.sort()`'s UTF-16 code-unit
+      // order, which puts every uppercase letter before every lowercase one.
+      availableLabels: Array.from(acc.labels).sort((a, b) => a.localeCompare(b, "en")),
+      availableAssignees: Array.from(acc.assignees).sort((a, b) => a.localeCompare(b, "en")),
     };
   }, [data, labelsCsv, assignee]);
 
