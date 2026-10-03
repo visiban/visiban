@@ -724,8 +724,8 @@ BOARDS = [
             ("AE", "text", [], True, False, "Account executive who owns the commercial relationship."),
             ("SA", "text", [], True, False, "Solutions architect aligned to the account team; one SA covers two AEs."),
             ("OAE", "text", [], True, False, "Overlay account executive driving the overlay sales motion across accounts."),
-            ("SVC", "text", [], True, False, "Services lead aligned to the account director, shared across that AD's accounts."),
             ("OSA", "text", [], True, False, "Overlay solutions architect providing technical coverage across accounts."),
+            ("SVC", "text", [], True, False, "Services lead aligned to the account director, shared across that AD's accounts."),
             ("Executive sponsor", "text", [], False, True, "Visible to board admins only."),
         ],
         # Fictional names, reflecting a real reporting shape (#1412 fix):
@@ -741,11 +741,11 @@ BOARDS = [
         # is itself part of the gap story.
         "swimlane_field_values": {
             "Meridian Financial Group": {"AD": "Diane Foster", "AE": "Sarah Chen", "OAE": "Bob Jones", "OSA": "Carlos Ruiz", "Executive sponsor": "R. Castillo, CFO", "SVC": "Mike Brown", "SA": "Wei Zhang"},
-            "Cascade Energy Partners": {"AD": "Marcus Webb", "AE": "Tom Wilson", "OAE": "Bob Jones", "OSA": "Carlos Ruiz", "Executive sponsor": "L. Brandt, COO", "SVC": "Jane Davis", "SA": "Olivia Grant"},
-            "Nimbus Cloud Systems": {"AD": "Marcus Webb", "AE": "James Brown", "OAE": "Elena Rossi", "OSA": "Priya Shah", "Executive sponsor": "A. Idowu, CTO", "SVC": "Jane Davis", "SA": "Olivia Grant"},
-            "Solaris Biotech": {"AD": "Renee Okafor", "AE": "Grace Liu", "OAE": "Elena Rossi", "OSA": "Priya Shah", "Executive sponsor": "H. Lindqvist, Chief Scientific Officer", "SVC": "Nadia Haddad", "SA": "Ravi Menon"},
-            "Vantage Insurance Group": {"AD": "Renee Okafor", "AE": "Derek Hall", "OAE": "Bob Jones", "OSA": "Carlos Ruiz", "Executive sponsor": "M. Delacroix, Chief Underwriting Officer", "SVC": "Nadia Haddad", "SA": "Ravi Menon"},
-            "Ironwood Logistics": {"AD": "Diane Foster", "AE": "Amy Patel", "OAE": "Unassigned", "OSA": "Lisa Wang", "Executive sponsor": "T. Nakamura, VP Operations", "SVC": "Mike Brown", "SA": "Wei Zhang"},
+            "Cascade Energy Partners": {"AD": "Diane Foster", "AE": "Tom Wilson", "OAE": "Bob Jones", "OSA": "Carlos Ruiz", "Executive sponsor": "L. Brandt, COO", "SVC": "Mike Brown", "SA": "Wei Zhang"},
+            "Nimbus Cloud Systems": {"AD": "Diane Foster", "AE": "James Brown", "OAE": "Elena Rossi", "OSA": "Priya Shah", "Executive sponsor": "A. Idowu, CTO", "SVC": "Mike Brown", "SA": "Olivia Grant"},
+            "Solaris Biotech": {"AD": "Marcus Webb", "AE": "Grace Liu", "OAE": "Elena Rossi", "OSA": "Priya Shah", "Executive sponsor": "H. Lindqvist, Chief Scientific Officer", "SVC": "Jane Davis", "SA": "Ravi Menon"},
+            "Vantage Insurance Group": {"AD": "Marcus Webb", "AE": "Derek Hall", "OAE": "Bob Jones", "OSA": "Carlos Ruiz", "Executive sponsor": "M. Delacroix, Chief Underwriting Officer", "SVC": "Jane Davis", "SA": "Ravi Menon"},
+            "Ironwood Logistics": {"AD": "Diane Foster", "AE": "Amy Patel", "OAE": "Unassigned", "OSA": "Lisa Wang", "Executive sponsor": "T. Nakamura, VP Operations", "SVC": "Mike Brown", "SA": "Olivia Grant"},
         },
         "checklists": {
             "Core banking platform migration": [

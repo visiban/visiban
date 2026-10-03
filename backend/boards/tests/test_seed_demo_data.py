@@ -675,6 +675,32 @@ class SeedDemoSiteTests(TestCase):
         for name in names:
             self.assertTrue(board.cards.filter(column__name=name).exists(), name)
 
+    def test_overlay_coverage_model_two_ads_one_sa_per_two_aes_one_svc_per_ad(self):
+        """#1416: the overlay board's coverage shape, read from the seeded rows."""
+        _seed(demo_site=True)
+        board = Board.objects.get(name="Sales Territory (Overlay)")
+        defs = list(SwimlaneCustomFieldDefinition.objects.filter(board=board).order_by("position"))
+        order = [d.name for d in defs]
+        self.assertEqual(order[:6], ["AD", "AE", "SA", "OAE", "OSA", "SVC"])
+        by_name = {d.name: d for d in defs}
+        for name in order[:6]:
+            self.assertTrue(by_name[name].show_on_row and not by_name[name].is_admin_only, name)
+        rows = {}
+        for lane in board.swimlanes.all():
+            values = {
+                v.field_definition.name: v.value
+                for v in SwimlaneCustomFieldValue.objects.filter(swimlane=lane).select_related("field_definition")
+            }
+            rows[lane.name] = values
+        self.assertEqual(len({r["AD"] for r in rows.values()}), 2)
+        aes_by_sa = {}
+        svc_by_ad = {}
+        for r in rows.values():
+            aes_by_sa.setdefault(r["SA"], set()).add(r["AE"])
+            svc_by_ad.setdefault(r["AD"], set()).add(r["SVC"])
+        self.assertTrue(all(len(aes) == 2 for aes in aes_by_sa.values()), aes_by_sa)
+        self.assertTrue(all(len(svcs) == 1 for svcs in svc_by_ad.values()), svc_by_ad)
+
     def test_seeds_exactly_seven_boards_with_at_least_fifteen_cards_each(self):
         _seed(demo_site=True)
         seeded = set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True))
