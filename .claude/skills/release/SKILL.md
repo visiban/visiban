@@ -68,6 +68,11 @@ Before running the script:
       not print, its existence will). A missing one fails **after** the tag is pushed, which is
       the one moment in this process when nothing can be un-done cheaply. If any is missing or
       its expiry is unknown, check `docs/maintainers/tokens-and-rotation.md` before proceeding.
+- [ ] **`:latest` has not drifted off the newest stable release.** `scripts/release.sh` now runs
+      `check-latest-tag-stability.sh` read-only before it branches (`check_latest_not_drifted`) and
+      stops on a `MISMATCH`, printing the `docker buildx imagetools create` repair commands. Those
+      commands write to the shared registry — get the user's explicit go-ahead before running them.
+      `RELEASE_SKIP_LATEST_CHECK=1` bypasses the guard; note it inline if used.
 - [ ] **Inventory every tag-only job that changed since the last tag.** A tag pipeline runs the
       CI config as it stood at the tag commit, and jobs gated on `$CI_COMMIT_TAG` (the kaniko
       image push, the GitHub release job, the docs deploy) run nowhere else — a job edited since

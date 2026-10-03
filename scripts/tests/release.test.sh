@@ -81,7 +81,7 @@ git clone --quiet "$REPO_ROOT" "$TMPCLONE/repo"
   git -c user.email=t@t -c user.name=t commit -aqm "test: break appVersion anchor"
 )
 set +e
-OUT="$(cd "$TMPCLONE/repo" && RELEASE_ASSUME_YES=1 bash scripts/release.sh 9.9.9-test.1 2>&1)"
+OUT="$(cd "$TMPCLONE/repo" && RELEASE_SKIP_LATEST_CHECK=1 RELEASE_ASSUME_YES=1 bash scripts/release.sh 9.9.9-test.1 2>&1)"
 RC=$?
 set -e
 if [ "$RC" -ne 0 ] && grep -q "version consistency check(s) failed" <<<"$OUT"; then
