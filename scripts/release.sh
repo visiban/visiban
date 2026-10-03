@@ -59,6 +59,59 @@ refuse_if_published() {
   fi
 }
 
+# ─── :latest drift guard ─────────────────────────────────────────────────────
+#
+# check_latest_not_drifted — returns 1 (with the repair commands) when :latest
+# on a registry does not point at the newest STABLE release.
+#
+# Runs scripts/check-latest-tag-stability.sh read-only before anything is
+# branched or tagged. That check also runs in the tag pipeline, but there it
+# fails *after* the tag is pushed — the one moment nothing can be undone
+# cheaply — and it flags drift that predates the tag (v1.2.0-alpha.4's red
+# pipeline was GitLab :latest left on a pre-release by earlier alphas, not
+# anything alpha.4 did). Catching it here makes the cut stop first.
+#
+# Only a real MISMATCH blocks. A probe failure (no crane/docker, no network,
+# no registry login) warns and continues: the tag pipeline's check is the
+# backstop, and an unreachable registry must not make a release impossible.
+# RELEASE_SKIP_LATEST_CHECK=1 bypasses it deliberately.
+check_latest_not_drifted() {
+  local script="${LATEST_CHECK_SCRIPT:-$(dirname "$0")/check-latest-tag-stability.sh}"
+  local out rc=0 probe="" made_probe=""
+  if [[ "${RELEASE_SKIP_LATEST_CHECK:-}" == "1" ]]; then
+    echo "WARN: RELEASE_SKIP_LATEST_CHECK=1 — skipping the :latest drift guard." >&2
+    return 0
+  fi
+  if [[ -z "${DIGEST_PROBE:-}" ]] && ! command -v crane >/dev/null 2>&1; then
+    if command -v docker >/dev/null 2>&1 && docker buildx version >/dev/null 2>&1; then
+      probe="$(mktemp)"; made_probe=1
+      printf '%s\n' '#!/usr/bin/env bash' \
+        'docker buildx imagetools inspect "$1" 2>/dev/null | sed -n "s/^Digest:[[:space:]]*//p" | head -1 | grep .' > "$probe"
+      chmod +x "$probe"
+    else
+      echo "WARN: neither crane nor docker buildx is available — skipping the :latest drift guard; the tag pipeline's latest-tag-stability-check is the backstop." >&2
+      return 0
+    fi
+  fi
+  out="$(RELEASE_REGISTRIES="${RELEASE_REGISTRIES-registry.gitlab.com/visiban/visiban ghcr.io/visiban/visiban}" \
+         DIGEST_PROBE="${DIGEST_PROBE:-$probe}" bash "$script" 2>&1)" || rc=$?
+  [[ -n "$made_probe" ]] && rm -f "$probe"
+  if [[ $rc -eq 0 ]]; then
+    echo ":latest drift guard: OK (:latest tracks the newest stable release on every registry)."
+    return 0
+  fi
+  if grep -q 'MISMATCH' <<<"$out"; then
+    echo "Error: :latest has drifted off the newest stable release — fix it BEFORE cutting a release," >&2
+    echo "otherwise the tag pipeline's latest-tag-stability-check fails red. Details:" >&2
+    sed 's/^/  /' <<<"$out" >&2
+    echo "Repair needs registry write access and no rebuild — run the 'docker buildx imagetools create' command printed above for each MISMATCH, then re-run this release. To cut anyway: RELEASE_SKIP_LATEST_CHECK=1." >&2
+    return 1
+  fi
+  echo "WARN: could not verify :latest (check exited ${rc}, no MISMATCH reported) — continuing; the tag pipeline's latest-tag-stability-check is the backstop." >&2
+  sed 's/^/  /' <<<"$out" >&2
+  return 0
+}
+
 # ─── Helm chart tag pin ──────────────────────────────────────────────────────
 #
 # pin_helm_tags <file> <tag> — writes the rewritten file to stdout.
@@ -356,6 +409,35 @@ dependencies:
     echo "SELF-TEST OK: confirm_release_notes fails closed with no TTY and no ASSUME_YES"
   fi
 
+  # check_latest_not_drifted: only a reported MISMATCH blocks; a probe failure
+  # warns and continues; the skip env bypasses. Stub check scripts stand in
+  # for check-latest-tag-stability.sh so no registry is touched.
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$tmp/stub-ok.sh"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "  MISMATCH registry.example/backend:latest"' 'exit 1' > "$tmp/stub-drift.sh"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "ERROR: probe failed"' 'exit 1' > "$tmp/stub-probe-err.sh"
+  export DIGEST_PROBE=/bin/true
+  if LATEST_CHECK_SCRIPT="$tmp/stub-ok.sh" check_latest_not_drifted >/dev/null 2>&1; then
+    echo "SELF-TEST OK: check_latest_not_drifted passes when :latest tracks stable"
+  else
+    echo "SELF-TEST FAILED: check_latest_not_drifted passes when :latest tracks stable" >&2; rc=1
+  fi
+  if LATEST_CHECK_SCRIPT="$tmp/stub-drift.sh" check_latest_not_drifted >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: check_latest_not_drifted must block on a MISMATCH" >&2; rc=1
+  else
+    echo "SELF-TEST OK: check_latest_not_drifted blocks on a MISMATCH"
+  fi
+  if LATEST_CHECK_SCRIPT="$tmp/stub-probe-err.sh" check_latest_not_drifted >/dev/null 2>&1; then
+    echo "SELF-TEST OK: check_latest_not_drifted warns but continues on a probe error"
+  else
+    echo "SELF-TEST FAILED: check_latest_not_drifted must not block on a probe error" >&2; rc=1
+  fi
+  if RELEASE_SKIP_LATEST_CHECK=1 LATEST_CHECK_SCRIPT="$tmp/stub-drift.sh" check_latest_not_drifted >/dev/null 2>&1; then
+    echo "SELF-TEST OK: check_latest_not_drifted honors RELEASE_SKIP_LATEST_CHECK=1"
+  else
+    echo "SELF-TEST FAILED: check_latest_not_drifted honors RELEASE_SKIP_LATEST_CHECK=1" >&2; rc=1
+  fi
+  unset DIGEST_PROBE
+
   [[ $rc -eq 0 ]] && echo "release: self-test passed."
   exit $rc
 fi
@@ -426,6 +508,7 @@ if grep -qxF "$TAG" <<<"$(git tag)"; then
   exit 1
 fi
 refuse_if_published "${RELEASE_REMOTE:-origin}" "$TAG" || exit 1
+check_latest_not_drifted || exit 1
 
 # Create release branch from latest main
 git checkout main
