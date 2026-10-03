@@ -88,6 +88,14 @@ describe('SwimlaneRow', () => {
     expect(screen.getByText('Customer A')).toBeInTheDocument()
   })
 
+  it('keeps the sticky label panel opaque on hover so scrolled cards never show through', () => {
+    const { container } = render(<SwimlaneRow {...defaultProps()} />)
+    const panel = container.querySelector('[data-tour-step="swimlane"]') as HTMLElement
+    expect(panel.className).toContain('bg-surface')
+    // A hover:bg-* here would swap the opaque background for a translucent one.
+    expect(panel.className).not.toMatch(/(^|\s)hover:bg-/)
+  })
+
   it('renders swimlane contact email', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     expect(screen.getByText('a@test.com')).toBeInTheDocument()
