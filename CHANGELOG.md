@@ -10,6 +10,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
+## [1.2.0-alpha.4] — 2026-10-02
+
+
+### Added
+- Added a 7th try.visiban.com showcase board, "Sales Territory (Overlay)", demonstrating an enterprise overlay sales coverage model (primary AE plus overlay AE/SA specialists and an admin-only Account Director, shared across accounts with one deliberate coverage gap) alongside the existing Sales Territory board (#1412)
+
+### Changed
+- The stable-vs-pre-release classification that decides whether a release tag updates `backend:latest`/`frontend:latest` is now a single, self-tested script (`scripts/classify-release-tag.sh`) instead of duplicated regex logic, and a new tag-pipeline check (`latest-tag-stability-check`) fails the pipeline if `:latest` on either registry ever drifts from the newest stable release again. `scripts/release.sh` also now states what the upcoming tag will do to `:latest` before anything is tagged or pushed.
+
+### Fixed
+- OpenAPI schema for `POST /api/v1/auth/password/change/`, `/auth/password/reset/`, `/auth/password/reset/confirm/`, and `/auth/login/` now documents the real `{"detail": ...}`/`{"key": ...}` response instead of the request body's fields — a client generated from the published schema previously built the wrong response parser for these endpoints (#1408)
+- Pinned custom-field chips on the card face no longer overlap or bleed into the due-date pill, label chips, or assignee avatar on narrow columns — they now clip cleanly with an ellipsis instead (#1411)
+- Sales Territory (Overlay) demo board now has a nine-stage pipeline (Identify, Discover, Qualify, Shape, Validate, Commercial, Commit, Won / Lost) with cards and movement history in every stage, shows the account director (AD) as the first pinned lane field, and adds an SA field (one solutions architect per two AEs) and an SVC services-lead field per AD. The per-board cap on pinned swimlane fields rises from 3 to 8. The swimlane label column now opens at a width that fits the longest lane name and pinned field values (drag the separator to override), and pinned fields stack one per line.
+- The swimlane label panel no longer turns transparent on hover, so cards scrolled underneath it no longer show through the lane name and field chips.
+- Fixed the `backend-manifest`/`frontend-manifest` CI jobs re-pointing `backend:latest`/`frontend:latest` (on both the GitLab registry and GHCR) at every pre-release tag's build, including alpha/beta/rc builds. An unpinned `docker pull` now keeps resolving to the last stable release; only a stable `vX.Y.Z` tag updates `:latest` (and `:MAJOR.MINOR`). A pre-release tag publishes only its own exact version tag.
+
+### Security
+- Accepted the `braces` stack-exhaustion advisory (GHSA-vfj7-8cjw-p6xm) in `frontend/osv-scanner.toml` with an expiring ignore (until 2026-11-30), unblocking the `dep-scan-osv` gate. No patched release exists; `braces` is a dev-only, build-time transitive of Tailwind and is not shipped in the production bundle.
 ## [1.2.0-alpha.3] — 2026-10-02
 
 
