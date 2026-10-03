@@ -2441,7 +2441,11 @@ frontend-dep-scan:
     - cd frontend
     - npm ci --prefer-offline
   script:
-    - npm audit --audit-level=high
+    # `npm audit` has no ignore list, so gate its JSON through
+    # scripts/npm-audit-gate.mjs, which honors the expiring accepted risks in
+    # frontend/osv-scanner.toml (same source of truth as dep-scan-osv, #1415).
+    - npm audit --json > ../npm-audit-report.json || true
+    - node ../scripts/npm-audit-gate.mjs ../npm-audit-report.json osv-scanner.toml
   after_script:
     - cd frontend && npm audit --json > ../npm-audit-report.json 2>/dev/null || true
   artifacts:
