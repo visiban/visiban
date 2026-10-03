@@ -11,6 +11,9 @@
 //
 // Exit codes: 0 clean, 1 unaccepted HIGH/CRITICAL (or unparseable input), 3 usage.
 // Usage: node scripts/npm-audit-gate.mjs <npm-audit.json> [osv-scanner.toml] [today=YYYY-MM-DD]
+//        node scripts/npm-audit-gate.mjs --self-test
+//   --self-test proves the gate still fires on a known-bad report (#1093): a
+//   gate that silently stops detecting looks identical to a clean codebase.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -43,7 +46,32 @@ export function blockingAdvisories(report, accepted) {
   return [...found.values()]
 }
 
+function selfTest() {
+  const adv = (id, severity) => ({
+    vulnerabilities: { pkg: { via: [{ source: 1, title: 't', url: `https://github.com/advisories/${id}`, severity }] } },
+  })
+  const toml = '[[IgnoredVulns]]\nid = "GHSA-accepted"\nignoreUntil = 2026-11-30\n'
+  const cases = [
+    ['unaccepted critical is flagged', blockingAdvisories(adv('GHSA-bad', 'critical'), acceptedIds(toml, '2026-10-03')).length === 1],
+    ['accepted advisory is spared', blockingAdvisories(adv('GHSA-accepted', 'high'), acceptedIds(toml, '2026-10-03')).length === 0],
+    ['expired ignore is flagged', blockingAdvisories(adv('GHSA-accepted', 'high'), acceptedIds(toml, '2026-12-01')).length === 1],
+    ['moderate is spared', blockingAdvisories(adv('GHSA-mod', 'moderate'), new Set()).length === 0],
+  ]
+  console.log('=== npm-audit-gate.mjs --self-test ===')
+  const failed = cases.filter(([, ok]) => !ok)
+  for (const [name, ok] of cases) console.log(`${ok ? 'OK' : 'FAIL'}: ${name}`)
+  if (failed.length) {
+    console.error(`=== npm-audit-gate.mjs --self-test: FAILED (${failed.length}) ===`)
+    process.exit(1)
+  }
+  console.log('=== npm-audit-gate.mjs --self-test: PASSED ===')
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (process.argv[2] === '--self-test') {
+    selfTest()
+    process.exit(0)
+  }
   const [auditPath, tomlPath = 'frontend/osv-scanner.toml', today = new Date().toISOString().slice(0, 10)] =
     process.argv.slice(2)
   if (!auditPath) {
