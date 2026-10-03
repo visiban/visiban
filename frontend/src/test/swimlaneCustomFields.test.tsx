@@ -293,7 +293,7 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[], swimlanes: Swimlane[] 
 describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
   it('shows the swimlane caps, not the card caps', () => {
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} />)
-    expect(screen.getByText('1 of 15 · 1 of 3 pinned')).toBeInTheDocument()
+    expect(screen.getByText('1 of 15 · 1 of 8 pinned')).toBeInTheDocument()
   })
 
   it('warns when every field is admin-only, since members then see nothing', () => {
@@ -389,14 +389,13 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
   it('names the swimlane row, not the card face, in the pin swap prompt', async () => {
     const user = userEvent.setup()
     const defs = [
-      makeDef({ id: 1, uid: 'sfuid0000001', name: 'A', position: 0, show_on_row: true }),
-      makeDef({ id: 2, uid: 'sfuid0000002', name: 'B', position: 1, show_on_row: true }),
-      makeDef({ id: 3, uid: 'sfuid0000003', name: 'C', position: 2, show_on_row: true }),
-      makeDef({ id: 4, uid: 'sfuid0000004', name: 'D', position: 3, show_on_row: false }),
+      ...Array.from({ length: 8 }, (_, i) =>
+        makeDef({ id: i + 1, uid: `sfuid00000${i + 1}`.padEnd(12, '0'), name: `F${i + 1}`, position: i, show_on_row: true })),
+      makeDef({ id: 9, uid: 'sfuid0000009', name: 'D', position: 8, show_on_row: false }),
     ]
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: /Pin D to swimlane row/ }))
-    expect(screen.getByText('The row header shows 3 fields.')).toBeInTheDocument()
+    expect(screen.getByText('The row header shows 8 fields.')).toBeInTheDocument()
     expect(screen.getByText(/still visible in the row's field list/)).toBeInTheDocument()
   })
 
@@ -662,36 +661,38 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
     })
 
     describe('at the pin cap', () => {
-      const p1 = makeDef({ id: 1, uid: 'sfuid0000001', name: 'P1', position: 0, show_on_row: true })
-      const p2 = makeDef({ id: 2, uid: 'sfuid0000002', name: 'P2', position: 1, show_on_row: true })
-      const p3 = makeDef({ id: 3, uid: 'sfuid0000003', name: 'P3', position: 2, show_on_row: true })
-      const extra = makeDef({ id: 4, uid: 'sfuid0000004', name: 'Extra', position: 3, show_on_row: false })
+      // Eight pinned fields is the cap (SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD).
+      const pinnedDefs = Array.from({ length: 8 }, (_, i) =>
+        makeDef({ id: i + 1, uid: `sfuid00000${i + 1}`.padEnd(12, '0'), name: `P${i + 1}`, position: i, show_on_row: true }))
+      const p2 = pinnedDefs[1]
+      const extra = makeDef({ id: 9, uid: 'sfuid0000009', name: 'Extra', position: 8, show_on_row: false })
 
       it('swaps: unpins the chosen field and pins the new one together', async () => {
         const user = userEvent.setup()
         mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(
           (_b: number, id: number, patch: { show_on_row: boolean }) =>
-            Promise.resolve({ ...[p1, p2, p3, extra].find((d) => d.id === id)!, ...patch })
+            Promise.resolve({ ...[...pinnedDefs, extra].find((d) => d.id === id)!, ...patch })
         )
-        const onFieldsUpdated = renderTab([p1, p2, p3, extra])
+        const onFieldsUpdated = renderTab([...pinnedDefs, extra])
         await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
         await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
         await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalled())
         expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 2, { show_on_row: false })
-        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 4, { show_on_row: true })
+        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 9, { show_on_row: true })
         const next = onFieldsUpdated.mock.calls[0][0] as SwimlaneCustomFieldDefinition[]
         expect(next.map((d) => [d.name, d.show_on_row])).toEqual([
-          ['P1', true], ['P2', false], ['P3', true], ['Extra', true],
+          ...pinnedDefs.map((d) => [d.name, d.name !== 'P2']),
+          ['Extra', true],
         ])
-        expect(screen.queryByText('The row header shows 3 fields.')).not.toBeInTheDocument()
+        expect(screen.queryByText('The row header shows 8 fields.')).not.toBeInTheDocument()
       })
 
       it('dismisses the prompt on Cancel without changing anything', async () => {
         const user = userEvent.setup()
-        renderTab([p1, p2, p3, extra])
+        renderTab([...pinnedDefs, extra])
         await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
         await user.click(screen.getByRole('button', { name: 'Cancel' }))
-        expect(screen.queryByText('The row header shows 3 fields.')).not.toBeInTheDocument()
+        expect(screen.queryByText('The row header shows 8 fields.')).not.toBeInTheDocument()
         expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
       })
 
@@ -700,12 +701,12 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
         mockApi.updateSwimlaneCustomFieldDefinition
           .mockResolvedValueOnce({ ...p2, show_on_row: false })
           .mockRejectedValueOnce(new Error('boom'))
-        const onFieldsUpdated = renderTab([p1, p2, p3, extra])
+        const onFieldsUpdated = renderTab([...pinnedDefs, extra])
         await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
         await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
         await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledTimes(2))
         expect(onFieldsUpdated).not.toHaveBeenCalled()
-        expect(screen.getAllByRole('button', { name: /^Unpin / })).toHaveLength(3)
+        expect(screen.getAllByRole('button', { name: /^Unpin / })).toHaveLength(8)
       })
     })
   })

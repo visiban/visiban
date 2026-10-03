@@ -53,7 +53,7 @@ function hasChoices(t: CustomFieldType): boolean {
 // model. Keep these in step with the backend; the server is authoritative and
 // will 400 regardless, these only drive the local affordances.
 const FIELD_CAP = 15;
-const PIN_CAP = 3;
+const PIN_CAP = 8;
 
 interface FormState {
   name: string;

@@ -427,7 +427,7 @@ export interface SwimlaneCustomFieldDefinition {
   choices: string[];
   /** Display order within the board. Changed only via the reorder endpoint. */
   position: number;
-  /** Pin this field's value to the swimlane row header. At most 3 per board. */
+  /** Pin this field's value to the swimlane row header. At most 8 per board. */
   show_on_row: boolean;
   /**
    * When true (the default), this field's values are served only to board

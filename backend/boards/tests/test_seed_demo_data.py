@@ -650,6 +650,57 @@ class SeedDemoSiteTests(TestCase):
 
         return next(len(spec["cards"]) for spec in BOARDS if spec["name"] == name)
 
+    def test_overlay_pipeline_cards_move_through_every_stage_they_passed(self):
+        """#1416: the overlay board's nine-stage pipeline shows real movement.
+
+        Each card has one movement per stage it passed, in pipeline order, so
+        the History tab and the aging tint have something to show in every
+        column. A Lost card goes straight from Commit to Lost, never through Won.
+        """
+        _seed(demo_site=True)
+        board = Board.objects.get(name="Sales Territory (Overlay)")
+        names = list(board.columns.order_by("position").values_list("name", flat=True))
+        self.assertEqual(
+            names,
+            ["Identify", "Discover", "Qualify", "Shape", "Validate", "Commercial", "Commit", "Won", "Lost"],
+        )
+        in_flight = names[:7]
+        for card in board.cards.select_related("column"):
+            trail = [m.to_column_name for m in card.movements.order_by("moved_at", "id")]
+            current = card.column.name
+            self.assertEqual(trail[-1], current, card.title)
+            expected = in_flight[: in_flight.index(current) + 1] if current in in_flight else in_flight + [current]
+            self.assertEqual(trail, expected, card.title)
+        # Every column holds at least one card, so no stage reads as empty.
+        for name in names:
+            self.assertTrue(board.cards.filter(column__name=name).exists(), name)
+
+    def test_overlay_coverage_model_two_ads_one_sa_per_two_aes_one_svc_per_ad(self):
+        """#1416: the overlay board's coverage shape, read from the seeded rows."""
+        _seed(demo_site=True)
+        board = Board.objects.get(name="Sales Territory (Overlay)")
+        defs = list(SwimlaneCustomFieldDefinition.objects.filter(board=board).order_by("position"))
+        order = [d.name for d in defs]
+        self.assertEqual(order[:6], ["AD", "AE", "SA", "OAE", "OSA", "SVC"])
+        by_name = {d.name: d for d in defs}
+        for name in order[:6]:
+            self.assertTrue(by_name[name].show_on_row and not by_name[name].is_admin_only, name)
+        rows = {}
+        for lane in board.swimlanes.all():
+            values = {
+                v.field_definition.name: v.value
+                for v in SwimlaneCustomFieldValue.objects.filter(swimlane=lane).select_related("field_definition")
+            }
+            rows[lane.name] = values
+        self.assertEqual(len({r["AD"] for r in rows.values()}), 2)
+        aes_by_sa = {}
+        svc_by_ad = {}
+        for r in rows.values():
+            aes_by_sa.setdefault(r["SA"], set()).add(r["AE"])
+            svc_by_ad.setdefault(r["AD"], set()).add(r["SVC"])
+        self.assertTrue(all(len(aes) == 2 for aes in aes_by_sa.values()), aes_by_sa)
+        self.assertTrue(all(len(svcs) == 1 for svcs in svc_by_ad.values()), svc_by_ad)
+
     def test_seeds_exactly_seven_boards_with_at_least_fifteen_cards_each(self):
         _seed(demo_site=True)
         seeded = set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True))
@@ -658,7 +709,9 @@ class SeedDemoSiteTests(TestCase):
             board = Board.objects.get(name=name)
             self.assertEqual(board.cards.count(), self.spec_card_count(name), name)
             self.assertGreaterEqual(board.cards.count(), 15, name)
-            self.assertEqual(board.columns.count(), 4, name)
+            from boards.management.commands._demo_site_data import BOARDS
+
+            self.assertEqual(board.columns.count(), len(next(b for b in BOARDS if b["name"] == name)["columns"]), name)
             self.assertTrue(board.columns.filter(is_done=True).exists(), name)
             self.assertGreater(board.labels.count(), 0, name)
 
@@ -1055,7 +1108,8 @@ class SeedDemoSiteEntityBoardsTests(TestCase):
         for name in self.ENTITY_BOARDS:
             board = Board.objects.get(name=name)
             pinned = SwimlaneCustomFieldDefinition.objects.filter(board=board, show_on_row=True)
-            self.assertEqual(pinned.count(), SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD, name)
+            self.assertGreaterEqual(pinned.count(), 3, name)
+            self.assertLessEqual(pinned.count(), SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD, name)
             # The model defaults to admin-only; the visitor is a plain member.
             self.assertFalse(pinned.filter(is_admin_only=True).exists(), name)
             for lane in board.swimlanes.all():

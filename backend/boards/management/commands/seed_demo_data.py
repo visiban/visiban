@@ -1010,7 +1010,12 @@ class Command(BaseCommand):
         mover = people[idx % len(people)]
         lane = card.swimlane
         dwell = 3 + idx % 4
-        created_age = last_moved + dwell * col_i
+        # A card in a terminal column (Won / Lost) came from the last in-flight
+        # column, never through a sibling terminal column — so Lost's history
+        # skips Won rather than showing the card briefly "won" first.
+        path = [i for i in range(col_i) if not columns[i].is_done] + [col_i]
+        steps = len(path) - 1
+        created_age = last_moved + dwell * steps
         created = CardMovement.objects.create(
             card=card, from_column=None, to_column=columns[0], from_swimlane=None, to_swimlane=lane,
             from_column_name="", to_column_name=columns[0].name, from_column_uid="",
@@ -1018,8 +1023,8 @@ class Command(BaseCommand):
             from_swimlane_uid="", to_swimlane_uid=lane.uid, moved_by=mover, notes="",
         )
         CardMovement.objects.filter(pk=created.pk).update(moved_at=anchor - datetime.timedelta(days=created_age))
-        for i in range(col_i):
-            src, dst = columns[i], columns[i + 1]
+        for step, (src_i, dst_i) in enumerate(zip(path, path[1:])):
+            src, dst = columns[src_i], columns[dst_i]
             mv = CardMovement.objects.create(
                 card=card, from_column=src, to_column=dst, from_swimlane=lane, to_swimlane=lane,
                 from_column_name=src.name, to_column_name=dst.name, from_column_uid=src.uid,
@@ -1027,7 +1032,7 @@ class Command(BaseCommand):
                 from_swimlane_uid=lane.uid, to_swimlane_uid=lane.uid, moved_by=mover, notes="",
             )
             CardMovement.objects.filter(pk=mv.pk).update(
-                moved_at=anchor - datetime.timedelta(days=last_moved + dwell * (col_i - 1 - i))
+                moved_at=anchor - datetime.timedelta(days=last_moved + dwell * (steps - 1 - step))
             )
         return created_age
 

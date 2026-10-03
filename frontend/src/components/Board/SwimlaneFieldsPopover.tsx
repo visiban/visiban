@@ -30,7 +30,7 @@ interface Props {
  * keeps the popover a single code path rather than a form that conditionally
  * becomes read-only.
  *
- * This exists because the label panel can only show three pinned values, and a
+ * This exists because the label panel can only show a limited number of pinned values, and a
  * board may define fifteen. Without it, a non-pinned value would be reachable
  * only by an admin opening the edit modal — invisible to everyone else.
  */

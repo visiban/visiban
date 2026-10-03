@@ -1459,7 +1459,7 @@ A dropdown or multi-select field may also color its choices — see [Choice colo
   a non-number type supplies a [number format](#number-formatting) option, a number format
   option is out of range, `choice_colors` is malformed or set on a type without choices
   (see [Choice colors](#choice-colors)), the board already has 15
-  swimlane field definitions, or a fourth field is pinned with `show_on_row`.
+  swimlane field definitions, or a ninth field is pinned with `show_on_row`.
 
 ### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
 Update a definition. Requires board admin.
