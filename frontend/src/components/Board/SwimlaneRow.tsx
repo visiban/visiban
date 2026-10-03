@@ -166,9 +166,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         onMouseEnter={onHoverEnter}
         onMouseLeave={onHoverLeave}
       >
-        {/* Swimlane label — sticky to the left */}
+        {/* Swimlane label — sticky to the left. The hover tint is a ::before overlay,
+            not a hover:bg-* on the panel itself: a translucent hover background replaces
+            the opaque bg-surface and lets cards scrolled underneath show through. */}
         <div
-          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-surface border-l-4 hover:bg-surface-hover/30 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
+          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-surface border-l-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-surface-hover/30 before:opacity-0 hover:before:opacity-100 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
           data-tour-step="swimlane"
           data-no-pan
