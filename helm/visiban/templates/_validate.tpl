@@ -50,6 +50,33 @@ manage the Secret in that case and cannot inspect its contents.
 {{- fail "\n\nVisiban: backend.settings.allowedHosts still contains the placeholder visiban.example.com.\nDjango will reject any request whose Host header is not in this list.\n\nSet your real hostname(s) (comma-separated):\n    --set backend.settings.allowedHosts=boards.yourdomain.com\n" -}}
 {{- end }}
 
+{{- /*
+    Catch-all and loopback entries (#1360). The frontend nginx is a catch-all
+    (`server_name _`) that forwards the client's Host header, so "*" accepts
+    any Host and a loopback name accepts `Host: localhost` from any client that
+    reaches the frontend Service directly (NodePort, LoadBalancer, host-less
+    Ingress rule). Either one re-opens the Host-header poisoning (password-reset
+    links, cache keys) that #1230 closed by no longer appending localhost.
+
+    Matched per entry, exactly, after trim + lowercase (Django lowercases its
+    patterns too), so "localhost.example.com" or "mylocalhost" never trip it.
+    The list and its normalization (leading dots, IPv6 spellings) live in
+    visiban.unsafeAllowedHosts in _helpers.tpl. Other 127/8 addresses are
+    deliberately not listed: the point is the names a copy-pasted dev config
+    carries, not every address.
+
+    A hard fail, not a NOTES.txt warning: NOTES is never shown by GitOps
+    renderers (Argo CD, Flux) or `helm template | kubectl apply`, so a warning
+    would let a pinned install carry these entries silently. The explicit
+    opt-out covers the one legitimate need (`kubectl port-forward` and a
+    browser on http://localhost); NOTES.txt then names the entries on every
+    install/upgrade so the opt-in stays visible.
+*/ -}}
+{{- $unsafeHosts := include "visiban.unsafeAllowedHosts" . -}}
+{{- if and $unsafeHosts (not .Values.backend.settings.allowUnsafeHosts) }}
+{{- fail (printf "\n\nVisiban: backend.settings.allowedHosts contains %s.\nThe frontend nginx forwards whatever Host header a client sends, so a catch-all (*) or loopback entry lets any client that reaches the Service directly be accepted under that Host -- the password-reset link and cache-key poisoning #1230 closed.\n\nList only your real hostname(s) (comma-separated):\n    --set backend.settings.allowedHosts=boards.yourdomain.com\n\nFor `kubectl port-forward`, send the real Host instead of adding localhost:\n    curl -H \"Host: boards.yourdomain.com\" http://localhost:8080/\n\nIf you knowingly need the entry (only the backend's in-cluster callers can reach it, or a strict Ingress rejects other hosts), opt in explicitly:\n    --set backend.settings.allowUnsafeHosts=true\nSee \"Helm: catch-all and loopback allowedHosts entries fail the render\" in docs/administration/upgrade.md.\n" $unsafeHosts) -}}
+{{- end }}
+
 {{- if and .Values.postgresql.subchartEnabled (not .Values.postgresql.auth.existingSecret) }}
 {{- if eq .Values.postgresql.auth.password "visiban" }}
 {{- fail "\n\nVisiban: postgresql.auth.password is set to the chart's placeholder \"visiban\".\nThis is the literal default — anyone with access to the source can guess it.\n\nGenerate a strong password and pass it via:\n    --set-string postgresql.auth.password=<password>\nor in your values.secret.yaml file.\n" -}}
@@ -176,6 +203,9 @@ refused here rather than escaped wherever it is used.
 {{- end -}}
 {{- if or (eq (toString .Values.backend.email.backend) "smtp") .Values.backend.email.host -}}
 {{- fail "\n\nVisiban: demo.enabled is true but real SMTP is configured (backend.email.backend=smtp or backend.email.host set).\nA public demo must not be able to send mail to arbitrary addresses, and the demo NetworkPolicy denies the egress anyway.\n\nUse:\n    --set backend.email.backend=console --set backend.email.host=\"\"\n" -}}
+{{- end -}}
+{{- if .Values.backend.settings.allowUnsafeHosts -}}
+{{- fail "\n\nVisiban: demo.enabled is true and backend.settings.allowUnsafeHosts is true.\nA public demo is the instance most exposed to Host-header poisoning, and it has no port-forward use to excuse a catch-all or loopback ALLOWED_HOSTS entry (#1360):\n    --set backend.settings.allowUnsafeHosts=false\n" -}}
 {{- end -}}
 {{- if .Values.backend.mediaPersistence.enabled -}}
 {{- fail "\n\nVisiban: demo.enabled is true and backend.mediaPersistence.enabled is true.\nPublic demo mode gives visitors no upload path (the fence refuses uploads and the seed turns uploads off); a writable media PVC is defense in depth against a hole in that, so it is refused:\n    --set backend.mediaPersistence.enabled=false\n" -}}

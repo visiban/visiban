@@ -35,8 +35,9 @@ backend:
     emailVerification: "mandatory"
     # /admin/ is loopback-only. Reach it with:
     #   kubectl port-forward svc/<release>-visiban-backend 8000:8000
-    # The backend answers 400 to Host: localhost unless `localhost` is in
-    # backend.settings.allowedHosts; add it, or send `curl -H "Host: <your host>"`.
+    # The backend answers 400 to Host: localhost; send `curl -H "Host: <your host>"`.
+    # (A `localhost` allowedHosts entry fails the render unless
+    # backend.settings.allowUnsafeHosts=true, #1360.)
     # Widen it only to a known operator CIDR, never to 0.0.0.0/0.
     adminAllowedIPs: ""
   email:

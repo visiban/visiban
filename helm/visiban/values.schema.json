@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Visiban Helm chart values",
-  "description": "Structural contract for the Visiban chart's values (#1116). The ROOT is additionalProperties:false on purpose: Helm silently accepts a values key no template reads, so a wrong or invented top-level key -- a typo, or a name lifted from another chart's docs -- used to change nothing on the pod while the operator believed it was applied. That failure is indistinguishable from the setting having no effect, and it fails identically for the next wrong key. Blocks the chart hands wholesale to a subchart or to toYaml (global, backend.resources, frontend.resources, backend.securityContext.pod/.container, postgresql.securityContext.pod/.container, frontend.securityContext.pod/.container, ingress.annotations, postgresql, valkey) stay OPEN, because the chart is not the authority on what is valid inside them. No key is 'required': values.yaml supplies a default for everything the chart reads, and the render-time guards in templates/_validate.tpl own the cross-field rules a JSON Schema cannot express (placeholder SECRET_KEY, placeholder allowedHosts, smtp-without-a-From-address).",
+  "description": "Structural contract for the Visiban chart's values (#1116). The ROOT is additionalProperties:false on purpose: Helm silently accepts a values key no template reads, so a wrong or invented top-level key -- a typo, or a name lifted from another chart's docs -- used to change nothing on the pod while the operator believed it was applied. That failure is indistinguishable from the setting having no effect, and it fails identically for the next wrong key. Blocks the chart hands wholesale to a subchart or to toYaml (global, backend.resources, frontend.resources, backend.securityContext.pod/.container, postgresql.securityContext.pod/.container, frontend.securityContext.pod/.container, ingress.annotations, postgresql, valkey) stay OPEN, because the chart is not the authority on what is valid inside them. No key is 'required': values.yaml supplies a default for everything the chart reads, and the render-time guards in templates/_validate.tpl own the cross-field rules a JSON Schema cannot express (placeholder SECRET_KEY, placeholder or catch-all/loopback allowedHosts, smtp-without-a-From-address).",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -61,6 +61,10 @@
               "type": "string"
             },
             "allowedHosts": { "type": "string" },
+            "allowUnsafeHosts": {
+              "description": "Opt-in for catch-all or loopback allowedHosts entries (*, localhost, localhost.localdomain, ip6-localhost, 127.0.0.1, 0.0.0.0, [::ffff:127.0.0.1], the IPv6 loopback/unspecified address in any spelling, or a leading-dot form of any of these), which otherwise fail the render (#1360). Refused in demo mode.",
+              "type": "boolean"
+            },
             "corsAllowedOrigins": { "type": "string" },
             "frontendUrl": { "type": "string" },
             "siteDomain": { "type": "string" },
