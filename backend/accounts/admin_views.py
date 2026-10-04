@@ -991,6 +991,7 @@ class AdminInviteLinkSendView(APIView):
                     "delivery": drf_serializers.CharField(required=False),
                 },
             ),
+            400: InviteEmailErrorSerializer,
             403: InviteEmailErrorSerializer,
             502: InviteEmailErrorSerializer,
         },

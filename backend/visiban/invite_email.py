@@ -220,10 +220,16 @@ def normalize_invite_email(value: str) -> str:
 
 
 class InviteEmailErrorSerializer(serializers.Serializer):
-    """Schema-only: the ``{code, detail}`` body of the send endpoints' 403
-    (``invite_email_disabled``), cap-reached 400 and delivery-failure 502."""
+    """Schema-only: the error body of the send endpoints' 403, cap-reached 400
+    and delivery-failure 502.
 
-    code = serializers.CharField()
+    ``code`` is optional: it is present on ``invite_email_disabled`` 403s, the
+    ``invite_email_cap_reached`` 400 and every 502, but a 403 raised by the
+    permission layer (not a group admin / not a site admin) carries only
+    ``detail``. Field-validation 400s use DRF's ``{field: [errors]}`` shape.
+    """
+
+    code = serializers.CharField(required=False)
     detail = serializers.CharField()
 
 
