@@ -3582,6 +3582,9 @@ github-release:
       # GitHub "pre-release" badge can never disagree with them (#1410). Anything
       # not strictly vX.Y.Z (alpha/beta/rc, or any other suffix) is a pre-release.
       STABLE="$(bash scripts/classify-release-tag.sh "${CI_COMMIT_TAG}" | sed -n 's/^STABLE=//p')"
+      # No pipefail in alpine sh: a missing/crashed script would leave STABLE empty
+      # and silently flag a real stable release as --prerelease, so fail loudly.
+      [ -n "$STABLE" ] || { echo "classify-release-tag.sh produced no STABLE value for ${CI_COMMIT_TAG}" >&2; exit 1; }
       PRERELEASE_FLAG=""
       if [ "$STABLE" != "true" ]; then
         PRERELEASE_FLAG="--prerelease"
