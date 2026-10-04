@@ -434,6 +434,7 @@ function ConnectedAccountRow({
                 onClick={onConfirmDisconnect}
                 disabled={disconnecting}
                 className="text-xs text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                aria-label={`Confirm disconnect ${label}`}
                 data-testid={`confirm-disconnect-${provider}`}
               >
                 {disconnecting ? "Disconnecting…" : "Confirm"}
@@ -517,7 +518,9 @@ function ConnectedAccountsSection({
   // Escape cancels an open inline disconnect confirm before the page-level
   // Escape-to-navigate handler (priority 0) can leave the page (#1366).
   useEscapeStack(() => {
-    if (confirmingId !== null) { setConfirmingId(null); return; }
+    // Inert while a disconnect request is running: closing the confirm would
+    // hide the "Disconnecting…" state of a request that still completes.
+    if (confirmingId !== null && disconnectingId === null) { setConfirmingId(null); return; }
     return false;
   }, 40);
 

@@ -758,6 +758,22 @@ describe('SecurityTab — connected accounts', () => {
     expect(mockNavigate).toHaveBeenCalled()
   })
 
+  it('Escape is inert while a disconnect is in flight (#1366)', async () => {
+    mockDisconnectAccount.mockReturnValue(new Promise(() => {}))
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    await ue.click(screen.getByTestId('confirm-disconnect-google'))
+    expect(screen.getByTestId('confirm-disconnect-google')).toHaveTextContent('Disconnecting…')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByTestId('confirm-disconnect-google')).toBeInTheDocument()
+  })
+
+  it('gives Confirm a provider-specific accessible name (#1366)', async () => {
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    expect(screen.getByRole('button', { name: 'Confirm disconnect Google' })).toBe(screen.getByTestId('confirm-disconnect-google'))
+  })
+
   it('names the provider on the Disconnect trigger (#1366)', async () => {
     await open()
     expect(screen.getByRole('button', { name: 'Disconnect Google' })).toBe(screen.getByTestId('disconnect-google'))
