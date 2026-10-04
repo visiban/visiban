@@ -32,11 +32,25 @@
 #      criterion defined but unlisted is silently inert, the same bug from the
 #      other direction
 #
+#   4. every `.ruleKey` is in the checked-in RULE_TITLES table below, and when
+#      the comment text above a criterion cites Sonar rule numbers (`S1234`),
+#      the criterion's own rule number is one of them (#1407). This catches a
+#      key that does not mean what its comment says: sort_tests cited
+#      "`.sort()` without localeCompare" but used S6325 (regex literals), and
+#      dataset_tests cited ".dataset" but used S6330 (an AWS SQS rule). Both
+#      were inert for months because check 1-3 only look at structure.
+#
 # Deliberately NOT checked: whether the rule still fires. That needs a full
 # SonarCloud scan and a token; this runs offline in milliseconds. Also not
 # detectable here: a pattern that still matches its original file while growing
 # a SECOND home elsewhere. The durable fix for that is on the code side - keep a
 # suppressed pattern in ONE place so a copy has nowhere to hide.
+#
+# Known limits of check 4 (both tracked in #1425):
+#   (a) RULE_TITLES proves a human registered the key, not that the rule is
+#       active in the SonarCloud quality profile.
+#   (b) A criterion whose preceding comment cites no S-number is only
+#       table-checked, so a wrong key that is in the table still passes.
 #
 # Suppression policy lives in the header of sonar-project.properties; see also
 # docs/development/suppressions.md.
@@ -51,6 +65,30 @@
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# --- Rule table (check 4) ---------------------------------------------------
+# Offline on purpose: asking SonarCloud whether a key is an active rule needs a
+# token and network, and this job must stay hermetic and fail closed on a
+# mismatch rather than open on an API outage. Instead, every rule key the file
+# may reference is registered here with its real title. Adding a criterion means
+# adding a row, which forces the author to look up what the rule actually is;
+# the title is the review artifact. Format: <ruleKey>|<title>.
+RULE_TITLES='
+docker:S6470|Copying recursively (COPY . .) is security-sensitive
+docker:S8544|pip install of local wheels
+javascript:S2871|Array.sort() should use a compare function (localeCompare)
+javascript:S4036|Searching OS commands in PATH is security-sensitive
+javascript:S7761|Data attributes should be accessed using .dataset
+python:S1192|String literals should not be duplicated
+python:S2068|Hard-coded passwords are security-sensitive
+python:S2245|Pseudorandom number generators are security-sensitive
+python:S2589|Boolean expressions should not be gratuitous
+python:S3776|Cognitive Complexity of functions should not be too high
+pythonsecurity:S8705|Argument injection
+secrets:S6437|Secrets should not be hardcoded
+shell:S5332|Using clear-text protocols is security-sensitive
+yaml:S6437|Secrets should not be hardcoded
+'
 
 # --- Ant glob -> ERE ----------------------------------------------------------
 # Sonar's matcher is Ant-style. Translate to an anchored extended regex:
@@ -117,6 +155,12 @@ $mc.zz.resourceKey=frontend/src/**/*.ts"
 $mc.zz.resourceKey=Makefile"
     run_case "orphan-resourceKey" "missing from the multicriteria index" "" "$mc.zz.resourceKey=Makefile"
     run_case "missing-resourceKey" "has no .resourceKey" "zz" "$mc.zz.ruleKey=typescript:S1"
+    # Check 4: an unregistered key, and a key contradicting the comment above it.
+    run_case "unknown-rule-key" "is not in the RULE_TITLES table" "zz" "$mc.zz.ruleKey=javascript:S6325
+$mc.zz.resourceKey=Makefile"
+    run_case "comment-key-mismatch" "comment above cites" "zz" "# S2871: .sort() without localeCompare
+$mc.zz.ruleKey=javascript:S4036
+$mc.zz.resourceKey=Makefile"
     run_case "ghost-index-id" "has no .ruleKey" "zz" ""
 
     if bash "$0" >/dev/null 2>&1; then
@@ -232,6 +276,33 @@ for id in "${DEFINED[@]}"; do
         fail=1
     fi
 done
+
+# --- 4. rule key is registered and agrees with the comment above it ---------
+# `pending` collects the S-numbers cited in comment lines since the previous
+# criterion; a criterion that shares a header with its predecessor sees none and
+# is only table-checked, which is the intended scope (a header documents the
+# first criterion, siblings repeat it).
+pending=""
+while IFS= read -r line; do
+    if [[ "$line" == \#* ]]; then
+        pending+=" $(grep -oE 'S[0-9]{3,5}' <<<"$line" | tr '\n' ' ' || true)"
+    elif [[ "$line" =~ ^sonar\.issue\.ignore\.multicriteria\.([A-Za-z0-9_]+)\.ruleKey=(.*)$ ]]; then
+        id="${BASH_REMATCH[1]}"; rkey="${BASH_REMATCH[2]}"
+        if ! grep -qxE "$(sed 's/[.]/\\./g' <<<"$rkey")\|.*" <<<"$RULE_TITLES"; then
+            echo "x $id: ruleKey '$rkey' is not in the RULE_TITLES table"
+            echo "    Look up the rule on SonarCloud, confirm its title matches what the"
+            echo "    comment claims, then register it in scripts/check-sonar-exclusions.sh."
+            fail=1
+        fi
+        num="${rkey##*:}"
+        if [[ -n "${pending// /}" ]] && ! grep -qw "$num" <<<"$pending"; then
+            echo "x $id: ruleKey '$rkey' but the comment above cites:${pending}"
+            echo "    The key does not mean what its comment says (#1407). Fix the key or the comment."
+            fail=1
+        fi
+        pending=""
+    fi
+done <"$PROPS"
 
 if [[ "$fail" -ne 0 ]]; then
     echo ""

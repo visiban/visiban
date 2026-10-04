@@ -30,7 +30,7 @@ function applyTheme(preference: ThemePreference): "dark" | "light" {
   // `data-theme` is the canonical selector used by the CSS token layer
   // (index.css) and must match the resolved mode, not the raw preference.
   root.classList.toggle("dark", mode === "dark");
-  root.setAttribute("data-theme", mode);
+  root.dataset.theme = mode;
   return mode;
 }
 
