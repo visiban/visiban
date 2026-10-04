@@ -246,6 +246,26 @@ describe('Board API wrappers', () => {
       const formData = mockClient.post.mock.calls[0][1] as FormData
       expect(formData.get('group_id')).toBe('42')
     })
+
+    // #119: options travel as a JSON string, and only when something is off.
+    it('omits options when every option is included', async () => {
+      const file = new File(['{}'], 'board.json', { type: 'application/json' })
+      mockClient.post.mockResolvedValue({ data: { id: 99 } })
+      await importBoard(file, undefined, undefined, { labels: true, cards: true })
+
+      const formData = mockClient.post.mock.calls[0][1] as FormData
+      expect(formData.get('options')).toBeNull()
+    })
+
+    it('sends non-default options as a JSON string', async () => {
+      const file = new File(['{}'], 'board.json', { type: 'application/json' })
+      mockClient.post.mockResolvedValue({ data: { id: 99 } })
+      const options = { labels: true, cards: false, comments: false, checklist: false, history: false }
+      await importBoard(file, undefined, undefined, options)
+
+      const formData = mockClient.post.mock.calls[0][1] as FormData
+      expect(JSON.parse(formData.get('options') as string)).toEqual(options)
+    })
   })
 
   describe('Trello import', () => {

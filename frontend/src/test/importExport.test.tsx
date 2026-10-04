@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
+import ImportSkippedToast from '../components/Board/ImportSkippedToast'
+import { formatImportSkipped } from '../utils/importSummary'
+import type { ImportOptions, ImportSkippedCounts, ImportSummary } from '../types'
 
 describe('ImportBoardModal', () => {
   let onImport: Mock<(file: File, name?: string) => Promise<void>>
@@ -247,5 +250,294 @@ describe('ImportBoardModal — keyboard (#1376)', () => {
     await user.keyboard(' ')
     expect(clickSpy).toHaveBeenCalledTimes(2)
     clickSpy.mockRestore()
+  })
+})
+
+// #119 — selective import: the "Include" options.
+describe('ImportBoardModal — Include options (#119)', () => {
+  type OnImport = (file: File, name?: string, options?: ImportOptions) => Promise<void>
+  let onImport: Mock<OnImport>
+
+  beforeEach(() => {
+    onImport = vi.fn<OnImport>().mockResolvedValue(undefined)
+  })
+
+  const jsonFile = () => new File(['{}'], 'board.json', { type: 'application/json' })
+  const csvFile = () => new File(['Title,Column,Swimlane'], 'board.csv', { type: 'text/csv' })
+
+  async function setup(file: File = jsonFile()) {
+    const user = userEvent.setup()
+    render(<ImportBoardModal onImport={onImport} onCancel={vi.fn()} />)
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, file)
+    return { user, input, file }
+  }
+
+  const box = (name: string) => screen.getByRole('checkbox', { name })
+  const summary = () => document.getElementById('import-summary')
+
+  it('shows no Include options before a file is chosen', () => {
+    render(<ImportBoardModal onImport={onImport} onCancel={vi.fn()} />)
+    expect(screen.queryByRole('group', { name: 'Include' })).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
+    expect(summary()).toBeNull()
+  })
+
+  it('shows no Include options for an unsupported file', async () => {
+    const user = userEvent.setup({ applyAccept: false })
+    render(<ImportBoardModal onImport={onImport} onCancel={vi.fn()} />)
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, new File(['x'], 'data.txt', { type: 'text/plain' }))
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
+  })
+
+  it('shows five rows, all checked, for a JSON file in order', async () => {
+    await setup()
+    const group = screen.getByRole('group', { name: 'Include' })
+    const names = within(group).getAllByRole('checkbox').map((c) => c.closest('label')?.textContent)
+    expect(names).toEqual(['Cards', 'Comments', 'Checklist items', 'Card history', 'Labels'])
+    within(group).getAllByRole('checkbox').forEach((c) => expect(c).toBeChecked())
+    expect(group).toHaveAccessibleDescription('Board structure (name, columns, swimlanes) is always imported.')
+  })
+
+  it('shows only Cards and Labels for a CSV file', async () => {
+    await setup(csvFile())
+    const names = screen.getAllByRole('checkbox').map((c) => c.closest('label')?.textContent)
+    expect(names).toEqual(['Cards', 'Labels'])
+    expect(summary()).toHaveTextContent(/^Importing: everything$/)
+  })
+
+  it('calls onImport with two arguments when everything is included', async () => {
+    const { user, file } = await setup()
+    await user.click(screen.getByText('Import'))
+    await waitFor(() => expect(onImport).toHaveBeenCalled())
+    expect(onImport.mock.calls[0]).toEqual([file, undefined])
+  })
+
+  it('unchecking Labels shows its consequence, wired by aria-describedby', async () => {
+    const { user, file } = await setup()
+    const labels = box('Labels')
+    expect(labels).toHaveAccessibleDescription('Label definitions and the labels on cards.')
+    await user.click(labels)
+    expect(labels).toHaveAccessibleDescription('Card labels are skipped')
+    await user.click(screen.getByText('Import'))
+    await waitFor(() =>
+      expect(onImport).toHaveBeenCalledWith(file, undefined, {
+        labels: false, cards: true, comments: true, checklist: true, history: true,
+      }),
+    )
+  })
+
+  it('unchecking Cards unchecks and disables its dependents and sends all four false', async () => {
+    const { user, file } = await setup()
+    await user.click(box('Cards'))
+    for (const name of ['Comments', 'Checklist items', 'Card history']) {
+      expect(box(name)).not.toBeChecked()
+      expect(box(name)).toBeDisabled()
+      expect(box(name)).toHaveAccessibleDescription('Requires Cards')
+    }
+    expect(box('Cards')).toHaveAccessibleDescription('Cards and everything on them are skipped')
+    // Only the label text dims; the native disabled control dims itself.
+    const historyLabel = box('Card history').closest('label') as HTMLElement
+    expect(historyLabel.className).not.toMatch(/opacity-/)
+    expect(within(historyLabel).getByText('Card history')).toHaveClass('text-fg-muted')
+    expect(box('Labels')).toBeEnabled()
+    await user.click(screen.getByText('Import'))
+    await waitFor(() =>
+      expect(onImport).toHaveBeenCalledWith(file, undefined, {
+        labels: true, cards: false, comments: false, checklist: false, history: false,
+      }),
+    )
+  })
+
+  it('re-checking Cards restores a deliberate uncheck of Card history', async () => {
+    const { user } = await setup()
+    await user.click(box('Card history'))
+    expect(box('Card history')).toHaveAccessibleDescription('Movements and activity are skipped')
+    await user.click(box('Cards'))
+    await user.click(box('Cards'))
+    expect(box('Comments')).toBeChecked()
+    expect(box('Checklist items')).toBeChecked()
+    expect(box('Card history')).not.toBeChecked()
+    expect(box('Card history')).toBeEnabled()
+  })
+
+  it('a disabled dependent is not reachable by Tab', async () => {
+    const { user } = await setup()
+    await user.click(box('Cards'))
+    box('Cards').focus()
+    await user.tab()
+    expect(document.activeElement).toBe(box('Labels'))
+  })
+
+  it('summary line lists only what is selected', async () => {
+    const { user } = await setup()
+    expect(summary()).toHaveTextContent(/^Importing: everything$/)
+    await user.click(box('Comments'))
+    expect(summary()).toHaveTextContent('Importing: structure, cards, labels, checklist items, history')
+    await user.click(box('Cards'))
+    expect(summary()).toHaveTextContent(/^Importing: structure, labels$/)
+    await user.click(box('Labels'))
+    expect(summary()).toHaveTextContent(/^Importing: structure only$/)
+    expect(screen.getByRole('button', { name: 'Import' })).toHaveAccessibleDescription('Importing: structure only')
+  })
+
+  it('has one status region that announces only the Cards cascade', async () => {
+    const { user } = await setup()
+    const regions = screen.getAllByRole('status')
+    expect(regions).toHaveLength(1)
+    expect(regions[0]).toHaveAttribute('aria-live', 'polite')
+    expect(regions[0]).toHaveTextContent('')
+    await user.click(box('Labels'))
+    expect(regions[0]).toHaveTextContent('')
+    await user.click(box('Cards'))
+    expect(regions[0]).toHaveTextContent(
+      'Comments, checklist items, and card history are unavailable while Cards is unchecked',
+    )
+    await user.click(box('Cards'))
+    expect(regions[0]).toHaveTextContent('Comments, checklist items, and card history are available again')
+  })
+
+  it('disables every checkbox while submitting', async () => {
+    let resolve: () => void = () => {}
+    onImport.mockImplementation(() => new Promise<void>((r) => { resolve = r }))
+    const { user } = await setup()
+    await user.click(screen.getByText('Import'))
+    await waitFor(() => expect(screen.getByText('Importing...')).toBeInTheDocument())
+    screen.getAllByRole('checkbox').forEach((c) => expect(c).toBeDisabled())
+    expect(screen.getByRole('button', { name: 'Importing...' })).not.toHaveAttribute('aria-describedby')
+    resolve()
+    await waitFor(() => expect(box('Labels')).toBeEnabled())
+  })
+
+  it('choosing a new file resets the selections', async () => {
+    const { user, input } = await setup()
+    await user.click(box('Cards'))
+    await user.click(box('Labels'))
+    await user.upload(input, new File(['{}'], 'other.json', { type: 'application/json' }))
+    screen.getAllByRole('checkbox').forEach((c) => {
+      expect(c).toBeChecked()
+      expect(c).toBeEnabled()
+    })
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent('')
+  })
+
+  it('Cards copy names assignees for JSON but only due dates for CSV', async () => {
+    const { user, input } = await setup()
+    expect(box('Cards')).toHaveAccessibleDescription('Includes assignees and due dates.')
+    await user.upload(input, csvFile())
+    expect(box('Cards')).toHaveAccessibleDescription('Includes due dates.')
+  })
+
+  it('a CSV import does not announce a cascade for rows it does not show', async () => {
+    const { user } = await setup(csvFile())
+    const region = screen.getByRole('status')
+    await user.click(box('Cards'))
+    expect(region).toHaveTextContent('')
+    await user.click(box('Cards'))
+    expect(region).toHaveTextContent('')
+  })
+
+  it('a CSV import sends only cards and labels', async () => {
+    const { user, file } = await setup(csvFile())
+    await user.click(box('Cards'))
+    expect(summary()).toHaveTextContent(/^Importing: structure, labels$/)
+    await user.click(screen.getByText('Import'))
+    await waitFor(() => expect(onImport).toHaveBeenCalledWith(file, undefined, { cards: false, labels: true }))
+  })
+})
+
+describe('formatImportSkipped (#119)', () => {
+  const zero: ImportSkippedCounts = {
+    cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0,
+  }
+  const summaryOf = (skipped: Partial<ImportSkippedCounts>): ImportSummary => ({
+    options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+    skipped: { ...zero, ...skipped },
+  })
+
+  it('returns null when nothing was skipped', () => {
+    expect(formatImportSkipped(summaryOf({}))).toBeNull()
+    expect(formatImportSkipped(undefined)).toBeNull()
+  })
+
+  it('lists only non-zero counts, singular for one', () => {
+    expect(formatImportSkipped(summaryOf({ cards: 12, comments: 30, label_refs: 4 }))).toBe(
+      'Board imported. Skipped: 12 cards, 30 comments, 4 card labels.',
+    )
+    expect(formatImportSkipped(summaryOf({ cards: 1, checklist_items: 1, label_refs: 1 }))).toBe(
+      'Board imported. Skipped: 1 card, 1 checklist item, 1 card label.',
+    )
+  })
+
+  it('sums movements and activities into history entries', () => {
+    expect(formatImportSkipped(summaryOf({ movements: 5, activities: 6 }))).toBe(
+      'Board imported. Skipped: 11 history entries.',
+    )
+    expect(formatImportSkipped(summaryOf({ activities: 1 }))).toBe(
+      'Board imported. Skipped: 1 history entry.',
+    )
+  })
+
+  it('caps at three items then "and N more"', () => {
+    expect(formatImportSkipped(summaryOf({ cards: 2, comments: 3, checklist_items: 4, label_refs: 1, movements: 5 }))).toBe(
+      'Board imported. Skipped: 2 cards, 3 comments, 4 checklist items, and 2 more.',
+    )
+  })
+})
+
+describe('ImportSkippedToast (#119)', () => {
+  const summary: ImportSummary = {
+    options_applied: { labels: false, cards: true, comments: true, checklist: true, history: true },
+    skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 1, movements: 0, activities: 0 },
+  }
+
+  it('mounts the status region empty, fills it a tick later, and auto-dismisses after 8 seconds', () => {
+    vi.useFakeTimers()
+    try {
+      const onDismiss = vi.fn()
+      render(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
+      const region = screen.getByRole('status')
+      expect(region).toHaveTextContent('')
+      expect(region.className).toContain('w-max')
+      expect(region.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
+      act(() => { vi.advanceTimersByTime(0) })
+      expect(region).toHaveTextContent('Board imported. Skipped: 1 card label.')
+      act(() => { vi.advanceTimersByTime(7999) })
+      expect(onDismiss).not.toHaveBeenCalled()
+      act(() => { vi.advanceTimersByTime(1) })
+      expect(onDismiss).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('pauses the auto-dismiss while hovered or focused', () => {
+    vi.useFakeTimers()
+    try {
+      const onDismiss = vi.fn()
+      render(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
+      act(() => { vi.advanceTimersByTime(0) })
+      const region = screen.getByRole('status')
+      fireEvent.mouseEnter(region)
+      act(() => { vi.advanceTimersByTime(20000) })
+      expect(onDismiss).not.toHaveBeenCalled()
+      fireEvent.mouseLeave(region)
+      fireEvent.focus(screen.getByRole('button', { name: 'Dismiss notification' }))
+      act(() => { vi.advanceTimersByTime(20000) })
+      expect(onDismiss).not.toHaveBeenCalled()
+      fireEvent.blur(screen.getByRole('button', { name: 'Dismiss notification' }))
+      act(() => { vi.advanceTimersByTime(8000) })
+      expect(onDismiss).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('renders nothing when nothing was skipped', () => {
+    const { container } = render(
+      <ImportSkippedToast summary={{ ...summary, skipped: { ...summary.skipped, label_refs: 0 } }} onDismiss={vi.fn()} />,
+    )
+    expect(container).toBeEmptyDOMElement()
   })
 })

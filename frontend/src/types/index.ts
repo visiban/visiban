@@ -1254,3 +1254,33 @@ export interface TrelloImportResult {
     unmappable: TrelloImportUnmappable[];
   };
 }
+
+/** What to include in a Visiban JSON/CSV board import (#119). Every key is
+ *  optional and defaults to `true` server-side; board structure (name,
+ *  columns, swimlanes) is always imported. `comments`, `checklist` and
+ *  `history` require `cards`; a CSV import accepts only `labels` and `cards`. */
+export interface ImportOptions {
+  labels?: boolean;
+  cards?: boolean;
+  comments?: boolean;
+  checklist?: boolean;
+  history?: boolean;
+}
+
+/** Counts of file contents left out by the chosen import options (#119). */
+export interface ImportSkippedCounts {
+  cards: number;
+  comments: number;
+  checklist_items: number;
+  label_refs: number;
+  movements: number;
+  activities: number;
+}
+
+export interface ImportSummary {
+  options_applied: Required<ImportOptions>;
+  skipped: ImportSkippedCounts;
+}
+
+/** `POST /api/v1/boards/import/` response: the board plus an additive summary. */
+export type ImportBoardResponse = Board & { import_summary: ImportSummary };
