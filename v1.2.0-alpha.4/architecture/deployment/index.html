@@ -4197,6 +4197,11 @@
 <td>External Valkey (or Redis-compatible) DSN (used when <code>valkey.enabled: false</code>) — <strong>must be set</strong> when using an external instance</td>
 </tr>
 <tr>
+<td><code>externalRedis.existingSecret</code> / <code>externalRedis.existingSecretPasswordKey</code></td>
+<td><code>""</code> / <code>redis-password</code></td>
+<td>Secret holding the external instance's password, instead of in the URL (#1361). Leave the password out of <code>url</code>/<code>cacheUrl</code></td>
+</tr>
+<tr>
 <td><code>networkPolicy.enabled</code></td>
 <td><code>false</code></td>
 <td>Create NetworkPolicy resources restricting pod-to-pod traffic</td>

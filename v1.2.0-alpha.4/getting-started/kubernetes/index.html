@@ -802,6 +802,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="External database and Valkey">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#password-for-an-external-valkey-or-redis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Password for an external Valkey or Redis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4224,6 +4241,66 @@ verify the same invariant.</p>
 <a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://valkey.example.com:6379/0"</span>
 <a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="w">  </span><span class="nt">cacheUrl</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://valkey.example.com:6379/1"</span>
 </code></pre></div>
+<h3 id="password-for-an-external-valkey-or-redis">Password for an external Valkey or Redis<a class="headerlink" href="#password-for-an-external-valkey-or-redis" title="Permanent link">&para;</a></h3>
+<p>If the external instance requires a password, keep it in a Secret rather than
+in <code>externalRedis.url</code>. The chart renders <code>url</code> and <code>cacheUrl</code> as plain
+environment values, so a password inside them is visible to anyone who can
+read the Deployment or run <code>helm get manifest</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>visiban-redis<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span>--from-literal<span class="o">=</span>redis-password<span class="o">=</span><span class="s1">'&lt;the instance password&gt;'</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">valkey</span><span class="p">:</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="nt">externalRedis</span><span class="p">:</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span><span class="c1"># No password in either URL. An ACL username may stay:</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="c1"># rediss://visiban@valkey.example.com:6380/0</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://valkey.example.com:6379/0"</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">  </span><span class="nt">cacheUrl</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://valkey.example.com:6379/1"</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">  </span><span class="nt">existingSecret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visiban-redis</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">  </span><span class="c1"># existingSecretPasswordKey: redis-password  # the default</span>
+</code></pre></div>
+<p>The backend reads the password as <code>REDIS_URL_PASSWORD</code> and percent-encodes it
+into both URLs itself, so it can contain any character, including <code>/</code>, <code>@</code>,
+<code>:</code> and <code>$</code>. If the URL has a username (a Redis 6+ ACL user, as on most
+managed services), the username is kept and the password is added to it.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>externalRedis.existingSecret</code></td>
+<td>empty</td>
+<td>Secret holding the external instance's password. Only with <code>valkey.enabled: false</code>.</td>
+</tr>
+<tr>
+<td><code>externalRedis.existingSecretPasswordKey</code></td>
+<td><code>redis-password</code></td>
+<td>Key in that Secret that holds the password.</td>
+</tr>
+</tbody>
+</table>
+<p>The install fails with an explanation if <code>existingSecret</code> is set and either
+URL also carries a password, because the two would compete. It also fails if
+<code>existingSecret</code> is set while the bundled Valkey is on, because the setting
+would be ignored. The bundled Valkey's password is <code>valkey.auth.*</code>; see
+<a href="#valkey-password">Valkey password</a>.</p>
+<p><strong>Existing installs keep working unchanged.</strong> With <code>existingSecret</code> empty (the
+default), a password embedded in <code>externalRedis.url</code> is used exactly as before.
+To move it into a Secret, create the Secret, then in one <code>helm upgrade</code> set
+<code>externalRedis.existingSecret</code> and remove the password from both URLs. If the
+password contains <code>/</code>, <code>@</code>, <code>%</code> or other reserved characters, put the plain
+value in the Secret, not the percent-encoded form from your old URL, or it is
+encoded twice.</p>
+<p>As with the bundled Valkey, changing the password in the Secret does not
+restart anything by itself. Run
+<code>kubectl -n &lt;namespace&gt; rollout restart deployment -l app.kubernetes.io/instance=&lt;release&gt;,app.kubernetes.io/component=backend</code>
+after you rotate it. Scheduled jobs pick up the new value on their next run.</p>
 <h2 id="bundled-valkey">Bundled Valkey<a class="headerlink" href="#bundled-valkey" title="Permanent link">&para;</a></h2>
 <p>With <code>valkey.enabled: true</code> (the default) the chart runs Valkey itself: a
 single-replica StatefulSet on the official <code>valkey/valkey:8-alpine</code> image, the
@@ -4293,9 +4370,9 @@ render under <code>helm template</code> and GitOps tools.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Chart-managed password</label><label for="__tabbed_1_2">Your own Secret</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span>--set<span class="w"> </span>valkey.auth.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span>--set-string<span class="w"> </span>valkey.auth.password<span class="o">=</span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span>--set<span class="w"> </span>valkey.auth.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span>--set-string<span class="w"> </span>valkey.auth.password<span class="o">=</span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
 </code></pre></div>
 <p>The chart stores the password in the <code>&lt;fullname&gt;-valkey-auth</code> Secret.
 <code>&lt;fullname&gt;</code> is the release name when it already contains <code>visiban</code>
@@ -4304,11 +4381,11 @@ render under <code>helm template</code> and GitOps tools.</p>
 part of the Helm release record like every chart-managed credential.</p>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>visiban-valkey<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span>--from-literal<span class="o">=</span>valkey-password<span class="o">=</span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span>--set<span class="w"> </span>valkey.auth.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span>--set<span class="w"> </span>valkey.auth.existingSecret<span class="o">=</span>visiban-valkey
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>visiban-valkey<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span>--from-literal<span class="o">=</span>valkey-password<span class="o">=</span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span>--set<span class="w"> </span>valkey.auth.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span>--set<span class="w"> </span>valkey.auth.existingSecret<span class="o">=</span>visiban-valkey
 </code></pre></div>
 <p>Use <code>valkey.auth.existingSecretPasswordKey</code> if the password is under a key
 other than <code>valkey-password</code>. This works with or without
@@ -4322,8 +4399,8 @@ annotation for it, because a hash of the password on a pod could be cracked
 offline by anyone who can read pods but not Secrets. After you change the
 password (a <code>helm upgrade</code> with a new <code>valkey.auth.password</code>, or an edit to
 your own Secret), restart Valkey and the backend together:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>rollout<span class="w"> </span>restart<span class="w"> </span>statefulset,deployment<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span>-l<span class="w"> </span><span class="s1">'app.kubernetes.io/instance=&lt;release&gt;,app.kubernetes.io/component in (valkey,backend)'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>rollout<span class="w"> </span>restart<span class="w"> </span>statefulset,deployment<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span>-l<span class="w"> </span><span class="s1">'app.kubernetes.io/instance=&lt;release&gt;,app.kubernetes.io/component in (valkey,backend)'</span>
 </code></pre></div>
 <p>The label selector matches the Valkey StatefulSet (<code>&lt;release&gt;-valkey</code>) and the
 backend Deployment (<code>&lt;fullname&gt;-backend</code>: <code>visiban-backend</code> for a release
@@ -4342,9 +4419,7 @@ authenticate with the same Secret value. The backend reads it into
 If the Secret's value is empty, Valkey refuses to start rather than run
 without a password.</p>
 <p>To use a password-protected Valkey or Redis outside the cluster instead, see
-<a href="#external-database-and-valkey">External database and Valkey</a> and put the
-password in <code>externalRedis.url</code>. Further support for a password-protected
-external instance is tracked in #1361.</p>
+<a href="#password-for-an-external-valkey-or-redis">Password for an external Valkey or Redis</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Chart 0.5.0 replaced the Bitnami subchart</p>
 <p>Earlier development builds of the 1.2 chart ran Valkey through the Bitnami
@@ -4425,14 +4500,14 @@ image that cannot run as the chart's numeric UID, or that needs a writable
 root filesystem, can override any block wholesale. For example, to run the
 bundled PostgreSQL with a writable root filesystem on an image that writes
 somewhere this chart does not mount an <code>emptyDir</code> for:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># values.override.yaml</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="nt">postgresql</span><span class="p">:</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">securityContext</span><span class="p">:</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">container</span><span class="p">:</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">      </span><span class="nt">allowPrivilegeEscalation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">      </span><span class="nt">readOnlyRootFilesystem</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">      </span><span class="nt">capabilities</span><span class="p">:</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">        </span><span class="nt">drop</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"ALL"</span><span class="p p-Indicator">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># values.override.yaml</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nt">postgresql</span><span class="p">:</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">securityContext</span><span class="p">:</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="nt">container</span><span class="p">:</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">      </span><span class="nt">allowPrivilegeEscalation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">      </span><span class="nt">readOnlyRootFilesystem</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">      </span><span class="nt">capabilities</span><span class="p">:</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">        </span><span class="nt">drop</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"ALL"</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p><code>scripts/helm-structure-check.sh</code> asserts <code>runAsNonRoot</code> and a full capability
 drop on every rendered pod, with no exclusions.</p>
@@ -4457,10 +4532,10 @@ updating.</p>
 </div>
 <h2 id="network-policies">Network policies<a class="headerlink" href="#network-policies" title="Permanent link">&para;</a></h2>
 <p>Enable network policies to restrict pod-to-pod traffic to only the paths Visiban needs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span>--set<span class="w"> </span>networkPolicy.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span>...
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span>--set<span class="w"> </span>networkPolicy.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span>...
 </code></pre></div>
 <p>This creates policies that allow:</p>
 <ul>
@@ -4483,8 +4558,8 @@ them completely. There is no warning and no error. A clean install on such a
 cluster is not evidence that the policies work.</p>
 <p>Confirm enforcement rather than assuming it: run a pod with no Visiban
 labels and check that it cannot reach the database.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>kubectl<span class="w"> </span>run<span class="w"> </span>netpol-probe<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>--rm<span class="w"> </span>-i<span class="w"> </span>--restart<span class="o">=</span>Never<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span>--image<span class="o">=</span>busybox:1.36<span class="w"> </span>--<span class="w"> </span>nc<span class="w"> </span>-z<span class="w"> </span>-w<span class="w"> </span><span class="m">5</span><span class="w"> </span>visiban-postgresql<span class="w"> </span><span class="m">5432</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>kubectl<span class="w"> </span>run<span class="w"> </span>netpol-probe<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>--rm<span class="w"> </span>-i<span class="w"> </span>--restart<span class="o">=</span>Never<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span>--image<span class="o">=</span>busybox:1.36<span class="w"> </span>--<span class="w"> </span>nc<span class="w"> </span>-z<span class="w"> </span>-w<span class="w"> </span><span class="m">5</span><span class="w"> </span>visiban-postgresql<span class="w"> </span><span class="m">5432</span>
 </code></pre></div>
 <p>This must <strong>fail</strong>. If it succeeds, your policies are not being enforced.</p>
 </div>
@@ -4495,19 +4570,19 @@ otherwise it is denied, and that usually shows up as an install that hangs, not
 as an explicit error.</p>
 <h2 id="media-persistence">Media persistence<a class="headerlink" href="#media-persistence" title="Permanent link">&para;</a></h2>
 <p>User-uploaded attachments are stored on a PersistentVolumeClaim (5 Gi by default):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">backend</span><span class="p">:</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">mediaPersistence</span><span class="p">:</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">    </span><span class="nt">size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10Gi</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">    </span><span class="nt">accessModes</span><span class="p">:</span>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ReadWriteOnce</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="c1"># storageClassName: "gp3"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">mediaPersistence</span><span class="p">:</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">    </span><span class="nt">size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10Gi</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">    </span><span class="nt">accessModes</span><span class="p">:</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ReadWriteOnce</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">    </span><span class="c1"># storageClassName: "gp3"</span>
 </code></pre></div>
 <p>If the backend and frontend pods run on <strong>different nodes</strong>, the PVC must support <code>ReadWriteMany</code> (RWX) — or use a pod affinity rule to co-locate them.</p>
 <h2 id="scaling">Scaling<a class="headerlink" href="#scaling" title="Permanent link">&para;</a></h2>
 <p>Increase replicas for the backend or frontend:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="nt">backendReplicaCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="nt">frontendReplicaCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nt">backendReplicaCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="nt">frontendReplicaCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 </code></pre></div>
 <p>When <code>backendReplicaCount &gt; 1</code>, the chart automatically:</p>
 <ul>
@@ -4520,8 +4595,8 @@ as an explicit error.</p>
 Kubernetes CronJobs rendered from <code>scheduledJobs</code> in <code>values.yaml</code>. They are
 <strong>off by default</strong>, so an install that has not enabled them sends no due-date or
 staleness notifications:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span>--set<span class="w"> </span>scheduledJobs.enabled<span class="o">=</span><span class="nb">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span>--set<span class="w"> </span>scheduledJobs.enabled<span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
 <p>That schedules <code>notify_due_soon</code> (07:00) and <code>notify_stale_cards</code> (08:00). The
 two prune jobs delete data and are enabled individually. See
@@ -4552,11 +4627,11 @@ to check and trigger runs.</p>
 </table>
 <p>These are also suitable for external load balancer health checks. The readiness probe uses <code>initialDelaySeconds: 5</code> and <code>failureThreshold: 3</code>, so a pod is removed from the Service within ~35 seconds of a dependency failure.</p>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>v1.2.0-alpha.4<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.2.0-alpha.4
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>v1.2.0-alpha.4<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.2.0-alpha.4
 </code></pre></div>
 <p>Each new backend pod runs the <code>migrate</code> init container before its application container starts, so migrations are applied automatically and no pod serves traffic against a schema it has not migrated. See the <a href="../../administration/upgrade/">Upgrade guide</a> for version-specific notes and rollback procedures.</p>
 <div class="admonition note">
@@ -4570,22 +4645,22 @@ to check and trigger runs.</p>
 <h2 id="django-admin-access">Django admin access<a class="headerlink" href="#django-admin-access" title="Permanent link">&para;</a></h2>
 <p>The Django admin panel (<code>/admin/</code>) is restricted to loopback at both the Nginx and Django layers. Two access patterns:</p>
 <p><strong>Port-forward (default)</strong> — for occasional access from a single workstation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="c1"># Then open http://localhost:8000/admin/</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="c1"># (send the real Host header; a `localhost` entry in backend.settings.allowedHosts</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="c1">#  also needs backend.settings.allowUnsafeHosts=true, the chart no longer adds it)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="c1"># Then open http://localhost:8000/admin/</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="c1"># (send the real Host header; a `localhost` entry in backend.settings.allowedHosts</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="c1">#  also needs backend.settings.allowUnsafeHosts=true, the chart no longer adds it)</span>
 </code></pre></div>
 <p><strong>IP allowlist</strong> — for persistent access from a bastion or VPN host, set <code>backend.settings.adminAllowedIPs</code> to a comma-separated list of IPs and/or CIDR ranges:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">"10.0.0.0/8,192.168.42.7"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">"10.0.0.0/8,192.168.42.7"</span>
 </code></pre></div>
 <p>The allowlist is enforced by both the frontend Nginx config and the Django <code>AdminIPRestrictionMiddleware</code> for defense in depth.</p>
 <p>Both Nginx and the Django middleware accept CIDR ranges (e.g. <code>10.0.0.0/8</code>) as well as individual IPs for this value. See <a href="../../administration/secret-rotation/#helm">Secret Rotation</a>.</p>
 <h2 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
 </code></pre></div>
 <p>This removes all Kubernetes resources created by the chart — the chart declares no Helm install hooks, and hook resources are the ones Helm would leave behind. <strong>PersistentVolumeClaims are not deleted</strong> — delete them manually if you want to remove all data:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/instance<span class="o">=</span>visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/instance<span class="o">=</span>visiban
 </code></pre></div>
 
 

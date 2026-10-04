@@ -4553,6 +4553,17 @@ them on its own; run <code>kubectl rollout restart</code> on both, as described
 there.</p>
 </div>
 <div class="admonition note">
+<p class="admonition-title">Helm: external Valkey/Redis password from a Secret</p>
+<p>A password-protected external Valkey or Redis can now take its password
+from a Secret (<code>externalRedis.existingSecret</code>, #1361) instead of from
+<code>externalRedis.url</code>, where the chart rendered it as a plain environment
+value. <strong>Nothing changes unless you set it</strong>: a password embedded in
+<code>externalRedis.url</code> and <code>externalRedis.cacheUrl</code> keeps working exactly as
+before, and the rendered manifests are unchanged. To move the password
+into a Secret, see
+<a href="../../getting-started/kubernetes/#password-for-an-external-valkey-or-redis">Password for an external Valkey or Redis</a>.</p>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Helm: bundled Valkey is no longer the Bitnami subchart</p>
 <p>Chart 0.5.0 runs the bundled Valkey as the chart's own StatefulSet on the
 official, versioned <code>valkey/valkey:8-alpine</code> image — the same major as
