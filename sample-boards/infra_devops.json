@@ -87,7 +87,8 @@
         "Owning team": "Platform",
         "Tier": "Tier 1",
         "SLO": "99.95",
-        "Dashboard": "https://grafana.example.com/d/production-kubernetes"
+        "Dashboard": "https://grafana.example.com/d/production-kubernetes",
+        "Break-glass contact": "Kwame Mensah (pager)"
       }
     },
     {
@@ -100,7 +101,8 @@
         "Owning team": "Release Eng",
         "Tier": "Tier 1",
         "SLO": "99.5",
-        "Dashboard": "https://grafana.example.com/d/ci-cd-pipeline"
+        "Dashboard": "https://grafana.example.com/d/ci-cd-pipeline",
+        "Break-glass contact": "Hana Kobayashi (pager)"
       }
     },
     {
@@ -113,7 +115,8 @@
         "Owning team": "Data Infra",
         "Tier": "Tier 1",
         "SLO": "99.99",
-        "Dashboard": "https://grafana.example.com/d/database-cluster"
+        "Dashboard": "https://grafana.example.com/d/database-cluster",
+        "Break-glass contact": "Lucas Ferreira (pager)"
       }
     },
     {
@@ -126,7 +129,8 @@
         "Owning team": "Edge",
         "Tier": "Tier 2",
         "SLO": "99.9",
-        "Dashboard": "https://grafana.example.com/d/cdn-edge"
+        "Dashboard": "https://grafana.example.com/d/cdn-edge",
+        "Break-glass contact": "Nadia Haddad (pager)"
       }
     },
     {
@@ -139,7 +143,8 @@
         "Owning team": "Observability",
         "Tier": "Tier 2",
         "SLO": "99.5",
-        "Dashboard": "https://grafana.example.com/d/monitoring-stack"
+        "Dashboard": "https://grafana.example.com/d/monitoring-stack",
+        "Break-glass contact": "Owen Gallagher (pager)"
       }
     },
     {
@@ -152,7 +157,8 @@
         "Owning team": "SecOps",
         "Tier": "Tier 1",
         "SLO": "99.9",
-        "Dashboard": "https://grafana.example.com/d/security-infrastructure"
+        "Dashboard": "https://grafana.example.com/d/security-infrastructure",
+        "Break-glass contact": "Sofia Marino (pager)"
       }
     },
     {
@@ -165,7 +171,8 @@
         "Owning team": "Platform",
         "Tier": "Tier 3",
         "SLO": "99",
-        "Dashboard": "https://grafana.example.com/d/staging-environment"
+        "Dashboard": "https://grafana.example.com/d/staging-environment",
+        "Break-glass contact": "Tariq Aziz (pager)"
       }
     },
     {
@@ -178,7 +185,8 @@
         "Owning team": "Data Infra",
         "Tier": "Tier 2",
         "SLO": "99.5",
-        "Dashboard": "https://grafana.example.com/d/data-pipeline"
+        "Dashboard": "https://grafana.example.com/d/data-pipeline",
+        "Break-glass contact": "Mei Lin (pager)"
       }
     },
     {
@@ -191,7 +199,8 @@
         "Owning team": "Network",
         "Tier": "Tier 1",
         "SLO": "99.99",
-        "Dashboard": "https://grafana.example.com/d/dns-networking"
+        "Dashboard": "https://grafana.example.com/d/dns-networking",
+        "Break-glass contact": "Jonas Berg (pager)"
       }
     },
     {
@@ -204,7 +213,8 @@
         "Owning team": "Resilience",
         "Tier": "Tier 1",
         "SLO": "99.9",
-        "Dashboard": "https://grafana.example.com/d/disaster-recovery"
+        "Dashboard": "https://grafana.example.com/d/disaster-recovery",
+        "Break-glass contact": "Isabel Ortiz (pager)"
       }
     }
   ],
@@ -383,6 +393,20 @@
       "is_admin_only": false,
       "is_required": false,
       "help_text": "Primary dashboard.",
+      "number_prefix": "",
+      "number_suffix": "",
+      "number_decimals": null,
+      "choice_colors": {}
+    },
+    {
+      "name": "Break-glass contact",
+      "field_type": "text",
+      "choices": [],
+      "position": 4,
+      "show_on_row": false,
+      "is_admin_only": true,
+      "is_required": false,
+      "help_text": "Escalation contact when on-call is unreachable. Admins only.",
       "number_prefix": "",
       "number_suffix": "",
       "number_decimals": null,

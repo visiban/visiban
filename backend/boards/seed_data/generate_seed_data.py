@@ -343,6 +343,10 @@ def _apply_features(data: dict, features: dict, slug: str) -> None:
             value = spec["gen"](lctx)
             if value not in (None, ""):
                 values[spec["name"]] = value
+        # Every lane carries contact info (an admin-only swimlane field in
+        # the UI); fill a reserved example.com address where a template has none.
+        if not lane.get("contact_email"):
+            lane["contact_email"] = f"{lctx['slug_name']}-team@example.com"
         # Hand-written values (the overlay board) win over generated ones.
         values.update(lane.get("custom_field_values", {}))
         lane["custom_field_values"] = values

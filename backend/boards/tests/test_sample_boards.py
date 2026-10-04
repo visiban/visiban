@@ -129,8 +129,10 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
                 self.assertTrue(any(c.get("archived_at") for c in data["cards"]))
                 self.assertTrue(all(cm.get("created_at") for c in data["cards"] for cm in c["comments"]))
                 self.assertTrue(any(m["notes"] for c in data["cards"] for m in c["movements"]))
+                self.assertTrue(any(f["is_admin_only"] for f in data["swimlane_custom_fields"]))
                 for lane in data["swimlanes"]:
                     self.assertTrue(lane["custom_field_values"], lane["name"])
+                    self.assertTrue(lane["contact_email"], lane["name"])
 
     def test_every_board_shows_exactly_one_column_over_its_wip_limit(self):
         """Enough to show the over-limit flag, not so many the board reads as broken."""

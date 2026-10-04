@@ -68,7 +68,8 @@
       "custom_field_values": {
         "CS lead": "Hana Kobayashi",
         "Book of business": "1200000",
-        "Gross retention target": "90"
+        "Gross retention target": "90",
+        "Max renewal discount": "5"
       }
     },
     {
@@ -80,7 +81,8 @@
       "custom_field_values": {
         "CS lead": "Lucas Ferreira",
         "Book of business": "1510000",
-        "Gross retention target": "91"
+        "Gross retention target": "91",
+        "Max renewal discount": "10"
       }
     },
     {
@@ -92,7 +94,8 @@
       "custom_field_values": {
         "CS lead": "Nadia Haddad",
         "Book of business": "1820000",
-        "Gross retention target": "92"
+        "Gross retention target": "92",
+        "Max renewal discount": "15"
       }
     },
     {
@@ -104,7 +107,8 @@
       "custom_field_values": {
         "CS lead": "Owen Gallagher",
         "Book of business": "2130000",
-        "Gross retention target": "93"
+        "Gross retention target": "93",
+        "Max renewal discount": "5"
       }
     },
     {
@@ -116,7 +120,8 @@
       "custom_field_values": {
         "CS lead": "Sofia Marino",
         "Book of business": "2440000",
-        "Gross retention target": "90"
+        "Gross retention target": "90",
+        "Max renewal discount": "10"
       }
     },
     {
@@ -128,7 +133,8 @@
       "custom_field_values": {
         "CS lead": "Tariq Aziz",
         "Book of business": "2750000",
-        "Gross retention target": "91"
+        "Gross retention target": "91",
+        "Max renewal discount": "15"
       }
     },
     {
@@ -140,7 +146,8 @@
       "custom_field_values": {
         "CS lead": "Mei Lin",
         "Book of business": "3060000",
-        "Gross retention target": "92"
+        "Gross retention target": "92",
+        "Max renewal discount": "5"
       }
     },
     {
@@ -152,7 +159,8 @@
       "custom_field_values": {
         "CS lead": "Jonas Berg",
         "Book of business": "3370000",
-        "Gross retention target": "93"
+        "Gross retention target": "93",
+        "Max renewal discount": "10"
       }
     },
     {
@@ -164,7 +172,8 @@
       "custom_field_values": {
         "CS lead": "Isabel Ortiz",
         "Book of business": "3680000",
-        "Gross retention target": "90"
+        "Gross retention target": "90",
+        "Max renewal discount": "15"
       }
     },
     {
@@ -176,7 +185,8 @@
       "custom_field_values": {
         "CS lead": "Avery Brooks",
         "Book of business": "3990000",
-        "Gross retention target": "91"
+        "Gross retention target": "91",
+        "Max renewal discount": "5"
       }
     },
     {
@@ -188,7 +198,8 @@
       "custom_field_values": {
         "CS lead": "Priya Raman",
         "Book of business": "4300000",
-        "Gross retention target": "92"
+        "Gross retention target": "92",
+        "Max renewal discount": "10"
       }
     }
   ],
@@ -348,6 +359,20 @@
       "is_admin_only": false,
       "is_required": false,
       "help_text": "Target GRR for the year.",
+      "number_prefix": "",
+      "number_suffix": "%",
+      "number_decimals": 0,
+      "choice_colors": {}
+    },
+    {
+      "name": "Max renewal discount",
+      "field_type": "number",
+      "choices": [],
+      "position": 3,
+      "show_on_row": false,
+      "is_admin_only": true,
+      "is_required": false,
+      "help_text": "Largest renewal discount CS may offer without approval. Admins only.",
       "number_prefix": "",
       "number_suffix": "%",
       "number_decimals": 0,

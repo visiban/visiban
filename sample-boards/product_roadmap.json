@@ -81,120 +81,130 @@
       "name": "Mobile App",
       "position": 0,
       "color": "#EC4899",
-      "contact_email": "",
+      "contact_email": "mobile-app-team@example.com",
       "notes": "iOS and Android. Targets field workers and on-the-go board access.",
       "custom_field_values": {
         "PM": "Marcus Hale",
         "Eng lead": "Sofia Marino",
-        "Theme": "Grow"
+        "Theme": "Grow",
+        "Revenue influenced": "400000"
       }
     },
     {
       "name": "Core Platform",
       "position": 1,
       "color": "#3B82F6",
-      "contact_email": "",
+      "contact_email": "core-platform-team@example.com",
       "notes": "Web app, API, and shared infrastructure features.",
       "custom_field_values": {
         "PM": "Elena Petrova",
         "Eng lead": "Tariq Aziz",
-        "Theme": "Retain"
+        "Theme": "Retain",
+        "Revenue influenced": "525000"
       }
     },
     {
       "name": "Integrations",
       "position": 2,
       "color": "#10B981",
-      "contact_email": "",
+      "contact_email": "integrations-team@example.com",
       "notes": "Third-party integrations: Slack, GitHub, Jira, Zapier, webhooks.",
       "custom_field_values": {
         "PM": "Kwame Mensah",
         "Eng lead": "Mei Lin",
-        "Theme": "Scale"
+        "Theme": "Scale",
+        "Revenue influenced": "650000"
       }
     },
     {
       "name": "Analytics",
       "position": 3,
       "color": "#F59E0B",
-      "contact_email": "",
+      "contact_email": "analytics-team@example.com",
       "notes": "Board analytics, cycle time, throughput, and reporting features.",
       "custom_field_values": {
         "PM": "Hana Kobayashi",
         "Eng lead": "Jonas Berg",
-        "Theme": "Comply"
+        "Theme": "Comply",
+        "Revenue influenced": "775000"
       }
     },
     {
       "name": "Compliance & Security",
       "position": 4,
       "color": "#8B5CF6",
-      "contact_email": "",
+      "contact_email": "compliance-security-team@example.com",
       "notes": "GDPR, SOC 2, audit logging, and security hardening features.",
       "custom_field_values": {
         "PM": "Lucas Ferreira",
         "Eng lead": "Isabel Ortiz",
-        "Theme": "Grow"
+        "Theme": "Grow",
+        "Revenue influenced": "900000"
       }
     },
     {
       "name": "Collaboration",
       "position": 5,
       "color": "#14B8A6",
-      "contact_email": "",
+      "contact_email": "collaboration-team@example.com",
       "notes": "Real-time collaboration, comments, mentions, and notification features.",
       "custom_field_values": {
         "PM": "Nadia Haddad",
         "Eng lead": "Avery Brooks",
-        "Theme": "Retain"
+        "Theme": "Retain",
+        "Revenue influenced": "1025000"
       }
     },
     {
       "name": "Import & Export",
       "position": 6,
       "color": "#6366F1",
-      "contact_email": "",
+      "contact_email": "import-export-team@example.com",
       "notes": "Data portability: CSV, JSON, API bulk operations, and migration tools.",
       "custom_field_values": {
         "PM": "Owen Gallagher",
         "Eng lead": "Priya Raman",
-        "Theme": "Scale"
+        "Theme": "Scale",
+        "Revenue influenced": "1150000"
       }
     },
     {
       "name": "Automation",
       "position": 7,
       "color": "#0EA5E9",
-      "contact_email": "",
+      "contact_email": "automation-team@example.com",
       "notes": "Rule-based automation: auto-move, auto-assign, scheduled actions.",
       "custom_field_values": {
         "PM": "Sofia Marino",
         "Eng lead": "Marcus Hale",
-        "Theme": "Comply"
+        "Theme": "Comply",
+        "Revenue influenced": "1275000"
       }
     },
     {
       "name": "Admin & Settings",
       "position": 8,
       "color": "#F43F5E",
-      "contact_email": "",
+      "contact_email": "admin-settings-team@example.com",
       "notes": "Board and site administration, user management, billing, and configuration.",
       "custom_field_values": {
         "PM": "Tariq Aziz",
         "Eng lead": "Elena Petrova",
-        "Theme": "Grow"
+        "Theme": "Grow",
+        "Revenue influenced": "1400000"
       }
     },
     {
       "name": "Search & Discovery",
       "position": 9,
       "color": "#EAB308",
-      "contact_email": "",
+      "contact_email": "search-discovery-team@example.com",
       "notes": "Full-text search, filtering, saved views, and cross-board discovery.",
       "custom_field_values": {
         "PM": "Mei Lin",
         "Eng lead": "Kwame Mensah",
-        "Theme": "Retain"
+        "Theme": "Retain",
+        "Revenue influenced": "1525000"
       }
     }
   ],
@@ -381,6 +391,20 @@
         "Scale": "violet",
         "Comply": "amber"
       }
+    },
+    {
+      "name": "Revenue influenced",
+      "field_type": "number",
+      "choices": [],
+      "position": 3,
+      "show_on_row": false,
+      "is_admin_only": true,
+      "is_required": false,
+      "help_text": "Pipeline attributed to the area this year. Admins only.",
+      "number_prefix": "$",
+      "number_suffix": "",
+      "number_decimals": 0,
+      "choice_colors": {}
     }
   ],
   "cards": [

@@ -54,120 +54,130 @@
       "name": "Frontend",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "",
+      "contact_email": "frontend-team@example.com",
       "notes": "React + TypeScript. Owns all UI components, pages, and the design system.",
       "custom_field_values": {
         "Team lead": "Priya Raman",
         "On-call": "Owen Gallagher",
-        "Runbook": "https://wiki.example.com/runbooks/frontend"
+        "Runbook": "https://wiki.example.com/runbooks/frontend",
+        "Cost center": "CC-4100"
       }
     },
     {
       "name": "Backend",
       "position": 1,
       "color": "#8B5CF6",
-      "contact_email": "",
+      "contact_email": "backend-team@example.com",
       "notes": "Django + DRF. Owns API, data models, business logic, and background tasks.",
       "custom_field_values": {
         "Team lead": "Marcus Hale",
         "On-call": "Sofia Marino",
-        "Runbook": "https://wiki.example.com/runbooks/backend"
+        "Runbook": "https://wiki.example.com/runbooks/backend",
+        "Cost center": "CC-4110"
       }
     },
     {
       "name": "Mobile",
       "position": 2,
       "color": "#EC4899",
-      "contact_email": "",
+      "contact_email": "mobile-team@example.com",
       "notes": "React Native. iOS + Android. Syncs with main API.",
       "custom_field_values": {
         "Team lead": "Elena Petrova",
         "On-call": "Tariq Aziz",
-        "Runbook": "https://wiki.example.com/runbooks/mobile"
+        "Runbook": "https://wiki.example.com/runbooks/mobile",
+        "Cost center": "CC-4120"
       }
     },
     {
       "name": "DevOps",
       "position": 3,
       "color": "#14B8A6",
-      "contact_email": "",
+      "contact_email": "devops-team@example.com",
       "notes": "CI/CD, infrastructure, reliability, and monitoring.",
       "custom_field_values": {
         "Team lead": "Kwame Mensah",
         "On-call": "Mei Lin",
-        "Runbook": "https://wiki.example.com/runbooks/devops"
+        "Runbook": "https://wiki.example.com/runbooks/devops",
+        "Cost center": "CC-4130"
       }
     },
     {
       "name": "Design",
       "position": 4,
       "color": "#F59E0B",
-      "contact_email": "",
+      "contact_email": "design-team@example.com",
       "notes": "UX/UI design, design system, user research.",
       "custom_field_values": {
         "Team lead": "Hana Kobayashi",
         "On-call": "Jonas Berg",
-        "Runbook": "https://wiki.example.com/runbooks/design"
+        "Runbook": "https://wiki.example.com/runbooks/design",
+        "Cost center": "CC-4140"
       }
     },
     {
       "name": "QA",
       "position": 5,
       "color": "#EF4444",
-      "contact_email": "",
+      "contact_email": "qa-team@example.com",
       "notes": "Manual and automated testing. Regression suites and exploratory testing.",
       "custom_field_values": {
         "Team lead": "Lucas Ferreira",
         "On-call": "Isabel Ortiz",
-        "Runbook": "https://wiki.example.com/runbooks/qa"
+        "Runbook": "https://wiki.example.com/runbooks/qa",
+        "Cost center": "CC-4150"
       }
     },
     {
       "name": "Data",
       "position": 6,
       "color": "#10B981",
-      "contact_email": "",
+      "contact_email": "data-team@example.com",
       "notes": "Data engineering and analytics. Pipelines, dashboards, and reporting.",
       "custom_field_values": {
         "Team lead": "Nadia Haddad",
         "On-call": "Avery Brooks",
-        "Runbook": "https://wiki.example.com/runbooks/data"
+        "Runbook": "https://wiki.example.com/runbooks/data",
+        "Cost center": "CC-4160"
       }
     },
     {
       "name": "Security",
       "position": 7,
       "color": "#6366F1",
-      "contact_email": "",
+      "contact_email": "security-team@example.com",
       "notes": "Application security, penetration testing, and compliance audits.",
       "custom_field_values": {
         "Team lead": "Owen Gallagher",
         "On-call": "Priya Raman",
-        "Runbook": "https://wiki.example.com/runbooks/security"
+        "Runbook": "https://wiki.example.com/runbooks/security",
+        "Cost center": "CC-4170"
       }
     },
     {
       "name": "Platform",
       "position": 8,
       "color": "#0EA5E9",
-      "contact_email": "",
+      "contact_email": "platform-team@example.com",
       "notes": "Shared libraries, SDKs, developer tooling, and internal APIs.",
       "custom_field_values": {
         "Team lead": "Sofia Marino",
         "On-call": "Marcus Hale",
-        "Runbook": "https://wiki.example.com/runbooks/platform"
+        "Runbook": "https://wiki.example.com/runbooks/platform",
+        "Cost center": "CC-4180"
       }
     },
     {
       "name": "Documentation",
       "position": 9,
       "color": "#F43F5E",
-      "contact_email": "",
+      "contact_email": "documentation-team@example.com",
       "notes": "Technical writing, API docs, user guides, and onboarding materials.",
       "custom_field_values": {
         "Team lead": "Tariq Aziz",
         "On-call": "Elena Petrova",
-        "Runbook": "https://wiki.example.com/runbooks/documentation"
+        "Runbook": "https://wiki.example.com/runbooks/documentation",
+        "Cost center": "CC-4190"
       }
     }
   ],
@@ -327,6 +337,20 @@
       "is_admin_only": false,
       "is_required": false,
       "help_text": "Operational runbook for the area.",
+      "number_prefix": "",
+      "number_suffix": "",
+      "number_decimals": null,
+      "choice_colors": {}
+    },
+    {
+      "name": "Cost center",
+      "field_type": "text",
+      "choices": [],
+      "position": 3,
+      "show_on_row": false,
+      "is_admin_only": true,
+      "is_required": false,
+      "help_text": "Finance cost center for the team. Admins only.",
       "number_prefix": "",
       "number_suffix": "",
       "number_decimals": null,

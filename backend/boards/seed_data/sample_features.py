@@ -216,6 +216,9 @@ FEATURES = {
                        help_text="Total ARR managed in this segment.", number_prefix="$", number_decimals=0),
             lane_field("Gross retention target", "number", lambda lc: str(90 + lc["index"] % 4), help_text="Target GRR for the year.",
                        number_suffix="%", number_decimals=0),
+            lane_field("Max renewal discount", "number", lambda lc: str(5 + (lc["index"] % 3) * 5), admin_only=True,
+                       help_text="Largest renewal discount CS may offer without approval. Admins only.",
+                       number_suffix="%", number_decimals=0),
         ],
     },
     "simple_kanban": {
@@ -241,6 +244,8 @@ FEATURES = {
             lane_field("On-call", "text", _people(8), show=True, help_text="This week's on-call engineer."),
             lane_field("Runbook", "url", lambda lc: f"https://wiki.example.com/runbooks/{lc['slug_name']}",
                        help_text="Operational runbook for the area."),
+            lane_field("Cost center", "text", lambda lc: f"CC-{4100 + lc['index'] * 10}", admin_only=True,
+                       help_text="Finance cost center for the team. Admins only."),
         ],
     },
     "product_roadmap": {
@@ -268,6 +273,9 @@ FEATURES = {
             lane_field("Theme", "dropdown", _lane_pool(["Grow", "Retain", "Scale", "Comply"]),
                        choices=["Grow", "Retain", "Scale", "Comply"], show=True, help_text="Strategic theme.",
                        choice_colors={"Grow": "green", "Retain": "blue", "Scale": "violet", "Comply": "amber"}),
+            lane_field("Revenue influenced", "number", lambda lc: str(400000 + lc["index"] * 125000), admin_only=True,
+                       help_text="Pipeline attributed to the area this year. Admins only.",
+                       number_prefix="$", number_decimals=0),
         ],
     },
     "project_delivery": {
@@ -317,6 +325,8 @@ FEATURES = {
                        help_text="Pieces per month.", number_suffix=" pieces", number_decimals=0),
             lane_field("Cadence", "dropdown", _lane_pool(["Weekly", "Biweekly", "Monthly"]),
                        choices=["Weekly", "Biweekly", "Monthly"], help_text="Publishing rhythm."),
+            lane_field("Freelance budget", "number", lambda lc: str(2000 + lc["index"] * 750), admin_only=True,
+                       help_text="Monthly freelance spend. Admins only.", number_prefix="$", number_decimals=0),
         ],
     },
     "hiring_recruiting": {
@@ -370,6 +380,8 @@ FEATURES = {
             lane_field("SLO", "number", _lane_pool(["99.95", "99.5", "99.99", "99.9", "99.5", "99.9", "99", "99.5", "99.99", "99.9"]),
                        show=True, help_text="Availability objective.", number_suffix="%", number_decimals=2),
             lane_field("Dashboard", "url", lambda lc: f"https://grafana.example.com/d/{lc['slug_name']}", help_text="Primary dashboard."),
+            lane_field("Break-glass contact", "text", lambda lc: f"{_PEOPLE[(lc['index'] + 4) % len(_PEOPLE)]} (pager)",
+                       admin_only=True, help_text="Escalation contact when on-call is unreachable. Admins only."),
         ],
     },
     "legal_compliance": {
