@@ -3555,7 +3555,8 @@ check-release-images:
 # in the release notes already resolve to linux/amd64+arm64 by the time the
 # release is visible.
 # Reads release notes for the tag from CHANGELOG.md and creates a GitHub Release
-# with GHCR image references appended. rc/beta/alpha tags are marked pre-release.
+# with GHCR image references appended. Any tag that is not strictly vX.Y.Z is
+# marked pre-release, as classified by scripts/classify-release-tag.sh (#1410).
 # GH_TOKEN CI variable (repo-scoped PAT) is passed through automatically.
 
 github-release:
@@ -3565,7 +3566,8 @@ github-release:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:
-    - apk add --no-cache github-cli
+    # bash: scripts/classify-release-tag.sh has a bash shebang and uses `local`.
+    - apk add --no-cache github-cli bash
   script:
     - |
       VERSION="${CI_COMMIT_TAG#v}"
@@ -3575,8 +3577,13 @@ github-release:
         NOTES="See [CHANGELOG.md](https://gitlab.com/visiban/visiban/-/blob/main/CHANGELOG.md) for details."
       fi
 
+      # Pre-release classification comes from the same script that gates the
+      # :latest registry aliases in backend-manifest/frontend-manifest, so the
+      # GitHub "pre-release" badge can never disagree with them (#1410). Anything
+      # not strictly vX.Y.Z (alpha/beta/rc, or any other suffix) is a pre-release.
+      STABLE="$(bash scripts/classify-release-tag.sh "${CI_COMMIT_TAG}" | sed -n 's/^STABLE=//p')"
       PRERELEASE_FLAG=""
-      if echo "${CI_COMMIT_TAG}" | grep -qE '\-(rc|beta|alpha)\.'; then
+      if [ "$STABLE" != "true" ]; then
         PRERELEASE_FLAG="--prerelease"
       fi
 
