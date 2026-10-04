@@ -129,11 +129,24 @@ failures are auto-retried, by the pipeline-wide `default:` block.)
    `schema_hooks.py` rule if it is a whole class). A **schema mismatch** means fixing the
    serializer or its annotation.
 3. Replay it: the job prints `seed=<n>` at the start and the failure block ends with an
-   `st replay <id>` line. Re-run the job with the pipeline variable `FUZZ_SEED=<n>` to pin the
-   same seed. To replay a deep nightly run, start a pipeline on `main` (**Build → Pipelines →
-   Run pipeline**) with `FUZZ_SEED=<n>`, `FUZZ_MAX_EXAMPLES=100` and `FUZZ_MAX_TIME=2400`.
-   That runs `backend-schema-fuzz` at the deep budget. Locally, boot the app against `seed_demo_data` and run
-   `st run <url>/api/schema/ --seed <n> ...` with the flags from the job.
+   `st replay <id>` line. To pin the same seed **on a merge request**, push an empty commit
+   to the MR branch with a `Fuzz-Seed` trailer:
+
+   ```bash
+   git commit --allow-empty -m "ci: replay fuzz seed" -m "Fuzz-Seed: <n>"
+   git push
+   ```
+
+   MR pipelines cannot take pipeline variables, so the trailer is the supported way. The job
+   reads it from the MR head commit message, so it applies only while that commit is the
+   head; push any newer commit to return to a random seed. The value must be a plain
+   non-negative integer (anything else fails the job with an error rather than being
+   ignored), and the job log states whether the seed came from the trailer, the
+   `FUZZ_SEED` variable (which takes precedence), or was random. To replay a deep nightly
+   run, start a pipeline on `main` (**Build → Pipelines → Run pipeline**) with
+   `FUZZ_SEED=<n>`, `FUZZ_MAX_EXAMPLES=100` and `FUZZ_MAX_TIME=2400`. That runs
+   `backend-schema-fuzz` at the deep budget. Locally, boot the app against `seed_demo_data`
+   and run `st run <url>/api/schema/ --seed <n> ...` with the flags from the job.
 
 **Path-parameter seeding.** `backend/schemathesis_hooks.py`, loaded via the job's
 `SCHEMATHESIS_HOOKS` variable, substitutes real ids pulled from `seed_demo_data`'s board for

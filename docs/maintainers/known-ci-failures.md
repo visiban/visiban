@@ -117,8 +117,8 @@ main pipelines were red for exactly this reason (#1165).
 **Fix:** do **not** retry it and do not add a `schemathesis-baseline.json` entry. Read the job's
 `FAILURES` section (operation, status, `Test Case ID`) and the `seed=` line the job prints. A
 5xx is an endpoint bug; an undocumented 4xx needs the response declared; a schema mismatch needs
-the serializer or annotation fixed. Replay with the pipeline variable `FUZZ_SEED=<n>` or
-`st replay <id>`. Full triage steps: [`docs/api/openapi.md`](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake).
+the serializer or annotation fixed. Replay on an MR with a `Fuzz-Seed: <n>` trailer on an empty head commit
+(or the pipeline variable `FUZZ_SEED=<n>` off MRs), or with `st replay <id>`. Full triage steps: [`docs/api/openapi.md`](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake).
 Known still-open defects it can hit: #1166.
 
 ## Docker Hub `429 Too Many Requests` on image pulls

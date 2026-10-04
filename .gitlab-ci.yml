@@ -837,8 +837,8 @@ backend-schema-fuzz:
   #   * the only retries are the `default:` ones for runner-infrastructure
   #     failures (`runner_system_failure`/`stuck_or_timeout_failure`); an
   #     assertion failure is never retried;
-  #   * the seed is generated here, printed, and overridable with FUZZ_SEED so
-  #     the exact failing run can be replayed (see docs/api/openapi.md);
+  #   * the seed is generated here, printed, and overridable (FUZZ_SEED variable, or a
+  #     `Fuzz-Seed:` MR head-commit trailer, #1207) so the exact failing run can be replayed (see docs/api/openapi.md);
   #   * `after_script` prints the triage steps on failure.
   # Do not "fix" a red run by re-running it or by baselining it: fix the endpoint
   # (a 5xx) or declare the response in the schema (an undocumented 4xx).
@@ -920,9 +920,13 @@ backend-schema-fuzz:
     # accounts/tests/test_email_confirm.py and
     # accounts/tests/test_social_signup_redirect.py instead.
     # Fresh seed per run for coverage, but recorded up front (a crash before
-    # st's own summary would otherwise lose it) and pinned via FUZZ_SEED to replay.
-    - echo "${FUZZ_SEED:-$(python3 -c 'import secrets; print(secrets.randbits(64))')}" > /tmp/fuzz_seed
-    - echo "${CI_JOB_NAME} seed=$(cat /tmp/fuzz_seed) max-examples=${FUZZ_MAX_EXAMPLES} max-time=${FUZZ_MAX_TIME}  (to replay, run the pipeline with variable FUZZ_SEED=$(cat /tmp/fuzz_seed))"
+    # st's own summary would otherwise lose it). Replay (#1207): MR pipelines cannot
+    # take variables, so pin the seed with a `Fuzz-Seed: <n>` trailer on the MR head
+    # commit (an empty commit works); an explicit FUZZ_SEED variable still wins.
+    # scripts/resolve_fuzz_seed.py validates it as a plain integer, then picks.
+    - python3 scripts/resolve_fuzz_seed.py --self-test
+    - python3 scripts/resolve_fuzz_seed.py > /tmp/fuzz_seed
+    - echo "${CI_JOB_NAME} seed=$(cat /tmp/fuzz_seed) max-examples=${FUZZ_MAX_EXAMPLES} max-time=${FUZZ_MAX_TIME}  (to replay on an MR, push an empty commit with the trailer 'Fuzz-Seed:' followed by $(cat /tmp/fuzz_seed); see docs/api/openapi.md)"
     - |
       st run http://localhost:8000/api/schema/ \
         --seed "$(cat /tmp/fuzz_seed)" \
@@ -952,8 +956,12 @@ backend-schema-fuzz:
                              visiban/schema_hooks.py rule if it is a whole class).
            schema mismatch -> fix the serializer or the annotation.
         3. Reproduce: 'st replay <Test Case ID>' with the request in the log, or
-           re-run with variables FUZZ_SEED=$(cat /tmp/fuzz_seed 2>/dev/null)
-           FUZZ_MAX_EXAMPLES=${FUZZ_MAX_EXAMPLES} FUZZ_MAX_TIME=${FUZZ_MAX_TIME}.
+           re-run with the same seed: push an empty commit to the MR whose message
+           ends with the trailer line
+               Fuzz-Seed: $(cat /tmp/fuzz_seed 2>/dev/null)
+           (git commit --allow-empty -m "ci: replay fuzz seed" -m "Fuzz-Seed: <n>").
+           Budget: FUZZ_MAX_EXAMPLES=${FUZZ_MAX_EXAMPLES} FUZZ_MAX_TIME=${FUZZ_MAX_TIME}.
+           Remove the trailer commit (or push a newer commit) to go back to random.
         4. Do NOT retry the job or add a baseline entry to turn it green.
       ============================================================================
       EOF
