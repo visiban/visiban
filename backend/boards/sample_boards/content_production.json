@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Content Production",
+  "name": "Content Production",
   "description": "Manage content from idea through publication. Each swimlane is a content channel; each card is a piece of content.",
   "columns": [
     {

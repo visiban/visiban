@@ -644,7 +644,7 @@ These are also suitable for external load balancer health checks. The readiness 
 ## Sample data
 
 The chart does not bundle the sample boards. Download them from
-[`sample-boards/`](https://gitlab.com/visiban/visiban/-/tree/main/sample-boards) in the
+[`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) in the
 repository and import one from **Dashboard → Import**. See [Sample Boards](sample-boards.md).
 
 ## Upgrading

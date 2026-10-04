@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Infrastructure & DevOps",
+  "name": "Infrastructure & DevOps",
   "description": "Track infrastructure incidents, changes, and improvements. Each swimlane is a system; each card is a work item.",
   "columns": [
     {

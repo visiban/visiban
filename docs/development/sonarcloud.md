@@ -78,7 +78,7 @@ in `sonar-project.properties`:
 | `**/migrations/**` | Auto-generated schema operations. Data-migration logic is tested through the function it calls |
 | `scripts/**`, `backend/scripts/**` | Repo tooling (CI gate scripts, release helpers). None of it ships in an image or bundle, and no test runner instruments it |
 | `backend/factories.py` | Test-data factory module |
-| `backend/boards/seed_data/**` | Standalone fixture generators (`generate_seed_data.py`, `generate_seed_data_part2.py`) that write the `sample-boards/*.json`/`.csv` fixtures checked into the repo; run by hand, never imported by any runtime path |
+| `backend/boards/seed_data/**` | Standalone fixture generators (`generate_seed_data.py`, `generate_seed_data_part2.py`) that write the `backend/boards/sample_boards/*.json` and `sample-boards/*.csv` fixtures checked into the repo; run by hand, never imported by any runtime path |
 
 Nothing under product source is excluded to reach a number. If you are tempted to add an
 exclusion because a file is hard to cover, write the test instead.

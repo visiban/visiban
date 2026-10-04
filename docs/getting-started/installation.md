@@ -459,7 +459,7 @@ See [First Boot](first-boot.md) for full details.
 !!! tip "Sample data"
     The sample boards are not part of the container images. To try Visiban with a
     populated board, download a file from
-    [`sample-boards/`](https://gitlab.com/visiban/visiban/-/tree/main/sample-boards) and use
+    [`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) and use
     **Dashboard → Import**. See [Sample Boards](sample-boards.md).
 
 ### Subsequent deploys

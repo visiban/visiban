@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Customer Support",
+  "name": "Customer Support",
   "description": "Track support tickets from first report through resolution. Each swimlane is a customer account; each card is an open ticket.",
   "columns": [
     {
