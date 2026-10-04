@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from accounts.serializers import BoardUserSerializer
+from visiban import field_enforcement
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 from .models import Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite, _GROUP_TRAVERSAL_MAX_DEPTH
 
@@ -219,7 +220,7 @@ class GroupSerializer(serializers.ModelSerializer):
     # so the runtime field behaves exactly as the auto-generated one did.
     allowed_priorities = AllowedPrioritiesField(
         required=False,
-        help_text=Group._meta.get_field("allowed_priorities").help_text,
+        help_text=field_enforcement.GROUP_ALLOWED_PRIORITIES,
     )
 
     class Meta:
@@ -231,6 +232,12 @@ class GroupSerializer(serializers.ModelSerializer):
             "is_starred",
         ]
         read_only_fields = ["owner", "created_at", "shared_labels", "is_starred"]
+        # Schema-only (#1077): see visiban/field_enforcement.py.
+        extra_kwargs = {
+            "default_board_member_role": {
+                "help_text": field_enforcement.GROUP_DEFAULT_BOARD_MEMBER_ROLE,
+            },
+        }
 
     def get_parent_name(self, obj) -> str | None:
         return _parent_name_for_group(obj)

@@ -99,12 +99,12 @@ Manage labels from the **Settings** tab on the group detail page.
 
 ## Group board defaults
 
-Group admins can configure defaults that apply to every new board created in the group:
+Group admins can configure defaults for new boards created in the group. Neither setting is enforced yet:
 
 | Setting | Description |
 |---|---|
-| **Default member role** | Role granted to group members on new boards (`admin`, `member`, `collaborator`, `viewer`). Defaults to `member`. |
-| **Allowed priorities** | Restricts which priority values are available on new boards. An empty list `[]` (default) allows all priorities. |
+| **Default member role** | Intended role for group members on new boards (`admin`, `member`, `collaborator`, `viewer`). Defaults to `member`. **Not yet enforced** — the setting is saved, but group members' access to the group's boards currently comes from their group role. |
+| **Allowed priorities** | Copied onto new boards created in the group. **Not yet enforced** — cards can still use any priority. An empty list `[]` (default) means all priorities. |
 
 Board defaults are configured from the **Settings** tab on the group detail page.
 
