@@ -533,6 +533,24 @@ Click **Import** on the dashboard to create a new board from a previously export
 
 An optional board name override can be specified at import time.
 
+#### Choosing what to import
+
+> **Added in 1.2**
+
+Once you pick a file, an **Include** list lets you leave parts of the export out. Board structure — the name, columns, and swimlanes — is always imported.
+
+| Option | What it covers | Formats |
+|---|---|---|
+| **Cards** | Cards. From JSON: with their assignees and due dates. From CSV: title, description, priority, weight, and due date — CSV carries no assignees. | JSON, CSV |
+| **Comments** | Card comments | JSON |
+| **Checklist items** | Card checklist items | JSON |
+| **Card history** | Movements, imported activity entries, and the "weight changed" entry recorded for a card with a non-default weight | JSON |
+| **Labels** | Label definitions and the labels on cards | JSON, CSV |
+
+Comments, checklist items, and card history belong to cards: unchecking **Cards** turns them off too, and checking it again restores your earlier choices. Leaving **Labels** out also leaves out the "label added" activity entries the import would otherwise record; the same applies to checklist items ("checklist item added"), and leaving **Card history** out also leaves out the "weight changed" entry recorded for a card with a non-default weight. A line under the list shows what will be imported, for example "Importing: structure, cards, labels".
+
+Everything is included by default ("Importing: everything"), so an import where you change nothing behaves exactly as before. When an import leaves out cards or anything on them, the new board opens with a short notice counting what was skipped, for example "Board imported. Skipped: 12 cards, 30 comments, 4 card labels." It counts cards, comments, checklist items, labels on cards, and history entries (movements and activity entries together); label definitions that no card uses are not counted, so leaving **Labels** out of a file whose labels are unused shows no notice. The notice closes by itself after a few seconds, and stays open while you hover over it or focus it.
+
 !!! tip "Coming from Trello?"
     Use **Import a Trello export** instead. See [Import from Trello](trello-import.md).
 

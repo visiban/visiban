@@ -19,7 +19,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiTypes
 
 from accounts.models import User
 from groups.models import Group, GroupMembership
@@ -33,8 +33,8 @@ from .. import broadcast as _broadcast
 from ..custom_field_types import parse_multi_select
 from ..permissions import SITE_ADMIN
 from ..serializers import (
-    BoardExportLogSerializer, BoardSerializer, ExternalRefSerializer,
-    _swimlane_custom_field_values,
+    BoardExportLogSerializer, BoardSerializer, CSVImportOptionsSerializer, ExternalRefSerializer,
+    ImportOptionsSerializer, _swimlane_custom_field_values,
 )
 from ..services import trello_import as _trello
 from ._helpers import get_board_for_user
@@ -141,6 +141,93 @@ def _external_ref_export(card):
     return {"provider": ref.provider, "ref": ref.ref, "url": ref.url}
 
 
+_IMPORT_SKIP_KEYS = (
+    "cards", "comments", "checklist_items", "label_refs", "movements", "activities",
+)
+
+
+def _flatten_serializer_errors(errors):
+    """First message of a DRF error structure, for a flat ``{"detail": ...}``."""
+    if isinstance(errors, dict):
+        for key, value in errors.items():
+            message = _flatten_serializer_errors(value)
+            if key in ("non_field_errors", "detail"):
+                return message
+            return f"'{key}': {message}"
+    if isinstance(errors, list) and errors:
+        return _flatten_serializer_errors(errors[0])
+    return str(errors)
+
+
+def _parse_import_options(raw, serializer_class):
+    """Parse the ``options`` multipart field of ``POST /boards/import/`` (#119).
+
+    The endpoint is multipart-only (it carries the file), so ``options``
+    arrives as a JSON-encoded string, the same convention as the Trello
+    importer's ``mapping`` field. Returns ``(options, error_detail)``: an
+    absent or blank field yields every flag ``True`` — the pre-#119
+    behavior — and any malformed value is a 400 rather than a silent default.
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return {key: True for key in ImportOptionsSerializer.OPTION_KEYS}, None
+    if not isinstance(raw, str):
+        return None, "'options' must be a JSON object."
+    try:
+        data = json.loads(raw)
+    except (ValueError, RecursionError):
+        return None, "'options' is not valid JSON."
+    if not isinstance(data, dict):
+        return None, "'options' must be a JSON object."
+    ser = serializer_class(data=data)
+    if not ser.is_valid():
+        return None, f"Invalid 'options': {_flatten_serializer_errors(ser.errors)}"
+    return dict(ser.validated_data), None
+
+
+def _list_len(value):
+    return len(value) if isinstance(value, list) else 0
+
+
+def _json_skip_counts(data, options):
+    """What the chosen ``options`` leave out of a JSON import (#119).
+
+    Counts only items the importer would otherwise have created, so a
+    reference the importer drops anyway (a label name with no definition, an
+    activity with an unknown event type) is not reported as skipped.
+    """
+    skipped = dict.fromkeys(_IMPORT_SKIP_KEYS, 0)
+    cards = data.get("cards", [])
+    cards_on = options["cards"]
+    label_names = {
+        lbl.get("name") for lbl in data.get("labels", [])
+        if isinstance(lbl, dict) and isinstance(lbl.get("name"), str)
+    }
+    valid_event_types = {e[0] for e in CardActivity.EventType.choices}
+    if not cards_on:
+        skipped["cards"] = len(cards)
+    for card in cards:
+        if not cards_on or not options["labels"]:
+            refs = card.get("labels", [])
+            if isinstance(refs, list):
+                skipped["label_refs"] += len(
+                    {n for n in refs if isinstance(n, str) and n in label_names}
+                )
+        if not options["comments"]:
+            skipped["comments"] += _list_len(card.get("comments", []))
+        if not options["checklist"]:
+            skipped["checklist_items"] += _list_len(card.get("checklist", []))
+        if not options["history"]:
+            skipped["movements"] += _list_len(card.get("movements", []))
+            activities = card.get("activities", [])
+            if isinstance(activities, list):
+                skipped["activities"] += sum(
+                    1 for act in activities
+                    if isinstance(act, dict) and isinstance(act.get("event_type"), str)
+                    and act["event_type"] in valid_event_types
+                )
+    return skipped
+
+
 def _sanitize_csv_field(value: str) -> str:
     """Strip leading characters that spreadsheet applications interpret as formula prefixes.
 
@@ -178,8 +265,26 @@ class BoardImportExportMixin:
     """Mixin providing import and export @action methods for BoardViewSet."""
 
     @extend_schema(
-        request={"multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}},
-        responses={200: OpenApiTypes.OBJECT},
+        summary="Import a board from a Visiban JSON or CSV export",
+        request={"multipart/form-data": {"type": "object", "properties": {
+            "file": {"type": "string", "format": "binary",
+                     "description": "A .json or .csv Visiban export. The format is chosen from the "
+                                    "file extension, falling back to the upload's content type."},
+            "name": {"type": "string", "description": "Board name; defaults to the name in the file."},
+            "group_id": {"type": "integer", "description": "Place the imported board into this group."},
+            "options": {"type": "string", "description": (
+                "JSON object choosing what to import. Keys (all optional booleans, default true): "
+                "labels, cards, comments, checklist, history. comments, checklist and history "
+                "require cards. A CSV import accepts only labels and cards."
+            )},
+        }, "required": ["file"]}},
+        responses={
+            201: OpenApiResponse(OpenApiTypes.OBJECT, description=(
+                "The new board (same shape as GET /boards/{id}/) plus an import_summary object."
+            )),
+            400: OpenApiTypes.OBJECT, 401: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT, 429: OpenApiTypes.OBJECT,
+        },
     )
     @action(detail=False, methods=["post"], url_path="import", parser_classes=[MultiPartParser],
             throttle_classes=[BoardImportThrottle])
@@ -200,14 +305,20 @@ class BoardImportExportMixin:
         content_type = file.content_type or ""
 
         if filename.endswith(".json") or "json" in content_type:
-            return self._import_json(request, file)
+            importer, options_serializer = self._import_json, ImportOptionsSerializer
         elif filename.endswith(".csv") or "csv" in content_type:
-            return self._import_csv(request, file)
+            importer, options_serializer = self._import_csv, CSVImportOptionsSerializer
         else:
             return Response(
                 {"detail": "Unsupported file format. Upload a .json or .csv file."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Validated before the file is read so a bad ``options`` field fails
+        # fast and never reaches the transaction (#119).
+        options, error = _parse_import_options(request.data.get("options"), options_serializer)
+        if error:
+            return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
+        return importer(request, file, options)
 
     def _resolve_import_group(self, request):
         """Return the Group instance if group_id is provided, else None."""
@@ -224,7 +335,7 @@ class BoardImportExportMixin:
             raise PermissionDenied("You are not a member of the target group.")
         return group
 
-    def _import_json(self, request, file):
+    def _import_json(self, request, file, options):
         """Create a new board from a Visiban JSON export file.
 
         Expected top-level shape::
@@ -428,6 +539,7 @@ class BoardImportExportMixin:
 
         board_name = request.data.get("name") or data["name"]
         group = self._resolve_import_group(request)
+        skipped = _json_skip_counts(data, options)
 
         with transaction.atomic():
             board = Board.objects.create(
@@ -472,8 +584,10 @@ class BoardImportExportMixin:
             ])
             swimlane_map = {sw["name"]: obj for sw, obj in zip(sw_data, sw_objs)}
 
-            # Create labels — bulk_create avoids one INSERT per label.
-            lbl_data = data.get("labels", [])
+            # Create labels — bulk_create avoids one INSERT per label. With the
+            # ``labels`` option off, label_map stays empty, which also drops
+            # every card label link and its LABEL_CHANGE activity below (#119).
+            lbl_data = data.get("labels", []) if options["labels"] else []
             lbl_objs = Label.objects.bulk_create([
                 Label(board=board, name=lbl["name"], color=lbl.get("color", "#EAB308"))
                 for lbl in lbl_data
@@ -515,7 +629,9 @@ class BoardImportExportMixin:
             # can correlate after bulk_create assigns PKs.
             cards_raw = []
 
-            for card_data in data.get("cards", []):
+            # ``cards`` off imports structure (and labels) only; everything
+            # below hangs off a card, so it is skipped with it (#119).
+            for card_data in (data.get("cards", []) if options["cards"] else []):
                 column = column_map.get(card_data["column"])
                 swimlane = swimlane_map.get(card_data["swimlane"])
                 if not column or not swimlane:
@@ -589,8 +705,9 @@ class BoardImportExportMixin:
                             CardExternalRef(card_id=card_pk, **ref_ser.validated_data)
                         )
 
-                # Weight-change activity for non-default weights
-                if card_obj.weight and card_obj.weight > 1:
+                # Weight-change activity for non-default weights. It is card
+                # history the importer generates, so ``history`` gates it (#119).
+                if options["history"] and card_obj.weight and card_obj.weight > 1:
                     auto_activities.append(CardActivity(
                         card_id=card_pk,
                         event_type=CardActivity.EventType.WEIGHT_CHANGE,
@@ -619,7 +736,7 @@ class BoardImportExportMixin:
                     ))
 
                 # Comments
-                for comment_data in card_data.get("comments", []):
+                for comment_data in (card_data.get("comments", []) if options["comments"] else []):
                     comments_to_create.append((
                         CardComment(
                             card_id=card_pk,
@@ -630,7 +747,8 @@ class BoardImportExportMixin:
                     ))
 
                 # Checklist items + checklist-added activities
-                for ci_idx, checklist_data in enumerate(card_data.get("checklist", [])):
+                checklist_source = card_data.get("checklist", []) if options["checklist"] else []
+                for ci_idx, checklist_data in enumerate(checklist_source):
                     item = CardChecklist(
                         card_id=card_pk,
                         text=checklist_data.get("text", ""),
@@ -646,8 +764,12 @@ class BoardImportExportMixin:
                         actor=request.user,
                     ))
 
+                # Movement history and imported activities are one option,
+                # ``history`` (#119).
+                history_on = options["history"]
+
                 # Movement history
-                for mv_data in card_data.get("movements", []):
+                for mv_data in (card_data.get("movements", []) if history_on else []):
                     from_col_name = mv_data.get("from_column") or ""
                     to_col_name = mv_data.get("to_column") or ""
                     from_sw_name = mv_data.get("from_swimlane") or ""
@@ -694,7 +816,7 @@ class BoardImportExportMixin:
                     ))
 
                 # Imported activity log entries (field-change history)
-                for act_data in card_data.get("activities", []):
+                for act_data in (card_data.get("activities", []) if history_on else []):
                     event_type = act_data.get("event_type", "")
                     # isinstance guard must short-circuit before the membership
                     # test: an unhashable event_type (list/dict) crashes `in
@@ -795,17 +917,25 @@ class BoardImportExportMixin:
             board_data = BoardSerializer(board, context={"request": request}).data
             board_id = board.pk
             group_id = board.group_id
+            # ``import_options`` is additive on the event payload (#119) so a
+            # feed consumer can tell a partial import from a full one.
+            event_payload = {**board_data, "import_options": options}
             event_id = _broadcast.persist_board_event(
-                board_id, _broadcast.EVT_BOARD_CREATED, board_data, actor_id=request.user.id,
+                board_id, _broadcast.EVT_BOARD_CREATED, event_payload, actor_id=request.user.id,
             )
-            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
+            def _broadcast_created(bid=board_id, bd=event_payload, gid=group_id, eid=event_id):
                 _broadcast.broadcast_board_event(bid, _broadcast.EVT_BOARD_CREATED, bd, event_id=eid)
                 # Group-scoped broadcast powers the boards-list live view (#753).
                 if gid is not None:
                     from groups.broadcast import broadcast_group_event
                     broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd)
             transaction.on_commit(_broadcast_created)
-        return Response(board_data, status=status.HTTP_201_CREATED)
+        # The board body stays at the top level (unwrapped) so existing
+        # clients keep working; ``import_summary`` is additive (#119).
+        return Response(
+            {**board_data, "import_summary": {"options_applied": options, "skipped": skipped}},
+            status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         summary="Import a Trello board export (preview or confirm)",
@@ -938,7 +1068,7 @@ class BoardImportExportMixin:
         transaction.on_commit(_broadcast_created)
         return board_data
 
-    def _import_csv(self, request, file):
+    def _import_csv(self, request, file, options):
         """Create a new board from a CSV file with one card per row.
 
         Required headers: Title, Column, Swimlane.
@@ -1049,6 +1179,17 @@ class BoardImportExportMixin:
         board_name = request.data.get("name") or "Imported Board"
         group = self._resolve_import_group(request)
 
+        # What the chosen options leave out (#119). A CSV row has no comments,
+        # checklist, or history.
+        skipped = dict.fromkeys(_IMPORT_SKIP_KEYS, 0)
+        if not options["cards"]:
+            skipped["cards"] = len(rows)
+        if not options["cards"] or not options["labels"]:
+            skipped["label_refs"] = sum(
+                len({n.strip() for n in (row.get("Labels") or "").split(",") if n.strip()})
+                for row in rows
+            )
+
         with transaction.atomic():
             board = Board.objects.create(
                 name=board_name,
@@ -1074,7 +1215,7 @@ class BoardImportExportMixin:
                 if sw_name and sw_name not in swimlane_map:
                     swimlane_map[sw_name] = None
 
-                labels_str = row.get("Labels", "").strip()
+                labels_str = row.get("Labels", "").strip() if options["labels"] else ""
                 if labels_str:
                     for label_name in labels_str.split(","):
                         label_name = label_name.strip()
@@ -1115,7 +1256,8 @@ class BoardImportExportMixin:
             # 500-card CSV with weight/label metadata.
             cards_to_create = []
             valid_rows = []
-            for row in rows:
+            # ``cards`` off imports structure (and labels) only (#119).
+            for row in (rows if options["cards"] else []):
                 column = column_map.get(row["Column"].strip())
                 swimlane = swimlane_map.get(row["Swimlane"].strip())
                 if not column or not swimlane:
@@ -1166,7 +1308,7 @@ class BoardImportExportMixin:
                         actor=request.user,
                     ))
 
-                # Assign labels
+                # Assign labels — label_map is empty with ``labels`` off (#119).
                 labels_str = row.get("Labels", "").strip()
                 if labels_str:
                     card_labels = []
@@ -1208,17 +1350,25 @@ class BoardImportExportMixin:
             board_data = BoardSerializer(board, context={"request": request}).data
             board_id = board.pk
             group_id = board.group_id
+            # ``import_options`` is additive on the event payload (#119) so a
+            # feed consumer can tell a partial import from a full one.
+            event_payload = {**board_data, "import_options": options}
             event_id = _broadcast.persist_board_event(
-                board_id, _broadcast.EVT_BOARD_CREATED, board_data, actor_id=request.user.id,
+                board_id, _broadcast.EVT_BOARD_CREATED, event_payload, actor_id=request.user.id,
             )
-            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
+            def _broadcast_created(bid=board_id, bd=event_payload, gid=group_id, eid=event_id):
                 _broadcast.broadcast_board_event(bid, _broadcast.EVT_BOARD_CREATED, bd, event_id=eid)
                 # Group-scoped broadcast powers the boards-list live view (#753).
                 if gid is not None:
                     from groups.broadcast import broadcast_group_event
                     broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd)
             transaction.on_commit(_broadcast_created)
-        return Response(board_data, status=status.HTTP_201_CREATED)
+        # The board body stays at the top level (unwrapped) so existing
+        # clients keep working; ``import_summary`` is additive (#119).
+        return Response(
+            {**board_data, "import_summary": {"options_applied": options, "skipped": skipped}},
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["get"], throttle_classes=[BoardExportThrottle])
     def export(self, request, pk=None):

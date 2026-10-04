@@ -28,9 +28,10 @@ vi.mock('../components/Board/CreateBoardModal', () => ({
 }))
 
 vi.mock('../components/Board/ImportBoardModal', () => ({
-  default: ({ onImport, onCancel, onSwitchToTrello }: { onImport: (file: File, name?: string) => void; onCancel: () => void; onSwitchToTrello?: () => void }) => (
+  default: ({ onImport, onCancel, onSwitchToTrello }: { onImport: (file: File, name?: string, options?: Record<string, boolean>) => void; onCancel: () => void; onSwitchToTrello?: () => void }) => (
     <div data-testid="import-board-modal">
       <button onClick={() => onImport(new File(['{}'], 'board.json'), 'Imported Board')}>Confirm import board</button>
+      <button onClick={() => onImport(new File(['{}'], 'board.json'), undefined, { labels: false, cards: true, comments: true, checklist: true, history: true })}>Confirm selective import board</button>
       <button onClick={onCancel}>Cancel import board</button>
       {onSwitchToTrello && <button onClick={onSwitchToTrello}>Switch to Trello</button>}
     </div>
@@ -1457,6 +1458,31 @@ describe('GroupDetail — navigation (#1374)', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/boards/55')
     })
+  })
+
+  // #119: a selective import passes its options through with the group id,
+  // and hands a non-empty skip summary to the board page.
+  it('passes import options through and forwards the skip summary', async () => {
+    setupAdmin()
+    const importSummary = {
+      options_applied: { labels: false, cards: true, comments: true, checklist: true, history: true },
+      skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 4, movements: 0, activities: 0 },
+    }
+    mockImportBoard.mockResolvedValue({
+      id: 56, name: 'Imported Board', description: '', owner: fakeUser,
+      group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '',
+      import_summary: importSummary,
+    })
+    renderGroupDetail()
+    fireEvent.click(await screen.findByText('Import'))
+    fireEvent.click(screen.getByText('Confirm selective import board'))
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/boards/56', { state: { importSummary } })
+    })
+    expect(mockImportBoard).toHaveBeenCalledWith(
+      expect.any(File), undefined, 1,
+      { labels: false, cards: true, comments: true, checklist: true, history: true },
+    )
   })
 
   it('navigates to the new board after a Trello import', async () => {

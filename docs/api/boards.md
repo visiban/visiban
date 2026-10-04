@@ -568,7 +568,7 @@ Return recent successful board exports for audit purposes (#842). Requires board
 | `created_at` | ISO 8601 timestamp. |
 
 ### `POST /api/v1/boards/import/`
-Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group. Creates a new board atomically.
+Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, an optional `group_id` field to place the imported board into a group, and an optional `options` field to choose what to import. Creates a new board atomically.
 
 **Permission:** authenticated user. When `group_id` is set, the caller must be a member of that group (any role — viewer and above); a non-member receives `403 Forbidden`.
 
@@ -580,13 +580,47 @@ Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-d
 
 | Field | Required | Description |
 |---|---|---|
-| `file` | ✓ | The JSON or CSV export file. Format is detected from the file contents. |
+| `file` | ✓ | The JSON or CSV export file. The file is treated as JSON if its name ends in `.json` **or** its content type contains `json`; otherwise as CSV if its name ends in `.csv` or its content type contains `csv`; anything else is rejected. The JSON check runs first, so a `.csv` file uploaded with a JSON content type is parsed as JSON. |
 | `name` | | Override the imported board name. |
 | `group_id` | | Place the imported board into this group. Requires group membership (any role). |
+| `options` | | A JSON object, sent as a string, choosing what to import. Omit it to import everything. See [Import options](#import-options). |
+
+#### Import options
+
+> **Added in 1.2**
+
+Board structure (name, columns, swimlanes) is always imported. Every option is an optional boolean that defaults to `true`:
+
+| Key | Imports | Formats |
+|---|---|---|
+| `cards` | Cards. JSON: with their assignees, due dates, weights, and MR/PR links, plus the "weight changed" activity entry for a non-default weight when `history` is on. CSV: title, description, priority, weight, and due date only — no assignee or MR/PR link. | JSON, CSV |
+| `labels` | Label definitions, the labels on cards, and the "label added" activity entries the importer records for them | JSON, CSV |
+| `comments` | Card comments. Requires `cards`. | JSON |
+| `checklist` | Card checklist items, and the "checklist item added" activity entries the importer records for them. Requires `cards`. | JSON |
+| `history` | Card movements, the card `activities` from the file, and the "weight changed" activity entry the importer records for a non-default weight. Requires `cards`. | JSON |
+
+An omitted `comments`, `checklist`, or `history` follows `cards`, so `{"cards": false}` alone imports structure and labels only. An explicit contradiction such as `{"cards": false, "comments": true}` is rejected.
+
+An invalid `options` field returns `400 Bad Request` before anything is created, with one of these `detail` messages:
+
+| `detail` | When |
+|---|---|
+| `'options' is not valid JSON.` | The field does not parse as JSON. |
+| `'options' must be a JSON object.` | It parses, but not to an object (for example `[]` or `true`). |
+| `Invalid 'options': Unknown import option(s): x.` | A key other than the five above — or, for a CSV file, other than `labels` and `cards`. |
+| `Invalid 'options': Import option(s) comments require 'cards'.` | A dependent is explicitly `true` while `cards` is `false`. |
+| `Invalid 'options': 'labels': Must be a valid boolean.` | A value is not a JSON boolean (the key named is the offending one; `null` reads `'labels': This field may not be null.`). |
+
+```bash
+curl -X POST https://visiban.example.com/api/v1/boards/import/ \
+  -H "Authorization: Token $TOKEN" \
+  -F file=@board.json \
+  -F 'options={"labels": false, "history": false}'
+```
 
 **Response** `201 Created`
 
-Returns the newly created board object, using the same shape as `GET /api/v1/boards/{id}/`:
+Returns the newly created board object, using the same shape as `GET /api/v1/boards/{id}/`, plus an `import_summary` object.
 
 ```json
 {
@@ -596,17 +630,41 @@ Returns the newly created board object, using the same shape as `GET /api/v1/boa
   "owner": { "id": 7, "username": "alice", "display_name": "Alice" },
   "group": null,
   "created_at": "2026-04-21T14:02:11Z",
-  "updated_at": "2026-04-21T14:02:11Z"
+  "updated_at": "2026-04-21T14:02:11Z",
+  "import_summary": {
+    "options_applied": { "labels": false, "cards": true, "comments": true, "checklist": true, "history": false },
+    "skipped": {
+      "cards": 0,
+      "comments": 0,
+      "checklist_items": 0,
+      "label_refs": 4,
+      "movements": 12,
+      "activities": 30
+    }
+  }
 }
 ```
+
+#### Import summary
+
+> **Added in 1.2**
+
+| Field | Description |
+|---|---|
+| `import_summary.options_applied` | All five options as resolved, including dependents that followed `cards`. A CSV import reports `comments`, `checklist`, and `history` equal to `cards`. |
+| `import_summary.skipped.*` | How many items in the file the chosen options left out: `cards`, `comments`, `checklist_items`, `label_refs` (label references on cards), `movements`, and `activities`. Items the importer drops regardless of options — a label name with no definition, an activity with an unknown event type — are not counted. All are `0` when no options are sent. |
+
+The `board.created` event for the new board carries the resolved options as an additional `import_options` field.
 
 **Errors**
 
 | Status | Body | When |
 |---|---|---|
-| `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, exceeds the upload size limit (`MAX_UPLOAD_SIZE_BYTES`, default 10 MB — the same env var and default as [card attachment uploads](cards.md#attachments), and distinct from the Trello importer's own `VISIBAN_IMPORT_MAX_SIZE`), is not valid JSON/CSV, or references columns/swimlanes that fail validation. |
+| `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, has an unsupported extension, exceeds the upload size limit (`MAX_UPLOAD_SIZE_BYTES`, default 10 MB — the same env var and default as [card attachment uploads](cards.md#attachments), and distinct from the Trello importer's own `VISIBAN_IMPORT_MAX_SIZE`), is not valid JSON/CSV, or references columns/swimlanes that fail validation. Also returned when `options` is not valid JSON, is not an object, has an unknown key, has a non-boolean value, sets `comments`, `checklist`, or `history` to `true` with `cards` set to `false`, or — for a CSV file — has any key other than `labels` and `cards`. |
 | `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
 | `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied but the caller is not a member of that group. |
+| `404 Not Found` | `{"detail": "..."}` | `group_id` does not match an existing group. |
+| `429 Too Many Requests` | `{"detail": "..."}` | The `board_import` rate limit was exceeded. |
 
 ### `POST /api/v1/boards/import/trello/`
 
@@ -807,7 +865,7 @@ In `mapping.columns`, `position` is `null` for a list that will not be imported 
 
 **Response** `201 Created` (`confirm=true`)
 
-Unlike [`POST /api/v1/boards/import/`](#post-apiv1boardsimport), which returns a bare board object, this endpoint wraps the board together with a summary. `board` has the same shape as `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`.
+Unlike [`POST /api/v1/boards/import/`](#post-apiv1boardsimport), which returns the board object at the top level (with an added `import_summary`), this endpoint wraps the board together with a summary. `board` has the same shape as `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`.
 
 ```json
 {

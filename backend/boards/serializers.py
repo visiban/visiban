@@ -3507,3 +3507,77 @@ class PublicBoardSerializer(serializers.ModelSerializer):
         stale_cutoff = timezone.now() - datetime.timedelta(days=obj.staleness_threshold_days)
         qs = _annotate_is_stale(qs, stale_cutoff)
         return PublicCardSerializer(qs, many=True).data
+
+
+class _StrictBooleanField(serializers.BooleanField):
+    """A BooleanField that accepts only JSON ``true``/``false`` (#119).
+
+    DRF's BooleanField also coerces ``"yes"``, ``1``, ``"off"`` and friends.
+    The import ``options`` field is a JSON object a client builds on purpose,
+    so a non-boolean there is a client bug worth a 400, not a guess.
+    """
+
+    def to_internal_value(self, data):
+        if not isinstance(data, bool):
+            self.fail("invalid", input=data)
+        return data
+
+
+class ImportOptionsSerializer(serializers.Serializer):
+    """Validate the ``options`` field of ``POST /boards/import/`` (#119).
+
+    Every flag is optional and defaults to ``True``, so an absent field or an
+    empty object imports everything, exactly as before the field existed.
+    Board structure (name, columns, swimlanes) is not a flag: cards need it,
+    and a board without it is not a valid import.
+
+    ``comments``, ``checklist`` and ``history`` live on cards, so they depend
+    on ``cards``. An omitted dependent follows its parent — ``{"cards": false}``
+    alone means "structure and labels only" — but an explicit contradiction
+    (``{"cards": false, "comments": true}``) is rejected rather than silently
+    resolved one way or the other, because the client clearly meant something
+    the server cannot do.
+    """
+
+    OPTION_KEYS = ("labels", "cards", "comments", "checklist", "history")
+    DEPENDENTS = ("comments", "checklist", "history")
+
+    labels = _StrictBooleanField(default=True)
+    cards = _StrictBooleanField(default=True)
+    comments = _StrictBooleanField(default=True)
+    checklist = _StrictBooleanField(default=True)
+    history = _StrictBooleanField(default=True)
+
+    def validate(self, attrs):
+        initial = self.initial_data if isinstance(self.initial_data, dict) else {}
+        unknown = sorted(set(initial) - set(self.fields))
+        if unknown:
+            raise serializers.ValidationError(
+                f"Unknown import option(s): {', '.join(unknown)}."
+            )
+        if not attrs["cards"]:
+            contradictions = [k for k in self.DEPENDENTS if initial.get(k) is True]
+            if contradictions:
+                raise serializers.ValidationError(
+                    f"Import option(s) {', '.join(contradictions)} require 'cards'."
+                )
+            for key in self.DEPENDENTS:
+                attrs[key] = False
+        return attrs
+
+
+class CSVImportOptionsSerializer(ImportOptionsSerializer):
+    """``options`` for a CSV import: a CSV row carries no comments, checklist
+    items or history, so only ``labels`` and ``cards`` are accepted (#119)."""
+
+    comments = None
+    checklist = None
+    history = None
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        # Reported back in ``import_summary.options_applied`` so a client sees
+        # the same five keys for either format; they follow ``cards``.
+        for key in self.DEPENDENTS:
+            attrs[key] = attrs["cards"]
+        return attrs

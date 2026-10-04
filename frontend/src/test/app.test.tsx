@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { render, screen, act, waitFor } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import App from '../App'
 import type { User } from '../types'
 
@@ -266,6 +266,54 @@ describe('App', () => {
     mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
     expect(screen.getByTestId('navbar')).toBeInTheDocument()
+  })
+
+  // #119: the skipped-counts notice handed over in navigation state shows on
+  // the board, and yields the bottom-center slot to a move-blocked warning.
+  describe('import skipped notice (#119)', () => {
+    const fakeBoard = {
+      id: 1, name: 'Imported', description: '', group: null, group_name: null,
+      columns: [], swimlanes: [], cards: [], labels: [], members: [],
+      created_at: '', updated_at: '', current_user_role: 'admin' as const,
+    }
+    const importSummary = {
+      options_applied: { labels: false, cards: true, comments: true, checklist: true, history: true },
+      skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 3, movements: 0, activities: 0 },
+    }
+    const entry = { pathname: '/boards/1', state: { importSummary } }
+
+    it('shows the notice when the import skipped something', async () => {
+      mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+      mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
+      render(<MemoryRouter initialEntries={[entry]}><App /></MemoryRouter>)
+      expect(await screen.findByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+    })
+
+    it('clears the navigation state so a reload or Back does not show it again', async () => {
+      mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+      mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
+      function LocationProbe() {
+        const loc = useLocation()
+        return <span data-testid="location-probe">{`${loc.pathname}|${JSON.stringify(loc.state)}`}</span>
+      }
+      render(<MemoryRouter initialEntries={[entry]}><App /><LocationProbe /></MemoryRouter>)
+      expect(await screen.findByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByTestId('location-probe')).toHaveTextContent('/boards/1|null'))
+      // Captured on mount, so the notice survives its own state being cleared.
+      expect(screen.getByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+    })
+
+    it('does not show the notice while a move error is showing', async () => {
+      mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+      mockUseBoardContext.mockReturnValue({
+        ...defaultBoardHook, board: fakeBoard, loading: false, error: null,
+        moveError: { code: 'version_conflict', detail: 'x' },
+      })
+      render(<MemoryRouter initialEntries={[entry]}><App /></MemoryRouter>)
+      expect(await screen.findByText(/Card was updated/)).toBeInTheDocument()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(screen.queryByText(/Board imported\. Skipped/)).not.toBeInTheDocument()
+    })
   })
 })
 

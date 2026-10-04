@@ -116,7 +116,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 
 | Event | Trigger | `data` shape |
 |---|---|---|
-| `board.created` | New board created (only emitted to subscribers already connected to the board channel) | Full `BoardSerializer` object |
+| `board.created` | New board created (only emitted to subscribers already connected to the board channel) | Full `BoardSerializer` object. On a Visiban JSON/CSV import ([`POST /api/v1/boards/import/`](boards.md#post-apiv1boardsimport)) it also carries `import_options` — all five resolved booleans (`labels`, `cards`, `comments`, `checklist`, `history`); added in 1.2. The same payload goes to the group channel when the import sets `group_id`. `import_options` is absent on ordinary board creation, Trello imports, and group-move events. |
 | `board.updated` | Board name, description, or settings changed | Full `BoardSerializer` object |
 | `board.deleted` | Board was deleted | `{ "board_uid": <string> }` |
 | `board.star_changed` | Board starred or unstarred. Per-user state; clients should filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
@@ -271,7 +271,7 @@ Authentication uses the same two mechanisms as the board channel — session coo
 
 | Event | Trigger | `data` shape |
 |---|---|---|
-| `board.created` | Board created in this group, imported into it, or moved into it from elsewhere | Full `BoardSerializer` object |
+| `board.created` | Board created in this group, imported into it, or moved into it from elsewhere | Full `BoardSerializer` object. A Visiban JSON/CSV import into this group also carries `import_options` (all five resolved booleans; added in 1.2); it is absent on ordinary creation, Trello imports, and move-in events. |
 | `board.updated` | Board in this group renamed or otherwise edited | Full `BoardSerializer` object |
 | `board.deleted` | Board deleted, or moved out of this group | `{ "board_uid": <string> }` on outright delete; `{ "board_uid": <string>, "board_id": <int> }` on move-out (the legacy integer is retained on move-out only because clients keyed by `board_id` need to find the row to remove). Treat `board_id` as optional. |
 | `board.star_changed` | A board in this group was starred or unstarred — fires alongside the board-channel `board.star_changed`. Star is per-user state; clients filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |

@@ -22,7 +22,8 @@ import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import { importBoard } from "../api/boards";
-import type { Board, Group, GroupMembership, Priority, User } from "../types";
+import type { Board, Group, GroupMembership, ImportOptions, Priority, User } from "../types";
+import { hasImportSkips } from "../utils/importSummary";
 import SelectDropdown from "../components/Common/SelectDropdown";
 import Spinner from "../components/Common/Spinner";
 import RoleInfoTooltip from "../components/Common/RoleInfoTooltip";
@@ -452,12 +453,18 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     void navigate(`/boards/${board.id}`);
   };
 
-  const handleImportBoard = async (file: File, name?: string) => {
-    const board = await importBoard(file, name, groupId);
+  const handleImportBoard = async (file: File, name?: string, options?: ImportOptions) => {
+    const board = options ? await importBoard(file, name, groupId, options) : await importBoard(file, name, groupId);
     setImportingBoard(false);
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // the board was already imported and there is nothing to roll back.
-    void navigate(`/boards/${board.id}`);
+    // A selective import that left something out hands its summary to the
+    // board page, which shows the skipped counts (#119).
+    if (hasImportSkips(board.import_summary)) {
+      void navigate(`/boards/${board.id}`, { state: { importSummary: board.import_summary } });
+    } else {
+      void navigate(`/boards/${board.id}`);
+    }
   };
 
   const handleRemoveMember = async (userId: number) => {

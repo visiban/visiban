@@ -501,6 +501,36 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/boards/55'))
   })
 
+  // #119: unchecking an Include option sends it, and a non-empty skip
+  // summary is handed to the board page in the navigation state.
+  it('sends import options and forwards the skip summary to the board', async () => {
+    const user = userEvent.setup()
+    const importSummary = {
+      options_applied: { labels: true, cards: false, comments: false, checklist: false, history: false },
+      skipped: { cards: 2, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0 },
+    }
+    mockImportBoard.mockResolvedValue({
+      id: 57, name: 'Imported Board', description: '', owner: fakeUser,
+      group: null, group_name: null, member_count: 1, created_at: '', updated_at: '',
+      import_summary: importSummary,
+    })
+    renderDashboard()
+    await screen.findByText('Import')
+    await user.click(screen.getByText('Import'))
+    const dialog = await screen.findByRole('dialog')
+    const fileInput = dialog.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['{}'], 'board.json', { type: 'application/json' })
+    await user.upload(fileInput, file)
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Cards' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Import' }))
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/boards/57', { state: { importSummary } }),
+    )
+    expect(mockImportBoard).toHaveBeenCalledWith(file, undefined, undefined, {
+      labels: true, cards: false, comments: false, checklist: false, history: false,
+    })
+  })
+
   it('navigates to the new board after a successful Trello import', async () => {
     const user = userEvent.setup()
     mockPreviewTrelloImport.mockResolvedValue(trelloPreview())

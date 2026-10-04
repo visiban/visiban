@@ -1,8 +1,11 @@
 import { useRef, useState } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
+import type { ImportOptions } from "../../types";
 
 interface Props {
-  onImport: (file: File, name?: string) => Promise<void>;
+  /** Called with a third `options` argument only when the user deselected
+   *  something; a default import passes just `(file, name)` (#119). */
+  onImport: (file: File, name?: string, options?: ImportOptions) => Promise<void>;
   onCancel: () => void;
   /** When provided, shows a link that switches to the Trello import wizard (#456). */
   onSwitchToTrello?: () => void;
@@ -23,17 +26,117 @@ function detectFormat(file: File): "JSON" | "CSV" | "Unknown" {
   return "Unknown";
 }
 
+type IncludeKey = "labels" | "cards" | "comments" | "checklist" | "history";
+type IncludeState = Record<IncludeKey, boolean>;
+type DependentKey = "comments" | "checklist" | "history";
+
+const ALL_INCLUDED: IncludeState = { labels: true, cards: true, comments: true, checklist: true, history: true };
+
+interface IncludeRow {
+  key: IncludeKey;
+  label: string;
+  /** Consequence-slot copy while checked (empty: the slot stays blank). */
+  rest: string;
+  /** Consequence-slot copy while unchecked. */
+  off: string;
+}
+
+const CARDS_ROW: IncludeRow = {
+  key: "cards",
+  label: "Cards",
+  // JSON copy; a CSV import carries no assignees (see CSV_CARDS_ROW).
+  rest: "Includes assignees and due dates.",
+  off: "Cards and everything on them are skipped",
+};
+/** A CSV row carries title, description, priority, weight, due date and
+ *  labels — no assignee — so the Cards rest copy names only due dates. */
+const CSV_CARDS_ROW: IncludeRow = { ...CARDS_ROW, rest: "Includes due dates." };
+const DEPENDENT_ROWS: IncludeRow[] = [
+  { key: "comments", label: "Comments", rest: "", off: "Comments are skipped" },
+  { key: "checklist", label: "Checklist items", rest: "", off: "Checklist items are skipped" },
+  {
+    key: "history",
+    label: "Card history",
+    rest: "Movements and activity entries.",
+    off: "Movements and activity are skipped",
+  },
+];
+const LABELS_ROW: IncludeRow = {
+  key: "labels",
+  label: "Labels",
+  rest: "Label definitions and the labels on cards.",
+  off: "Card labels are skipped",
+};
+
+/** "Importing: everything", or "Importing: structure, cards, labels, …" —
+ *  only what is selected, in a fixed order. */
+function importingSummary(include: IncludeState, isCsv: boolean): string {
+  const relevant: IncludeKey[] = isCsv ? ["cards", "labels"] : ["cards", "labels", "comments", "checklist", "history"];
+  if (relevant.every((key) => include[key])) return "Importing: everything";
+  const parts: string[] = [];
+  if (include.cards) parts.push("cards");
+  if (include.labels) parts.push("labels");
+  if (!isCsv && include.cards) {
+    if (include.comments) parts.push("comments");
+    if (include.checklist) parts.push("checklist items");
+    if (include.history) parts.push("history");
+  }
+  return parts.length === 0 ? "Importing: structure only" : `Importing: structure, ${parts.join(", ")}`;
+}
+
+/** The options to send, or `undefined` when everything is included. Never
+ *  sends a contradiction: with Cards off, every dependent is sent `false`. */
+function optionsPayload(include: IncludeState, isCsv: boolean): ImportOptions | undefined {
+  const payload: ImportOptions = isCsv
+    ? { cards: include.cards, labels: include.labels }
+    : include.cards
+      ? { ...include }
+      : { labels: include.labels, cards: false, comments: false, checklist: false, history: false };
+  return Object.values(payload).every(Boolean) ? undefined : payload;
+}
+
 export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [include, setInclude] = useState<IncludeState>(ALL_INCLUDED);
+  const [cascadeAnnouncement, setCascadeAnnouncement] = useState("");
+  // The dependents' values from just before Cards was unchecked, restored when
+  // it is re-checked so a deliberate uncheck (e.g. History) survives the round trip.
+  const dependentsMemo = useRef<Pick<IncludeState, DependentKey> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
     setFile(selected);
     setError(null);
+    // A new file starts from "import everything" — choices made for the
+    // previous file (possibly a different format) do not carry over.
+    setInclude(ALL_INCLUDED);
+    dependentsMemo.current = null;
+    setCascadeAnnouncement("");
+  };
+
+  const toggle = (key: IncludeKey, checked: boolean) => {
+    // A CSV file shows no dependent rows, so there is no cascade to announce.
+    const announce = file !== null && detectFormat(file) !== "CSV";
+    if (key !== "cards") {
+      setInclude((prev) => ({ ...prev, [key]: checked }));
+      return;
+    }
+    if (!checked) {
+      dependentsMemo.current = { comments: include.comments, checklist: include.checklist, history: include.history };
+      setInclude((prev) => ({ ...prev, cards: false, comments: false, checklist: false, history: false }));
+      if (announce) {
+        setCascadeAnnouncement("Comments, checklist items, and card history are unavailable while Cards is unchecked");
+      }
+    } else {
+      const restored = dependentsMemo.current ?? { comments: true, checklist: true, history: true };
+      dependentsMemo.current = null;
+      setInclude((prev) => ({ ...prev, cards: true, ...restored }));
+      if (announce) setCascadeAnnouncement("Comments, checklist items, and card history are available again");
+    }
   };
 
   const handleSubmit = async () => {
@@ -54,7 +157,11 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
     setSubmitting(true);
     setError(null);
     try {
-      await onImport(file, name.trim() || undefined);
+      const options = optionsPayload(include, format === "CSV");
+      // Two arguments for a default import, so callers (and their tests) see
+      // exactly the pre-#119 call; the third only when something differs.
+      if (options) await onImport(file, name.trim() || undefined, options);
+      else await onImport(file, name.trim() || undefined);
     } catch (err: unknown) {
       const detail =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
@@ -66,6 +173,34 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
   };
 
   const format = file ? detectFormat(file) : null;
+  const showInclude = format === "JSON" || format === "CSV";
+  const isCsv = format === "CSV";
+
+  const renderRow = (row: IncludeRow, dependent: boolean) => {
+    const checked = include[row.key];
+    const unavailable = dependent && !include.cards;
+    const slotId = `import-include-${row.key}-hint`;
+    const hint = unavailable ? "Requires Cards" : checked ? row.rest : row.off;
+    return (
+      <div key={row.key} className={dependent ? "ml-6 border-l-2 border-line pl-4" : undefined}>
+        {/* Dim only the text: the native disabled control dims itself. */}
+        <label className={`flex items-center gap-2 select-none ${unavailable ? "" : "cursor-pointer"}`}>
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={unavailable || submitting}
+            onChange={(e) => toggle(row.key, e.target.checked)}
+            aria-describedby={slotId}
+            className="w-4 h-4 rounded accent-primary"
+          />
+          <span className={`text-sm ${unavailable ? "text-fg-muted" : "text-fg-secondary"}`}>{row.label}</span>
+        </label>
+        <p id={slotId} className="text-xs text-fg-muted mt-0.5 ml-6 min-h-4">
+          {hint}
+        </p>
+      </div>
+    );
+  };
 
   return (
     <ModalWrapper
@@ -149,6 +284,33 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
             />
           </div>
 
+          {/* What to import (#119) — only once a supported file is chosen. */}
+          {showInclude && (
+            <fieldset className="min-w-0" aria-describedby="import-include-note">
+              <legend className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
+                Include
+              </legend>
+              <p id="import-include-note" className="text-xs text-fg-muted mb-2">
+                Board structure (name, columns, swimlanes) is always imported.
+              </p>
+              <div className="space-y-2 bg-sunken border border-line rounded-lg px-3 py-2.5">
+                {renderRow(isCsv ? CSV_CARDS_ROW : CARDS_ROW, false)}
+                {!isCsv && DEPENDENT_ROWS.map((row) => renderRow(row, true))}
+                {renderRow(LABELS_ROW, false)}
+              </div>
+            </fieldset>
+          )}
+          {showInclude && (
+            <p id="import-summary" className="text-xs text-fg-muted min-h-8">
+              {importingSummary(include, isCsv)}
+            </p>
+          )}
+          {/* The one live region for the Cards cascade; the per-row
+              consequence slots are deliberately not live. */}
+          <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {cascadeAnnouncement}
+          </div>
+
           {/* Error */}
           {error && (
             <div className="bg-danger/10 border border-danger/30 rounded-lg px-4 py-3">
@@ -168,6 +330,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
           <button
             onClick={handleSubmit}
             disabled={!file || submitting}
+            aria-describedby={showInclude && !submitting ? "import-summary" : undefined}
             className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {submitting ? "Importing..." : "Import"}

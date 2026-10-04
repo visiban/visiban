@@ -13,6 +13,7 @@ import AppSidebar from "./components/Layout/AppSidebar";
 import BoardView from "./components/Board/BoardView";
 import InlineBoardName from "./components/Board/InlineBoardName";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
+import ImportSkippedToast from "./components/Board/ImportSkippedToast";
 import GlobalCommandPalette from "./components/Common/GlobalCommandPalette";
 import MaintenanceBanner from "./components/Common/MaintenanceBanner";
 import DemoModeBar from "./components/Common/DemoModeBar";
@@ -26,7 +27,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
-import type { User } from "./types";
+import type { ImportSummary, User } from "./types";
 import { starBoard, unstarBoard } from "./api/boards";
 import { joinGroup } from "./api/groups";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
@@ -228,7 +229,21 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   onStarToggled: () => void;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { board, loading, error, forceMoveCard, moveError, clearMoveError, updateBoardSettings } = useBoardContext();
+
+  // Skipped-counts notice after a selective import (#119), handed over in the
+  // navigation state by the import modal's caller. Captured once on mount and
+  // then cleared from history, so a reload or Back does not show it again.
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(
+    () => (location.state as { importSummary?: ImportSummary } | null)?.importSummary ?? null,
+  );
+  useEffect(() => {
+    if ((location.state as { importSummary?: ImportSummary } | null)?.importSummary) {
+      void navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
+    }
+  }, [location, navigate]);
+  const dismissImportSummary = useCallback(() => setImportSummary(null), []);
 
   const isAdmin = board?.current_user_role === "admin" || board?.current_user_role === "site_admin";
   // Hosted demo (#1193): board star/unstar is not on DEMO_ALLOWED_WRITES, so
@@ -324,6 +339,10 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onForce={forceMoveCard}
             onDismiss={clearMoveError}
           />
+        )}
+        {/* The move-blocked warning always wins the bottom-center slot. */}
+        {importSummary && board && !moveError && (
+          <ImportSkippedToast summary={importSummary} onDismiss={dismissImportSummary} />
         )}
         {loading && <div className="flex items-center justify-center h-full text-fg-tertiary">Loading board…</div>}
         {error && (

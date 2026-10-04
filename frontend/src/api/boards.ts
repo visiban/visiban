@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult } from "../types";
+import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -176,12 +176,18 @@ export const deleteSwimlaneCustomFieldDefinition = (boardId: number, fieldId: nu
 export const reorderSwimlaneCustomFields = (boardId: number, order: number[]) =>
   client.post<SwimlaneCustomFieldDefinition[]>(`/api/v1/boards/${boardId}/swimlane-custom-fields/reorder/`, { order }).then((r) => r.data);
 
-export const importBoard = (file: File, name?: string, groupId?: number) => {
+export const importBoard = (file: File, name?: string, groupId?: number, options?: ImportOptions) => {
   const formData = new FormData();
   formData.append('file', file);
   if (name) formData.append('name', name);
   if (groupId) formData.append('group_id', String(groupId));
-  return client.post<Board>('/api/v1/boards/import/', formData).then((r) => r.data);
+  // Selective import (#119): the endpoint is multipart, so options travel as a
+  // JSON string. Omitted entirely when everything is included (the default),
+  // so a default import sends exactly what it did before the field existed.
+  if (options && Object.values(options).some((v) => v === false)) {
+    formData.append('options', JSON.stringify(options));
+  }
+  return client.post<ImportBoardResponse>('/api/v1/boards/import/', formData).then((r) => r.data);
 };
 
 // Trello import (#456). Stateless two-step flow: preview with dry_run, then
