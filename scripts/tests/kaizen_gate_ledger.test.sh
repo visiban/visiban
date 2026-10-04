@@ -174,6 +174,42 @@ sys.exit(0 if text.startswith("--bump-numpy") else 1)
 PYEOF
 )"
 
+# `completeness-check/fix-diff` (the fix-diff re-check's ledger label, see
+# .claude/skills/batch/SKILL.md Step 4) must parse as its OWN gate, distinct from
+# `completeness-check`, so the two yields can be measured separately. A label with
+# a space or parenthesis (`completeness-check (fix-diff)`) does not match the gate
+# name pattern and would be silently dropped from the tally.
+python3 - "$TMP/fixdiff.json" <<'PYEOF'
+import json, sys
+desc = (
+    "## Gates\n"
+    "- gate: completeness-check \u2014 3 findings (model: sonnet)\n"
+    "- gate: completeness-check/fix-diff \u2014 0 findings (model: sonnet)\n"
+    "- gate: completeness-check (fix-diff) \u2014 9 findings\n"
+)
+json.dump([{"iid": 101, "title": "fix-diff label", "description": desc}], open(sys.argv[1], "w"))
+PYEOF
+python3 "$SCRIPT" --input "$TMP/fixdiff.json" --json > "$TMP/fixdiff_out.json"
+fd() { python3 - "$TMP/fixdiff_out.json" "$@" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for key in sys.argv[2:]:
+    d = d[key]
+print(d)
+PYEOF
+}
+check "completeness-check/fix-diff is tallied as its own gate" \
+  "$([ "$(fd gates completeness-check/fix-diff zero)" = "1" ] && echo 0 || echo 1)"
+check "completeness-check keeps its own count, separate from /fix-diff" \
+  "$([ "$(fd gates completeness-check positive_total)" = "3" ] && echo 0 || echo 1)"
+rc=0
+python3 - "$TMP/fixdiff_out.json" <<'PYEOF' || rc=$?
+import json, sys
+gates = json.load(open(sys.argv[1]))["gates"]
+sys.exit(0 if set(gates) == {"completeness-check", "completeness-check/fix-diff"} else 1)
+PYEOF
+check "a spaced/parenthesized label is not mistaken for either gate" "$rc"
+
 # validate_project / validate_window: reject newline, dot segments, option-like input
 vp() { (cd "$REPO_ROOT/scripts" && python3 -c 'import sys, argparse, kaizen_gate_ledger as l
 try:

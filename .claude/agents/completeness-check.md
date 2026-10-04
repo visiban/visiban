@@ -150,3 +150,22 @@ The `## Gates` ledger (format in `.claude/skills/mr/SKILL.md`) carries:
 
 `<N>` counts BLOCKERs and GAPs that **changed the branch or were consciously deferred** —
 not rows in the table. `0` is a real outcome; record it. Never inflate.
+
+### Fix-diff re-check
+
+When the first pass returned a BLOCKER, or a commit made in response to it changes
+executable behavior (application code, CI or chart logic, a gate or check script, a
+migration — not docs, tests, comments, or changelog text), a fresh agent audits **only
+that fix diff** (`git diff <audited-sha>..HEAD`), once. Judge the fix commit against the
+finding it answers and against the same checks as above, scoped to the lines it touched:
+does it close the finding, does it introduce a new unguarded path, are its tests able to
+fail. Do not re-audit the rest of the branch and do not re-open findings already
+dispositioned. It gets its own ledger line, so gate yield can be measured separately:
+
+```
+- gate: completeness-check/fix-diff — <N> findings (model: <sonnet|opus>)
+```
+
+`n/a` means the fix round was docs, tests, comments, or changelog only; `skipped` means it
+applied and the user declined it. Never loop: findings from this pass are fixed and the
+branch is pushed.
