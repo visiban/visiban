@@ -15,6 +15,7 @@ from django.db.models import Prefetch
 from django.http import HttpResponse
 from rest_framework.generics import get_object_or_404
 from django.utils.text import slugify
+from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -29,14 +30,17 @@ from groups.models import Group, GroupMembership
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
     CardActivity, CardChecklist, CardComment, CardExternalRef, CardMovement, Column,
-    CustomFieldDefinition, Label, Swimlane,
+    CustomFieldDefinition, CustomFieldValue, Label, Swimlane, SwimlaneCustomFieldDefinition,
+    SwimlaneCustomFieldValue,
 )
 from .. import broadcast as _broadcast
 from ..custom_field_types import parse_multi_select
 from ..permissions import SITE_ADMIN
 from ..serializers import (
-    BoardExportLogSerializer, BoardSerializer, CSVImportOptionsSerializer, ExternalRefSerializer,
-    ImportOptionsSerializer, _swimlane_custom_field_values,
+    BoardExportLogSerializer, BoardSerializer, CSVImportOptionsSerializer,
+    CustomFieldDefinitionSerializer, ExternalRefSerializer, ImportOptionsSerializer,
+    SwimlaneCustomFieldDefinitionSerializer, _normalize_custom_field_value,
+    _run_custom_field_validator_hooks, _swimlane_custom_field_values,
 )
 from ..services import trello_import as _trello
 from ._helpers import get_accessible_boards_queryset, get_board_for_user
@@ -246,6 +250,78 @@ def _parse_import_options(raw, serializer_class):
     if not ser.is_valid():
         return None, f"Invalid 'options': {_flatten_serializer_errors(ser.errors)}"
     return dict(ser.validated_data), None
+
+
+def _validate_import_field_definitions(raw, serializer_class, model, pin_attr, list_name):
+    """Validate a JSON import's ``custom_fields`` / ``swimlane_custom_fields`` list.
+
+    Returns ``(validated_data_list, error_detail)``. Each entry runs through
+    the same serializer the field-definition API uses, so an import cannot
+    create a definition the API would refuse (bad choices, a malformed
+    ``choice_colors`` map, a NUL byte in a name).
+
+    The serializer is run *without* a ``board`` context on purpose: with one,
+    its name-uniqueness and cap checks query the database, and every entry of
+    a not-yet-created batch would see zero siblings — so a file with 40 card
+    fields or 5 pinned ones would pass one entry at a time. Those per-board
+    rules are applied here, over the whole list, instead. ``position`` is
+    read-only on the serializer; the list order is the position.
+    """
+    if raw is None:
+        return [], None
+    if not isinstance(raw, list):
+        return None, f"'{list_name}' must be a list."
+    if len(raw) > model.MAX_PER_BOARD:
+        return None, f"'{list_name}' has {len(raw)} entries; a board may define at most {model.MAX_PER_BOARD}."
+    validated = []
+    for i, entry in enumerate(raw):
+        if not isinstance(entry, dict):
+            return None, f"'{list_name}' entry at index {i} must be an object."
+        ser = serializer_class(data=entry)
+        if not ser.is_valid():
+            return None, f"'{list_name}' entry at index {i}: {_flatten_serializer_errors(ser.errors)}"
+        validated.append(dict(ser.validated_data))
+    names = [v["name"] for v in validated]
+    dupes = sorted({n for n in names if names.count(n) > 1})
+    if dupes:
+        return None, f"Duplicate {list_name} names: {', '.join(dupes)}"
+    pinned = sum(1 for v in validated if v.get(pin_attr))
+    if pinned > model.MAX_PINNED_PER_BOARD:
+        return None, (
+            f"'{list_name}' pins {pinned} fields with '{pin_attr}'; "
+            f"at most {model.MAX_PINNED_PER_BOARD} are allowed."
+        )
+    return validated, None
+
+
+def _import_field_values(raw, definitions_by_name, hook_name):
+    """Normalize one owner's imported ``{field name: value}`` map.
+
+    Returns ``[(definition, stored_value)]``. Lenient, like the importer's
+    handling of an unknown priority or an invalid ``external_ref``: an entry
+    naming no imported definition, or holding a value the field's type
+    refuses, is dropped rather than failing the whole import. Every value
+    passes through the API's own normalizer, so what is stored is exactly
+    what a PATCH would have stored; an exported value (already canonical)
+    round-trips unchanged. The ``boards.hooks`` validator list named by
+    *hook_name* runs too, as on the API path, so an extension's value policy
+    cannot be sidestepped by importing instead of editing.
+    """
+    if not isinstance(raw, dict):
+        return []
+    out = []
+    for name, value in raw.items():
+        definition = definitions_by_name.get(name) if isinstance(name, str) else None
+        if definition is None:
+            continue
+        try:
+            stored = _normalize_custom_field_value(definition, value)
+            stored = _run_custom_field_validator_hooks(definition, stored, hook_name=hook_name)
+        except drf_serializers.ValidationError:
+            continue
+        if stored != "":
+            out.append((definition, stored))
+    return out
 
 
 def _list_len(value):
@@ -605,6 +681,23 @@ class BoardImportExportMixin:
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        # Custom field schemas (#371 card fields, #1140 row fields). Board
+        # structure like columns and swimlanes, so always imported rather than
+        # behind an option; validated here, before the transaction, like every
+        # other 400 above.
+        card_field_defs, _err = _validate_import_field_definitions(
+            data.get("custom_fields"), CustomFieldDefinitionSerializer,
+            CustomFieldDefinition, "show_on_card", "custom_fields",
+        )
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+        swimlane_field_defs, _err = _validate_import_field_definitions(
+            data.get("swimlane_custom_fields"), SwimlaneCustomFieldDefinitionSerializer,
+            SwimlaneCustomFieldDefinition, "show_on_row", "swimlane_custom_fields",
+        )
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+
         group = self._resolve_import_group(request)
         # An explicit ``name`` is used exactly as given; only the default is
         # prefixed and de-duplicated (#1446).
@@ -663,6 +756,36 @@ class BoardImportExportMixin:
                 for lbl in lbl_data
             ])
             label_map = {lbl["name"]: obj for lbl, obj in zip(lbl_data, lbl_objs)}
+
+            # Custom field definitions, then the per-swimlane values. Values
+            # are bulk-created, which skips the ``custom_field_value_changed``
+            # signal — the same as every other row an import writes, none of
+            # which is a user edit.
+            card_field_map = {
+                obj.name: obj
+                for obj in CustomFieldDefinition.objects.bulk_create([
+                    CustomFieldDefinition(board=board, position=i, **attrs)
+                    for i, attrs in enumerate(card_field_defs)
+                ])
+            }
+            swimlane_field_map = {
+                obj.name: obj
+                for obj in SwimlaneCustomFieldDefinition.objects.bulk_create([
+                    SwimlaneCustomFieldDefinition(board=board, position=i, **attrs)
+                    for i, attrs in enumerate(swimlane_field_defs)
+                ])
+            }
+            if swimlane_field_map:
+                SwimlaneCustomFieldValue.objects.bulk_create([
+                    SwimlaneCustomFieldValue(
+                        swimlane=swimlane_map[sw["name"]], field_definition=definition, value=value,
+                    )
+                    for sw in sw_data
+                    for definition, value in _import_field_values(
+                        sw.get("custom_field_values"), swimlane_field_map,
+                        "SWIMLANE_CUSTOM_FIELD_VALIDATORS",
+                    )
+                ])
 
             # Bulk-load all referenced usernames so the card loop does not
             # issue a per-card query for assignee, moved_by, or actor (#420).
@@ -757,9 +880,32 @@ class BoardImportExportMixin:
             movements_to_create = []      # (CardMovement obj, moved_at str or None)
             imported_activities = []      # (CardActivity obj, created_at str or None)
             external_refs_to_create = []
+            field_values_to_create = []
 
             for card_obj, card_data in zip(cards_to_create, cards_raw):
                 card_pk = card_obj.pk
+
+                for definition, value in _import_field_values(
+                    card_data.get("custom_field_values"), card_field_map,
+                    "CUSTOM_FIELD_VALIDATORS",
+                ):
+                    field_values_to_create.append(CustomFieldValue(
+                        card_id=card_pk, field_definition=definition, value=value,
+                    ))
+
+                # The file's own history for this card. When it already
+                # records a label, weight or checklist change, that entry —
+                # with its real actor and timestamp — is the history, and the
+                # synthetic one below (actor = importer, time = now) would
+                # double it on every export→import round trip. Skipped per
+                # event type, not per item: a file that carries any checklist
+                # history is trusted to carry all of it.
+                history_types = set()
+                if options["history"]:
+                    for act in card_data.get("activities", []):
+                        event_type = act.get("event_type") if isinstance(act, dict) else None
+                        if isinstance(event_type, str) and event_type in valid_event_types:
+                            history_types.add(event_type)
 
                 # MR/PR link (#352). Run through the same serializer the API
                 # uses so an import file can never smuggle in a URL the API
@@ -777,7 +923,10 @@ class BoardImportExportMixin:
 
                 # Weight-change activity for non-default weights. It is card
                 # history the importer generates, so ``history`` gates it (#119).
-                if options["history"] and card_obj.weight and card_obj.weight > 1:
+                if (
+                    options["history"] and card_obj.weight and card_obj.weight > 1
+                    and CardActivity.EventType.WEIGHT_CHANGE not in history_types
+                ):
                     auto_activities.append(CardActivity(
                         card_id=card_pk,
                         event_type=CardActivity.EventType.WEIGHT_CHANGE,
@@ -796,7 +945,7 @@ class BoardImportExportMixin:
                     label_through_objs.append(
                         label_through(card_id=card_pk, label_id=label.pk)
                     )
-                if card_labels:
+                if card_labels and CardActivity.EventType.LABEL_CHANGE not in history_types:
                     auto_activities.append(CardActivity(
                         card_id=card_pk,
                         event_type=CardActivity.EventType.LABEL_CHANGE,
@@ -826,13 +975,14 @@ class BoardImportExportMixin:
                         position=ci_idx,
                     )
                     checklists_to_create.append(item)
-                    auto_activities.append(CardActivity(
-                        card_id=card_pk,
-                        event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
-                        from_value="",
-                        to_value=item.text,
-                        actor=request.user,
-                    ))
+                    if CardActivity.EventType.CHECKLIST_ITEM_ADDED not in history_types:
+                        auto_activities.append(CardActivity(
+                            card_id=card_pk,
+                            event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
+                            from_value="",
+                            to_value=item.text,
+                            actor=request.user,
+                        ))
 
                 # Movement history and imported activities are one option,
                 # ``history`` (#119).
@@ -927,6 +1077,9 @@ class BoardImportExportMixin:
 
             if external_refs_to_create:
                 CardExternalRef.objects.bulk_create(external_refs_to_create)
+
+            if field_values_to_create:
+                CustomFieldValue.objects.bulk_create(field_values_to_create)
 
             # Comments with optional timestamp backfill.
             # bulk_create returns objects with PKs; bulk_update then issues a single
@@ -1636,9 +1789,9 @@ class BoardImportExportMixin:
                     "created_at": card.created_at.isoformat(),
                     "created_by": card.created_by.username if card.created_by else None,
                     "archived_at": card.archived_at.isoformat() if card.archived_at else None,
-                    # #371. Additive, so schema_version stays at 2: the importer
-                    # ignores unrecognized keys, and re-importing custom field
-                    # data is a tracked follow-up rather than part of this phase.
+                    # #371. Additive, so schema_version stays at 2. Restored on
+                    # JSON import against the "custom_fields" definitions below
+                    # (#1447); CSV import still ignores its `Custom: ` columns.
                     "custom_field_values": _custom_values_by_name(card),
                     # #352. Additive like custom_field_values above; unlike
                     # them it *is* restored on import (validated through

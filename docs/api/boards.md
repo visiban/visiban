@@ -468,8 +468,8 @@ Each card also carries its own `movements` (`{from_column, to_column, from_swiml
 
 Since 1.2 the payload also carries the board's `custom_fields` schema and each card's
 `custom_field_values`, keyed by field name. Both are **additive**, so `schema_version`
-stays at `2` and an existing consumer is unaffected. Re-importing custom field data is not
-supported yet — the importer ignores both keys.
+stays at `2` and an existing consumer is unaffected. JSON import restores both (see
+[Custom fields on import](#custom-fields-on-import)).
 
 Also since 1.2, each card carries `external_ref` (`{ provider, ref, url }`, or `null` when unset). On import it is restored after validation against the same rules as the card API; invalid entries are silently dropped. CSV export and import do not carry it.
 
@@ -478,7 +478,7 @@ Also since 1.2, each swimlane object carries its own `custom_field_values` (keye
 `swimlane_custom_fields` array carries that schema — the row-level counterpart to
 `custom_fields`/`custom_field_values`, kept as separate keys rather than merged into the
 card ones because they are independent per-board sets attached to different objects.
-Both are additive and unimported, same as the card-level pair. A definition with
+Both are additive, and JSON import restores them, same as the card-level pair. A definition with
 `is_admin_only: true`, and any value under it, is omitted from the export entirely for a
 caller below `admin` — the same role gate this export already applies to a swimlane's
 `contact_email` and `notes`.
@@ -610,6 +610,12 @@ Board structure (name, columns, swimlanes) is always imported. Every option is a
 | `checklist` | Card checklist items, and the "checklist item added" activity entries the importer records for them. Requires `cards`. | JSON |
 | `history` | Card movements, the card `activities` from the file, and the "weight changed" activity entry the importer records for a non-default weight. Requires `cards`. | JSON |
 
+The importer writes its own "label added", "checklist item added" and "weight changed"
+entries only for history the file does not already record: with `history` on, a card whose
+`activities` already contain that event type keeps the file's entries (with their original
+actor and timestamp) and gets no synthetic copy, so re-importing an export does not double
+its history.
+
 An omitted `comments`, `checklist`, or `history` follows `cards`, so `{"cards": false}` alone imports structure and labels only. An explicit contradiction such as `{"cards": false, "comments": true}` is rejected.
 
 An invalid `options` field returns `400 Bad Request` before anything is created, with one of these `detail` messages:
@@ -628,6 +634,27 @@ curl -X POST https://visiban.example.com/api/v1/boards/import/ \
   -F file=@board.json \
   -F 'options={"labels": false, "history": false}'
 ```
+
+#### Custom fields on import
+
+> **Added in 1.2**
+
+A JSON file's `custom_fields` and `swimlane_custom_fields` definitions are restored with the
+board's structure, in list order, whatever the `options`. Each is validated exactly as the
+[custom field](#custom-fields-since-12) and
+[swimlane custom field](#swimlane-custom-fields-since-12) APIs validate a new definition, and
+the per-board limits apply to the list as a whole: at most 30 card fields (2 shown on the
+card) and 15 swimlane fields (8 shown on the row), with unique names. A definition that
+fails returns `400 Bad Request` and creates nothing — for example
+`'custom_fields' entry at index 1: 'choices': …` or `Duplicate swimlane_custom_fields names: Owner`.
+
+Values (`custom_field_values` on each card and each swimlane, keyed by field name) go
+through the same normalizer as `PATCH`. A value naming no imported field, or one its field's
+type refuses, is dropped and the rest of the import proceeds. Card values follow the
+`cards` option; swimlane values are structure and always import. Values exported by
+Visiban are already in stored form and round-trip unchanged.
+
+CSV import does not read the `Custom: ` or `Swimlane Custom: ` columns.
 
 **Response** `201 Created`
 

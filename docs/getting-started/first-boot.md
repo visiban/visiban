@@ -176,3 +176,12 @@ When registration mode is Closed, use **Admin → Users → Add user** to create
 
 !!! warning
     Copy the temporary password before closing the Create User dialog — it is not shown again. Share it with the new user via a secure channel.
+
+## Loading sample data
+
+To see a fully populated board before your team's real work arrives, import one of the
+sample boards. They are not shipped inside the Docker images or the Helm chart; download
+them from [`sample-boards/` on GitLab](https://gitlab.com/visiban/visiban/-/tree/main/sample-boards)
+(or the [GitHub mirror](https://github.com/visiban/visiban/tree/main/sample-boards)), then
+use **Dashboard → Import**. See [Sample Boards](sample-boards.md) for the list and for what
+each board demonstrates.

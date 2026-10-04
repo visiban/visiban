@@ -1,12 +1,15 @@
 """
-Generate all 10 seed template JSON files with:
-  - 20-25 cards per template (expands existing 11-14)
-  - Varied movement histories: stage skipping + occasional backtracks
-  - All fields populated: description, checklist, comments, labels, due_date, weight, assignee
+Generate the 11 sample board templates (JSON + CSV) in sample-boards/ with:
+  - 110-130 cards per template (46 hand-written ones on Sales Overlay)
+  - Varied movement histories: stage skipping, backtracks with notes, archives
+  - A full audit trail per card: every activity type the format carries
+  - Card and swimlane custom fields, WIP/weight limits and MR links
+    (the 1.2 feature layer in sample_features.py, #1447)
   - schema_version: 2
 
-Existing card content is PRESERVED exactly — only movements and activities are
-regenerated. New cards are appended after the existing ones.
+Templates 1-5 live here, 6-10 in generate_seed_data_part2.py, the Sales
+Overlay sample in sales_overlay.py. Output is deterministic: rerunning with
+no source change rewrites identical files.
 
 Usage (from repo root):
     python3 backend/boards/seed_data/generate_seed_data.py
@@ -18,6 +21,8 @@ import csv
 import json
 import os
 import random
+import re
+import zlib
 from datetime import datetime, timedelta, timezone
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -123,99 +128,331 @@ def _gen_movements(col_names: list[str], target_idx: int,
     return movements
 
 
-# ── Activity generation ───────────────────────────────────────────────────────
-def _gen_activities(card: dict, card_seed: int, movements: list[dict]) -> list[dict]:
-    """Generate CardActivity records for a card."""
-    acts = []
-    if movements:
-        ts = datetime.strptime(
-            movements[0]["moved_at"], "%Y-%m-%dT%H:%M:%S+00:00"
-        ).replace(tzinfo=timezone.utc) + timedelta(hours=1)
-    else:
-        ts = ANCHOR - timedelta(days=30)
+# ── Per-card RNG ──────────────────────────────────────────────────────────────
+def _card_rng(slug: str, title: str) -> random.Random:
+    """A generator private to one card.
 
-    actor = _user(card_seed)
+    The 1.2 history and field layers draw from this rather than the shared
+    ``_rng``, so they can grow without reshuffling any template's columns,
+    labels or movements.
+    """
+    return random.Random(zlib.crc32(f"{slug}|{title}".encode()))
+
+
+def _parse(ts: str) -> datetime:
+    return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S+00:00").replace(tzinfo=timezone.utc)
+
+
+_LOST_RX = re.compile(r"lost|rejected|denied|churned", re.IGNORECASE)
+
+# Notes a mover leaves on a transition. Backtracks always carry one, since
+# "why did this go backwards?" is the question the audit trail exists for.
+_BACKTRACK_NOTES = [
+    "Sent back: acceptance criteria were not met.",
+    "Reopened after review found a gap.",
+    "Moved back while we wait on missing information.",
+    "Returned for rework after stakeholder feedback.",
+]
+_FORWARD_NOTES = [
+    "Handed off with notes in the description.",
+    "Reviewed in standup; moving ahead.",
+    "Unblocked after the dependency landed.",
+    "Approved by the owner.",
+]
+
+
+def _annotate_movements(movements: list[dict], col_names: list[str],
+                        rng: random.Random) -> None:
+    """Add ``movement_type`` to every move and ``notes`` to some (schema v2 keys)."""
+    for i, mv in enumerate(movements):
+        mv["notes"] = ""
+        mv["movement_type"] = "move"
+        if i == 0:
+            continue
+        if col_names.index(mv["to_column"]) < col_names.index(mv["from_column"]):
+            mv["notes"] = rng.choice(_BACKTRACK_NOTES)
+        elif rng.random() < 0.25:
+            mv["notes"] = rng.choice(_FORWARD_NOTES)
+
+
+# ── Activity generation ───────────────────────────────────────────────────────
+def _gen_activities(card: dict, movements: list[dict], rng: random.Random,
+                    label_pool: list[str]) -> list[dict]:
+    """Generate the card's audit trail: one entry for every change it went through.
+
+    Covers every ``CardActivity`` event type the JSON format can carry except
+    attachments (the format has no attachment payload, so an
+    ``attachment_added`` entry would point at a file that is not there). Values
+    use the shapes the live API writes — labels as ``"+A, B"`` / ``"-C"``,
+    dates ISO, users by username — so the activity tab reads the same as on a
+    board that was used by hand.
+
+    Comments get their ``created_at`` here too, matching their
+    ``comment_added`` entry, so the comment list and the activity log agree.
+    """
+    created = _parse(movements[0]["moved_at"])
+    last = _parse(movements[-1]["moved_at"])
+    end = max(last, created + timedelta(days=3))
+    if end >= ANCHOR:
+        end = ANCHOR - timedelta(hours=1)
+    span = max(1.0, (end - created).total_seconds())
+    actor = movements[0]["moved_by"]
+    others = [u for u in DEMO_USERS if u != actor]
+
+    events = []  # (offset fraction, event dict)
+
+    def add(frac, event_type, from_value, to_value, who=None):
+        events.append((frac, {
+            "event_type": event_type, "from_value": from_value, "to_value": to_value,
+            "actor": who or actor,
+        }))
+
+    title = card["title"]
+    if rng.random() < 0.15:
+        draft = title.split(" -- ")[0] if " -- " in title else f"{title} (draft)"
+        if draft != title:
+            add(0.02, "title_change", draft, title)
+
+    if card.get("description"):
+        add(0.04, "description_change", "", "")
+        if rng.random() < 0.3:
+            add(0.45, "description_change", "", "", rng.choice(others))
 
     assignee = card.get("assignee")
     if assignee:
-        acts.append({
-            "event_type": "assignee_change",
-            "from_value": "", "to_value": assignee,
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=2)
+        if rng.random() < 0.25:
+            first = rng.choice([u for u in DEMO_USERS if u != assignee])
+            add(0.05, "assignee_change", "", first)
+            add(0.5, "assignee_change", first, assignee, rng.choice(others))
+        else:
+            add(0.05, "assignee_change", "", assignee)
 
     labels = card.get("labels", [])
     if labels:
-        acts.append({
-            "event_type": "label_change",
-            "from_value": "", "to_value": ", ".join(labels),
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=3)
+        add(0.08, "label_change", "", f"+{', '.join(labels)}")
+    spare = [lb for lb in label_pool if lb not in labels]
+    if spare and rng.random() < 0.2:
+        temp = rng.choice(spare)
+        add(0.2, "label_change", "", f"+{temp}", rng.choice(others))
+        add(0.6, "label_change", "", f"-{temp}")
 
     priority = card.get("priority", "medium")
-    if priority not in ("medium", None, ""):
-        acts.append({
-            "event_type": "priority_change",
-            "from_value": "medium", "to_value": priority,
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=2)
+    if priority == "urgent" and rng.random() < 0.5:
+        add(0.1, "priority_change", "medium", "high")
+        add(0.55, "priority_change", "high", "urgent", rng.choice(others))
+    elif priority not in ("medium", None, ""):
+        add(0.1, "priority_change", "medium", priority)
 
-    due_date = card.get("due_date")
-    if due_date:
-        acts.append({
-            "event_type": "due_date_change",
-            "from_value": "", "to_value": due_date,
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=1)
+    weight = card.get("weight") or 1
+    if weight > 1:
+        add(0.12, "weight_change", "1", str(weight))
 
-    for item in card.get("checklist", []):
-        acts.append({
-            "event_type": "checklist_item_added",
-            "from_value": "", "to_value": item["text"],
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(minutes=20)
+    due = card.get("due_date")
+    if due:
+        if rng.random() < 0.25:
+            earlier = (datetime.strptime(due, "%Y-%m-%d") - timedelta(days=rng.randint(5, 20))).strftime("%Y-%m-%d")
+            add(0.15, "due_date_change", "", earlier)
+            add(0.7, "due_date_change", earlier, due, rng.choice(others))
+        else:
+            add(0.15, "due_date_change", "", due)
+
+    checklist = card.get("checklist", [])
+    for i, item in enumerate(checklist):
+        add(0.18 + i * 0.02, "checklist_item_added", "", item["text"])
         if item.get("is_checked"):
-            acts.append({
-                "event_type": "checklist_item_checked",
-                "from_value": "", "to_value": item["text"],
-                "actor": actor, "created_at": _iso(ts),
-            })
-            ts += timedelta(minutes=15)
+            add(0.3 + i * 0.08, "checklist_item_checked", "", item["text"], rng.choice(DEMO_USERS))
+        elif rng.random() < 0.2:
+            # Ticked by mistake, then unticked: the log keeps both.
+            add(0.3 + i * 0.08, "checklist_item_checked", "", item["text"])
+            add(0.32 + i * 0.08, "checklist_item_unchecked", "", item["text"])
+    if checklist and rng.random() < 0.2:
+        add(0.25, "checklist_item_added", "", "Duplicate of an existing step")
+        add(0.27, "checklist_item_deleted", "Duplicate of an existing step", "")
 
-    for comment in card.get("comments", []):
-        c_actor = comment.get("author") or actor
-        acts.append({
-            "event_type": "comment_added",
-            "from_value": "", "to_value": comment["body"][:120],
-            "actor": c_actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=_ri(2, 10))
+    comments = card.get("comments", [])
+    for i, comment in enumerate(comments):
+        frac = 0.35 + 0.6 * (i + 1) / (len(comments) + 1)
+        ts = created + timedelta(seconds=span * frac)
+        comment["created_at"] = _iso(ts)
+        events.append((frac, {
+            "event_type": "comment_added", "from_value": "",
+            "to_value": comment["body"][:120], "actor": comment.get("author") or actor,
+        }))
 
+    events.sort(key=lambda e: e[0])
+    acts = []
+    for frac, ev in events:
+        ev["created_at"] = _iso(created + timedelta(seconds=span * frac))
+        acts.append(ev)
     return acts
 
 
+# ── 1.2 feature layer (custom fields, row fields, MR links, archive) ─────────
+def _definition(spec: dict, pin_key: str) -> dict:
+    """Export-shaped definition dict, identical keys to the board exporter."""
+    display = spec.get("display", {})
+    out = {
+        "name": spec["name"],
+        "field_type": spec["field_type"],
+        "choices": spec["choices"],
+        "position": 0,
+        pin_key: spec[pin_key],
+    }
+    if pin_key == "show_on_row":
+        out["is_admin_only"] = spec["is_admin_only"]
+    out.update({
+        "is_required": False,
+        "help_text": spec["help_text"],
+        "number_prefix": display.get("number_prefix", ""),
+        "number_suffix": display.get("number_suffix", ""),
+        "number_decimals": display.get("number_decimals"),
+        "choice_colors": display.get("choice_colors", {}),
+    })
+    return out
+
+
+def _slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def _apply_features(data: dict, features: dict, slug: str) -> None:
+    """Attach the template's 1.2 features to an already-built board dict."""
+    columns = data["columns"]
+    col_index = {c["name"]: i for i, c in enumerate(columns)}
+    done_cols = {c["name"] for c in columns if c.get("is_done")}
+    last_open = max([i for i, c in enumerate(columns) if not c.get("is_done")] or [1])
+
+    card_specs = features.get("card_fields", [])
+    lane_specs = features.get("swimlane_fields", [])
+    data["custom_fields"] = []
+    for i, spec in enumerate(card_specs):
+        definition = _definition(spec, "show_on_card")
+        definition["position"] = i
+        data["custom_fields"].append(definition)
+    data["swimlane_custom_fields"] = []
+    for i, spec in enumerate(lane_specs):
+        definition = _definition(spec, "show_on_row")
+        definition["position"] = i
+        data["swimlane_custom_fields"].append(definition)
+
+    for i, lane in enumerate(data["swimlanes"]):
+        lctx = {"index": i, "name": lane["name"], "slug_name": _slugify(lane["name"]),
+                "rng": _card_rng(slug, f"lane:{lane['name']}")}
+        values = {}
+        for spec in lane_specs:
+            value = spec["gen"](lctx)
+            if value not in (None, ""):
+                values[spec["name"]] = value
+        # Hand-written values (the overlay board) win over generated ones.
+        values.update(lane.get("custom_field_values", {}))
+        # Rebuilt in the board exporter's key order. contact_email is left
+        # empty on purpose: the row header prints it under the lane name, and
+        # a placeholder team address says nothing about the lane, while the
+        # pinned row fields below it do. It stays as a key because an admin
+        # export always writes it.
+        data["swimlanes"][i] = {
+            "name": lane["name"], "position": lane["position"], "color": lane["color"],
+            "contact_email": "", "notes": lane.get("notes", ""),
+            "custom_field_values": values,
+        }
+
+    refs = features.get("external_refs")
+    for seq, card in enumerate(data["cards"]):
+        rng = _card_rng(slug, "fields:" + card["title"])
+        idx = col_index[card["column"]]
+        is_done = card["column"] in done_cols
+        ctx = {
+            "card": card, "rng": rng, "seq": 1000 + seq,
+            "is_done": is_done, "lost": bool(_LOST_RX.search(card["column"])),
+            "progress": 1.0 if is_done else idx / max(1, last_open),
+        }
+        values = {}
+        for spec in card_specs:
+            value = spec["gen"](ctx)
+            if value not in (None, ""):
+                values[spec["name"]] = value
+        values.update(card.pop("custom_field_values", None) or {})
+        card["custom_field_values"] = values
+
+        if card.get("external_ref") is None:
+            card["external_ref"] = None
+            if refs and ctx["progress"] >= refs["from_progress"] and rng.random() < 0.6:
+                n = 200 + seq
+                card["external_ref"] = {
+                    "provider": refs["provider"],
+                    "ref": refs["ref"].format(n=n),
+                    "url": refs["url"].format(n=n),
+                }
+
+
+def _set_column_limits(data: dict, limits: dict) -> None:
+    """Set WIP / weight limits relative to each column's live load (see sample_features)."""
+    live = [c for c in data["cards"] if not c.get("archived_at")]
+    for col in data["columns"]:
+        if col["name"] not in limits:
+            continue
+        wip_headroom, weight_headroom = limits[col["name"]]
+        here = [c for c in live if c["column"] == col["name"]]
+        if wip_headroom is not None:
+            col["wip_limit"] = max(1, len(here) + wip_headroom)
+        if weight_headroom is not None:
+            col["weight_limit"] = max(1, sum(c["weight"] or 1 for c in here) + weight_headroom)
+
+
+def _archive_some(cards: list[dict], done_cols: set[str], slug: str) -> None:
+    """Archive a share of finished cards, the way a team clears its Done column.
+
+    Writes both halves the importer restores: ``archived_at`` on the card and
+    an ``archived`` movement (same column, so the card still ends where it
+    sits) in its history.
+    """
+    for card in cards:
+        if card["column"] not in done_cols:
+            continue
+        rng = _card_rng(slug, "archive:" + card["title"])
+        if rng.random() >= 0.25:
+            continue
+        last = _parse(card["movements"][-1]["moved_at"])
+        at = min(last + timedelta(days=rng.randint(2, 9)), ANCHOR - timedelta(hours=3))
+        card["archived_at"] = _iso(at)
+        card["movements"].append({
+            "from_column": card["column"], "to_column": card["column"],
+            "from_swimlane": card["swimlane"], "to_swimlane": card["swimlane"],
+            "moved_at": _iso(at), "moved_by": card["movements"][-1]["moved_by"],
+            "notes": "Archived after the weekly board cleanup.",
+            "movement_type": "archived",
+        })
+
+
 # ── Card enrichment ───────────────────────────────────────────────────────────
-def _enrich(card: dict, col_names: list[str], card_seed: int) -> dict:
+def _enrich(card: dict, col_names: list[str], card_seed: int, slug: str,
+            label_pool: list[str], descriptions: list[str]) -> dict:
     """Attach movements, activities, and assignee to a card dict."""
     target_idx = col_names.index(card["column"])
     swimlane = card["swimlane"]
+    rng = _card_rng(slug, card["title"])
 
-    # 80 % of cards have an assignee; every 5th card is unassigned
-    card["assignee"] = _user(card_seed) if card_seed % 5 != 4 else None
+    # Most generated cards are title-only; give about half a description so
+    # boards show both shapes (and description edits show in the history).
+    if not card.get("description") and descriptions and rng.random() < 0.5:
+        card["description"] = rng.choice(descriptions).format(lane=swimlane)
+
+    # 80 % of cards have an assignee; every 5th card is unassigned. A card
+    # that names its assignee (hand-written templates) keeps it.
+    if "assignee" not in card:
+        card["assignee"] = _user(card_seed) if card_seed % 5 != 4 else None
 
     movs = _gen_movements(col_names, target_idx, swimlane, card_seed)
+    _annotate_movements(movs, col_names, rng)
     card["movements"] = movs
-    card["activities"] = _gen_activities(card, card_seed, movs)
+    card["created_by"] = movs[0]["moved_by"]
+    card["created_at"] = movs[0]["moved_at"]
+    card["activities"] = _gen_activities(card, movs, rng, label_pool)
     return card
 
 
 # ── Template expander ─────────────────────────────────────────────────────────
-def _build(tpl: dict) -> dict:
+def _build(tpl: dict, features: dict | None = None) -> dict:
     """
     Build the final template dict from the cards defined in extra_cards.
     All card content is authoritative from the template definition -- the
@@ -223,22 +460,36 @@ def _build(tpl: dict) -> dict:
     """
     slug = tpl["slug"]
     col_names = [c["name"] for c in tpl["columns"]]
+    label_pool = [lb["name"] for lb in tpl["labels"]]
 
     all_cards = tpl.get("extra_cards", [])
 
+    descriptions = (features or {}).get("descriptions", [])
     enriched = []
     for i, card in enumerate(all_cards):
-        enriched.append(_enrich(dict(card), col_names, i * 7 + hash(slug) % 100))
+        enriched.append(_enrich(dict(card), col_names, i * 7 + zlib.crc32(slug.encode()) % 100,
+                                slug, label_pool, descriptions))
 
-    return {
+    data = {
         "schema_version": SCHEMA_VERSION,
         "name": tpl["name"],
         "description": tpl["description"],
-        "columns": tpl["columns"],
-        "swimlanes": tpl["swimlanes"],
+        "columns": [dict(c) for c in tpl["columns"]],
+        "swimlanes": [dict(s) for s in tpl["swimlanes"]],
         "labels": tpl["labels"],
         "cards": enriched,
     }
+    for col in data["columns"]:
+        col.setdefault("is_done", False)
+        col.setdefault("weight_limit", None)
+    _apply_features(data, features or {}, slug)
+    _archive_some(enriched, {c["name"] for c in data["columns"] if c["is_done"]}, slug)
+    _set_column_limits(data, (features or {}).get("column_limits", {}))
+    # Key order matches the board exporter, so a sample diffs cleanly
+    # against an export of the board it produces.
+    order = ["schema_version", "name", "description", "columns", "swimlanes",
+             "labels", "custom_fields", "swimlane_custom_fields", "cards"]
+    return {k: data[k] for k in order}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -443,6 +694,7 @@ def _auto_cards(
     swimlanes: list[dict],
     labels: list[dict],
     theme: str,
+    stage_rules: list[tuple[str, list[tuple[str, float]]]] | None = None,
 ) -> list[dict]:
     """
     Generate cards from a list of unique titles, distributing them across
@@ -454,6 +706,11 @@ def _auto_cards(
         swimlanes: Template swimlane defs (list of dicts with 'name').
         labels: Template label defs (list of dicts with 'name').
         theme: Key into _GENERIC_CHECKLIST_ITEMS / _GENERIC_COMMENTS.
+        stage_rules: Optional ordered (regex, [(column, weight), ...]) pairs for
+            templates whose titles name a stage (e.g. "Churned: ..." or
+            "Phone screen -- ..."). The first regex that matches a title decides
+            its column, so a card never contradicts the column it sits in.
+            Titles with no match fall back to the weighted random pick.
 
     Returns:
         List of card dicts compatible with extra_cards / _c() format.
@@ -481,13 +738,27 @@ def _auto_cards(
     chk_items = _GENERIC_CHECKLIST_ITEMS.get(theme, _GENERIC_CHECKLIST_ITEMS["kanban"])
     cmt_pool = _GENERIC_COMMENTS.get(theme, _GENERIC_COMMENTS["kanban"])
 
+    compiled_rules = [(re.compile(rx, re.IGNORECASE), opts) for rx, opts in (stage_rules or [])]
+
     cards = []
     for idx, title in enumerate(titles):
         # Round-robin swimlane assignment
         lane = lane_names[idx % len(lane_names)]
 
-        # Weighted column selection
+        # Weighted column selection. Always drawn, even when a stage rule
+        # overrides it, so the shared RNG stream (and therefore every other
+        # template's output) is unchanged by adding rules to one template.
         col = _rng.choices(col_names, weights=col_weights, k=1)[0]
+
+        # Title-derived column. Uses its own RNG keyed on the title so a
+        # split rule (e.g. offer -> Offer Extended or Hired) is stable.
+        for rx, opts in compiled_rules:
+            if rx.search(title):
+                names = [n for n, _ in opts]
+                assert all(n in col_names for n in names), (title, names)
+                pick = random.Random(zlib.crc32(title.encode()))
+                col = pick.choices(names, weights=[w for _, w in opts], k=1)[0]
+                break
 
         pri = _choice(priorities)
 
@@ -558,17 +829,17 @@ _SALES_COLUMNS = [
 ]
 
 _SALES_SWIMLANES = [
-    {"name": "North America",   "position": 0,  "color": "#3B82F6", "contact_email": "na-sales@example.com",       "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR."},
-    {"name": "APAC",            "position": 1,  "color": "#F59E0B", "contact_email": "apac-sales@example.com",     "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles."},
-    {"name": "EMEA",            "position": 2,  "color": "#8B5CF6", "contact_email": "emea-sales@example.com",     "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals."},
-    {"name": "LATAM",           "position": 3,  "color": "#10B981", "contact_email": "latam-sales@example.com",    "notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations."},
-    {"name": "ANZ",             "position": 4,  "color": "#EC4899", "contact_email": "anz-sales@example.com",      "notes": "SMB and creative agency accounts. Fast decision cycles -- typically days, not weeks."},
-    {"name": "UK & Ireland",    "position": 5,  "color": "#14B8A6", "contact_email": "uki-sales@example.com",      "notes": "Financial services and professional services verticals. GDPR applies. Q2 target: 420k GBP."},
-    {"name": "DACH",            "position": 6,  "color": "#6366F1", "contact_email": "dach-sales@example.com",     "notes": "Germany, Austria, Switzerland. Manufacturing and engineering firms. German-language demos available."},
-    {"name": "Nordics",         "position": 7,  "color": "#0EA5E9", "contact_email": "nordics-sales@example.com",  "notes": "Sweden, Norway, Denmark, Finland. Tech-forward accounts. Short procurement cycles."},
-    {"name": "Middle East",     "position": 8,  "color": "#F43F5E", "contact_email": "me-sales@example.com",       "notes": "UAE, Saudi Arabia, Qatar. Large enterprise and government. Data residency requirements common."},
-    {"name": "Southeast Asia",  "position": 9,  "color": "#A855F7", "contact_email": "sea-sales@example.com",      "notes": "Singapore, Indonesia, Philippines, Thailand. Mix of tech startups and traditional enterprises."},
-    {"name": "Japan & Korea",   "position": 10, "color": "#EAB308", "contact_email": "jpkr-sales@example.com",     "notes": "Large enterprise accounts. Localization required. Partner-led sales motion."},
+    {"name": "North America",   "position": 0,  "color": "#3B82F6", "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR."},
+    {"name": "APAC",            "position": 1,  "color": "#F59E0B", "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles."},
+    {"name": "EMEA",            "position": 2,  "color": "#8B5CF6", "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals."},
+    {"name": "LATAM",           "position": 3,  "color": "#10B981", "notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations."},
+    {"name": "ANZ",             "position": 4,  "color": "#EC4899", "notes": "SMB and creative agency accounts. Fast decision cycles -- typically days, not weeks."},
+    {"name": "UK & Ireland",    "position": 5,  "color": "#14B8A6", "notes": "Financial services and professional services verticals. GDPR applies. Q2 target: 420k GBP."},
+    {"name": "DACH",            "position": 6,  "color": "#6366F1", "notes": "Germany, Austria, Switzerland. Manufacturing and engineering firms. German-language demos available."},
+    {"name": "Nordics",         "position": 7,  "color": "#0EA5E9", "notes": "Sweden, Norway, Denmark, Finland. Tech-forward accounts. Short procurement cycles."},
+    {"name": "Middle East",     "position": 8,  "color": "#F43F5E", "notes": "UAE, Saudi Arabia, Qatar. Large enterprise and government. Data residency requirements common."},
+    {"name": "Southeast Asia",  "position": 9,  "color": "#A855F7", "notes": "Singapore, Indonesia, Philippines, Thailand. Mix of tech startups and traditional enterprises."},
+    {"name": "Japan & Korea",   "position": 10, "color": "#EAB308", "notes": "Large enterprise accounts. Localization required. Partner-led sales motion."},
 ]
 
 _SALES_LABELS = [
@@ -734,17 +1005,17 @@ _SUPPORT_COLUMNS = [
 ]
 
 _SUPPORT_SWIMLANES = [
-    {"name": "TechNova Inc",          "position": 0,  "color": "#3B82F6", "contact_email": "support@technova.example",        "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1."},
-    {"name": "Apex Retail Group",     "position": 1,  "color": "#F59E0B", "contact_email": "support@apexretail.example",      "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager."},
-    {"name": "FinEdge Ltd",           "position": 2,  "color": "#8B5CF6", "contact_email": "support@finedge.example",         "notes": "Compliance-sensitive. All support comms may be audited. Use formal language."},
-    {"name": "BlueSky Health",        "position": 3,  "color": "#10B981", "contact_email": "support@blueskyhealth.example",   "notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal."},
-    {"name": "Mosaic Creative",       "position": 4,  "color": "#EC4899", "contact_email": "support@mosaiccreative.example",  "notes": "SMB tier. Self-serve. Generally quick to resolve -- low SLA pressure."},
-    {"name": "Global Freight Co",     "position": 5,  "color": "#14B8A6", "contact_email": "support@globalfreight.example",   "notes": "Enterprise tier. 300 seats. Logistics-heavy workflows. SLA: 4-hour response."},
-    {"name": "Pinnacle Finance",      "position": 6,  "color": "#6366F1", "contact_email": "support@pinnaclefin.example",     "notes": "Financial services. SOC 2 environment. Audit trail exports are critical."},
-    {"name": "Redwood Agency",        "position": 7,  "color": "#0EA5E9", "contact_email": "support@redwoodagency.example",   "notes": "SMB creative agency. 25 seats. Fast response expected but no formal SLA."},
-    {"name": "Atlas Logistics BV",    "position": 8,  "color": "#F43F5E", "contact_email": "support@atlaslogistics.example",  "notes": "EMEA mid-market. 200 seats. GDPR-sensitive. Dutch business hours only."},
-    {"name": "Vertex Media",          "position": 9,  "color": "#A855F7", "contact_email": "support@vertexmedia.example",     "notes": "Growing account. 75 seats approaching 150. High feature request volume."},
-    {"name": "Ironside Manufacturing","position": 10, "color": "#EAB308", "contact_email": "support@ironsidemfg.example",     "notes": "Manufacturing. Shop floor workers with limited tech literacy. Extra patience needed."},
+    {"name": "TechNova Inc",          "position": 0,  "color": "#3B82F6", "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1."},
+    {"name": "Apex Retail Group",     "position": 1,  "color": "#F59E0B", "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager."},
+    {"name": "FinEdge Ltd",           "position": 2,  "color": "#8B5CF6", "notes": "Compliance-sensitive. All support comms may be audited. Use formal language."},
+    {"name": "BlueSky Health",        "position": 3,  "color": "#10B981", "notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal."},
+    {"name": "Mosaic Creative",       "position": 4,  "color": "#EC4899", "notes": "SMB tier. Self-serve. Generally quick to resolve -- low SLA pressure."},
+    {"name": "Global Freight Co",     "position": 5,  "color": "#14B8A6", "notes": "Enterprise tier. 300 seats. Logistics-heavy workflows. SLA: 4-hour response."},
+    {"name": "Pinnacle Finance",      "position": 6,  "color": "#6366F1", "notes": "Financial services. SOC 2 environment. Audit trail exports are critical."},
+    {"name": "Redwood Agency",        "position": 7,  "color": "#0EA5E9", "notes": "SMB creative agency. 25 seats. Fast response expected but no formal SLA."},
+    {"name": "Atlas Logistics BV",    "position": 8,  "color": "#F43F5E", "notes": "EMEA mid-market. 200 seats. GDPR-sensitive. Dutch business hours only."},
+    {"name": "Vertex Media",          "position": 9,  "color": "#A855F7", "notes": "Growing account. 75 seats approaching 150. High feature request volume."},
+    {"name": "Ironside Manufacturing","position": 10, "color": "#EAB308", "notes": "Manufacturing. Shop floor workers with limited tech literacy. Extra patience needed."},
 ]
 
 _SUPPORT_LABELS = [
@@ -902,17 +1173,17 @@ _SUCCESS_COLUMNS = [
 ]
 
 _SUCCESS_SWIMLANES = [
-    {"name": "Americas",            "position": 0,  "color": "#3B82F6", "contact_email": "csm-americas@visiban.example",  "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera."},
-    {"name": "EMEA",                "position": 1,  "color": "#8B5CF6", "contact_email": "csm-emea@visiban.example",      "notes": "Europe, Middle East, Africa. CSM: Jordan Patel."},
-    {"name": "APAC",                "position": 2,  "color": "#10B981", "contact_email": "csm-apac@visiban.example",      "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu."},
-    {"name": "Enterprise Accounts", "position": 3,  "color": "#F59E0B", "contact_email": "enterprise-cs@visiban.example", "notes": "200+ seat strategic accounts managed directly by VP CS."},
-    {"name": "Mid-Market",          "position": 4,  "color": "#EF4444", "contact_email": "midmarket-cs@visiban.example",  "notes": "20-200 seat accounts. CSM coverage pooled."},
-    {"name": "Strategic Partners",  "position": 5,  "color": "#14B8A6", "contact_email": "partners-cs@visiban.example",   "notes": "Channel and technology partners. Joint success plans. CSM: Riley Kim."},
-    {"name": "Government & Edu",    "position": 6,  "color": "#6366F1", "contact_email": "gov-cs@visiban.example",        "notes": "Public sector accounts. Longer procurement, stricter compliance. CSM: Sam Torres."},
-    {"name": "Healthcare",          "position": 7,  "color": "#0EA5E9", "contact_email": "health-cs@visiban.example",     "notes": "HIPAA-compliant accounts. PHI handling required. CSM: Casey Park."},
-    {"name": "Financial Services",  "position": 8,  "color": "#F43F5E", "contact_email": "fin-cs@visiban.example",        "notes": "SOC 2 and regulatory compliance required. CSM: Drew Martinez."},
-    {"name": "Startup & SMB",       "position": 9,  "color": "#A855F7", "contact_email": "smb-cs@visiban.example",        "notes": "Sub-20-seat accounts. Tech-touch CSM model. Automated health scoring."},
-    {"name": "Agency & Creative",   "position": 10, "color": "#EAB308", "contact_email": "agency-cs@visiban.example",     "notes": "Creative agencies and studios. High board count, low seat count. CSM: Avery Chen."},
+    {"name": "Americas",            "position": 0,  "color": "#3B82F6", "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera."},
+    {"name": "EMEA",                "position": 1,  "color": "#8B5CF6", "notes": "Europe, Middle East, Africa. CSM: Jordan Patel."},
+    {"name": "APAC",                "position": 2,  "color": "#10B981", "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu."},
+    {"name": "Enterprise Accounts", "position": 3,  "color": "#F59E0B", "notes": "200+ seat strategic accounts managed directly by VP CS."},
+    {"name": "Mid-Market",          "position": 4,  "color": "#EF4444", "notes": "20-200 seat accounts. CSM coverage pooled."},
+    {"name": "Strategic Partners",  "position": 5,  "color": "#14B8A6", "notes": "Channel and technology partners. Joint success plans. CSM: Riley Kim."},
+    {"name": "Government & Edu",    "position": 6,  "color": "#6366F1", "notes": "Public sector accounts. Longer procurement, stricter compliance. CSM: Sam Torres."},
+    {"name": "Healthcare",          "position": 7,  "color": "#0EA5E9", "notes": "HIPAA-compliant accounts. PHI handling required. CSM: Casey Park."},
+    {"name": "Financial Services",  "position": 8,  "color": "#F43F5E", "notes": "SOC 2 and regulatory compliance required. CSM: Drew Martinez."},
+    {"name": "Startup & SMB",       "position": 9,  "color": "#A855F7", "notes": "Sub-20-seat accounts. Tech-touch CSM model. Automated health scoring."},
+    {"name": "Agency & Creative",   "position": 10, "color": "#EAB308", "notes": "Creative agencies and studios. High board count, low seat count. CSM: Avery Chen."},
 ]
 
 _SUCCESS_LABELS = [
@@ -1069,6 +1340,19 @@ _SUCCESS_TITLES = [
     "Jade Marketing Group -- Churned: consolidated to project management suite",
 ]
 
+# Titles read "<Account> -- <Stage>: ..." so the lead word names the lifecycle
+# stage. There is no At Risk column; at-risk accounts are still being adopted.
+_SUCCESS_STAGE_RULES = [
+    (r"-- (Kickoff|Onboarding|Partner enablement)", [("Onboarding", 1)]),
+    (r"-- Adoption", [("Adoption", 1)]),
+    (r"-- At-risk", [("Adoption", 1)]),
+    (r"-- Healthy", [("Healthy", 1)]),
+    (r"-- QBR", [("Healthy", 1)]),
+    (r"-- Expansion", [("Expansion", 1)]),
+    (r"-- Renewal", [("Renewal", 1)]),
+    (r"-- Churned", [("Churned", 1)]),
+]
+
 CUSTOMER_SUCCESS = {
     "slug": "customer_success",
     "name": "Template: Customer Success",
@@ -1076,7 +1360,7 @@ CUSTOMER_SUCCESS = {
     "columns": _SUCCESS_COLUMNS,
     "swimlanes": _SUCCESS_SWIMLANES,
     "labels": _SUCCESS_LABELS,
-    "extra_cards": _auto_cards(_SUCCESS_TITLES, _SUCCESS_COLUMNS, _SUCCESS_SWIMLANES, _SUCCESS_LABELS, "success"),
+    "extra_cards": _auto_cards(_SUCCESS_TITLES, _SUCCESS_COLUMNS, _SUCCESS_SWIMLANES, _SUCCESS_LABELS, "success", _SUCCESS_STAGE_RULES),
 }
 
 
@@ -1091,16 +1375,16 @@ _KANBAN_COLUMNS = [
 ]
 
 _KANBAN_SWIMLANES = [
-    {"name": "Frontend",      "position": 0,  "color": "#3B82F6", "contact_email": "", "notes": "React + TypeScript. Owns all UI components, pages, and the design system."},
-    {"name": "Backend",       "position": 1,  "color": "#8B5CF6", "contact_email": "", "notes": "Django + DRF. Owns API, data models, business logic, and background tasks."},
-    {"name": "Mobile",        "position": 2,  "color": "#EC4899", "contact_email": "", "notes": "React Native. iOS + Android. Syncs with main API."},
-    {"name": "DevOps",        "position": 3,  "color": "#14B8A6", "contact_email": "", "notes": "CI/CD, infrastructure, reliability, and monitoring."},
-    {"name": "Design",        "position": 4,  "color": "#F59E0B", "contact_email": "", "notes": "UX/UI design, design system, user research."},
-    {"name": "QA",            "position": 5,  "color": "#EF4444", "contact_email": "", "notes": "Manual and automated testing. Regression suites and exploratory testing."},
-    {"name": "Data",          "position": 6,  "color": "#10B981", "contact_email": "", "notes": "Data engineering and analytics. Pipelines, dashboards, and reporting."},
-    {"name": "Security",      "position": 7,  "color": "#6366F1", "contact_email": "", "notes": "Application security, penetration testing, and compliance audits."},
-    {"name": "Platform",      "position": 8,  "color": "#0EA5E9", "contact_email": "", "notes": "Shared libraries, SDKs, developer tooling, and internal APIs."},
-    {"name": "Documentation", "position": 9,  "color": "#F43F5E", "contact_email": "", "notes": "Technical writing, API docs, user guides, and onboarding materials."},
+    {"name": "Frontend",      "position": 0,  "color": "#3B82F6", "notes": "React + TypeScript. Owns all UI components, pages, and the design system."},
+    {"name": "Backend",       "position": 1,  "color": "#8B5CF6", "notes": "Django + DRF. Owns API, data models, business logic, and background tasks."},
+    {"name": "Mobile",        "position": 2,  "color": "#EC4899", "notes": "React Native. iOS + Android. Syncs with main API."},
+    {"name": "DevOps",        "position": 3,  "color": "#14B8A6", "notes": "CI/CD, infrastructure, reliability, and monitoring."},
+    {"name": "Design",        "position": 4,  "color": "#F59E0B", "notes": "UX/UI design, design system, user research."},
+    {"name": "QA",            "position": 5,  "color": "#EF4444", "notes": "Manual and automated testing. Regression suites and exploratory testing."},
+    {"name": "Data",          "position": 6,  "color": "#10B981", "notes": "Data engineering and analytics. Pipelines, dashboards, and reporting."},
+    {"name": "Security",      "position": 7,  "color": "#6366F1", "notes": "Application security, penetration testing, and compliance audits."},
+    {"name": "Platform",      "position": 8,  "color": "#0EA5E9", "notes": "Shared libraries, SDKs, developer tooling, and internal APIs."},
+    {"name": "Documentation", "position": 9,  "color": "#F43F5E", "notes": "Technical writing, API docs, user guides, and onboarding materials."},
 ]
 
 _KANBAN_LABELS = [
@@ -1269,16 +1553,16 @@ _ROADMAP_COLUMNS = [
 ]
 
 _ROADMAP_SWIMLANES = [
-    {"name": "Mobile App",            "position": 0,  "color": "#EC4899", "contact_email": "", "notes": "iOS and Android. Targets field workers and on-the-go board access."},
-    {"name": "Core Platform",         "position": 1,  "color": "#3B82F6", "contact_email": "", "notes": "Web app, API, and shared infrastructure features."},
-    {"name": "Integrations",          "position": 2,  "color": "#10B981", "contact_email": "", "notes": "Third-party integrations: Slack, GitHub, Jira, Zapier, webhooks."},
-    {"name": "Analytics",             "position": 3,  "color": "#F59E0B", "contact_email": "", "notes": "Board analytics, cycle time, throughput, and reporting features."},
-    {"name": "Compliance & Security", "position": 4,  "color": "#8B5CF6", "contact_email": "", "notes": "GDPR, SOC 2, audit logging, and security hardening features."},
-    {"name": "Collaboration",         "position": 5,  "color": "#14B8A6", "contact_email": "", "notes": "Real-time collaboration, comments, mentions, and notification features."},
-    {"name": "Import & Export",       "position": 6,  "color": "#6366F1", "contact_email": "", "notes": "Data portability: CSV, JSON, API bulk operations, and migration tools."},
-    {"name": "Automation",            "position": 7,  "color": "#0EA5E9", "contact_email": "", "notes": "Rule-based automation: auto-move, auto-assign, scheduled actions."},
-    {"name": "Admin & Settings",      "position": 8,  "color": "#F43F5E", "contact_email": "", "notes": "Board and site administration, user management, billing, and configuration."},
-    {"name": "Search & Discovery",    "position": 9,  "color": "#EAB308", "contact_email": "", "notes": "Full-text search, filtering, saved views, and cross-board discovery."},
+    {"name": "Mobile App",            "position": 0,  "color": "#EC4899", "notes": "iOS and Android. Targets field workers and on-the-go board access."},
+    {"name": "Core Platform",         "position": 1,  "color": "#3B82F6", "notes": "Web app, API, and shared infrastructure features."},
+    {"name": "Integrations",          "position": 2,  "color": "#10B981", "notes": "Third-party integrations: Slack, GitHub, Jira, Zapier, webhooks."},
+    {"name": "Analytics",             "position": 3,  "color": "#F59E0B", "notes": "Board analytics, cycle time, throughput, and reporting features."},
+    {"name": "Compliance & Security", "position": 4,  "color": "#8B5CF6", "notes": "GDPR, SOC 2, audit logging, and security hardening features."},
+    {"name": "Collaboration",         "position": 5,  "color": "#14B8A6", "notes": "Real-time collaboration, comments, mentions, and notification features."},
+    {"name": "Import & Export",       "position": 6,  "color": "#6366F1", "notes": "Data portability: CSV, JSON, API bulk operations, and migration tools."},
+    {"name": "Automation",            "position": 7,  "color": "#0EA5E9", "notes": "Rule-based automation: auto-move, auto-assign, scheduled actions."},
+    {"name": "Admin & Settings",      "position": 8,  "color": "#F43F5E", "notes": "Board and site administration, user management, billing, and configuration."},
+    {"name": "Search & Discovery",    "position": 9,  "color": "#EAB308", "notes": "Full-text search, filtering, saved views, and cross-board discovery."},
 ]
 
 _ROADMAP_LABELS = [
@@ -1440,13 +1724,72 @@ PRODUCT_ROADMAP = {
 # This split keeps each file manageable.
 
 
-def _load_part2():
-    part2_path = os.path.join(SEED_DATA_DIR, "generate_seed_data_part2.py")
+def _load_module(filename: str, name: str):
     import importlib.util
-    spec = importlib.util.spec_from_file_location("part2", part2_path)
+    spec = importlib.util.spec_from_file_location(name, os.path.join(SEED_DATA_DIR, filename))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return mod.TEMPLATES_PART2
+    return mod
+
+
+def _load_part2():
+    return _load_module("generate_seed_data_part2.py", "part2").TEMPLATES_PART2
+
+
+# ── CSV ───────────────────────────────────────────────────────────────────────
+def _csv_cell(definition: dict, value: str) -> str:
+    """Same rendering as the board exporter: multi-select entries joined by "; "."""
+    if definition["field_type"] == "multi_select" and value:
+        return "; ".join(json.loads(value))
+    return value
+
+
+def _write_csv(path: str, data: dict) -> None:
+    """Write the board in the exact column layout ``GET /export/?format=csv`` emits.
+
+    So the CSV is importable through the same Import dialog (the importer
+    reads Title, Description, Column, Swimlane, Priority, Assignee, Labels,
+    Due Date and Weight) and reads like a real export in a spreadsheet. Rows
+    are ordered by column then swimlane: CSV import creates columns and
+    swimlanes in first-appearance order, so this keeps the board's order.
+    """
+    col_pos = {c["name"]: c["position"] for c in data["columns"]}
+    lane_pos = {s["name"]: s["position"] for s in data["swimlanes"]}
+    lanes = {s["name"]: s for s in data["swimlanes"]}
+    cards = sorted(
+        enumerate(data["cards"]),
+        key=lambda ic: (col_pos[ic[1]["column"]], lane_pos[ic[1]["swimlane"]], ic[0]),
+    )
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        # LF, not the csv module's default CRLF: .gitattributes normalizes
+        # text to LF, and test_sample_boards byte-compares a regeneration
+        # against the checked-out files.
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow([
+            "Card ID", "Title", "Description", "Column", "Swimlane",
+            "Priority", "Assignee", "Labels", "Due Date", "Weight",
+            "Created At", "Created By", "Last Moved At", "Movement Count",
+            "Movement History",
+            *[f"Custom: {cf['name']}" for cf in data["custom_fields"]],
+            *[f"Swimlane Custom: {sf['name']}" for sf in data["swimlane_custom_fields"]],
+        ])
+        for card_id, (_, card) in enumerate(cards, start=1):
+            movs = card["movements"]
+            history = "; ".join(
+                f"{m['moved_at']}|{m['from_column'] or ''}|{m['to_column'] or ''}|{m['moved_by'] or ''}"
+                for m in movs
+            )
+            values = card["custom_field_values"]
+            lane_values = lanes[card["swimlane"]]["custom_field_values"]
+            writer.writerow([
+                card_id, card["title"], card.get("description", ""), card["column"],
+                card["swimlane"], card["priority"], card.get("assignee") or "",
+                ", ".join(card["labels"]), card.get("due_date") or "", card["weight"],
+                card["created_at"], card["created_by"] or "", movs[-1]["moved_at"], len(movs),
+                history,
+                *[_csv_cell(cf, values.get(cf["name"], "")) for cf in data["custom_fields"]],
+                *[_csv_cell(sf, lane_values.get(sf["name"], "")) for sf in data["swimlane_custom_fields"]],
+            ])
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -1459,53 +1802,39 @@ ALL_TEMPLATES = [
 ]
 
 
-def main():
+def main(out_dir: str | None = None):
+    """Write every template to ``sample-boards/`` (or ``out_dir``).
+
+    ``out_dir`` exists for ``test_sample_boards``, which regenerates into a
+    temporary directory and compares byte-for-byte with the committed files.
+    """
     global ALL_TEMPLATES
     part2 = _load_part2()
-    ALL_TEMPLATES = ALL_TEMPLATES + part2
+    overlay = _load_module("sales_overlay.py", "sales_overlay")
+    ALL_TEMPLATES = ALL_TEMPLATES + part2 + [overlay.SALES_OVERLAY]
+    features = _load_module("sample_features.py", "sample_features").FEATURES
+    features = {**features, overlay.SALES_OVERLAY["slug"]: overlay.FEATURES}
 
-    out_dir = os.path.normpath(
+    out_dir = out_dir or os.path.normpath(
         os.path.join(SEED_DATA_DIR, "..", "..", "..", "sample-boards")
     )
     os.makedirs(out_dir, exist_ok=True)
 
     for tpl in ALL_TEMPLATES:
         slug = tpl["slug"]
-        data = _build(tpl)
+        data = _build(tpl, features.get(slug))
 
-        # Ensure every column has an explicit is_done field
-        for col in data["columns"]:
-            col.setdefault("is_done", False)
+        # Cards enter a board at its first column; allowing creation anywhere
+        # else shows extra "+ Add card" cells and invites mis-staged cards.
+        for i, col in enumerate(data["columns"]):
+            col["allow_card_creation"] = i == 0
 
         json_path = os.path.join(out_dir, f"{slug}.json")
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.write("\n")
 
-        csv_path = os.path.join(out_dir, f"{slug}.csv")
-        with open(csv_path, "w", encoding="utf-8", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                "title", "column", "swimlane", "priority", "due_date",
-                "weight", "labels", "assignee", "checklist_total",
-                "checklist_done", "comment_count", "description_preview",
-            ])
-            for card in data["cards"]:
-                cl = card.get("checklist_items", [])
-                writer.writerow([
-                    card.get("title", ""),
-                    card.get("column", ""),
-                    card.get("swimlane", ""),
-                    card.get("priority", ""),
-                    card.get("due_date", ""),
-                    card.get("weight", ""),
-                    "|".join(card.get("labels", [])),
-                    card.get("assignee", ""),
-                    len(cl),
-                    sum(1 for c in cl if c.get("is_done")),
-                    len(card.get("comments", [])),
-                    (card.get("description", "") or "")[:80],
-                ])
+        _write_csv(os.path.join(out_dir, f"{slug}.csv"), data)
 
         print(f"  ✓  {slug}.json + .csv  ({len(data['cards'])} cards)")
 
