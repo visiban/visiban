@@ -4,6 +4,7 @@ import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
+import { limitBlockedMessage } from "../Board/moveBlockedMessages";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -101,6 +102,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [uploading, setUploading] = useState(false);
   const { status: descStatus, fadingOut: descFadingOut, runSave: descRunSave } = useAutosaveStatus();
   const { status: weightStatus, fadingOut: weightFadingOut, runSave: weightRunSave } = useAutosaveStatus();
+  // Reason for a weight save refused by the column's weight limit (#1428).
+  // After a limit refusal the AutosaveIndicator is held at idle until the next
+  // save starts, so the refusal is announced once — by the reason line — and
+  // not also as "Couldn't save", even after the reason is cleared by the next
+  // +/- click during the debounce.
+  const [weightLimitReason, setWeightLimitReason] = useState<string | null>(null);
+  const [weightLimitRefused, setWeightLimitRefused] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"delete" | "archive" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dueDateRef = useRef<HTMLInputElement>(null);
@@ -232,6 +240,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       onUpdated(updated);
     } catch (err) {
       setLocalCard(prev);
+      throw err;
+    }
+  };
+
+  const saveWeight = async (weight: number) => {
+    setWeightLimitRefused(false);
+    try {
+      await save({ weight });
+      setWeightLimitReason(null);
+    } catch (err) {
+      // save() has already rolled the weight back. Only a limit refusal gets
+      // a reason; any other failure keeps the indicator's "Couldn't save".
+      const reason = limitBlockedMessage(err);
+      setWeightLimitReason(reason);
+      setWeightLimitRefused(reason !== null);
       throw err;
     }
   };
@@ -900,8 +923,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     onClick={() => {
                       const w = Math.max(1, localCard.weight - 1);
                       setLocalCard((c) => ({ ...c, weight: w }));
+                      setWeightLimitReason(null);
                       if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
-                      weightSaveTimer.current = setTimeout(() => weightRunSave(save({ weight: w })), 600);
+                      weightSaveTimer.current = setTimeout(() => weightRunSave(saveWeight(w)), 600);
                     }}
                     className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium"
                   >−</button>
@@ -910,13 +934,20 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     onClick={() => {
                       const w = localCard.weight + 1;
                       setLocalCard((c) => ({ ...c, weight: w }));
+                      setWeightLimitReason(null);
                       if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
-                      weightSaveTimer.current = setTimeout(() => weightRunSave(save({ weight: w })), 600);
+                      weightSaveTimer.current = setTimeout(() => weightRunSave(saveWeight(w)), 600);
                     }}
                     className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium"
                   >+</button>
                 </div>
-                <AutosaveIndicator status={weightStatus} fadingOut={weightFadingOut} />
+                <AutosaveIndicator
+                  status={weightLimitRefused ? "idle" : weightStatus}
+                  fadingOut={weightFadingOut}
+                />
+                <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
+                  <span className="text-danger">{weightLimitReason}</span>
+                </p>
               </div>
 
               <div className="border-t border-line" />

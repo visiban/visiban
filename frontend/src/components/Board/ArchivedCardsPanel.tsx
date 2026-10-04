@@ -4,6 +4,7 @@ import type { BoardFull, Card, User } from "../../types";
 import { getArchivedCards } from "../../api/cards";
 import { unarchiveCard } from "../../api/cards";
 import { formatDate } from "../../utils/date";
+import { limitBlockedMessage } from "./moveBlockedMessages";
 
 interface Props {
   board: BoardFull;
@@ -20,6 +21,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const [loadingMore, setLoadingMore] = useState(false);
   const [unarchivingId, setUnarchivingId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -58,11 +60,19 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
   const handleUnarchive = async (card: Card) => {
     setUnarchivingId(card.id);
+    setRestoreError(null);
     try {
       const unarchived = await unarchiveCard(board.id, card.id);
       setCards((prev) => prev.filter((c) => c.id !== card.id));
       setTotal((prev) => Math.max(0, prev - 1));
       onUnarchived(unarchived);
+    } catch (err) {
+      // Restoring into a full column is refused with the move path's limit
+      // body (#1428). The card stays in the panel and the reason is shown.
+      const reason = limitBlockedMessage(err);
+      setRestoreError(
+        reason ? `${card.title}: ${reason}` : `Could not unarchive "${card.title}". Please try again.`,
+      );
     } finally {
       setUnarchivingId(null);
     }
@@ -132,6 +142,11 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
           )}
           {!loading && cards.length > 0 && (
             <>
+              {/* Reserved restore-result slot — always rendered so the list
+                  never shifts when a message appears. */}
+              <p className="text-xs min-h-4 mb-2" role="status" aria-live="polite" aria-atomic="true">
+                <span className="text-danger">{restoreError}</span>
+              </p>
               <ul className="space-y-2">
                 {cards.map((card) => (
                   <li

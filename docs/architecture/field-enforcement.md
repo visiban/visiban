@@ -18,15 +18,15 @@ Out of scope: enterprise code, env-var settings, and plain values that do not re
 
 ## Gaps and scaffolds
 
-These fields are the reason this page exists. Each gap and scaffold has a tracking issue; the `Card.version` row is by design.
+These fields are the reason this page exists. Each gap and scaffold has a tracking issue; the `Card.version` row and the board-import exemption of the WIP and weight rows are by design.
 
 | Field | Class | What it promises | What actually happens | Tracking |
 |---|---|---|---|---|
-| `Column.wip_limit` | Binding (move only) | At most N active cards in the column | Checked only by `POST /cards/{id}/move/` (`services/cards.py` `move_card`). Card create, restore from archive, board import, and saving a card in the Django admin (`CardAdmin.save_model`) do not check it, even with `enforce_wip_hard` on | #1428 |
-| `Column.weight_limit` | Binding (move only) | Column weight stays within budget | Same as `wip_limit` (including the Django admin), and raising a card's `weight` with PATCH is not checked either | #1428 |
-| `Board.enforce_wip_limits` | Binding (move only) | Over-limit placement returns 409 | Applies to moves only, for the same reason | #1428 |
-| `Board.enforce_wip_hard` | Binding (move only) | No role can exceed a WIP limit | No role can *move* a card past it. Any member can still create a card in a full column or restore one into it | #1428 |
-| `Board.enforce_weight_limits` | Binding (move only) | Over-budget placement returns 409 | Applies to moves only | #1428 |
+| `Column.wip_limit` | Binding (import exempt by design) | At most N active cards in the column | Checked on every API card write path that adds an active card to the column: move, create (REST and MCP), restore from archive, and saving a card in the Django admin (`CardAdmin` form). One helper, `enforce_column_limits()` in `services/cards.py`, runs the check for all of them, so the `409` bodies and the override rules match. Board import (JSON, CSV, Trello) is **not** checked: it restores a board as exported, and the sample boards deliberately ship one over-WIP column each. The operator seed commands (`seed_demo_data` including `--demo-site`, `seed_template_boards`, `benchmark`) write cards directly and are exempt the same way; they are not an API path | — (by design, #1428) |
+| `Column.weight_limit` | Binding (import exempt by design) | Column weight stays within budget | Same paths as `wip_limit`, plus raising a card's `weight` with PATCH (or in the Django admin). Lowering a weight, or editing any other field, is never blocked, even in a column already over its limits. Board import is not checked | — (by design, #1428) |
+| `Board.enforce_wip_limits` | Binding (import exempt by design) | Over-limit placement returns 409 | Applies to move, create, restore, and the Django admin; board admins can override with `?force=true` (no override in the Django admin) | — (by design, #1428) |
+| `Board.enforce_wip_hard` | Binding (import exempt by design) | No role can exceed a WIP limit | No role can move, create, or restore a card past it, and `?force=true` is ignored. Only board import can produce an over-limit column | — (by design, #1428) |
+| `Board.enforce_weight_limits` | Binding (import exempt by design) | Over-budget placement returns 409 | Applies to move, create, restore, weight increases via PATCH, and the Django admin | — (by design, #1428) |
 | `Board.allowed_priorities` | Scaffold | Cards on this board use only the listed priorities | Validated as a list when written, then never read. Card create and update accept any priority, and no UI filters by it | #1429 |
 | `Group.allowed_priorities` | Advisory | Restricts priorities on the group's boards | Copied onto `Board.allowed_priorities` when a board is created through `POST /groups/{id}/boards/`, where it is itself a scaffold | #1429 |
 | `Group.default_board_member_role` | Scaffold | Role group members get on new boards | Stored, editable in the group's Settings tab, never read. Group members' board access comes from their `GroupMembership.role` through `get_board_role()` | #1430 |
@@ -40,7 +40,7 @@ Classified from a review of the code on 2026-10-04; see the tracking issues for 
 
 | Field | Enforced at | Notes |
 |---|---|---|
-| `Column.allow_card_creation` | `create_card()` in `boards/services/cards.py` (REST and MCP) | Board import creates cards directly, which is expected because import builds the board. Creating a card in the Django admin (`CardAdmin.save_model`) skips the check, along with the rest of the card service (see [Service Layer](service-layer.md)); tracked in #1428 |
+| `Column.allow_card_creation` | `create_card()` in `boards/services/cards.py` (REST and MCP) | Board import creates cards directly, which is expected because import builds the board. Creating a card in the Django admin is checked by `CardAdminForm` (#1428) |
 | `Column.is_done` | Cycle-time and throughput analytics | Shapes metrics only. It is not a write rule and does not read as one |
 | `BoardMembership.role` | `get_board_role()` / `get_board_roles()` in `boards/permissions.py`, shared by REST, WebSocket, and MCP | The per-action matrix is in [Permissions](../features/permissions.md) |
 | `BoardMembership.is_moderator` | `can_modify_others_content()` in `boards/permissions.py`, called by the card service and the comment, attachment, and checklist views | Field visibility on `member.*` events is gated separately by `moderator_field_visible()` |
@@ -68,5 +68,5 @@ One candidate named in #1077 needed no classification:
 ## Keeping this page true
 
 - **New constraint-shaped field:** it ships binding on every path, or it ships with an `Enforcement:` description in `backend/visiban/field_enforcement.py`, a row on this page, and a tracking issue.
-- **Closing a gap:** update the description constant, this page, and the behavioral pin in `test_field_enforcement_schema.py` (`WipGapBehaviorTests` fails on purpose once the WIP gap is fixed) in the same MR.
+- **Closing a gap:** update the description constant, this page, and the behavioral pin in `test_field_enforcement_schema.py` in the same MR. `WipEnforcementBehaviorTests` is the example: it pinned the WIP gap until #1428 closed it, and was inverted in the same change.
 - **Put descriptions on the serializer, not the model.** A model `help_text` change generates an `AlterField` migration for what is a documentation-only change.

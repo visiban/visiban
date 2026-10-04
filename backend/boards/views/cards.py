@@ -15,7 +15,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from drf_spectacular.utils import (
-    extend_schema, inline_serializer, OpenApiParameter, OpenApiResponse, OpenApiTypes,
+    extend_schema, extend_schema_view, inline_serializer, OpenApiParameter, OpenApiResponse, OpenApiTypes,
 )
 
 from django.conf import settings as django_settings
@@ -203,9 +203,104 @@ class CardFilter(django_filters.FilterSet):
 
 
 # ---------------------------------------------------------------------------
+# Column-limit schema pieces (#1428) — shared by create, restore and PATCH
+# ---------------------------------------------------------------------------
+
+def _force_requested(request):
+    """``?force=true`` — the same parse the move endpoint has always used."""
+    return request.query_params.get("force", "").lower() == "true"
+
+
+_FORCE_PARAM = OpenApiParameter(
+    name="force",
+    type=OpenApiTypes.BOOL,
+    location=OpenApiParameter.QUERY,
+    required=False,
+    description=(
+        "Board admins/site admins only: pass `true` to override a soft WIP or "
+        "weight limit (`wip_limit_exceeded` / `weight_limit_exceeded`). Ignored — "
+        "the request is always blocked — when the board's hard WIP mode "
+        "(`wip_hard_blocked`) is active."
+    ),
+)
+
+
+def _limit_conflict_response(name, description):
+    return OpenApiResponse(
+        description=description,
+        response=inline_serializer(
+            name=name,
+            fields={
+                "code": serializers.CharField(),
+                "detail": serializers.CharField(required=False),
+                "column_name": serializers.CharField(),
+                "current_count": serializers.IntegerField(required=False),
+                "wip_limit": serializers.IntegerField(required=False),
+                "current_weight": serializers.IntegerField(required=False),
+                "weight_limit": serializers.IntegerField(required=False),
+                "card_weight": serializers.IntegerField(required=False),
+            },
+        ),
+    )
+
+
+def _force_denied_response(name):
+    return OpenApiResponse(
+        description=(
+            "Role/ownership check failed, or a non-admin passed `?force=true` to "
+            "override a WIP/weight limit."
+        ),
+        response=inline_serializer(name=name, fields={"detail": serializers.CharField()}),
+    )
+
+
+_ENTER_COLUMN_409 = (
+    "`wip_limit_exceeded` / `wip_hard_blocked` — the column is at its WIP limit; "
+    "`weight_limit_exceeded` — the card's weight would push the column over its "
+    "weight limit. Same bodies and override rules as the move endpoint (#1428)."
+)
+
+_CARD_UPDATE_SCHEMA = extend_schema(
+    description=(
+        "Update card fields. Raising `weight` in a column with a `weight_limit` "
+        "is checked when the board's `enforce_weight_limits` is on; lowering it, "
+        "leaving it unchanged, or editing any other field is never blocked, even "
+        "in a column already over its limits. `column`, `swimlane` and "
+        "`position` cannot change here — use the move endpoint."
+    ),
+    parameters=[_FORCE_PARAM],
+    responses={
+        200: CardSerializer,
+        403: _force_denied_response("CardUpdatePermissionDenied"),
+        409: _limit_conflict_response(
+            "CardUpdateLimitConflict",
+            "`weight_limit_exceeded` — the new weight would push the column over "
+            "its weight limit.",
+        ),
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # CardViewSet
 # ---------------------------------------------------------------------------
 
+@extend_schema_view(
+    create=extend_schema(
+        description=(
+            "Create a card at the end of its column/swimlane cell. The column's "
+            "WIP and weight limits are enforced exactly as on a move into it."
+        ),
+        parameters=[_FORCE_PARAM],
+        responses={
+            201: CardSerializer,
+            403: _force_denied_response("CardCreatePermissionDenied"),
+            409: _limit_conflict_response("CardCreateLimitConflict", _ENTER_COLUMN_409),
+        },
+    ),
+    update=_CARD_UPDATE_SCHEMA,
+    partial_update=_CARD_UPDATE_SCHEMA,
+)
 class CardViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for cards on a board; viewers cannot create/edit/delete."""
 
@@ -369,6 +464,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 board=board, created_by=self.request.user, position=position,
             ),
             render=self._refetch_card_data,
+            force=_force_requested(self.request),
         )
         # No return value: DRF's CreateModelMixin renders the 201 body from
         # serializer.data, exactly as it did before. The service's rendered
@@ -448,19 +544,35 @@ class CardViewSet(viewsets.ModelViewSet):
         )
         return Response(result.payload)
 
+    @extend_schema(
+        summary="Restore an archived card",
+        description=(
+            "Clears `archived_at` so the card re-enters its column/swimlane. Archived "
+            "cards do not count toward a column's limits, so the restore is checked "
+            "like a move into the column: WIP and weight limits, hard WIP mode, and "
+            "the board-admin `?force=true` override all apply (#1428)."
+        ),
+        parameters=[_FORCE_PARAM],
+        responses={
+            200: CardSerializer,
+            403: _force_denied_response("CardRestorePermissionDenied"),
+            409: _limit_conflict_response("CardRestoreLimitConflict", _ENTER_COLUMN_409),
+        },
+    )
     @action(detail=True, methods=["post"])
     def unarchive(self, request, board_pk=None, pk=None):
         """Restore a card by clearing archived_at.
 
         The card re-enters its original column/swimlane position. Because
         get_queryset() filters out archived cards, the service reads the raw
-        manager directly.
+        manager directly. WIP/weight limits are enforced by the service (#1428).
         """
         board, role = self._board_and_role()
         result = card_services.unarchive_card(
             actor=request.user, board=board, role=role, card_id=pk,
             render=self._plain_card_payload,
             render_many=self._batch_card_payloads,
+            force=_force_requested(request),
         )
         return Response(result.payload)
 
@@ -559,6 +671,7 @@ class CardViewSet(viewsets.ModelViewSet):
             submitted=submitted,
             apply=apply,
             render=self._refetch_card_data,
+            force=_force_requested(request),
         )
         return Response(result.payload)
 
@@ -708,7 +821,7 @@ class CardViewSet(viewsets.ModelViewSet):
             # integer" 400 lands after the role, lookup and assignment checks
             # exactly as it did before the extraction.
             expected_version=request.data.get("version"),
-            force=request.query_params.get("force", "").lower() == "true",
+            force=_force_requested(request),
             render=render,
         )
         return Response(result.payload)

@@ -9,13 +9,16 @@ Two halves, and they guard each other:
   An agent reading the MCP-era schema has no other way to learn that
   ``wip_limit`` does not stop a card *create*.
 
-* ``WipGapBehaviorTests`` pins the gap the descriptions claim, on each write path
-  the descriptions name: card create, restore from archive, PATCH weight, and
-  JSON board import. When someone fixes the gap (#1428), these tests fail on
-  purpose: the description is now a lie in the other direction and has to be
-  updated in ``visiban/field_enforcement.py`` and the doc in the same change.
-  CSV and Trello import share the JSON path's ``bulk_create``-without-checks
-  shape and are not pinned separately.
+* ``WipEnforcementBehaviorTests`` pins what the descriptions now claim, on each
+  write path they name (#1428): card create and restore from archive are
+  refused at the WIP limit even in hard mode, a PATCH that raises ``weight``
+  past ``weight_limit`` is refused, and JSON board import is exempt by design.
+  Before #1428 the same class pinned the *gap* and was inverted when the gap
+  closed; if one of these paths changes again, update
+  ``visiban/field_enforcement.py`` and the doc in the same change. CSV and
+  Trello import share the JSON path's ``bulk_create`` shape and carry no column
+  limits of their own. The full per-path matrix is in
+  ``test_limit_enforcement_paths.py``.
 """
 
 import io
@@ -105,8 +108,8 @@ class FieldEnforcementSchemaTests(SimpleTestCase):
                     )
 
 
-class WipGapBehaviorTests(TestCase):
-    """The non-move paths the descriptions say are unchecked really are."""
+class WipEnforcementBehaviorTests(TestCase):
+    """The non-move paths the descriptions name are checked; import is exempt."""
 
     def setUp(self):
         self.board = BoardFactory(enforce_wip_limits=True, enforce_wip_hard=True)
@@ -116,18 +119,19 @@ class WipGapBehaviorTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.board.owner)
 
-    def test_create_into_full_column_is_not_blocked_even_in_hard_mode(self):
+    def test_create_into_full_column_is_blocked_in_hard_mode(self):
         r = self.client.post(
-            f"/api/v1/boards/{self.board.pk}/cards/",
+            f"/api/v1/boards/{self.board.pk}/cards/?force=true",
             {"title": "over limit", "column": self.column.pk, "swimlane": self.swimlane.pk},
             format="json",
         )
-        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.status_code, 409, r.content)
+        self.assertEqual(r.json()["code"], "wip_hard_blocked")
         self.assertEqual(
-            Card.objects.filter(column=self.column, archived_at__isnull=True).count(), 2,
+            Card.objects.filter(column=self.column, archived_at__isnull=True).count(), 1,
         )
 
-    def test_patch_weight_past_weight_limit_is_not_blocked(self):
+    def test_patch_weight_past_weight_limit_is_blocked(self):
         self.board.enforce_weight_limits = True
         self.board.save(update_fields=["enforce_weight_limits"])
         self.column.weight_limit = 2
@@ -136,11 +140,13 @@ class WipGapBehaviorTests(TestCase):
         r = self.client.patch(
             f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/", {"weight": 5}, format="json",
         )
-        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.status_code, 409, r.content)
+        self.assertEqual(r.json()["code"], "weight_limit_exceeded")
         card.refresh_from_db()
-        self.assertEqual(card.weight, 5)
+        self.assertEqual(card.weight, 1)
 
     def test_json_import_over_limit_is_not_blocked(self):
+        # Exempt by design (#1428 decision): import restores a board as exported.
         data = {
             "name": "Imported",
             "columns": [{"name": "Doing", "position": 0, "wip_limit": 1, "weight_limit": 1,
@@ -160,12 +166,15 @@ class WipGapBehaviorTests(TestCase):
         self.assertEqual(column.wip_limit, 1)
         self.assertEqual(Card.objects.filter(column=column).count(), 3)
 
-    def test_restore_into_full_column_is_not_blocked_even_in_hard_mode(self):
+    def test_restore_into_full_column_is_blocked_in_hard_mode(self):
         archived = CardFactory(
             column=self.column, swimlane=self.swimlane, archived_at=timezone.now(),
         )
-        r = self.client.post(f"/api/v1/boards/{self.board.pk}/cards/{archived.pk}/unarchive/")
-        self.assertEqual(r.status_code, 200, r.content)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.pk}/cards/{archived.pk}/unarchive/?force=true",
+        )
+        self.assertEqual(r.status_code, 409, r.content)
+        self.assertEqual(r.json()["code"], "wip_hard_blocked")
         self.assertEqual(
-            Card.objects.filter(column=self.column, archived_at__isnull=True).count(), 2,
+            Card.objects.filter(column=self.column, archived_at__isnull=True).count(), 1,
         )

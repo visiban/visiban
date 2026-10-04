@@ -281,6 +281,27 @@ After rolling back, restart the backend container with the previous image versio
 
 ## Release-specific upgrade notes
 
+### Upgrading to 1.3.x
+
+!!! warning "WIP and weight limits now apply to card create, restore, and weight changes"
+    Before 1.3, a column's `wip_limit` and `weight_limit` were checked only when a card was
+    **moved** into it. They are now also checked when a card is created in the column
+    (`POST /api/v1/boards/{id}/cards/` and the MCP `create_card` tool), restored into it from
+    the archive (`POST .../cards/{id}/unarchive/`), or has its `weight` raised with `PATCH`,
+    and when a card is saved in the Django admin. A request that used to return `201` or `200`
+    into a full column now returns `409` with the same body a blocked move returns
+    (`wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`), and nothing is
+    written. Board admins can override a soft limit with the optional `?force=true` query
+    parameter, exactly as on a move; with **Enforce WIP hard** on, nobody can. Lowering a
+    card's weight, and editing any other field, is never blocked.
+
+    **Check any integration, script, or automation that creates or restores cards** in columns
+    with a WIP or weight limit: handle the `409`, raise the limit, turn enforcement off for
+    that board, or (for a board admin's token) send `?force=true`. Board import (JSON, CSV,
+    Trello) is not affected — it restores a board as exported, over its limits or not.
+    Existing over-limit columns are left as they are. See
+    [Field Enforcement](../architecture/field-enforcement.md) (#1428).
+
 ### Upgrading to 1.2.x
 
 !!! warning "GitLab registry `:latest` no longer tracks `main` builds"

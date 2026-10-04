@@ -1,38 +1,11 @@
 import type { MoveBlockedError } from "../../hooks/useBoard";
+import { toastBody, toastTitle } from "./moveBlockedMessages";
 
 interface Props {
   error: MoveBlockedError;
   isAdmin: boolean;
   onForce: () => void;
   onDismiss: () => void;
-}
-
-function toastBody(error: MoveBlockedError): string {
-  if (error.code === "version_conflict") {
-    return "This card was modified by another user while you were dragging it. The board has been refreshed.";
-  }
-  if (error.code === "permission_denied" || error.code === "maintenance_mode") {
-    return error.detail;
-  }
-  if (error.code === "wip_limit_exceeded" || error.code === "wip_hard_blocked") {
-    const s = error.wip_limit !== 1 ? "s" : "";
-    return `"${error.column_name}" is at its limit of ${error.wip_limit} card${s} (${error.current_count} active).`;
-  }
-  const proposed = error.current_weight + error.card_weight;
-  return `"${error.column_name}" has ${error.current_weight} weight — adding this card (+${error.card_weight}) would reach ${proposed} of ${error.weight_limit}.`;
-}
-
-function toastTitle(error: MoveBlockedError): string {
-  if (error.code === "version_conflict") return "Card was updated";
-  if (error.code === "permission_denied") return "Cannot move this card";
-  // Fixed, non-admin-authored lead sentence (#1127) — distinguishes an
-  // instance-wide, temporary, systemic block from a personal permission
-  // error. Do not let the operator's free-text `detail` (rendered in
-  // toastBody below) stand in for this: a terse or generic operator
-  // message must not read as "you personally did something wrong".
-  if (error.code === "maintenance_mode") return "The instance is temporarily read-only";
-  if (error.code === "wip_hard_blocked") return "Column at capacity — no exceptions";
-  return error.code === "wip_limit_exceeded" ? "WIP limit reached" : "Weight limit reached";
 }
 
 export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }: Props) {

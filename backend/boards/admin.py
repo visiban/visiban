@@ -1,4 +1,8 @@
+from types import SimpleNamespace
+
+from django import forms
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from groups.broadcast import broadcast_group_event as _broadcast_group_event
@@ -12,6 +16,9 @@ from .serializers import (
     BoardMembershipSerializer, BoardSerializer, ColumnSerializer, LabelSerializer,
     SwimlaneSerializer,
 )
+from .permissions import SITE_ADMIN
+from .services.cards import enforce_column_limits
+from .services.errors import WeightLimitExceeded, WipHardBlocked, WipLimitExceeded
 from .views._helpers import _refetched_card_data
 
 
@@ -38,6 +45,100 @@ def _record_board_and_group_event(board_id, group_id, event_type, payload, *, ac
     transaction.on_commit(_send)
 
 
+def _limit_error_message(exc):
+    """A sentence for the admin form from a card-service limit error."""
+    if isinstance(exc, WipHardBlocked):
+        return (
+            f'Column "{exc.column_name}" is at its WIP limit ({exc.current_count}/'
+            f"{exc.wip_limit}) and the board enforces hard WIP limits, so no role "
+            "can add a card to it. Move a card out or raise the limit first."
+        )
+    if isinstance(exc, WipLimitExceeded):
+        return (
+            f'Column "{exc.column_name}" is at its WIP limit ({exc.current_count}/'
+            f"{exc.wip_limit}). Raise the limit, or override it as a board admin "
+            "through the API with ?force=true."
+        )
+    return (
+        f'Column "{exc.column_name}" would exceed its weight limit '
+        f"({exc.current_weight} + {exc.card_weight} > {exc.weight_limit}). Raise the "
+        "limit, or override it as a board admin through the API with ?force=true."
+    )
+
+
+class CardAdminForm(forms.ModelForm):
+    """Applies the card service's placement rules to Django admin saves (#1428).
+
+    ``CardAdmin.save_model`` writes the row directly, so without this form a
+    staff user could create a card in a column with ``allow_card_creation``
+    off, or put a card into (or grow one inside) a column past its WIP or
+    weight limit — including under hard WIP mode, which the API documents as
+    "blocked for all roles". The rules are the service's own
+    (:func:`boards.services.cards.enforce_column_limits`), evaluated in
+    ``clean()`` so a refusal is an ordinary form error rather than a 500.
+
+    There is no override here: the admin form has no ``force`` control, so a
+    soft limit is refused too. A site admin who needs to exceed a soft limit
+    uses the API's ``?force=true`` or raises the column's limit. This is
+    stricter than the API for site admins on purpose — the admin is a repair
+    tool, not the place to bypass board policy silently.
+
+    ``changeform_view`` runs validation inside ``transaction.atomic()``, so the
+    column row lock the helper takes is held until the save commits.
+    """
+
+    class Meta:
+        model = Card
+        fields = "__all__"
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.errors:
+            return cleaned
+        column = cleaned.get("column")
+        board = cleaned.get("board")
+        if column is None or board is None:
+            return cleaned
+        # The helper counts cards with board=board, so a column from another
+        # board would count zero and silently pass every limit. A card in a
+        # column of a different board is never valid anyway.
+        if column.board_id != board.pk:
+            raise ValidationError({"column": "Column belongs to a different board."})
+        # Not yet mutated: ModelForm copies cleaned_data onto the instance only
+        # after clean() returns, so self.instance still holds the saved values.
+        original = self.instance
+        creating = original.pk is None
+        if creating and not column.allow_card_creation:
+            raise ValidationError({"column": "Card creation is not allowed in this column."})
+
+        archived_at = cleaned.get("archived_at", original.archived_at)
+        if archived_at is not None:
+            # An archived card does not count toward a column's limits.
+            return cleaned
+        weight = cleaned.get("weight", original.weight)
+        entering = (
+            creating
+            or original.archived_at is not None  # restore
+            or original.column_id != column.pk  # move
+        )
+        weight_up = not entering and weight > original.weight
+        if not (entering or weight_up):
+            return cleaned
+        try:
+            enforce_column_limits(
+                board=board, column=column,
+                card=SimpleNamespace(pk=original.pk, weight=weight),
+                role=SITE_ADMIN, force=False,
+                # A weight change inside the same column does not change its
+                # card count, so it is checked against the weight limit only —
+                # same rule as the PATCH path.
+                check_wip=entering,
+            )
+        except (WipHardBlocked, WipLimitExceeded, WeightLimitExceeded) as exc:
+            raise ValidationError(_limit_error_message(exc)) from None
+        return cleaned
+
+
 @admin.register(Card)
 class CardAdmin(admin.ModelAdmin):
     """Admin for Card that broadcasts mutations to connected WebSocket clients.
@@ -47,7 +148,13 @@ class CardAdmin(admin.ModelAdmin):
     any client viewing the affected board would not see admin edits until a
     full reload. Broadcast is deferred via transaction.on_commit() so clients
     only see events after the DB write is durably committed.
+
+    WIP, weight and ``allow_card_creation`` are enforced by ``CardAdminForm``
+    (#1428); the version bump, ``CardMovement`` audit row and hooks are still
+    skipped (see ``docs/architecture/service-layer.md``).
     """
+
+    form = CardAdminForm
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)

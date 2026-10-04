@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
@@ -285,6 +285,46 @@ describe('CardDetail', () => {
     await waitFor(() => {
       expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { weight: 2 })
     })
+  })
+
+  // #1428 — raising weight past the column's weight limit is refused with a
+  // 409; the reason is shown once (no "Couldn't save") and the weight reverts.
+  it('explains a weight-limit refusal and reverts the weight', async () => {
+    mockUpdateCard.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          code: 'weight_limit_exceeded', column_name: 'To Do',
+          current_weight: 3, weight_limit: 4, card_weight: 2,
+        },
+      },
+    })
+    render(<CardDetail {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('+'))
+    expect(
+      await screen.findByText(
+        'Weight limit reached: "To Do" has 3 weight — adding this card (+2) would reach 5 of 4.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
+    // The reason is set in saveWeight's catch, one microtask before runSave
+    // marks the autosave status "error". Let the rejected save fully settle
+    // (macrotask flush) before the negative assertion, so it can actually
+    // catch a second "Couldn't save" announcement.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(screen.queryByText('Saving…')).not.toBeInTheDocument()
+    expect(screen.queryByText("Couldn't save")).not.toBeInTheDocument()
+  })
+
+  it('keeps the generic indicator and shows no reason for other weight failures', async () => {
+    mockUpdateCard.mockRejectedValueOnce(new Error('Network error'))
+    render(<CardDetail {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('+'))
+    expect(await screen.findByText("Couldn't save")).toBeInTheDocument()
+    expect(screen.queryByText(/Weight limit reached/)).not.toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
   })
 
   // Regression guard (#1305): the weight +/- buttons debounce their PATCH by

@@ -255,4 +255,44 @@ describe('BoardCell', () => {
       dnd.active = null
     }
   })
+
+  // #1428 — create into a full column returns the move path's 409 body; the
+  // reason replaces the generic text only for the three limit codes.
+  it('shows the hard-WIP reason when create is refused at the limit', async () => {
+    mockCreateCard.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          detail: 'WIP limit enforced — move blocked.', code: 'wip_hard_blocked',
+          column_name: 'To Do', current_count: 1, wip_limit: 1,
+        },
+      },
+    })
+    const props = defaultProps()
+    render(<BoardCell {...props} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Add card'))
+    await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
+    await user.click(screen.getByText('Add'))
+
+    expect(
+      await screen.findByText('Column at capacity — no exceptions: "To Do" is at its limit of 1 card (1 active).'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Failed to add card.')).not.toBeInTheDocument()
+    expect(props.onCardAdded).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('New Card')).toBeInTheDocument()
+  })
+
+  it('keeps the generic text for a 409 that is not a limit refusal', async () => {
+    mockCreateCard.mockRejectedValueOnce({
+      response: { status: 409, data: { code: 'something_else', detail: 'nope' } },
+    })
+    const props = defaultProps()
+    render(<BoardCell {...props} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Add card'))
+    await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
+    await user.click(screen.getByText('Add'))
+    expect(await screen.findByText('Failed to add card.')).toBeInTheDocument()
+  })
 })
