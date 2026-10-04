@@ -1201,9 +1201,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   </svg>
                                 </button>
                               ) : confirmDeleteCommentId === c.id ? (
-                                <div role="status" aria-live="polite" className="ml-auto flex items-center gap-2 text-xs shrink-0 whitespace-nowrap">
+                                <div role="status" aria-live="polite" aria-atomic="true" className="ml-auto flex flex-col items-end text-xs">
+                                  <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
                                   <span className="text-fg-tertiary">Delete this comment?</span>
-                                  {commentDeleteError && <span className="text-danger">{commentDeleteError}</span>}
                                   <button
                                     onClick={() => handleDeleteComment(c.id)}
                                     disabled={deletingCommentId !== null}
@@ -1218,6 +1218,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   >
                                     Cancel
                                   </button>
+                                  </div>
+                                  {commentDeleteError && <p className="text-xs text-danger mt-1">{commentDeleteError}</p>}
                                 </div>
                               ) : (
                                 <button

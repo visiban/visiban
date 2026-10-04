@@ -239,6 +239,7 @@ describe('BoardSettingsModal — Members tab', () => {
     await user.click(removeButtons[removeButtons.length - 1])
     const region = screen.getByText(/from this board\?/).closest('[aria-live]')
     expect(region).toHaveAttribute('aria-live', 'polite')
+    expect(region).toHaveAttribute('aria-atomic', 'true')
   })
 
   it('confirm remove calls removeBoardMember and removes the member from the list', async () => {

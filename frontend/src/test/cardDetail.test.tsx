@@ -1154,6 +1154,8 @@ describe('CardDetail', () => {
       const region = screen.getByText('Delete this comment?').closest('[aria-live]')
       expect(region).not.toBeNull()
       expect(region).toHaveAttribute('aria-live', 'polite')
+      expect(region).toHaveAttribute('aria-atomic', 'true')
+      expect(region).toHaveAttribute('role', 'status')
     })
 
     it('disables Confirm and Cancel while in flight and sends only one DELETE (#1421)', async () => {
@@ -1179,7 +1181,8 @@ describe('CardDetail', () => {
       mockDelete.mockRejectedValueOnce(new Error('boom'))
       const { user } = await renderWithComment()
       await user.click(screen.getByRole('button', { name: 'Confirm' }))
-      expect(await screen.findByText('Could not delete comment.')).toBeInTheDocument()
+      const err = await screen.findByText('Could not delete comment.')
+      expect(err.closest('[role="status"]')).not.toBeNull()
       expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
