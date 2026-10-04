@@ -219,7 +219,7 @@ The field editor is the same shape as the card field editor — name, type, help
 
 ### Pinned fields in the swimlane label panel
 
-Up to 8 pinned swimlane fields render as chips in the swimlane's label panel — the sticky left column, alongside the swimlane's name — stacked below the row name. They're hidden while the swimlane is collapsed, the same way the rest of the label panel's detail is. If the swimlane has further, unpinned field values set, a trailing `+N` chip opens a read-only popover listing every value the current viewer may see.
+Up to 8 pinned swimlane fields render as chips in the swimlane's label panel — the sticky left column, alongside the swimlane's name — stacked below the row name. They're hidden while the swimlane is collapsed, the same way the rest of the label panel's detail is. If the swimlane has further, unpinned field values set, a trailing `+N` chip opens a read-only popover listing every value the current viewer may see. The N unpinned values come first, followed by the pinned ones under an **On row** heading. The popover grows to fit its values up to the height of the window; when it still has to scroll, a fade at its bottom edge shows there is more below.
 
 ### Editing values (Edit Swimlane modal)
 
