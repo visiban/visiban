@@ -6,6 +6,8 @@ import hashlib
 import io
 import json
 import logging
+import os
+import re
 
 from django.conf import settings as django_settings
 from django.db import transaction
@@ -37,7 +39,7 @@ from ..serializers import (
     ImportOptionsSerializer, _swimlane_custom_field_values,
 )
 from ..services import trello_import as _trello
-from ._helpers import get_board_for_user
+from ._helpers import get_accessible_boards_queryset, get_board_for_user
 
 # #843: rank of each BoardMembership.Role for the export-threshold comparison.
 # Owner and site_admin are not ranked here — they always bypass the threshold
@@ -97,6 +99,68 @@ class BoardImportThrottle(UserRateThrottle):
 
 def _query_flag(request, name):
     return str(request.query_params.get(name, "")).lower() in ("true", "1")
+
+
+_IMPORTED_NAME_PREFIX = "Imported: "
+_IMPORTED_NAME_FALLBACK = "Board"
+# Longest numeric suffix reserved when truncating; " - 999999999" is 12 chars,
+# far beyond any realistic duplicate count.
+_IMPORTED_NAME_MAX_SUFFIX = 12
+_CONTROL_CHARS_RE = re.compile(r"[\x01-\x1f\x7f]+")
+
+
+def _imported_board_name(source_name, user, group):
+    """Return the default name for a board created by the JSON or CSV importer.
+
+    Both importers call this one helper so their naming cannot drift apart
+    again (#1446: JSON used the file's name verbatim, CSV a fixed
+    "Imported Board"). The result is ``Imported: <source_name>``; when a board
+    with that name already exists in the same scope, the lowest unused
+    ``" - N"`` suffix (N >= 1) is appended, so gaps left by deleted or renamed
+    boards are filled first.
+
+    The duplicate scope is where the new board lands and would visibly
+    collide: the target group's boards, or — for an import with no group —
+    every ungrouped board the caller can access (owned or shared with them),
+    which is exactly the Dashboard's "My Boards" list. Board has no archived
+    or soft-deleted state, so every board in the scope counts.
+
+    There is no unique constraint on ``Board.name``: two concurrent imports
+    can pick the same suffix. That is acceptable — a duplicate name is
+    cosmetic and the user can rename either board.
+
+    ``source_name`` is the board name from a JSON file or the uploaded CSV
+    filename stem; NUL bytes are removed, other control characters (newline,
+    tab, ...) become a space, surrounding whitespace is stripped, and an
+    empty or non-string value falls back to ``"Board"``. The base is
+    truncated so the prefix and any suffix fit ``Board.name``'s max_length.
+    """
+    stem = (
+        _CONTROL_CHARS_RE.sub(" ", source_name.replace("\x00", "")).strip()
+        if isinstance(source_name, str) else ""
+    )
+    stem = stem or _IMPORTED_NAME_FALLBACK
+    max_length = Board._meta.get_field("name").max_length
+    base = (_IMPORTED_NAME_PREFIX + stem)[:max_length]
+
+    if group is not None:
+        scope = Board.objects.filter(group=group)
+    else:
+        scope = get_accessible_boards_queryset(user).filter(group__isnull=True)
+    # Every candidate starts with this shared head, so one query fetches all
+    # names that could collide; the exact comparison happens in Python
+    # (SQLite's LIKE is case-insensitive, so the query may over-fetch).
+    head = base[: max_length - _IMPORTED_NAME_MAX_SUFFIX]
+    taken = set(scope.filter(name__startswith=head).values_list("name", flat=True))
+    if base not in taken:
+        return base
+    n = 1
+    while True:
+        suffix = f" - {n}"
+        candidate = base[: max_length - len(suffix)] + suffix
+        if candidate not in taken:
+            return candidate
+        n += 1
 
 
 class TrelloImportThrottle(UserRateThrottle):
@@ -270,7 +334,11 @@ class BoardImportExportMixin:
             "file": {"type": "string", "format": "binary",
                      "description": "A .json or .csv Visiban export. The format is chosen from the "
                                     "file extension, falling back to the upload's content type."},
-            "name": {"type": "string", "description": "Board name; defaults to the name in the file."},
+            "name": {"type": "string", "description": (
+                "Board name, used exactly as given. When omitted, the board is named "
+                "'Imported: <name>' — the name in a JSON file, or the CSV filename without "
+                "its extension — with ' - 1', ' - 2', ... appended if that name is taken."
+            )},
             "group_id": {"type": "integer", "description": "Place the imported board into this group."},
             "options": {"type": "string", "description": (
                 "JSON object choosing what to import. Keys (all optional booleans, default true): "
@@ -537,8 +605,10 @@ class BoardImportExportMixin:
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        board_name = request.data.get("name") or data["name"]
         group = self._resolve_import_group(request)
+        # An explicit ``name`` is used exactly as given; only the default is
+        # prefixed and de-duplicated (#1446).
+        board_name = request.data.get("name") or _imported_board_name(data["name"], request.user, group)
         skipped = _json_skip_counts(data, options)
 
         with transaction.atomic():
@@ -1176,8 +1246,13 @@ class BoardImportExportMixin:
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        board_name = request.data.get("name") or "Imported Board"
         group = self._resolve_import_group(request)
+        # A CSV carries no board name, so the default is derived from the
+        # uploaded filename without its extension (#1446). An explicit
+        # ``name`` is used exactly as given.
+        board_name = request.data.get("name") or _imported_board_name(
+            os.path.splitext(file.name or "")[0], request.user, group
+        )
 
         # What the chosen options leave out (#119). A CSV row has no comments,
         # checklist, or history.

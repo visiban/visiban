@@ -304,7 +304,7 @@ If you are using the import endpoint to load test data, clean it up explicitly a
 
 ### Identifying test boards in development
 
-If your development workflow involves creating many imported boards for testing, consider using a recognizable name prefix (e.g. `TEST: My Board`) so they can be found and deleted in bulk:
+If your development workflow involves creating many imported boards for testing, consider using a recognizable name prefix (e.g. `TEST: My Board`) so they can be found and deleted in bulk. Send the prefixed name in the import request's `name` field — it is used exactly as given. A prefix written only into the file's `name` ends up behind the importer's default `Imported: ` prefix (`Imported: TEST: My Board`), so the filter below would miss it:
 
 ```python
 Board.objects.filter(name__startswith="TEST:").delete()

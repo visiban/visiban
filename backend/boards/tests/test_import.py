@@ -72,7 +72,7 @@ class BoardImportJSONTests(TestCase):
             format="multipart",
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(resp.data["name"], "Exported Board")
+        self.assertEqual(resp.data["name"], "Imported: Exported Board")
 
     def test_json_import_creates_correct_structure(self):
         data = self._valid_json_data()
@@ -649,7 +649,7 @@ class BoardImportEdgeCaseTests(TestCase):
             format="multipart",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Board.objects.filter(name="Exported Board").count(), 0)
+        self.assertEqual(Board.objects.filter(name__contains="Exported Board").count(), 0)
 
 
 class BoardImportDuplicateNameTests(TestCase):
@@ -690,7 +690,7 @@ class BoardImportDuplicateNameTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Duplicate label names", resp.data["detail"])
         self.assertIn("Bug", resp.data["detail"])
-        self.assertEqual(Board.objects.filter(name="Dup Board").count(), 0)
+        self.assertEqual(Board.objects.filter(name__contains="Dup Board").count(), 0)
 
     def test_duplicate_column_names_returns_400(self):
         data = self._base()
@@ -706,7 +706,7 @@ class BoardImportDuplicateNameTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Duplicate column names", resp.data["detail"])
         self.assertIn("To Do", resp.data["detail"])
-        self.assertEqual(Board.objects.filter(name="Dup Board").count(), 0)
+        self.assertEqual(Board.objects.filter(name__contains="Dup Board").count(), 0)
 
     def test_duplicate_swimlane_names_returns_400(self):
         data = self._base()
@@ -722,7 +722,7 @@ class BoardImportDuplicateNameTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Duplicate swimlane names", resp.data["detail"])
         self.assertIn("General", resp.data["detail"])
-        self.assertEqual(Board.objects.filter(name="Dup Board").count(), 0)
+        self.assertEqual(Board.objects.filter(name__contains="Dup Board").count(), 0)
 
 
 class BoardImportCSVRoundtripTests(TestCase):
@@ -994,7 +994,7 @@ class BoardImportBulkCreateEdgeCaseTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("undefined column", resp.data["detail"])
         self.assertIn("NonExistentColumn", resp.data["detail"])
-        self.assertFalse(Board.objects.filter(name="Edge Case Board").exists())
+        self.assertFalse(Board.objects.filter(name__contains="Edge Case Board").exists())
 
     def test_card_with_unknown_swimlane_returns_400(self):
         """A card referencing a swimlane name not in the payload's swimlanes list returns 400."""
@@ -1007,7 +1007,7 @@ class BoardImportBulkCreateEdgeCaseTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("undefined swimlane", resp.data["detail"])
         self.assertIn("GhostLane", resp.data["detail"])
-        self.assertFalse(Board.objects.filter(name="Edge Case Board").exists())
+        self.assertFalse(Board.objects.filter(name__contains="Edge Case Board").exists())
 
     def test_movement_with_invalid_type_falls_back_to_move(self):
         """A movement with an unrecognised movement_type is imported as 'move'."""
