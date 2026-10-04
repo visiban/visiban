@@ -219,4 +219,62 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
     await userEvent.setup().keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  // #1428 — restore into a full column now returns the move path's 409 body.
+  // Before, the rejection was unhandled and the click silently did nothing.
+  it('shows the WIP-limit reason and keeps the card when restore is refused', async () => {
+    mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
+    mockUnarchiveCard.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { code: 'wip_limit_exceeded', column_name: 'Backlog', current_count: 3, wip_limit: 3 },
+      },
+    })
+    const onUnarchived = vi.fn()
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={onUnarchived} />)
+    await waitFor(() => screen.getByText('Old feature'))
+
+    await userEvent.click(screen.getByText('Unarchive'))
+
+    expect(
+      await screen.findByText('WIP limit reached — "Backlog" is at its limit of 3 cards (3 active).'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('WIP limit reached')
+    expect(screen.getByText('Old feature')).toBeInTheDocument()
+    expect(screen.getByText('Unarchive')).toBeEnabled()
+    expect(onUnarchived).not.toHaveBeenCalled()
+  })
+
+  it('shows the weight-limit reason when restore is refused on weight', async () => {
+    mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
+    mockUnarchiveCard.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          code: 'weight_limit_exceeded', column_name: 'Backlog',
+          current_weight: 4, weight_limit: 5, card_weight: 2,
+        },
+      },
+    })
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+    await waitFor(() => screen.getByText('Old feature'))
+    await userEvent.click(screen.getByText('Unarchive'))
+    expect(
+      await screen.findByText(
+        'Weight limit reached — "Backlog" has 4 weight — adding this card (+2) would reach 6 of 5.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('shows a generic message for any other restore failure', async () => {
+    mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
+    mockUnarchiveCard.mockRejectedValueOnce(new Error('network error'))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+    await waitFor(() => screen.getByText('Old feature'))
+    await userEvent.click(screen.getByText('Unarchive'))
+    expect(
+      await screen.findByText('Could not unarchive this card. Please try again.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Old feature')).toBeInTheDocument()
+  })
 })

@@ -323,6 +323,28 @@ class WeightUpdateEnforcementTests(_LimitFixture):
         card = Card.objects.filter(column=self.limited).first()
         self.assertEqual(self._patch(self.admin, {"weight": 8}, card=card).status_code, 200)
 
+    def test_weight_increase_check_costs_only_lock_and_sum(self):
+        # The PATCH path's card comes from _card_queryset, which
+        # select_related()s the column, so the check adds exactly the column
+        # row lock and the weight aggregate — no column fetch (#1428 perf).
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        def count(weight, card):
+            self.client.force_authenticate(self.admin)
+            with CaptureQueriesContext(connection) as ctx:
+                r = self.client.patch(
+                    f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
+                    {"weight": weight}, format="json",
+                )
+            self.assertEqual(r.status_code, 200, r.content)
+            return len(ctx.captured_queries)
+
+        unlimited = self._card(self.limited, weight=1)  # `Doing` has no weight_limit
+        baseline = count(2, unlimited)
+        checked = count(3, self.card)  # `Backlog`: 4 -> 5 of 5, allowed
+        self.assertEqual(checked - baseline, 2)
+
     def test_enforcement_off_allows_weight_increase(self):
         self.board.enforce_weight_limits = False
         self.board.save(update_fields=["enforce_weight_limits"])
@@ -417,6 +439,22 @@ class CardAdminFormEnforcementTests(_LimitFixture):
         form = self._form(instance=card, weight=4)
         self.assertFalse(form.is_valid())
         self.assertIn("weight limit", str(form.non_field_errors()))
+
+    def test_column_from_another_board_is_a_form_error(self):
+        # Without this check the helper would count the other board's column
+        # as empty (it filters by board) and every limit would pass.
+        other = _make_board(self.admin, name="Other")
+        other_col = Column.objects.create(
+            board=other, name="Elsewhere", position=0, wip_limit=1, allow_card_creation=True,
+        )
+        Card.objects.create(
+            board=other, column=other_col,
+            swimlane=Swimlane.objects.create(board=other, name="S", position=0),
+            title="full", created_by=self.admin, position=0,
+        )
+        form = self._form(column=other_col.pk)
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors["column"], ["Column belongs to a different board."])
 
     def test_unrelated_edit_in_over_limit_column_is_valid(self):
         self._fill(self.limited, 3)

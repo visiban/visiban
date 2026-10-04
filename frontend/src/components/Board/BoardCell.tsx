@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } fro
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
 import { createCard } from "../../api/cards";
+import { limitBlockedMessage } from "./moveBlockedMessages";
 import GridOverlayLayer from "./GridOverlay/GridOverlayLayer";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
 
@@ -57,8 +58,10 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       onCardAdded(card);
       setTitle("");
       setAdding(false);
-    } catch {
-      setAddError("Failed to add card.");
+    } catch (err) {
+      // A WIP/weight-limit 409 (#1428) names the column and the numbers;
+      // every other failure keeps the generic text.
+      setAddError(limitBlockedMessage(err) ?? "Failed to add card.");
     }
   };
 
@@ -180,7 +183,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
             <button onClick={handleAdd} className="text-xs bg-button-primary text-on-primary px-2.5 py-1 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add</button>
             <button onClick={() => { setAdding(false); setAddError(null); }} className="text-xs text-fg-tertiary hover:text-fg-secondary transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           </div>
-          <p className="text-xs h-4"><span className="text-danger">{addError}</span></p>
+          <p className="text-xs min-h-4" role="status" aria-live="polite"><span className="text-danger">{addError}</span></p>
         </div>
       )}
 

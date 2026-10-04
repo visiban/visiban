@@ -99,6 +99,11 @@ class CardAdminForm(forms.ModelForm):
         board = cleaned.get("board")
         if column is None or board is None:
             return cleaned
+        # The helper counts cards with board=board, so a column from another
+        # board would count zero and silently pass every limit. A card in a
+        # column of a different board is never valid anyway.
+        if column.board_id != board.pk:
+            raise ValidationError({"column": "Column belongs to a different board."})
         # Not yet mutated: ModelForm copies cleaned_data onto the instance only
         # after clean() returns, so self.instance still holds the saved values.
         original = self.instance
