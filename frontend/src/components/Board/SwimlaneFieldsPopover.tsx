@@ -39,6 +39,9 @@ export default function SwimlaneFieldsPopover({
   swimlaneName, entries, anchorRect, userDateFormat, onEdit, onDismiss, triggerRef,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  // null until the measuring pass has placed the panel (see useLayoutEffect below).
+  const [top, setTop] = useState<number | null>(null);
 
   // Above ModalWrapper's 40 is unnecessary here — this popover lives on the
   // board surface, not inside a modal — so the default dropdown tier is right.
@@ -70,17 +73,37 @@ export default function SwimlaneFieldsPopover({
       onDismiss();
     };
     window.addEventListener("scroll", onScroll, true);
-    return () => window.removeEventListener("scroll", onScroll, true);
+    // A resize moves the trigger out from under the fixed panel and changes
+    // the viewport its height was fitted to — same reasoning as scroll.
+    const onResize = () => onDismiss();
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
   }, [onDismiss]);
 
   // Move focus into the panel on open. The popover renders in normal document
   // flow, after this row's card cells, so without this a keyboard user who
   // opened it and pressed Tab would walk through every card in the row before
   // reaching "Edit fields…". Focusing the panel puts the following tab stops
-  // where they visually appear.
+  // where they visually appear. When the list overflows, focus goes to the
+  // list itself so the arrow keys, Page Down and Space scroll it at once
+  // (#1455); a focused ancestor would scroll the board instead.
+  //
+  // Waits for placement: the first commit is the `visibility: hidden`
+  // measuring pass, its passive effects flush before the `setTop` re-render,
+  // and browsers ignore focus() on a hidden element. Focusing then left focus
+  // on the trigger. One-shot, so a later re-placement never steals it back.
+  const focusedRef = useRef(false);
+  const placed = top !== null;
   useEffect(() => {
-    panelRef.current?.focus();
-  }, []);
+    if (!placed || focusedRef.current) return;
+    focusedRef.current = true;
+    const list = listRef.current;
+    if (list && list.scrollHeight > list.clientHeight) list.focus();
+    else panelRef.current?.focus();
+  }, [placed]);
 
   // The `+N` trigger counts the fields that are NOT on the row, so those lead
   // (#1455). Pinned fields still follow under a divider — this stays the one
@@ -99,7 +122,6 @@ export default function SwimlaneFieldsPopover({
   const PANEL_WIDTH = 256;
   const MARGIN = 8;
   const left = Math.min(anchorRect.left, window.innerWidth - PANEL_WIDTH - MARGIN);
-  const [top, setTop] = useState<number | null>(null);
   useLayoutEffect(() => {
     const height = panelRef.current?.offsetHeight ?? 0;
     const below = anchorRect.bottom + 4;
@@ -111,7 +133,6 @@ export default function SwimlaneFieldsPopover({
 
   // Bottom fade while more of the list is below the fold: the overflow is
   // otherwise invisible wherever the OS hides scrollbars.
-  const listRef = useRef<HTMLDivElement>(null);
   const [moreBelow, setMoreBelow] = useState(false);
   const updateMoreBelow = () => {
     const el = listRef.current;
@@ -155,7 +176,11 @@ export default function SwimlaneFieldsPopover({
           ref={listRef}
           data-testid="swimlane-fields-list"
           onScroll={updateMoreBelow}
-          className="overflow-y-auto"
+          // Focusable so a keyboard user can scroll it; see the focus effect.
+          tabIndex={0}
+          role="region"
+          aria-label="Field values"
+          className="overflow-y-auto focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
           // Viewport minus the margins and the header/footer chrome.
           style={{ maxHeight: `calc(100vh - ${2 * MARGIN}px - 5.5rem)` }}
         >
@@ -177,7 +202,7 @@ export default function SwimlaneFieldsPopover({
           <div className="border-t border-line my-1" />
           <button
             onClick={() => { onDismiss(); onEdit(); }}
-            className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Edit fields…
           </button>

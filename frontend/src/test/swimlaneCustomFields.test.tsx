@@ -253,6 +253,45 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
       expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
     })
 
+    it('closes when the window resizes', async () => {
+      await openPopover()
+      fireEvent(window, new Event('resize'))
+      expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
+    })
+
+    it('focuses the panel when everything fits, and the scrollable list when it overflows', async () => {
+      const dialog = await openPopover()
+      expect(dialog).toHaveFocus()
+      fireEvent.mouseDown(document.body) // dismiss
+      const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(300)
+      const clientSpy = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(100)
+      try {
+        await userEvent.setup().click(screen.getByRole('button', { name: /Show all 4 field values/ }))
+        expect(screen.getByRole('region', { name: 'Field values' })).toHaveFocus()
+      } finally {
+        scrollSpy.mockRestore()
+        clientSpy.mockRestore()
+      }
+    })
+
+    it('moves focus only once the panel is placed and visible', async () => {
+      // jsdom focuses a visibility:hidden element; browsers ignore the call.
+      // So assert on the panel's visibility at the moment focus() runs.
+      const original = HTMLElement.prototype.focus
+      const visibilityAtFocus: string[] = []
+      const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, opts?: FocusOptions) {
+        const panel = this.closest('[role="dialog"]') as HTMLElement | null
+        if (panel) visibilityAtFocus.push(panel.style.visibility)
+        return original.call(this, opts)
+      })
+      try {
+        await openPopover()
+        expect(visibilityAtFocus).toEqual([''])
+      } finally {
+        focusSpy.mockRestore()
+      }
+    })
+
     it('shows a bottom fade only while more of the list is below the fold', async () => {
       await openPopover()
       const list = screen.getByTestId('swimlane-fields-list')
