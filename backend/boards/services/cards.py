@@ -281,14 +281,120 @@ def _board_scoped(model, pk, board, error):
 
 
 # ---------------------------------------------------------------------------
+# Column limits (WIP + weight)
+# ---------------------------------------------------------------------------
+
+def enforce_column_limits(
+    *, board, column, card, role, force=False, check_wip=True, check_weight=True,
+    lock=True,
+):
+    """Raise if placing ``card`` in ``column`` breaks its WIP or weight limit.
+
+    The one implementation of WIP, hard-WIP and weight enforcement, shared by
+    every write path that puts a card into a column or grows one inside it:
+    move, create, restore from archive, a weight increase via update, and the
+    Django admin (#1428). Before #1428 only ``move_card`` ran it, so a member
+    could exceed even a hard limit by creating or restoring a card.
+
+    ``card`` is the card being placed. It is excluded from the counts — it is
+    either somewhere else (move), not yet active (restore), or already saved by
+    the caller inside its own transaction (create, weight change) — and its
+    ``weight`` is what is added to the column's total.
+
+    ``check_wip`` / ``check_weight`` exist for the weight-change path, which
+    does not change how many cards the column holds and so must not be refused
+    for a column that is already over its *WIP* limit.
+
+    Locking: when any enforced limit applies, the column row is locked with
+    ``select_for_update()`` before counting, so two concurrent writers into the
+    same column queue instead of both observing room for one more card. Call
+    this inside the caller's transaction, after any card-row lock, to keep the
+    card → column lock order ``move_card`` documents.
+
+    Override rules (identical on every path): hard WIP mode is evaluated before
+    ``force`` is consulted, so no role can override it; a soft WIP or weight
+    limit can be overridden with ``force=True`` only by a board admin or site
+    admin (``ForceNotPermitted`` otherwise). Weight has no hard mode.
+
+    ``lock=False`` is only for a caller that already holds the column row lock
+    in the same transaction (``create_card`` takes it for position assignment).
+    """
+    wip_enforced = check_wip and (board.enforce_wip_limits or board.enforce_wip_hard)
+    weight_enforced = check_weight and board.enforce_weight_limits
+    wip_applies = wip_enforced and column.wip_limit is not None
+    weight_applies = weight_enforced and column.weight_limit is not None
+    if not (wip_applies or weight_applies):
+        return
+
+    # One lock covers WIP and weight; acquiring it twice on the same row would
+    # be a redundant round-trip.
+    if lock:
+        Column.objects.select_for_update().get(pk=column.pk)
+
+    # Hard mode is independent of soft mode: it activates even when soft
+    # enforcement is off, and accepts no override from any role. It is
+    # therefore checked BEFORE `force` is consulted, so the override path is
+    # unreachable while hard mode is on.
+    if wip_applies:
+        wip_count = (
+            Card.objects.filter(board=board, column=column, archived_at__isnull=True)
+            .exclude(pk=card.pk)
+            .count()
+        )
+        if wip_count >= column.wip_limit:
+            if board.enforce_wip_hard:
+                raise WipHardBlocked(
+                    column_name=column.name,
+                    current_count=wip_count,
+                    wip_limit=column.wip_limit,
+                )
+            if not force:
+                raise WipLimitExceeded(
+                    column_name=column.name,
+                    current_count=wip_count,
+                    wip_limit=column.wip_limit,
+                )
+            _require_force_role(role, "wip")
+
+    if weight_applies:
+        current_weight = (
+            Card.objects.filter(board=board, column=column, archived_at__isnull=True)
+            .exclude(pk=card.pk)
+            .aggregate(total=Sum("weight"))["total"]
+        ) or 0
+        if current_weight + card.weight > column.weight_limit:
+            if not force:
+                raise WeightLimitExceeded(
+                    column_name=column.name,
+                    current_weight=current_weight,
+                    weight_limit=column.weight_limit,
+                    card_weight=card.weight,
+                )
+            _require_force_role(role, "weight")
+
+
+# ---------------------------------------------------------------------------
 # create
 # ---------------------------------------------------------------------------
 
-def create_card(*, actor, board, column_id, swimlane_id, save, render, role=None):
+def create_card(
+    *, actor, board, column_id, swimlane_id, save, render, role=None, force=False,
+):
     """Create a card at the end of its target cell.
 
     ``save(position=...)`` performs the validated write and returns the new
     ``Card`` — the HTTP adapter passes a closure over ``serializer.save``.
+
+    The column's WIP and weight limits are enforced exactly as a move into the
+    column enforces them (#1428), including hard mode and the board-admin
+    ``force`` override. The check runs *after* ``save`` because only the saved
+    card carries its validated ``weight``; a refusal raises inside the
+    transaction, so the insert (and everything ``save`` wrote with it) rolls
+    back and no broadcast, hook or notification is registered.
+
+    Board import and the seed commands deliberately do not come through here:
+    they ``bulk_create`` a board as it was exported or designed, which may
+    legitimately be over its limits (see ``docs/architecture/service-layer.md``).
     """
     role = _resolve_role(actor, board, role)
     _require_mutation_role(role)
@@ -307,6 +413,11 @@ def create_card(*, actor, board, column_id, swimlane_id, save, render, role=None
         Column.objects.select_for_update().get(pk=column.pk)
         max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
         card = save(position=max_pos)
+        # The column row is already locked above, so the helper does not lock
+        # it again. The new card is excluded from the count, as in a move.
+        enforce_column_limits(
+            board=board, column=column, card=card, role=role, force=force, lock=False,
+        )
         CardMovement.objects.create(
             card=card,
             from_column=None,
@@ -339,7 +450,7 @@ def create_card(*, actor, board, column_id, swimlane_id, save, render, role=None
 # update
 # ---------------------------------------------------------------------------
 
-def update_card(*, actor, board, card, submitted, apply, render, role=None):
+def update_card(*, actor, board, card, submitted, apply, render, role=None, force=False):
     """Apply a field update, recording a ``CardActivity`` row per changed field.
 
     ``submitted`` is the mapping of field names the caller actually supplied. It
@@ -352,6 +463,10 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
 
     ``apply()`` performs the validated write; the HTTP adapter passes a closure
     over ``serializer.save``.
+
+    ``force`` is consulted only when the write raises the card's ``weight`` in
+    a column with an enforced ``weight_limit`` (#1428); it then follows the
+    move path's rule — a board admin may override, nobody else.
 
     The whole sequence — save, activity rows, notification, deferred broadcast
     registration — is one transaction, so a failure at any step rolls back
@@ -425,6 +540,20 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
         old_due_date = card.due_date.isoformat() if card.due_date else ""
 
         apply()
+        # Weight limit (#1428): only a weight *increase* can push the column
+        # over its budget, so only an increase is checked. A decrease, an
+        # unchanged weight, or any other field edit is always allowed — even in
+        # a column that is already over its WIP or weight limit — because
+        # refusing it would trap a card in a state the edit does not worsen.
+        # WIP is not checked: the column holds the same number of cards. The
+        # card row is already locked by the write above, so locking the column
+        # row now keeps the card → column order move_card uses. A refusal
+        # raises inside this transaction and rolls the write back.
+        if card.weight > old_weight:
+            enforce_column_limits(
+                board=board, column=card.column, card=card, role=role, force=force,
+                check_wip=False,
+            )
         # OCC: bump version on every mutation so stale clients detect conflicts.
         Card.objects.filter(pk=card.pk).update(version=F("version") + 1)
         # Only reload version — scoping fields= prevents clearing the labels
@@ -607,62 +736,15 @@ def move_card(
         column_changed = card.column_id != target_column.pk
         swimlane_changed = card.swimlane_id != target_swimlane.pk
 
-        # Lock the target column row once before both limit checks so concurrent
-        # moves cannot race past either. One lock covers WIP and weight;
-        # acquiring it twice on the same row would be a redundant round-trip.
-        wip_enforced = board.enforce_wip_limits or board.enforce_wip_hard
-        if column_changed and (
-            (wip_enforced and target_column.wip_limit is not None)
-            or (board.enforce_weight_limits and target_column.weight_limit is not None)
-        ):
-            Column.objects.select_for_update().get(pk=target_column.pk)
-
-        # WIP enforcement — only when the card enters a different column (a pure
-        # swimlane move within one column counts as entering it too). Pure
-        # position reorders within the same cell are exempt.
-        #
-        # Hard mode is independent of soft mode: it activates even when soft
-        # enforcement is off, and accepts no override from any role. It is
-        # therefore checked BEFORE `force` is consulted, so the override path is
-        # unreachable while hard mode is on.
-        if wip_enforced and column_changed and target_column.wip_limit is not None:
-            wip_count = (
-                Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
-                .exclude(pk=card.pk)
-                .count()
+        # WIP and weight enforcement — only when the card enters a different
+        # column. Pure position reorders within the same cell, and swimlane-only
+        # moves within one column, are exempt. The helper locks the target
+        # column row (after the card row above, per the lock order) only when a
+        # limit is actually enforced.
+        if column_changed:
+            enforce_column_limits(
+                board=board, column=target_column, card=card, role=role, force=force,
             )
-            if wip_count >= target_column.wip_limit:
-                if board.enforce_wip_hard:
-                    raise WipHardBlocked(
-                        column_name=target_column.name,
-                        current_count=wip_count,
-                        wip_limit=target_column.wip_limit,
-                    )
-                if not force:
-                    raise WipLimitExceeded(
-                        column_name=target_column.name,
-                        current_count=wip_count,
-                        wip_limit=target_column.wip_limit,
-                    )
-                _require_force_role(role, "wip")
-
-        # Weight enforcement — same pattern as WIP, skipped for pure reorders.
-        # The target column row is already locked above.
-        if board.enforce_weight_limits and column_changed and target_column.weight_limit is not None:
-            current_weight = (
-                Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
-                .exclude(pk=card.pk)
-                .aggregate(total=Sum("weight"))["total"]
-            ) or 0
-            if current_weight + card.weight > target_column.weight_limit:
-                if not force:
-                    raise WeightLimitExceeded(
-                        column_name=target_column.name,
-                        current_weight=current_weight,
-                        weight_limit=target_column.weight_limit,
-                        card_weight=card.weight,
-                    )
-                _require_force_role(role, "weight")
 
         movement = None
         if column_changed or swimlane_changed:
@@ -806,12 +888,19 @@ def archive_card(*, actor, board, card_id, render, role=None, render_many=None):
     return CardMutationResult(card=card, payload=render(card))
 
 
-def unarchive_card(*, actor, board, card_id, render, role=None, render_many=None):
+def unarchive_card(
+    *, actor, board, card_id, render, role=None, render_many=None, force=False,
+):
     """Restore a card by clearing ``archived_at``.
 
     The card re-enters its original column/swimlane position. Restoring a card
     that is not archived is a no-op that still returns it, and broadcasts
     nothing.
+
+    Archived cards do not count toward a column's WIP or weight total, so a
+    restore re-adds one: it is checked exactly like a move into the column
+    (#1428) — hard mode blocks every role, a soft limit can be overridden with
+    ``force`` by a board admin only.
 
     Note the hook event is ``card.restored`` while the WebSocket event is
     ``card.unarchived``. Both names are independently frozen — the WS name by
@@ -834,6 +923,11 @@ def unarchive_card(*, actor, board, card_id, render, role=None, render_many=None
     with transaction.atomic():
         card.archived_at = None
         card.save(update_fields=["archived_at"])
+        # Checked after the write so the card row is locked before the column
+        # row (move_card's lock order); a refusal rolls the restore back.
+        enforce_column_limits(
+            board=board, column=card.column, card=card, role=role, force=force,
+        )
         _archive_movement(card, actor, CardMovement.MovementType.UNARCHIVED)
         # Rendered inside the atomic block so the payload is a plain dict
         # captured before the callback is registered (#999), and reused as the

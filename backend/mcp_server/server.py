@@ -384,7 +384,9 @@ def build_mcp_server():
         description=(
             "Create a card in a column/swimlane cell, appended to the end unless position "
             "is given. Requires admin or member board role and the mcp:write scope. "
-            "Column WIP and weight limits are not checked on create (only move_card checks them)."
+            "Enforces the column's WIP and weight limits exactly as move_card does, with no "
+            "override: a create into a full column returns a structured "
+            "wip_limit_exceeded/wip_hard_blocked/weight_limit_exceeded error."
         ),
     )
     @_throttled()

@@ -314,6 +314,40 @@ class CreateCardTests(CrudToolsTestCase):
         self.assertEqual(CardMovement.objects.filter(card=card).count(), 1)
 
 
+    def test_wip_limit_on_create_is_structured_and_writes_nothing(self):
+        # #1428: create_card enforces the same limits as move_card, with the
+        # same structured error and no force override over MCP.
+        self.board.enforce_wip_limits = True
+        self.board.save(update_fields=["enforce_wip_limits"])
+        self.column.wip_limit = 1
+        self.column.save(update_fields=["wip_limit"])
+        _make_card(self.column, self.swimlane, title="Already there")
+
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="Over",
+        )
+        self.assertEqual(result["error"], {
+            "code": "wip_limit_exceeded", "column_name": "Backlog",
+            "current_count": 1, "wip_limit": 1,
+        })
+        self.assertFalse(Card.objects.filter(title="Over").exists())
+
+    def test_hard_wip_on_create_is_structured(self):
+        self.board.enforce_wip_hard = True
+        self.board.save(update_fields=["enforce_wip_hard"])
+        self.column.wip_limit = 1
+        self.column.save(update_fields=["wip_limit"])
+        _make_card(self.column, self.swimlane, title="Already there")
+
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="Over",
+        )
+        self.assertEqual(result["error"]["code"], "wip_hard_blocked")
+        self.assertFalse(Card.objects.filter(title="Over").exists())
+
+
 class MoveCardTests(CrudToolsTestCase):
     def test_move_to_new_column_creates_movement(self):
         card = _make_card(self.column, self.swimlane, title="Movable")

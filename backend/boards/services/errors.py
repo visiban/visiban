@@ -241,6 +241,10 @@ class WipHardBlocked(CardServiceError):
     soft mode and must be evaluated *before* ``?force`` is even read, so the
     admin override path is unreachable. Its body carries both ``detail`` and
     ``code``, with ``detail`` first.
+
+    Since #1428 it is also raised by card create and restore, not just move.
+    ``detail`` still says "move blocked" there: the body is the frozen move
+    contract reused verbatim, and clients branch on ``code``, never ``detail``.
     """
 
     status = 409

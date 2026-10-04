@@ -628,6 +628,12 @@ def create_card(*, board_id, column_id, swimlane_id, title, description=None,
     exempt from WIP/weight enforcement and writes no extra ``CardMovement``
     row — so this never double-counts against a WIP limit or pollutes the
     audit trail with a redundant movement.
+
+    The column's WIP and weight limits are enforced by the service exactly as
+    for ``move_card`` (#1428), and as there this tool never passes ``force``:
+    a create into a full column comes back as the same structured
+    ``wip_limit_exceeded``/``wip_hard_blocked``/``weight_limit_exceeded``
+    error, and nothing is written.
     """
     user = get_current_user()
     try:

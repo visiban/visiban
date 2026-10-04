@@ -23,7 +23,7 @@ For one state transition:
 | Ownership / assignment gate | a member may edit only cards they created, unless they hold the moderator entitlement |
 | Optimistic concurrency | compare the caller's `version` against the stored row |
 | Row locks, in a fixed order | card row → target column row → source cell rows by pk → target cell rows by pk |
-| Limit enforcement | WIP soft, WIP hard, weight, and the `force` override authorization |
+| Limit enforcement | WIP soft, WIP hard, weight, and the `force` override authorization — one helper, `enforce_column_limits()`, shared by move, create, restore, and a weight increase on update (#1428) |
 | Audit trail | the `CardMovement` row and the `CardActivity` diff |
 | The transaction | one `atomic()` block per transition |
 | Deferred side effects | the `transaction.on_commit()` WebSocket broadcast and `CARD_MUTATION_HOOKS` |
@@ -82,9 +82,9 @@ The memo is set by the resolvers alone and is never an input. A caller with no a
 
 Two paths deliberately do **not** go through the card service. Both are documented divergences, not oversights.
 
-**Import / export** (`boards/views/import_export.py`) creates cards with `bulk_create` into a board it has just created. It does not enforce WIP or weight limits, does not compact positions, writes one `board.created` broadcast instead of per-card events, and fires no card mutation hooks. Calling a per-card service in a loop would mean O(n) round trips and a row lock per card on a 500-card import. There is a second reason to leave it alone: `bulk_create` does not emit `post_save`, so importing movement history does not notify assignees — routing import through a service that creates `CardMovement` rows individually would send a notification per imported movement.
+**Import / export** (`boards/views/import_export.py`) creates cards with `bulk_create` into a board it has just created. It does not enforce WIP or weight limits — by design, since an import restores a board as exported and the sample boards each ship one over-WIP column (#1428) — does not compact positions, writes one `board.created` broadcast instead of per-card events, and fires no card mutation hooks. Calling a per-card service in a loop would mean O(n) round trips and a row lock per card on a 500-card import. There is a second reason to leave it alone: `bulk_create` does not emit `post_save`, so importing movement history does not notify assignees — routing import through a service that creates `CardMovement` rows individually would send a notification per imported movement.
 
-**Django admin** (`boards/admin.py`, `CardAdmin.save_model`) broadcasts card events but skips the version bump, the `CardMovement` audit trail, WIP and weight enforcement, the board-level RBAC check, and the hooks. An admin moving a card between columns therefore leaves no audit trail. This is the strongest candidate to migrate next — it is a single call site.
+**Django admin** (`boards/admin.py`, `CardAdmin.save_model`) broadcasts card events but skips the version bump, the `CardMovement` audit trail, the board-level RBAC check, and the hooks. An admin moving a card between columns therefore leaves no audit trail. WIP and weight limits and `allow_card_creation` *are* applied since 1.3: `CardAdminForm.clean()` calls the service's own `enforce_column_limits()` and reports a refusal as a form error, with no `force` override (#1428). Routing the rest through the service is still the strongest candidate to migrate next — it is a single call site.
 
 ## A service that is not a transition: `custom_fields`
 

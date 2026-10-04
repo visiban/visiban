@@ -10,7 +10,9 @@ Every string here starts with ``Enforcement: <class>`` so a client (or a test)
 can tell the three classes apart without parsing prose:
 
 * ``binding`` -- enforced, but the description names the paths it covers
-  because at least one write path skips it (each gap has a tracking issue).
+  because at least one write path skips it (each gap has a tracking issue,
+  or is a documented by-design exemption such as board import for the
+  WIP/weight limits, #1428).
 * ``advisory`` -- stored and surfaced, but no write is ever rejected for
   violating it.
 * ``scaffold`` -- stored and editable, but no code path consumes it yet.
@@ -26,45 +28,47 @@ for what is a documentation-only change.
 # -- Column ------------------------------------------------------------------
 
 COLUMN_WIP_LIMIT = (
-    "Enforcement: binding on the card move endpoint only. Maximum number of "
-    "active (non-archived) cards in this column; null means unlimited. A move "
-    "into a column at its limit returns 409 when the board's enforce_wip_limits "
-    "or enforce_wip_hard is on. Creating a card in the column, restoring an "
-    "archived card into it, and board import do NOT check this limit, so a "
-    "column can hold more cards than wip_limit."
+    "Enforcement: binding on every card write path except board import. "
+    "Maximum number of active (non-archived) cards in this column; null means "
+    "unlimited. Moving a card into the column, creating a card in it, and "
+    "restoring an archived card into it return 409 at the limit when the "
+    "board's enforce_wip_limits or enforce_wip_hard is on. Board import (JSON, "
+    "CSV, Trello) restores a board as exported and is not checked, so an "
+    "imported column can hold more cards than wip_limit."
 )
 
 COLUMN_WEIGHT_LIMIT = (
-    "Enforcement: binding on the card move endpoint only. Maximum total weight "
-    "of active (non-archived) cards in this column; null means unlimited. A "
-    "move that would exceed it returns 409 when the board's "
-    "enforce_weight_limits is on. Creating a card in the column, restoring an "
-    "archived card into it, raising a card's weight with PATCH, and board "
-    "import do NOT check this limit."
+    "Enforcement: binding on every card write path except board import. "
+    "Maximum total weight of active (non-archived) cards in this column; null "
+    "means unlimited. Moving or restoring a card into the column, creating a "
+    "card in it, and raising a card's weight with PATCH return 409 when the "
+    "total would exceed it and the board's enforce_weight_limits is on. "
+    "Lowering a weight is never blocked. Board import is not checked."
 )
 
 # -- Board -------------------------------------------------------------------
 
 BOARD_ENFORCE_WIP_LIMITS = (
-    "Enforcement: binding on the card move endpoint only. When true, moving a "
-    "card into a column at or over its wip_limit is blocked with 409; board "
-    "admins can override with ?force=true. Card creation, restore from "
-    "archive, and board import are not checked."
+    "Enforcement: binding on every card write path except board import. When "
+    "true, moving, creating or restoring a card into a column at or over its "
+    "wip_limit is blocked with 409; board admins can override with "
+    "?force=true. Board import is not checked."
 )
 
 BOARD_ENFORCE_WIP_HARD = (
-    "Enforcement: binding on the card move endpoint only. When true, WIP limits "
-    "become a hard stop on moves for every role, including board admins; no "
-    "override is possible. Active regardless of enforce_wip_limits. Card "
-    "creation, restore from archive, and board import are not checked, so a "
-    "column can still exceed its limit through those paths."
+    "Enforcement: binding on every card write path except board import. When "
+    "true, WIP limits become a hard stop for every role, including board "
+    "admins, on card move, create and restore; no override is possible. "
+    "Active regardless of enforce_wip_limits. Board import restores a board as "
+    "exported and is not checked."
 )
 
 BOARD_ENFORCE_WEIGHT_LIMITS = (
-    "Enforcement: binding on the card move endpoint only. When true, moving a "
-    "card into a column that would exceed its weight_limit is blocked with "
-    "409; board admins can override with ?force=true. Card creation, restore "
-    "from archive, weight changes via PATCH, and board import are not checked."
+    "Enforcement: binding on every card write path except board import. When "
+    "true, moving, creating or restoring a card, or raising its weight with "
+    "PATCH, so that a column would exceed its weight_limit is blocked with "
+    "409; board admins can override with ?force=true. Board import is not "
+    "checked."
 )
 
 BOARD_ALLOWED_PRIORITIES = (
