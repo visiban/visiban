@@ -31,6 +31,7 @@ const fakeCreatedLink: GroupInviteLink = {
   status: 'pending',
   used_at: null,
   created_by_username: null,
+  delivery: 'link',
 }
 
 /** Simulates a list response — no raw token, only prefix */
@@ -47,6 +48,7 @@ const fakeExistingLink: GroupInviteLink = {
   status: 'pending',
   used_at: null,
   created_by_username: null,
+  delivery: 'link',
 }
 
 /** A consumed single-use link returned by the list endpoint */
@@ -63,6 +65,7 @@ const fakeUsedLink: GroupInviteLink = {
   status: 'used',
   used_at: '2026-04-14T18:00:00Z',
   created_by_username: null,
+  delivery: 'link',
 }
 
 /** An expired link — use status: 'expired' to ensure isTerminal is true */
@@ -79,6 +82,7 @@ const fakeExpiredLink: GroupInviteLink = {
   status: 'expired',
   used_at: null,
   created_by_username: null,
+  delivery: 'link',
 }
 
 describe('InviteLinkPanel', () => {

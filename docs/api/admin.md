@@ -507,7 +507,8 @@ List all invite links on the instance.
     "created_at": "2026-03-20T10:00:00Z",
     "use_count": 0,
     "status": "active",
-    "created_by_username": "admin"
+    "created_by_username": "admin",
+    "delivery": "link"
   },
   {
     "id": 2,
@@ -519,7 +520,8 @@ List all invite links on the instance.
     "created_at": "2026-03-15T09:00:00Z",
     "use_count": 4,
     "status": "revoked",
-    "created_by_username": "admin"
+    "created_by_username": "admin",
+    "delivery": "link"
   }
 ]
 ```
@@ -538,6 +540,7 @@ List all invite links on the instance.
 | `use_count` | integer | Number of successful registrations through this link. Incremented on every consumption (including multi-use links) and preserved across revocation for audit visibility. |
 | `status` | `"active"` \| `"expired"` \| `"used"` \| `"revoked"` | Computed status of the link. |
 | `created_by_username` | string | Username of the admin who created the link. |
+| `delivery` | `"link"` \| `"email"` | `link` for links created and shared by an admin; `email` for links sent with `POST /api/v1/admin/invite-links/send/`. Added in 1.2. |
 
 ---
 
@@ -583,7 +586,46 @@ The response includes a one-time `raw_token` field. **Store or share it immediat
 | Status | Reason |
 |---|---|
 | `400 Bad Request` | `expires_in_days` is not one of `1`, `7`, `30`, or `null` |
-| `400 Bad Request` | The active-link cap for the instance has been reached |
+| `400 Bad Request` | The active-link cap for the instance (50) has been reached. Emailed links do not count toward it. |
+
+---
+
+### `POST /api/v1/admin/invite-links/send/`
+
+Email a single-use registration invite to one address. *(Added in 1.2.)*
+
+**Permission:** `IsSiteAdmin`.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Recipient address. Surrounding spaces are stripped; an address with a line break is rejected. Used for this one send and **never stored** or logged. |
+| `expires_in_days` | `1` \| `7` \| `30` | No | Days until the link expires. Default `7`. `null` (never expires) is **not** accepted for emailed links. |
+
+```json
+{ "email": "new.hire@example.org", "expires_in_days": 7 }
+```
+
+The server mints a link with `single_use: true` and `delivery: "email"` and sends a plain-text email with the join link (`<FRONTEND_URL>/join/<token>`) and the expiry date. There is no free-text message field.
+
+**Response** `202 Accepted`
+
+```json
+{ "detail": "Invite sent", "sent_to": "new.hire@example.org", "already_registered": false }
+```
+
+`already_registered` is `true` when an account with that address (case-insensitive) already exists; the email is sent either way. The raw token is **never** returned. Under `DEBUG` with console mail delivery the response also carries `"delivery": "console"`.
+
+**Errors**
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | Invalid or missing `email`, address with a line break, or `expires_in_days` not one of `1`, `7`, `30` |
+| `400 Bad Request` | `{"code": "invite_email_cap_reached"}` — 200 pending emailed links already exist on the instance |
+| `403 Forbidden` | Not a site admin, or `{"code": "invite_email_disabled"}` when `INVITE_EMAIL_ENABLED=false` or in demo mode |
+| `429 Too Many Requests` | 10 sends/hour per admin, 200/day instance-wide (shared with group invite emails) |
+| `502 Bad Gateway` | `{"code": "<error code>"}` — the mail server refused or could not be reached; the just-created link is revoked automatically. `code` is a sanitized SMTP code (`auth_failed`, `connection_refused`, `dns_failure`, `tls_failure`, `timeout`, `config_unusable`, `unknown`) |
 
 ---
 

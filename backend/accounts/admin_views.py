@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from boards.permissions import get_board_role
+from visiban.invite_email import InviteEmailField
 from .adapter import clear_login_lockout
 from visiban.mail import (
     ERROR_BACKEND_PINNED,
@@ -32,6 +33,7 @@ from .models import (
     InviteLink,
     MAINTENANCE_MESSAGE_MAX_LENGTH,
     MAX_ACTIVE_INVITE_LINKS,
+    MAX_PENDING_EMAILED_INVITE_LINKS,
     SiteEmailSetting,
     SiteSetting,
     record_email_settings_changes,
@@ -570,6 +572,9 @@ class InviteLinkSerializer(drf_serializers.Serializer):
     use_count = drf_serializers.IntegerField(read_only=True)
     status = drf_serializers.SerializerMethodField()
     created_by_username = drf_serializers.SerializerMethodField()
+    # "link" (copied and shared by an admin) or "email" (sent by the send
+    # endpoint, #731). Additive.
+    delivery = drf_serializers.CharField(read_only=True)
 
     def get_status(self, obj):
         return obj.status
@@ -594,6 +599,19 @@ class InviteLinkCreateSerializer(drf_serializers.Serializer):
                 f"expires_in_days must be one of {InviteLink.VALID_TTL_DAYS} or null."
             )
         return value
+
+
+class InviteLinkEmailSerializer(drf_serializers.Serializer):
+    """Validates the payload for emailing a site invite link (#731).
+
+    ``expires_in_days`` takes the same choices as link creation minus "never":
+    an emailed link is a live credential in a third party's inbox and must age
+    out on its own. No free-text message field, by design.
+    """
+    email = InviteEmailField()
+    expires_in_days = drf_serializers.ChoiceField(
+        choices=InviteLink.VALID_TTL_DAYS, required=False, default=7,
+    )
 
 
 class TransferItemSerializer(drf_serializers.Serializer):
@@ -913,9 +931,13 @@ class AdminInviteLinkListCreateView(APIView):
         SiteSetting.objects.select_for_update().get(pk=1)
 
         # Soft cap: prevent token flood from a compromised admin account.
+        # Emailed links (#731) are excluded — they have their own cap in
+        # AdminInviteLinkSendView so emailed invites never crowd out the
+        # admin's shareable links.
         active_count = InviteLink.objects.filter(
             used_at__isnull=True,
             revoked_at__isnull=True,
+            delivery=InviteLink.Delivery.LINK,
         ).exclude(expires_at__lt=timezone.now()).count()
         if active_count >= MAX_ACTIVE_INVITE_LINKS:
             return Response(
@@ -944,6 +966,121 @@ class AdminInviteLinkListCreateView(APIView):
         # once for the creation response; it is never persisted.
         link.raw_token = raw_token
         return Response(InviteLinkCreateResponseSerializer(link).data, status=status.HTTP_201_CREATED)
+
+
+class AdminInviteLinkSendView(APIView):
+    """POST /api/v1/admin/invite-links/send/ — email a single-use invite (#731).
+
+    Unlike the group endpoint this one may say whether the address already has
+    an account (``already_registered``): only site admins can call it, and they
+    can already list every user and email address in the admin panel, so it
+    reveals nothing new. The mail is still sent either way. The raw token only
+    travels in the email and is never returned.
+    """
+    permission_classes = _ADMIN_PERMISSIONS
+
+    @extend_schema(
+        request=InviteLinkEmailSerializer,
+        responses={
+            202: inline_serializer(
+                name="AdminInviteEmailSent",
+                fields={
+                    "detail": drf_serializers.CharField(),
+                    "sent_to": drf_serializers.CharField(),
+                    "already_registered": drf_serializers.BooleanField(),
+                    "delivery": drf_serializers.CharField(required=False),
+                },
+            ),
+        },
+    )
+    def post(self, request):
+        from visiban import invite_email
+
+        if not invite_email.invite_email_enabled():
+            return Response(
+                {
+                    "code": invite_email.CODE_INVITE_EMAIL_DISABLED,
+                    "detail": "Sending invites by email is disabled on this instance.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = InviteLinkEmailSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = serializer.validated_data
+
+        invite_email.check_send_throttles(request, self)
+
+        with transaction.atomic():
+            # Same row lock as link creation, so concurrent sends cannot both
+            # read a count below the emailed cap and overshoot it.
+            SiteSetting.objects.get_or_create(pk=1)
+            SiteSetting.objects.select_for_update().get(pk=1)
+            pending_emailed = InviteLink.objects.filter(
+                delivery=InviteLink.Delivery.EMAIL,
+                used_at__isnull=True,
+                revoked_at__isnull=True,
+                expires_at__gt=timezone.now(),
+            ).count()
+            if pending_emailed >= MAX_PENDING_EMAILED_INVITE_LINKS:
+                return Response(
+                    {
+                        "code": "invite_email_cap_reached",
+                        "detail": (
+                            f"Maximum pending emailed invites ({MAX_PENDING_EMAILED_INVITE_LINKS}) "
+                            "reached. Revoke some or wait for them to expire."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            link, raw_token = InviteLink.generate(
+                created_by=request.user,
+                expires_at=timezone.now() + timedelta(days=int(data["expires_in_days"])),
+                single_use=True,
+                delivery=InviteLink.Delivery.EMAIL,
+            )
+            logger.info(
+                "invite_link.created pk=%d prefix=%s created_by=%d single_use=%s delivery=email",
+                link.pk, link.prefix, request.user.pk, link.single_use,
+            )
+
+        # After commit: the SiteSetting row lock must not be held across an
+        # SMTP session (see visiban/invite_email.py).
+        message = invite_email.build_site_invite_message(
+            inviter_name=request.user.username,
+            raw_token=raw_token,
+            expires_at=link.expires_at,
+            to=data["email"],
+        )
+        error_code = invite_email.send_invite_message(
+            message, link_pk=link.pk, prefix=link.prefix, actor_id=request.user.pk, kind="site",
+        )
+        if error_code is not None:
+            InviteLink.objects.filter(pk=link.pk, revoked_at__isnull=True).update(
+                revoked_at=timezone.now()
+            )
+            logger.info(
+                "invite_link.revoked pk=%d prefix=%s revoked_by=%d reason=email_failed",
+                link.pk, link.prefix, request.user.pk,
+            )
+            return Response(
+                {
+                    "code": error_code,
+                    "detail": "The invite email could not be sent. The link was revoked.",
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        normalized = invite_email.normalize_invite_email(data["email"])
+        body = {
+            "detail": "Invite sent",
+            "sent_to": data["email"],
+            "already_registered": User.objects.filter(email__iexact=normalized).exists(),
+        }
+        if invite_email.delivers_to_console():
+            body["delivery"] = "console"
+        return Response(body, status=status.HTTP_202_ACCEPTED)
 
 
 class AdminInviteLinkRevokeView(APIView):

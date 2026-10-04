@@ -61,6 +61,7 @@ from .serializers import (
     UserSerializer,
 )
 from .ws_auth import issue_ws_ticket
+from visiban.invite_email import invite_email_available
 
 User = get_user_model()
 
@@ -800,6 +801,7 @@ class SiteConfigView(APIView):
                 ),
                 "demo_reset_schedule": drf_serializers.CharField(required=False, allow_null=True),
                 "demo_next_reset_at": drf_serializers.DateTimeField(required=False, allow_null=True),
+                "invite_email_available": drf_serializers.BooleanField(),
             },
         ),
     )
@@ -818,6 +820,10 @@ class SiteConfigView(APIView):
             # #1180: also null when the reset is disabled (empty schedule).
             "demo_reset_schedule": demo_reset_schedule(),
             "demo_next_reset_at": demo_next_reset_at_iso(),
+            # #731: whether the SPA should offer "send invite by email". A UI
+            # hint only — it reveals no configuration detail beyond "mail looks
+            # configured", and the send endpoints still report real failures.
+            "invite_email_available": invite_email_available(),
         })
 
     @staticmethod

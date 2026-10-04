@@ -1,0 +1,1 @@
+{% autoescape off %}You're invited to join {{ group_name }} on {{ site_name }}{% endautoescape %}

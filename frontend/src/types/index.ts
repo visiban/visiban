@@ -28,6 +28,9 @@ export interface SiteConfig {
   demo_reset_schedule?: string | null;
   /** Next demo reset, ISO 8601 UTC, computed server-side (#1179); null unless demo_mode. */
   demo_next_reset_at?: string | null;
+  /** True when admins can email invite links (#731): INVITE_EMAIL_ENABLED on,
+   * DEMO_MODE off, and outbound mail configured. A UI hint, not a guarantee. */
+  invite_email_available: boolean;
 }
 
 export interface User {
@@ -955,6 +958,8 @@ export interface AdminInviteLink {
   use_count: number;
   status: "pending" | "used" | "expired" | "revoked";
   created_by_username: string | null;
+  /** "link" = copied and shared by an admin; "email" = sent to one address (#731). */
+  delivery: "link" | "email";
 }
 
 export interface CreatedAdminInviteLink extends AdminInviteLink {
@@ -978,6 +983,8 @@ export interface GroupInviteLink {
   single_use: boolean;
   status: "pending" | "used" | "expired" | "revoked";
   used_at: string | null;
+  /** "link" = copied and shared by an admin; "email" = sent to one address (#731). */
+  delivery: "link" | "email";
 }
 
 /** Returned by POST and DELETE on /boards/<id>/share/.

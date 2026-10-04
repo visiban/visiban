@@ -840,7 +840,8 @@ Returns site-level configuration. This endpoint is public — no authentication 
   "demo_mode": false,
   "demo_login": null,
   "demo_reset_schedule": null,
-  "demo_next_reset_at": null
+  "demo_next_reset_at": null,
+  "invite_email_available": true
 }
 ```
 
@@ -852,6 +853,7 @@ Returns site-level configuration. This endpoint is public — no authentication 
 | `demo_login` | object or null | `{"username", "password"}` / `null` | Demo credentials shown on the login page. Non-null only when `demo_mode` is `true` **and** `DEMO_LOGIN_PASSWORD` is set. See [Demo data](../administration/demo-data.md#hosted-demo-instance). |
 | `demo_reset_schedule` | string or null | e.g. `"0 * * * *"` / `null` | Cron expression of the demo reset (`DEMO_RESET_SCHEDULE`). Non-null only when `demo_mode` is `true`. Added in 1.2. |
 | `demo_next_reset_at` | string or null | ISO 8601 UTC / `null` | The next reset instant, computed server-side from the schedule so clients need no cron parser. Non-null only when `demo_mode` is `true`. Added in 1.2. |
+| `invite_email_available` | boolean | `true` / `false` | Whether admins can email invite links. `true` only when `INVITE_EMAIL_ENABLED` is on, demo mode is off, and outbound mail looks configured (`EMAIL_BACKEND` is set explicitly, or the effective sender address is not the `example.com` placeholder). A UI hint, not a delivery guarantee. Added in 1.2. |
 
 Site admins can change the registration mode in **Admin → Site Settings**. See [Site Admins](../administration/site-admins.md).
 

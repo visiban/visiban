@@ -79,6 +79,22 @@ Anyone with the link joins with the role assigned to that link. Expired links sh
 !!! tip
     Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one `member` link for the team and one `viewer` link for stakeholders).
 
+### Emailing an invite link
+
+> **Added in 1.2** (#731)
+
+Instead of copying a link into another tool, a group admin can send an invite straight to someone's email address. Visiban creates a **single-use** link for that one person (role of your choice, expiring in 1–30 days — default 7, never "never") and emails it from the instance's own sender address. The email is plain text and names the group, the join link, and the expiry date; there is no custom message.
+
+- Emailed links show up in the invite links list marked as emailed, can be revoked like any other link, and **don't count against the 5 shareable links**. A group can have up to 50 pending emailed links.
+- The address you typed is used for that one email and is **not stored**. The list shows the link, not who it was sent to.
+- You get the same "Invite sent" confirmation whether the address belongs to an existing member, someone with an account, or nobody yet — Visiban never reveals which addresses have accounts.
+- If the mail server rejects the message, you see an error and the link is revoked automatically, so nothing is left dangling. Try again once email is working.
+- Sending is rate-limited: 10 per hour per admin, 30 per day per group, 200 per day across the instance.
+- The option only appears when outbound email is configured (see [Email](../administration/configuration.md)) and the operator hasn't set `INVITE_EMAIL_ENABLED=false`. It is never available on a demo instance.
+
+!!! note
+    Following the emailed link does **not** verify the recipient's email address. If they create a new account from it, registration still follows the instance's normal email-verification setting. On an instance whose registration mode is **Invite-only** or **Closed**, a group invite link does not currently let a newcomer create an account (tracked in #1445) — invite people who already have one, or ask a site admin for a site invite.
+
 ## Moving boards between groups
 
 Any board can move to a different group or back to personal boards, via **Move to group** in board settings (gear icon in the toolbar). Only board admins and site admins can move a board.

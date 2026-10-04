@@ -102,6 +102,8 @@ The change takes effect immediately — no restart required.
 
 **Inviting users when invite-only is on:**
 
-Go to **Site Admin → Invite Links** to generate a new invite link. Send the link to the prospective user — they can follow it to complete self-registration. Each link can be configured with an expiry and optional use limit.
+Go to **Site Admin → Invite Links** to generate a new invite link. Send the link to the prospective user — they can follow it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.
+
+*(New in 1.2)* You can also **email an invite** straight to an address. Visiban creates a single-use link that expires in 1, 7 (default) or 30 days and sends it from the instance's sender address. Emailed links have their own limit — 200 pending — and don't count against the 50 shareable links. The address is not stored; after sending you're told whether it already belongs to an account (the email is sent either way). If the mail server rejects the message, the link is revoked automatically. Emailing requires working outbound email and can be switched off with `INVITE_EMAIL_ENABLED=false` (see [Configuration](configuration.md)). Following the link does not verify the recipient's address — registration still follows the normal email-verification setting.
 
 See [First Boot](../getting-started/first-boot.md) for a full walkthrough of the invite link workflow, and [Admin Panel](admin-panel.md) for the user management interface.

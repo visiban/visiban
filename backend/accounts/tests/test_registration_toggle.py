@@ -66,6 +66,18 @@ class SiteConfigViewTests(TestCase):
         r = self.client.get("/api/v1/auth/site-config/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
+    @override_settings(INVITE_EMAIL_ENABLED=True, DEMO_MODE=False, EMAIL_BACKEND_EXPLICIT=True)
+    def test_invite_email_available_published(self):
+        """#731: the SPA reads this to decide whether to offer "send by email".
+        Full truth table in accounts/tests/test_admin_invite_email.py."""
+        body = self.client.get("/api/v1/auth/site-config/").json()
+        self.assertIs(body["invite_email_available"], True)
+
+    @override_settings(INVITE_EMAIL_ENABLED=True, DEMO_MODE=True, EMAIL_BACKEND_EXPLICIT=True)
+    def test_invite_email_unavailable_in_demo_mode(self):
+        body = self.client.get("/api/v1/auth/site-config/").json()
+        self.assertIs(body["invite_email_available"], False)
+
 
 class RegistrationAdapterTests(TestCase):
     """

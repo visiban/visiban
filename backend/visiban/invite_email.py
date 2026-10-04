@@ -1,0 +1,301 @@
+"""Emailed invite links (#731) — build, send, and map failures.
+
+Group admins and site admins can send an invite link straight to an address
+instead of copying it into another tool. The views own permissions, caps and
+the transaction that mints the link; this module owns everything after the
+link exists: whether the feature is usable at all, the message, the send, and
+turning a failure into the sanitized ``visiban.mail`` taxonomy.
+
+Why the send is synchronous and after commit
+--------------------------------------------
+The admin is waiting on the answer ("sent" or "your mail server rejected it"),
+and on failure the just-minted link must be revoked so a dead invite does not
+sit in the pending list. That rules out the fire-and-forget thread notification
+mail uses. It must run *after* the minting transaction commits: the site path
+holds the ``SiteSetting`` row lock while it checks the cap, and an SMTP session
+inside that lock would serialize every site-admin invite behind a slow relay.
+
+What is never logged
+--------------------
+The recipient address, the subject, the group name, the raw token or the join
+URL. Logs carry the link pk, its display prefix, the actor id and an error code
+— nothing else (CLAUDE.md "never log sensitive fields").
+"""
+import logging
+
+from django.conf import settings
+from django.core.mail import EmailMessage, get_connection
+from django.template.loader import render_to_string
+from rest_framework import serializers
+from rest_framework.exceptions import Throttled
+from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
+
+# Mail headers must not contain a newline, and a newline in the body would let a
+# group name inject its own "Open this link" line pointing anywhere — reuse the
+# notification mailer's flatten/clip helpers so the two senders cannot drift.
+from boards.notifications_email import _flatten, _flatten_subject
+from visiban.mail import (
+    EmailConfigUnusable,
+    classify_smtp_error,
+    resolve_email_config,
+    sender_is_placeholder,
+)
+
+logger = logging.getLogger(__name__)
+
+SITE_NAME = "Visiban"
+_CONSOLE_BACKEND = "django.core.mail.backends.console.EmailBackend"
+_DATABASE_AWARE_BACKEND = "visiban.mail.DatabaseAwareEmailBackend"
+
+# Machine-readable 403 code returned when the feature is switched off
+# (INVITE_EMAIL_ENABLED=false, or DEMO_MODE).
+CODE_INVITE_EMAIL_DISABLED = "invite_email_disabled"
+
+_NAME_MAX = 100
+
+
+def invite_email_enabled() -> bool:
+    """True when the operator has not switched the feature off.
+
+    DEMO_MODE is re-checked here rather than trusted to the import-time
+    ``INVITE_EMAIL_ENABLED and not DEMO_MODE`` in settings: a settings override
+    (tests, or a future runtime toggle) must not be able to re-enable sending
+    from a public demo.
+    """
+    return bool(getattr(settings, "INVITE_EMAIL_ENABLED", True)) and not getattr(
+        settings, "DEMO_MODE", False
+    )
+
+
+def delivers_to_console() -> bool:
+    """True when, under DEBUG, outbound mail goes to the console, not a relay.
+
+    Lets a developer exercise the flow locally; the response says so
+    (``"delivery": "console"``) so nobody mistakes a console print for a send.
+    """
+    if not settings.DEBUG:
+        return False
+    backend = getattr(settings, "EMAIL_BACKEND", "")
+    if backend == _CONSOLE_BACKEND:
+        return True
+    if backend == _DATABASE_AWARE_BACKEND:
+        # DatabaseAwareEmailBackend delegates to the console backend under
+        # DEBUG whenever the env source is in effect.
+        try:
+            return resolve_email_config(need_password=False).source == "env"
+        except EmailConfigUnusable:
+            return False
+    return False
+
+
+def invite_email_available() -> bool:
+    """Whether the SPA should offer "send by email" at all (public site-config).
+
+    True only when the feature is enabled, DEMO_MODE is off, and mail can
+    plausibly be sent: the operator pinned ``EMAIL_BACKEND`` (their own
+    transport — we cannot inspect it), or the resolved configuration has a real,
+    non-placeholder sender. A DEBUG console setup also counts, so the flow can
+    be exercised in development. This is a hint for the UI, not a guarantee —
+    the send endpoint still reports a relay failure as a 502.
+    """
+    if not invite_email_enabled():
+        return False
+    if getattr(settings, "EMAIL_BACKEND_EXPLICIT", False):
+        return True
+    if delivers_to_console():
+        return True
+    try:
+        config = resolve_email_config(need_password=False)
+    except EmailConfigUnusable:
+        return False
+    return bool(config.from_email) and not sender_is_placeholder(config.from_email)
+
+
+def join_url(raw_token: str) -> str:
+    """Absolute SPA URL for an invite token — the same ``/join/<token>`` route the
+    copy-link UI builds for both group (``vbng_``) and site (``vbnl_``) tokens."""
+    base = getattr(settings, "FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    return f"{base}/join/{raw_token}"
+
+
+def _clip(text: str) -> str:
+    flat = _flatten(text)
+    if len(flat) > _NAME_MAX:
+        flat = flat[: _NAME_MAX - 1].rstrip() + "…"
+    return flat
+
+
+def _expires_on(expires_at) -> str:
+    # Date plus UTC time: the recipient's timezone is unknown, and a bare date
+    # would be off by up to a day either side.
+    return expires_at.strftime("%B %d, %Y at %H:%M UTC")
+
+
+def build_group_invite_message(*, group_name, inviter_name, raw_token, expires_at, to):
+    context = {
+        "group_name": _clip(group_name),
+        "inviter_name": _clip(inviter_name) or "A group admin",
+        "site_name": SITE_NAME,
+        "join_url": join_url(raw_token),
+        "expires_on": _expires_on(expires_at),
+    }
+    subject = _flatten_subject(render_to_string("groups/email/invite_subject.txt", context))
+    body = render_to_string("groups/email/invite_message.txt", context)
+    return EmailMessage(subject=subject, body=body, to=[to])
+
+
+def build_site_invite_message(*, inviter_name, raw_token, expires_at, to):
+    context = {
+        "inviter_name": _clip(inviter_name) or "A site admin",
+        "site_name": SITE_NAME,
+        "join_url": join_url(raw_token),
+        "expires_on": _expires_on(expires_at),
+    }
+    subject = _flatten_subject(render_to_string("accounts/email/site_invite_subject.txt", context))
+    body = render_to_string("accounts/email/site_invite_message.txt", context)
+    return EmailMessage(subject=subject, body=body, to=[to])
+
+
+def send_invite_message(message, *, link_pk, prefix, actor_id, kind):
+    """Send one invite message; return ``None`` on success or an error code.
+
+    Never raises: every failure is mapped through ``classify_smtp_error`` so no
+    raw smtplib text (which can echo credentials) reaches the client or the log.
+    """
+    connection = None
+    try:
+        # A timeout floor so a blackholed relay cannot hang the request worker
+        # (DatabaseAwareEmailBackend applies it only when the resolved config has
+        # no timeout of its own).
+        connection = get_connection(
+            fail_silently=False,
+            timeout=getattr(settings, "NOTIFICATION_EMAIL_TIMEOUT", 10),
+        )
+        message.connection = connection
+        sent = message.send(fail_silently=False)
+        if not sent:
+            raise RuntimeError("backend reported zero messages sent")
+    except Exception as exc:  # noqa: BLE001 - mapped onto the sanitized taxonomy
+        code = classify_smtp_error(exc)
+        logger.warning(
+            "invite_email.failed kind=%s link_pk=%s prefix=%s actor_id=%s code=%s exc=%s",
+            kind, link_pk, prefix, actor_id, code, type(exc).__name__,
+        )
+        return code
+    finally:
+        if connection is not None:
+            try:
+                connection.close()
+            except Exception:  # noqa: BLE001 - closing is best-effort
+                pass
+    logger.info(
+        "invite_email.sent kind=%s link_pk=%s prefix=%s actor_id=%s",
+        kind, link_pk, prefix, actor_id,
+    )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Input validation shared by the group and site serializers
+# ---------------------------------------------------------------------------
+
+def normalize_invite_email(value: str) -> str:
+    """Canonical form used for comparisons (``already_registered``), matching
+    ``accounts.invite_utils._normalize_email_for_dedup``: strip + lowercase."""
+    from accounts.invite_utils import _normalize_email_for_dedup
+    return _normalize_email_for_dedup(value)
+
+
+class InviteEmailField(serializers.EmailField):
+    """The ``email`` field both send serializers declare.
+
+    Rejects CR/LF on the *raw* value: DRF's default ``trim_whitespace`` would
+    otherwise strip a trailing line break before validation and silently accept
+    it. A line break in an address is never legitimate and is the classic
+    header-injection shape. Ordinary surrounding spaces are still stripped.
+    The value is returned as entered (stripped, case preserved) because that is
+    what gets addressed and echoed back as ``sent_to``; comparisons use
+    ``normalize_invite_email``.
+    """
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("max_length", 254)
+        super().__init__(**kwargs)
+
+    def to_internal_value(self, data):
+        if isinstance(data, str) and any(ch in data for ch in "\r\n"):
+            raise serializers.ValidationError("Enter a valid email address.")
+        return super().to_internal_value(data)
+
+
+# ---------------------------------------------------------------------------
+# Throttles
+# ---------------------------------------------------------------------------
+
+class InviteEmailUserThrottle(UserRateThrottle):
+    """Per sending user (``invite_email_user``)."""
+
+    scope = "invite_email_user"
+
+
+class InviteEmailGroupThrottle(SimpleRateThrottle):
+    """Per group (``invite_email_group``), keyed on the group id so every admin
+    of one group draws from the same budget — several admins (or one admin's
+    several accounts) cannot multiply a group's outbound volume."""
+
+    scope = "invite_email_group"
+
+    def __init__(self, group_id):
+        super().__init__()
+        self.group_id = group_id
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {"scope": self.scope, "ident": f"group-{self.group_id}"}
+
+
+class InviteEmailGlobalThrottle(SimpleRateThrottle):
+    """Instance-wide ceiling (``invite_email_global``) across every sender, so a
+    handful of compromised admin accounts cannot turn the instance into a relay."""
+
+    scope = "invite_email_global"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {"scope": self.scope, "ident": "all"}
+
+
+def _would_allow(throttle, request, view) -> bool:
+    """``SimpleRateThrottle.allow_request`` without recording the request."""
+    if throttle.rate is None:
+        return True
+    throttle.key = throttle.get_cache_key(request, view)
+    if throttle.key is None:
+        return True
+    throttle.history = throttle.cache.get(throttle.key, [])
+    throttle.now = throttle.timer()
+    while throttle.history and throttle.history[-1] <= throttle.now - throttle.duration:
+        throttle.history.pop()
+    return len(throttle.history) < throttle.num_requests
+
+
+def check_send_throttles(request, view, *, group_id=None) -> None:
+    """Apply every send throttle at once; raise ``Throttled`` if any is spent.
+
+    Called by the views after the permission check and input validation rather
+    than via ``throttle_classes``: DRF runs class throttles before the view
+    body, where the group-admin check lives, so a non-admin could otherwise
+    burn a group's shared daily budget with requests that are refused anyway.
+    All throttles are checked before any is recorded, so a request refused by
+    one does not consume the others' budgets.
+    """
+    throttles = [InviteEmailUserThrottle()]
+    if group_id is not None:
+        throttles.append(InviteEmailGroupThrottle(group_id))
+    throttles.append(InviteEmailGlobalThrottle())
+
+    refused = [t for t in throttles if not _would_allow(t, request, view)]
+    if refused:
+        waits = [w for w in (t.wait() for t in refused) if w is not None]
+        raise Throttled(wait=max(waits) if waits else None)
+    for t in throttles:
+        if t.rate is not None and t.key is not None:
+            t.throttle_success()

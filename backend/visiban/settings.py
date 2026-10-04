@@ -602,6 +602,14 @@ REST_FRAMEWORK = {
         # mail-relay abuse and use of the endpoint as a network probe. Keyed on
         # the user, and the endpoint is site-admin-only on top of this.
         "email_test": "9999/hour" if DEBUG else "5/hour",
+        # Emailed invite links (#731): every call sends one message from the
+        # instance's own trusted sender to an address the caller typed, so the
+        # endpoint is a spam vector if unbounded. Three layers: per sending
+        # user, per group (keyed on the group id, so several admins of one group
+        # share a budget), and an instance-wide ceiling.
+        "invite_email_user": "9999/hour" if DEBUG else "10/hour",
+        "invite_email_group": "9999/hour" if DEBUG else "30/day",
+        "invite_email_global": "9999/hour" if DEBUG else "200/day",
     },
 }
 
@@ -1040,6 +1048,14 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 # on; per-user preferences default to off, so a fresh upgrade still sends nothing
 # until somebody opts in.
 NOTIFICATION_EMAIL_ENABLED = env.bool("NOTIFICATION_EMAIL_ENABLED", default=True)
+
+# Emailed invite links (#731): lets group and site admins send an invite link
+# straight to an address instead of copying it. Default on — it only does
+# anything when an admin uses it, and outbound mail must already be configured.
+# Forced off under DEMO_MODE: a public demo must never send mail to an address a
+# visitor typed. (The send views re-check DEMO_MODE at request time as well, so
+# this holds even when settings are overridden after import.)
+INVITE_EMAIL_ENABLED = env.bool("INVITE_EMAIL_ENABLED", default=True) and not DEMO_MODE
 
 # Socket timeout floor, in seconds, for notification email only.
 #

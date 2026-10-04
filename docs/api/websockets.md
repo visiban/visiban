@@ -285,7 +285,8 @@ Authentication uses the same two mechanisms as the board channel — session coo
 | `member.added` | User joined this group via an invite link. Named to mirror the board channel's `member.added` so one frontend socket layer handles both | Full `GroupMembershipSerializer` object |
 | `member.updated` | Group membership role changed. Mirrors the board channel's `member.updated` | Full `GroupMembershipSerializer` object |
 | `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329) | `{ "user_id": <int> }` |
-| `invite_link.revoked` | An invite link for this group was revoked | `{ "id": <int> }` |
+| `invite_link.created` | An invite link for this group was emailed to someone (new in 1.2). Deliberately minimal — group-channel subscribers include non-admin members, so clients refetch the admin-only invite list rather than reading link details from the event | `{ "id": <int>, "delivery": "email" }` |
+| `invite_link.revoked` | An invite link for this group was revoked — including an emailed link revoked automatically because its email could not be sent | `{ "id": <int> }` |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
 A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel.

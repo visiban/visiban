@@ -1,0 +1,12 @@
+{% autoescape off %}Hello,
+
+{{ inviter_name }} invited you to join the group "{{ group_name }}" on {{ site_name }}.
+
+Open this link to accept the invite:
+
+{{ join_url }}
+
+The link works once and expires on {{ expires_on }}.
+
+If you don't have an account yet, you can create one from the link. If you weren't expecting this invite, you can ignore this email.
+{% endautoescape %}
