@@ -1107,8 +1107,8 @@ Column objects returned by all endpoints include the following fields:
 | `name` | string | Column name |
 | `position` | integer | Display order (0-based); update via `reorder/` only — a `PATCH`/`PUT` that changes `position` returns `400 Bad Request` (since 1.2, #1275). Echoing the current value back is accepted. |
 | `color` | string | Hex color code |
-| `wip_limit` | integer / null | Maximum number of cards; `null` means unlimited (binding on every card write path except board import; see note) |
-| `weight_limit` | integer / null | Maximum total card weight; `null` means unlimited (binding on every card write path except board import; see note) |
+| `wip_limit` | integer / null | Maximum number of cards; `null` means unlimited (binding on every API card write path except board import; see note) |
+| `weight_limit` | integer / null | Maximum total card weight; `null` means unlimited (binding on every API card write path except board import; see note) |
 | `allow_card_creation` | boolean | When `false`, new cards cannot be created directly in this column |
 | `is_done` | boolean | When `true`, marks this column as a "done" stage used for cycle-time and throughput metrics. Default: `false`. |
 

@@ -276,7 +276,7 @@ describe('BoardCell', () => {
     await user.click(screen.getByText('Add'))
 
     expect(
-      await screen.findByText('Column at capacity — no exceptions — "To Do" is at its limit of 1 card (1 active).'),
+      await screen.findByText('Column at capacity — no exceptions: "To Do" is at its limit of 1 card (1 active).'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Failed to add card.')).not.toBeInTheDocument()
     expect(props.onCardAdded).not.toHaveBeenCalled()

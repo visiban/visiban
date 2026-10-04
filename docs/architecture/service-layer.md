@@ -80,7 +80,7 @@ The memo is set by the resolvers alone and is never an input. A caller with no a
 
 ## Write paths that remain divergent
 
-Two paths deliberately do **not** go through the card service. Both are documented divergences, not oversights.
+Two paths deliberately do **not** go through the card service. Both are documented divergences, not oversights. (The operator seed commands — `seed_demo_data`, including `--demo-site`, `seed_template_boards`, and `benchmark` — also write cards directly with `Card.objects.create`/`bulk_create` and are exempt from WIP and weight limits for the same reason as import: they build a board as designed, which may be over its limits. They are management commands, not an API write path.)
 
 **Import / export** (`boards/views/import_export.py`) creates cards with `bulk_create` into a board it has just created. It does not enforce WIP or weight limits — by design, since an import restores a board as exported and the sample boards each ship one over-WIP column (#1428) — does not compact positions, writes one `board.created` broadcast instead of per-card events, and fires no card mutation hooks. Calling a per-card service in a loop would mean O(n) round trips and a row lock per card on a 500-card import. There is a second reason to leave it alone: `bulk_create` does not emit `post_save`, so importing movement history does not notify assignees — routing import through a service that creates `CardMovement` rows individually would send a notification per imported movement.
 

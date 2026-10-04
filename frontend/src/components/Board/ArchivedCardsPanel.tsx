@@ -69,8 +69,9 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
     } catch (err) {
       // Restoring into a full column is refused with the move path's limit
       // body (#1428). The card stays in the panel and the reason is shown.
+      const reason = limitBlockedMessage(err);
       setRestoreError(
-        limitBlockedMessage(err) ?? "Could not unarchive this card. Please try again.",
+        reason ? `${card.title}: ${reason}` : `Could not unarchive "${card.title}". Please try again.`,
       );
     } finally {
       setUnarchivingId(null);
@@ -143,7 +144,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
             <>
               {/* Reserved restore-result slot — always rendered so the list
                   never shifts when a message appears. */}
-              <p className="text-xs min-h-4 mb-2" role="status" aria-live="polite">
+              <p className="text-xs min-h-4 mb-2" role="status" aria-live="polite" aria-atomic="true">
                 <span className="text-danger">{restoreError}</span>
               </p>
               <ul className="space-y-2">

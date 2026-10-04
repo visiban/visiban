@@ -53,5 +53,5 @@ export function limitBlockedMessage(err: unknown): string | null {
   ) {
     return null;
   }
-  return `${toastTitle(data)} — ${toastBody(data)}`;
+  return `${toastTitle(data)}: ${toastBody(data)}`;
 }

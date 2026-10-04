@@ -237,7 +237,7 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
     await userEvent.click(screen.getByText('Unarchive'))
 
     expect(
-      await screen.findByText('WIP limit reached — "Backlog" is at its limit of 3 cards (3 active).'),
+      await screen.findByText('Old feature: WIP limit reached: "Backlog" is at its limit of 3 cards (3 active).'),
     ).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('WIP limit reached')
     expect(screen.getByText('Old feature')).toBeInTheDocument()
@@ -261,7 +261,7 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
     await userEvent.click(screen.getByText('Unarchive'))
     expect(
       await screen.findByText(
-        'Weight limit reached — "Backlog" has 4 weight — adding this card (+2) would reach 6 of 5.',
+        'Old feature: Weight limit reached: "Backlog" has 4 weight — adding this card (+2) would reach 6 of 5.',
       ),
     ).toBeInTheDocument()
   })
@@ -273,7 +273,7 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
     await waitFor(() => screen.getByText('Old feature'))
     await userEvent.click(screen.getByText('Unarchive'))
     expect(
-      await screen.findByText('Could not unarchive this card. Please try again.'),
+      await screen.findByText('Could not unarchive "Old feature". Please try again.'),
     ).toBeInTheDocument()
     expect(screen.getByText('Old feature')).toBeInTheDocument()
   })

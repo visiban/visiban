@@ -287,6 +287,38 @@ describe('CardDetail', () => {
     })
   })
 
+  // #1428 — raising weight past the column's weight limit is refused with a
+  // 409; the reason is shown once (no "Couldn't save") and the weight reverts.
+  it('explains a weight-limit refusal and reverts the weight', async () => {
+    mockUpdateCard.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          code: 'weight_limit_exceeded', column_name: 'To Do',
+          current_weight: 3, weight_limit: 4, card_weight: 2,
+        },
+      },
+    })
+    render(<CardDetail {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('+'))
+    expect(
+      await screen.findByText(
+        'Weight limit reached: "To Do" has 3 weight — adding this card (+2) would reach 5 of 4.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(screen.queryByText("Couldn't save")).not.toBeInTheDocument()
+  })
+
+  it('keeps the generic indicator and shows no reason for other weight failures', async () => {
+    mockUpdateCard.mockRejectedValueOnce(new Error('Network error'))
+    render(<CardDetail {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('+'))
+    expect(await screen.findByText("Couldn't save")).toBeInTheDocument()
+    expect(screen.queryByText(/Weight limit reached/)).not.toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
+  })
+
   // Regression guard (#1305): the weight +/- buttons debounce their PATCH by
   // 600ms (weightSaveTimer). Unmounting (e.g. the modal is closed) before the
   // timer fires must clear it, not fire the save against a torn-down

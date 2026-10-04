@@ -28,7 +28,7 @@ for what is a documentation-only change.
 # -- Column ------------------------------------------------------------------
 
 COLUMN_WIP_LIMIT = (
-    "Enforcement: binding on every card write path except board import. "
+    "Enforcement: binding on every API card write path except board import. "
     "Maximum number of active (non-archived) cards in this column; null means "
     "unlimited. Moving a card into the column, creating a card in it, and "
     "restoring an archived card into it return 409 at the limit when the "
@@ -38,7 +38,7 @@ COLUMN_WIP_LIMIT = (
 )
 
 COLUMN_WEIGHT_LIMIT = (
-    "Enforcement: binding on every card write path except board import. "
+    "Enforcement: binding on every API card write path except board import. "
     "Maximum total weight of active (non-archived) cards in this column; null "
     "means unlimited. Moving or restoring a card into the column, creating a "
     "card in it, and raising a card's weight with PATCH return 409 when the "
@@ -49,14 +49,14 @@ COLUMN_WEIGHT_LIMIT = (
 # -- Board -------------------------------------------------------------------
 
 BOARD_ENFORCE_WIP_LIMITS = (
-    "Enforcement: binding on every card write path except board import. When "
+    "Enforcement: binding on every API card write path except board import. When "
     "true, moving, creating or restoring a card into a column at or over its "
     "wip_limit is blocked with 409; board admins can override with "
     "?force=true. Board import is not checked."
 )
 
 BOARD_ENFORCE_WIP_HARD = (
-    "Enforcement: binding on every card write path except board import. When "
+    "Enforcement: binding on every API card write path except board import. When "
     "true, WIP limits become a hard stop for every role, including board "
     "admins, on card move, create and restore; no override is possible. "
     "Active regardless of enforce_wip_limits. Board import restores a board as "
@@ -64,7 +64,7 @@ BOARD_ENFORCE_WIP_HARD = (
 )
 
 BOARD_ENFORCE_WEIGHT_LIMITS = (
-    "Enforcement: binding on every card write path except board import. When "
+    "Enforcement: binding on every API card write path except board import. When "
     "true, moving, creating or restoring a card, or raising its weight with "
     "PATCH, so that a column would exceed its weight_limit is blocked with "
     "409; board admins can override with ?force=true. Board import is not "
