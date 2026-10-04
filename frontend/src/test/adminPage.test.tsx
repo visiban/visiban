@@ -1241,6 +1241,22 @@ describe('AdminPage — Email (SMTP) settings', () => {
     })
   })
 
+  it('Cancel on the source-switch confirm returns focus to Save (#1367)', async () => {
+    await renderEmailSection()
+    const group = screen.getByRole('radiogroup', { name: 'Email configuration source' })
+    fireEvent.click(within(group).getByText('Database'))
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
+    fireEvent.change(screen.getByLabelText('From address'), {
+      target: { value: 'noreply@visiban.test' },
+    })
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => screen.getByText(/Switch to database configuration\?/))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel switching the email configuration source' }))
+    expect(screen.queryByText(/Switch to database configuration\?/)).not.toBeInTheDocument()
+    expect(screen.getByText('Save email settings')).toHaveFocus()
+  })
+
   it('does not confirm when switching database back to env', async () => {
     mockPatchAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
     await renderEmailSection({

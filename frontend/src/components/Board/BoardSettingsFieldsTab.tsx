@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -636,6 +637,8 @@ function FieldEditPanel({
 }: FieldEditPanelProps) {
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
   const atPinCap = pinnedCount >= PIN_CAP && !form.show_on_card;
+  // The type button that raised the "Change type" prompt is the trigger focus returns to (#1367).
+  const typeTriggerRef = useConfirmFocusReturn(pendingTypeChange);
 
   return (
     <div className={isNew ? "" : "bg-sunken border border-primary-soft rounded-lg p-3 my-1"}>
@@ -654,6 +657,7 @@ function FieldEditPanel({
         {FIELD_TYPE_OPTIONS.map((opt) => (
           <button
             key={opt.value}
+            ref={typeTriggerRef(opt.value)}
             onClick={() => onTypeSelect(opt.value)}
             className={`border rounded px-2.5 py-1 text-xs flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
               form.field_type === opt.value ? "border-primary-emphasis text-fg bg-primary/10 font-medium" : "border-line text-fg-secondary hover:border-line-strong"

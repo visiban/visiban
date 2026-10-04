@@ -198,6 +198,17 @@ describe('AccessTokensTab', () => {
     expect(screen.getByTestId(`confirm-revoke-${token1.id}`)).toBeInTheDocument()
   })
 
+  it('Cancel on the revoke confirm returns focus to the Revoke trigger (#1367)', async () => {
+    mockListTokens.mockResolvedValue([token1])
+    renderPage()
+    await switchToAccessTokensTab()
+    await waitFor(() => expect(screen.getByTestId(`revoke-${token1.id}`)).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId(`revoke-${token1.id}`))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByTestId(`revoke-${token1.id}`)).toHaveFocus()
+  })
+
   it('revokes a token after confirmation and removes it from list', async () => {
     mockListTokens.mockResolvedValue([token1])
     mockRevokeToken.mockResolvedValue(undefined)
