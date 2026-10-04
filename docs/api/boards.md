@@ -132,6 +132,56 @@ Move board to a different group (or `null` for personal).
 
 ---
 
+## Sample boards
+
+> **Added in 1.3**
+
+Read-only endpoints behind the **Start from a sample** gallery on the Import Board screen. They need the same access as importing (authentication, no pending password or username change) and, for a personal access token, the `read` scope. Both set `Cache-Control: private, max-age=3600`.
+
+The files are shipped inside the backend image, so a sample always matches the importer of the same release. To use one, fetch it and post it to [`POST /api/v1/boards/import/`](#post-apiv1boardsimport) like any other export file; group access and the import rate limit are enforced there.
+
+### `GET /api/v1/boards/samples/`
+List the sample boards in gallery order.
+
+```json
+[
+  {
+    "id": "sales_overlay",
+    "title": "Sales Overlay",
+    "description": "See which accounts have coverage gaps under an enterprise overlay sales model.",
+    "swimlane_theme": "account",
+    "card_count": 42,
+    "includes": ["labels", "checklists", "comments", "history"],
+    "order": 1,
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
+  }
+]
+```
+
+| Field | Description |
+|---|---|
+| `id` | Stable identifier, `[a-z0-9_]+`. Never renamed; use it for `GET /boards/samples/{id}/`. |
+| `title` | Display name. An import without a `name` is titled `Imported: <title>`. |
+| `description` | One line on what the board is for. |
+| `swimlane_theme` | What a swimlane stands for on this board, e.g. `account`, `region`. |
+| `card_count` | Active cards. Archived cards in the file are not counted. |
+| `includes` | Any of `labels`, `checklists`, `comments`, `history`, derived from the file's contents. |
+| `order` | Gallery order. Unique; the list is sorted by it. |
+| `schema_version` | The export schema version of the file. |
+| `date_anchor` | The day the board's dates are measured from. Send it as the import option [`shift_dates_from`](#import-options) to have the imported board dated around today. |
+
+### `GET /api/v1/boards/samples/{id}/`
+Return one sample as the raw Visiban JSON export (`Content-Type: application/json`), with a strong `ETag`. Send it back in `If-None-Match` to get `304 Not Modified` with no body. The bundled nginx (Compose and the Helm frontend) gzips `application/json` for clients that send `Accept-Encoding: gzip`, so a fetch is roughly 30-60 KB on the wire against 265-560 KB raw. A deployment behind a different proxy gets the raw size unless that proxy compresses.
+
+| Status | When |
+|---|---|
+| `401 Unauthorized` | Not authenticated. |
+| `403 Forbidden` | The account has a pending password or username change, or the token lacks the `read` scope. |
+| `404 Not Found` | `id` is not in the shipped manifest. |
+
+---
+
 ## Templates
 
 ### `GET /api/v1/boards/templates/`
@@ -616,6 +666,12 @@ entries only for history the file does not already record: with `history` on, a 
 actor and timestamp) and gets no synthetic copy, so re-importing an export does not double
 its history.
 
+One more option is not an include flag:
+
+| Key | Type | Effect |
+|---|---|---|
+| `shift_dates_from` | `YYYY-MM-DD` string, JSON only, optional | Moves every date in the file forward by the whole days between this date and today: card due dates, `date` custom field values on cards and swimlanes, the timestamps on cards, comments, movements, and activities, and the old and new values of due-date-change history entries. Spacing between dates is preserved. Absent by default, so a plain import is unchanged. Must not be in the future or more than 10 years ago. A CSV import rejects it as an unknown option. Used by the sample flow with a sample's `date_anchor`. When given, it is echoed in `import_summary.options_applied` and the `board.created` event's `import_options`. |
+
 An omitted `comments`, `checklist`, or `history` follows `cards`, so `{"cards": false}` alone imports structure and labels only. An explicit contradiction such as `{"cards": false, "comments": true}` is rejected.
 
 An invalid `options` field returns `400 Bad Request` before anything is created, with one of these `detail` messages:
@@ -624,7 +680,10 @@ An invalid `options` field returns `400 Bad Request` before anything is created,
 |---|---|
 | `'options' is not valid JSON.` | The field does not parse as JSON. |
 | `'options' must be a JSON object.` | It parses, but not to an object (for example `[]` or `true`). |
-| `Invalid 'options': Unknown import option(s): x.` | A key other than the five above — or, for a CSV file, other than `labels` and `cards`. |
+| `Invalid 'options': Unknown import option(s): x.` | A key other than the five above and `shift_dates_from` — or, for a CSV file, other than `labels` and `cards`. |
+| `Invalid 'options': 'shift_dates_from': shift_dates_from cannot be in the future.` | The date is after today (server date). |
+| `Invalid 'options': 'shift_dates_from': shift_dates_from cannot be more than 10 years ago.` | The date is more than 10 years back. |
+| `Invalid 'options': 'shift_dates_from': Date has wrong format. Use one of these formats instead: YYYY-MM-DD.` | The value is not a `YYYY-MM-DD` string (`null` reads `This field may not be null.`). |
 | `Invalid 'options': Import option(s) comments require 'cards'.` | A dependent is explicitly `true` while `cards` is `false`. |
 | `Invalid 'options': 'labels': Must be a valid boolean.` | A value is not a JSON boolean (the key named is the offending one; `null` reads `'labels': This field may not be null.`). |
 
@@ -689,7 +748,7 @@ Returns the newly created board object, using the same shape as `GET /api/v1/boa
 
 | Field | Description |
 |---|---|
-| `import_summary.options_applied` | All five options as resolved, including dependents that followed `cards`. A CSV import reports `comments`, `checklist`, and `history` equal to `cards`. |
+| `import_summary.options_applied` | All five options as resolved, including dependents that followed `cards`, plus `shift_dates_from` (a `YYYY-MM-DD` string) when it was sent. A CSV import reports `comments`, `checklist`, and `history` equal to `cards`. |
 | `import_summary.skipped.*` | How many items in the file the chosen options left out: `cards`, `comments`, `checklist_items`, `label_refs` (label references on cards), `movements`, and `activities`. Items the importer drops regardless of options — a label name with no definition, an activity with an unknown event type — are not counted. All are `0` when no options are sent. |
 
 The `board.created` event for the new board carries the resolved options as an additional `import_options` field.

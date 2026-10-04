@@ -24,6 +24,8 @@ import {
   deleteBoard,
   moveBoardToGroup,
   importBoard,
+  listSampleBoards,
+  getSampleBoardFile,
   previewTrelloImport,
   confirmTrelloImport,
   exportBoardCsv,
@@ -216,6 +218,27 @@ describe('Board API wrappers', () => {
     })
   })
 
+  describe('sample boards (#1452)', () => {
+    it('lists samples from the samples endpoint and forwards the abort signal', async () => {
+      const rows = [{ id: 'simple_kanban' }]
+      mockClient.get.mockResolvedValue({ data: rows })
+      const controller = new AbortController()
+      await expect(listSampleBoards(controller.signal)).resolves.toBe(rows)
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/samples/', { signal: controller.signal })
+    })
+
+    it('fetches one sample as a blob, encoding the id', async () => {
+      const blob = new Blob(['{}'])
+      mockClient.get.mockResolvedValue({ data: blob })
+      const controller = new AbortController()
+      await expect(getSampleBoardFile('a b', controller.signal)).resolves.toBe(blob)
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/samples/a%20b/', {
+        responseType: 'blob',
+        signal: controller.signal,
+      })
+    })
+  })
+
   describe('importBoard', () => {
     it('sends FormData with file', async () => {
       const file = new File(['{}'], 'board.json', { type: 'application/json' })
@@ -255,6 +278,16 @@ describe('Board API wrappers', () => {
 
       const formData = mockClient.post.mock.calls[0][1] as FormData
       expect(formData.get('options')).toBeNull()
+    })
+
+    // #1452: the sample flow's date shift is a string, not a false flag.
+    it('sends shift_dates_from even when every flag is included', async () => {
+      const file = new File(['{}'], 'board.json', { type: 'application/json' })
+      mockClient.post.mockResolvedValue({ data: { id: 99 } })
+      await importBoard(file, undefined, undefined, { labels: true, shift_dates_from: '2026-03-15' })
+
+      const formData = mockClient.post.mock.calls[0][1] as FormData
+      expect(JSON.parse(formData.get('options') as string)).toEqual({ labels: true, shift_dates_from: '2026-03-15' })
     })
 
     it('sends non-default options as a JSON string', async () => {

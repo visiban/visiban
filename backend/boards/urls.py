@@ -1,8 +1,8 @@
-from django.urls import path, include
+from django.urls import path, re_path, include
 from rest_framework_nested import routers
 from rest_framework.routers import SimpleRouter
 from .views import (
-    BoardViewSet, BoardTemplateListView,
+    BoardViewSet, BoardTemplateListView, SampleBoardListView, SampleBoardDetailView,
     ColumnViewSet, SwimlaneViewSet, LabelViewSet, CardViewSet,
     CardQueryViewSet, CustomFieldDefinitionViewSet,
     SwimlaneCustomFieldDefinitionViewSet,
@@ -42,6 +42,9 @@ urlpatterns = [
     # matches it before the router's boards/<pk>/ pattern can claim "templates"
     # as a board PK.
     path("boards/templates/", BoardTemplateListView.as_view()),
+    # Same reason as templates/: before the router, so "samples" is not a board PK.
+    path("boards/samples/", SampleBoardListView.as_view()),
+    re_path(r"^boards/samples/(?P<sample_id>[a-z0-9_]+)/$", SampleBoardDetailView.as_view()),
     path("", include(router.urls)),
     path("", include(boards_router.urls)),
     path("notifications/", NotificationListView.as_view()),

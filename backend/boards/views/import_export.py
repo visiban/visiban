@@ -14,6 +14,7 @@ from django.db import transaction
 from django.db.models import Prefetch
 from django.http import HttpResponse
 from rest_framework.generics import get_object_or_404
+from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
@@ -35,6 +36,7 @@ from ..models import (
 )
 from .. import broadcast as _broadcast
 from ..custom_field_types import parse_multi_select
+from ..services.date_shift import shift_board_dates
 from ..permissions import SITE_ADMIN
 from ..serializers import (
     BoardExportLogSerializer, BoardSerializer, CSVImportOptionsSerializer,
@@ -419,7 +421,9 @@ class BoardImportExportMixin:
             "options": {"type": "string", "description": (
                 "JSON object choosing what to import. Keys (all optional booleans, default true): "
                 "labels, cards, comments, checklist, history. comments, checklist and history "
-                "require cards. A CSV import accepts only labels and cards."
+                "require cards. Also shift_dates_from (YYYY-MM-DD, JSON only, optional, default "
+                "off): moves every date in the file forward by the days between that date and "
+                "today. A CSV import accepts only labels and cards."
             )},
         }, "required": ["file"]}},
         responses={
@@ -518,6 +522,12 @@ class BoardImportExportMixin:
                     {"detail": f"Invalid JSON: '{_key}' must be a list."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+        # Sample-board flow (#1452): move the file's dates to the import day
+        # before validation, so shifted values face the same checks as any other.
+        shift_from = options.get("shift_dates_from")
+        if shift_from:
+            shift_board_dates(data, (django_timezone.localdate() - datetime.date.fromisoformat(shift_from)).days)
 
         # Schema version guard — warn on missing (pre-versioning files) or future versions.
         # The current importer understands schema_version 1 and 2.  Files without the field
