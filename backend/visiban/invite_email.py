@@ -220,8 +220,8 @@ def normalize_invite_email(value: str) -> str:
 
 
 class InviteEmailErrorSerializer(serializers.Serializer):
-    """Schema-only: the error body of the send endpoints' 403, cap-reached 400
-    and delivery-failure 502.
+    """Schema-only: the error body of the send endpoints' 403 and
+    delivery-failure 502 (their 400s use ``InviteEmailBadRequestSerializer``).
 
     ``code`` is optional: it is present on ``invite_email_disabled`` 403s, the
     ``invite_email_cap_reached`` 400 and every 502, but a 403 raised by the
@@ -231,6 +231,23 @@ class InviteEmailErrorSerializer(serializers.Serializer):
 
     code = serializers.CharField(required=False)
     detail = serializers.CharField()
+
+
+class InviteEmailBadRequestSerializer(serializers.Serializer):
+    """Schema-only: the two shapes a send endpoint's 400 can take.
+
+    The cap-reached 400 is ``{detail, code}``; a field-validation 400 is DRF's
+    ``{field: [errors]}`` with no ``detail``. Every property is therefore
+    optional, otherwise schemathesis flags the validation shape as a schema
+    violation (#731).
+    """
+
+    code = serializers.CharField(required=False)
+    detail = serializers.CharField(required=False)
+    email = serializers.ListField(child=serializers.CharField(), required=False)
+    role = serializers.ListField(child=serializers.CharField(), required=False)
+    expiry_days = serializers.ListField(child=serializers.CharField(), required=False)
+    expires_in_days = serializers.ListField(child=serializers.CharField(), required=False)
 
 
 _FORBIDDEN_ADDRESS_CHARS = frozenset('",;<>')

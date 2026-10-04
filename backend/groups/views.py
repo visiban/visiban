@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
-from visiban.invite_email import InviteEmailErrorSerializer
+from visiban.invite_email import InviteEmailBadRequestSerializer, InviteEmailErrorSerializer
 from . import broadcast as _group_broadcast
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
 from .serializers import (
@@ -927,7 +927,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                     "delivery": drf_serializers.CharField(required=False),
                 },
             ),
-            400: InviteEmailErrorSerializer,
+            400: InviteEmailBadRequestSerializer,
             403: InviteEmailErrorSerializer,
             502: InviteEmailErrorSerializer,
         },
