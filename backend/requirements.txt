@@ -13,7 +13,7 @@ channels-redis==4.3.0
 # WebSocket connections after 5s. channels-redis only requires redis>=4.6.
 redis>=4.6,<6
 djangorestframework==3.17.2
-psycopg2-binary==2.9.11
+psycopg[binary]==3.3.6
 django-allauth==65.14.3
 dj-rest-auth==7.1.1
 django-cors-headers==4.9.0

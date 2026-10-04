@@ -17,7 +17,7 @@ How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking
 │   accounts/   boards/   groups/                     │
 │   django-allauth   dj-rest-auth   channels          │
 └────────────┬────────────────────────┬───────────────┘
-             │ psycopg2               │ channels-redis
+             │ psycopg 3              │ channels-redis
 ┌────────────▼────────────┐ ┌─────────▼───────────────┐
 │      PostgreSQL 17      │ │        Valkey 8          │
 │  (primary data store)   │ │(WebSocket channel layer)│

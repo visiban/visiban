@@ -5,7 +5,8 @@
 ARG BASE_REGISTRY=docker.io/library
 
 # ── Stage 1: Build wheels ────────────────────────────────────────────────────
-# Installs gcc and compiles any C-extension wheels (psycopg2, etc.).
+# Installs gcc and compiles any C-extension wheels (other sdist-only packages;
+# psycopg itself installs from the psycopg-binary wheel).
 FROM ${BASE_REGISTRY}/python:3.12-slim AS builder
 
 WORKDIR /build
