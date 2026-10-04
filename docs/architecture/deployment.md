@@ -237,6 +237,7 @@ helm install visiban helm/visiban \
 | `valkey.auth.password` | `""` | Chart-managed Valkey password, stored in the `<fullname>-valkey-auth` Secret |
 | `valkey.auth.existingSecret` / `valkey.auth.existingSecretPasswordKey` | `""` / `valkey-password` | A Secret you manage instead, and the key holding the password |
 | `externalRedis.url` | `""` | External Valkey (or Redis-compatible) DSN (used when `valkey.enabled: false`) — **must be set** when using an external instance |
+| `externalRedis.existingSecret` / `externalRedis.existingSecretPasswordKey` | `""` / `redis-password` | Secret holding the external instance's password, instead of in the URL (#1361). Leave the password out of `url`/`cacheUrl` |
 | `networkPolicy.enabled` | `false` | Create NetworkPolicy resources restricting pod-to-pod traffic |
 
 ### Ingress annotations

@@ -103,6 +103,13 @@ Helm install silently changed Valkey major on any pod reschedule (#1200).
   backend percent-encodes it into `REDIS_URL` / `REDIS_CACHE_URL`, so any
   character is safe. See "Valkey password" in
   `docs/getting-started/kubernetes.md`.
+- With `valkey.enabled=false`, a password-protected external instance can take
+  its password from `externalRedis.existingSecret` (+
+  `existingSecretPasswordKey`, default `redis-password`) instead of from
+  `externalRedis.url`, through the same backend encoding (#1361). Leave the
+  password out of both URLs; an ACL username may stay. Unset, a password in the
+  URL keeps working unchanged. See "Password for an external Valkey or Redis"
+  in `docs/getting-started/kubernetes.md`.
 
 `scripts/helm-structure-check.sh` fails any rendered image that has no tag or
 is tagged `latest`.

@@ -74,6 +74,18 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 {{- if include "visiban.valkeyAuthEnabled" $ctx }}
 - name: REDIS_URL_PASSWORD
   {{- include "visiban.valkeyAuthValueFrom" $ctx | nindent 2 }}
+{{- else if include "visiban.externalRedisAuthEnabled" $ctx }}
+{{- /*
+  External instance (#1361): same variable, same backend encoding, from the
+  operator's Secret. Exclusive with the branch above by construction — that one
+  needs valkey.enabled, this one needs it off. See
+  visiban.externalRedisAuthEnabled in _helpers.tpl.
+*/}}
+- name: REDIS_URL_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ $ctx.Values.externalRedis.existingSecret }}
+      key: {{ include "visiban.externalRedisAuthSecretKey" $ctx }}
 {{- end }}
 {{- /*
   EMAIL_BACKEND is emitted ONLY when explicitly configured. Setting it pins the

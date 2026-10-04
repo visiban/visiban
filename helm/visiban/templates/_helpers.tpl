@@ -548,3 +548,30 @@ valueFrom:
     name: {{ include "visiban.valkeyAuthSecretName" . }}
     key: {{ include "visiban.valkeyAuthSecretKey" . }}
 {{- end }}
+
+{{/*
+External Valkey/Redis password from a Secret (#1361). The external-instance
+half of #1211: with valkey.enabled=false the backend reads the password from
+externalRedis.existingSecret as REDIS_URL_PASSWORD, through the same
+settings.py path (_apply_redis_password) that percent-encodes it into
+externalRedis.url / cacheUrl. Without this, the only way to reach a
+password-protected external instance was to put the password in those URLs,
+which the chart renders as plain env values (visible in the Deployment spec and
+`helm get manifest`).
+
+Opt-in and additive: with externalRedis.existingSecret unset (every install
+before #1361) nothing below renders, so a URL that carries its own password
+keeps working byte-for-byte. The password is never chart-managed here: an
+operator who wants the chart to hold it can keep it in the URL as before, and a
+chart-managed Secret would only move the plaintext into the release record.
+
+Nil-safe (`dig`) because `helm upgrade --reuse-values` from a release whose
+values predate these keys carries an externalRedis map without them.
+*/}}
+{{- define "visiban.externalRedisAuthEnabled" -}}
+{{- if and (not .Values.valkey.enabled) (dig "existingSecret" "" (.Values.externalRedis | default dict)) -}}true{{- end -}}
+{{- end }}
+
+{{- define "visiban.externalRedisAuthSecretKey" -}}
+{{- (dig "existingSecretPasswordKey" "" (.Values.externalRedis | default dict)) | default "redis-password" -}}
+{{- end }}

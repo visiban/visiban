@@ -181,9 +181,36 @@ class ConnectionUrlGuardTests(SimpleTestCase):
     def test_redis_url_password_with_credentialed_url_is_refused_without_echoing_it(self):
         result = self._load(REDIS_URL_PASSWORD=self._AUTH_PASSWORD)  # base URLs carry plainpw
         self.assertNotEqual(result.returncode, 0, msg=result.stdout)
-        self.assertIn("already carries credentials", result.stderr)
+        self.assertIn("already carries a password", result.stderr)
         self.assertNotIn(_SECRET_FRAGMENT, result.stderr)
         self.assertNotIn("plainpw", result.stderr)
+
+    def test_credentialed_urls_without_redis_url_password_are_used_unchanged(self):
+        # #1361 backward compatibility: Compose, and every Helm install that
+        # keeps its external Redis password in externalRedis.url, sets no
+        # REDIS_URL_PASSWORD. The guard must never refuse that on its own.
+        result = self._load()  # base URLs carry plainpw
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        first, channels = result.stdout.strip().splitlines()[-2:]
+        self.assertEqual(first.split()[-1], _BASE_ENV["REDIS_CACHE_URL"])
+        self.assertEqual(channels, "CHANNELS=" + _BASE_ENV["REDIS_URL"])
+
+    def test_redis_url_password_joins_an_acl_username_in_the_url(self):
+        # externalRedis (#1361) on a managed Redis with ACL users: the username
+        # stays in externalRedis.url, the password comes from the Secret.
+        result = self._load(
+            REDIS_URL="rediss://visiban@ext-redis:6380/0",
+            REDIS_CACHE_URL="rediss://visiban@ext-redis:6380/1",
+            REDIS_URL_PASSWORD=self._AUTH_PASSWORD,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        first, channels = result.stdout.strip().splitlines()[-2:]
+        for url in (first.split()[-1], channels.removeprefix("CHANNELS=")):
+            parsed = parse_url(url)
+            self.assertEqual(parsed["username"], "visiban")
+            self.assertEqual(parsed["password"], self._AUTH_PASSWORD)
+            self.assertEqual(parsed["host"], "ext-redis")
+            self.assertEqual(parsed["port"], 6380)
 
 
 class ConnectionUrlGuardFunctionTests(SimpleTestCase):
@@ -273,12 +300,34 @@ class ConnectionUrlGuardFunctionTests(SimpleTestCase):
                 self.assertEqual(parsed["port"], 6379)
                 self.assertEqual(parsed["db"], 0)
 
+    def test_apply_redis_password_keeps_a_username_only_url(self):
+        # A Redis ACL username is not a second password source (#1361). An
+        # already-encoded username must not be encoded a second time.
+        for url, username in (
+            ("redis://visiban@ext-redis:6379/0", "visiban"),
+            ("rediss://us%40er@ext-redis:6380/2", "us@er"),
+        ):
+            with self.subTest(url=url):
+                out = settings_module._apply_redis_password("REDIS_URL", url, "p/@w")
+                settings_module._validate_redis_url("REDIS_URL", out)
+                parsed = parse_url(out)
+                self.assertEqual(parsed["username"], username)
+                self.assertEqual(parsed["password"], "p/@w")
+                self.assertEqual(parsed["host"], "ext-redis")
+
     def test_apply_redis_password_refuses_a_url_with_credentials_without_leaking(self):
-        for url in ("redis://:plainpw@valkey:6379/0", "redis://user:plainpw@valkey:6379/0"):
+        # Any password component counts, an empty one included: "user:@host"
+        # still says "the URL decides the password".
+        for url in (
+            "redis://:plainpw@valkey:6379/0",
+            "redis://user:plainpw@valkey:6379/0",
+            "rediss://user:plainpw@valkey:6380/0",
+            "redis://user:@valkey:6379/0",
+        ):
             with self.subTest(url=url):
                 with self.assertRaises(ImproperlyConfigured) as ctx:
                     settings_module._apply_redis_password("REDIS_URL", url, _SECRET_FRAGMENT)
-                self.assertIn("REDIS_URL already carries credentials", str(ctx.exception))
+                self.assertIn("REDIS_URL already carries a password", str(ctx.exception))
                 self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
                 self.assertNotIn("plainpw", str(ctx.exception))
 

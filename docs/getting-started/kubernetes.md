@@ -298,6 +298,60 @@ externalRedis:
   cacheUrl: "redis://valkey.example.com:6379/1"
 ```
 
+### Password for an external Valkey or Redis
+
+If the external instance requires a password, keep it in a Secret rather than
+in `externalRedis.url`. The chart renders `url` and `cacheUrl` as plain
+environment values, so a password inside them is visible to anyone who can
+read the Deployment or run `helm get manifest`.
+
+```bash
+kubectl -n <namespace> create secret generic visiban-redis \
+  --from-literal=redis-password='<the instance password>'
+```
+
+```yaml
+valkey:
+  enabled: false
+
+externalRedis:
+  # No password in either URL. An ACL username may stay:
+  # rediss://visiban@valkey.example.com:6380/0
+  url: "redis://valkey.example.com:6379/0"
+  cacheUrl: "redis://valkey.example.com:6379/1"
+  existingSecret: visiban-redis
+  # existingSecretPasswordKey: redis-password  # the default
+```
+
+The backend reads the password as `REDIS_URL_PASSWORD` and percent-encodes it
+into both URLs itself, so it can contain any character, including `/`, `@`,
+`:` and `$`. If the URL has a username (a Redis 6+ ACL user, as on most
+managed services), the username is kept and the password is added to it.
+
+| Key | Default | Description |
+|---|---|---|
+| `externalRedis.existingSecret` | empty | Secret holding the external instance's password. Only with `valkey.enabled: false`. |
+| `externalRedis.existingSecretPasswordKey` | `redis-password` | Key in that Secret that holds the password. |
+
+The install fails with an explanation if `existingSecret` is set and either
+URL also carries a password, because the two would compete. It also fails if
+`existingSecret` is set while the bundled Valkey is on, because the setting
+would be ignored. The bundled Valkey's password is `valkey.auth.*`; see
+[Valkey password](#valkey-password).
+
+**Existing installs keep working unchanged.** With `existingSecret` empty (the
+default), a password embedded in `externalRedis.url` is used exactly as before.
+To move it into a Secret, create the Secret, then in one `helm upgrade` set
+`externalRedis.existingSecret` and remove the password from both URLs. If the
+password contains `/`, `@`, `%` or other reserved characters, put the plain
+value in the Secret, not the percent-encoded form from your old URL, or it is
+encoded twice.
+
+As with the bundled Valkey, changing the password in the Secret does not
+restart anything by itself. Run
+`kubectl -n <namespace> rollout restart deployment -l app.kubernetes.io/instance=<release>,app.kubernetes.io/component=backend`
+after you rotate it. Scheduled jobs pick up the new value on their next run.
+
 ## Bundled Valkey
 
 With `valkey.enabled: true` (the default) the chart runs Valkey itself: a
@@ -394,9 +448,7 @@ If the Secret's value is empty, Valkey refuses to start rather than run
 without a password.
 
 To use a password-protected Valkey or Redis outside the cluster instead, see
-[External database and Valkey](#external-database-and-valkey) and put the
-password in `externalRedis.url`. Further support for a password-protected
-external instance is tracked in #1361.
+[Password for an external Valkey or Redis](#password-for-an-external-valkey-or-redis).
 
 !!! note "Chart 0.5.0 replaced the Bitnami subchart"
     Earlier development builds of the 1.2 chart ran Valkey through the Bitnami
