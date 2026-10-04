@@ -117,7 +117,7 @@ one.
 
 The nightly `sonar:rules-check` job runs `bash scripts/check-sonar-exclusions.sh --online`,
 which additionally asks SonarCloud whether each `ruleKey` is still active in the project's
-quality profile. It needs `SONAR_TOKEN` and fails open: with no token, no network, or an
+quality profile. It needs `SONAR_TOKEN` and fails open: with no token, no network, no active rules returned, or an
 unparseable response it prints a warning and exits 0, so only a rule that is really inactive
 turns the job yellow. MR pipelines never run it.
 

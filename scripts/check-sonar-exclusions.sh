@@ -197,6 +197,10 @@ run_online_check() {
         done
     done <<<"$pkeys"
 
+    # No active rules at all (e.g. the repositories= filter matched nothing) is
+    # an unusable answer, not proof every key is inactive: fail open.
+    [[ -n "${active//[$'\n']/}" ]] || { online_skip "no active rules returned"; return 0; }
+
     n=0
     while IFS= read -r line; do
         [[ "$line" =~ ^sonar\.issue\.ignore\.multicriteria\.([A-Za-z0-9_]+)\.ruleKey=(.*)$ ]] || continue
@@ -326,6 +330,10 @@ $mc.zz.resourceKey=Makefile"
     run_online "online-api-error" 0 "SKIPPED (fail open" "SONAR_API_FIXTURE_DIR=$tmp/fx-empty"
     mkdir -p "$tmp/fx-garbage"
     printf 'not json at all\n' >"$tmp/fx-garbage/qualityprofiles.json"
+    mkdir -p "$tmp/fx-zero"
+    cp "$fx/qualityprofiles.json" "$tmp/fx-zero/"
+    printf '{"total":0,"p":1,"ps":500,"rules":[]}\n' >"$tmp/fx-zero/rules-P1-p1.json"
+    run_online "online-zero-rules" 0 "no active rules returned" "SONAR_API_FIXTURE_DIR=$tmp/fx-zero"
     run_online "online-unparseable" 0 "SKIPPED (fail open" "SONAR_API_FIXTURE_DIR=$tmp/fx-garbage"
     # Token set but unreachable host: curl fails -> skip, and the token stays out of the output.
     run_online "online-unreachable-token-hidden" 0 "SKIPPED (fail open" -u SONAR_API_FIXTURE_DIR \
