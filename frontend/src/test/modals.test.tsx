@@ -14,6 +14,9 @@ import type { User, Board, Column, Swimlane } from '../types'
 
 // Mock APIs
 vi.mock('../api/boards', () => ({
+  // The import modal fetches the sample list on open (#1452); empty = gallery unavailable.
+  listSampleBoards: vi.fn().mockResolvedValue([]),
+  getSampleBoardFile: vi.fn(),
   listGroups: vi.fn().mockResolvedValue([]),
   moveBoardToGroup: vi.fn(),
   createColumn: vi.fn(),
