@@ -165,6 +165,41 @@ describe('App', () => {
     expect(screen.queryByTestId('force-username')).not.toBeInTheDocument()
   })
 
+  it('does not mount the authenticated shell while a forced password change is pending (#1460)', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...fakeUser, must_change_password: true },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.getByTestId('force-password')).toBeInTheDocument()
+    // Dashboard/sidebar would fire 403ing fetches behind the modal and latch their errors.
+    expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument()
+  })
+
+  it('does not mount the authenticated shell while a forced username change is pending (#1460)', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...fakeUser, must_change_username: true },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.getByTestId('force-username')).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
+  })
+
+  it('mounts the dashboard once the forced change clears (#1460)', () => {
+    const useAuth = {
+      user: { ...fakeUser, must_change_password: true },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    }
+    mockUseAuth.mockReturnValue(useAuth)
+    const { rerender } = render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
+    mockUseAuth.mockReturnValue({ ...useAuth, user: { ...fakeUser, must_change_password: false } })
+    rerender(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.getByTestId('dashboard')).toBeInTheDocument()
+  })
+
   it('shows the connect prompt when pending_connect_provider is set (#1314)', () => {
     mockUseAuth.mockReturnValue({
       user: { ...fakeUser, pending_connect_provider: 'github' },

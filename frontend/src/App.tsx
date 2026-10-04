@@ -106,6 +106,14 @@ export default function App() {
     );
   }
 
+  // While a forced password/username change is pending the backend answers 403
+  // to every endpoint except the forced-flow ones, so the shell (sidebar,
+  // navbar bell, Dashboard) must not mount behind the modal: each component
+  // fetches once on mount, would latch its error state, and never refetch after
+  // the change completes (#1460). Holding the shell back means it mounts fresh,
+  // against a session that can read data, the moment the flag clears.
+  const forcedChangePending = !!user && (user.must_change_password || user.must_change_username);
+
   return (
     <>
     {user?.must_change_password && (
@@ -132,7 +140,9 @@ export default function App() {
       <Route path="/reset-password/:uid/:token" element={<ResetPasswordPage />} />
 
       {/* Auth-gated routes */}
-      {user ? (
+      {user && forcedChangePending ? (
+        <Route path="/*" element={<div className="min-h-screen bg-sunken" />} />
+      ) : user ? (
         <>
           <Route path="/*" element={
               <div className="flex h-screen overflow-hidden">
