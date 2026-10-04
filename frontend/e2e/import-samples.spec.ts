@@ -39,16 +39,15 @@ async function openImport(page: Page) {
 }
 
 test.describe('import board — sample gallery', () => {
-  test('on a 768px-tall laptop screen the header and footer stay fixed and the upload path is one scroll away', async ({ page }) => {
+  test('on a 768px-tall laptop screen the collapsed gallery still shows the dropzone without scrolling', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 768 })
     await routeSamples(page)
     await openImport(page)
     const dialog = page.getByRole('dialog')
 
-    await expect(page.getByRole('button', { name: 'Use the Sales Overlay sample' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Use this sample: Sales Overlay' })).toBeVisible()
     await expect(page.getByText('Show all 6 samples')).toBeVisible()
-    // The "or upload your own file" divider tells the user there is another path below the fold.
-    await expect(page.getByText('or upload your own file')).toBeInViewport()
+    await expect(dialog.getByRole('button', { name: /Click to select a \.json or \.csv file/ })).toBeInViewport({ ratio: 1 })
     await expect(dialog.getByRole('button', { name: 'Import', exact: true })).toBeInViewport({ ratio: 1 })
     await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeInViewport({ ratio: 1 })
 
@@ -57,12 +56,6 @@ test.describe('import board — sample gallery', () => {
     expect(panel?.width).toBeLessThanOrEqual(640)
     expect(panel?.width).toBeGreaterThan(600)
     expect(panel!.y + panel!.height).toBeLessThanOrEqual(768)
-
-    // Known gap (reported on #1452): with the real manifest text the dropzone
-    // starts below the fold at 768px until the body is scrolled to it.
-    const zone = dialog.getByRole('button', { name: /Click to select a \.json or \.csv file/ })
-    await zone.scrollIntoViewIfNeeded()
-    await expect(zone).toBeInViewport({ ratio: 1 })
   })
 
   test('shows four samples in two columns, and three in one column below 560px', async ({ page }) => {
@@ -101,7 +94,7 @@ test.describe('import board — sample gallery', () => {
     })
     await openImport(page)
 
-    await page.getByRole('button', { name: 'Use the Sales Overlay sample' }).click()
+    await page.getByRole('button', { name: 'Use this sample: Sales Overlay' }).click()
     await expect(page.getByText(/From sample:/)).toBeVisible()
     await expect(page.getByRole('checkbox', { name: 'Cards' })).toBeFocused()
     await page.getByRole('dialog').getByRole('button', { name: 'Import', exact: true }).click()
@@ -112,6 +105,16 @@ test.describe('import board — sample gallery', () => {
     expect(importBody).toContain('2026-03-15')
   })
 
+  test('clicking anywhere on a card selects it, not just the button', async ({ page }) => {
+    await routeSamples(page)
+    await openImport(page)
+    // The button's ::after stretches over the card; click the description's centre like a pointer would.
+    const box = await page.getByText('Track deals from first prospect to closed, by region.').boundingBox()
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2)
+    await expect(page.getByText(/From sample:/)).toBeVisible()
+    await expect(page.getByText('Sales Pipeline', { exact: true })).toBeVisible()
+  })
+
   test('Escape cancels a slow load, keeps the modal open, and returns focus to the card', async ({ page }) => {
     await routeSamples(page)
     await page.route('**/api/v1/boards/samples/*/', async (route) => {
@@ -120,13 +123,13 @@ test.describe('import board — sample gallery', () => {
     })
     await openImport(page)
 
-    await page.getByRole('button', { name: 'Use the Sales Overlay sample' }).click()
+    await page.getByRole('button', { name: 'Use this sample: Sales Overlay' }).click()
     await expect(page.getByText('Loading sample…')).toBeVisible()
     await page.keyboard.press('Escape')
 
     await expect(page.getByText('Loading canceled.')).toBeAttached()
     await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Use the Sales Overlay sample' })).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Use this sample: Sales Overlay' })).toBeFocused()
     await expect(page.getByText(/From sample:/)).toHaveCount(0)
   })
 
@@ -135,9 +138,9 @@ test.describe('import board — sample gallery', () => {
     await page.route('**/api/v1/boards/samples/*/', (route) => route.fulfill({ status: 500, body: 'boom' }))
     await openImport(page)
 
-    await page.getByRole('button', { name: 'Use the Sales Overlay sample' }).click()
+    await page.getByRole('button', { name: 'Use this sample: Sales Overlay' }).click()
     await expect(page.getByRole('alert')).toContainText('Couldn’t load this sample.')
-    await expect(page.getByRole('button', { name: /Try loading the Sales Overlay sample again/ })).toBeFocused()
+    await expect(page.getByRole('button', { name: /Try again, Sales Overlay sample/ })).toBeFocused()
     await expect(page.getByRole('button', { name: /Click to select a \.json or \.csv file/ })).toBeEnabled()
   })
 

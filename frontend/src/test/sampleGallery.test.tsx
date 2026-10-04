@@ -51,11 +51,12 @@ async function renderModal(overrides: { onImport?: Mock; onCancel?: Mock } = {})
   const onCancel = overrides.onCancel ?? vi.fn()
   const user = userEvent.setup()
   render(<ImportBoardModal onImport={onImport} onCancel={onCancel} />)
-  await screen.findByRole('heading', { name: 'Start from a sample' })
+  // The heading renders while the list is still loading; wait for the cards too.
+  await screen.findAllByRole('button', { name: /^Use this sample: / })
   return { user, onImport, onCancel }
 }
 
-const card = (title: string) => screen.getByRole('button', { name: `Use the ${title} sample` })
+const card = (title: string) => screen.getByRole('button', { name: `Use this sample: ${title}` })
 const cardTitles = () => screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent)
 
 function stubNarrowViewport(narrow: boolean) {
@@ -86,14 +87,35 @@ describe('SampleGallery — layout (#1452)', () => {
     expect(screen.getByRole('button', { name: /Show all 6 samples/ })).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('renders each card from the manifest: count, theme, one-line description and Includes badges', async () => {
+  it('renders each card from the manifest: count, theme and one-line description', async () => {
     await renderModal()
     const item = card('Sales Overlay').closest('li') as HTMLElement
     expect(within(item).getByText('~42 cards')).toBeInTheDocument()
     expect(within(item).getByText('Swimlanes by account')).toBeInTheDocument()
     expect(within(item).getByText('Sales Overlay description.')).toBeInTheDocument()
-    const includes = within(item).getByRole('group', { name: 'Includes' })
-    expect(within(includes).getAllByText(/Labels|Checklists|Comments|History/)).toHaveLength(4)
+  })
+
+  it('shows identical Includes badges once, not on every card', async () => {
+    await renderModal()
+    expect(screen.getByText('Every sample includes')).toBeInTheDocument()
+    const groups = screen.getAllByRole('group', { name: 'Includes' })
+    expect(groups).toHaveLength(1)
+    expect(within(groups[0]).getAllByText(/Labels|Checklists|Comments|History/)).toHaveLength(4)
+  })
+
+  it('shows per-card Includes badges as soon as one sample differs', async () => {
+    mockList.mockResolvedValue(SAMPLES.map((x, i) => (i === 1 ? { ...x, includes: ['labels' as const] } : x)))
+    await renderModal()
+    expect(screen.queryByText('Every sample includes')).not.toBeInTheDocument()
+    const item = card('Simple Kanban').closest('li') as HTMLElement
+    expect(within(within(item).getByRole('group', { name: 'Includes' })).getAllByText(/Labels|Checklists|Comments|History/)).toHaveLength(1)
+    expect(screen.getAllByRole('group', { name: 'Includes' })).toHaveLength(4)
+  })
+
+  it('pluralizes the count', async () => {
+    mockList.mockResolvedValue(SAMPLES.slice(0, 1))
+    await renderModal()
+    expect(screen.getByText('1 sample')).toBeInTheDocument()
   })
 
   it('shows only three samples below 560px', async () => {
@@ -145,7 +167,7 @@ describe('SampleGallery — keyboard', () => {
   it('opens with focus on the first card and makes the gallery one Tab stop', async () => {
     await renderModal()
     await waitFor(() => expect(card('Sales Overlay')).toHaveFocus())
-    const stops = screen.getAllByRole('button', { name: /^Use the .* sample$/ }).filter((b) => b.getAttribute('tabindex') === '0')
+    const stops = screen.getAllByRole('button', { name: /^Use this sample: / }).filter((b) => b.getAttribute('tabindex') === '0')
     expect(stops).toHaveLength(1)
   })
 
@@ -196,7 +218,7 @@ describe('SampleGallery — keyboard', () => {
 describe('SampleGallery — choosing a sample', () => {
   it('fetches the file and lands on the include step with a source row', async () => {
     const { user } = await renderModal()
-    await user.click(screen.getByRole('button', { name: 'Use the Sales Overlay sample' }))
+    await user.click(screen.getByRole('button', { name: 'Use this sample: Sales Overlay' }))
 
     await screen.findByText(/From sample:/)
     expect(screen.getByText('Sales Overlay', { selector: 'span.font-medium' })).toBeInTheDocument()
@@ -207,12 +229,6 @@ describe('SampleGallery — choosing a sample', () => {
     expect(screen.getByRole('group', { name: 'Include' })).toBeInTheDocument()
     // Focus lands in the step, not on <body>.
     await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Cards' })).toHaveFocus())
-  })
-
-  it('clicking anywhere on the card is the same as the button', async () => {
-    const { user } = await renderModal()
-    await user.click(screen.getByText('Sales Overlay description.'))
-    expect(mockFile).toHaveBeenCalledWith('sales_overlay', expect.any(AbortSignal))
   })
 
   it('imports the fetched file through onImport with the date anchor and no name', async () => {
@@ -280,7 +296,9 @@ describe('SampleGallery — loading and cancel', () => {
     await user.click(card('Sales Overlay'))
 
     expect(await screen.findByText('Loading sample…')).toBeInTheDocument()
-    expect(screen.getAllByRole('status').filter((n) => n.textContent === 'Loading sample…')).toHaveLength(1)
+    // Announced once, by the modal's single live region; the card text is visual only.
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the Sales Overlay sample.')
+    expect(screen.getByText('Loading sample…')).toHaveAttribute('aria-hidden', 'true')
     expect(card('Simple Kanban')).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('button', { name: 'Click to select a .json or .csv file' })).toBeEnabled()
 
@@ -303,6 +321,7 @@ describe('SampleGallery — loading and cancel', () => {
     expect(onCancel).not.toHaveBeenCalled()
     expect(screen.queryByText('Loading sample…')).not.toBeInTheDocument()
     expect(screen.getAllByText('Loading canceled.')).toHaveLength(1)
+    expect(screen.getByRole('status')).toHaveTextContent('Loading canceled.')
     await waitFor(() => expect(card('Sales Overlay')).toHaveFocus())
 
     // A late response from the aborted request must not open the next step.
@@ -355,7 +374,7 @@ describe('SampleGallery — loading and cancel', () => {
     mockFile.mockReturnValue(deferred<Blob>().promise)
     const user = userEvent.setup()
     const { unmount } = render(<ImportBoardModal onImport={vi.fn()} onCancel={vi.fn()} />)
-    await user.click(await screen.findByRole('button', { name: 'Use the Sales Overlay sample' }))
+    await user.click(await screen.findByRole('button', { name: 'Use this sample: Sales Overlay' }))
     const signal = mockFile.mock.calls[0][1] as AbortSignal
     unmount()
     expect(signal.aborted).toBe(true)
@@ -371,7 +390,7 @@ describe('SampleGallery — errors', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Couldn’t load this sample.')
     expect(screen.getAllByRole('alert')).toHaveLength(1)
-    const retry = screen.getByRole('button', { name: /Try loading the Sales Overlay sample again/ })
+    const retry = screen.getByRole('button', { name: /Try again, Sales Overlay sample/ })
     expect(retry).toHaveTextContent('Try again')
     await waitFor(() => expect(retry).toHaveFocus())
 

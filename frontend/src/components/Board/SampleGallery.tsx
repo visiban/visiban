@@ -47,6 +47,18 @@ function useIsNarrow(): boolean {
   return narrow;
 }
 
+function IncludesBadges({ includes }: { includes: SampleBoardInclude[] }) {
+  return (
+    <div role="group" aria-label="Includes" className="flex flex-wrap gap-1 mt-1.5 first:mt-0">
+      {includes.map((inc) => (
+        <span key={inc} className="text-xs text-fg-tertiary border border-line rounded px-1.5 py-0.5">
+          {INCLUDE_LABELS[inc]}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The "Start from a sample" section of the Import Board modal (#1452).
  *
@@ -145,6 +157,11 @@ export default function SampleGallery({
   };
 
   const loadingAny = pending?.status === "loading";
+  // When every sample carries the same features the per-card chip row is pure
+  // repetition (and ~28px per card), so it is shown once under the helper text
+  // and comes back by itself as soon as any sample differs.
+  const sameIncludes =
+    samples.length > 0 && samples.every((x) => x.includes.join() === samples[0].includes.join());
 
   return (
     <section aria-labelledby="import-samples-heading" className="space-y-2">
@@ -153,20 +170,22 @@ export default function SampleGallery({
           <h3 id="import-samples-heading" className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">
             Start from a sample
           </h3>
-          {listState === "ready" && <span className="text-xs text-fg-tertiary">{samples.length} samples</span>}
+          {listState === "ready" && <span className="text-xs text-fg-tertiary">{samples.length} {samples.length === 1 ? "sample" : "samples"}</span>}
         </div>
         {listState !== "unavailable" && (
           <p className="text-xs text-fg-tertiary">
             No file? Pick a sample to get a ready-made board with realistic cards. You&rsquo;ll choose what to include next.
           </p>
         )}
+        {listState === "ready" && sameIncludes && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1 text-xs text-fg-tertiary">
+            <span>Every sample includes</span>
+            <IncludesBadges includes={samples[0].includes} />
+          </div>
+        )}
       </div>
 
-      {listState === "loading" && (
-        <p role="status" className="text-xs text-fg-tertiary">
-          Loading samples&hellip;
-        </p>
-      )}
+      {listState === "loading" && <p className="text-xs text-fg-tertiary">Loading samples&hellip;</p>}
 
       {listState === "unavailable" && (
         <div className="flex items-start justify-between gap-3 bg-surface-hover/50 border border-line-strong rounded-lg px-3 py-2.5 text-xs text-fg-secondary">
@@ -196,30 +215,21 @@ export default function SampleGallery({
                 ? "border-danger"
                 : isLoading
                   ? "border-primary-emphasis bg-primary/15"
-                  : "border-line hover:border-line-strong focus-within:border-primary-emphasis";
+                  : "border-line hover:border-line-strong hover:shadow focus-within:border-primary-emphasis";
               return (
                 <li key={s.id} className="flex">
-                  {/* The card is a pointer shortcut for its button; the button is the
-                      keyboard and screen-reader control, so the div needs no role. */}
+                  {/* The button is the one control; its ::after stretches over the card so a click
+                      anywhere on it selects (the stretched-button pattern, no div handler). */}
                   <div
-                    onClick={() => {
-                      if (!loadingAny) onSelect(s);
-                    }}
-                    className={`group flex flex-col w-full rounded-lg border bg-surface p-3 transition focus-within:ring-2 focus-within:ring-primary-emphasis ${tone} ${blocked ? "opacity-60" : "cursor-pointer"}`}
+                    className={`group relative flex flex-col w-full rounded-lg border bg-surface p-3 transition focus-within:ring-2 focus-within:ring-primary-emphasis ${tone} ${blocked ? "opacity-60" : "cursor-pointer"}`}
                   >
                     <div className="flex items-baseline justify-between gap-2">
-                      <h4 className="text-sm font-medium text-fg truncate">{s.title}</h4>
+                      <h4 title={s.title} className="text-sm font-medium text-fg truncate">{s.title}</h4>
                       <span className="shrink-0 text-xs text-fg-tertiary">~{s.card_count} cards</span>
                     </div>
                     <p className="text-xs text-fg-secondary mt-0.5">{s.description}</p>
                     <p className="text-xs text-fg-tertiary mt-0.5">Swimlanes by {s.swimlane_theme}</p>
-                    <div role="group" aria-label="Includes" className="flex flex-wrap gap-1 mt-1.5">
-                      {s.includes.map((inc) => (
-                        <span key={inc} className="text-xs text-fg-tertiary border border-line rounded px-1.5 py-0.5">
-                          {INCLUDE_LABELS[inc]}
-                        </span>
-                      ))}
-                    </div>
+                    {!sameIncludes && <IncludesBadges includes={s.includes} />}
                     <div className="mt-auto pt-2">
                       {isError && (
                         <p role="alert" className="text-xs text-danger mb-2">
@@ -237,19 +247,22 @@ export default function SampleGallery({
                         type="button"
                         tabIndex={s.id === rovingId ? 0 : -1}
                         aria-disabled={blocked || isLoading ? true : undefined}
-                        aria-label={isError ? `Try loading the ${s.title} sample again` : `Use the ${s.title} sample`}
+                        aria-label={isError ? `Try again, ${s.title} sample` : `Use this sample: ${s.title}`}
+                        onClick={() => {
+                          if (!loadingAny) onSelect(s);
+                        }}
                         onFocus={() => setActiveId(s.id)}
                         onKeyDown={(e) => onKeyDown(e, index)}
-                        className="border border-line-strong text-fg-secondary text-xs font-medium px-3 py-1 rounded transition outline-none group-hover:bg-button-primary group-hover:text-on-primary group-hover:border-transparent aria-disabled:group-hover:bg-transparent aria-disabled:group-hover:text-fg-secondary aria-disabled:group-hover:border-line-strong"
+                        className="border border-line-strong text-fg-secondary text-xs font-medium px-3 py-1 rounded transition outline-none after:absolute after:inset-0 after:content-[''] group-hover:bg-button-primary group-hover:text-on-primary group-hover:border-transparent aria-disabled:group-hover:bg-transparent aria-disabled:group-hover:text-fg-secondary aria-disabled:group-hover:border-line-strong"
                       >
                         {isError ? "Try again" : "Use this sample"}
                       </button>
+                      {/* Visual only: the modal's persistent live region announces the load once. */}
+                      {isLoading && <p aria-hidden="true" className="text-xs text-fg-secondary mt-2 mb-1">Loading sample&hellip;</p>}
                       {isLoading && (
-                        <div className="mt-2">
-                          <p role="status" className="text-xs text-fg-secondary mb-1">Loading sample&hellip;</p>
-                          <div className="h-1.5 rounded-full bg-sunken overflow-hidden">
-                            <div className="h-full w-full bg-button-primary animate-pulse motion-reduce:animate-none" />
-                          </div>
+                        <div className="h-1.5 rounded-full bg-sunken overflow-hidden" aria-hidden="true">
+                          {/* Indeterminate; at reduced motion a static partial bar, not a "done" one. */}
+                          <div className="h-full w-full bg-button-primary animate-pulse motion-reduce:animate-none motion-reduce:w-1/3" />
                         </div>
                       )}
                     </div>

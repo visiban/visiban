@@ -104,8 +104,8 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [include, setInclude] = useState<IncludeState>(ALL_INCLUDED);
-  // The modal's one polite live region: the Cards cascade (#119) and a canceled
-  // sample load. Loading and error text live in the gallery's own status/alert.
+  // The modal's one polite live region: the Cards cascade (#119) and a sample
+  // load starting or canceled. A failed sample is the card's own role="alert".
   const [cascadeAnnouncement, setCascadeAnnouncement] = useState("");
   // "Start from a sample" (#1452). `source` is set once a sample's file has been
   // fetched and wrapped as `file`; `sampleLoad` tracks the one in flight or failed.
@@ -189,7 +189,9 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
     const ctrl = new AbortController();
     sampleAbort.current = ctrl;
     setSampleLoad({ id: sample.id, status: "loading" });
-    setCascadeAnnouncement("");
+    // The one announcement of the load: a region that is already mounted (and empty)
+    // is reliably read; the card's own text is visual only.
+    setCascadeAnnouncement(`Loading the ${sample.title} sample.`);
     try {
       const blob = await getSampleBoardFile(sample.id, ctrl.signal);
       if (ctrl.signal.aborted) return;
@@ -202,6 +204,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
     } catch {
       if (ctrl.signal.aborted) return;
       setSampleLoad({ id: sample.id, status: "error" });
+      setCascadeAnnouncement(""); // the card's alert owns the failure message
       requestFocus(sample.id); // the card's button is now "Try again"
     }
   };
@@ -320,7 +323,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
       headerBorder
     >
         {/* Body */}
-        <div className="px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+        <div className="px-4 sm:px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
           {!source && (
             <SampleGallery
               samples={samples}
