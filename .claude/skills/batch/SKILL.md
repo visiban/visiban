@@ -192,8 +192,25 @@ Every agent finishes by, in order:
    `Agent(subagent_type: "completeness-check")` (`.claude/agents/completeness-check.md`)
    on the unpushed branch — a fresh agent that did not write it, model per its own
    escalation criteria — and every BLOCKER and GAP is fixed on the branch or
-   deferred to an **open** issue. Only after that does the orchestrator re-brief
-   the implementer (via `SendMessage`) to push.
+   deferred to an **open** issue. The orchestrator re-briefs the implementer (via
+   `SendMessage`) to fix them, in a **new commit** (never an amend), so the fix diff
+   stays separable from the audited branch.
+
+   **Then decide whether the fix diff needs its own re-check — once, narrowly.**
+   Spawn a fresh `Agent(subagent_type: "completeness-check")` scoped to the fix
+   commit(s) only (`git diff <audited-sha>..HEAD`), not the whole branch, when
+   **either** holds:
+   - the first check returned any **BLOCKER**; or
+   - a fix commit changes **executable behavior** — application code, CI or chart
+     logic, a gate or check script, or a migration — rather than only docs, tests,
+     comments, or changelog text.
+
+   Model: Sonnet, unless the branch met the escalation criteria above. **One pass
+   only, never a loop**: fix what it finds and stop — a re-check of a re-check is the
+   whack-a-mole loop `/pre-release` warns about. Record it as its own ledger line
+   (see Step 5.7). A fix round that touched only docs, tests, comments, or
+   changelog text gets no re-check; say so in the report rather than skipping it
+   silently. Only after this does the orchestrator tell the implementer to push.
 5. **Check for a stale base, immediately before push — not at worktree
    creation.** `scripts/wt new` branches off latest `origin/main`, but the gate
    sequence above (especially an Opus completeness-check on an escalated issue)
@@ -221,8 +238,12 @@ Every agent finishes by, in order:
 7. Include `Closes #NNN` in the MR description, the `completeness-check`
    `## Requirements` table, and a `## Gates` section with one
    `gate: <name> — <N> findings` line per gate run (including
-   `completeness-check — <N> findings (model: <sonnet|opus>)`). `0 findings` is a real
-   outcome; never omit a zero, and never conflate `n/a` with `skipped`. If Step 5
+   `completeness-check — <N> findings (model: <sonnet|opus>)`, plus
+   `completeness-check/fix-diff — <N> findings (model: <sonnet|opus>)` when Step 4
+   triggered the re-check). `0 findings` is a real
+   outcome; never omit a zero, and never conflate `n/a` with `skipped`. A fix round
+   that did not trigger the re-check records `completeness-check/fix-diff — n/a`;
+   one that triggered it and the user declined records `skipped`. If Step 5
    found a stale base, note the rebase and what was re-verified in the MR's
    `## Notes` section.
 8. **Never merge.** Hand back the MR URL and stop.
@@ -279,7 +300,9 @@ Do not merge anything. Do not start another wave without being asked.
 - **Scoped tests only.** Never the full suite inside an agent.
 - **Pre-MR gates as one parallel batch**, never serially — see `CLAUDE.md`'s
   "Pre-MR gate batch" section. Then `completeness-check` once, serially, **before
-  push** — it audits the branch the batch's fixes produced.
+  push** — it audits the branch the batch's fixes produced. Re-check the **fix diff
+  only**, once, when the first check found a BLOCKER or a fix changed executable
+  behavior — never the whole branch twice, never a loop.
 - **Apply only the gates the diff earns** — `CLAUDE.md`'s fast-path table is
   authoritative. A bugfix with a known root cause does not need `architect`.
 - **No re-delegation** from inside an agent.
