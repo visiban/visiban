@@ -191,7 +191,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   // Dismiss confirm overlay before closing the panel so Escape has two stages:
   // first press dismisses the confirm, second press closes the panel.
+  // The inline comment-delete prompt shares this priority: Escape cancels it
+  // instead of closing the panel (#1365).
   useEscapeStack(() => {
+    // Only consume Escape when the prompt is actually visible: a refetch can remove
+    // the comment while its prompt is open, and a stale id must not swallow the key.
+    if (confirmDeleteCommentId !== null && comments.some((c) => c.id === confirmDeleteCommentId)) {
+      setConfirmDeleteCommentId(null);
+      return;
+    }
     if (!confirmAction) return false;
     setConfirmAction(null);
   }, 35);
@@ -1150,12 +1158,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         <Avatar user={c.author} size="sm" className="mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-semibold text-fg-secondary">{authorName}</span>
+                            <span className="text-xs font-semibold text-fg-secondary min-w-0 truncate" title={authorName}>{authorName}</span>
                             <span className="text-xs text-fg-muted" title={formatDateTimeUser(c.created_at, currentUser)}>{formatCommentTime(c.created_at, currentUser)}</span>
                             {canDeleteComment(c) && (
                               // #1193: comment DELETE is not on DEMO_ALLOWED_WRITES.
                               // Refuse up front with the fixed lead, never open the
-                              // Yes/No confirm for a delete that cannot succeed —
+                              // Confirm/Cancel prompt for a delete that cannot succeed —
                               // sub-pattern (B), same as the attachment delete above.
                               demoMode ? (
                                 <button
@@ -1171,19 +1179,19 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   </svg>
                                 </button>
                               ) : confirmDeleteCommentId === c.id ? (
-                                <div className="ml-auto flex items-center gap-1">
-                                  <span className="text-xs text-danger">Delete?</span>
+                                <div className="ml-auto flex items-center gap-2 text-xs shrink-0 whitespace-nowrap">
+                                  <span className="text-fg-tertiary">Delete this comment?</span>
                                   <button
                                     onClick={() => handleDeleteComment(c.id)}
-                                    className="text-xs text-danger hover:text-danger font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1"
+                                    className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                                   >
-                                    Yes
+                                    Confirm
                                   </button>
                                   <button
                                     onClick={() => setConfirmDeleteCommentId(null)}
-                                    className="text-xs text-fg-muted hover:text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1"
+                                    className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                                   >
-                                    No
+                                    Cancel
                                   </button>
                                 </div>
                               ) : (

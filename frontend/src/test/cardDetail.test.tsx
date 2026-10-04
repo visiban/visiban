@@ -415,7 +415,7 @@ describe('CardDetail', () => {
       expect(textarea).toHaveValue('draft thought')
     })
 
-    it('#1193: comment delete is aria-disabled, keyboard-reachable, explains why, and never opens the Yes/No confirm', async () => {
+    it('#1193: comment delete is aria-disabled, keyboard-reachable, explains why, and never opens the inline confirm', async () => {
       const { getCardComments, deleteComment } = await import('../api/cards')
       const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
       mockGetComments.mockResolvedValue([
@@ -430,7 +430,7 @@ describe('CardDetail', () => {
       del.focus()
       expect(del).toHaveFocus()
       await user.click(del)
-      expect(screen.queryByText('Delete?')).not.toBeInTheDocument()
+      expect(screen.queryByText('Delete this comment?')).not.toBeInTheDocument()
       expect(deleteComment).not.toHaveBeenCalled()
     })
 
@@ -1117,6 +1117,54 @@ describe('CardDetail', () => {
       await waitFor(() => expect(getChecklist as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(2))
       expect(screen.queryByText('Item A')).not.toBeInTheDocument()
       expect(screen.queryByText('Item B')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('comment delete inline confirm (#1365)', () => {
+    async function renderWithComment() {
+      const { getCardComments } = await import('../api/cards')
+      ;(getCardComments as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 1, author: fakeUser, body: 'Hello world', created_at: new Date().toISOString(), updated_at: '' },
+      ])
+      const onClose = vi.fn()
+      const user = userEvent.setup()
+      render(<CardDetail {...defaultProps()} currentUser={fakeUser} onClose={onClose} />)
+      await user.click(await screen.findByRole('button', { name: 'Delete comment' }))
+      return { user, onClose }
+    }
+
+    it('shows a full-sentence prompt with Confirm / Cancel, never Yes / No', async () => {
+      await renderWithComment()
+      expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'No' })).not.toBeInTheDocument()
+    })
+
+    it('Confirm deletes the comment', async () => {
+      const { deleteComment } = await import('../api/cards')
+      const { user } = await renderWithComment()
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      expect(deleteComment).toHaveBeenCalledTimes(1)
+    })
+
+    it('Cancel dismisses the prompt without deleting', async () => {
+      const { deleteComment } = await import('../api/cards')
+      ;(deleteComment as ReturnType<typeof vi.fn>).mockClear()
+      const { user } = await renderWithComment()
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByText('Delete this comment?')).not.toBeInTheDocument()
+      expect(deleteComment).not.toHaveBeenCalled()
+    })
+
+    it('Escape cancels the open prompt first and does not close the panel; a second Escape closes it', async () => {
+      const { user, onClose } = await renderWithComment()
+      await user.keyboard('{Escape}')
+      expect(screen.queryByText('Delete this comment?')).not.toBeInTheDocument()
+      expect(onClose).not.toHaveBeenCalled()
+      await user.keyboard('{Escape}')
+      expect(onClose).toHaveBeenCalledTimes(1)
     })
   })
 
