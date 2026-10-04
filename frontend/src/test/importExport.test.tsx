@@ -138,7 +138,7 @@ describe('ImportBoardModal', () => {
     await user.upload(fileInput, file)
 
     // Type a custom board name
-    const nameInput = screen.getByPlaceholderText('Leave blank to use name from file')
+    const nameInput = screen.getByPlaceholderText('Leave blank for "Imported: <name from file>"')
     await user.type(nameInput, 'My Custom Board')
 
     await user.click(screen.getByText('Import'))
@@ -197,7 +197,7 @@ describe('ImportBoardModal', () => {
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, file)
 
-    const nameInput = screen.getByPlaceholderText('Leave blank to use name from file')
+    const nameInput = screen.getByPlaceholderText('Leave blank for "Imported: <name from file>"')
     await user.type(nameInput, 'My Board{Enter}')
 
     expect(await screen.findByText('Invalid board format')).toBeInTheDocument()

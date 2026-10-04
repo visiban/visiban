@@ -581,9 +581,20 @@ Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-d
 | Field | Required | Description |
 |---|---|---|
 | `file` | ✓ | The JSON or CSV export file. The file is treated as JSON if its name ends in `.json` **or** its content type contains `json`; otherwise as CSV if its name ends in `.csv` or its content type contains `csv`; anything else is rejected. The JSON check runs first, so a `.csv` file uploaded with a JSON content type is parsed as JSON. |
-| `name` | | Override the imported board name. |
+| `name` | | Board name to use, exactly as given — no prefix and no duplicate suffix. When omitted, the board is named by the rule in [Default board name](#default-board-name). |
 | `group_id` | | Place the imported board into this group. Requires group membership (any role). |
 | `options` | | A JSON object, sent as a string, choosing what to import. Omit it to import everything. See [Import options](#import-options). |
+
+#### Default board name
+
+> **Changed in 1.2** (#1446) — earlier releases named a JSON import after the file's `name` verbatim and every CSV import `Imported Board`. API callers that relied on the old default should send `name` explicitly.
+
+Without a `name` field, both formats name the new board `Imported: <name>`:
+
+- **JSON** — `<name>` is the `name` field in the file.
+- **CSV** — a CSV carries no board name, so `<name>` is the uploaded filename without its extension (`Q3 plan.csv` → `Imported: Q3 plan`). An empty filename stem falls back to `Board`.
+
+If a board with that exact name already exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on; a gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise your own boards that are not in a group. The name is truncated to the 255-character limit so the prefix and number always fit. Board names are not unique, so two imports running at the same moment can occasionally receive the same name.
 
 #### Import options
 
@@ -626,7 +637,7 @@ Returns the newly created board object, using the same shape as `GET /api/v1/boa
 {
   "id": 512,
   "uid": "bd_1a2b3c4d5e6f7890",
-  "name": "Imported Board",
+  "name": "Imported: Roadmap",
   "owner": { "id": 7, "username": "alice", "display_name": "Alice" },
   "group": null,
   "created_at": "2026-04-21T14:02:11Z",

@@ -152,7 +152,7 @@ class ImportOptionsDefaultTests(_ImportOptionsBase):
 
     def test_board_body_stays_at_top_level(self):
         resp = self._post()
-        self.assertEqual(resp.data["name"], "Selective")
+        self.assertEqual(resp.data["name"], "Imported: Selective")
         self.assertIn("id", resp.data)
         self.assertNotIn("board", resp.data)
 
@@ -227,7 +227,7 @@ class ImportOptionsFlagTests(_ImportOptionsBase):
             resp = self._post(options={"history": False})
         event = BoardEvent.objects.get(board_id=resp.data["id"], event=_broadcast.EVT_BOARD_CREATED)
         self.assertEqual(event.data["import_options"], {**_ALL_ON, "history": False})
-        self.assertEqual(event.data["name"], "Selective")
+        self.assertEqual(event.data["name"], "Imported: Selective")
 
     def test_event_payload_carries_default_import_options(self):
         with self.captureOnCommitCallbacks(execute=False):

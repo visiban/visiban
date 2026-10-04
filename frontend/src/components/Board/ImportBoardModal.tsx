@@ -279,7 +279,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
                 if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
                 if (e.key === "Escape") onCancel();
               }}
-              placeholder="Leave blank to use name from file"
+              placeholder={'Leave blank for "Imported: <name from file>"'}
               className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
             />
           </div>
