@@ -291,6 +291,15 @@ After rolling back, restart the backend container with the previous image versio
     switch to `:main` (amd64 only); short-SHA tags are still pushed for rollback. Pinned release
     tags and GHCR are unaffected. See [Container image retention](container-image-retention.md#gitlab-registry-latest-is-stable-only-main-publishes-main).
 
+!!! note "Board import default name changed"
+    `POST /api/v1/boards/import/` called without a `name` field now names the new board
+    `Imported: <name>` — the `name` in a JSON file, or the filename without its extension
+    for a CSV file — and appends ` - 1`, ` - 2`, ... when that name is already taken.
+    Previously a JSON import used the file's `name` unchanged and every CSV import was
+    named `Imported Board`. Any script or test that finds an imported board by the file's
+    name must now send `name` explicitly, which is still used exactly as given. See
+    [Default board name](../api/boards.md#default-board-name) (#1446).
+
 Migration `accounts/0027_maintenance_mode` adds two nullable-by-default columns
 (`maintenance_mode`, `maintenance_message`) to the `site_settings` singleton for the new
 [maintenance mode](maintenance-mode.md) feature. It is a plain `AddField` migration — no index,
