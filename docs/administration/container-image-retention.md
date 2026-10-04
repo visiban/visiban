@@ -229,9 +229,10 @@ all have release-tag-only `rules:`, so a `main` merge cannot produce a multi-arc
 meant GitLab `:latest` was an unvetted `main` build between releases and disagreed with GHCR.
 Main builds now go to `:main`, leaving `:latest` on the newest stable release.
 
-**Retention:** `:main` is re-pushed on every merge, so it stays fresh under the ordinary
-`keep_n`/`older_than` sweep and needs no entry in `name_regex_keep`. Short-SHA tags age out under
-that same sweep, as before. `:latest` and release tags stay unconditionally protected.
+**Retention:** `:main` may be swept after a long idle period (the same `keep_n`/`older_than`
+failure mode described for `latest` above); the next `main` merge recreates it, and nothing pins
+to it, so it needs no `name_regex_keep` entry. Short-SHA tags age out under that same sweep, as
+before. `:latest` and release tags stay unconditionally protected.
 
 **Building arm64 on every `main` merge** would serialize each merge through the single dedicated
 Apple Silicon runner (`Max1-Runner-Visiban`); that throughput cost has not been evaluated

@@ -3482,7 +3482,8 @@ helm-publish:
 # on demand (kaniko, amd64-only) via the play button on any pipeline's
 # deploy stage. Removed: since #1084 restored multi-arch publishing, GHCR
 # `:latest` is a real linux/amd64+arm64 manifest list between release tags
-# (main merges push `:main`, never `:latest`, since #1409; see the "Docker push" comment block above) — these jobs had no `rules:`
+# (see the "Docker push" comment block above; main merges push `:main`,
+# never `:latest`, since #1409) — these jobs had no `rules:`
 # restricting them to any particular pipeline, so clicking either one on
 # ANY pipeline would silently overwrite that multi-arch manifest with a
 # single-arch amd64 image, with no arm64 leg or manifest-assembly step to
