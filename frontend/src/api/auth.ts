@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount } from "../types";
+import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, InviteEmailSent, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/v1/auth/user/").then((r) => r.data);
@@ -167,6 +167,9 @@ export const createAdminInviteLink = (data: {
   single_use: boolean;
 }) =>
   client.post<CreatedAdminInviteLink>("/api/v1/admin/invite-links/", data).then((r) => r.data);
+
+export const sendAdminInviteEmail = (data: { email: string }) =>
+  client.post<InviteEmailSent>("/api/v1/admin/invite-links/send/", data).then((r) => r.data);
 
 export const revokeAdminInviteLink = (id: number) =>
   client.delete<AdminInviteLink>(`/api/v1/admin/invite-links/${id}/`).then((r) => r.data);

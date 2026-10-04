@@ -58,15 +58,7 @@ GROUP_CHANNEL_EVENTS: frozenset[str] = frozenset({
 
 DEPRECATED_GROUP_EVENTS: dict[str, str] = {}
 
-INTENTIONALLY_UNHANDLED_GROUP_EVENTS: dict[str, str] = {
-    # Temporary: #731 ships as two MRs, backend first. The #731 frontend MR adds
-    # the GroupDetail handler (refetch the invite panel, as invite_link.revoked
-    # does) and must delete this entry in the same change.
-    EVT_INVITE_LINK_CREATED: (
-        "Emitted by the emailed-invite endpoint (#731). The SPA handler lands with "
-        "the #731 frontend MR; until then clients see the new link on next load."
-    ),
-}
+INTENTIONALLY_UNHANDLED_GROUP_EVENTS: dict[str, str] = {}
 
 
 def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None:

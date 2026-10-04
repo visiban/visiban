@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Group, GroupLabel, GroupMembership, GroupInviteLink, Board, Priority } from "../types";
+import type { Group, GroupLabel, GroupMembership, GroupInviteLink, InviteEmailSent, Board, Priority } from "../types";
 
 export const listGroups = () =>
   client.get<{ results: Group[] }>("/api/v1/groups/").then((r) => r.data.results);
@@ -46,6 +46,14 @@ export const createInviteLink = (
 ) =>
   client
     .post<GroupInviteLink>(`/api/v1/groups/${groupId}/invite-links/`, data)
+    .then((r) => r.data);
+
+export const sendInviteLinkEmail = (
+  groupId: number,
+  data: { email: string; role?: "admin" | "member" | "collaborator" | "viewer" },
+) =>
+  client
+    .post<InviteEmailSent>(`/api/v1/groups/${groupId}/invite-links/send/`, data)
     .then((r) => r.data);
 
 export const revokeInviteLink = (groupId: number, linkId: number) =>

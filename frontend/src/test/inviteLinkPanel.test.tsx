@@ -8,13 +8,27 @@ vi.mock('../api/groups', () => ({
   listInviteLinks: vi.fn(),
   createInviteLink: vi.fn(),
   revokeInviteLink: vi.fn(),
+  sendInviteLinkEmail: vi.fn(),
 }))
 
-import { listInviteLinks, createInviteLink, revokeInviteLink } from '../api/groups'
+vi.mock('../api/auth', () => ({ getSiteConfig: vi.fn() }))
+
+import { listInviteLinks, createInviteLink, revokeInviteLink, sendInviteLinkEmail } from '../api/groups'
+import { getSiteConfig } from '../api/auth'
 
 const mockListInviteLinks = listInviteLinks as ReturnType<typeof vi.fn>
 const mockRevokeInviteLink = revokeInviteLink as ReturnType<typeof vi.fn>
 const mockCreateInviteLink = createInviteLink as ReturnType<typeof vi.fn>
+const mockSendInviteLinkEmail = sendInviteLinkEmail as ReturnType<typeof vi.fn>
+const mockGetSiteConfig = getSiteConfig as ReturnType<typeof vi.fn>
+
+const siteConfig = {
+  registration_open: true,
+  registration_mode: 'open',
+  demo_mode: false,
+  demo_login: null,
+  invite_email_available: true,
+}
 
 /** Simulates a creation response — includes raw token for one-time reveal */
 const fakeCreatedLink: GroupInviteLink = {
@@ -89,6 +103,57 @@ describe('InviteLinkPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockListInviteLinks.mockResolvedValue([])
+    mockGetSiteConfig.mockResolvedValue(siteConfig)
+  })
+
+  it('renders the Invite by email section above the list and sends for this group', async () => {
+    mockSendInviteLinkEmail.mockResolvedValue({ detail: 'Invite sent', sent_to: 'sam@example.com' })
+    render(<InviteLinkPanel groupId={7} />)
+    const input = await screen.findByRole('textbox', { name: 'Email address' })
+    await userEvent.setup().type(input, 'sam@example.com{Enter}')
+    await waitFor(() =>
+      expect(mockSendInviteLinkEmail).toHaveBeenCalledWith(7, { email: 'sam@example.com', role: 'member' })
+    )
+    expect(await screen.findByText('Invite sent to sam@example.com.')).toBeInTheDocument()
+    // Initial load plus the refetch after the send.
+    await waitFor(() => expect(mockListInviteLinks).toHaveBeenCalledTimes(2))
+  })
+
+  it('hides the Invite by email section when email is unavailable', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...siteConfig, invite_email_available: false })
+    render(<InviteLinkPanel groupId={1} />)
+    await screen.findByText('No invite links.')
+    expect(screen.queryByText('Invite by email')).not.toBeInTheDocument()
+  })
+
+  it('shows an Emailed badge on emailed links and never a token reveal', async () => {
+    mockListInviteLinks.mockResolvedValue([
+      { ...fakeExistingLink, id: 9, prefix: 'eml1', name: 'Emailed one', delivery: 'email', single_use: true },
+    ])
+    render(<InviteLinkPanel groupId={1} />)
+    expect(await screen.findByText('Emailed')).toBeInTheDocument()
+    expect(screen.queryByText(/Copy this link now/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revoke/ })).toBeInTheDocument()
+  })
+
+  it('does not badge shareable links as Emailed', async () => {
+    mockListInviteLinks.mockResolvedValue([fakeExistingLink])
+    render(<InviteLinkPanel groupId={1} />)
+    await screen.findByText('xyz9…')
+    expect(screen.queryByText('Emailed')).not.toBeInTheDocument()
+  })
+
+  it('a refetch (socket echo) keeps the one-time token of a link still being revealed', async () => {
+    mockCreateInviteLink.mockResolvedValue(fakeCreatedLink)
+    const { rerender } = render(<InviteLinkPanel groupId={1} reloadSignal={0} />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'New link' }))
+    await user.click(await screen.findByRole('button', { name: 'Create link' }))
+    expect(await screen.findByText(/\/join\/abc123/)).toBeInTheDocument()
+    mockListInviteLinks.mockResolvedValue([{ ...fakeCreatedLink, token: undefined }])
+    rerender(<InviteLinkPanel groupId={1} reloadSignal={1} />)
+    await waitFor(() => expect(mockListInviteLinks).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText(/\/join\/abc123/)).toBeInTheDocument()
   })
 
   it('renders generate button', async () => {
