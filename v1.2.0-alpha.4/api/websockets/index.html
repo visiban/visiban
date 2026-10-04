@@ -4533,8 +4533,13 @@ sees it appear or disappear without a reload.</p>
 <td><code>{ "user_id": &lt;int&gt; }</code></td>
 </tr>
 <tr>
+<td><code>invite_link.created</code></td>
+<td>An invite link for this group was emailed to someone (new in 1.2). A refetch signal only: every group member receives it, including non-admins, so it carries just the link id — admins refetch <code>GET /invite-links/</code> (admin-only) for the details, and non-admin clients should ignore it</td>
+<td><code>{ "id": &lt;int&gt; }</code></td>
+</tr>
+<tr>
 <td><code>invite_link.revoked</code></td>
-<td>An invite link for this group was revoked</td>
+<td>An invite link for this group was revoked (also delivered to non-admin members; a refetch signal, like <code>invite_link.created</code>) — including an emailed link revoked automatically because its email could not be sent</td>
 <td><code>{ "id": &lt;int&gt; }</code></td>
 </tr>
 <tr>

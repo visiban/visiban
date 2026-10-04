@@ -1415,6 +1415,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Invite links">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#emailing-an-invite-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Emailing an invite link
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3980,6 +3997,23 @@
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one <code>member</code> link for the team and one <code>viewer</code> link for stakeholders).</p>
+</div>
+<h3 id="emailing-an-invite-link">Emailing an invite link<a class="headerlink" href="#emailing-an-invite-link" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong> (#731)</p>
+</blockquote>
+<p>Group admins can have Visiban email an invite straight to someone's address with <code>POST /api/v1/groups/{id}/invite-links/send/</code> (see the <a href="../../api/groups/">Groups API</a>). The web UI for this lands in a later 1.2 release; until then it is available through the API. Visiban creates a <strong>single-use</strong> link for that one person (role of your choice, expiring in 1–30 days — default 7, never "never") and emails it from the instance's own sender address. The email is plain text and names the group, the join link, and the expiry date; there is no custom message.</p>
+<ul>
+<li>Emailed links are returned by <code>GET /api/v1/groups/{id}/invite-links/</code> with <code>delivery: "email"</code>, can be revoked like any other link, and <strong>don't count against the 5 shareable links</strong>. A group can have up to 50 pending emailed links.</li>
+<li>The address is used for that one email and is <strong>not stored</strong>. The link record does not say who it was sent to.</li>
+<li>The endpoint returns the same <code>202</code> response (<code>{"detail": "Invite sent", "sent_to": ...}</code>) whether the address belongs to an existing member, someone with an account, or nobody yet — it never reveals which addresses have accounts. The raw token is never returned; it exists only in the email.</li>
+<li>If the mail server rejects the message, the endpoint returns <code>502</code> with a sanitized error <code>code</code> and revokes the link automatically, so nothing is left dangling.</li>
+<li>Sending is rate-limited: 10 per hour per admin, 30 per day per group, 200 per day across the instance. Sends that are refused or that the mail server rejects don't count.</li>
+<li>Whether sending is possible is published as <code>invite_email_available</code> on the public <code>GET /api/v1/auth/site-config/</code> endpoint: it is <code>true</code> only when outbound email is configured (see <a href="../../administration/configuration/">Configuration</a>), <code>INVITE_EMAIL_ENABLED</code> is not <code>false</code>, and the instance is not a demo. When the feature is switched off the endpoint returns <code>403</code> with <code>code: "invite_email_disabled"</code>.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Following the emailed link does <strong>not</strong> verify the recipient's email address. If they create a new account from it, registration still follows the instance's normal email-verification setting. On an instance whose registration mode is <strong>Invite-only</strong> or <strong>Closed</strong>, a group invite link does not currently let a newcomer create an account (tracked in #1445) — invite people who already have one, or ask a site admin for a site invite.</p>
 </div>
 <h2 id="moving-boards-between-groups">Moving boards between groups<a class="headerlink" href="#moving-boards-between-groups" title="Permanent link">&para;</a></h2>
 <p>Any board can move to a different group or back to personal boards, via <strong>Move to group</strong> in board settings (gear icon in the toolbar). Only board admins and site admins can move a board.</p>

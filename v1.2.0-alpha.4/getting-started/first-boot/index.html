@@ -3968,7 +3968,7 @@
 </table>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>A maximum of 50 active (pending, non-expired) invite links can exist at one time per instance. Revoke unused links to stay below this limit.</p>
+<p>A maximum of 50 active (pending, non-expired) shareable invite links can exist at one time per instance. Revoke unused links to stay below this limit. Invite links sent by email (new in 1.2, via <code>POST /api/v1/admin/invite-links/send/</code>) don't count toward it — they have a separate limit of 200 pending.</p>
 </div>
 <h3 id="creating-accounts-manually-closed-mode">Creating accounts manually (Closed mode)<a class="headerlink" href="#creating-accounts-manually-closed-mode" title="Permanent link">&para;</a></h3>
 <p>When registration mode is Closed, use <strong>Admin → Users → Add user</strong> to create accounts directly. Set a temporary password and enable <strong>Force password reset</strong> so the user chooses their own password on first login.</p>

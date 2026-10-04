@@ -4321,6 +4321,11 @@ mail.</p>
 <td><code>true</code></td>
 </tr>
 <tr>
+<td><code>INVITE_EMAIL_ENABLED</code></td>
+<td>Lets group admins and site admins send invite links straight to an email address instead of copying them. Set to <code>false</code> to remove the option instance-wide; the send endpoints then return <code>403</code> with <code>code: "invite_email_disabled"</code>. Always off when <code>DEMO_MODE</code> is on. Uses the same mail configuration as everything else, with <code>NOTIFICATION_EMAIL_TIMEOUT</code> as its socket timeout floor. Rate limits (fixed, not configurable): 10 sends/hour per admin, 30/day per group, 200/day instance-wide for group invites, and a separate 200/day instance-wide budget for site-admin invites (throttle scope <code>invite_email_global_site</code>) so group admins cannot use up the site admins' allowance. Refused or failed sends don't count. The counters live in the Django cache, per cache backend — on a multi-worker or multi-replica deployment the limits only hold when every worker uses the shared Valkey/Redis cache (<code>REDIS_CACHE_URL</code>); with a per-process cache each worker counts separately. <em>(new in 1.2)</em></td>
+<td><code>true</code></td>
+</tr>
+<tr>
 <td><code>DEFAULT_FROM_EMAIL</code></td>
 <td>Sender address for outgoing emails</td>
 <td><code>noreply@example.com</code></td>

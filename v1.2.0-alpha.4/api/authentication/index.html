@@ -5418,8 +5418,9 @@ actually bootstraps from) returns the identical shape — both are served by
 <a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
 <a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">  </span><span class="nt">"demo_reset_schedule"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="p">}</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="w">  </span><span class="nt">"invite_email_available"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -5466,6 +5467,12 @@ actually bootstraps from) returns the identical shape — both are served by
 <td>string or null</td>
 <td>ISO 8601 UTC / <code>null</code></td>
 <td>The next reset instant, computed server-side from the schedule so clients need no cron parser. Non-null only when <code>demo_mode</code> is <code>true</code>. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>invite_email_available</code></td>
+<td>boolean</td>
+<td><code>true</code> / <code>false</code></td>
+<td>Whether admins can email invite links. <code>true</code> only when <code>INVITE_EMAIL_ENABLED</code> is on, demo mode is off, and outbound mail looks configured (<code>EMAIL_BACKEND</code> is set explicitly, or the effective sender address is not the <code>example.com</code> placeholder). A UI hint, not a delivery guarantee. Added in 1.2.</td>
 </tr>
 </tbody>
 </table>
