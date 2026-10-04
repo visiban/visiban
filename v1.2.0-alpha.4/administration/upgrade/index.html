@@ -4213,6 +4213,15 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <hr />
 <h2 id="release-specific-upgrade-notes">Release-specific upgrade notes<a class="headerlink" href="#release-specific-upgrade-notes" title="Permanent link">&para;</a></h2>
 <h3 id="upgrading-to-12x">Upgrading to 1.2.x<a class="headerlink" href="#upgrading-to-12x" title="Permanent link">&para;</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">GitLab registry <code>:latest</code> no longer tracks <code>main</code> builds</p>
+<p>Previously every <code>main</code> merge overwrote <code>registry.gitlab.com/visiban/visiban/backend:latest</code>
+and <code>frontend:latest</code> with an amd64-only build. <code>:latest</code> on the GitLab registry is now
+written only by stable release tags (multi-arch), matching GHCR, so it stays on the last
+stable release until the next stable tag. If you tracked GitLab <code>:latest</code> to follow <code>main</code>,
+switch to <code>:main</code> (amd64 only); short-SHA tags are still pushed for rollback. Pinned release
+tags and GHCR are unaffected. See <a href="../container-image-retention/#gitlab-registry-latest-is-stable-only-main-publishes-main">Container image retention</a>.</p>
+</div>
 <p>Migration <code>accounts/0027_maintenance_mode</code> adds two nullable-by-default columns
 (<code>maintenance_mode</code>, <code>maintenance_message</code>) to the <code>site_settings</code> singleton for the new
 <a href="../maintenance-mode/">maintenance mode</a> feature. It is a plain <code>AddField</code> migration — no index,
