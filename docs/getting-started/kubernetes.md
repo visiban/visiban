@@ -641,6 +641,12 @@ The backend exposes two health endpoints used by liveness and readiness probes:
 
 These are also suitable for external load balancer health checks. The readiness probe uses `initialDelaySeconds: 5` and `failureThreshold: 3`, so a pod is removed from the Service within ~35 seconds of a dependency failure.
 
+## Sample data
+
+The chart does not bundle the sample boards. Download them from
+[`sample-boards/`](https://gitlab.com/visiban/visiban/-/tree/main/sample-boards) in the
+repository and import one from **Dashboard → Import**. See [Sample Boards](sample-boards.md).
+
 ## Upgrading
 
 ```bash

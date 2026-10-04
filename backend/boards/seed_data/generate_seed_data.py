@@ -1,12 +1,15 @@
 """
-Generate all 10 seed template JSON files with:
-  - 20-25 cards per template (expands existing 11-14)
-  - Varied movement histories: stage skipping + occasional backtracks
-  - All fields populated: description, checklist, comments, labels, due_date, weight, assignee
+Generate the 11 sample board templates (JSON + CSV) in sample-boards/ with:
+  - 110-130 cards per template (46 hand-written ones on Sales Overlay)
+  - Varied movement histories: stage skipping, backtracks with notes, archives
+  - A full audit trail per card: every activity type the format carries
+  - Card and swimlane custom fields, WIP/weight limits and MR links
+    (the 1.2 feature layer in sample_features.py, #1447)
   - schema_version: 2
 
-Existing card content is PRESERVED exactly — only movements and activities are
-regenerated. New cards are appended after the existing ones.
+Templates 1-5 live here, 6-10 in generate_seed_data_part2.py, the Sales
+Overlay sample in sales_overlay.py. Output is deterministic: rerunning with
+no source change rewrites identical files.
 
 Usage (from repo root):
     python3 backend/boards/seed_data/generate_seed_data.py
@@ -125,99 +128,322 @@ def _gen_movements(col_names: list[str], target_idx: int,
     return movements
 
 
-# ── Activity generation ───────────────────────────────────────────────────────
-def _gen_activities(card: dict, card_seed: int, movements: list[dict]) -> list[dict]:
-    """Generate CardActivity records for a card."""
-    acts = []
-    if movements:
-        ts = datetime.strptime(
-            movements[0]["moved_at"], "%Y-%m-%dT%H:%M:%S+00:00"
-        ).replace(tzinfo=timezone.utc) + timedelta(hours=1)
-    else:
-        ts = ANCHOR - timedelta(days=30)
+# ── Per-card RNG ──────────────────────────────────────────────────────────────
+def _card_rng(slug: str, title: str) -> random.Random:
+    """A generator private to one card.
 
-    actor = _user(card_seed)
+    The 1.2 history and field layers draw from this rather than the shared
+    ``_rng``, so they can grow without reshuffling any template's columns,
+    labels or movements.
+    """
+    return random.Random(zlib.crc32(f"{slug}|{title}".encode()))
+
+
+def _parse(ts: str) -> datetime:
+    return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S+00:00").replace(tzinfo=timezone.utc)
+
+
+_LOST_RX = re.compile(r"lost|rejected|denied|churned", re.IGNORECASE)
+
+# Notes a mover leaves on a transition. Backtracks always carry one, since
+# "why did this go backwards?" is the question the audit trail exists for.
+_BACKTRACK_NOTES = [
+    "Sent back: acceptance criteria were not met.",
+    "Reopened after review found a gap.",
+    "Moved back while we wait on missing information.",
+    "Returned for rework after stakeholder feedback.",
+]
+_FORWARD_NOTES = [
+    "Handed off with notes in the description.",
+    "Reviewed in standup; moving ahead.",
+    "Unblocked after the dependency landed.",
+    "Approved by the owner.",
+]
+
+
+def _annotate_movements(movements: list[dict], col_names: list[str],
+                        rng: random.Random) -> None:
+    """Add ``movement_type`` to every move and ``notes`` to some (schema v2 keys)."""
+    for i, mv in enumerate(movements):
+        mv["notes"] = ""
+        mv["movement_type"] = "move"
+        if i == 0:
+            continue
+        if col_names.index(mv["to_column"]) < col_names.index(mv["from_column"]):
+            mv["notes"] = rng.choice(_BACKTRACK_NOTES)
+        elif rng.random() < 0.25:
+            mv["notes"] = rng.choice(_FORWARD_NOTES)
+
+
+# ── Activity generation ───────────────────────────────────────────────────────
+def _gen_activities(card: dict, movements: list[dict], rng: random.Random,
+                    label_pool: list[str]) -> list[dict]:
+    """Generate the card's audit trail: one entry for every change it went through.
+
+    Covers every ``CardActivity`` event type the JSON format can carry except
+    attachments (the format has no attachment payload, so an
+    ``attachment_added`` entry would point at a file that is not there). Values
+    use the shapes the live API writes — labels as ``"+A, B"`` / ``"-C"``,
+    dates ISO, users by username — so the activity tab reads the same as on a
+    board that was used by hand.
+
+    Comments get their ``created_at`` here too, matching their
+    ``comment_added`` entry, so the comment list and the activity log agree.
+    """
+    created = _parse(movements[0]["moved_at"])
+    last = _parse(movements[-1]["moved_at"])
+    end = max(last, created + timedelta(days=3))
+    if end >= ANCHOR:
+        end = ANCHOR - timedelta(hours=1)
+    span = max(1.0, (end - created).total_seconds())
+    actor = movements[0]["moved_by"]
+    others = [u for u in DEMO_USERS if u != actor]
+
+    events = []  # (offset fraction, event dict)
+
+    def add(frac, event_type, from_value, to_value, who=None):
+        events.append((frac, {
+            "event_type": event_type, "from_value": from_value, "to_value": to_value,
+            "actor": who or actor,
+        }))
+
+    title = card["title"]
+    if rng.random() < 0.15:
+        draft = title.split(" -- ")[0] if " -- " in title else f"{title} (draft)"
+        if draft != title:
+            add(0.02, "title_change", draft, title)
+
+    if card.get("description"):
+        add(0.04, "description_change", "", "")
+        if rng.random() < 0.3:
+            add(0.45, "description_change", "", "", rng.choice(others))
 
     assignee = card.get("assignee")
     if assignee:
-        acts.append({
-            "event_type": "assignee_change",
-            "from_value": "", "to_value": assignee,
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=2)
+        if rng.random() < 0.25:
+            first = rng.choice([u for u in DEMO_USERS if u != assignee])
+            add(0.05, "assignee_change", "", first)
+            add(0.5, "assignee_change", first, assignee, rng.choice(others))
+        else:
+            add(0.05, "assignee_change", "", assignee)
 
     labels = card.get("labels", [])
     if labels:
-        acts.append({
-            "event_type": "label_change",
-            "from_value": "", "to_value": ", ".join(labels),
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=3)
+        add(0.08, "label_change", "", f"+{', '.join(labels)}")
+    spare = [lb for lb in label_pool if lb not in labels]
+    if spare and rng.random() < 0.2:
+        temp = rng.choice(spare)
+        add(0.2, "label_change", "", f"+{temp}", rng.choice(others))
+        add(0.6, "label_change", "", f"-{temp}")
 
     priority = card.get("priority", "medium")
-    if priority not in ("medium", None, ""):
-        acts.append({
-            "event_type": "priority_change",
-            "from_value": "medium", "to_value": priority,
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=2)
+    if priority == "urgent" and rng.random() < 0.5:
+        add(0.1, "priority_change", "medium", "high")
+        add(0.55, "priority_change", "high", "urgent", rng.choice(others))
+    elif priority not in ("medium", None, ""):
+        add(0.1, "priority_change", "medium", priority)
 
-    due_date = card.get("due_date")
-    if due_date:
-        acts.append({
-            "event_type": "due_date_change",
-            "from_value": "", "to_value": due_date,
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=1)
+    weight = card.get("weight") or 1
+    if weight > 1:
+        add(0.12, "weight_change", "1", str(weight))
 
-    for item in card.get("checklist", []):
-        acts.append({
-            "event_type": "checklist_item_added",
-            "from_value": "", "to_value": item["text"],
-            "actor": actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(minutes=20)
+    due = card.get("due_date")
+    if due:
+        if rng.random() < 0.25:
+            earlier = (datetime.strptime(due, "%Y-%m-%d") - timedelta(days=rng.randint(5, 20))).strftime("%Y-%m-%d")
+            add(0.15, "due_date_change", "", earlier)
+            add(0.7, "due_date_change", earlier, due, rng.choice(others))
+        else:
+            add(0.15, "due_date_change", "", due)
+
+    checklist = card.get("checklist", [])
+    for i, item in enumerate(checklist):
+        add(0.18 + i * 0.02, "checklist_item_added", "", item["text"])
         if item.get("is_checked"):
-            acts.append({
-                "event_type": "checklist_item_checked",
-                "from_value": "", "to_value": item["text"],
-                "actor": actor, "created_at": _iso(ts),
-            })
-            ts += timedelta(minutes=15)
+            add(0.3 + i * 0.08, "checklist_item_checked", "", item["text"], rng.choice(DEMO_USERS))
+        elif rng.random() < 0.2:
+            # Ticked by mistake, then unticked: the log keeps both.
+            add(0.3 + i * 0.08, "checklist_item_checked", "", item["text"])
+            add(0.32 + i * 0.08, "checklist_item_unchecked", "", item["text"])
+    if checklist and rng.random() < 0.2:
+        add(0.25, "checklist_item_added", "", "Duplicate of an existing step")
+        add(0.27, "checklist_item_deleted", "Duplicate of an existing step", "")
 
-    for comment in card.get("comments", []):
-        c_actor = comment.get("author") or actor
-        acts.append({
-            "event_type": "comment_added",
-            "from_value": "", "to_value": comment["body"][:120],
-            "actor": c_actor, "created_at": _iso(ts),
-        })
-        ts += timedelta(hours=_ri(2, 10))
+    comments = card.get("comments", [])
+    for i, comment in enumerate(comments):
+        frac = 0.35 + 0.6 * (i + 1) / (len(comments) + 1)
+        ts = created + timedelta(seconds=span * frac)
+        comment["created_at"] = _iso(ts)
+        events.append((frac, {
+            "event_type": "comment_added", "from_value": "",
+            "to_value": comment["body"][:120], "actor": comment.get("author") or actor,
+        }))
 
+    events.sort(key=lambda e: e[0])
+    acts = []
+    for frac, ev in events:
+        ev["created_at"] = _iso(created + timedelta(seconds=span * frac))
+        acts.append(ev)
     return acts
 
 
+# ── 1.2 feature layer (custom fields, row fields, MR links, archive) ─────────
+def _definition(spec: dict, pin_key: str) -> dict:
+    """Export-shaped definition dict, identical keys to the board exporter."""
+    display = spec.get("display", {})
+    out = {
+        "name": spec["name"],
+        "field_type": spec["field_type"],
+        "choices": spec["choices"],
+        "position": 0,
+        pin_key: spec[pin_key],
+    }
+    if pin_key == "show_on_row":
+        out["is_admin_only"] = spec["is_admin_only"]
+    out.update({
+        "is_required": False,
+        "help_text": spec["help_text"],
+        "number_prefix": display.get("number_prefix", ""),
+        "number_suffix": display.get("number_suffix", ""),
+        "number_decimals": display.get("number_decimals"),
+        "choice_colors": display.get("choice_colors", {}),
+    })
+    return out
+
+
+def _slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def _apply_features(data: dict, features: dict, slug: str) -> None:
+    """Attach the template's 1.2 features to an already-built board dict."""
+    columns = data["columns"]
+    col_index = {c["name"]: i for i, c in enumerate(columns)}
+    done_cols = {c["name"] for c in columns if c.get("is_done")}
+    last_open = max([i for i, c in enumerate(columns) if not c.get("is_done")] or [1])
+
+    card_specs = features.get("card_fields", [])
+    lane_specs = features.get("swimlane_fields", [])
+    data["custom_fields"] = []
+    for i, spec in enumerate(card_specs):
+        definition = _definition(spec, "show_on_card")
+        definition["position"] = i
+        data["custom_fields"].append(definition)
+    data["swimlane_custom_fields"] = []
+    for i, spec in enumerate(lane_specs):
+        definition = _definition(spec, "show_on_row")
+        definition["position"] = i
+        data["swimlane_custom_fields"].append(definition)
+
+    for i, lane in enumerate(data["swimlanes"]):
+        lctx = {"index": i, "name": lane["name"], "slug_name": _slugify(lane["name"]),
+                "rng": _card_rng(slug, f"lane:{lane['name']}")}
+        values = {}
+        for spec in lane_specs:
+            value = spec["gen"](lctx)
+            if value not in (None, ""):
+                values[spec["name"]] = value
+        # Hand-written values (the overlay board) win over generated ones.
+        values.update(lane.get("custom_field_values", {}))
+        lane["custom_field_values"] = values
+
+    refs = features.get("external_refs")
+    for seq, card in enumerate(data["cards"]):
+        rng = _card_rng(slug, "fields:" + card["title"])
+        idx = col_index[card["column"]]
+        is_done = card["column"] in done_cols
+        ctx = {
+            "card": card, "rng": rng, "seq": 1000 + seq,
+            "is_done": is_done, "lost": bool(_LOST_RX.search(card["column"])),
+            "progress": 1.0 if is_done else idx / max(1, last_open),
+        }
+        values = {}
+        for spec in card_specs:
+            value = spec["gen"](ctx)
+            if value not in (None, ""):
+                values[spec["name"]] = value
+        values.update(card.pop("custom_field_values", None) or {})
+        card["custom_field_values"] = values
+
+        if card.get("external_ref") is None:
+            card["external_ref"] = None
+            if refs and ctx["progress"] >= refs["from_progress"] and rng.random() < 0.6:
+                n = 200 + seq
+                card["external_ref"] = {
+                    "provider": refs["provider"],
+                    "ref": refs["ref"].format(n=n),
+                    "url": refs["url"].format(n=n),
+                }
+
+
+def _set_column_limits(data: dict, limits: dict) -> None:
+    """Set WIP / weight limits relative to each column's live load (see sample_features)."""
+    live = [c for c in data["cards"] if not c.get("archived_at")]
+    for col in data["columns"]:
+        if col["name"] not in limits:
+            continue
+        wip_headroom, weight_headroom = limits[col["name"]]
+        here = [c for c in live if c["column"] == col["name"]]
+        if wip_headroom is not None:
+            col["wip_limit"] = max(1, len(here) + wip_headroom)
+        if weight_headroom is not None:
+            col["weight_limit"] = max(1, sum(c["weight"] or 1 for c in here) + weight_headroom)
+
+
+def _archive_some(cards: list[dict], done_cols: set[str], slug: str) -> None:
+    """Archive a share of finished cards, the way a team clears its Done column.
+
+    Writes both halves the importer restores: ``archived_at`` on the card and
+    an ``archived`` movement (same column, so the card still ends where it
+    sits) in its history.
+    """
+    for card in cards:
+        if card["column"] not in done_cols:
+            continue
+        rng = _card_rng(slug, "archive:" + card["title"])
+        if rng.random() >= 0.25:
+            continue
+        last = _parse(card["movements"][-1]["moved_at"])
+        at = min(last + timedelta(days=rng.randint(2, 9)), ANCHOR - timedelta(hours=3))
+        card["archived_at"] = _iso(at)
+        card["movements"].append({
+            "from_column": card["column"], "to_column": card["column"],
+            "from_swimlane": card["swimlane"], "to_swimlane": card["swimlane"],
+            "moved_at": _iso(at), "moved_by": card["movements"][-1]["moved_by"],
+            "notes": "Archived after the weekly board cleanup.",
+            "movement_type": "archived",
+        })
+
+
 # ── Card enrichment ───────────────────────────────────────────────────────────
-def _enrich(card: dict, col_names: list[str], card_seed: int) -> dict:
+def _enrich(card: dict, col_names: list[str], card_seed: int, slug: str,
+            label_pool: list[str], descriptions: list[str]) -> dict:
     """Attach movements, activities, and assignee to a card dict."""
     target_idx = col_names.index(card["column"])
     swimlane = card["swimlane"]
+    rng = _card_rng(slug, card["title"])
 
-    # 80 % of cards have an assignee; every 5th card is unassigned
-    card["assignee"] = _user(card_seed) if card_seed % 5 != 4 else None
+    # Most generated cards are title-only; give about half a description so
+    # boards show both shapes (and description edits show in the history).
+    if not card.get("description") and descriptions and rng.random() < 0.5:
+        card["description"] = rng.choice(descriptions).format(lane=swimlane)
+
+    # 80 % of cards have an assignee; every 5th card is unassigned. A card
+    # that names its assignee (hand-written templates) keeps it.
+    if "assignee" not in card:
+        card["assignee"] = _user(card_seed) if card_seed % 5 != 4 else None
 
     movs = _gen_movements(col_names, target_idx, swimlane, card_seed)
+    _annotate_movements(movs, col_names, rng)
     card["movements"] = movs
-    card["activities"] = _gen_activities(card, card_seed, movs)
+    card["created_by"] = movs[0]["moved_by"]
+    card["created_at"] = movs[0]["moved_at"]
+    card["activities"] = _gen_activities(card, movs, rng, label_pool)
     return card
 
 
 # ── Template expander ─────────────────────────────────────────────────────────
-def _build(tpl: dict) -> dict:
+def _build(tpl: dict, features: dict | None = None) -> dict:
     """
     Build the final template dict from the cards defined in extra_cards.
     All card content is authoritative from the template definition -- the
@@ -225,22 +451,36 @@ def _build(tpl: dict) -> dict:
     """
     slug = tpl["slug"]
     col_names = [c["name"] for c in tpl["columns"]]
+    label_pool = [lb["name"] for lb in tpl["labels"]]
 
     all_cards = tpl.get("extra_cards", [])
 
+    descriptions = (features or {}).get("descriptions", [])
     enriched = []
     for i, card in enumerate(all_cards):
-        enriched.append(_enrich(dict(card), col_names, i * 7 + zlib.crc32(slug.encode()) % 100))
+        enriched.append(_enrich(dict(card), col_names, i * 7 + zlib.crc32(slug.encode()) % 100,
+                                slug, label_pool, descriptions))
 
-    return {
+    data = {
         "schema_version": SCHEMA_VERSION,
         "name": tpl["name"],
         "description": tpl["description"],
-        "columns": tpl["columns"],
-        "swimlanes": tpl["swimlanes"],
+        "columns": [dict(c) for c in tpl["columns"]],
+        "swimlanes": [dict(s) for s in tpl["swimlanes"]],
         "labels": tpl["labels"],
         "cards": enriched,
     }
+    for col in data["columns"]:
+        col.setdefault("is_done", False)
+        col.setdefault("weight_limit", None)
+    _apply_features(data, features or {}, slug)
+    _archive_some(enriched, {c["name"] for c in data["columns"] if c["is_done"]}, slug)
+    _set_column_limits(data, (features or {}).get("column_limits", {}))
+    # Key order matches the board exporter, so a sample diffs cleanly
+    # against an export of the board it produces.
+    order = ["schema_version", "name", "description", "columns", "swimlanes",
+             "labels", "custom_fields", "swimlane_custom_fields", "cards"]
+    return {k: data[k] for k in order}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1475,13 +1715,72 @@ PRODUCT_ROADMAP = {
 # This split keeps each file manageable.
 
 
-def _load_part2():
-    part2_path = os.path.join(SEED_DATA_DIR, "generate_seed_data_part2.py")
+def _load_module(filename: str, name: str):
     import importlib.util
-    spec = importlib.util.spec_from_file_location("part2", part2_path)
+    spec = importlib.util.spec_from_file_location(name, os.path.join(SEED_DATA_DIR, filename))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return mod.TEMPLATES_PART2
+    return mod
+
+
+def _load_part2():
+    return _load_module("generate_seed_data_part2.py", "part2").TEMPLATES_PART2
+
+
+# ── CSV ───────────────────────────────────────────────────────────────────────
+def _csv_cell(definition: dict, value: str) -> str:
+    """Same rendering as the board exporter: multi-select entries joined by "; "."""
+    if definition["field_type"] == "multi_select" and value:
+        return "; ".join(json.loads(value))
+    return value
+
+
+def _write_csv(path: str, data: dict) -> None:
+    """Write the board in the exact column layout ``GET /export/?format=csv`` emits.
+
+    So the CSV is importable through the same Import dialog (the importer
+    reads Title, Description, Column, Swimlane, Priority, Assignee, Labels,
+    Due Date and Weight) and reads like a real export in a spreadsheet. Rows
+    are ordered by column then swimlane: CSV import creates columns and
+    swimlanes in first-appearance order, so this keeps the board's order.
+    """
+    col_pos = {c["name"]: c["position"] for c in data["columns"]}
+    lane_pos = {s["name"]: s["position"] for s in data["swimlanes"]}
+    lanes = {s["name"]: s for s in data["swimlanes"]}
+    cards = sorted(
+        enumerate(data["cards"]),
+        key=lambda ic: (col_pos[ic[1]["column"]], lane_pos[ic[1]["swimlane"]], ic[0]),
+    )
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        # LF, not the csv module's default CRLF: .gitattributes normalizes
+        # text to LF, and test_sample_boards byte-compares a regeneration
+        # against the checked-out files.
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow([
+            "Card ID", "Title", "Description", "Column", "Swimlane",
+            "Priority", "Assignee", "Labels", "Due Date", "Weight",
+            "Created At", "Created By", "Last Moved At", "Movement Count",
+            "Movement History",
+            *[f"Custom: {cf['name']}" for cf in data["custom_fields"]],
+            *[f"Swimlane Custom: {sf['name']}" for sf in data["swimlane_custom_fields"]],
+        ])
+        for card_id, (_, card) in enumerate(cards, start=1):
+            movs = card["movements"]
+            history = "; ".join(
+                f"{m['moved_at']}|{m['from_column'] or ''}|{m['to_column'] or ''}|{m['moved_by'] or ''}"
+                for m in movs
+            )
+            values = card["custom_field_values"]
+            lane_values = lanes[card["swimlane"]]["custom_field_values"]
+            writer.writerow([
+                card_id, card["title"], card.get("description", ""), card["column"],
+                card["swimlane"], card["priority"], card.get("assignee") or "",
+                ", ".join(card["labels"]), card.get("due_date") or "", card["weight"],
+                card["created_at"], card["created_by"] or "", movs[-1]["moved_at"], len(movs),
+                history,
+                *[_csv_cell(cf, values.get(cf["name"], "")) for cf in data["custom_fields"]],
+                *[_csv_cell(sf, lane_values.get(sf["name"], "")) for sf in data["swimlane_custom_fields"]],
+            ])
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -1494,23 +1793,27 @@ ALL_TEMPLATES = [
 ]
 
 
-def main():
+def main(out_dir: str | None = None):
+    """Write every template to ``sample-boards/`` (or ``out_dir``).
+
+    ``out_dir`` exists for ``test_sample_boards``, which regenerates into a
+    temporary directory and compares byte-for-byte with the committed files.
+    """
     global ALL_TEMPLATES
     part2 = _load_part2()
-    ALL_TEMPLATES = ALL_TEMPLATES + part2
+    overlay = _load_module("sales_overlay.py", "sales_overlay")
+    ALL_TEMPLATES = ALL_TEMPLATES + part2 + [overlay.SALES_OVERLAY]
+    features = _load_module("sample_features.py", "sample_features").FEATURES
+    features = {**features, overlay.SALES_OVERLAY["slug"]: overlay.FEATURES}
 
-    out_dir = os.path.normpath(
+    out_dir = out_dir or os.path.normpath(
         os.path.join(SEED_DATA_DIR, "..", "..", "..", "sample-boards")
     )
     os.makedirs(out_dir, exist_ok=True)
 
     for tpl in ALL_TEMPLATES:
         slug = tpl["slug"]
-        data = _build(tpl)
-
-        # Ensure every column has an explicit is_done field
-        for col in data["columns"]:
-            col.setdefault("is_done", False)
+        data = _build(tpl, features.get(slug))
 
         # Cards enter a board at its first column; allowing creation anywhere
         # else shows extra "+ Add card" cells and invites mis-staged cards.
@@ -1522,30 +1825,7 @@ def main():
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.write("\n")
 
-        csv_path = os.path.join(out_dir, f"{slug}.csv")
-        with open(csv_path, "w", encoding="utf-8", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                "title", "column", "swimlane", "priority", "due_date",
-                "weight", "labels", "assignee", "checklist_total",
-                "checklist_done", "comment_count", "description_preview",
-            ])
-            for card in data["cards"]:
-                cl = card.get("checklist_items", [])
-                writer.writerow([
-                    card.get("title", ""),
-                    card.get("column", ""),
-                    card.get("swimlane", ""),
-                    card.get("priority", ""),
-                    card.get("due_date", ""),
-                    card.get("weight", ""),
-                    "|".join(card.get("labels", [])),
-                    card.get("assignee", ""),
-                    len(cl),
-                    sum(1 for c in cl if c.get("is_done")),
-                    len(card.get("comments", [])),
-                    (card.get("description", "") or "")[:80],
-                ])
+        _write_csv(os.path.join(out_dir, f"{slug}.csv"), data)
 
         print(f"  ✓  {slug}.json + .csv  ({len(data['cards'])} cards)")
 

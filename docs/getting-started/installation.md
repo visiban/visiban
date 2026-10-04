@@ -456,6 +456,12 @@ Delete the file after retrieving the password.
 
 See [First Boot](first-boot.md) for full details.
 
+!!! tip "Sample data"
+    The sample boards are not part of the container images. To try Visiban with a
+    populated board, download a file from
+    [`sample-boards/`](https://gitlab.com/visiban/visiban/-/tree/main/sample-boards) and use
+    **Dashboard → Import**. See [Sample Boards](sample-boards.md).
+
 ### Subsequent deploys
 
 The production stack runs the released images named by `APP_VERSION` in your

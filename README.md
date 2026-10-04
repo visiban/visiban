@@ -28,6 +28,7 @@ Comparing options? [Why Visiban](https://docs.visiban.com/next/getting-started/w
 | **Releases & containers** | [github.com/visiban/visiban](https://github.com/visiban/visiban) — release tags, GitHub Releases, and Docker images on GHCR |
 | **Bug reports & feature requests** | [GitLab Issues](https://gitlab.com/visiban/visiban/-/issues) — opening an issue on GitHub automatically bridges it there |
 | **Documentation** | [docs.visiban.com](https://docs.visiban.com/next/) |
+| **Sample boards** | [`sample-boards/`](sample-boards/) — 12 ready-to-import boards, including an enterprise sales overlay board ([guide](https://docs.visiban.com/next/getting-started/sample-boards/)) |
 
 GitHub is a read-only mirror of the GitLab repository. All development happens on GitLab; GitHub is the public distribution point.
 
@@ -43,6 +44,8 @@ docker compose up --build
 ```
 
 Open **http://localhost:5173**. Retrieve the first-boot admin password with `docker compose exec backend cat /tmp/visiban_admin_password` — see [First boot](https://docs.visiban.com/next/getting-started/first-boot/) for details.
+
+Want a populated board to explore? Import any file from [`sample-boards/`](sample-boards/) via **Dashboard → Import**.
 
 > **Running in production?** See the [installation guide](https://docs.visiban.com/next/getting-started/installation/) for HTTPS setup, environment variables, and database configuration.
 

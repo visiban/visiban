@@ -492,7 +492,7 @@ GitLab CI pipeline, grouped by what each gate protects:
 - `--export`: regenerates seed JSON/CSV files
 - `--demo-site`: seeds six showcase boards (Software Team, Property Management, Construction, Sales Territory, Content Moderation, Logistics Exceptions), each with a different swimlane entity and pinned row fields, plus an admin and two member accounts, for hosted-demo deployments
 
-`python manage.py seed_template_boards` — seeds all 10 non-blank board templates with 10–11 swimlanes, 110–121 unique cards each, domain-specific content, movement history, activities, labels, checklists, and comments. Seed files exported to `sample-boards/<slug>.json`. All templates also ship as ready-to-import JSON and CSV files at the repo root.
+`python manage.py seed_template_boards` — seeds all 10 non-blank board templates with 10–11 swimlanes, 110–121 unique cards each, domain-specific content, movement history, activities, labels, checklists, and comments. Seed files exported to `sample-boards/<slug>.json`. The committed `sample-boards/` files themselves come from `backend/boards/seed_data/generate_seed_data.py` (no database; see `sample-boards/README.md`) and add an eleventh template, Sales Overlay, plus the 1.2 board features: card and swimlane custom fields, WIP/weight limits, MR links, archived cards and a full activity trail (#1447).
 
 ### Hosted demo mode
 
