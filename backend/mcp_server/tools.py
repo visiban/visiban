@@ -34,7 +34,6 @@ key — that split is the whole contract, and it is now part of the tools'
 public (agent-facing) shape, so do not change it without a major version bump.
 """
 from django.db.models import Count, Q
-from mcp.server.mcpserver.exceptions import ResourceError
 from rest_framework.exceptions import ValidationError as _DRFValidationError
 
 from accounts.models import User
@@ -765,11 +764,12 @@ def archive_card(*, card_id):
 # to signal failure is to raise. On 1.x the SDK flattened any exception to
 # `ResourceError(str(exc))`; on 2.x only a raised `ResourceError` keeps its
 # message (any other exception becomes a generic "Error creating resource"
-# naming only the URI, which would drop the rate-limit retry hint), so both
-# functions raise `ResourceError` explicitly — a single string
+# naming only the URI). This module must not import SDK types, so it raises
+# ValueError and the `board_resource`/`card_resource` wrappers in server.py
+# convert it to `ResourceError` — a single string
 # message with no separate `code` field, surfaced as one JSON-RPC-level
 # error for the `resources/read` call. Both functions below therefore raise
-# ResourceError on a resolution failure instead of returning `_error_payload()`.
+# ValueError on a resolution failure instead of returning `_error_payload()`.
 #
 # That message is deliberately the SAME generic "not found" wording
 # `_resolve_board`/`_resolve_board_for_card` already produce for the
@@ -809,7 +809,7 @@ def board_snapshot(*, board_id):
     try:
         board, role = _resolve_board(user, board_id)
     except CardServiceError as exc:
-        raise ResourceError(exc.body()["detail"]) from None
+        raise ValueError(exc.body()["detail"]) from None
 
     return {
         "id": board.id,
@@ -848,7 +848,7 @@ def card_detail(*, card_id):
     try:
         _board, _role, card = _resolve_board_for_card(user, card_id)
     except CardServiceError as exc:
-        raise ResourceError(exc.body()["detail"]) from None
+        raise ValueError(exc.body()["detail"]) from None
 
     # Re-fetch with the shared prefetch chain so labels/checklist_items/
     # movements are already loaded rather than queried lazily one at a time.

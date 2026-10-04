@@ -213,6 +213,8 @@ class BearerAuthTests(McpTestCase):
         self.assertEqual(payload["jsonrpc"], "2.0")
         self.assertIn("result", payload)
         self.assertEqual(payload["result"]["serverInfo"]["name"], "visiban")
+        # mcp 2.x defaults serverInfo.version to ""; the server passes the app version.
+        self.assertEqual(payload["result"]["serverInfo"]["version"], settings.APP_VERSION)
 
     def test_valid_token_stamps_last_used_at(self):
         self.assertIsNone(self.pat.last_used_at)

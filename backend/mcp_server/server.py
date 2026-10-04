@@ -260,7 +260,9 @@ def _build_transport_security():
 
 def build_mcp_server():
     """Construct the MCPServer (formerly FastMCP) server with every OSS tool registered."""
-    mcp = MCPServer(SERVER_NAME)
+    # version: mcp 2.x defaults serverInfo.version to "" (1.x reported the SDK
+    # version), so surface the app's own version as clients' handshake value.
+    mcp = MCPServer(SERVER_NAME, version=settings.APP_VERSION)
 
     @mcp.tool(
         name="list_boards",
@@ -346,7 +348,12 @@ def build_mcp_server():
     )
     @_throttled(compute=True, as_resource=True)
     async def board_resource(board_id: int) -> dict:
-        return await sync_to_async(tools.board_snapshot, thread_sensitive=True)(board_id=board_id)
+        try:
+            return await sync_to_async(tools.board_snapshot, thread_sensitive=True)(board_id=board_id)
+        except ValueError as exc:
+            # tools.py stays SDK-free and raises ValueError; MCP 2.x only
+            # preserves the message for ResourceError.
+            raise ResourceError(str(exc)) from None
 
     @mcp.resource(
         "card://{card_id}",
@@ -360,7 +367,10 @@ def build_mcp_server():
     )
     @_throttled(as_resource=True)
     async def card_resource(card_id: int) -> dict:
-        return await sync_to_async(tools.card_detail, thread_sensitive=True)(card_id=card_id)
+        try:
+            return await sync_to_async(tools.card_detail, thread_sensitive=True)(card_id=card_id)
+        except ValueError as exc:
+            raise ResourceError(str(exc)) from None
 
     # ── Write tools (#512) — admin/member only (enforced in the service
     # layer); additionally require the mcp:write scope (enforced here, see
