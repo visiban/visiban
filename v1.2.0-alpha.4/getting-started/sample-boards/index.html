@@ -820,6 +820,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How to import">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-the-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From the app
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From a file
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3757,6 +3785,7 @@
 one to get a fully populated board in a few seconds. Each sample has real columns,
 swimlanes, labels and cards, typed custom fields, a full audit trail and enough movement
 history to fill the analytics charts.</p>
+<p>In the app, open <strong>Import</strong> on the Dashboard and pick one under <strong>Start from a sample</strong> (see <a href="#how-to-import">How to import</a>). The sections below cover getting the files yourself.</p>
 <h2 id="where-to-get-the-files">Where to get the files<a class="headerlink" href="#where-to-get-the-files" title="Permanent link">&para;</a></h2>
 <p>The sample boards are <code>.json</code> files in <a href="https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards"><code>backend/boards/sample_boards/</code></a>
 in the Visiban repository, with a matching <code>.csv</code> file for each in <a href="https://gitlab.com/visiban/visiban/-/tree/main/sample-boards"><code>sample-boards/</code></a>.
@@ -3872,6 +3901,23 @@ A <code>manifest.json</code> next to the JSON files lists every sample.</p>
 
 <p>The demo board, <code>sample-boards/demo_board.json</code> (115 cards, swimlanes by team), is a general product development board. It is generated separately by <code>seed_demo_data</code> and is not one of the template samples listed above.</p>
 <h2 id="how-to-import">How to import<a class="headerlink" href="#how-to-import" title="Permanent link">&para;</a></h2>
+<h3 id="from-the-app">From the app<a class="headerlink" href="#from-the-app" title="Permanent link">&para;</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Added in 1.3</p>
+<p>The sample gallery in the Import Board dialog.</p>
+</div>
+<ol>
+<li>Log in to your Visiban instance.</li>
+<li>From the <strong>Dashboard</strong> (or a group page), click <strong>Import</strong>.</li>
+<li>Under <strong>Start from a sample</strong>, click <strong>Use this sample</strong> on a card. <strong>Show all</strong> lists the rest.</li>
+<li>Choose what to include (cards, labels, comments, checklists, history) and click <strong>Import</strong>.
+   Use <strong>Change</strong> to go back and pick a different sample.</li>
+</ol>
+<p>The sample is fetched from your own Visiban server, so it matches your installed version and works without internet access.
+Dates in the sample are moved to the day you import it, so the board does not open mostly overdue.
+The board is named <strong>Imported: <sample title></strong>, and a second import of the same sample is numbered.
+Press <strong>Esc</strong> while a sample is loading to cancel it. If samples can't be loaded, the dialog says so and you can retry or upload a file instead.</p>
+<h3 id="from-a-file">From a file<a class="headerlink" href="#from-a-file" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Log in to your Visiban instance.</li>
 <li>From the <strong>Dashboard</strong>, click <strong>Import</strong>.</li>
