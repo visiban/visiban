@@ -359,7 +359,7 @@ lint:sonar-exclusions:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *sonar-exclusions-paths
   before_script:
-    - apk add --no-cache bash git grep sed
+    - apk add --no-cache bash git grep sed jq
   script:
     # Self-test first: a broken detector must not report green.
     - bash scripts/check-sonar-exclusions.sh --self-test
@@ -2723,6 +2723,26 @@ sonar:scan:
     # sonar-scanner automatically. Don't block on the quality-gate compute
     # task — this is a dashboard refresh, not a merge gate.
     - sonar-scanner -Dsonar.qualitygate.wait=false
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
+  allow_failure: true
+
+# Online half of the Sonar exclusion guard (#1425). lint:sonar-exclusions stays
+# hermetic on MRs; this sibling runs in the nightly schedule, the one context with
+# a SONAR_TOKEN, and asks SonarCloud whether every ignore-criterion ruleKey is
+# still ACTIVE in the project's quality profile (a deactivated or renamed rule
+# otherwise leaves a suppression that excuses nothing). The script fails open on
+# a missing token, network error or unparseable response (warning, exit 0), so
+# only a genuinely inactive rule turns this yellow. allow_failure matches
+# sonar:scan: advisory, never blocks the schedule.
+sonar:rules-check:
+  stage: security
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  before_script:
+    - apk add --no-cache bash git grep sed jq curl
+  script:
+    - bash scripts/check-sonar-exclusions.sh --online
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
   allow_failure: true
