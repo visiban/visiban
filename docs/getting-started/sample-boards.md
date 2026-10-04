@@ -66,20 +66,22 @@ Imports are limited to 10 per user per hour.
     moves and history entries are attributed to you, the importing user. Comments are
     always imported as written by you.
 
-The `.csv` file for each board uses the same layout as **Export → CSV**. Use it to look at
+The `.csv` file for each of the eleven templates uses the same layout as **Export → CSV**
+(`demo_board.csv` keeps an older, simpler summary layout). Use it to look at
 the data in a spreadsheet or to try the CSV importer. CSV import creates cards with their
 title, description, column, swimlane, priority, labels, due date and weight. It does not
 restore movement history, comments, checklists or custom field values.
 
 ## What each sample includes
 
-- **Typed custom fields on cards.** Six to eleven per board, covering every field type:
-  number (with `$`, `%` or unit formatting), dropdown and multi-select (with choice
-  colors), date, URL, checkbox and text. Two per board are pinned to the card face.
+- **Typed custom fields on cards.** Six to eleven per board. Together the samples use
+  every field type: number (with `$`, `%` or unit formatting), dropdown and multi-select
+  (with choice colors), date, URL, checkbox and text. Sales Overlay uses all of them on
+  one board. Two per board are pinned to the card face.
 - **Swimlane fields.** Owner, budget, tier and similar facts about each row, pinned to the
   row header. Some are admin-only and hidden from non-admin members.
-- **Column limits.** WIP and weight limits on the busy columns. On each template board,
-  one column is deliberately just over its limit so you can see how that is flagged.
+- **Column limits.** WIP and weight limits on the busy columns. On every board, one
+  column is deliberately just over its limit so you can see how that is flagged.
 - **A full audit trail on every card.** Creation, assignments and reassignments, labels
   added and removed, priority escalations, due-date changes, renames, description edits,
   checklist items added, checked, unchecked and deleted, and comments. Each entry has the

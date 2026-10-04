@@ -28,7 +28,7 @@
       "wip_limit": 23,
       "allow_card_creation": false,
       "is_done": false,
-      "weight_limit": null
+      "weight_limit": 96
     },
     {
       "name": "Internal Review",

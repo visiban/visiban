@@ -52,7 +52,7 @@
       "name": "Commercial",
       "position": 5,
       "color": "#EC4899",
-      "wip_limit": 6,
+      "wip_limit": 3,
       "weight_limit": 40,
       "allow_card_creation": false,
       "is_done": false

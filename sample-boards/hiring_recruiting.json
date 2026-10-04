@@ -46,7 +46,7 @@
       "wip_limit": 12,
       "allow_card_creation": false,
       "is_done": false,
-      "weight_limit": null
+      "weight_limit": 56
     },
     {
       "name": "Offer Extended",

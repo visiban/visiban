@@ -297,11 +297,17 @@ describe('ImportBoardModal — Include options (#119)', () => {
     const names = within(group).getAllByRole('checkbox').map((c) => c.closest('label')?.textContent)
     expect(names).toEqual(['Cards', 'Comments', 'Checklist items', 'Card history', 'Labels'])
     within(group).getAllByRole('checkbox').forEach((c) => expect(c).toBeChecked())
-    expect(group).toHaveAccessibleDescription('Board structure (name, columns, swimlanes) is always imported.')
+    expect(group).toHaveAccessibleDescription(
+      'Board structure (name, columns, swimlanes, custom fields) is always imported.',
+    )
   })
 
   it('shows only Cards and Labels for a CSV file', async () => {
     await setup(csvFile())
+    // CSV import does not restore custom field definitions (#1449).
+    expect(screen.getByRole('group', { name: 'Include' })).toHaveAccessibleDescription(
+      'Board structure (name, columns, swimlanes) is always imported.',
+    )
     const names = screen.getAllByRole('checkbox').map((c) => c.closest('label')?.textContent)
     expect(names).toEqual(['Cards', 'Labels'])
     expect(summary()).toHaveTextContent(/^Importing: everything$/)

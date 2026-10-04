@@ -162,7 +162,7 @@ FEATURES = {
     },
     "customer_support": {
         "descriptions": ['Reported by {lane}. Capture reproduction steps and the affected component before escalating.', 'Ticket for {lane}. Update the customer in the helpdesk thread whenever the status changes.'],
-        "column_limits": {"Escalated": (-2, None), "Investigating": (4, None)},
+        "column_limits": {"Escalated": (-2, None), "Investigating": (4, 12)},
         "card_fields": [
             field("Severity", "dropdown",
                   lambda c: {"urgent": "S1", "high": "S2", "medium": "S3"}.get(c["card"]["priority"], "S4"),
@@ -297,7 +297,7 @@ FEATURES = {
     },
     "content_production": {
         "descriptions": ['{lane} piece. Draft lives in the linked doc; edits happen there, status happens here.', 'Content for {lane}. Confirm channels and the publish date before final approval.'],
-        "column_limits": {"Internal Review": (-1, None), "Draft": (3, None)},
+        "column_limits": {"Internal Review": (-1, None), "Draft": (3, 10)},
         "card_fields": [
             field("Content type", "dropdown", _pick(["Article", "Video", "Newsletter", "Guide", "Social post"]),
                   choices=["Article", "Video", "Newsletter", "Guide", "Social post"], show=True,
@@ -321,7 +321,7 @@ FEATURES = {
     },
     "hiring_recruiting": {
         "descriptions": ['Candidate for the {lane} team. Interview feedback goes in comments within 24 hours.', '{lane} pipeline. Keep the interview loop field current so the debrief is scheduled on time.'],
-        "column_limits": {"Interview": (-2, None), "Reference Check": (2, None)},
+        "column_limits": {"Interview": (-2, None), "Reference Check": (2, 8)},
         "card_fields": [
             field("Level", "dropdown", _pick(["L3", "L4", "L5", "L6", "Director"]),
                   choices=["L3", "L4", "L5", "L6", "Director"], show=True, help_text="Leveling target."),

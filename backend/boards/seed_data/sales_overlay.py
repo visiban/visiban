@@ -10,10 +10,10 @@ account team (AD, AE, SA, services lead) and, on top of it, an overlay pod
 (overlay AE + overlay SA) that brings specialist products into the deal.
 
 Where the demo board has six accounts and 22 cards, this one has ten
-accounts and every 1.2 board feature in use: all eight custom field types
-on cards, fifteen swimlane fields (the per-board maximum, eight of them
-pinned to the row header, one admin-only), WIP and weight limits, MR-style
-CRM links, archived wins and a full audit trail on every card.
+accounts and every 1.2 board feature in use: every custom field type on
+cards, fifteen swimlane fields (the per-board maximum, eight of them
+pinned to the row header, one admin-only), WIP and weight limits (Commercial
+deliberately one card over, as on every sample), CRM links, archived wins and a full audit trail on every card.
 
 The org shape is deliberate and mirrors the demo's (#1412 fix): each AD owns
 several AEs and no AE sits under two ADs; an SA covers two or three AEs;
@@ -41,7 +41,7 @@ COLUMNS = [
     {"name": "Qualify",    "position": 2, "color": "#3B82F6", "wip_limit": None, "weight_limit": None, "allow_card_creation": False},
     {"name": "Shape",      "position": 3, "color": "#F59E0B", "wip_limit": None, "weight_limit": None, "allow_card_creation": False},
     {"name": "Validate",   "position": 4, "color": "#8B5CF6", "wip_limit": 8,    "weight_limit": None, "allow_card_creation": False},
-    {"name": "Commercial", "position": 5, "color": "#EC4899", "wip_limit": 6,    "weight_limit": 40,   "allow_card_creation": False},
+    {"name": "Commercial", "position": 5, "color": "#EC4899", "wip_limit": 3,    "weight_limit": 40,   "allow_card_creation": False},
     {"name": "Commit",     "position": 6, "color": "#14B8A6", "wip_limit": None, "weight_limit": None, "allow_card_creation": False},
     {"name": "Won",        "position": 7, "color": "#10B981", "wip_limit": None, "weight_limit": None, "allow_card_creation": False, "is_done": True},
     {"name": "Lost",       "position": 8, "color": "#EF4444", "wip_limit": None, "weight_limit": None, "allow_card_creation": False, "is_done": True},

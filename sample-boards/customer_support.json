@@ -28,7 +28,7 @@
       "wip_limit": 24,
       "allow_card_creation": false,
       "is_done": false,
-      "weight_limit": null
+      "weight_limit": 99
     },
     {
       "name": "Awaiting Customer",

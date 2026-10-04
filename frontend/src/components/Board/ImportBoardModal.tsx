@@ -291,7 +291,9 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
                 Include
               </legend>
               <p id="import-include-note" className="text-xs text-fg-muted mb-2">
-                Board structure (name, columns, swimlanes) is always imported.
+                {isCsv
+                  ? "Board structure (name, columns, swimlanes) is always imported."
+                  : "Board structure (name, columns, swimlanes, custom fields) is always imported."}
               </p>
               <div className="space-y-2 bg-sunken border border-line rounded-lg px-3 py-2.5">
                 {renderRow(isCsv ? CSV_CARDS_ROW : CARDS_ROW, false)}

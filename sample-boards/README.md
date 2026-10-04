@@ -47,7 +47,8 @@ Users named `demo1` to `demo5` in the files are linked if accounts with those us
 exist. Otherwise cards import unassigned, and moves and history are attributed to the
 importing user.
 
-Each `.csv` file has the same column layout as **Export → CSV**. It is meant for
+Each template's `.csv` file has the same column layout as **Export → CSV**
+(`demo_board.csv` keeps an older summary layout). It is meant for
 spreadsheet review or for trying the CSV importer, which creates cards but not their
 history, comments, checklists or custom field values.
 

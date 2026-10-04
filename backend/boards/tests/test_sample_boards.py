@@ -132,6 +132,15 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
                 for lane in data["swimlanes"]:
                     self.assertTrue(lane["custom_field_values"], lane["name"])
 
+    def test_every_board_shows_exactly_one_column_over_its_wip_limit(self):
+        """Enough to show the over-limit flag, not so many the board reads as broken."""
+        for path in TEMPLATES:
+            data = _load(path)
+            live = collections.Counter(c["column"] for c in data["cards"] if not c.get("archived_at"))
+            over = [c["name"] for c in data["columns"] if c["wip_limit"] and live[c["name"]] > c["wip_limit"]]
+            self.assertEqual(len(over), 1, (path.name, over))
+            self.assertTrue(any(c.get("weight_limit") for c in data["columns"]), path.name)
+
     def test_samples_together_use_every_field_type_and_event_type(self):
         field_types, event_types = set(), set()
         for path in TEMPLATES:
