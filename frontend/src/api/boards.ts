@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse } from "../types";
+import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -15,6 +15,14 @@ export const listBoards = () =>
 
 export const listBoardTemplates = () =>
   client.get<BoardTemplate[]>("/api/v1/boards/templates/").then((r) => r.data);
+
+// Sample board gallery (#1452). The file endpoint returns the raw export; the
+// caller wraps it in a File and posts it through importBoard unchanged.
+export const listSampleBoards = (signal?: AbortSignal) =>
+  client.get<SampleBoardSummary[]>("/api/v1/boards/samples/", { signal }).then((r) => r.data);
+
+export const getSampleBoardFile = (id: string, signal?: AbortSignal) =>
+  client.get<Blob>(`/api/v1/boards/samples/${encodeURIComponent(id)}/`, { responseType: "blob", signal }).then((r) => r.data);
 
 export const createBoard = (data: { name: string; description?: string; template?: string; swimlane_name?: string }) =>
   client.post<Board>("/api/v1/boards/", data).then((r) => r.data);
@@ -182,9 +190,10 @@ export const importBoard = (file: File, name?: string, groupId?: number, options
   if (name) formData.append('name', name);
   if (groupId) formData.append('group_id', String(groupId));
   // Selective import (#119): the endpoint is multipart, so options travel as a
-  // JSON string. Omitted entirely when everything is included (the default),
-  // so a default import sends exactly what it did before the field existed.
-  if (options && Object.values(options).some((v) => v === false)) {
+  // JSON string. Omitted entirely when everything is included (the default)
+  // and no date shift is requested (#1452), so a default import sends exactly
+  // what it did before the field existed.
+  if (options && (Object.values(options).some((v) => v === false) || options.shift_dates_from)) {
     formData.append('options', JSON.stringify(options));
   }
   return client.post<ImportBoardResponse>('/api/v1/boards/import/', formData).then((r) => r.data);

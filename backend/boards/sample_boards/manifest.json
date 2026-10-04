@@ -14,7 +14,8 @@
     "file": "sales_overlay.json",
     "order": 1,
     "sha256": "d7e07e843d0de33e776c1897b888949acd78642be391aa30d2157c2de87a5bd0",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "simple_kanban",
@@ -31,7 +32,8 @@
     "file": "simple_kanban.json",
     "order": 2,
     "sha256": "967b355eea6be456442f296d35e00cb744336287376c6a8447d509f9ba035935",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "sales_pipeline",
@@ -48,7 +50,8 @@
     "file": "sales_pipeline.json",
     "order": 3,
     "sha256": "da47023b9f74001503f51cb3e10e86602d7f6f09cfd17b06d54b178cf01d1b20",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "product_roadmap",
@@ -65,7 +68,8 @@
     "file": "product_roadmap.json",
     "order": 4,
     "sha256": "5d4ee68aeae6a0e0290b2b593b2e99f5eefc9549647d77510568d94e5ce2efd2",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "customer_support",
@@ -82,7 +86,8 @@
     "file": "customer_support.json",
     "order": 5,
     "sha256": "247dffea65c758fa099867adbbdb60260c090b44e055e75487a0136d18e6b502",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "customer_success",
@@ -99,7 +104,8 @@
     "file": "customer_success.json",
     "order": 6,
     "sha256": "8ce119ea1fda7d860767ee52e14ba0386811f3364caf55a99b29bcfe6fa1b2a3",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "project_delivery",
@@ -116,7 +122,8 @@
     "file": "project_delivery.json",
     "order": 7,
     "sha256": "70041b9b8f29d764d67d4c7388640b91c9549fd8f01e5ed50471fbdfd41914a8",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "content_production",
@@ -133,7 +140,8 @@
     "file": "content_production.json",
     "order": 8,
     "sha256": "1dfd6e0b734e7b5605c49b7e014c907e1266f616aae778737aa104eb546ffdce",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "hiring_recruiting",
@@ -150,7 +158,8 @@
     "file": "hiring_recruiting.json",
     "order": 9,
     "sha256": "932e49af86b91651dc55ac250b1beb83c245b7494592ae5c3bed3528ddbd5abe",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "infra_devops",
@@ -167,7 +176,8 @@
     "file": "infra_devops.json",
     "order": 10,
     "sha256": "642d5b62987b0909c12a2aade77220cb37d814fa7d7e8e6ff3e18b6d0a3bbf8e",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   },
   {
     "id": "legal_compliance",
@@ -184,6 +194,7 @@
     "file": "legal_compliance.json",
     "order": 11,
     "sha256": "222cb71fb614afa4dc42a13ba89afc6fecd3afcbbff421ae46d43a600353db96",
-    "schema_version": 2
+    "schema_version": 2,
+    "date_anchor": "2026-03-15"
   }
 ]

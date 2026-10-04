@@ -3547,6 +3547,23 @@ class ImportOptionsSerializer(serializers.Serializer):
     comments = _StrictBooleanField(default=True)
     checklist = _StrictBooleanField(default=True)
     history = _StrictBooleanField(default=True)
+    # Sample-board flow (#1452): shift every date in the file forward by
+    # (today - this date) so the imported board is dated around the import day.
+    # Absent by default, so a plain import is unchanged, and omitted from
+    # ``options_applied`` unless given.
+    shift_dates_from = serializers.DateField(required=False)
+
+    SHIFT_MAX_YEARS = 10
+
+    def validate_shift_dates_from(self, value):
+        today = timezone.localdate()
+        if value > today:
+            raise serializers.ValidationError("shift_dates_from cannot be in the future.")
+        if (today - value).days > self.SHIFT_MAX_YEARS * 366:
+            raise serializers.ValidationError(
+                f"shift_dates_from cannot be more than {self.SHIFT_MAX_YEARS} years ago."
+            )
+        return value
 
     def validate(self, attrs):
         initial = self.initial_data if isinstance(self.initial_data, dict) else {}
@@ -3555,6 +3572,11 @@ class ImportOptionsSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 f"Unknown import option(s): {', '.join(unknown)}."
             )
+        # Kept as an ISO string: the resolved options are echoed in the response
+        # and embedded in the persisted ``board.created`` event payload, both of
+        # which must stay JSON-native.
+        if "shift_dates_from" in attrs:
+            attrs["shift_dates_from"] = attrs["shift_dates_from"].isoformat()
         if not attrs["cards"]:
             contradictions = [k for k in self.DEPENDENTS if initial.get(k) is True]
             if contradictions:
@@ -3573,6 +3595,8 @@ class CSVImportOptionsSerializer(ImportOptionsSerializer):
     comments = None
     checklist = None
     history = None
+    # Dates in a CSV are the user's own; only the sample JSON files shift.
+    shift_dates_from = None
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

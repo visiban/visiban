@@ -1272,6 +1272,28 @@ export interface ImportOptions {
   comments?: boolean;
   checklist?: boolean;
   history?: boolean;
+  /** Sample-board flow (#1452), JSON only: shift every date in the file forward
+   *  by the days between this date (YYYY-MM-DD) and today. Omit for a plain import. */
+  shift_dates_from?: string;
+}
+
+/** What a sample board carries, derived from its contents (#1452). */
+export type SampleBoardInclude = 'labels' | 'checklists' | 'comments' | 'history';
+
+/** One entry of `GET /boards/samples/` (#1452), gallery order. Named "sample",
+ *  not "template": `BoardTemplate` is the user-facing board-creation template. */
+export interface SampleBoardSummary {
+  id: string;
+  title: string;
+  description: string;
+  swimlane_theme: string;
+  /** Active (non-archived) cards. */
+  card_count: number;
+  includes: SampleBoardInclude[];
+  order: number;
+  schema_version: number;
+  /** Pass as `ImportOptions.shift_dates_from` to date the board around today. */
+  date_anchor: string;
 }
 
 /** Counts of file contents left out by the chosen import options (#119). */
@@ -1285,7 +1307,8 @@ export interface ImportSkippedCounts {
 }
 
 export interface ImportSummary {
-  options_applied: Required<ImportOptions>;
+  /** The five include flags are always echoed; shift_dates_from only when it was sent. */
+  options_applied: Required<Omit<ImportOptions, 'shift_dates_from'>> & Pick<ImportOptions, 'shift_dates_from'>;
   skipped: ImportSkippedCounts;
 }
 

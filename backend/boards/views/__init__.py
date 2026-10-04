@@ -22,6 +22,7 @@ from .notifications import (  # noqa: F401
     NotificationUnreadCountView,
 )
 from .templates import BoardTemplateListView  # noqa: F401
+from .samples import SampleBoardListView, SampleBoardDetailView  # noqa: F401
 from .share import ShareBoardView, ShareLinkThrottle  # noqa: F401
 from .media import ServeMediaView  # noqa: F401
 from .health import LivenessView, ReadinessView, VersionView  # noqa: F401

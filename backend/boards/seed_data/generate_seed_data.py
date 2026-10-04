@@ -1854,6 +1854,10 @@ def _manifest_entry(meta: dict, data: dict, json_bytes: bytes) -> dict:
         "order": meta["order"],
         "sha256": hashlib.sha256(json_bytes).hexdigest(),
         "schema_version": data["schema_version"],
+        # The day the sample's relative dates are measured from. The import
+        # option ``shift_dates_from`` takes this so an imported sample is dated
+        # around the import day instead of mostly overdue.
+        "date_anchor": ANCHOR.date().isoformat(),
     }
 
 

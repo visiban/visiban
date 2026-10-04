@@ -156,7 +156,7 @@ class SampleManifestTests(SimpleTestCase):
 
     def test_entries_are_complete_and_ordered(self):
         keys = {"id", "title", "description", "swimlane_theme", "card_count", "includes",
-                "file", "order", "sha256", "schema_version"}
+                "file", "order", "sha256", "schema_version", "date_anchor"}
         for e in MANIFEST:
             self.assertEqual(set(e), keys, e["id"])
             self.assertRegex(e["id"], r"^[a-z0-9_]+$")
