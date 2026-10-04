@@ -5034,7 +5034,11 @@ parked out of sight cannot wash out every tint on the board.</p>
 <li>Activity log — assignee changes, label changes, priority changes, due-date changes, checklist events, and comments all appear in the activity feed</li>
 </ul>
 <p><strong>CSV import</strong> creates cards with their current field values only. Movement history and activity log are not restored.</p>
-<p>An optional board name override can be specified at import time.</p>
+<p>The new board is named <strong>Imported: <name></strong> — the board name stored in a JSON file, or the filename without its extension for a CSV file (for example, <code>Q3 plan.csv</code> becomes <strong>Imported: Q3 plan</strong>). If a board with that name already exists in the same place (the group you import into, or — without a group — any board you can access that is not in a group, as listed under <strong>My Boards</strong>), a number is added: <strong>Imported: Q3 plan - 1</strong>, then <strong>- 2</strong>, and so on. To choose the name yourself, type it in <strong>Board name</strong> when importing; it is used exactly as typed.</p>
+<div class="admonition note">
+<p class="admonition-title">Changed in 1.2</p>
+<p>Earlier releases named a JSON import after the file's board name unchanged, and every CSV import <strong>Imported Board</strong>.</p>
+</div>
 <h4 id="choosing-what-to-import">Choosing what to import<a class="headerlink" href="#choosing-what-to-import" title="Permanent link">&para;</a></h4>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>

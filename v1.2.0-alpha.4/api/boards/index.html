@@ -2198,6 +2198,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#default-board-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default board name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#import-options" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5622,7 +5633,7 @@ caller below <code>admin</code> — the same role gate this export already appli
 <tr>
 <td><code>name</code></td>
 <td></td>
-<td>Override the imported board name.</td>
+<td>Board name to use, exactly as given — no prefix and no duplicate suffix. When omitted, the board is named by the rule in <a href="#default-board-name">Default board name</a>.</td>
 </tr>
 <tr>
 <td><code>group_id</code></td>
@@ -5636,6 +5647,16 @@ caller below <code>admin</code> — the same role gate this export already appli
 </tr>
 </tbody>
 </table>
+<h4 id="default-board-name">Default board name<a class="headerlink" href="#default-board-name" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Changed in 1.2</strong> (#1446) — earlier releases named a JSON import after the file's <code>name</code> verbatim and every CSV import <code>Imported Board</code>. API callers that relied on the old default should send <code>name</code> explicitly.</p>
+</blockquote>
+<p>Without a <code>name</code> field, both formats name the new board <code>Imported: &lt;name&gt;</code>:</p>
+<ul>
+<li><strong>JSON</strong> — <code>&lt;name&gt;</code> is the <code>name</code> field in the file.</li>
+<li><strong>CSV</strong> — a CSV carries no board name, so <code>&lt;name&gt;</code> is the uploaded filename without its extension (<code>Q3 plan.csv</code> → <code>Imported: Q3 plan</code>). An empty filename stem falls back to <code>Board</code>.</li>
+</ul>
+<p>If a board with that exact name already exists, the lowest unused number is appended: <code>Imported: Roadmap - 1</code>, then <code>- 2</code>, and so on; a gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when <code>group_id</code> is set, otherwise every board you can access (your own or shared with you) that is not in a group — the boards listed under <strong>My Boards</strong> on the dashboard. The name is truncated to the 255-character limit so the prefix and number always fit. Board names are not unique, so two imports running at the same moment can occasionally receive the same name.</p>
 <h4 id="import-options">Import options<a class="headerlink" href="#import-options" title="Permanent link">&para;</a></h4>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
@@ -5719,7 +5740,7 @@ caller below <code>admin</code> — the same role gate this export already appli
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bd_1a2b3c4d5e6f7890"</span><span class="p">,</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Imported Board"</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Imported: Roadmap"</span><span class="p">,</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">"owner"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w"> </span><span class="p">},</span>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">"group"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
 <a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-21T14:02:11Z"</span><span class="p">,</span>

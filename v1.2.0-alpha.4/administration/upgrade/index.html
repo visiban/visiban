@@ -4222,6 +4222,16 @@ stable release until the next stable tag. If you tracked GitLab <code>:latest</c
 switch to <code>:main</code> (amd64 only); short-SHA tags are still pushed for rollback. Pinned release
 tags and GHCR are unaffected. See <a href="../container-image-retention/#gitlab-registry-latest-is-stable-only-main-publishes-main">Container image retention</a>.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Board import default name changed</p>
+<p><code>POST /api/v1/boards/import/</code> called without a <code>name</code> field now names the new board
+<code>Imported: &lt;name&gt;</code> — the <code>name</code> in a JSON file, or the filename without its extension
+for a CSV file — and appends <code>- 1</code>, <code>- 2</code>, ... when that name is already taken.
+Previously a JSON import used the file's <code>name</code> unchanged and every CSV import was
+named <code>Imported Board</code>. Any script or test that finds an imported board by the file's
+name must now send <code>name</code> explicitly, which is still used exactly as given. See
+<a href="../../api/boards/#default-board-name">Default board name</a> (#1446).</p>
+</div>
 <p>Migration <code>accounts/0027_maintenance_mode</code> adds two nullable-by-default columns
 (<code>maintenance_mode</code>, <code>maintenance_message</code>) to the <code>site_settings</code> singleton for the new
 <a href="../maintenance-mode/">maintenance mode</a> feature. It is a plain <code>AddField</code> migration — no index,
