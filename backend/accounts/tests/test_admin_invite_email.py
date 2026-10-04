@@ -19,7 +19,11 @@ from accounts.models import (
     InviteLink,
     User,
 )
-from visiban.invite_email import InviteEmailGlobalThrottle, InviteEmailUserThrottle
+from visiban.invite_email import (
+    InviteEmailGlobalSiteThrottle,
+    InviteEmailGlobalThrottle,
+    InviteEmailUserThrottle,
+)
 
 URL = "/api/v1/admin/invite-links/send/"
 RECIPIENT = "New.Hire@Example.org"
@@ -176,6 +180,56 @@ class AdminInviteEmailTests(TestCase):
             self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
             self.client.force_authenticate(other)
             self.assertEqual(self._send().status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_group_admin_cannot_drain_site_admin_budget(self):
+        """A self-registered group admin exhausting the group-invite ceiling
+        must not make site-admin invites 429 (separate global scope)."""
+        from groups.models import Group, GroupMembership
+        group_admin = User.objects.create_user(username="selfreg", password="p")
+        group = Group.objects.create(name="Mine", owner=group_admin)
+        GroupMembership.objects.create(group=group, user=group_admin, role=GroupMembership.Role.ADMIN)
+        group_client = APIClient()
+        group_client.force_authenticate(group_admin)
+        with mock.patch.object(InviteEmailGlobalThrottle, "get_rate", return_value="1/day"):
+            url = f"/api/v1/groups/{group.pk}/invite-links/send/"
+            self.assertEqual(group_client.post(url, {"email": "x@acme.test"}, format="json").status_code, 202)
+            self.assertEqual(group_client.post(url, {"email": "y@acme.test"}, format="json").status_code, 429)
+            self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
+
+    def test_site_ceiling_uses_its_own_scope(self):
+        with mock.patch.object(InviteEmailGlobalSiteThrottle, "get_rate", return_value="1/day"):
+            self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
+            self.assertEqual(self._send().status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_cap_reached_does_not_spend_budget(self):
+        future = timezone.now() + timedelta(days=7)
+        InviteLink.objects.bulk_create([
+            InviteLink(token_hash=f"h{i}", prefix="vbnl_xxx", created_by=self.admin,
+                       expires_at=future, single_use=True, delivery="email")
+            for i in range(MAX_PENDING_EMAILED_INVITE_LINKS)
+        ])
+        with mock.patch.object(InviteEmailUserThrottle, "get_rate", return_value="1/hour"):
+            for _ in range(3):
+                self.assertEqual(self._send().status_code, status.HTTP_400_BAD_REQUEST)
+            InviteLink.objects.filter(token_hash="h0").update(revoked_at=timezone.now())
+            self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
+
+    def test_failed_send_does_not_spend_budget(self):
+        with mock.patch.object(InviteEmailUserThrottle, "get_rate", return_value="1/hour"), \
+                mock.patch.object(InviteEmailGlobalSiteThrottle, "get_rate", return_value="1/day"):
+            with mock.patch(
+                "django.core.mail.backends.locmem.EmailBackend.send_messages",
+                side_effect=smtplib.SMTPAuthenticationError(535, b"nope"),
+            ):
+                for _ in range(3):
+                    self.assertEqual(self._send().status_code, status.HTTP_502_BAD_GATEWAY)
+            self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
+            self.assertEqual(self._send().status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_quoted_and_list_addresses_rejected(self):
+        for bad in ('"a,b"@example.org', "a;b@example.org", "<a@example.org>", "a b@example.org"):
+            self.assertEqual(self._send(email=bad).status_code, status.HTTP_400_BAD_REQUEST, bad)
+        self.assertEqual(len(mail.outbox), 0)
 
     # -- delivery failure -----------------------------------------------------
 

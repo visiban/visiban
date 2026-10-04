@@ -624,7 +624,7 @@ The server mints a link with `single_use: true` and `delivery: "email"` and send
 | `400 Bad Request` | Invalid or missing `email`, address with a line break, or `expires_in_days` not one of `1`, `7`, `30` |
 | `400 Bad Request` | `{"code": "invite_email_cap_reached"}` — 200 pending emailed links already exist on the instance |
 | `403 Forbidden` | Not a site admin, or `{"code": "invite_email_disabled"}` when `INVITE_EMAIL_ENABLED=false` or in demo mode |
-| `429 Too Many Requests` | 10 sends/hour per admin, 200/day instance-wide (shared with group invite emails) |
+| `429 Too Many Requests` | 10 sends/hour per admin (shared with that admin's group invite emails), and 200/day instance-wide for site-admin invites — a budget separate from group invite emails, so group admins cannot exhaust it. Refused or failed sends don't count |
 | `502 Bad Gateway` | `{"code": "<error code>"}` — the mail server refused or could not be reached; the just-created link is revoked automatically. `code` is a sanitized SMTP code (`auth_failed`, `connection_refused`, `dns_failure`, `tls_failure`, `timeout`, `config_unusable`, `unknown`) |
 
 ---

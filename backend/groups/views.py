@@ -957,8 +957,6 @@ class GroupViewSet(viewsets.ModelViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         validated = serializer.validated_data
 
-        invite_email.check_send_throttles(request, self, group_id=group.pk)
-
         with transaction.atomic():
             # Lock the group row so two concurrent sends cannot both read a
             # count of 49 and overshoot the emailed-link cap.
@@ -981,6 +979,10 @@ class GroupViewSet(viewsets.ModelViewSet):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            # Throttles last, so a request refused for any other reason
+            # (permission, validation, cap) spends no budget. Raising here
+            # rolls the transaction back before anything is minted.
+            recorded_throttles = invite_email.check_send_throttles(request, self, group_id=group.pk)
             link, raw_token = GroupInviteLink.generate(
                 group=group,
                 created_by=request.user,
@@ -995,10 +997,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                 # subscribers include non-admin members, so clients refetch the
                 # admin-only list rather than receiving link details here.
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(
-                    gid, _group_broadcast.EVT_INVITE_LINK_CREATED,
-                    {"id": lid, "delivery": GroupInviteLink.Delivery.EMAIL},
-                )
+                broadcast_group_event(gid, _group_broadcast.EVT_INVITE_LINK_CREATED, {"id": lid})
 
             transaction.on_commit(_broadcast_invite_created)
 
@@ -1015,6 +1014,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             message, link_pk=link.pk, prefix=link.prefix, actor_id=request.user.pk, kind="group",
         )
         if error_code is not None:
+            invite_email.refund_send_throttles(recorded_throttles)
             # A link whose email never left would sit in the pending list as a
             # live credential nobody holds — revoke it so the admin can retry.
             with transaction.atomic():

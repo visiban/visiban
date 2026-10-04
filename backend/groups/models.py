@@ -274,7 +274,11 @@ class GroupInviteLink(models.Model):
     # minted by the send-invite endpoint, delivered straight to one address, and
     # have their own cap. The recipient address itself is never stored.
     delivery = models.CharField(
-        max_length=8, choices=Delivery.choices, default=Delivery.LINK
+        max_length=8, choices=Delivery.choices, default=Delivery.LINK,
+        # db_default keeps the column default in the database after AddField
+        # (Django drops a plain default), so a pre-#731 pod still running
+        # during a rolling deploy can INSERT without hitting NOT NULL.
+        db_default=Delivery.LINK,
     )
 
     class Meta:

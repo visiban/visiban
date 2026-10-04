@@ -118,8 +118,21 @@ def join_url(raw_token: str) -> str:
     return f"{base}/join/{raw_token}"
 
 
+# Bidi overrides/isolates and zero-width characters. Stripped from every
+# interpolated name so a group called e.g. "Team\u202Emoc.live" cannot render
+# reversed text — a spoofed domain or link — in a message sent from the
+# instance's trusted sender address.
+_INVISIBLE_CONTROL_CHARS = dict.fromkeys(
+    [*range(0x200B, 0x2010), *range(0x202A, 0x202F), *range(0x2066, 0x206A), 0xFEFF]
+)
+
+
+def _strip_invisible(text: str) -> str:
+    return (text or "").translate(_INVISIBLE_CONTROL_CHARS)
+
+
 def _clip(text: str) -> str:
-    flat = _flatten(text)
+    flat = _flatten(_strip_invisible(text))
     if len(flat) > _NAME_MAX:
         flat = flat[: _NAME_MAX - 1].rstrip() + "…"
     return flat
@@ -135,7 +148,7 @@ def build_group_invite_message(*, group_name, inviter_name, raw_token, expires_a
     context = {
         "group_name": _clip(group_name),
         "inviter_name": _clip(inviter_name) or "A group admin",
-        "site_name": SITE_NAME,
+        "site_name": _clip(SITE_NAME),
         "join_url": join_url(raw_token),
         "expires_on": _expires_on(expires_at),
     }
@@ -147,7 +160,7 @@ def build_group_invite_message(*, group_name, inviter_name, raw_token, expires_a
 def build_site_invite_message(*, inviter_name, raw_token, expires_at, to):
     context = {
         "inviter_name": _clip(inviter_name) or "A site admin",
-        "site_name": SITE_NAME,
+        "site_name": _clip(SITE_NAME),
         "join_url": join_url(raw_token),
         "expires_on": _expires_on(expires_at),
     }
@@ -206,6 +219,9 @@ def normalize_invite_email(value: str) -> str:
     return _normalize_email_for_dedup(value)
 
 
+_FORBIDDEN_ADDRESS_CHARS = frozenset('",;<>')
+
+
 class InviteEmailField(serializers.EmailField):
     """The ``email`` field both send serializers declare.
 
@@ -225,7 +241,13 @@ class InviteEmailField(serializers.EmailField):
     def to_internal_value(self, data):
         if isinstance(data, str) and any(ch in data for ch in "\r\n"):
             raise serializers.ValidationError("Enter a valid email address.")
-        return super().to_internal_value(data)
+        value = super().to_internal_value(data)
+        # Django's validator accepts quoted local parts ("a,b"@example.org),
+        # which can carry list separators and display-name syntax into the To
+        # header. A plain mailbox never needs any of these, so refuse them.
+        if any(ch in value for ch in _FORBIDDEN_ADDRESS_CHARS) or any(ch.isspace() for ch in value):
+            raise serializers.ValidationError("Enter a valid email address.")
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -254,13 +276,27 @@ class InviteEmailGroupThrottle(SimpleRateThrottle):
 
 
 class InviteEmailGlobalThrottle(SimpleRateThrottle):
-    """Instance-wide ceiling (``invite_email_global``) across every sender, so a
-    handful of compromised admin accounts cannot turn the instance into a relay."""
+    """Instance-wide ceiling on *group* invite emails (``invite_email_global``)
+    across every sender, so a handful of admin accounts cannot turn the
+    instance into a relay."""
 
     scope = "invite_email_global"
 
     def get_cache_key(self, request, view):
         return self.cache_format % {"scope": self.scope, "ident": "all"}
+
+
+class InviteEmailGlobalSiteThrottle(InviteEmailGlobalThrottle):
+    """Instance-wide ceiling on *site-admin* invite emails
+    (``invite_email_global_site``).
+
+    Separate from the group ceiling on purpose: any self-registered user can
+    create a group and become its admin, so if both endpoints shared one
+    budget, a single group admin could exhaust it and make every site-admin
+    invite 429 — a cheap denial of the instance's own onboarding path.
+    """
+
+    scope = "invite_email_global_site"
 
 
 def _would_allow(throttle, request, view) -> bool:
@@ -277,25 +313,50 @@ def _would_allow(throttle, request, view) -> bool:
     return len(throttle.history) < throttle.num_requests
 
 
-def check_send_throttles(request, view, *, group_id=None) -> None:
+def check_send_throttles(request, view, *, group_id=None, site=False) -> list:
     """Apply every send throttle at once; raise ``Throttled`` if any is spent.
 
-    Called by the views after the permission check and input validation rather
-    than via ``throttle_classes``: DRF runs class throttles before the view
-    body, where the group-admin check lives, so a non-admin could otherwise
-    burn a group's shared daily budget with requests that are refused anyway.
+    Returns the throttles that recorded this request, for
+    ``refund_send_throttles`` should the send then fail.
+
+    Called by the views after the permission check, input validation and cap
+    check rather than via ``throttle_classes``: DRF runs class throttles before
+    the view body, where the group-admin check lives, so a non-admin (or a
+    request refused for any other reason) could otherwise burn a shared budget.
     All throttles are checked before any is recorded, so a request refused by
     one does not consume the others' budgets.
     """
     throttles = [InviteEmailUserThrottle()]
     if group_id is not None:
         throttles.append(InviteEmailGroupThrottle(group_id))
-    throttles.append(InviteEmailGlobalThrottle())
+    throttles.append(InviteEmailGlobalSiteThrottle() if site else InviteEmailGlobalThrottle())
 
     refused = [t for t in throttles if not _would_allow(t, request, view)]
     if refused:
         waits = [w for w in (t.wait() for t in refused) if w is not None]
         raise Throttled(wait=max(waits) if waits else None)
+    recorded = []
     for t in throttles:
         if t.rate is not None and t.key is not None:
             t.throttle_success()
+            recorded.append(t)
+    return recorded
+
+
+def refund_send_throttles(recorded) -> None:
+    """Remove this request's entries again after a failed send.
+
+    A send the mail server refused delivered nothing, so it must not count
+    toward anyone's budget — otherwise a misconfigured relay would lock admins
+    out of retrying once it is fixed. Re-reads the history (another request may
+    have recorded meanwhile) and removes exactly the timestamp this request
+    added. Not atomic against a concurrent writer, which is the same
+    best-effort guarantee DRF's own throttles give.
+    """
+    for t in recorded:
+        history = list(t.cache.get(t.key, []))
+        try:
+            history.remove(t.now)
+        except ValueError:
+            continue
+        t.cache.set(t.key, history, t.duration)

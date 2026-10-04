@@ -89,7 +89,7 @@ Instead of copying a link into another tool, a group admin can send an invite st
 - The address you typed is used for that one email and is **not stored**. The list shows the link, not who it was sent to.
 - You get the same "Invite sent" confirmation whether the address belongs to an existing member, someone with an account, or nobody yet — Visiban never reveals which addresses have accounts.
 - If the mail server rejects the message, you see an error and the link is revoked automatically, so nothing is left dangling. Try again once email is working.
-- Sending is rate-limited: 10 per hour per admin, 30 per day per group, 200 per day across the instance.
+- Sending is rate-limited: 10 per hour per admin, 30 per day per group, 200 per day across the instance. Sends that are refused or that the mail server rejects don't count.
 - The option only appears when outbound email is configured (see [Email](../administration/configuration.md)) and the operator hasn't set `INVITE_EMAIL_ENABLED=false`. It is never available on a demo instance.
 
 !!! note

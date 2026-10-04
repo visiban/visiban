@@ -1010,8 +1010,6 @@ class AdminInviteLinkSendView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         data = serializer.validated_data
 
-        invite_email.check_send_throttles(request, self)
-
         with transaction.atomic():
             # Same row lock as link creation, so concurrent sends cannot both
             # read a count below the emailed cap and overshoot it.
@@ -1034,6 +1032,10 @@ class AdminInviteLinkSendView(APIView):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            # Throttles after the cap check so a refused request spends no
+            # budget; the site endpoint has its own instance-wide ceiling that
+            # group admins cannot drain (see InviteEmailGlobalSiteThrottle).
+            recorded_throttles = invite_email.check_send_throttles(request, self, site=True)
             link, raw_token = InviteLink.generate(
                 created_by=request.user,
                 expires_at=timezone.now() + timedelta(days=int(data["expires_in_days"])),
@@ -1057,6 +1059,7 @@ class AdminInviteLinkSendView(APIView):
             message, link_pk=link.pk, prefix=link.prefix, actor_id=request.user.pk, kind="site",
         )
         if error_code is not None:
+            invite_email.refund_send_throttles(recorded_throttles)
             InviteLink.objects.filter(pk=link.pk, revoked_at__isnull=True).update(
                 revoked_at=timezone.now()
             )

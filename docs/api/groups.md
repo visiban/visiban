@@ -229,10 +229,10 @@ The response is identical whether the address belongs to an existing member, an 
 | `400 Bad Request` | `{"code": "invite_email_cap_reached", ...}` | The group already has 50 pending emailed links (active, unexpired, unused) |
 | `403 Forbidden` | — | Caller is not a group admin |
 | `403 Forbidden` | `{"code": "invite_email_disabled", ...}` | `INVITE_EMAIL_ENABLED=false`, or the instance runs in demo mode |
-| `429 Too Many Requests` | — | Rate limit: 10 sends/hour per user, 30/day per group (shared by all its admins), 200/day instance-wide |
+| `429 Too Many Requests` | — | Rate limit: 10 sends/hour per user, 30/day per group (shared by all its admins), 200/day instance-wide for group invites. Requests refused for another reason, and sends the mail server rejected, don't count |
 | `502 Bad Gateway` | `{"code": "<error code>", ...}` | The mail server refused or could not be reached. The just-created link is revoked automatically. `code` is one of the sanitized SMTP codes (`auth_failed`, `connection_refused`, `dns_failure`, `tls_failure`, `timeout`, `config_unusable`, `unknown`) — never the raw server reply |
 
-A successful send emits `invite_link.created` on the group's WebSocket channel; a failed send emits `invite_link.revoked` for the auto-revoked link. See [WebSockets](websockets.md).
+A successful send emits `invite_link.created` (payload `{ "id" }` only) on the group's WebSocket channel; a failed send emits `invite_link.revoked` for the auto-revoked link. See [WebSockets](websockets.md).
 
 ### `DELETE /api/v1/groups/{id}/invite-links/{link_id}/`
 Revoke a single invite link. Requires group admin. Works the same for shareable and emailed links.

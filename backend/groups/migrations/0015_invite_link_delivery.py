@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='groupinvitelink',
             name='delivery',
-            field=models.CharField(choices=[('link', 'Link'), ('email', 'Email')], default='link', max_length=8),
+            field=models.CharField(choices=[('link', 'Link'), ('email', 'Email')], db_default='link', default='link', max_length=8),
         ),
     ]

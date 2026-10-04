@@ -186,6 +186,35 @@ class GroupInviteEmailTests(TestCase):
             self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, value)
         self.assertFalse(GroupInviteLink.objects.exists())
 
+    def test_list_and_display_name_syntax_rejected(self):
+        for bad in (
+            '"a,b"@example.org',
+            '"a b"@example.org',
+            "a;b@example.org",
+            "Name <a@example.org>",
+            "a@example.org, b@example.org",
+            "a\t@example.org",
+            "a @example.org",
+        ):
+            r = self._send(email=bad)
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, bad)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(GroupInviteLink.objects.exists())
+
+    def test_bidi_and_zero_width_characters_stripped_from_names(self):
+        self.group.name = "Team\u202emoc.live\u200b\u2066X\u2069\ufeff"
+        self.group.save()
+        self.admin.username = "ad\u200fmin"
+        self.admin.save()
+        self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
+        msg = mail.outbox[0]
+        for text in (msg.subject, msg.body):
+            for ch in ("\u202e", "\u200b", "\u200f", "\u2066", "\u2069", "\ufeff"):
+                self.assertNotIn(ch, text)
+        self.assertIn("Teammoc.liveX", msg.subject)
+        self.assertIn("Teammoc.liveX", msg.body)
+        self.assertIn("admin invited you", msg.body)
+
     def test_surrounding_whitespace_stripped(self):
         r = self._send(email="  padded@acme.test  ")
         self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED)
@@ -261,6 +290,34 @@ class GroupInviteEmailTests(TestCase):
             self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
             self.assertEqual(self._send().status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
+    def test_cap_reached_does_not_spend_budget(self):
+        future = timezone.now() + timedelta(days=7)
+        links = [
+            GroupInviteLink.generate(
+                group=self.group, created_by=self.admin, single_use=True,
+                expires_at=future, delivery="email",
+            )[0]
+            for _ in range(GROUP_MAX_PENDING_EMAILED_INVITES)
+        ]
+        with mock.patch.object(InviteEmailUserThrottle, "get_rate", return_value="1/hour"):
+            for _ in range(3):
+                self.assertEqual(self._send().status_code, status.HTTP_400_BAD_REQUEST)
+            GroupInviteLink.objects.filter(pk=links[0].pk).update(is_active=False)
+            self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
+
+    def test_failed_send_does_not_spend_budget(self):
+        with mock.patch.object(InviteEmailUserThrottle, "get_rate", return_value="1/hour"), \
+                mock.patch.object(InviteEmailGroupThrottle, "get_rate", return_value="1/day"), \
+                mock.patch.object(InviteEmailGlobalThrottle, "get_rate", return_value="1/day"):
+            with mock.patch(
+                "django.core.mail.backends.locmem.EmailBackend.send_messages",
+                side_effect=ConnectionRefusedError(),
+            ):
+                for _ in range(3):
+                    self.assertEqual(self._send().status_code, status.HTTP_502_BAD_GATEWAY)
+            self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
+            self.assertEqual(self._send().status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
     def test_non_admin_requests_do_not_spend_group_budget(self):
         member = User.objects.create_user(username="plain", password="p")
         GroupMembership.objects.create(group=self.group, user=member)
@@ -323,9 +380,8 @@ class GroupInviteEmailTests(TestCase):
             for cb in callbacks:
                 cb()
         link = GroupInviteLink.objects.get(group=self.group)
-        bcast.assert_called_once_with(
-            self.group.pk, "invite_link.created", {"id": link.pk, "delivery": "email"},
-        )
+        # {id} only: non-admin members are on the group channel too.
+        bcast.assert_called_once_with(self.group.pk, "invite_link.created", {"id": link.pk})
 
     def test_failed_send_broadcasts_revoked(self):
         with mock.patch("groups.broadcast.broadcast_group_event") as bcast:
