@@ -538,7 +538,7 @@ Tracked backlog, not a committed roadmap for any specific release — check GitL
 - Styled, preference-aware date picker — due-date and filter inputs are still native `<input type="date">`
 - Archive organizer search/sort/filters/bulk actions — the Archived panel shows origin and supports pagination/unarchive, but has no title search, sort control, column/swimlane/assignee filters, or bulk restore/delete yet
 - User-selectable accent color — theming is currently limited to the system/dark/light preference, not a per-user hue picker
-- Site-level email invitations — admin invite links generate a shareable URL only; nothing emails a specific recipient directly yet
+- Email invitations UI — since 1.2 the API can email a single-use group or site invite link to one recipient (`POST …/invite-links/send/`, #731), but the web UI for sending one is still to come
 - Site admin row-level actions to edit a user's email, view a user's boards, or delete a user account — only deactivate (with the offboarding/ownership-transfer flow) exists today
 - Keyboard-shortcut discoverability polish — no footer link or first-run indicator pointing at the shortcuts overlay
 - Tablet-responsive layout pass for the Dashboard and Settings pages

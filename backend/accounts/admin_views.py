@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from boards.permissions import get_board_role
-from visiban.invite_email import InviteEmailField
+from visiban.invite_email import InviteEmailErrorSerializer, InviteEmailField
 from .adapter import clear_login_lockout
 from visiban.mail import (
     ERROR_BACKEND_PINNED,
@@ -991,6 +991,8 @@ class AdminInviteLinkSendView(APIView):
                     "delivery": drf_serializers.CharField(required=False),
                 },
             ),
+            403: InviteEmailErrorSerializer,
+            502: InviteEmailErrorSerializer,
         },
     )
     def post(self, request):

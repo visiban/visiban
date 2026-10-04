@@ -219,6 +219,14 @@ def normalize_invite_email(value: str) -> str:
     return _normalize_email_for_dedup(value)
 
 
+class InviteEmailErrorSerializer(serializers.Serializer):
+    """Schema-only: the ``{code, detail}`` body of the send endpoints' 403
+    (``invite_email_disabled``), cap-reached 400 and delivery-failure 502."""
+
+    code = serializers.CharField()
+    detail = serializers.CharField()
+
+
 _FORBIDDEN_ADDRESS_CHARS = frozenset('",;<>')
 
 

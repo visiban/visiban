@@ -207,9 +207,10 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
     }
   };
 
-  // Active links exclude consumed single-use links (they're dead weight against the cap).
+  // Active links exclude consumed single-use links (they're dead weight against the cap)
+  // and emailed links (#731), which the backend caps separately.
   const activeCount = links.filter(
-    (l) => l.is_active && !l.used_at
+    (l) => l.is_active && !l.used_at && l.delivery !== "email"
   ).length;
   const atLimit = activeCount >= MAX_LINKS;
 

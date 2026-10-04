@@ -302,6 +302,40 @@ describe('InviteLinkPanel', () => {
     expect(screen.getByText(/Maximum of 5 active invite links reached/)).toBeInTheDocument()
   })
 
+  it('emailed links do not count against the 5 shareable-link cap (#731)', async () => {
+    const emailedLinks: GroupInviteLink[] = Array.from({ length: 5 }, (_, i) => ({
+      ...fakeExistingLink,
+      id: 200 + i,
+      prefix: `eml${i}`,
+      name: `Emailed ${i}`,
+      is_active: true,
+      used_at: null,
+      single_use: true,
+      delivery: 'email',
+    }))
+    mockListInviteLinks.mockResolvedValue(emailedLinks)
+    render(<InviteLinkPanel groupId={1} />)
+    await screen.findByText('Emailed 0')
+    expect(screen.getByRole('button', { name: 'New link' })).toBeInTheDocument()
+    expect(screen.queryByText(/Maximum of 5 active invite links reached/)).not.toBeInTheDocument()
+  })
+
+  it('5 shareable links still hit the cap when emailed links are also present (#731)', async () => {
+    const mixed: GroupInviteLink[] = Array.from({ length: 7 }, (_, i) => ({
+      ...fakeExistingLink,
+      id: 300 + i,
+      prefix: `mix${i}`,
+      name: `Mixed ${i}`,
+      is_active: true,
+      used_at: null,
+      delivery: i < 5 ? 'link' : 'email',
+    }))
+    mockListInviteLinks.mockResolvedValue(mixed)
+    render(<InviteLinkPanel groupId={1} />)
+    await screen.findByText('Mixed 0')
+    expect(screen.queryByRole('button', { name: 'New link' })).not.toBeInTheDocument()
+  })
+
   it('Done button collapses the one-time reveal and clears the token from the UI', async () => {
     mockCreateInviteLink.mockResolvedValue(fakeCreatedLink)
     const user = userEvent.setup()

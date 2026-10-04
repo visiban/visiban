@@ -66,6 +66,7 @@ InviteLink  (accounts app — site-level registration invites)
  ├── used_at (datetime, nullable)
  ├── revoked_at (datetime, nullable)
  ├── use_count (int, default 0 — incremented on every successful registration, preserved after revocation)
+ ├── delivery (str — link | email; default link — how the link reached its recipient; the address is never stored)
  └── InviteLinkRedemption  (email_hash, redeemed_at — one per email, multi-use links only)
 
 Group
@@ -75,7 +76,7 @@ Group
  ├── allowed_priorities (JSON — empty = all allowed)
  ├── GroupLabel  (name, color — shared label library copied to new boards)
  ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
- ├── GroupInviteLink  (name, token, role, expires_at)
+ ├── GroupInviteLink  (name, token, role, expires_at, single_use, used_at, delivery — link | email)
  └── GroupFavorite → User  (unique per user+group)
 
 Board
@@ -319,7 +320,7 @@ per-model signal would have been invisible to half the events. See
 
 Site-level registration invite links live in the accounts app and are distinct from `GroupInviteLink` (which controls group membership). The raw token value is generated once and never stored — only a SHA-256 hash is persisted. The raw value is returned exactly once at creation.
 
-Single-use links are consumed atomically via `select_for_update()` at registration time to prevent race-condition double-use. A soft cap of 50 active links per instance prevents token flood from a compromised admin account.
+Single-use links are consumed atomically via `select_for_update()` at registration time to prevent race-condition double-use. A soft cap of 50 active shareable links (`delivery = link`) per instance prevents token flood from a compromised admin account. Emailed links (`delivery = email`, #731) are single-use, always expire, and have their own cap of 200 pending per instance; the group equivalent is 5 active shareable links plus 50 pending emailed links per group. The recipient address of an emailed link is never stored.
 
 A multi-use link needs its own guard against repeat redemption by the same person: `InviteLinkRedemption` (#925) stores a SHA-256 hash of the normalized email per `(invite_link, email_hash)`, enforced with a unique constraint. Single-use links don't need it — the existing `used_at` flag already blocks re-use. Storage is hash-only, so an operator investigating "who redeemed this link" sees hashes, not addresses.
 

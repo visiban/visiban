@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from visiban.invite_email import InviteEmailErrorSerializer
 from . import broadcast as _group_broadcast
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
 from .serializers import (
@@ -926,6 +927,8 @@ class GroupViewSet(viewsets.ModelViewSet):
                     "delivery": drf_serializers.CharField(required=False),
                 },
             ),
+            403: InviteEmailErrorSerializer,
+            502: InviteEmailErrorSerializer,
         },
     )
     @action(detail=True, methods=["post"], url_path="invite-links/send")
