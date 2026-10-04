@@ -5,6 +5,8 @@ one to get a fully populated board in a few seconds. Each sample has real column
 swimlanes, labels and cards, typed custom fields, a full audit trail and enough movement
 history to fill the analytics charts.
 
+In the app, open **Import** on the Dashboard and pick one under **Start from a sample** (see [How to import](#how-to-import)). The sections below cover getting the files yourself.
+
 ## Where to get the files
 
 The sample boards are `.json` files in [`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards)
@@ -53,6 +55,24 @@ To match your installed version, replace `main` with your release tag (for examp
 The demo board, `sample-boards/demo_board.json` (115 cards, swimlanes by team), is a general product development board. It is generated separately by `seed_demo_data` and is not one of the template samples listed above.
 
 ## How to import
+
+### From the app
+
+!!! note "Added in 1.3"
+    The sample gallery in the Import Board dialog.
+
+1. Log in to your Visiban instance.
+2. From the **Dashboard** (or a group page), click **Import**.
+3. Under **Start from a sample**, click **Use this sample** on a card. **Show all** lists the rest.
+4. Choose what to include (cards, labels, comments, checklists, history) and click **Import**.
+   Use **Change** to go back and pick a different sample.
+
+The sample is fetched from your own Visiban server, so it matches your installed version and works without internet access.
+Dates in the sample are moved to the day you import it, so the board does not open mostly overdue.
+The board is named **Imported: <sample title>**, and a second import of the same sample is numbered.
+Press **Esc** while a sample is loading to cancel it. If samples can't be loaded, the dialog says so and you can retry or upload a file instead.
+
+### From a file
 
 1. Log in to your Visiban instance.
 2. From the **Dashboard**, click **Import**.

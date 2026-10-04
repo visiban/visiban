@@ -6,6 +6,14 @@ import ImportSkippedToast from '../components/Board/ImportSkippedToast'
 import { formatImportSkipped } from '../utils/importSummary'
 import type { ImportOptions, ImportSkippedCounts, ImportSummary } from '../types'
 
+// The modal fetches the sample list on open (#1452). Keep the rest of the real
+// module: the export tests below import it dynamically.
+vi.mock('../api/boards', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api/boards')>()),
+  listSampleBoards: vi.fn().mockResolvedValue([]),
+  getSampleBoardFile: vi.fn(),
+}))
+
 describe('ImportBoardModal', () => {
   let onImport: Mock<(file: File, name?: string) => Promise<void>>
   let onCancel: Mock<() => void>

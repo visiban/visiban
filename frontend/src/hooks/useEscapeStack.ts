@@ -31,6 +31,7 @@ function dispatch(e: KeyboardEvent): void {
  * handler to run. Any other return value (including void) consumes the event.
  *
  * Priority conventions:
+ *   48 — canceling an in-flight load inside a modal (Import Board sample load)
  *   40 — modals and overlays
  *   30 — side panels (card detail, archived cards)
  *   25 — dropdowns (SelectDropdown, FilterBar, BulkActionToolbar) — via useDropdownEscape

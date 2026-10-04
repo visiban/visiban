@@ -16,6 +16,9 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('../api/boards', () => ({
+  // The import modal fetches the sample list on open (#1452); empty = gallery unavailable.
+  listSampleBoards: vi.fn().mockResolvedValue([]),
+  getSampleBoardFile: vi.fn(),
   listBoards: vi.fn(),
   createBoard: vi.fn(),
   deleteBoard: vi.fn(),

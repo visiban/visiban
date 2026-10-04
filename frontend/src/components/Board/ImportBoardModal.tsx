@@ -1,6 +1,9 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
-import type { ImportOptions } from "../../types";
+import SampleGallery, { type SampleFocusRequest, type SampleListState } from "./SampleGallery";
+import { getSampleBoardFile, listSampleBoards } from "../../api/boards";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
+import type { ImportOptions, SampleBoardSummary } from "../../types";
 
 interface Props {
   /** Called with a third `options` argument only when the user deselected
@@ -101,21 +104,120 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [include, setInclude] = useState<IncludeState>(ALL_INCLUDED);
+  // The modal's one polite live region: the Cards cascade (#119) and a canceled
+  // sample load. Loading and error text live in the gallery's own status/alert.
   const [cascadeAnnouncement, setCascadeAnnouncement] = useState("");
+  // "Start from a sample" (#1452). `source` is set once a sample's file has been
+  // fetched and wrapped as `file`; `sampleLoad` tracks the one in flight or failed.
+  const [samples, setSamples] = useState<SampleBoardSummary[]>([]);
+  const [listState, setListState] = useState<SampleListState>("loading");
+  const [source, setSource] = useState<SampleBoardSummary | null>(null);
+  const [sampleLoad, setSampleLoad] = useState<{ id: string; status: "loading" | "error" } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [focusRequest, setFocusRequest] = useState<SampleFocusRequest | null>(null);
+  const listAbort = useRef<AbortController | null>(null);
+  const sampleAbort = useRef<AbortController | null>(null);
+  const includeRef = useRef<HTMLFieldSetElement>(null);
   // The dependents' values from just before Cards was unchecked, restored when
   // it is re-checked so a deliberate uncheck (e.g. History) survives the round trip.
   const dependentsMemo = useRef<Pick<IncludeState, DependentKey> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0] ?? null;
-    setFile(selected);
+  const requestFocus = (id: string) => setFocusRequest((prev) => ({ id, n: (prev?.n ?? 0) + 1 }));
+
+  const loadList = useCallback(() => {
+    listAbort.current?.abort();
+    const ctrl = new AbortController();
+    listAbort.current = ctrl;
+    setListState("loading");
+    listSampleBoards(ctrl.signal)
+      .then((list) => {
+        if (ctrl.signal.aborted) return;
+        setSamples(list);
+        // An empty list is "unavailable", not an empty gallery: the section never disappears silently.
+        setListState(list.length > 0 ? "ready" : "unavailable");
+      })
+      .catch(() => {
+        if (!ctrl.signal.aborted) setListState("unavailable");
+      });
+  }, []);
+
+  useEffect(() => {
+    loadList();
+    return () => {
+      listAbort.current?.abort();
+      sampleAbort.current?.abort();
+    };
+  }, [loadList]);
+
+  /** Abort the in-flight sample request (not just hide the spinner). */
+  const abortSampleLoad = () => {
+    sampleAbort.current?.abort();
+    sampleAbort.current = null;
+  };
+
+  // Escape while a sample loads cancels the load and leaves the modal open. Its
+  // own priority (48) sits above the modal's 40; it passes through otherwise.
+  useEscapeStack(() => {
+    if (sampleLoad?.status !== "loading") return false;
+    abortSampleLoad();
+    setSampleLoad(null);
+    setCascadeAnnouncement("Loading canceled.");
+    requestFocus(sampleLoad.id);
+  }, 48);
+
+  /** A new file starts from "import everything" — choices made for the
+   *  previous file (possibly a different format) do not carry over. */
+  const resetSelection = () => {
     setError(null);
-    // A new file starts from "import everything" — choices made for the
-    // previous file (possibly a different format) do not carry over.
     setInclude(ALL_INCLUDED);
     dependentsMemo.current = null;
     setCascadeAnnouncement("");
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0] ?? null;
+    // Choosing a file wins over a sample still loading.
+    abortSampleLoad();
+    setSampleLoad(null);
+    setFile(selected);
+    resetSelection();
+  };
+
+  const selectSample = async (sample: SampleBoardSummary) => {
+    abortSampleLoad();
+    const ctrl = new AbortController();
+    sampleAbort.current = ctrl;
+    setSampleLoad({ id: sample.id, status: "loading" });
+    setCascadeAnnouncement("");
+    try {
+      const blob = await getSampleBoardFile(sample.id, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      // The fetched export goes through the unchanged import path as a File.
+      resetSelection();
+      setFile(new File([blob], `${sample.id}.json`, { type: "application/json" }));
+      setSource(sample);
+      setSampleLoad(null);
+      sampleAbort.current = null;
+    } catch {
+      if (ctrl.signal.aborted) return;
+      setSampleLoad({ id: sample.id, status: "error" });
+      requestFocus(sample.id); // the card's button is now "Try again"
+    }
+  };
+
+  // The sample is fetched: land on the include options, the next step.
+  useEffect(() => {
+    if (source) includeRef.current?.querySelector<HTMLInputElement>("input:not(:disabled)")?.focus();
+  }, [source]);
+
+  const changeSample = () => {
+    if (!source) return;
+    const id = source.id;
+    setSource(null);
+    setFile(null);
+    resetSelection();
+    requestFocus(id);
   };
 
   const toggle = (key: IncludeKey, checked: boolean) => {
@@ -157,7 +259,10 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
     setSubmitting(true);
     setError(null);
     try {
-      const options = optionsPayload(include, format === "CSV");
+      const chosen = optionsPayload(include, format === "CSV");
+      // A sample is dated around its anchor; shifting it to today keeps the
+      // imported board from opening mostly overdue.
+      const options: ImportOptions | undefined = source ? { ...chosen, shift_dates_from: source.date_anchor } : chosen;
       // Two arguments for a default import, so callers (and their tests) see
       // exactly the pre-#119 call; the third only when something differs.
       if (options) await onImport(file, name.trim() || undefined, options);
@@ -208,34 +313,50 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
       onClose={onCancel}
       title="Import Board"
       subtitle="Upload a Visiban JSON or CSV export to create a new board. JSON preserves full card history — movements, activity log, and assignees."
-      maxWidth="max-w-md"
+      maxWidth="max-w-[640px]"
+      panelClassName="max-h-[calc(100dvh-2rem)]"
       noPadding
       labelId="import-board-title"
       headerBorder
     >
         {/* Body */}
-        <div className="px-6 py-5 space-y-4">
-          {/* Size limit notice */}
-          <div className="flex gap-2.5 bg-surface-hover/50 border border-line-strong rounded-lg px-3 py-2.5 text-xs text-fg-secondary">
-            <span className="shrink-0 text-fg-tertiary mt-px" aria-hidden="true">ℹ</span>
-            <span>Imports are limited to <strong className="text-fg">500 cards</strong>, <strong className="text-fg">50 columns</strong>, and <strong className="text-fg">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</span>
-          </div>
+        <div className="px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+          {!source && (
+            <SampleGallery
+              samples={samples}
+              listState={listState}
+              pending={sampleLoad}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              onSelect={(sample) => void selectSample(sample)}
+              onRetryList={loadList}
+              focusRequest={focusRequest}
+            />
+          )}
 
-          {onSwitchToTrello && !submitting && (
-            <p className="text-xs text-fg-tertiary">
-              Coming from Trello?{" "}
-              <button
-                type="button"
-                onClick={onSwitchToTrello}
-                className="text-info hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-              >
-                Import a Trello export
-              </button>
-            </p>
+          {/* Source: the sample that stands in for the file (#1452) */}
+          {source && (
+            <div>
+              <p className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">Source</p>
+              <div className="flex items-center justify-between gap-3 border border-line-strong rounded-lg px-3 py-2.5">
+                <span className="text-sm text-fg-secondary truncate">
+                  From sample: <span className="text-fg font-medium">{source.title}</span> &middot; ~{source.card_count} cards
+                </span>
+                <button
+                  type="button"
+                  onClick={changeSample}
+                  disabled={submitting}
+                  aria-label={`Change sample (currently ${source.title})`}
+                  className="shrink-0 border border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover text-xs font-medium px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40"
+                >
+                  Change
+                </button>
+              </div>
+            </div>
           )}
 
           {/* File input */}
-          <div>
+          {!source && <div>
             <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
               File
             </label>
@@ -265,7 +386,30 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
               onChange={handleFileChange}
               className="hidden"
             />
-          </div>
+          </div>}
+
+          {/* Upload notes sit under the dropzone they describe; a sample is far under the limits. */}
+          {!source && (
+            <>
+              <div className="flex gap-2.5 bg-surface-hover/50 border border-line-strong rounded-lg px-3 py-2.5 text-xs text-fg-secondary">
+                <span className="shrink-0 text-fg-tertiary mt-px" aria-hidden="true">ℹ</span>
+                <span>Imports are limited to <strong className="text-fg">500 cards</strong>, <strong className="text-fg">50 columns</strong>, and <strong className="text-fg">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</span>
+              </div>
+
+              {onSwitchToTrello && !submitting && (
+                <p className="text-xs text-fg-tertiary">
+                  Coming from Trello?{" "}
+                  <button
+                    type="button"
+                    onClick={onSwitchToTrello}
+                    className="text-info hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                  >
+                    Import a Trello export
+                  </button>
+                </p>
+              )}
+            </>
+          )}
 
           {/* Optional name override */}
           <div>
@@ -277,7 +421,8 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void handleSubmit(); // handleSubmit manages its own submitting/error state and never rejects
-                if (e.key === "Escape") onCancel();
+                // While a sample loads, Escape belongs to the stack handler (48): it cancels the load.
+                if (e.key === "Escape" && sampleLoad?.status !== "loading") onCancel();
               }}
               placeholder={'Leave blank for "Imported: <name from file>"'}
               className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
@@ -286,7 +431,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
 
           {/* What to import (#119) — only once a supported file is chosen. */}
           {showInclude && (
-            <fieldset className="min-w-0" aria-describedby="import-include-note">
+            <fieldset ref={includeRef} className="min-w-0" aria-describedby="import-include-note">
               <legend className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
                 Include
               </legend>
