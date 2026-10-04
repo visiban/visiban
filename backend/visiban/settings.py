@@ -62,17 +62,29 @@ def _apply_redis_password(name: str, url: str, password: str) -> str:
     """Percent-encode `password` into `url`'s netloc; return `url` unchanged when it is empty.
 
     Fed by REDIS_URL_PASSWORD, which the Helm chart sets from a Secret when
-    valkey.auth.enabled is true (#1211). The chart cannot encode the password
-    itself when it comes from valkey.auth.existingSecret — Helm never sees
-    that Secret's contents, and Kubernetes' $(VAR) env expansion does no
-    URL-encoding — so a "/" or "@" spliced in raw would split the URL (the
-    #1229 class `_validate_redis_url` exists to catch). Encoding it here is
-    correct for ANY password, and redis-py decodes it back on connect.
+    valkey.auth.enabled is true (#1211), or for an external instance when
+    externalRedis.existingSecret is set (#1361). The chart cannot encode the
+    password itself when it comes from an operator-managed Secret — Helm
+    never sees that Secret's contents, and Kubernetes' $(VAR) env expansion
+    does no URL-encoding — so a "/" or "@" spliced in raw would split the URL
+    (the #1229 class `_validate_redis_url` exists to catch). Encoding it here
+    is correct for ANY password, and redis-py decodes it back on connect.
 
-    A URL that already carries credentials is refused rather than overwritten
-    or merged: two password sources for one connection is a misconfiguration,
-    and silently picking one hides it. Like `_validate_redis_url`, nothing
-    here ever echoes the URL or the password.
+    A URL that already carries a password is refused only when
+    REDIS_URL_PASSWORD is ALSO set — never on its own. A credentialed URL
+    with no REDIS_URL_PASSWORD is how every Compose install and every
+    pre-#1361 external-Redis Helm install connects, so it must keep working
+    unchanged (the early return below). With both set there are two password
+    sources for one connection; silently picking one would hide a
+    misconfiguration (e.g. a rotated Secret that never takes effect because
+    a stale URL password wins), so it fails loudly instead.
+
+    A URL with a username but no password (``redis://visiban@host``, a
+    Redis 6+ ACL user, as on managed services) is NOT two sources: the
+    username stays in the URL and the password is added to it.
+
+    Like `_validate_redis_url`, nothing here ever echoes the URL or the
+    password.
     """
     if not password:
         return url
@@ -85,12 +97,16 @@ def _apply_redis_password(name: str, url: str, password: str) -> str:
         raise ImproperlyConfigured(
             f"REDIS_URL_PASSWORD is set, but {name} has no host to apply it to."
         )
-    if "@" in parsed.netloc:
+    # rpartition: the host part never contains "@", so the LAST one ends the
+    # userinfo even if a (mis-encoded) username contains another.
+    userinfo, at, hostport = parsed.netloc.rpartition("@")
+    if at and ":" in userinfo:
         raise ImproperlyConfigured(
-            f"REDIS_URL_PASSWORD is set, but {name} already carries credentials. "
+            f"REDIS_URL_PASSWORD is set, but {name} already carries a password. "
             "Set the password in one place only."
         )
-    netloc = f":{quote(password, safe='')}@{parsed.netloc}"
+    # userinfo is "" without an "@", else the URL's own (already encoded) username.
+    netloc = f"{userinfo}:{quote(password, safe='')}@{hostport}"
     return parsed._replace(netloc=netloc).geturl()
 
 
@@ -333,9 +349,11 @@ if _TESTING:
 else:
     _REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
     _REDIS_CACHE_URL = env("REDIS_CACHE_URL", default="redis://localhost:6379/1")
-    # Helm's bundled Valkey with valkey.auth.enabled (#1211): the password
-    # arrives separately and is percent-encoded into both URLs here. Unset
-    # everywhere else (Compose embeds REDIS_PASSWORD in the URLs itself).
+    # Helm's bundled Valkey with valkey.auth.enabled (#1211), or an external
+    # instance with externalRedis.existingSecret (#1361): the password arrives
+    # separately and is percent-encoded into both URLs here. Unset everywhere
+    # else (Compose, and Helm installs that keep the password in
+    # externalRedis.url, embed it in the URLs themselves).
     # os.environ, NOT env(): django-environ treats a value starting with "$"
     # as a reference to another variable and substitutes it (an unset one
     # becomes ""), so a password like "$Sekrit" was silently dropped and the

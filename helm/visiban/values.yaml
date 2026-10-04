@@ -398,6 +398,18 @@ valkey:
 externalRedis:
   url: ""
   cacheUrl: ""
+  # Password from a Secret you manage (#1361), instead of in the URLs above —
+  # which the chart renders as plain env values, visible in the Deployment spec
+  # and `helm get manifest`. Set existingSecret and leave the password OUT of
+  # url and cacheUrl (an ACL username may stay: redis://user@host:6379/0); the
+  # render fails if a URL carries a password too. The backend reads it as
+  # REDIS_URL_PASSWORD and percent-encodes it into both URLs, so any character
+  # is safe. Empty (the default) keeps the old behavior: a password embedded in
+  # the URLs still works unchanged. See "External database and Valkey" in
+  # docs/getting-started/kubernetes.md.
+  existingSecret: ""
+  # Key in existingSecret that holds the password.
+  existingSecretPasswordKey: redis-password
 
 # -- Network policies restrict pod-to-pod traffic to only the paths Visiban
 # needs (ingress→frontend, frontend→backend, backend→postgres/valkey).

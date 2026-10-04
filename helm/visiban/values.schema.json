@@ -358,7 +358,15 @@
       "additionalProperties": false,
       "properties": {
         "url": { "type": "string" },
-        "cacheUrl": { "type": "string" }
+        "cacheUrl": { "type": "string" },
+        "existingSecret": {
+          "description": "Secret holding the external instance's password (#1361), read as REDIS_URL_PASSWORD; leave the password out of url/cacheUrl. Only with valkey.enabled=false.",
+          "type": "string"
+        },
+        "existingSecretPasswordKey": {
+          "description": "Key in externalRedis.existingSecret that holds the password.",
+          "type": "string"
+        }
       }
     },
     "networkPolicy": {

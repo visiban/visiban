@@ -83,6 +83,7 @@ manage the Secret in that case and cannot inspect its contents.
 {{- end }}
 {{- end }}
 {{- include "visiban.valkeyGuards" . }}
+{{- include "visiban.externalRedisGuards" . }}
 {{- include "visiban.demoGuards" . }}
 {{- end }}
 
@@ -148,6 +149,49 @@ since #1211, and refused only when it has no source.
 {{- end -}}
 {{- if or (eq $repo "") (eq $tag "") (eq $tag "latest") -}}
 {{- fail (printf "\n\nVisiban: valkey.image must name a repository and a pinned tag (got %q:%q). An empty or \"latest\" tag drifts across Valkey majors on every pod reschedule (#1200).%s" $repo $tag $fix) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+External Valkey/Redis password guards (#1361). Each fires only when
+externalRedis.existingSecret is set, a key that did not exist before #1361, so
+no existing install can trip one. A URL that carries its own password with no
+existingSecret is never refused: that is how pre-#1361 installs connect.
+
+  - existingSecret with the bundled Valkey on: the key would be silently
+    ignored (the bundled Valkey takes its password from valkey.auth.*), so an
+    operator who believes the backend authenticates with it would be wrong.
+  - existingSecret AND a password in url/cacheUrl: two sources for one
+    connection. settings.py refuses this at startup too, but here it fails
+    before anything is applied, instead of as a crash-looping init container.
+    Detected as ":" in the userinfo, the same rule as _apply_redis_password, so
+    an ACL username alone (redis://visiban@host) is allowed. The message never
+    echoes the URL: it carries the password.
+*/}}
+{{- define "visiban.externalRedisGuards" -}}
+{{- $er := .Values.externalRedis | default dict -}}
+{{- $es := toString (dig "existingSecret" "" $er) -}}
+{{- if ne $es "" -}}
+{{- if .Values.valkey.enabled -}}
+{{- fail "\n\nVisiban: externalRedis.existingSecret is set, but valkey.enabled is true, so the backend uses the bundled Valkey and would ignore it.\nFor the bundled Valkey's password use valkey.auth.existingSecret instead; to use an external instance:\n    --set valkey.enabled=false\n" -}}
+{{- end -}}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$" $es) -}}
+{{- fail (printf "\n\nVisiban: externalRedis.existingSecret %q is not a valid Kubernetes Secret name (lowercase letters, digits, '-' and '.').\n" $es) -}}
+{{- end -}}
+{{- if not (regexMatch "^[-._a-zA-Z0-9]{1,253}$" (include "visiban.externalRedisAuthSecretKey" .)) -}}
+{{- fail (printf "\n\nVisiban: externalRedis.existingSecretPasswordKey %q is not a valid Secret key (letters, digits, '-', '_' and '.').\n" (include "visiban.externalRedisAuthSecretKey" .)) -}}
+{{- end -}}
+{{- range $k := list "url" "cacheUrl" -}}
+{{- $u := toString (dig $k "" $er) -}}
+{{- $rest := regexReplaceAll "^[A-Za-z][-+.A-Za-z0-9]*://" $u "" -}}
+{{- $authority := regexReplaceAll "[/?#].*$" $rest "" -}}
+{{- if contains "@" $authority -}}
+{{- $userinfo := regexReplaceAll "@[^@]*$" $authority "" -}}
+{{- if contains ":" $userinfo -}}
+{{- fail (printf "\n\nVisiban: externalRedis.existingSecret is set, but externalRedis.%s also carries a password. Set the password in one place only: remove it from the URL (a username may stay, e.g. redis://user@host:6379/0).\n" $k) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end }}

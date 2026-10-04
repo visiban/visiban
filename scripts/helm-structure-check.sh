@@ -1178,6 +1178,109 @@ check_valkey_auth() {
 }
 
 # ---------------------------------------------------------------------------
+# 11c. An external Valkey/Redis password stays in a Secret (#1361).
+# ---------------------------------------------------------------------------
+# The external-instance half of 11b. With valkey.enabled=false and
+# externalRedis.existingSecret set, every backend-image container that gets
+# REDIS_URL must also get REDIS_URL_PASSWORD from that Secret and key — one
+# client without it connects unauthenticated and fails only at runtime — and
+# the URLs keep their (ACL) username but carry no password.
+#
+# Backward compatibility is asserted too, because it is half the issue: with
+# existingSecret unset, a password embedded in externalRedis.url is rendered
+# exactly as given and NO REDIS_URL_PASSWORD appears (settings.py refuses a
+# URL password when REDIS_URL_PASSWORD is also set, so emitting it here would
+# break every pre-#1361 install). And the two render guards fail closed: a
+# URL password alongside existingSecret, and existingSecret with the bundled
+# Valkey on.
+check_external_redis_auth() {
+  section "11c. An external Valkey/Redis password stays in a Secret (#1361)"
+
+  local out err bad=0
+  out="$(mktemp)"; err="$(mktemp)"
+  local ext=(--set valkey.enabled=false
+             --set-string 'externalRedis.url=rediss://sc-user@sc-redis.example:6380/0'
+             --set-string 'externalRedis.cacheUrl=rediss://sc-user@sc-redis.example:6380/1')
+
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" "${ext[@]}" \
+        --set externalRedis.existingSecret=sc-redis --set externalRedis.existingSecretPasswordKey=sc-redis-key \
+        > "$out" 2>"$err"; then
+    fail "the externalRedis.existingSecret render failed: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  else
+    local rows cname pw_ref url_bad clients=0
+    rows="$(yq '
+      select(.kind == "Deployment" or .kind == "Job" or .kind == "CronJob")
+      | (.spec.template // .spec.jobTemplate.spec.template) as $t
+      | ($t.spec.containers + ($t.spec.initContainers // []))[]
+      | select((.env // []) | map(.name) | contains(["REDIS_URL"]))
+      | [ .name,
+          ((.env | map(select(.name == "REDIS_URL_PASSWORD"))[0].valueFrom.secretKeyRef // {} | (.name // "") + "/" + (.key // ""))),
+          ((.env | map(select(.name == "REDIS_URL" or .name == "REDIS_CACHE_URL") | (.value // "") | test("://[^/@]*:[^/@]*@")) | any))
+        ] | @tsv' "$out" | grep -vE '^(---)?$' || true)"
+    while IFS=$'\t' read -r cname pw_ref url_bad; do
+      [ -z "$cname" ] && continue
+      clients=$((clients + 1))
+      if [ "$pw_ref" != "sc-redis/sc-redis-key" ]; then
+        fail "container '$cname' gets REDIS_URL but reads REDIS_URL_PASSWORD from '$pw_ref', want secretKeyRef 'sc-redis/sc-redis-key' — it cannot authenticate to the external instance"
+        bad=1
+      fi
+      if [ "$url_bad" = "true" ]; then
+        fail "container '$cname' renders a password into REDIS_URL/REDIS_CACHE_URL as a plain env value"
+        bad=1
+      fi
+    done <<< "$rows"
+    if [ "$clients" -eq 0 ]; then
+      fail "no container in the externalRedis render gets REDIS_URL — the client query matched nothing"
+      bad=1
+    fi
+    if ! grep -qF 'rediss://sc-user@sc-redis.example:6380/0' "$out"; then
+      fail "externalRedis.url (with its ACL username) is not rendered as given"
+      bad=1
+    fi
+  fi
+
+  # Backward compatibility: a password kept in the URL, no existingSecret.
+  local legacy='redis://:sc-legacy-pw@sc-redis.example:6379/0'
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set valkey.enabled=false \
+        --set-string "externalRedis.url=$legacy" \
+        --set-string 'externalRedis.cacheUrl=redis://:sc-legacy-pw@sc-redis.example:6379/1' \
+        > "$out" 2>"$err"; then
+    fail "a pre-#1361 externalRedis.url carrying its own password no longer renders: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  else
+    if grep -q 'REDIS_URL_PASSWORD' "$out"; then
+      fail "without externalRedis.existingSecret the render still sets REDIS_URL_PASSWORD — settings.py would refuse the URL's own password and every pre-#1361 install would crash"
+      bad=1
+    fi
+    if ! grep -qF -- "$legacy" "$out"; then
+      fail "a pre-#1361 externalRedis.url is no longer rendered unchanged"
+      bad=1
+    fi
+  fi
+
+  # The render guards fail closed.
+  if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set valkey.enabled=false \
+       --set-string 'externalRedis.url=redis://sc-user:sc-url-pw@sc-redis.example:6379/0' \
+       --set-string 'externalRedis.cacheUrl=redis://sc-redis.example:6379/1' \
+       --set externalRedis.existingSecret=sc-redis > /dev/null 2>"$err"; then
+    fail "externalRedis.existingSecret with a password still in externalRedis.url renders — two password sources must fail the render"
+    bad=1
+  elif grep -qF 'sc-url-pw' "$err"; then
+    fail "the two-password-sources render error echoes the URL's password"
+    bad=1
+  fi
+  if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
+       --set externalRedis.existingSecret=sc-redis > /dev/null 2>&1; then
+    fail "externalRedis.existingSecret with the bundled Valkey on renders — the Secret would be silently ignored"
+    bad=1
+  fi
+
+  rm -f "$out" "$err"
+  [ "$bad" -eq 0 ] && pass "externalRedis: the password reaches every client only via existingSecret; URL-embedded passwords still render unchanged; both misconfigurations fail the render"
+}
+
+# ---------------------------------------------------------------------------
 # 12. Every pod hardens like the bundled Valkey (#1210, #1224).
 # ---------------------------------------------------------------------------
 # #1200 hardened the bundled Valkey StatefulSet (runAsNonRoot, a read-only root
@@ -1480,6 +1583,7 @@ run_all_checks() {
   check_demo_guards
   check_image_pins
   check_valkey_auth
+  check_external_redis_auth
   check_pod_hardening
   check_database_url_encoding
   check_allowed_hosts_not_widened
@@ -1561,6 +1665,15 @@ self_test() {
     "11b password sha256 in a pod annotation|templates/valkey.yaml|s/checksum\/config: {{ .Values.valkey.commonConfiguration | toString | sha256sum }}/checksum\/config: {{ printf \"%v\" .Values.valkey.auth.password | sha256sum }}/"
     # 11b: the server starts without --requirepass while clients present one.
     "11b valkey server started without requirepass|templates/valkey.yaml|s/ --requirepass \"\$REDISCLI_AUTH\"'/'/"
+    # 11c (#1361): one backend container loses the external password env.
+    "11c external REDIS_URL_PASSWORD not wired|templates/_backend-env.tpl|s/key: {{ include \"visiban.externalRedisAuthSecretKey\" \$ctx }}/key: wrong-key/"
+    # 11c: the external password is emitted even without existingSecret,
+    # which breaks every install that keeps its password in the URL.
+    "11c REDIS_URL_PASSWORD emitted without existingSecret|templates/_helpers.tpl|s/(dig \"existingSecret\" \"\" (.Values.externalRedis | default dict))/true/"
+    # 11c: the two-password-sources guard stops firing.
+    "11c URL-password-plus-existingSecret guard removed|templates/_validate.tpl|s/{{- if contains \":\" \$userinfo -}}/{{- if false -}}/"
+    # 11c: the bundled-Valkey-plus-existingSecret guard stops firing.
+    "11c existingSecret-with-bundled-Valkey guard removed|templates/_validate.tpl|/externalRedis.existingSecret is set, but valkey.enabled is true/d"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
     # 12 (#1210, #1224): every overridable hardened workload (backend,
     # postgresql, frontend) loses its capability drop through their shared

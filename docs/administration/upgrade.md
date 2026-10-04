@@ -646,6 +646,16 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     them on its own; run `kubectl rollout restart` on both, as described
     there.
 
+!!! note "Helm: external Valkey/Redis password from a Secret"
+    A password-protected external Valkey or Redis can now take its password
+    from a Secret (`externalRedis.existingSecret`, #1361) instead of from
+    `externalRedis.url`, where the chart rendered it as a plain environment
+    value. **Nothing changes unless you set it**: a password embedded in
+    `externalRedis.url` and `externalRedis.cacheUrl` keeps working exactly as
+    before, and the rendered manifests are unchanged. To move the password
+    into a Secret, see
+    [Password for an external Valkey or Redis](../getting-started/kubernetes.md#password-for-an-external-valkey-or-redis).
+
 !!! note "Helm: bundled Valkey is no longer the Bitnami subchart"
     Chart 0.5.0 runs the bundled Valkey as the chart's own StatefulSet on the
     official, versioned `valkey/valkey:8-alpine` image — the same major as
