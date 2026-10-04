@@ -622,7 +622,7 @@ def reject_nul_byte(value, *, field_label):
 
     ``name``, ``help_text``, and each ``choices`` entry all end up in a
     Postgres text or JSON column (``choices_json``), and Postgres refuses to
-    store a string containing ``\\x00`` outright — psycopg2 raises
+    store a string containing ``\\x00`` outright — psycopg raises
     ``django.db.utils.DataError`` rather than anything DRF's field validation
     catches first. Left unchecked, that surfaces as an unhandled 500 instead
     of the 400 every other invalid-input path on these serializers returns
