@@ -205,6 +205,143 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
     expect(screen.getByText('EMEA')).toBeInTheDocument()
   })
 
+  describe('field list popover layout (#1455)', () => {
+    // Owner and Tier pinned, Region and Segment not — interleaved by position
+    // so the regrouping is observable.
+    const defs = [
+      makeDef({ id: 1, name: 'Owner', show_on_row: true, position: 0 }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
+      makeDef({ id: 3, uid: 'sfuid0000003', name: 'Tier', show_on_row: true, position: 2 }),
+      makeDef({ id: 4, uid: 'sfuid0000004', name: 'Segment', show_on_row: false, position: 3 }),
+    ]
+    const lane = () => makeSwimlane({ custom_field_values: [
+      { field_definition: 1, value: 'J. Rivera' },
+      { field_definition: 2, value: 'EMEA' },
+      { field_definition: 3, value: 'Gold' },
+      { field_definition: 4, value: 'Retail' },
+    ] })
+    const openPopover = async () => {
+      const user = userEvent.setup()
+      renderRow(lane(), defs)
+      await user.click(screen.getByRole('button', { name: /Show all 4 field values/ }))
+      return screen.getByRole('dialog', { name: 'Field values for Acme Corp' })
+    }
+
+    it('lists the off-row fields first, then the pinned ones under "On row", each in position order', async () => {
+      const dialog = await openPopover()
+      const text = dialog.textContent ?? ''
+      const order = ['Region', 'Segment', 'On row', 'Owner', 'Tier'].map((s) => text.indexOf(s))
+      expect(order.every((i) => i >= 0)).toBe(true)
+      expect([...order].sort((a, b) => a - b)).toEqual(order)
+    })
+
+    it('omits the "On row" divider when no field is pinned', async () => {
+      const user = userEvent.setup()
+      renderRow(
+        makeSwimlane({ custom_field_values: [{ field_definition: 2, value: 'EMEA' }] }),
+        [makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false })]
+      )
+      await user.click(screen.getByRole('button', { name: /Show all 1 field values/ }))
+      expect(screen.queryByText('On row')).not.toBeInTheDocument()
+    })
+
+    it('stays open when its own list scrolls, but closes when the board scrolls', async () => {
+      const dialog = await openPopover()
+      fireEvent.scroll(screen.getByTestId('swimlane-fields-list'))
+      expect(dialog).toBeInTheDocument()
+      fireEvent.scroll(window)
+      expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
+    })
+
+    it('closes when the window resizes', async () => {
+      await openPopover()
+      fireEvent(window, new Event('resize'))
+      expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
+    })
+
+    it('focuses the panel when everything fits, and the scrollable list when it overflows', async () => {
+      const dialog = await openPopover()
+      expect(dialog).toHaveFocus()
+      fireEvent.mouseDown(document.body) // dismiss
+      const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(300)
+      const clientSpy = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(100)
+      try {
+        await userEvent.setup().click(screen.getByRole('button', { name: /Show all 4 field values/ }))
+        expect(screen.getByRole('region', { name: 'Field values' })).toHaveFocus()
+      } finally {
+        scrollSpy.mockRestore()
+        clientSpy.mockRestore()
+      }
+    })
+
+    it('moves focus only once the panel is placed and visible', async () => {
+      // jsdom focuses a visibility:hidden element; browsers ignore the call.
+      // So assert on the panel's visibility at the moment focus() runs.
+      const original = HTMLElement.prototype.focus
+      const visibilityAtFocus: string[] = []
+      const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, opts?: FocusOptions) {
+        const panel = this.closest('[role="dialog"]') as HTMLElement | null
+        if (panel) visibilityAtFocus.push(panel.style.visibility)
+        return original.call(this, opts)
+      })
+      try {
+        await openPopover()
+        expect(visibilityAtFocus).toEqual([''])
+      } finally {
+        focusSpy.mockRestore()
+      }
+    })
+
+    it('shows a bottom fade only while more of the list is below the fold', async () => {
+      await openPopover()
+      const list = screen.getByTestId('swimlane-fields-list')
+      // jsdom has no layout; give the list a 100px viewport over 300px of rows.
+      Object.defineProperty(list, 'clientHeight', { configurable: true, value: 100 })
+      Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 300 })
+      list.scrollTop = 0
+      fireEvent.scroll(list)
+      expect(screen.getByTestId('swimlane-fields-more-below')).toBeInTheDocument()
+      list.scrollTop = 200
+      fireEvent.scroll(list)
+      expect(screen.queryByTestId('swimlane-fields-more-below')).not.toBeInTheDocument()
+    })
+
+    it('opens below the trigger when it fits and above it when it does not', async () => {
+      const heightSpy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(200)
+      try {
+        const user = userEvent.setup()
+        renderRow(lane(), defs)
+        const trigger = screen.getByRole('button', { name: /Show all 4 field values/ })
+        const rect = (top: number) => ({ top, bottom: top + 20, left: 10, right: 40, width: 30, height: 20, x: 10, y: top, toJSON: () => ({}) }) as DOMRect
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(rect(100))
+        await user.click(trigger)
+        expect(screen.getByRole('dialog').style.top).toBe('124px')
+        // A second click re-reads the trigger rect and re-places the open panel.
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(rect(window.innerHeight - 40))
+        await user.click(trigger)
+        expect(screen.getByRole('dialog').style.top).toBe(`${window.innerHeight - 40 - 4 - 200}px`)
+      } finally {
+        heightSpy.mockRestore()
+      }
+    })
+
+    it('pins to the bottom edge when it fits neither below nor above the trigger', async () => {
+      // Taller than the space on either side of a trigger near the top.
+      const height = window.innerHeight - 60
+      const heightSpy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(height)
+      try {
+        const user = userEvent.setup()
+        renderRow(lane(), defs)
+        const trigger = screen.getByRole('button', { name: /Show all 4 field values/ })
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 120, left: 10, right: 40, width: 30, height: 20, x: 10, y: 100, toJSON: () => ({}) } as DOMRect)
+        await user.click(trigger)
+        expect(screen.getByRole('dialog').style.top).toBe(`${window.innerHeight - 8 - height}px`)
+      } finally {
+        heightSpy.mockRestore()
+      }
+    })
+  })
+
   it('renders nothing at all when the swimlane carries no values', () => {
     renderRow(makeSwimlane(), [makeDef()])
     expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
