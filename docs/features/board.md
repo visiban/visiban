@@ -531,7 +531,7 @@ Click **Import** on the dashboard to create a new board from a previously export
 
 **CSV import** creates cards with their current field values only. Movement history and activity log are not restored.
 
-The new board is named **Imported: <name>** — the board name stored in a JSON file, or the filename without its extension for a CSV file (for example, `Q3 plan.csv` becomes **Imported: Q3 plan**). If a board with that name already exists in the same place (the group you import into, or your boards outside any group), a number is added: **Imported: Q3 plan - 1**, then **- 2**, and so on. To choose the name yourself, type it in **Board name** when importing; it is used exactly as typed.
+The new board is named **Imported: <name>** — the board name stored in a JSON file, or the filename without its extension for a CSV file (for example, `Q3 plan.csv` becomes **Imported: Q3 plan**). If a board with that name already exists in the same place (the group you import into, or — without a group — any board you can access that is not in a group, as listed under **My Boards**), a number is added: **Imported: Q3 plan - 1**, then **- 2**, and so on. To choose the name yourself, type it in **Board name** when importing; it is used exactly as typed.
 
 !!! note "Changed in 1.2"
     Earlier releases named a JSON import after the file's board name unchanged, and every CSV import **Imported Board**.

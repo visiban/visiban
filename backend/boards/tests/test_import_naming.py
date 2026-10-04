@@ -13,7 +13,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board
+from boards.models import Board, BoardMembership
 from boards.views.import_export import _imported_board_name
 from groups.models import Group, GroupMembership
 
@@ -127,10 +127,32 @@ class ImportedBoardNameTests(TestCase):
         Board.objects.create(name="Imported: Roadmap", owner=self.user, group=group)
         self.assertEqual(self._post(_json_file()), "Imported: Roadmap")
 
-    def test_ungrouped_scope_ignores_other_users_boards(self):
+    def test_ungrouped_scope_ignores_inaccessible_boards(self):
         other = User.objects.create_user(username="other", password="pass")
         Board.objects.create(name="Imported: Roadmap", owner=other)
         self.assertEqual(self._post(_json_file()), "Imported: Roadmap")
+
+    def test_ungrouped_scope_counts_boards_shared_with_importer(self):
+        # "My Boards" on the Dashboard lists every accessible ungrouped board,
+        # including ones another user shared, so those collide visibly too.
+        other = User.objects.create_user(username="other", password="pass")
+        shared = Board.objects.create(name="Imported: Roadmap", owner=other)
+        BoardMembership.objects.create(board=shared, user=self.user, role=BoardMembership.Role.VIEWER)
+        self.assertEqual(self._post(_json_file()), "Imported: Roadmap - 1")
+
+    def test_csv_group_scope_counts_group_boards(self):
+        other = User.objects.create_user(username="other", password="pass")
+        group = self._group(owner=other)
+        Board.objects.create(name="Imported: plan", owner=other, group=group)
+        self.assertEqual(self._post(_csv_file("plan.csv"), group_id=group.pk), "Imported: plan - 1")
+
+    def test_csv_group_scope_ignores_ungrouped_boards(self):
+        Board.objects.create(name="Imported: plan", owner=self.user)
+        group = self._group()
+        self.assertEqual(self._post(_csv_file("plan.csv"), group_id=group.pk), "Imported: plan")
+
+    def test_csv_windows_path_components_are_dropped(self):
+        self.assertEqual(self._post(_csv_file("C:\\Users\\me\\plan.csv")), "Imported: plan")
 
 
 class ImportedBoardNameHelperTests(TestCase):
@@ -147,6 +169,9 @@ class ImportedBoardNameHelperTests(TestCase):
 
     def test_nul_bytes_and_whitespace_are_stripped(self):
         self.assertEqual(_imported_board_name("  Road\x00map  ", self.user, None), "Imported: Roadmap")
+
+    def test_control_characters_become_spaces(self):
+        self.assertEqual(_imported_board_name("Road\nmap\t\r", self.user, None), "Imported: Road map")
 
     def test_long_name_truncated_to_max_length(self):
         name = _imported_board_name("x" * 400, self.user, None)

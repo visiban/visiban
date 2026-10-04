@@ -594,7 +594,7 @@ Without a `name` field, both formats name the new board `Imported: <name>`:
 - **JSON** — `<name>` is the `name` field in the file.
 - **CSV** — a CSV carries no board name, so `<name>` is the uploaded filename without its extension (`Q3 plan.csv` → `Imported: Q3 plan`). An empty filename stem falls back to `Board`.
 
-If a board with that exact name already exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on; a gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise your own boards that are not in a group. The name is truncated to the 255-character limit so the prefix and number always fit. Board names are not unique, so two imports running at the same moment can occasionally receive the same name.
+If a board with that exact name already exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on; a gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise every board you can access (your own or shared with you) that is not in a group — the boards listed under **My Boards** on the dashboard. The name is truncated to the 255-character limit so the prefix and number always fit. Board names are not unique, so two imports running at the same moment can occasionally receive the same name.
 
 #### Import options
 
