@@ -2112,6 +2112,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="POST /api/v1/boards/{board_id}/cards/{id}/move/">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wip-weight-limit-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WIP / weight limit enforcement
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -4377,6 +4394,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 </table>
 <h3 id="post-apiv1boardsboard_idcards"><code>POST /api/v1/boards/{board_id}/cards/</code><a class="headerlink" href="#post-apiv1boardsboard_idcards" title="Permanent link">&para;</a></h3>
 <p>Create a card. Requires member or above. The target column must have <code>allow_card_creation</code> enabled.</p>
+<p>The target column's WIP and weight limits are enforced exactly as on a <a href="#wip-weight-limit-enforcement">move</a> into it: <code>409</code> with <code>wip_limit_exceeded</code>, <code>wip_hard_blocked</code>, or <code>weight_limit_exceeded</code>, and a board admin may pass the optional <code>?force=true</code> query parameter to override a soft limit (a non-admin gets <code>403</code>; hard mode has no override). <em>Changed in 1.3 (#1428): creates were not checked before.</em></p>
 <p><strong>Request</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
@@ -4637,6 +4655,9 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <p><strong>Ownership gate:</strong> Members may only edit cards they created. A member who did not create the card must have the <code>is_moderator</code> entitlement or be a board admin. Non-moderator members who did not create the card receive <code>403 Forbidden</code>.</p>
 </blockquote>
 <p><strong>Patchable fields:</strong> <code>title</code>, <code>description</code>, <code>priority</code>, <code>weight</code>, <code>due_date</code>, <code>assignee_id</code>, <code>label_ids</code>, <code>custom_field_values</code>, <code>external_ref</code></p>
+<blockquote>
+<p><strong>Weight limit:</strong> raising <code>weight</code> in a column with a <code>weight_limit</code>, on a board with <code>enforce_weight_limits</code> on, returns <code>409</code> with <code>weight_limit_exceeded</code> (same body as a <a href="#wip-weight-limit-enforcement">move</a>) when the column's total would exceed the limit; a board admin may override with the optional <code>?force=true</code> query parameter. Lowering <code>weight</code>, leaving it unchanged, or editing any other field is never blocked — even in a column that is already over its WIP or weight limit. The WIP limit is not checked here, since the column's card count does not change. <em>Changed in 1.3 (#1428).</em></p>
+</blockquote>
 <h4 id="custom-field-values-since-12">Custom field values (since 1.2)<a class="headerlink" href="#custom-field-values-since-12" title="Permanent link">&para;</a></h4>
 <p><code>custom_field_values</code> is read and written in the same shape, so the representation the API
 returned can be sent straight back:</p>
@@ -4758,6 +4779,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <p><strong>Ownership gate:</strong> Members may only unarchive cards they created. A member who did not create the card must have the <code>is_moderator</code> entitlement or be a board admin. Non-moderator members who did not create the card receive <code>403 Forbidden</code>.</p>
 </blockquote>
 <p><strong>Response</strong> — full card object with <code>archived_at: null</code>.</p>
+<p>Archived cards do not count toward a column's limits, so a restore is checked like a <a href="#wip-weight-limit-enforcement">move</a> into the card's column: <code>409</code> with <code>wip_limit_exceeded</code>, <code>wip_hard_blocked</code>, or <code>weight_limit_exceeded</code>, nothing restored. A board admin may override a soft limit with the optional <code>?force=true</code> query parameter; hard mode has no override. Restoring a card that is not archived is still a no-op <code>200</code>. <em>Changed in 1.3 (#1428).</em></p>
 <p>Broadcasts <code>card.unarchived</code> to all board WebSocket subscribers. Also broadcasts <code>card.updated</code> for every card this one was actively blocking, whose <a href="#relations-since-12"><code>blocker_count</code></a> changes when it leaves (or rejoins) the board.</p>
 <h3 id="get-apiv1boardsboard_idcardsarchived"><code>GET /api/v1/boards/{board_id}/cards/archived/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsarchived" title="Permanent link">&para;</a></h3>
 <p>List all archived cards for the board, newest archived first. Available to all board members including viewers.</p>
@@ -4910,8 +4932,8 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tbody>
 </table>
 <p>The <code>movement</code> key is <strong>absent</strong> from the response when only the position changed within the same cell (no column or swimlane change) — a <code>CardMovement</code> record is created, and the <code>movement</code> key included, only when the card actually changes column or swimlane.</p>
-<p><strong>WIP / weight limit enforcement</strong></p>
-<p>When <code>enforce_wip_limits</code> or <code>enforce_weight_limits</code> is enabled on the board and the target column is at or above its limit, the move returns <code>409 Conflict</code>:</p>
+<h4 id="wip-weight-limit-enforcement">WIP / weight limit enforcement<a class="headerlink" href="#wip-weight-limit-enforcement" title="Permanent link">&para;</a></h4>
+<p>When <code>enforce_wip_limits</code> or <code>enforce_weight_limits</code> is enabled on the board and the target column is at or above its limit, the move returns <code>409 Conflict</code>. Since 1.3 (#1428) the same check, bodies, and override rules also apply to card create, restore from archive, and a <code>PATCH</code> that raises <code>weight</code> (see those endpoints above). Board import is exempt by design, because it restores a board as exported. The bodies:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w"> </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"weight_limit_exceeded"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w"> </span><span class="nt">"current_weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"card_weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">}</span>

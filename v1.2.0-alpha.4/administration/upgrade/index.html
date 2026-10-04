@@ -3600,6 +3600,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#upgrading-to-13x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading to 1.3.x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#upgrading-to-12x" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4242,6 +4253,26 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 </div>
 <hr />
 <h2 id="release-specific-upgrade-notes">Release-specific upgrade notes<a class="headerlink" href="#release-specific-upgrade-notes" title="Permanent link">&para;</a></h2>
+<h3 id="upgrading-to-13x">Upgrading to 1.3.x<a class="headerlink" href="#upgrading-to-13x" title="Permanent link">&para;</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">WIP and weight limits now apply to card create, restore, and weight changes</p>
+<p>Before 1.3, a column's <code>wip_limit</code> and <code>weight_limit</code> were checked only when a card was
+<strong>moved</strong> into it. They are now also checked when a card is created in the column
+(<code>POST /api/v1/boards/{id}/cards/</code> and the MCP <code>create_card</code> tool), restored into it from
+the archive (<code>POST .../cards/{id}/unarchive/</code>), or has its <code>weight</code> raised with <code>PATCH</code>,
+and when a card is saved in the Django admin. A request that used to return <code>201</code> or <code>200</code>
+into a full column now returns <code>409</code> with the same body a blocked move returns
+(<code>wip_limit_exceeded</code>, <code>wip_hard_blocked</code>, or <code>weight_limit_exceeded</code>), and nothing is
+written. Board admins can override a soft limit with the optional <code>?force=true</code> query
+parameter, exactly as on a move; with <strong>Enforce WIP hard</strong> on, nobody can. Lowering a
+card's weight, and editing any other field, is never blocked.</p>
+<p><strong>Check any integration, script, or automation that creates or restores cards</strong> in columns
+with a WIP or weight limit: handle the <code>409</code>, raise the limit, turn enforcement off for
+that board, or (for a board admin's token) send <code>?force=true</code>. Board import (JSON, CSV,
+Trello) is not affected — it restores a board as exported, over its limits or not.
+Existing over-limit columns are left as they are. See
+<a href="../../architecture/field-enforcement/">Field Enforcement</a> (#1428).</p>
+</div>
 <h3 id="upgrading-to-12x">Upgrading to 1.2.x<a class="headerlink" href="#upgrading-to-12x" title="Permanent link">&para;</a></h3>
 <div class="admonition warning">
 <p class="admonition-title">GitLab registry <code>:latest</code> no longer tracks <code>main</code> builds</p>

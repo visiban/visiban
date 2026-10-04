@@ -3781,7 +3781,7 @@
 <p>Any field that is not binding on every write path says so in its OpenAPI description, starting with the token <code>Enforcement: binding</code>, <code>Enforcement: advisory</code>, or <code>Enforcement: scaffold</code>. The strings live in <code>backend/visiban/field_enforcement.py</code> and are attached at the serializer layer. <code>backend/boards/tests/test_field_enforcement_schema.py</code> checks that every string starts with its token and pins it to every schema component that carries the field.</p>
 <p>Out of scope: enterprise code, env-var settings, and plain values that do not read as rules, such as <code>name</code>, <code>color</code>, <code>position</code>, <code>card_density</code>, or <code>staleness_threshold_days</code>. <code>Board.show_wip_at_limit</code> is display-only, and its description already says so.</p>
 <h2 id="gaps-and-scaffolds">Gaps and scaffolds<a class="headerlink" href="#gaps-and-scaffolds" title="Permanent link">&para;</a></h2>
-<p>These fields are the reason this page exists. Each gap and scaffold has a tracking issue; the <code>Card.version</code> row is by design.</p>
+<p>These fields are the reason this page exists. Each gap and scaffold has a tracking issue; the <code>Card.version</code> row and the board-import exemption of the WIP and weight rows are by design.</p>
 <table>
 <thead>
 <tr>
@@ -3795,38 +3795,38 @@
 <tbody>
 <tr>
 <td><code>Column.wip_limit</code></td>
-<td>Binding (move only)</td>
+<td>Binding (import exempt by design)</td>
 <td>At most N active cards in the column</td>
-<td>Checked only by <code>POST /cards/{id}/move/</code> (<code>services/cards.py</code> <code>move_card</code>). Card create, restore from archive, board import, and saving a card in the Django admin (<code>CardAdmin.save_model</code>) do not check it, even with <code>enforce_wip_hard</code> on</td>
-<td>#1428</td>
+<td>Checked on every API card write path that adds an active card to the column: move, create (REST and MCP), restore from archive, and saving a card in the Django admin (<code>CardAdmin</code> form). One helper, <code>enforce_column_limits()</code> in <code>services/cards.py</code>, runs the check for all of them, so the <code>409</code> bodies and the override rules match. Board import (JSON, CSV, Trello) is <strong>not</strong> checked: it restores a board as exported, and the sample boards deliberately ship one over-WIP column each. The operator seed commands (<code>seed_demo_data</code> including <code>--demo-site</code>, <code>seed_template_boards</code>, <code>benchmark</code>) write cards directly and are exempt the same way; they are not an API path</td>
+<td>— (by design, #1428)</td>
 </tr>
 <tr>
 <td><code>Column.weight_limit</code></td>
-<td>Binding (move only)</td>
+<td>Binding (import exempt by design)</td>
 <td>Column weight stays within budget</td>
-<td>Same as <code>wip_limit</code> (including the Django admin), and raising a card's <code>weight</code> with PATCH is not checked either</td>
-<td>#1428</td>
+<td>Same paths as <code>wip_limit</code>, plus raising a card's <code>weight</code> with PATCH (or in the Django admin). Lowering a weight, or editing any other field, is never blocked, even in a column already over its limits. Board import is not checked</td>
+<td>— (by design, #1428)</td>
 </tr>
 <tr>
 <td><code>Board.enforce_wip_limits</code></td>
-<td>Binding (move only)</td>
+<td>Binding (import exempt by design)</td>
 <td>Over-limit placement returns 409</td>
-<td>Applies to moves only, for the same reason</td>
-<td>#1428</td>
+<td>Applies to move, create, restore, and the Django admin; board admins can override with <code>?force=true</code> (no override in the Django admin)</td>
+<td>— (by design, #1428)</td>
 </tr>
 <tr>
 <td><code>Board.enforce_wip_hard</code></td>
-<td>Binding (move only)</td>
+<td>Binding (import exempt by design)</td>
 <td>No role can exceed a WIP limit</td>
-<td>No role can <em>move</em> a card past it. Any member can still create a card in a full column or restore one into it</td>
-<td>#1428</td>
+<td>No role can move, create, or restore a card past it, and <code>?force=true</code> is ignored. Only board import can produce an over-limit column</td>
+<td>— (by design, #1428)</td>
 </tr>
 <tr>
 <td><code>Board.enforce_weight_limits</code></td>
-<td>Binding (move only)</td>
+<td>Binding (import exempt by design)</td>
 <td>Over-budget placement returns 409</td>
-<td>Applies to moves only</td>
-<td>#1428</td>
+<td>Applies to move, create, restore, weight increases via PATCH, and the Django admin</td>
+<td>— (by design, #1428)</td>
 </tr>
 <tr>
 <td><code>Board.allowed_priorities</code></td>
@@ -3886,7 +3886,7 @@
 <tr>
 <td><code>Column.allow_card_creation</code></td>
 <td><code>create_card()</code> in <code>boards/services/cards.py</code> (REST and MCP)</td>
-<td>Board import creates cards directly, which is expected because import builds the board. Creating a card in the Django admin (<code>CardAdmin.save_model</code>) skips the check, along with the rest of the card service (see <a href="../service-layer/">Service Layer</a>); tracked in #1428</td>
+<td>Board import creates cards directly, which is expected because import builds the board. Creating a card in the Django admin is checked by <code>CardAdminForm</code> (#1428)</td>
 </tr>
 <tr>
 <td><code>Column.is_done</code></td>
@@ -3983,7 +3983,7 @@
 <h2 id="keeping-this-page-true">Keeping this page true<a class="headerlink" href="#keeping-this-page-true" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>New constraint-shaped field:</strong> it ships binding on every path, or it ships with an <code>Enforcement:</code> description in <code>backend/visiban/field_enforcement.py</code>, a row on this page, and a tracking issue.</li>
-<li><strong>Closing a gap:</strong> update the description constant, this page, and the behavioral pin in <code>test_field_enforcement_schema.py</code> (<code>WipGapBehaviorTests</code> fails on purpose once the WIP gap is fixed) in the same MR.</li>
+<li><strong>Closing a gap:</strong> update the description constant, this page, and the behavioral pin in <code>test_field_enforcement_schema.py</code> in the same MR. <code>WipEnforcementBehaviorTests</code> is the example: it pinned the WIP gap until #1428 closed it, and was inverted in the same change.</li>
 <li><strong>Put descriptions on the serializer, not the model.</strong> A model <code>help_text</code> change generates an <code>AlterField</code> migration for what is a documentation-only change.</li>
 </ul>
 
