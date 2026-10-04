@@ -727,7 +727,8 @@ describe('SecurityTab — connected accounts', () => {
     ])
     const ue = await open()
     await ue.click(screen.getByTestId('disconnect-google'))
-    expect(screen.getByText('Disconnect?')).toBeInTheDocument()
+    expect(screen.getByText(/You will no longer be able to sign in with it/)).toBeInTheDocument()
+    expect(screen.getByText(/Disconnect/, { selector: 'span' })).toHaveTextContent('Disconnect Google?')
     expect(mockDisconnectAccount).not.toHaveBeenCalled()
     await ue.click(screen.getByTestId('confirm-disconnect-google'))
     expect(mockDisconnectAccount).toHaveBeenCalledWith('google')
@@ -740,8 +741,26 @@ describe('SecurityTab — connected accounts', () => {
     const ue = await open()
     await ue.click(screen.getByTestId('disconnect-google'))
     await ue.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByText('Disconnect?')).not.toBeInTheDocument()
+    expect(screen.queryByText(/You will no longer be able to sign in with it/)).not.toBeInTheDocument()
     expect(mockDisconnectAccount).not.toHaveBeenCalled()
+  })
+
+  it('Escape cancels the disconnect confirm and does not navigate (#1366)', async () => {
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    expect(screen.getByTestId('confirm-disconnect-google')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByTestId('confirm-disconnect-google')).not.toBeInTheDocument()
+    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(mockDisconnectAccount).not.toHaveBeenCalled()
+    // With no confirm open, Escape falls through to the page-level handler.
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(mockNavigate).toHaveBeenCalled()
+  })
+
+  it('names the provider on the Disconnect trigger (#1366)', async () => {
+    await open()
+    expect(screen.getByRole('button', { name: 'Disconnect Google' })).toBe(screen.getByTestId('disconnect-google'))
   })
 
   it('guards the only sign-in method with aria-disabled and a described hint', async () => {
@@ -752,7 +771,7 @@ describe('SecurityTab — connected accounts', () => {
     expect(button).toHaveAttribute('aria-describedby', 'disconnect-hint-google')
     expect(document.getElementById('disconnect-hint-google')).toHaveTextContent('This is your only sign-in method.')
     await ue.click(button)
-    expect(screen.queryByText('Disconnect?')).not.toBeInTheDocument()
+    expect(screen.queryByText(/You will no longer be able to sign in with it/)).not.toBeInTheDocument()
   })
 
   it('no guard when the user also has a password', async () => {

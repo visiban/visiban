@@ -425,13 +425,15 @@ function ConnectedAccountRow({
       <div className="shrink-0 flex flex-col items-end gap-1">
         {connected ? (
           confirming ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-fg-tertiary">Disconnect?</span>
+            <div className="flex flex-wrap items-center justify-end gap-2 max-w-sm">
+              <span className="text-xs text-fg-tertiary">
+                Disconnect <span className="text-fg font-medium">{label}</span>? You will no longer be able to sign in with it.
+              </span>
               <button
                 type="button"
                 onClick={onConfirmDisconnect}
                 disabled={disconnecting}
-                className="text-xs text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                className="text-xs text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 data-testid={`confirm-disconnect-${provider}`}
               >
                 {disconnecting ? "Disconnecting…" : "Confirm"}
@@ -439,7 +441,8 @@ function ConnectedAccountRow({
               <button
                 type="button"
                 onClick={onCancelDisconnect}
-                className="text-xs text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                disabled={disconnecting}
+                className="text-xs text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>
@@ -459,6 +462,7 @@ function ConnectedAccountRow({
                   ? "text-xs rounded text-fg-tertiary opacity-40 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                   : "text-xs rounded text-fg-tertiary hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
               }
+              aria-label={`Disconnect ${label}`}
               data-testid={`disconnect-${provider}`}
             >
               Disconnect
@@ -509,6 +513,13 @@ function ConnectedAccountsSection({
   const [rowStatus, setRowStatus] = useState<{ provider: string; error: string | null; fromUrl: boolean } | null>(
     connectResult ? { provider: connectResult.provider, error: connectResult.error, fromUrl: true } : null,
   );
+
+  // Escape cancels an open inline disconnect confirm before the page-level
+  // Escape-to-navigate handler (priority 0) can leave the page (#1366).
+  useEscapeStack(() => {
+    if (confirmingId !== null) { setConfirmingId(null); return; }
+    return false;
+  }, 40);
 
   useEffect(() => {
     let cancelled = false;
