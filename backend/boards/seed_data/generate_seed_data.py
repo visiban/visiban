@@ -18,6 +18,8 @@ import csv
 import json
 import os
 import random
+import re
+import zlib
 from datetime import datetime, timedelta, timezone
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -228,7 +230,7 @@ def _build(tpl: dict) -> dict:
 
     enriched = []
     for i, card in enumerate(all_cards):
-        enriched.append(_enrich(dict(card), col_names, i * 7 + hash(slug) % 100))
+        enriched.append(_enrich(dict(card), col_names, i * 7 + zlib.crc32(slug.encode()) % 100))
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -443,6 +445,7 @@ def _auto_cards(
     swimlanes: list[dict],
     labels: list[dict],
     theme: str,
+    stage_rules: list[tuple[str, list[tuple[str, float]]]] | None = None,
 ) -> list[dict]:
     """
     Generate cards from a list of unique titles, distributing them across
@@ -454,6 +457,11 @@ def _auto_cards(
         swimlanes: Template swimlane defs (list of dicts with 'name').
         labels: Template label defs (list of dicts with 'name').
         theme: Key into _GENERIC_CHECKLIST_ITEMS / _GENERIC_COMMENTS.
+        stage_rules: Optional ordered (regex, [(column, weight), ...]) pairs for
+            templates whose titles name a stage (e.g. "Churned: ..." or
+            "Phone screen -- ..."). The first regex that matches a title decides
+            its column, so a card never contradicts the column it sits in.
+            Titles with no match fall back to the weighted random pick.
 
     Returns:
         List of card dicts compatible with extra_cards / _c() format.
@@ -481,13 +489,27 @@ def _auto_cards(
     chk_items = _GENERIC_CHECKLIST_ITEMS.get(theme, _GENERIC_CHECKLIST_ITEMS["kanban"])
     cmt_pool = _GENERIC_COMMENTS.get(theme, _GENERIC_COMMENTS["kanban"])
 
+    compiled_rules = [(re.compile(rx, re.IGNORECASE), opts) for rx, opts in (stage_rules or [])]
+
     cards = []
     for idx, title in enumerate(titles):
         # Round-robin swimlane assignment
         lane = lane_names[idx % len(lane_names)]
 
-        # Weighted column selection
+        # Weighted column selection. Always drawn, even when a stage rule
+        # overrides it, so the shared RNG stream (and therefore every other
+        # template's output) is unchanged by adding rules to one template.
         col = _rng.choices(col_names, weights=col_weights, k=1)[0]
+
+        # Title-derived column. Uses its own RNG keyed on the title so a
+        # split rule (e.g. offer -> Offer Extended or Hired) is stable.
+        for rx, opts in compiled_rules:
+            if rx.search(title):
+                names = [n for n, _ in opts]
+                assert all(n in col_names for n in names), (title, names)
+                pick = random.Random(zlib.crc32(title.encode()))
+                col = pick.choices(names, weights=[w for _, w in opts], k=1)[0]
+                break
 
         pri = _choice(priorities)
 
@@ -1069,6 +1091,19 @@ _SUCCESS_TITLES = [
     "Jade Marketing Group -- Churned: consolidated to project management suite",
 ]
 
+# Titles read "<Account> -- <Stage>: ..." so the lead word names the lifecycle
+# stage. There is no At Risk column; at-risk accounts are still being adopted.
+_SUCCESS_STAGE_RULES = [
+    (r"-- (Kickoff|Onboarding|Partner enablement)", [("Onboarding", 1)]),
+    (r"-- Adoption", [("Adoption", 1)]),
+    (r"-- At-risk", [("Adoption", 1)]),
+    (r"-- Healthy", [("Healthy", 1)]),
+    (r"-- QBR", [("Healthy", 1)]),
+    (r"-- Expansion", [("Expansion", 1)]),
+    (r"-- Renewal", [("Renewal", 1)]),
+    (r"-- Churned", [("Churned", 1)]),
+]
+
 CUSTOMER_SUCCESS = {
     "slug": "customer_success",
     "name": "Template: Customer Success",
@@ -1076,7 +1111,7 @@ CUSTOMER_SUCCESS = {
     "columns": _SUCCESS_COLUMNS,
     "swimlanes": _SUCCESS_SWIMLANES,
     "labels": _SUCCESS_LABELS,
-    "extra_cards": _auto_cards(_SUCCESS_TITLES, _SUCCESS_COLUMNS, _SUCCESS_SWIMLANES, _SUCCESS_LABELS, "success"),
+    "extra_cards": _auto_cards(_SUCCESS_TITLES, _SUCCESS_COLUMNS, _SUCCESS_SWIMLANES, _SUCCESS_LABELS, "success", _SUCCESS_STAGE_RULES),
 }
 
 
@@ -1476,6 +1511,11 @@ def main():
         # Ensure every column has an explicit is_done field
         for col in data["columns"]:
             col.setdefault("is_done", False)
+
+        # Cards enter a board at its first column; allowing creation anywhere
+        # else shows extra "+ Add card" cells and invites mis-staged cards.
+        for i, col in enumerate(data["columns"]):
+            col["allow_card_creation"] = i == 0
 
         json_path = os.path.join(out_dir, f"{slug}.json")
         with open(json_path, "w", encoding="utf-8") as f:

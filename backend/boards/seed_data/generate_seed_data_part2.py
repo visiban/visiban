@@ -571,6 +571,19 @@ _HIRING_TITLES = [
     "Debrief — CFO search (Dana M.)",
 ]
 
+# Titles lead with the hiring activity ("Phone screen -- ..."), which names the
+# stage the candidate is in. Offers and debriefs also resolve to the terminal
+# columns for a share of cards so Hired/Rejected are not left empty.
+_HIRING_STAGE_RULES = [
+    (r"^(Resume review|Executive recruiter engagement)", [("Applied", 1)]),
+    (r"^Phone screen", [("Phone Screen", 1)]),
+    (r"^(Technical screen|Take-home|Design exercise|Case study|Writing sample|Portfolio review)", [("Technical Screen", 1)]),
+    (r"^Debrief", [("Interview", 3), ("Rejected", 1)]),
+    (r"^(Panel interview|First round|Role play|Scenario interview|Board presentation)", [("Interview", 1)]),
+    (r"^Reference check", [("Reference Check", 1)]),
+    (r"^Offer", [("Offer Extended", 2), ("Hired", 1)]),
+]
+
 HIRING_RECRUITING = {
     "slug": "hiring_recruiting",
     "name": "Template: Hiring & Recruiting",
@@ -578,7 +591,7 @@ HIRING_RECRUITING = {
     "columns": _HIRING_COLUMNS,
     "swimlanes": _HIRING_SWIMLANES,
     "labels": _HIRING_LABELS,
-    "extra_cards": _auto_cards(_HIRING_TITLES, _HIRING_COLUMNS, _HIRING_SWIMLANES, _HIRING_LABELS, "hiring"),
+    "extra_cards": _auto_cards(_HIRING_TITLES, _HIRING_COLUMNS, _HIRING_SWIMLANES, _HIRING_LABELS, "hiring", _HIRING_STAGE_RULES),
 }
 
 
