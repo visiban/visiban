@@ -4064,7 +4064,12 @@
 <tr>
 <td><code>backend.settings.allowedHosts</code></td>
 <td><code>visiban.example.com</code></td>
-<td>Django <code>ALLOWED_HOSTS</code> — <strong>must match <code>ingress.host</code></strong>. Comma-separated; rendered verbatim (the chart no longer appends <code>localhost</code>/<code>127.0.0.1</code>). Add <code>localhost</code> here yourself if you reach the app via <code>kubectl port-forward</code></td>
+<td>Django <code>ALLOWED_HOSTS</code> — <strong>must match <code>ingress.host</code></strong>. Comma-separated; rendered verbatim (the chart no longer appends <code>localhost</code>/<code>127.0.0.1</code>). A catch-all or loopback entry (<code>*</code>, <code>localhost</code>, <code>localhost.localdomain</code>, <code>ip6-localhost</code>, <code>127.0.0.1</code>, <code>0.0.0.0</code>, <code>[::ffff:127.0.0.1]</code>, the IPv6 loopback or unspecified address in any spelling (<code>[::1]</code>, <code>::1</code>, <code>[::]</code>, <code>[0:0:0:0:0:0:0:1]</code>), or a leading-dot form of any of these (<code>.localhost</code>)) fails the render unless <code>backend.settings.allowUnsafeHosts</code> is <code>true</code></td>
+</tr>
+<tr>
+<td><code>backend.settings.allowUnsafeHosts</code></td>
+<td><code>false</code></td>
+<td>Opt-in for the catch-all/loopback <code>allowedHosts</code> entries above, e.g. to browse through <code>kubectl port-forward</code>. Prefer sending the real <code>Host</code> header. Refused when <code>demo.enabled</code> is true</td>
 </tr>
 <tr>
 <td><code>backend.settings.corsAllowedOrigins</code></td>
@@ -4274,7 +4279,8 @@
 <p>The backend port is <strong>not</strong> exposed outside the cluster. For direct backend access during debugging:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/&lt;release-name&gt;-backend<span class="w"> </span><span class="m">8000</span>:8000
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># then: http://localhost:8000/api/schema/swagger-ui/</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="c1"># (needs `localhost` in backend.settings.allowedHosts, or send the real Host header)</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="c1"># (send the real Host header, or put `localhost` in backend.settings.allowedHosts</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1">#  together with backend.settings.allowUnsafeHosts=true)</span>
 </code></pre></div>
 <h3 id="upgrade">Upgrade<a class="headerlink" href="#upgrade" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values

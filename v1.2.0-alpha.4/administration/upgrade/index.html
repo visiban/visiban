@@ -3942,7 +3942,7 @@
 <td>1.1.x</td>
 <td>1.2.x (minor)</td>
 <td>Yes — zero-downtime</td>
-<td>Follow the <a href="#standard-upgrade-steps">standard upgrade steps</a>. See <a href="#upgrading-to-12x">Upgrading to 1.2.x</a> — most changes are additive and need no operator action, but read the <code>!!!</code> callouts (Compose <code>ALLOWED_HOSTS</code>/<code>DOMAIN</code>, Helm <code>ALLOWED_HOSTS</code> no longer includes <code>localhost</code>, Helm values-schema validation, PAT scopes and the MCP server).</td>
+<td>Follow the <a href="#standard-upgrade-steps">standard upgrade steps</a>. See <a href="#upgrading-to-12x">Upgrading to 1.2.x</a> — most changes are additive and need no operator action, but read the <code>!!!</code> callouts (Compose <code>ALLOWED_HOSTS</code>/<code>DOMAIN</code>, Helm <code>ALLOWED_HOSTS</code> no longer includes <code>localhost</code>, Helm catch-all/loopback <code>allowedHosts</code> entries fail the render (<strong>this one can stop <code>helm upgrade</code></strong>; opt out with <code>backend.settings.allowUnsafeHosts=true</code>), Helm values-schema validation, PAT scopes and the MCP server).</td>
 </tr>
 </tbody>
 </table>
@@ -4328,10 +4328,58 @@ exactly <code>backend.settings.allowedHosts</code>. The chart's own probes and <
 pods now send the first configured host as their <code>Host</code> header, so they need
 no change. One thing you may notice: reaching the app through
 <code>kubectl port-forward</code> and browsing <code>http://localhost:...</code> returns HTTP 400
-(<code>DisallowedHost</code>). To keep doing that, opt back in explicitly with a
-comma-separated list, for example
-<code>--set backend.settings.allowedHosts=boards.example.com\,localhost</code>, or send
-the real host: <code>curl -H "Host: boards.example.com" http://localhost:8080/</code>.</p>
+(<code>DisallowedHost</code>). Send the real host instead:
+<code>curl -H "Host: boards.example.com" http://localhost:8080/</code>. Adding
+<code>localhost</code> back to <code>allowedHosts</code> now also needs an explicit opt-in; see the
+next note.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Helm: catch-all and loopback <code>allowedHosts</code> entries fail the render</p>
+<p><code>helm install</code>, <code>helm upgrade</code> and <code>helm template</code> now <strong>fail</strong> when
+<code>backend.settings.allowedHosts</code> contains any of these entries, matched
+per whole comma-separated entry and case-insensitively: <code>*</code>, <code>localhost</code>,
+<code>localhost.localdomain</code>, <code>ip6-localhost</code>, <code>127.0.0.1</code>, <code>0.0.0.0</code>,
+<code>[::ffff:127.0.0.1]</code>, the IPv6 loopback or unspecified address in any
+spelling (<code>[::1]</code>, <code>::1</code>, <code>[::]</code>, <code>[0:0:0:0:0:0:0:1]</code>), and a leading-dot
+form of any of these (<code>.localhost</code>, <code>.127.0.0.1</code>), which Django treats as
+matching the bare name too. The check is a best-effort list of the names
+copy-pasted dev configs carry, not a proof that every entry is public:
+other 127.0.0.0/8 addresses and broad suffixes such as <code>.local</code> are not
+checked, so keep the list to your real hostnames. A hostname that merely
+contains one of them, such as <code>localhost.example.com</code>, is not affected (#1360).</p>
+<p><strong>Why.</strong> The frontend nginx accepts any <code>Host</code> and forwards it. With <code>*</code>,
+Django accepts every <code>Host</code>. With a loopback entry, any client that reaches
+the frontend Service directly (NodePort, LoadBalancer, or a host-less Ingress
+rule) can send <code>Host: localhost</code> and be accepted. Either way the
+password-reset links Visiban emails and its cache keys can be poisoned. That
+is the same exposure the previous note closed for the entries the chart used
+to append. This note covers the entries an operator adds themselves.</p>
+<p><strong>Who is affected.</strong> Only values files that list one of those entries. The
+chart's default and shipped values files do not. If yours does, <code>helm upgrade</code>
+stops before anything is applied, the running release keeps serving, and the
+error names the offending entries. Fix it one of two ways:</p>
+<ul>
+<li>Remove the entry and list only your real hostname(s). For
+  <code>kubectl port-forward</code>, send the real <code>Host</code> header instead of adding <code>localhost</code>.</li>
+<li>If you knowingly need the entry, for example to browse the app through
+  <code>kubectl port-forward</code>, or because a strict Ingress already rejects every
+  other host, opt in explicitly:
+  <code>--set backend.settings.allowUnsafeHosts=true</code>. The install and upgrade
+  notes then print a warning that names the entries on every run. The opt-in
+  is refused when <code>demo.enabled</code> is true, because a public demo has no reason
+  to need it.</li>
+</ul>
+<p><strong>Why a hard fail and not a warning.</strong> The chart already fails the render on
+an empty or placeholder <code>allowedHosts</code>, and this check follows that rule.
+A warning would appear only in Helm's install/upgrade notes, which GitOps
+tools (Argo CD, Flux) and <code>helm template | kubectl apply</code> never show, so
+those installs would keep the entry without anyone seeing a message. The
+explicit opt-in keeps the upgrade a one-flag change for anyone who needs the
+entry. Chart 1.1.0 already appended <code>localhost</code>/<code>127.0.0.1</code> itself, so a 1.1
+values file had no reason to list them. Adding them yourself was the
+documented port-forward workaround only in the 1.2.0 pre-releases
+(alpha.3 onward), so the fail mainly reaches pre-release installs and
+values files that use <code>*</code>.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Helm: give <code>externalDatabase.password</code> verbatim</p>

@@ -4085,7 +4085,7 @@ verify the same invariant.</p>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>deploy/visiban-backend<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import urllib.request as u; print(u.urlopen(u.Request('http://localhost:8000/api/health/readiness/', headers={'Host': '&lt;your host&gt;'})).read().decode())"</span>
 </code></pre></div>
-<p><code>&lt;your host&gt;</code> is the first entry of <code>backend.settings.allowedHosts</code> (for example <code>boards.example.com</code>). The chart no longer adds <code>localhost</code> to <code>ALLOWED_HOSTS</code>, so a request that says <code>Host: localhost</code> gets HTTP 400.</p>
+<p><code>&lt;your host&gt;</code> is the first entry of <code>backend.settings.allowedHosts</code> (for example <code>boards.example.com</code>). The chart no longer adds <code>localhost</code> to <code>ALLOWED_HOSTS</code>, so a request that says <code>Host: localhost</code> gets HTTP 400. Adding <code>localhost</code> (or <code>*</code>, <code>127.0.0.1</code> and the other catch-all or loopback entries) to <code>allowedHosts</code> fails the render unless you also set <code>backend.settings.allowUnsafeHosts=true</code>; see <a href="../../administration/upgrade/#upgrading-to-12x">Upgrade notes</a>.</p>
 <h2 id="tls-with-cert-manager">TLS with cert-manager<a class="headerlink" href="#tls-with-cert-manager" title="Permanent link">&para;</a></h2>
 <p>To enable automatic Let's Encrypt certificates:</p>
 <ol>
@@ -4572,7 +4572,8 @@ to check and trigger runs.</p>
 <p><strong>Port-forward (default)</strong> — for occasional access from a single workstation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
 <a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="c1"># Then open http://localhost:8000/admin/</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="c1"># (needs `localhost` in backend.settings.allowedHosts; the chart no longer adds it)</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="c1"># (send the real Host header; a `localhost` entry in backend.settings.allowedHosts</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="c1">#  also needs backend.settings.allowUnsafeHosts=true, the chart no longer adds it)</span>
 </code></pre></div>
 <p><strong>IP allowlist</strong> — for persistent access from a bastion or VPN host, set <code>backend.settings.adminAllowedIPs</code> to a comma-separated list of IPs and/or CIDR ranges:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>

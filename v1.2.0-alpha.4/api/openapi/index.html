@@ -3774,7 +3774,8 @@
 <p>To access the schema directly from a backend pod for debugging:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>svc/&lt;release-name&gt;-backend<span class="w"> </span><span class="m">8000</span>:8000
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># then: http://localhost:8000/api/schema/swagger-ui/</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># (needs `localhost` in backend.settings.allowedHosts, or send the real Host header)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># (send the real Host header, or put `localhost` in backend.settings.allowedHosts</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">#  together with backend.settings.allowUnsafeHosts=true)</span>
 </code></pre></div>
 <h2 id="ci-validation">CI validation<a class="headerlink" href="#ci-validation" title="Permanent link">&para;</a></h2>
 <p>The CI pipeline runs <code>manage.py spectacular --validate</code> on every change to the backend. This catches schema regressions (missing serializers, ambiguous response shapes) before merge.</p>
