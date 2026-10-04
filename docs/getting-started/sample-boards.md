@@ -72,15 +72,19 @@ the data in a spreadsheet or to try the CSV importer. CSV import creates cards w
 title, description, column, swimlane, priority, labels, due date and weight. It does not
 restore movement history, comments, checklists or custom field values.
 
-## What each sample includes
+## What each template includes
 
-- **Typed custom fields on cards.** Six to eleven per board. Together the samples use
+The eleven templates include everything below. `demo_board.json` is generated separately
+by `seed_demo_data` and carries cards, history, labels and checklists, but no custom
+fields or column limits.
+
+- **Typed custom fields on cards.** Six to eleven per template. Together the templates use
   every field type: number (with `$`, `%` or unit formatting), dropdown and multi-select
   (with choice colors), date, URL, checkbox and text. Sales Overlay uses all of them on
-  one board. Two per board are pinned to the card face.
+  one board. Two per template are pinned to the card face.
 - **Swimlane fields.** Owner, budget, tier and similar facts about each row, pinned to the
   row header. Some are admin-only and hidden from non-admin members.
-- **Column limits.** WIP and weight limits on the busy columns. On every board, one
+- **Column limits.** WIP and weight limits on the busy columns. On each template, one
   column is deliberately just over its limit so you can see how that is flagged.
 - **A full audit trail on every card.** Creation, assignments and reassignments, labels
   added and removed, priority escalations, due-date changes, renames, description edits,

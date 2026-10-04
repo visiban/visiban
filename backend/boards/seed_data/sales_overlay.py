@@ -12,8 +12,8 @@ account team (AD, AE, SA, services lead) and, on top of it, an overlay pod
 Where the demo board has six accounts and 22 cards, this one has ten
 accounts and every 1.2 board feature in use: every custom field type on
 cards, fifteen swimlane fields (the per-board maximum, eight of them
-pinned to the row header, one admin-only), WIP and weight limits (Commercial
-deliberately one card over, as on every sample), CRM links, archived wins and a full audit trail on every card.
+pinned to the row header, one admin-only), WIP and weight limits
+(Commercial deliberately one card over, as on every template), CRM links, archived wins and a full audit trail on every card.
 
 The org shape is deliberate and mirrors the demo's (#1412 fix): each AD owns
 several AEs and no AE sits under two ADs; an SA covers two or three AEs;
