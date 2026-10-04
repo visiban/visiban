@@ -1168,6 +1168,30 @@ describe('CardDetail', () => {
     })
   })
 
+  describe('comment delete prompt with a stale comment id (#1365)', () => {
+    it('a refetch that removes the comment does not let the stale prompt id swallow Escape', async () => {
+      const { getCardComments } = await import('../api/cards')
+      const mockGet = getCardComments as ReturnType<typeof vi.fn>
+      mockGet.mockResolvedValue([
+        { id: 1, author: fakeUser, body: 'Hello world', created_at: new Date().toISOString(), updated_at: '' },
+      ])
+      const onClose = vi.fn()
+      const user = userEvent.setup()
+      const props = { ...defaultProps(), currentUser: fakeUser, onClose }
+      const { rerender } = render(<CardDetail {...props} refreshSignal={0} />)
+      await user.click(await screen.findByRole('button', { name: 'Delete comment' }))
+      expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
+
+      // Another session deletes the comment; the refreshSignal refetch returns none.
+      mockGet.mockResolvedValue([])
+      rerender(<CardDetail {...props} refreshSignal={1} />)
+      await waitFor(() => expect(screen.queryByText('Delete this comment?')).not.toBeInTheDocument())
+
+      await user.keyboard('{Escape}')
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('Move to popover', () => {
     beforeEach(() => {
       localStorage.clear()
