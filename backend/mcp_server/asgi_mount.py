@@ -238,11 +238,22 @@ def build_mcp_asgi_app():
     carries no Authorization header, so authentication must not run first).
     """
     from .auth import BearerAuthMiddleware
-    from .server import build_mcp_server
+    from .server import _build_transport_security, build_mcp_server
 
     def _factory():
         mcp = build_mcp_server()
-        return mcp.streamable_http_app(), mcp.session_manager
+        # Stateless: every request is self-contained, with no server-side
+        # session to pin a client to one process. Visiban ships a Helm chart
+        # and runs multiple Daphne workers, so a stateful session created on
+        # one pod would 404 on the next request routed elsewhere unless the
+        # operator configured sticky sessions. Stateless avoids that entirely.
+        # (mcp 2.x moved these from the constructor to streamable_http_app().)
+        app = mcp.streamable_http_app(
+            stateless_http=True,
+            streamable_http_path="/",
+            transport_security=_build_transport_security(),
+        )
+        return app, mcp.session_manager
 
     return MCPCorsMiddleware(BearerAuthMiddleware(_LazySessionManagerApp(_factory)))
 

@@ -34,6 +34,7 @@ key — that split is the whole contract, and it is now part of the tools'
 public (agent-facing) shape, so do not change it without a major version bump.
 """
 from django.db.models import Count, Q
+from mcp.server.mcpserver.exceptions import ResourceError
 from rest_framework.exceptions import ValidationError as _DRFValidationError
 
 from accounts.models import User
@@ -755,17 +756,20 @@ def archive_card(*, card_id):
 # ---------------------------------------------------------------------------
 # Resources (#513) — board:// and card://
 #
-# Unlike a tool, a FastMCP *resource* read has no structured-error return
-# path at all in the pinned SDK (mcp==1.30.0): FunctionResource.read()
-# (mcp/server/fastmcp/resources/types.py) treats ANY non-exception return
+# Unlike a tool, an MCPServer (formerly FastMCP) *resource* read has no
+# structured-error return path at all in the pinned SDK (verified on mcp 1.30.0
+# and 2.3.0): the resource function's return value treats ANY non-exception return
 # value — including a `{"error": ...}` dict, the tools' own convention above
 # — as the resource's successful content and JSON-serializes it verbatim.
 # There is no isError/structuredContent channel for resources. The only way
-# to signal failure is to raise, which FastMCP.read_resource() (mcp/server/
-# fastmcp/server.py) flattens to `ResourceError(str(exc))` — a single string
+# to signal failure is to raise. On 1.x the SDK flattened any exception to
+# `ResourceError(str(exc))`; on 2.x only a raised `ResourceError` keeps its
+# message (any other exception becomes a generic "Error creating resource"
+# naming only the URI, which would drop the rate-limit retry hint), so both
+# functions raise `ResourceError` explicitly — a single string
 # message with no separate `code` field, surfaced as one JSON-RPC-level
 # error for the `resources/read` call. Both functions below therefore raise
-# ValueError on a resolution failure instead of returning `_error_payload()`.
+# ResourceError on a resolution failure instead of returning `_error_payload()`.
 #
 # That message is deliberately the SAME generic "not found" wording
 # `_resolve_board`/`_resolve_board_for_card` already produce for the
@@ -805,7 +809,7 @@ def board_snapshot(*, board_id):
     try:
         board, role = _resolve_board(user, board_id)
     except CardServiceError as exc:
-        raise ValueError(exc.body()["detail"]) from None
+        raise ResourceError(exc.body()["detail"]) from None
 
     return {
         "id": board.id,
@@ -844,7 +848,7 @@ def card_detail(*, card_id):
     try:
         _board, _role, card = _resolve_board_for_card(user, card_id)
     except CardServiceError as exc:
-        raise ValueError(exc.body()["detail"]) from None
+        raise ResourceError(exc.body()["detail"]) from None
 
     # Re-fetch with the shared prefetch chain so labels/checklist_items/
     # movements are already loaded rather than queried lazily one at a time.

@@ -1,4 +1,4 @@
-"""FastMCP server instance and tool registration.
+"""MCPServer (formerly FastMCP) server instance and tool registration.
 
 This module is the ONLY place that touches the ``mcp`` SDK's API. Tool logic
 lives in :mod:`mcp_server.tools` as plain functions returning plain dicts, so
@@ -35,7 +35,8 @@ import logging
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ResourceError
 from mcp.server.transport_security import TransportSecuritySettings
 
 from accounts.models import SCOPE_MCP_WRITE, get_maintenance_message, get_maintenance_state
@@ -52,7 +53,8 @@ SERVER_NAME = "visiban"
 # `{"error": {...}}` dict (see tools.py's module docstring, "Error contract")
 # is registered with this exact return annotation, never a narrower one like
 # `-> list[dict]`. Verified empirically against the pinned SDK version
-# (mcp==1.30.0): FastMCP builds a strict output schema from the annotation and
+# (mcp 1.30.0, re-verified on 2.3.0): MCPServer (formerly
+# FastMCP) builds a strict output schema from the annotation and
 # validates every return against it. `list[dict]` alone rejects a dict-shaped
 # error with a pydantic ValidationError, which the SDK then collapses to
 # `isError=True` with only the exception text as content — silently discarding
@@ -186,7 +188,7 @@ def _throttled(*, compute=False, as_resource=False):
     including this exact dict — as successful content and JSON-serializes it
     verbatim, which would make a throttled call look like a 200 whose payload
     happens to be an error. Raising is the only way a resource can surface a
-    real failure, so ``as_resource=True`` raises ``ValueError`` with the same
+    real failure, so ``as_resource=True`` raises ``ResourceError`` with the same
     detail text (including the retry hint) instead of returning it, mirroring
     ``board_snapshot``/``card_detail``'s own not-found convention.
 
@@ -206,7 +208,7 @@ def _throttled(*, compute=False, as_resource=False):
                 denial = await throttling.check_compute()
             if denial is not None:
                 if as_resource:
-                    raise ValueError(denial["error"]["detail"])
+                    raise ResourceError(denial["error"]["detail"])
                 return denial
             return await fn(*args, **kwargs)
         return wrapper
@@ -257,18 +259,8 @@ def _build_transport_security():
 
 
 def build_mcp_server():
-    """Construct the FastMCP server with every OSS tool registered."""
-    mcp = FastMCP(
-        SERVER_NAME,
-        # Stateless: every request is self-contained, with no server-side
-        # session to pin a client to one process. Visiban ships a Helm chart
-        # and runs multiple Daphne workers, so a stateful session created on
-        # one pod would 404 on the next request routed elsewhere unless the
-        # operator configured sticky sessions. Stateless avoids that entirely.
-        stateless_http=True,
-        streamable_http_path="/",
-        transport_security=_build_transport_security(),
-    )
+    """Construct the MCPServer (formerly FastMCP) server with every OSS tool registered."""
+    mcp = MCPServer(SERVER_NAME)
 
     @mcp.tool(
         name="list_boards",
@@ -336,9 +328,9 @@ def build_mcp_server():
     # than tools: an agent reads one of these to load a whole board or card's
     # context in a single round trip instead of chaining several list_*
     # calls. The parameter name must match the URI placeholder exactly
-    # (`board_id`/`card_id`) — FastMCP.resource() raises at registration time
+    # (`board_id`/`card_id`) — MCPServer.resource() raises at registration time
     # otherwise. See tools.py's "Resources (#513)" section for why these
-    # raise ValueError on failure instead of returning `{"error": ...}` like
+    # raise ResourceError on failure instead of returning `{"error": ...}` like
     # the tools above: resource reads have no structured-error channel here.
 
     @mcp.resource(

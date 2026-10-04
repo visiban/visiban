@@ -16,7 +16,7 @@ if not settings.MCP_SERVER_ENABLED:  # pragma: no cover - exercised only in the 
 import datetime
 import json
 
-import httpx
+import httpx2 as httpx
 from asgiref.sync import async_to_sync
 from django.core.cache import cache
 from django.db import connection
@@ -683,7 +683,7 @@ class McpCorsTests(McpTestCase):
     """
 
     def _options(self, origin, request_headers="authorization,content-type"):
-        import httpx
+        import httpx2 as httpx
         from asgiref.sync import async_to_sync
 
         async def _call():
@@ -703,7 +703,7 @@ class McpCorsTests(McpTestCase):
         return async_to_sync(_call)()
 
     def _post_raw(self, origin, token):
-        import httpx
+        import httpx2 as httpx
         from asgiref.sync import async_to_sync
 
         async def _call():
