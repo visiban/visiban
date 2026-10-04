@@ -1471,6 +1471,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Import">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#choosing-what-to-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing what to import
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -5018,6 +5035,49 @@ parked out of sight cannot wash out every tint on the board.</p>
 </ul>
 <p><strong>CSV import</strong> creates cards with their current field values only. Movement history and activity log are not restored.</p>
 <p>An optional board name override can be specified at import time.</p>
+<h4 id="choosing-what-to-import">Choosing what to import<a class="headerlink" href="#choosing-what-to-import" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Once you pick a file, an <strong>Include</strong> list lets you leave parts of the export out. Board structure — the name, columns, and swimlanes — is always imported.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>What it covers</th>
+<th>Formats</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cards</strong></td>
+<td>Cards. From JSON: with their assignees and due dates. From CSV: title, description, priority, weight, and due date — CSV carries no assignees.</td>
+<td>JSON, CSV</td>
+</tr>
+<tr>
+<td><strong>Comments</strong></td>
+<td>Card comments</td>
+<td>JSON</td>
+</tr>
+<tr>
+<td><strong>Checklist items</strong></td>
+<td>Card checklist items</td>
+<td>JSON</td>
+</tr>
+<tr>
+<td><strong>Card history</strong></td>
+<td>Movements, imported activity entries, and the "weight changed" entry recorded for a card with a non-default weight</td>
+<td>JSON</td>
+</tr>
+<tr>
+<td><strong>Labels</strong></td>
+<td>Label definitions and the labels on cards</td>
+<td>JSON, CSV</td>
+</tr>
+</tbody>
+</table>
+<p>Comments, checklist items, and card history belong to cards: unchecking <strong>Cards</strong> turns them off too, and checking it again restores your earlier choices. Leaving <strong>Labels</strong> out also leaves out the "label added" activity entries the import would otherwise record; the same applies to checklist items ("checklist item added"), and leaving <strong>Card history</strong> out also leaves out the "weight changed" entry recorded for a card with a non-default weight. A line under the list shows what will be imported, for example "Importing: structure, cards, labels".</p>
+<p>Everything is included by default ("Importing: everything"), so an import where you change nothing behaves exactly as before. When an import leaves out cards or anything on them, the new board opens with a short notice counting what was skipped, for example "Board imported. Skipped: 12 cards, 30 comments, 4 card labels." It counts cards, comments, checklist items, labels on cards, and history entries (movements and activity entries together); label definitions that no card uses are not counted, so leaving <strong>Labels</strong> out of a file whose labels are unused shows no notice. The notice closes by itself after a few seconds, and stays open while you hover over it or focus it.</p>
 <div class="admonition tip">
 <p class="admonition-title">Coming from Trello?</p>
 <p>Use <strong>Import a Trello export</strong> instead. See <a href="../trello-import/">Import from Trello</a>.</p>
