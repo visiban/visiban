@@ -139,7 +139,9 @@ failures are auto-retried, by the pipeline-wide `default:` block.)
 
    MR pipelines cannot take pipeline variables, so the trailer is the supported way. The job
    reads it from the MR head commit message, so it applies only while that commit is the
-   head; push any newer commit to return to a random seed. The value must be a plain
+   head (if the message holds several `Fuzz-Seed:` lines, the last one wins); push any newer commit to return to a random seed. Because the trailer is read from the MR
+   head commit, it relies on non-merged-results pipelines, which is the only kind this repo runs
+   today. The value must be a plain
    non-negative integer (anything else fails the job with an error rather than being
    ignored), and the job log states whether the seed came from the trailer, the
    `FUZZ_SEED` variable (which takes precedence), or was random. To replay a deep nightly
