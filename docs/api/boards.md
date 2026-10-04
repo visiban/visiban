@@ -1116,7 +1116,7 @@ Column objects returned by all endpoints include the following fields:
 >
 > WIP and weight limits are enforced when `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board. A card move, create, or restore into an over-limit column (or a PATCH raising a card's `weight` past the weight limit) returns `409 Conflict` — see the move endpoint in the [Cards API](cards.md) for the full error schema and the `?force=true` admin override. When enforcement is disabled, limits are displayed but not enforced.
 >
-> Since 1.3 (#1428) limits are checked on every card write path, not just the move endpoint. Board import is the exception by design: it restores a board as exported, so an imported column can hold more than its limit — see [Field Enforcement](../architecture/field-enforcement.md).
+> Since 1.3 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see [Field Enforcement](../architecture/field-enforcement.md).
 
 ### `PUT /api/v1/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
@@ -307,6 +307,14 @@ describe('CardDetail', () => {
       ),
     ).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument()
+    // The reason is set in saveWeight's catch, one microtask before runSave
+    // marks the autosave status "error". Let the rejected save fully settle
+    // (macrotask flush) before the negative assertion, so it can actually
+    // catch a second "Couldn't save" announcement.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(screen.queryByText('Saving…')).not.toBeInTheDocument()
     expect(screen.queryByText("Couldn't save")).not.toBeInTheDocument()
   })
 

@@ -291,7 +291,7 @@ def enforce_column_limits(
     """Raise if placing ``card`` in ``column`` breaks its WIP or weight limit.
 
     The one implementation of WIP, hard-WIP and weight enforcement, shared by
-    every write path that puts a card into a column or grows one inside it:
+    every API write path that puts a card into a column or grows one inside it:
     move, create, restore from archive, a weight increase via update, and the
     Django admin (#1428). Before #1428 only ``move_card`` ran it, so a member
     could exceed even a hard limit by creating or restoring a card.
