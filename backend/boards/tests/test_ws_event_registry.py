@@ -77,6 +77,7 @@ FROZEN_GROUP_ONLY_EVENTS = {
     "EVT_GROUP_LABEL_CREATED": "group.label.created",
     "EVT_GROUP_LABEL_UPDATED": "group.label.updated",
     "EVT_GROUP_LABEL_DELETED": "group.label.deleted",
+    "EVT_INVITE_LINK_CREATED": "invite_link.created",
     "EVT_INVITE_LINK_REVOKED": "invite_link.revoked",
 }
 

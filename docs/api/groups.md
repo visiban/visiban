@@ -122,7 +122,7 @@ List all boards in this group and all of its descendant subgroups that the reque
 
 ## Invite links
 
-A group can have up to 5 active invite links. Each link has an independent name, role, and expiry.
+A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (`delivery: "email"`, below) are capped separately — up to 50 pending per group — and never count against the 5.
 
 ### `GET /api/v1/groups/{id}/invite-links/`
 List all invite links for this group. Requires group admin.
@@ -154,7 +154,8 @@ Valid roles: `admin`, `member`, `collaborator`, `viewer`
   "created_by_username": "alice",
   "single_use": false,
   "used_at": null,
-  "status": "pending"
+  "status": "pending",
+  "delivery": "link"
 }
 ```
 
@@ -172,7 +173,8 @@ Valid roles: `admin`, `member`, `collaborator`, `viewer`
   "created_by_username": "alice",
   "single_use": false,
   "used_at": null,
-  "status": "pending"
+  "status": "pending",
+  "delivery": "link"
 }
 ```
 
@@ -191,12 +193,49 @@ Valid roles: `admin`, `member`, `collaborator`, `viewer`
 | `single_use` | boolean | `true` if the link is consumed by the first redemption (cannot be reused). |
 | `used_at` | string / null | ISO 8601 timestamp of consumption (single-use links only); `null` for multi-use or unredeemed. |
 | `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). |
+| `delivery` | string | `link` (created here and shared by an admin) or `email` (sent to one address by `POST …/invite-links/send/`). Added in 1.2. |
 
 !!! note
     `revoked` is a real status value, but `GET /invite-links/` cannot return a link in that state — a revoked link's `is_active` is cleared and it is filtered out of the list. Once a link is revoked, it is gone from this endpoint entirely rather than kept around showing `status: "revoked"`.
 
+### `POST /api/v1/groups/{id}/invite-links/send/`
+Email a single-use invite link to one address. Requires group admin. *(Added in 1.2.)*
+
+**Request**
+```json
+{ "email": "new.person@example.org", "role": "member", "expiry_days": 7 }
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Recipient address. Surrounding spaces are stripped; an address containing a line break is rejected. The address is used for this one send and is **never stored** or logged. |
+| `role` | string | No | Role granted on join: `admin` / `member` / `collaborator` / `viewer`. Default `member`. |
+| `expiry_days` | integer | No | Days until the link expires, `1`–`30`. Default `7`. There is no "never expires" option for emailed links. |
+
+The server mints a link with `single_use: true` and `delivery: "email"`, then sends a plain-text email naming the group, the join link (`<FRONTEND_URL>/join/<token>`) and the expiry date. There is no free-text message field.
+
+**Response** `202 Accepted`
+```json
+{ "detail": "Invite sent", "sent_to": "new.person@example.org" }
+```
+
+The response is identical whether the address belongs to an existing member, an existing user who is not a member, or nobody — and the email is always sent — so this endpoint cannot be used to discover which addresses have accounts. The raw token is **never** returned; it exists only in the email. Under `DEBUG` with console mail delivery the response also carries `"delivery": "console"`.
+
+**Errors**
+
+| Status | Body | Reason |
+|---|---|---|
+| `400 Bad Request` | field errors | Invalid or missing `email`, address with a line break, `expiry_days` outside `1`–`30` or `null` |
+| `400 Bad Request` | `{"code": "invite_email_cap_reached", ...}` | The group already has 50 pending emailed links (active, unexpired, unused) |
+| `403 Forbidden` | — | Caller is not a group admin |
+| `403 Forbidden` | `{"code": "invite_email_disabled", ...}` | `INVITE_EMAIL_ENABLED=false`, or the instance runs in demo mode |
+| `429 Too Many Requests` | — | Rate limit: 10 sends/hour per user, 30/day per group (shared by all its admins), 200/day instance-wide for group invites. Requests refused for another reason, and sends the mail server rejected, don't count |
+| `502 Bad Gateway` | `{"code": "<error code>", ...}` | The mail server refused or could not be reached. The just-created link is revoked automatically. `code` is one of the sanitized SMTP codes (`auth_failed`, `connection_refused`, `dns_failure`, `tls_failure`, `timeout`, `config_unusable`, `unknown`) — never the raw server reply |
+
+A successful send emits `invite_link.created` (payload `{ "id" }` only) on the group's WebSocket channel; a failed send emits `invite_link.revoked` for the auto-revoked link. See [WebSockets](websockets.md).
+
 ### `DELETE /api/v1/groups/{id}/invite-links/{link_id}/`
-Revoke a single invite link. Requires group admin.
+Revoke a single invite link. Requires group admin. Works the same for shareable and emailed links.
 
 **Errors**
 

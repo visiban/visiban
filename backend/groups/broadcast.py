@@ -33,6 +33,7 @@ EVT_GROUP_LABEL_CREATED = "group.label.created"
 EVT_GROUP_LABEL_UPDATED = "group.label.updated"
 EVT_GROUP_LABEL_DELETED = "group.label.deleted"
 
+EVT_INVITE_LINK_CREATED = "invite_link.created"
 EVT_INVITE_LINK_REVOKED = "invite_link.revoked"
 
 GROUP_CHANNEL_EVENTS: frozenset[str] = frozenset({
@@ -47,6 +48,7 @@ GROUP_CHANNEL_EVENTS: frozenset[str] = frozenset({
     EVT_GROUP_LABEL_CREATED,
     EVT_GROUP_LABEL_UPDATED,
     EVT_GROUP_LABEL_DELETED,
+    EVT_INVITE_LINK_CREATED,
     EVT_INVITE_LINK_REVOKED,
     EVT_MEMBER_ADDED,
     EVT_MEMBER_UPDATED,
@@ -56,7 +58,15 @@ GROUP_CHANNEL_EVENTS: frozenset[str] = frozenset({
 
 DEPRECATED_GROUP_EVENTS: dict[str, str] = {}
 
-INTENTIONALLY_UNHANDLED_GROUP_EVENTS: dict[str, str] = {}
+INTENTIONALLY_UNHANDLED_GROUP_EVENTS: dict[str, str] = {
+    # Temporary: #731 ships as two MRs, backend first. The #731 frontend MR adds
+    # the GroupDetail handler (refetch the invite panel, as invite_link.revoked
+    # does) and must delete this entry in the same change.
+    EVT_INVITE_LINK_CREATED: (
+        "Emitted by the emailed-invite endpoint (#731). The SPA handler lands with "
+        "the #731 frontend MR; until then clients see the new link on next load."
+    ),
+}
 
 
 def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None:

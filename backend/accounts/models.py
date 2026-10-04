@@ -48,6 +48,10 @@ MCP_SCOPES = frozenset({SCOPE_MCP_READ, SCOPE_MCP_WRITE})
 PAT_DEFAULT_SCOPES = [SCOPE_READ, SCOPE_WRITE]
 
 INVITE_LINK_PREFIX = "vbnl_"
+# Emailed links (#731) are capped separately from MAX_ACTIVE_INVITE_LINKS so a
+# batch of emailed invites cannot crowd out the admin's shareable links. Higher
+# because each one is single-use and addressed to one person.
+MAX_PENDING_EMAILED_INVITE_LINKS = 200
 MAX_ACTIVE_INVITE_LINKS = 50  # Soft cap per instance — prevents token flood from a compromised admin
 
 # Shared by models.py and adapter.py — defined here to avoid circular imports.
@@ -651,6 +655,10 @@ class InviteLink(models.Model):
 
     VALID_TTL_DAYS = (1, 7, 30)  # Choices offered in the UI; None = never expires.
 
+    class Delivery(models.TextChoices):
+        LINK = "link"
+        EMAIL = "email"
+
     token_hash = models.CharField(max_length=64, unique=True, db_index=True)
     # First 8 chars of the raw token ("vbnl_XXX") — safe for display.
     prefix = models.CharField(max_length=8)
@@ -670,13 +678,24 @@ class InviteLink(models.Model):
     # this gives operators visibility into how widely it was used before
     # they revoked it.
     use_count = models.PositiveIntegerField(default=0)
+    # How the link reached its recipient (#731): "link" links are copied by an
+    # admin and count against MAX_ACTIVE_INVITE_LINKS; "email" links are sent
+    # straight to one address by the send endpoint and are capped separately
+    # (MAX_PENDING_EMAILED_INVITE_LINKS). The address itself is never stored.
+    delivery = models.CharField(
+        max_length=8, choices=Delivery.choices, default=Delivery.LINK,
+        # db_default keeps the column default in the database after AddField
+        # (Django drops a plain default), so a pre-#731 pod still running
+        # during a rolling deploy can INSERT without hitting NOT NULL.
+        db_default=Delivery.LINK,
+    )
 
     class Meta:
         db_table = "invite_links"
         ordering = ["-created_at"]
 
     @classmethod
-    def generate(cls, created_by, expires_at=None, single_use=False):
+    def generate(cls, created_by, expires_at=None, single_use=False, delivery=None):
         """Create a new link, persist the hash, return (instance, raw_token).
 
         The raw_token is the only time the plain-text value is available — the
@@ -691,6 +710,7 @@ class InviteLink(models.Model):
             prefix=prefix,
             expires_at=expires_at,
             single_use=single_use,
+            delivery=delivery or cls.Delivery.LINK,
         )
         return instance, raw
 

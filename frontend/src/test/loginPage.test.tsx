@@ -476,6 +476,7 @@ describe('LoginPage', () => {
     mockGetSiteConfig.mockResolvedValue({
       registration_open: true,
       demo_mode: true,
+      invite_email_available: false,
       demo_login: { username: 'visitor', password: 'pw-from-config' },
       // A scheduled reset always carries a real cron string alongside next_reset_at
       // (#1180) — this fixture used to omit it and rely on cadenceText's now-removed
@@ -502,6 +503,7 @@ describe('LoginPage', () => {
     mockGetSiteConfig.mockResolvedValue({
       registration_open: false,
       demo_mode: true,
+      invite_email_available: false,
       demo_login: { username: 'visitor', password: 'pw' },
       demo_reset_schedule: '0 0 * * *',
       demo_next_reset_at: '2026-09-28T00:00:00Z',
@@ -517,6 +519,7 @@ describe('LoginPage', () => {
     mockGetSiteConfig.mockResolvedValue({
       registration_open: false,
       demo_mode: true,
+      invite_email_available: false,
       demo_login: { username: 'visitor', password: 'pw' },
       demo_reset_schedule: null,
       demo_next_reset_at: null,
@@ -539,6 +542,7 @@ describe('LoginPage', () => {
     mockGetSiteConfig.mockResolvedValue({
       registration_open: false,
       demo_mode: true,
+      invite_email_available: false,
       demo_login: { username: 'visitor', password: 'pw-from-config' },
       demo_next_reset_at: '2026-09-27T13:00:00Z',
     })
@@ -561,6 +565,7 @@ describe('LoginPage', () => {
     mockGetSiteConfig.mockResolvedValue({
       registration_open: false,
       demo_mode: true,
+      invite_email_available: false,
       demo_login: { username: 'visitor', password: 'pw' },
       demo_next_reset_at: null,
     })
@@ -583,7 +588,7 @@ describe('LoginPage', () => {
   })
 
   it('does not show the demo banner when demo mode is off', async () => {
-    mockGetSiteConfig.mockResolvedValue({ registration_open: true, demo_mode: false, demo_login: null })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: true, demo_mode: false, demo_login: null, invite_email_available: true })
     renderLoginPage()
     await screen.findByRole('button', { name: /sign in/i })
     await waitFor(() => expect(mockGetSiteConfig).toHaveBeenCalled())
@@ -591,7 +596,7 @@ describe('LoginPage', () => {
   })
 
   it('does not show the demo banner when demo mode has no credentials', async () => {
-    mockGetSiteConfig.mockResolvedValue({ registration_open: true, demo_mode: true, demo_login: null })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: true, demo_mode: true, demo_login: null, invite_email_available: false })
     renderLoginPage()
     await screen.findByRole('button', { name: /sign in/i })
     await waitFor(() => expect(mockGetSiteConfig).toHaveBeenCalled())

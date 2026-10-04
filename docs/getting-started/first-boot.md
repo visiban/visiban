@@ -168,7 +168,7 @@ The raw token value is shown only once at creation — it is not stored in plain
 | Revoked | Manually invalidated by a site admin |
 
 !!! note
-    A maximum of 50 active (pending, non-expired) invite links can exist at one time per instance. Revoke unused links to stay below this limit.
+    A maximum of 50 active (pending, non-expired) shareable invite links can exist at one time per instance. Revoke unused links to stay below this limit. Invite links sent by email (new in 1.2, via `POST /api/v1/admin/invite-links/send/`) don't count toward it — they have a separate limit of 200 pending.
 
 ### Creating accounts manually (Closed mode)
 

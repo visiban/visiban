@@ -242,6 +242,10 @@ class GroupInviteLink(models.Model):
 
     GROUP_INVITE_PREFIX = "vbng_"
 
+    class Delivery(models.TextChoices):
+        LINK = "link"
+        EMAIL = "email"
+
     class Role(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
@@ -265,6 +269,17 @@ class GroupInviteLink(models.Model):
     # and cannot be reused. Matches the behaviour of the site-level InviteLink.
     single_use = models.BooleanField(default=False)
     used_at = models.DateTimeField(null=True, blank=True)
+    # How the link reached its recipient (#731). "link" links are copied and
+    # shared by an admin and count against the 5-active cap; "email" links are
+    # minted by the send-invite endpoint, delivered straight to one address, and
+    # have their own cap. The recipient address itself is never stored.
+    delivery = models.CharField(
+        max_length=8, choices=Delivery.choices, default=Delivery.LINK,
+        # db_default keeps the column default in the database after AddField
+        # (Django drops a plain default), so a pre-#731 pod still running
+        # during a rolling deploy can INSERT without hitting NOT NULL.
+        db_default=Delivery.LINK,
+    )
 
     class Meta:
         db_table = "group_invite_links"
@@ -306,7 +321,10 @@ class GroupInviteLink(models.Model):
         return hashlib.sha256(raw_token.encode()).hexdigest()
 
     @classmethod
-    def generate(cls, group, created_by, name="", role=None, expires_at=None, single_use=False):
+    def generate(
+        cls, group, created_by, name="", role=None, expires_at=None, single_use=False,
+        delivery=None,
+    ):
         """Create a new invite link with a hashed token. Returns (instance, raw_token)."""
         raw = cls.GROUP_INVITE_PREFIX + secrets.token_hex(20)
         instance = cls.objects.create(
@@ -319,6 +337,7 @@ class GroupInviteLink(models.Model):
             expires_at=expires_at,
             is_active=True,
             single_use=single_use,
+            delivery=delivery or cls.Delivery.LINK,
         )
         return instance, raw
 

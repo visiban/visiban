@@ -3,6 +3,7 @@ from rest_framework import serializers
 from accounts.serializers import BoardUserSerializer
 from visiban import field_enforcement
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
+from visiban.invite_email import InviteEmailField
 from .models import Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite, _GROUP_TRAVERSAL_MAX_DEPTH
 
 # Schema for the root-first ancestor breadcrumb returned by
@@ -381,9 +382,9 @@ class GroupInviteLinkSerializer(serializers.ModelSerializer):
         model = GroupInviteLink
         fields = [
             "id", "prefix", "is_active", "created_at", "created_by_username", "name", "role",
-            "expires_at", "is_expired", "single_use", "used_at", "status",
+            "expires_at", "is_expired", "single_use", "used_at", "status", "delivery",
         ]
-        read_only_fields = ["id", "prefix", "is_active", "created_at", "created_by_username", "is_expired", "single_use", "used_at", "status"]
+        read_only_fields = ["id", "prefix", "is_active", "created_at", "created_by_username", "is_expired", "single_use", "used_at", "status", "delivery"]
 
     def get_created_by_username(self, obj) -> str | None:
         # created_by_id reads the loaded FK column (no query); created_by is
@@ -402,3 +403,30 @@ class GroupInviteLinkCreateSerializer(serializers.Serializer):
     )
     expiry_days = serializers.IntegerField(required=False, allow_null=True, default=None, min_value=1)
     single_use = serializers.BooleanField(required=False, default=False)
+
+
+# Upper bound on an emailed group invite's lifetime (#731). Emailed links never
+# get a "never expires" option: each one is a live credential sitting in a
+# third party's inbox, so it must age out on its own.
+GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS = 30
+
+
+class GroupInviteLinkEmailSerializer(serializers.Serializer):
+    """Validates input for sending a group invite link by email (#731).
+
+    There is deliberately no free-text message field: the instance's trusted
+    sender address must not carry attacker-chosen prose to arbitrary inboxes.
+    """
+
+    email = InviteEmailField()
+    role = serializers.ChoiceField(
+        choices=GroupInviteLink.Role.choices,
+        required=False,
+        default=GroupInviteLink.Role.MEMBER,
+    )
+    expiry_days = serializers.IntegerField(
+        required=False,
+        default=7,
+        min_value=1,
+        max_value=GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS,
+    )

@@ -18,11 +18,12 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from visiban.invite_email import InviteEmailBadRequestSerializer, InviteEmailErrorSerializer
 from . import broadcast as _group_broadcast
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
 from .serializers import (
     GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer,
-    GroupInviteLinkSerializer, GroupInviteLinkCreateSerializer,
+    GroupInviteLinkSerializer, GroupInviteLinkCreateSerializer, GroupInviteLinkEmailSerializer,
     _ALLOWED_PRIORITY_SLUGS, _MAX_ALLOWED_PRIORITIES_LENGTH,
 )
 
@@ -66,6 +67,11 @@ def _sanitize_group_allowed_priorities(value):
             seen.add(p)
             deduped.append(p)
     return deduped
+
+
+# Pending emailed invite links per group (#731) — separate from the 5 shareable
+# links, because each one is single-use and addressed to one person.
+GROUP_MAX_PENDING_EMAILED_INVITES = 50
 
 
 def _require_group_admin(user, group):
@@ -874,8 +880,14 @@ class GroupViewSet(viewsets.ModelViewSet):
             return Response(GroupInviteLinkSerializer(links, many=True).data)
 
         # POST — create a new invite link (max 5 active per group)
-        # Active count excludes consumed single-use links — they are dead weight.
-        active_count = GroupInviteLink.objects.filter(group=group, is_active=True, used_at__isnull=True).count()
+        # Active count excludes consumed single-use links — they are dead weight —
+        # and emailed links (#731), which have their own cap in
+        # invite_link_send so a round of emailed invites never blocks the admin
+        # from minting a shareable link.
+        active_count = GroupInviteLink.objects.filter(
+            group=group, is_active=True, used_at__isnull=True,
+            delivery=GroupInviteLink.Delivery.LINK,
+        ).count()
         if active_count >= 5:
             return Response(
                 {"detail": "Maximum of 5 active invite links per group."},
@@ -903,7 +915,137 @@ class GroupViewSet(viewsets.ModelViewSet):
         data["token"] = raw_token
         return Response(data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["delete"], url_path=r"invite-links/(?P<link_id>[^/.]+)")
+    @extend_schema(
+        summary="Email a single-use invite link to one address",
+        request=GroupInviteLinkEmailSerializer,
+        responses={
+            202: inline_serializer(
+                name="GroupInviteEmailSent",
+                fields={
+                    "detail": drf_serializers.CharField(),
+                    "sent_to": drf_serializers.CharField(),
+                    "delivery": drf_serializers.CharField(required=False),
+                },
+            ),
+            400: InviteEmailBadRequestSerializer,
+            403: InviteEmailErrorSerializer,
+            502: InviteEmailErrorSerializer,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="invite-links/send")
+    def invite_link_send(self, request, pk=None):
+        """Mint a single-use link and email it to one address (#731).
+
+        Enumeration: the response is identical whether the address belongs to a
+        member, an existing non-member user, or nobody, and the mail is always
+        sent — otherwise a group admin could probe which addresses have accounts
+        on the instance. The raw token only ever travels in the email; it is
+        never returned here.
+        """
+        from visiban import invite_email
+
+        if not invite_email.invite_email_enabled():
+            return Response(
+                {
+                    "code": invite_email.CODE_INVITE_EMAIL_DISABLED,
+                    "detail": "Sending invites by email is disabled on this instance.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+
+        serializer = GroupInviteLinkEmailSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        validated = serializer.validated_data
+
+        with transaction.atomic():
+            # Lock the group row so two concurrent sends cannot both read a
+            # count of 49 and overshoot the emailed-link cap.
+            Group.objects.select_for_update().filter(pk=group.pk).first()
+            pending_emailed = GroupInviteLink.objects.filter(
+                group=group,
+                delivery=GroupInviteLink.Delivery.EMAIL,
+                is_active=True,
+                used_at__isnull=True,
+                expires_at__gt=timezone.now(),
+            ).count()
+            if pending_emailed >= GROUP_MAX_PENDING_EMAILED_INVITES:
+                return Response(
+                    {
+                        "code": "invite_email_cap_reached",
+                        "detail": (
+                            f"Maximum of {GROUP_MAX_PENDING_EMAILED_INVITES} pending emailed "
+                            "invites per group. Revoke some or wait for them to expire."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Throttles last, so a request refused for any other reason
+            # (permission, validation, cap) spends no budget. Raising here
+            # rolls the transaction back before anything is minted.
+            recorded_throttles = invite_email.check_send_throttles(request, self, group_id=group.pk)
+            link, raw_token = GroupInviteLink.generate(
+                group=group,
+                created_by=request.user,
+                role=validated["role"],
+                expires_at=timezone.now() + datetime.timedelta(days=validated["expiry_days"]),
+                single_use=True,
+                delivery=GroupInviteLink.Delivery.EMAIL,
+            )
+
+            def _broadcast_invite_created(gid=group.pk, lid=link.pk):
+                # Minimal payload, like invite_link.revoked: group-channel
+                # subscribers include non-admin members, so clients refetch the
+                # admin-only list rather than receiving link details here.
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(gid, _group_broadcast.EVT_INVITE_LINK_CREATED, {"id": lid})
+
+            transaction.on_commit(_broadcast_invite_created)
+
+        # Sent after the commit, never inside the transaction: an SMTP session
+        # must not run while the group row lock is held.
+        message = invite_email.build_group_invite_message(
+            group_name=group.name,
+            inviter_name=request.user.username,
+            raw_token=raw_token,
+            expires_at=link.expires_at,
+            to=validated["email"],
+        )
+        error_code = invite_email.send_invite_message(
+            message, link_pk=link.pk, prefix=link.prefix, actor_id=request.user.pk, kind="group",
+        )
+        if error_code is not None:
+            invite_email.refund_send_throttles(recorded_throttles)
+            # A link whose email never left would sit in the pending list as a
+            # live credential nobody holds — revoke it so the admin can retry.
+            with transaction.atomic():
+                GroupInviteLink.objects.filter(pk=link.pk).update(is_active=False)
+
+                def _broadcast_invite_revoked(gid=group.pk, lid=link.pk):
+                    from .broadcast import broadcast_group_event
+                    broadcast_group_event(gid, _group_broadcast.EVT_INVITE_LINK_REVOKED, {"id": lid})
+
+                transaction.on_commit(_broadcast_invite_revoked)
+            return Response(
+                {
+                    "code": error_code,
+                    "detail": "The invite email could not be sent. The link was revoked.",
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        body = {"detail": "Invite sent", "sent_to": validated["email"]}
+        if invite_email.delivers_to_console():
+            body["delivery"] = "console"
+        return Response(body, status=status.HTTP_202_ACCEPTED)
+
+    # link_id is digits-only (#731): without the constraint this pattern also
+    # matched "invite-links/send/" and, depending on route order, answered the
+    # send endpoint's POST with 405.
+    @action(detail=True, methods=["delete"], url_path=r"invite-links/(?P<link_id>\d+)")
     def revoke_invite_link(self, request, pk=None, link_id=None):
         group = self.get_object()
         _require_group_admin(request.user, group)
