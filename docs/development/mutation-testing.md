@@ -34,6 +34,8 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 
 Import/export was deliberately **not** strengthened wholesale. After the baseline, only the movement-history part of the JSON export (lines 1396-1450) was re-run: 36 mutants there, 24 killed before and 29 after. If the 5 newly killed mutants are added to the module total the rate is about 50.8%, but that figure is an estimate, not a measurement.
 
+**Stale after the base commit.** `import_export.py` was rewritten after `25bcfdf1e` (selective import, #119, and import naming, #1446), so the line ranges and function-level counts above do not map onto current `main`. Re-measure before acting on them. The import/export result is the lowest of the four areas and is tracked in #1453.
+
 ### Runtime
 
 Each module was split across 16 parallel copies of the tree (see [Parallel runs](#parallel-runs)) on an 18-core machine. "Wall" is the slowest shard; "CPU total" is the sum of every shard's elapsed time, which is roughly what a single serial run would cost under the same load.
@@ -182,6 +184,7 @@ Two patterns recur in this codebase. A string-literal mutant that adds `XX` arou
 ## Limits of this baseline
 
 - Mutation operators in mutmut 2.x are shallow (operators, constants, `None` replacements). A high kill rate here does not prove the tests are strong, and a low one on string literals is partly noise.
-- Kill rate depends on which tests were allowed to run. The 44 `update_card` survivors would likely drop with the view-level suites included.
+- Kill rate depends on which tests were allowed to run. The 44 `update_card` survivors would likely drop with the view-level suites included. They are tracked in #1454.
 - SQLite hides locking and concurrency behavior. The `select_for_update` survivors need a PostgreSQL run.
+- The `CardMovement` figure (61.6%) is capped by schema-constant mutants (`max_length`, `db_index`, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and `SET_NULL` retention; the rest is guarded by CI `migration-check`, not by tests.
 - It is a point-in-time number on one commit. Re-run it before the 1.2 movement-record and permission changes merge to see how the rate moved.
