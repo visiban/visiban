@@ -755,14 +755,18 @@ def archive_card(*, card_id):
 # ---------------------------------------------------------------------------
 # Resources (#513) — board:// and card://
 #
-# Unlike a tool, a FastMCP *resource* read has no structured-error return
-# path at all in the pinned SDK (mcp==1.30.0): FunctionResource.read()
-# (mcp/server/fastmcp/resources/types.py) treats ANY non-exception return
+# Unlike a tool, an MCPServer (formerly FastMCP) *resource* read has no
+# structured-error return path at all in the pinned SDK (verified on mcp 1.30.0
+# and 2.3.0): the resource function's return value treats ANY non-exception return
 # value — including a `{"error": ...}` dict, the tools' own convention above
 # — as the resource's successful content and JSON-serializes it verbatim.
 # There is no isError/structuredContent channel for resources. The only way
-# to signal failure is to raise, which FastMCP.read_resource() (mcp/server/
-# fastmcp/server.py) flattens to `ResourceError(str(exc))` — a single string
+# to signal failure is to raise. On 1.x the SDK flattened any exception to
+# `ResourceError(str(exc))`; on 2.x only a raised `ResourceError` keeps its
+# message (any other exception becomes a generic "Error creating resource"
+# naming only the URI). This module must not import SDK types, so it raises
+# ValueError and the `board_resource`/`card_resource` wrappers in server.py
+# convert it to `ResourceError` — a single string
 # message with no separate `code` field, surfaced as one JSON-RPC-level
 # error for the `resources/read` call. Both functions below therefore raise
 # ValueError on a resolution failure instead of returning `_error_payload()`.

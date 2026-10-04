@@ -35,13 +35,26 @@ cryptography==50.0.0
 # startup failure, not an install failure.
 pyopenssl>=26.0.0,<27
 django-filter==25.2
-# MCP (Model Context Protocol) server SDK — FastMCP + Streamable HTTP transport
-# for the /mcp endpoint (#511). Pinned to the 1.x line: 2.x depends on httpx2,
-# a from-scratch httpx successor with no production track record yet. 1.30.0 is
-# past all six historical HIGH advisories (last fixed in 1.28.1); do not float
-# below that. django-mcp was evaluated and rejected — its upstream repo is
-# archived and its own mcp[cli]~=1.9.2 pin forces a vulnerable SDK version.
-mcp==1.30.0
+# MCP (Model Context Protocol) server SDK — MCPServer (formerly FastMCP) +
+# Streamable HTTP transport for the /mcp endpoint (#511). Moved to the 2.x line
+# on 2026-10-04 (#1253): the old 1.x rationale (2.x depends on httpx2, with no
+# production track record) no longer held — 2.0 shipped stable 2026-07-28 and
+# is now the PyPI default, and 1.x is becoming the legacy line. 2.3.0 has no
+# advisories and its new deps are all MIT/BSD/Apache-2.0 (httpx2, httpcore2,
+# truststore, mcp-types, opentelemetry-api). Visiban only runs the SERVER side,
+# so httpx2 (client-only in practice) is low-exposure, but it has had five
+# advisories since 2.6.0, all fixed by 2.12.0 — mcp only requires >=2.10.0, so
+# floor it explicitly below. django-mcp was evaluated and rejected — its
+# upstream repo is archived and its own mcp[cli]~=1.9.2 pin forces a vulnerable
+# SDK version.
+mcp==2.3.0
+# httpx2 arrives transitively via mcp (httpx2>=2.10.0). GHSA-7mj9-2mp8-4m2p and
+# GHSA-f2fp-rgf2-35cp are fixed in 2.10.0, GHSA-h4x7-gw46-3wm6 and
+# GHSA-pf96-p4fj-6566 in 2.11.0, and GHSA-8xx6-hgc6-gc2m in 2.12.0, so 2.10.x
+# and 2.11.x still carry open advisories. osv-scanner resolves the MINIMUM
+# satisfying version, so floor it at 2.12.0, mirroring the python-multipart
+# pattern below.
+httpx2>=2.12.0
 # python-multipart arrives transitively via mcp, which declares only
 # `python-multipart>=0.0.9` with no upper bound. pip resolves that to the latest
 # (0.0.32 today), so built images are not affected — but osv-scanner resolves the
@@ -50,8 +63,9 @@ mcp==1.30.0
 # resolver's choice, so floor it explicitly. 0.0.31 is the highest fix version
 # across the eight; mcp's unbounded spec accepts it.
 python-multipart>=0.0.31
-# anyio arrives transitively via mcp (anyio>=4.5, no upper bound) and via
-# httpx/starlette/sse-starlette in the same MCP dependency chain, all
+# anyio arrives transitively via mcp (mcp 2.3.0 declares anyio>=4.9 and httpx2
+# >=4.10, no upper bound) and via
+# starlette/sse-starlette/httpx2 in the same MCP dependency chain, all
 # similarly unbounded. pip resolves that to the latest satisfying version
 # (4.15.x today), so built images are not affected — but osv-scanner
 # resolves the MINIMUM satisfying version and so reports 4.9.0, vulnerable

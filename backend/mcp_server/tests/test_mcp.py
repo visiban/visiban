@@ -16,7 +16,7 @@ if not settings.MCP_SERVER_ENABLED:  # pragma: no cover - exercised only in the 
 import datetime
 import json
 
-import httpx
+import httpx2 as httpx
 from asgiref.sync import async_to_sync
 from django.core.cache import cache
 from django.db import connection
@@ -213,6 +213,8 @@ class BearerAuthTests(McpTestCase):
         self.assertEqual(payload["jsonrpc"], "2.0")
         self.assertIn("result", payload)
         self.assertEqual(payload["result"]["serverInfo"]["name"], "visiban")
+        # mcp 2.x defaults serverInfo.version to ""; the server passes the app version.
+        self.assertEqual(payload["result"]["serverInfo"]["version"], settings.APP_VERSION)
 
     def test_valid_token_stamps_last_used_at(self):
         self.assertIsNone(self.pat.last_used_at)
@@ -683,7 +685,7 @@ class McpCorsTests(McpTestCase):
     """
 
     def _options(self, origin, request_headers="authorization,content-type"):
-        import httpx
+        import httpx2 as httpx
         from asgiref.sync import async_to_sync
 
         async def _call():
@@ -703,7 +705,7 @@ class McpCorsTests(McpTestCase):
         return async_to_sync(_call)()
 
     def _post_raw(self, origin, token):
-        import httpx
+        import httpx2 as httpx
         from asgiref.sync import async_to_sync
 
         async def _call():
