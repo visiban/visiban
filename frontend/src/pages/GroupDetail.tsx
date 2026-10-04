@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
+import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
 import { useGroupSocket } from "../hooks/useGroupSocket";
 import type { BoardEvent } from "../hooks/useBoardSocket";
 import ConnectionStatus from "../components/Common/ConnectionStatus";
@@ -109,6 +110,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<number | null>(null);
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
   const [confirmRemoveLabelId, setConfirmRemoveLabelId] = useState<number | null>(null);
+  const removeMemberTriggerRef = useConfirmFocusReturn(confirmRemoveMemberId);
+  const removeLabelTriggerRef = useConfirmFocusReturn(confirmRemoveLabelId);
 
   // Board defaults state
   const [newLabelName, setNewLabelName] = useState("");
@@ -968,6 +971,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           </div>
                         ) : (
                           <button
+                            ref={removeMemberTriggerRef(m.user.id)}
                             onClick={() => setConfirmRemoveMemberId(m.user.id)}
                             aria-label={`Remove ${m.user.display_name || m.user.username} from group`}
                             className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
@@ -1070,6 +1074,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         </div>
                       ) : (
                         <button
+                          ref={removeLabelTriggerRef(label.id)}
                           onClick={() => setConfirmRemoveLabelId(label.id)}
                           aria-label={`Remove ${label.name} from group`}
                           className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"

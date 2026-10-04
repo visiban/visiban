@@ -171,6 +171,23 @@ describe('LensConnectionModal', () => {
     expect(screen.getByRole('button', { name: 'Remove lens' })).toBeInTheDocument()
   })
 
+  it('cancelling the remove confirmation returns focus to Remove lens (#1367)', async () => {
+    const user = userEvent.setup()
+    render(
+      <LensConnectionModal
+        boardId={5}
+        connection={savedConnection}
+        onSaved={vi.fn()}
+        onRemoved={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Remove lens' }))
+    const confirmRow = screen.getByText('Remove this connection?').closest('div') as HTMLElement
+    await user.click(within(confirmRow).getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Remove lens' })).toHaveFocus()
+  })
+
   it('associates the Provider label with the dropdown trigger via id', () => {
     render(
       <LensConnectionModal

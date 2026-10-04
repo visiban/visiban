@@ -1036,6 +1036,28 @@ describe('GroupDetail', () => {
       })
     })
 
+    it('cancelling label removal returns focus to the Remove trigger (#1367)', async () => {
+      const groupWithLabel: Group = {
+        ...fakeGroup,
+        shared_labels: [{ id: 1, name: 'Design', color: '#f59e0b' }],
+      }
+      mockGetGroup.mockResolvedValue(groupWithLabel)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Design')
+
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Remove Design from group' }))
+      await screen.findByText(/from this group\?/)
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(screen.getByRole('button', { name: 'Remove Design from group' })).toHaveFocus()
+    })
+
     it('cancelling label removal preserves the label in the list', async () => {
       const groupWithLabel: Group = {
         ...fakeGroup,

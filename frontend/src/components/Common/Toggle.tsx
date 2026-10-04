@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type Ref } from "react";
 
 interface ToggleProps {
   checked: boolean;
@@ -20,12 +20,16 @@ interface ToggleProps {
   // this passthrough the explanation is visible text with nothing tying it to
   // the switch, so a screen reader announces "dimmed" and no reason (#356).
   "aria-describedby"?: string;
+  // Lets an inline destructive confirm return focus to the switch when it is
+  // dismissed (see useConfirmFocusReturn, #1367).
+  buttonRef?: Ref<HTMLButtonElement>;
 }
 
-export function Toggle({ checked, onChange, disabled, ariaDisabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy }: ToggleProps) {
+export function Toggle({ checked, onChange, disabled, ariaDisabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy, buttonRef }: ToggleProps) {
   const inertToActivation = disabled || ariaDisabled;
   return (
     <button
+      ref={buttonRef}
       type="button"
       role="switch"
       id={id}

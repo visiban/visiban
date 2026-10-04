@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import {
   getAdminEmailSettings,
   patchAdminEmailSettings,
@@ -199,6 +200,8 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingSourceSwitch, setConfirmingSourceSwitch] = useState(false);
+  // The confirm is triggered by Save (see handleSubmit), so Save is the trigger focus returns to (#1367).
+  const saveTriggerRef = useConfirmFocusReturn(confirmingSourceSwitch ? "save" : null);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -878,6 +881,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 Cancel
               </button>
               <button
+                ref={saveTriggerRef("save")}
                 type="submit"
                 disabled={!dirty || saving}
                 className="bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

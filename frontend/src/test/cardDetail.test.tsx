@@ -1158,6 +1158,18 @@ describe('CardDetail', () => {
       expect(deleteComment).not.toHaveBeenCalled()
     })
 
+    it('Cancel and Escape return focus to the Delete comment trigger (#1367)', async () => {
+      const { user } = await renderWithComment()
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.getByRole('button', { name: 'Delete comment' })).toHaveFocus()
+
+      await user.click(screen.getByRole('button', { name: 'Delete comment' }))
+      screen.getByRole('button', { name: 'Cancel' }).focus()
+      await user.keyboard('{Escape}')
+      expect(screen.queryByText('Delete this comment?')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Delete comment' })).toHaveFocus()
+    })
+
     it('Escape cancels the open prompt first and does not close the panel; a second Escape closes it', async () => {
       const { user, onClose } = await renderWithComment()
       await user.keyboard('{Escape}')

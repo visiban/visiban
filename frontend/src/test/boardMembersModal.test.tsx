@@ -114,6 +114,14 @@ describe('BoardMembersModal', () => {
     expect(mockRemoveBoardMember).not.toHaveBeenCalled()
   })
 
+  it('remove member: cancelling returns focus to that member\'s remove trigger (#1367)', async () => {
+    const user = userEvent.setup()
+    render(<BoardMembersModal board={fakeBoard} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
+    await user.click(screen.getAllByTitle('Remove direct board role')[0])
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getAllByTitle('Remove direct board role')[0]).toHaveFocus()
+  })
+
   it('role change via dropdown: selecting a new role calls setBoardMember', async () => {
     mockSetBoardMember.mockResolvedValue({ id: 2, user: fakeBob, role: 'viewer', is_moderator: false, joined_at: '' })
     const onMembersChanged = vi.fn()

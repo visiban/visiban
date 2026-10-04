@@ -774,6 +774,19 @@ describe('AdminPage — Escape key', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  it('Escape on the revoke confirm returns focus to the Revoke trigger (#1367)', async () => {
+    mockGetAdminInviteLinks.mockResolvedValue([
+      { id: 7, prefix: 'vbnl_zz', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' },
+    ])
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Invite Links'))
+    fireEvent.click(screen.getByText('Invite Links'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke invite link vbnl_zz' }))
+    screen.getByRole('button', { name: 'Cancel' }).focus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('button', { name: 'Revoke invite link vbnl_zz' })).toHaveFocus()
+  })
+
   it('revoke Confirm shows Revoking… and a double click sends one request (#1238)', async () => {
     mockGetAdminInviteLinks.mockResolvedValue([
       { id: 7, prefix: 'vbnl_zz', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' },
@@ -889,6 +902,18 @@ describe('AdminPage — maintenance mode', () => {
     const toggle = screen.getByLabelText('Maintenance mode')
     expect(toggle).toBeInTheDocument()
     expect(toggle).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('Cancel on the enable confirm returns focus to the Maintenance mode toggle (#1367)', async () => {
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    fireEvent.click(screen.getByLabelText('Maintenance mode'))
+    await waitFor(() => screen.getByText('Confirm'))
+    const prompt = screen.getByText(/Enable maintenance mode\?/).parentElement as HTMLElement
+    const cancel = within(prompt).getByRole('button', { name: 'Cancel' })
+    cancel.focus()
+    fireEvent.click(cancel)
+    expect(screen.getByLabelText('Maintenance mode')).toHaveFocus()
   })
 
   it('saves when the confirmation is accepted', async () => {

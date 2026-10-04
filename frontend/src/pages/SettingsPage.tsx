@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
+import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
 import type { Location } from "react-router-dom";
 import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation, getAuthProviders, listConnectedAccounts, disconnectAccount } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
@@ -401,6 +402,7 @@ function ConnectedAccountRow({
   onConfirmDisconnect: () => void;
 }) {
   const connected = !!account?.connected;
+  const disconnectTriggerRef = useConfirmFocusReturn(confirming ? "disconnect" : null);
   const hintId = `disconnect-hint-${provider}`;
   return (
     <div className="flex items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition" data-testid={`connected-account-${provider}`}>
@@ -454,6 +456,7 @@ function ConnectedAccountRow({
             // reader users. The reason stays visible and is announced via
             // aria-describedby; the click is a no-op.
             <button
+              ref={disconnectTriggerRef("disconnect")}
               type="button"
               aria-disabled={isOnlyMethod}
               aria-describedby={isOnlyMethod ? hintId : undefined}
@@ -753,6 +756,7 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
   const [newToken, setNewToken] = useState<CreatedPersonalAccessToken | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
+  const revokeTriggerRef = useConfirmFocusReturn(confirmRevokeId);
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -925,6 +929,7 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
               <div className="flex items-center gap-2">
                 {confirmRevokeId !== token.id && (
                   <button
+                    ref={revokeTriggerRef(token.id)}
                     type="button"
                     onClick={() => { setRevokeError(null); setConfirmRevokeId(token.id); }}
                     aria-label={`Revoke ${token.name}`}
