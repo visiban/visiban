@@ -5062,6 +5062,7 @@ parked out of sight cannot wash out every tint on the board.</p>
 <li>Assignee (matched by username; cards whose assignee username is not found in this instance are imported unassigned)</li>
 <li>Movement history — every column transition appears in the card's <strong>Activity</strong> tab</li>
 <li>Activity log — assignee changes, label changes, priority changes, due-date changes, checklist events, and comments all appear in the activity feed</li>
+<li>Custom fields (since 1.2) — the board's card and swimlane custom field definitions, with their number formatting and choice colors, and every card's and swimlane's values. A value the field's type would refuse is skipped; the rest of the import goes ahead</li>
 </ul>
 <p><strong>CSV import</strong> creates cards with their current field values only. Movement history and activity log are not restored.</p>
 <p>The new board is named <strong>Imported: <name></strong> — the board name stored in a JSON file, or the filename without its extension for a CSV file (for example, <code>Q3 plan.csv</code> becomes <strong>Imported: Q3 plan</strong>). If a board with that name already exists in the same place (the group you import into, or — without a group — any board you can access that is not in a group, as listed under <strong>My Boards</strong>), a number is added: <strong>Imported: Q3 plan - 1</strong>, then <strong>- 2</strong>, and so on. To choose the name yourself, type it in <strong>Board name</strong> when importing; it is used exactly as typed.</p>
@@ -5073,7 +5074,7 @@ parked out of sight cannot wash out every tint on the board.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>Once you pick a file, an <strong>Include</strong> list lets you leave parts of the export out. Board structure — the name, columns, and swimlanes — is always imported.</p>
+<p>Once you pick a file, an <strong>Include</strong> list lets you leave parts of the export out. Board structure — the name, columns, swimlanes, and (from JSON) custom field definitions — is always imported. Swimlane custom field values come with the structure; card custom field values come with <strong>Cards</strong>.</p>
 <table>
 <thead>
 <tr>
@@ -5110,7 +5111,7 @@ parked out of sight cannot wash out every tint on the board.</p>
 </tr>
 </tbody>
 </table>
-<p>Comments, checklist items, and card history belong to cards: unchecking <strong>Cards</strong> turns them off too, and checking it again restores your earlier choices. Leaving <strong>Labels</strong> out also leaves out the "label added" activity entries the import would otherwise record; the same applies to checklist items ("checklist item added"), and leaving <strong>Card history</strong> out also leaves out the "weight changed" entry recorded for a card with a non-default weight. A line under the list shows what will be imported, for example "Importing: structure, cards, labels".</p>
+<p>Comments, checklist items, and card history belong to cards: unchecking <strong>Cards</strong> turns them off too, and checking it again restores your earlier choices. Leaving <strong>Labels</strong> out also leaves out the "label added" activity entries the import would otherwise record; the same applies to checklist items ("checklist item added"), and leaving <strong>Card history</strong> out also leaves out the "weight changed" entry recorded for a card with a non-default weight. The import records those three entries itself only when the file has no history of its own for them: a card whose imported history already includes a label, checklist or weight change keeps the original entries, with their original people and times, and gets no second copy. A line under the list shows what will be imported, for example "Importing: structure, cards, labels".</p>
 <p>Everything is included by default ("Importing: everything"), so an import where you change nothing behaves exactly as before. When an import leaves out cards or anything on them, the new board opens with a short notice counting what was skipped, for example "Board imported. Skipped: 12 cards, 30 comments, 4 card labels." It counts cards, comments, checklist items, labels on cards, and history entries (movements and activity entries together); label definitions that no card uses are not counted, so leaving <strong>Labels</strong> out of a file whose labels are unused shows no notice. The notice closes by itself after a few seconds, and stays open while you hover over it or focus it.</p>
 <div class="admonition tip">
 <p class="admonition-title">Coming from Trello?</p>

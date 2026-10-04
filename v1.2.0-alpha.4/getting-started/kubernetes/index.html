@@ -916,6 +916,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sample-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#upgrading" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4686,6 +4697,10 @@ to check and trigger runs.</p>
 </tbody>
 </table>
 <p>These are also suitable for external load balancer health checks. The readiness probe uses <code>initialDelaySeconds: 5</code> and <code>failureThreshold: 3</code>, so a pod is removed from the Service within ~35 seconds of a dependency failure.</p>
+<h2 id="sample-data">Sample data<a class="headerlink" href="#sample-data" title="Permanent link">&para;</a></h2>
+<p>The chart does not bundle the sample boards. Download them from
+<a href="https://gitlab.com/visiban/visiban/-/tree/main/sample-boards"><code>sample-boards/</code></a> in the
+repository and import one from <strong>Dashboard → Import</strong>. See <a href="../sample-boards/">Sample Boards</a>.</p>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>

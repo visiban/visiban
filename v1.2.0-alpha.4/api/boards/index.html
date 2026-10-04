@@ -2220,6 +2220,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#custom-fields-on-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom fields on import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#import-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5528,15 +5539,15 @@ for an exporter below <code>admin</code> — its existence is not disclosed, the
 <p>Each card also carries its own <code>movements</code> (<code>{from_column, to_column, from_swimlane, to_swimlane, moved_by, moved_at, notes, movement_type}</code>, one per <code>CardMovement</code>) and <code>activities</code> (<code>{event_type, from_value, to_value, actor, created_at}</code>, one per <code>CardActivity</code>) arrays, mirroring the <a href="../cards/#history">movements</a> and <a href="../cards/#history">activities</a> endpoints. As with the rest of this export, <code>moved_by</code>/<code>actor</code> are usernames rather than user objects, and <code>null</code> when the acting user has since been deleted.</p>
 <p>Since 1.2 the payload also carries the board's <code>custom_fields</code> schema and each card's
 <code>custom_field_values</code>, keyed by field name. Both are <strong>additive</strong>, so <code>schema_version</code>
-stays at <code>2</code> and an existing consumer is unaffected. Re-importing custom field data is not
-supported yet — the importer ignores both keys.</p>
+stays at <code>2</code> and an existing consumer is unaffected. JSON import restores both (see
+<a href="#custom-fields-on-import">Custom fields on import</a>).</p>
 <p>Also since 1.2, each card carries <code>external_ref</code> (<code>{ provider, ref, url }</code>, or <code>null</code> when unset). On import it is restored after validation against the same rules as the card API; invalid entries are silently dropped. CSV export and import do not carry it.</p>
 <p>Also since 1.2, each swimlane object carries its own <code>custom_field_values</code> (keyed by
 <a href="#swimlane-custom-fields-since-12">swimlane custom field</a> name), and a top-level
 <code>swimlane_custom_fields</code> array carries that schema — the row-level counterpart to
 <code>custom_fields</code>/<code>custom_field_values</code>, kept as separate keys rather than merged into the
 card ones because they are independent per-board sets attached to different objects.
-Both are additive and unimported, same as the card-level pair. A definition with
+Both are additive, and JSON import restores them, same as the card-level pair. A definition with
 <code>is_admin_only: true</code>, and any value under it, is omitted from the export entirely for a
 caller below <code>admin</code> — the same role gate this export already applies to a swimlane's
 <code>contact_email</code> and <code>notes</code>.</p>
@@ -5728,6 +5739,11 @@ caller below <code>admin</code> — the same role gate this export already appli
 </tr>
 </tbody>
 </table>
+<p>The importer writes its own "label added", "checklist item added" and "weight changed"
+entries only for history the file does not already record: with <code>history</code> on, a card whose
+<code>activities</code> already contain that event type keeps the file's entries (with their original
+actor and timestamp) and gets no synthetic copy, so re-importing an export does not double
+its history.</p>
 <p>An omitted <code>comments</code>, <code>checklist</code>, or <code>history</code> follows <code>cards</code>, so <code>{"cards": false}</code> alone imports structure and labels only. An explicit contradiction such as <code>{"cards": false, "comments": true}</code> is rejected.</p>
 <p>An invalid <code>options</code> field returns <code>400 Bad Request</code> before anything is created, with one of these <code>detail</code> messages:</p>
 <table>
@@ -5765,6 +5781,24 @@ caller below <code>admin</code> — the same role gate this export already appli
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>-F<span class="w"> </span><span class="nv">file</span><span class="o">=</span>@board.json<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>-F<span class="w"> </span><span class="s1">'options={"labels": false, "history": false}'</span>
 </code></pre></div>
+<h4 id="custom-fields-on-import">Custom fields on import<a class="headerlink" href="#custom-fields-on-import" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A JSON file's <code>custom_fields</code> and <code>swimlane_custom_fields</code> definitions are restored with the
+board's structure, in list order, whatever the <code>options</code>. Each is validated exactly as the
+<a href="#custom-fields-since-12">custom field</a> and
+<a href="#swimlane-custom-fields-since-12">swimlane custom field</a> APIs validate a new definition, and
+the per-board limits apply to the list as a whole: at most 30 card fields (2 shown on the
+card) and 15 swimlane fields (8 shown on the row), with unique names. A definition that
+fails returns <code>400 Bad Request</code> and creates nothing — for example
+<code>'custom_fields' entry at index 1: 'choices': …</code> or <code>Duplicate swimlane_custom_fields names: Owner</code>.</p>
+<p>Values (<code>custom_field_values</code> on each card and each swimlane, keyed by field name) go
+through the same normalizer as <code>PATCH</code>. A value naming no imported field, or one its field's
+type refuses, is dropped and the rest of the import proceeds. Card values follow the
+<code>cards</code> option; swimlane values are structure and always import. Values exported by
+Visiban are already in stored form and round-trip unchanged.</p>
+<p>CSV import does not read the <code>Custom:</code> or <code>Swimlane Custom:</code> columns.</p>
 <p><strong>Response</strong> <code>201 Created</code></p>
 <p>Returns the newly created board object, using the same shape as <code>GET /api/v1/boards/{id}/</code>, plus an <code>import_summary</code> object.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
