@@ -2595,6 +2595,8 @@
       
         
       
+        
+      
     
     
     
@@ -2832,6 +2834,34 @@
     
   
     API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
   
 
     
@@ -4354,7 +4384,7 @@
 <h3 id="list_columns"><code>list_columns</code><a class="headerlink" href="#list_columns" title="Permanent link">&para;</a></h3>
 <p>Lists a board's columns, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
-<p><strong>Returns:</strong> an array of <code>{id, name, position, color, wip_limit, card_count}</code> — <code>card_count</code> excludes archived cards.</p>
+<p><strong>Returns:</strong> an array of <code>{id, name, position, color, wip_limit, card_count}</code> — <code>card_count</code> excludes archived cards. <code>wip_limit</code> is checked on <code>move_card</code> only; <code>create_card</code> does not check it, so <code>card_count</code> can exceed it (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
 <h3 id="list_swimlanes"><code>list_swimlanes</code><a class="headerlink" href="#list_swimlanes" title="Permanent link">&para;</a></h3>
 <p>Lists a board's swimlanes, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>

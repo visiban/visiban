@@ -2707,6 +2707,8 @@
       
         
       
+        
+      
     
     
     
@@ -2944,6 +2946,34 @@
     
   
     API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
   
 
     
@@ -4203,12 +4233,12 @@
 <tr>
 <td><code>default_board_member_role</code></td>
 <td>string</td>
-<td>Role assigned to group members on new boards</td>
+<td><strong>Scaffold.</strong> Intended role for group members on new boards. <strong>Not enforced:</strong> stored but not read by any code path; group members' board access comes from their group role (scaffold, see <a href="../../architecture/field-enforcement/">Field Enforcement</a>)</td>
 </tr>
 <tr>
 <td><code>allowed_priorities</code></td>
 <td>array</td>
-<td>Priority values permitted on boards in this group. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
+<td><strong>Advisory.</strong> Copied onto a board's <code>allowed_priorities</code> when the board is created through <code>POST /groups/{id}/boards/</code>; it does not restrict card priorities, because the board-level field is not enforced either. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
 </tr>
 <tr>
 <td><code>ancestors</code></td>
@@ -4289,7 +4319,7 @@
 <h3 id="get-apiv1groupsidboards"><code>GET /api/v1/groups/{id}/boards/</code><a class="headerlink" href="#get-apiv1groupsidboards" title="Permanent link">&para;</a></h3>
 <p>List boards in this group. Requires group membership.</p>
 <h3 id="post-apiv1groupsidboards"><code>POST /api/v1/groups/{id}/boards/</code><a class="headerlink" href="#post-apiv1groupsidboards" title="Permanent link">&para;</a></h3>
-<p>Create a board in this group. Requires group admin. Boards created here inherit the group's <code>shared_labels</code> and <code>allowed_priorities</code> automatically.</p>
+<p>Create a board in this group. Requires group admin. Boards created here inherit the group's <code>shared_labels</code> and <code>allowed_priorities</code> automatically. The seeded <code>allowed_priorities</code> value is not enforced on cards (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
 <p><strong>Request</strong></p>
 <table>
 <thead>
@@ -4528,12 +4558,12 @@
 <tr>
 <td><code>default_board_member_role</code></td>
 <td>string</td>
-<td>Role assigned to group members on new boards — <code>admin</code>, <code>member</code>, <code>collaborator</code>, or <code>viewer</code></td>
+<td><strong>Scaffold.</strong> <code>admin</code>, <code>member</code>, <code>collaborator</code>, or <code>viewer</code>. Stored but not yet enforced — see the field table above</td>
 </tr>
 <tr>
 <td><code>allowed_priorities</code></td>
 <td>array / null</td>
-<td>Restricts which priorities new boards may use (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> allows all</td>
+<td><strong>Advisory.</strong> Seeds <code>allowed_priorities</code> on new boards created in this group (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> means all. Not enforced on cards — see the field table above</td>
 </tr>
 </tbody>
 </table>

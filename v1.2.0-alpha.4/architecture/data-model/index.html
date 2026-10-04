@@ -2201,6 +2201,8 @@
       
         
       
+        
+      
     
     
     
@@ -2615,6 +2617,34 @@
     
   
     API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
   
 
     
@@ -3850,7 +3880,7 @@ in). A fourth, <code>git_lens</code>, adds one model but is off by default — s
 <a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a> ├── description (text, optional — board description; blank = no description)
 <a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a> ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
 <a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a> ├── stale_warning_pct (int 0–100 — yellow threshold for analytics heatmap; default 50)
-<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a> ├── allowed_priorities (JSON — restricts available card priorities; empty = all allowed)
+<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a> ├── allowed_priorities (JSON — intended card priorities; not enforced, see field-enforcement.md)
 <a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a> ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
 <a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a> ├── share_token_expires_at (datetime, nullable — null = never expires; past this the share endpoint returns 410)
 <a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a> ├── export_min_role (str, default viewer — minimum BoardMembership.Role required to export)
@@ -3944,7 +3974,7 @@ in). A fourth, <code>git_lens</code>, adds one model but is off by default — s
 <p><code>enforce_wip_limits</code> (default true) blocks card moves into a column that is at or over its WIP limit with a 409 response. Board admins can override with <code>?force=true</code>. When <code>enforce_wip_hard</code> is also true, the limit becomes a hard stop for all roles including admins — no override is possible.</p>
 <p><code>enforce_weight_limits</code> (default true) blocks card moves into a column that would exceed its weight budget. Like WIP limits, board admins can override unless hard mode is active.</p>
 <p><code>stale_warning_pct</code> (default 50, range 0--100) controls the yellow warning band in the analytics heatmap. At this percentage of <code>staleness_threshold_days</code> the heatmap cell turns yellow; at 100% it turns red.</p>
-<p><code>allowed_priorities</code> is a JSON list. When non-empty, it restricts which priority values are available for cards on this board. An empty list means all priorities (<code>low</code>, <code>medium</code>, <code>high</code>, <code>urgent</code>) are allowed.</p>
+<p><code>allowed_priorities</code> is a JSON list of the priority values intended for cards on this board; an empty list means all priorities (<code>low</code>, <code>medium</code>, <code>high</code>, <code>urgent</code>). It is a <strong>scaffold</strong>: stored and returned, but card create and update accept any priority regardless of it — see <a href="../field-enforcement/">Field Enforcement</a> (#1429).</p>
 <p><code>share_token</code> is a UUID generated when a board admin enables public sharing. When set, the board is accessible at <code>/share/:token</code> as a read-only view with no login required. Setting the token to null disables sharing immediately. <code>share_token_expires_at</code> (nullable) optionally bounds that link: past the timestamp the share endpoint returns <code>410 Gone</code> rather than auto-rotating the token.</p>
 <p><code>export_min_role</code> (default <code>viewer</code>) sets the minimum <code>BoardMembership.Role</code> required to export the board; owners and site admins always bypass it. <code>card_density</code> (<code>comfortable</code> / <code>standard</code> / <code>dense</code>, default <code>comfortable</code> for new boards) controls how much metadata renders on the card face. <code>show_wip_at_limit</code> is purely ambient — it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement.</p>
 <h3 id="column">Column<a class="headerlink" href="#column" title="Permanent link">&para;</a></h3>

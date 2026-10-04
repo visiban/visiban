@@ -2768,6 +2768,8 @@
       
         
       
+        
+      
     
     
     
@@ -3005,6 +3007,34 @@
     
   
     API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
   
 
     
@@ -4510,7 +4540,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <td>integer</td>
 <td>yes</td>
 <td>no</td>
-<td>Optimistic concurrency counter; increments on every mutation. Pass as <code>version</code> in the <a href="#move">move endpoint</a> to enable OCC.</td>
+<td>Optimistic concurrency counter; increments on every mutation. Pass as <code>version</code> in the <a href="#move">move endpoint</a> to enable OCC. PATCH and PUT do not accept or check <code>version</code>.</td>
 </tr>
 <tr>
 <td><code>custom_field_values</code></td>

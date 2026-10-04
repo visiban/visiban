@@ -3171,6 +3171,8 @@
       
         
       
+        
+      
     
     
     
@@ -3408,6 +3410,34 @@
     
   
     API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
   
 
     
@@ -4699,22 +4729,22 @@
 <tr>
 <td><code>allowed_priorities</code></td>
 <td>array / null</td>
-<td>Permitted priority values for cards on this board (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> means all priorities are allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
+<td>Intended list of priority values for cards on this board (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> or <code>[]</code> means all. <strong>Not enforced:</strong> card create and update accept any priority regardless of this list (scaffold, see <a href="../../architecture/field-enforcement/">Field Enforcement</a>). Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
 </tr>
 <tr>
 <td><code>enforce_wip_limits</code></td>
 <td>boolean</td>
-<td>When <code>true</code>, card moves that would exceed a column's WIP limit return <code>409 Conflict</code> (default: <code>true</code> for new boards)</td>
+<td>When <code>true</code>, card moves that would exceed a column's WIP limit return <code>409 Conflict</code> (default: <code>true</code> for new boards); board admins can override with <code>?force=true</code>. Applies to the move endpoint only — card create, restore from archive, and import are not checked</td>
 </tr>
 <tr>
 <td><code>enforce_wip_hard</code></td>
 <td>boolean</td>
-<td>When <code>true</code>, WIP limits cannot be overridden by any role — all users are blocked (default: <code>false</code>)</td>
+<td>When <code>true</code>, WIP limits on moves cannot be overridden by any role — all users are blocked (default: <code>false</code>). Active regardless of <code>enforce_wip_limits</code>. Applies to the move endpoint only — card create, restore from archive, and import are not checked</td>
 </tr>
 <tr>
 <td><code>enforce_weight_limits</code></td>
 <td>boolean</td>
-<td>When <code>true</code>, card moves that would exceed a column's weight limit return <code>409 Conflict</code> (default: <code>true</code> for new boards)</td>
+<td>When <code>true</code>, card moves that would exceed a column's weight limit return <code>409 Conflict</code> (default: <code>true</code> for new boards); board admins can override with <code>?force=true</code>. Applies to the move endpoint only — card create, restore from archive, weight changes via PATCH, and import are not checked</td>
 </tr>
 <tr>
 <td><code>export_min_role</code></td>
@@ -6170,12 +6200,12 @@ caller below <code>admin</code> — the same role gate this export already appli
 <tr>
 <td><code>wip_limit</code></td>
 <td>integer / null</td>
-<td>Maximum number of cards; <code>null</code> means unlimited</td>
+<td>Maximum number of cards; <code>null</code> means unlimited (binding on card move only; see note)</td>
 </tr>
 <tr>
 <td><code>weight_limit</code></td>
 <td>integer / null</td>
-<td>Maximum total card weight; <code>null</code> means unlimited</td>
+<td>Maximum total card weight; <code>null</code> means unlimited (binding on card move only; see note)</td>
 </tr>
 <tr>
 <td><code>allow_card_creation</code></td>
@@ -6192,6 +6222,7 @@ caller below <code>admin</code> — the same role gate this export already appli
 <blockquote>
 <p>When <code>allow_card_creation</code> is <code>false</code>, posting a new card to that column returns <code>400 Bad Request</code> with <code>{"column": "Card creation is not allowed in this column."}</code>.</p>
 <p>WIP and weight limits are enforced when <code>enforce_wip_limits</code> or <code>enforce_weight_limits</code> is enabled on the board. A card move to an over-limit column returns <code>409 Conflict</code> — see the move endpoint in the <a href="../cards/">Cards API</a> for the full error schema and the <code>?force=true</code> admin override. When enforcement is disabled, limits are displayed but not enforced.</p>
+<p>Limits are checked <strong>only on the move endpoint</strong>. Creating a card in a column, restoring an archived card into it, raising a card's <code>weight</code> with PATCH, and board import do not check them, so a column can hold more than its limit — see <a href="../../architecture/field-enforcement/">Field Enforcement</a>.</p>
 </blockquote>
 <h3 id="put-apiv1boardsidcolumnscol_id"><code>PUT /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#put-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
 <p>Update a column. Requires board admin.</p>

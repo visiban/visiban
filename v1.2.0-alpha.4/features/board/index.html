@@ -2872,6 +2872,8 @@
       
         
       
+        
+      
     
     
     
@@ -3109,6 +3111,34 @@
     
   
     API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
   
 
     
@@ -4420,6 +4450,7 @@
 <li>The API returns a <code>409</code> error with <code>code: "wip_hard_blocked"</code>.</li>
 <li>The toast indicator uses a <code>⛔</code> icon instead of <code>⚠</code> to distinguish hard blocks from soft blocks.</li>
 </ul>
+<p>WIP and weight limits, soft or hard, are checked when a card is <strong>moved</strong> into a column. Creating a new card in a column and restoring an archived card into it are not checked yet, so a column can still go over its limit that way. See <a href="../../architecture/field-enforcement/">Field Enforcement</a>.</p>
 <p>Hard enforcement is <strong>off by default</strong>. Enable it in <strong>Board Settings → Rules → Enforce WIP hard</strong>. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>

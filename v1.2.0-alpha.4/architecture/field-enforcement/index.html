@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.4/getting-started/first-boot/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.4/architecture/field-enforcement/">
       
       
-        <link rel="prev" href="../kubernetes/">
+        <link rel="prev" href="../api-versioning/">
       
       
-        <link rel="next" href="../oauth/">
+        <link rel="next" href="../decisions/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>First Boot - Visiban</title>
+        <title>Field Enforcement - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#first-boot" class="md-skip">
+        <a href="#field-enforcement" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              First Boot
+              Field Enforcement
             
           </span>
         </div>
@@ -244,13 +244,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
           
   
   
@@ -312,11 +310,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../architecture/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -471,8 +471,6 @@
       
   
   
-    
-  
   
   
     
@@ -502,23 +500,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../getting-started/" class="md-nav__link ">
               
   
   
@@ -536,13 +531,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -562,7 +557,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../why-visiban/" class="md-nav__link">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
         
   
   
@@ -590,7 +585,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -618,7 +613,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kubernetes/" class="md-nav__link">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
         
   
   
@@ -643,37 +638,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    First Boot
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
         
   
   
@@ -689,137 +657,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#automatic-admin-bootstrap" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Automatic admin bootstrap
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Automatic admin bootstrap">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#retrieving-the-password" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Retrieving the password
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#kubernetes-helm" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Kubernetes / Helm
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changing-the-password" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing the password
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#customizing-the-bootstrap-account" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Customizing the bootstrap account
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#subsequent-boots" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Subsequent boots
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#inviting-your-team" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Inviting your team
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Inviting your team">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#generating-invite-links-invite-only-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Generating invite links (Invite-only mode)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#creating-accounts-manually-closed-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Creating accounts manually (Closed mode)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -832,7 +669,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../oauth/" class="md-nav__link">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
         
   
   
@@ -860,7 +697,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../board-setup/" class="md-nav__link">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
         
   
   
@@ -888,7 +725,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sample-boards/" class="md-nav__link">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
         
   
   
@@ -916,7 +753,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../onboarding-tour/" class="md-nav__link">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
         
   
   
@@ -2313,6 +2150,8 @@
       
   
   
+    
+  
   
   
     
@@ -2368,20 +2207,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../architecture/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -2399,13 +2241,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2425,7 +2267,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/overview/" class="md-nav__link">
+      <a href="../overview/" class="md-nav__link">
         
   
   
@@ -2453,7 +2295,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/data-model/" class="md-nav__link">
+      <a href="../data-model/" class="md-nav__link">
         
   
   
@@ -2481,7 +2323,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/deployment/" class="md-nav__link">
+      <a href="../deployment/" class="md-nav__link">
         
   
   
@@ -2509,7 +2351,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/scaling/" class="md-nav__link">
+      <a href="../scaling/" class="md-nav__link">
         
   
   
@@ -2537,7 +2379,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/service-layer/" class="md-nav__link">
+      <a href="../service-layer/" class="md-nav__link">
         
   
   
@@ -2565,7 +2407,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+      <a href="../open-core-boundary/" class="md-nav__link">
         
   
   
@@ -2593,7 +2435,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/api-versioning/" class="md-nav__link">
+      <a href="../api-versioning/" class="md-nav__link">
         
   
   
@@ -2618,10 +2460,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2637,6 +2506,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gaps-and-scaffolds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gaps and scaffolds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#binding-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binding fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fields-that-do-not-exist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fields that do not exist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keeping-this-page-true" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keeping this page true
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2649,7 +2593,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/decisions/" class="md-nav__link">
+      <a href="../decisions/" class="md-nav__link">
         
   
   
@@ -3778,163 +3722,240 @@
   
 
 
-<h1 id="first-boot">First Boot<a class="headerlink" href="#first-boot" title="Permanent link">&para;</a></h1>
-<p>The first time Visiban starts, it creates a one-time admin password — retrieve it, log in, and set your own password before inviting anyone else.</p>
-<h2 id="automatic-admin-bootstrap">Automatic admin bootstrap<a class="headerlink" href="#automatic-admin-bootstrap" title="Permanent link">&para;</a></h2>
-<p>On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (<code>/tmp/visiban_admin_password</code> by default). The password is <strong>not</strong> printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.</p>
-<p>The file is created exclusively with mode <code>0600</code> and symlinks are never followed. If something other than a regular file you own already exists at that path, Visiban refuses to use it and prints the password to the command's stdout instead. Set <code>VISIBAN_ADMIN_PASSWORD_FILE</code> to use a private directory instead of <code>/tmp</code>.</p>
-<p>The stdout output looks like this:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>============================================================
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  VISIBAN INITIAL ADMIN CREDENTIALS
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>============================================================
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  Created site admin: admin
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  Password:           [REDACTED — written to /tmp/visiban_admin_password]
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>============================================================
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  Retrieve the password, then delete the file.
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  You will be required to change it on first login.
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>============================================================
-</code></pre></div>
-<h3 id="retrieving-the-password">Retrieving the password<a class="headerlink" href="#retrieving-the-password" title="Permanent link">&para;</a></h3>
-<p><strong>Docker Compose (development):</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
-</code></pre></div>
-<p><strong>Docker Compose (production):</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
-</code></pre></div>
-<p>Delete the file after retrieving it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>rm<span class="w"> </span>/tmp/visiban_admin_password
-</code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Password file not found?</p>
-<p>If the file does not exist, the admin account was already created on a previous boot (the password is only written once). This commonly happens even on what looks like a fresh start: the database lives in a named Docker volume that survives <code>docker compose down</code> / <code>up --build</code> / image rebuilds, but <code>/tmp</code> inside the <code>backend</code> container does not. So the moment the container is recreated for any reason after the admin's first boot — a rebuild, a <code>down</code>/<code>up</code> cycle, anything that gives you a new container instance — <code>ensure_site_admin</code> sees the admin already exists in Postgres, no-ops, and never writes the file again. There is no way to recover that specific file after the fact.</p>
-<p>Reset the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
-</code></pre></div>
-<p>For production:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
-</code></pre></div>
-<p><code>changepassword</code> prompts interactively and needs a real TTY (<code>docker compose exec</code> allocates one by default in an interactive terminal; scripts, CI, and some automation contexts do not and will fail with <code>EOFError</code>). In a non-interactive context, set the password directly instead:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="s2">from accounts.models import User</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="s2">u = User.objects.get(username='admin')</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="s2">u.set_password('a-new-temporary-password')</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="s2">u.must_change_password = True</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="s2">u.save()</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="s2">"</span>
-</code></pre></div>
-<p>Also double check the service name — it's <code>backend</code> in this project's compose files, not <code>api</code>.</p>
-</div>
-<p><strong>Local development (bare metal / venv):</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>cat<span class="w"> </span>/tmp/visiban_admin_password
-</code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The password is on its own line. If your shell displays a <code>%</code> immediately after it, that is a zsh prompt indicator — it is <strong>not</strong> part of the password. Copy only the characters before the <code>%</code>.</p>
-</div>
-<h3 id="kubernetes-helm">Kubernetes / Helm<a class="headerlink" href="#kubernetes-helm" title="Permanent link">&para;</a></h3>
-<p><code>ensure_site_admin</code> runs automatically as a <code>bootstrap</code> init container on every deploy. The password is written to <code>/run/visiban/admin_password</code> inside a shared volume that persists into the running backend pod.</p>
-<p>Retrieve the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>cat<span class="w"> </span>/run/visiban/admin_password
-</code></pre></div>
-<p>Delete it once you have it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>rm<span class="w"> </span>/run/visiban/admin_password
-</code></pre></div>
-<p>If the admin already exists (e.g. the pod restarted before you retrieved the password), reset the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
-</code></pre></div>
-<h2 id="changing-the-password">Changing the password<a class="headerlink" href="#changing-the-password" title="Permanent link">&para;</a></h2>
-<p>On first login you will be shown a password change screen. You cannot access the application until a new password (minimum 12 characters) is set. The temporary password cannot be reused.</p>
-<p>Once SMTP is configured, regular users (not just admins) can reset their own passwords via <strong>Forgot password?</strong> on the login page — no administrator intervention required. See <a href="../../administration/authentication/#forgot-password-self-service-password-reset">Authentication — Forgot password</a> for SMTP setup notes.</p>
-<h2 id="customizing-the-bootstrap-account">Customizing the bootstrap account<a class="headerlink" href="#customizing-the-bootstrap-account" title="Permanent link">&para;</a></h2>
-<p>Set these environment variables <strong>before</strong> the first boot:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nv">DJANGO_SUPERUSER_USERNAME</span><span class="o">=</span>admin
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">DJANGO_SUPERUSER_EMAIL</span><span class="o">=</span>admin@example.com
-</code></pre></div>
-<h2 id="subsequent-boots">Subsequent boots<a class="headerlink" href="#subsequent-boots" title="Permanent link">&para;</a></h2>
-<p><code>ensure_site_admin</code> runs on every boot. Admin bootstrap is a no-op once a site admin exists — credentials are never printed again — but the command also re-syncs the Sites framework's domain from <code>SITE_DOMAIN</code> every time it runs, so changing <code>SITE_DOMAIN</code> and restarting the backend takes effect immediately, with no extra step.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you lose the temporary password before changing it, reset it via the Django shell:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">u</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="s2">"admin"</span><span class="p">)</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">u</span><span class="o">.</span><span class="n">set_password</span><span class="p">(</span><span class="s2">"new-temporary-password"</span><span class="p">)</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">u</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
-</code></pre></div></p>
-</div>
-<h2 id="inviting-your-team">Inviting your team<a class="headerlink" href="#inviting-your-team" title="Permanent link">&para;</a></h2>
-<p>Before inviting anyone, decide how new users can join the instance. Go to <strong>Admin → Settings</strong> and set the registration mode:</p>
+<h1 id="field-enforcement">Field Enforcement<a class="headerlink" href="#field-enforcement" title="Permanent link">&para;</a></h1>
+<p>Some API fields read as rules rather than values: <code>wip_limit</code>, <code>allowed_priorities</code>, <code>default_board_member_role</code>, <code>is_required</code>. A client that reads one of them will assume the server enforces it. Since 1.2 some of those clients are AI agents talking to the <a href="../../features/mcp-server/">MCP server</a>, and an agent cannot notice that a rule is only advisory. It reads the schema and acts on it.</p>
+<p>This page classifies every constraint-shaped field in the OSS models and serializers, and records what each one actually binds. <em>Added in 1.2 (#1077).</em></p>
+<h2 id="the-three-classes">The three classes<a class="headerlink" href="#the-three-classes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Mode</th>
-<th>Who can create an account</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Open</strong></td>
-<td>Anyone who reaches the login page can self-register — no action required from an admin</td>
-</tr>
-<tr>
-<td><strong>Invite-only</strong></td>
-<td>New users must follow a valid invite link generated by a site admin; attempts to register without a link are rejected</td>
-</tr>
-<tr>
-<td><strong>Closed</strong></td>
-<td>Self-registration is disabled entirely; site admins create accounts manually from <strong>Admin → Users → Add user</strong></td>
-</tr>
-</tbody>
-</table>
-<p>The change takes effect immediately with no restart required. Existing sessions and OAuth-linked accounts are never affected.</p>
-<h3 id="generating-invite-links-invite-only-mode">Generating invite links (Invite-only mode)<a class="headerlink" href="#generating-invite-links-invite-only-mode" title="Permanent link">&para;</a></h3>
-<p>When registration mode is set to Invite-only, go to <strong>Admin → Invite Links</strong> to create links for new users.</p>
-<p>Invite links work for both password-based and OAuth registration. When a user follows an invite link and chooses to sign up via Google, GitHub, GitLab, or OIDC, the token is carried through the OAuth redirect and consumed on successful signup — no manual token entry required.</p>
-<p><strong>To create a link:</strong></p>
-<ol>
-<li>Open the <strong>Admin</strong> panel (<code>/admin</code>) and go to the <strong>Invite Links</strong> tab.</li>
-<li>Click <strong>Generate invite link</strong>.</li>
-<li>Choose an expiry window: <strong>1 day</strong>, <strong>7 days</strong>, <strong>30 days</strong>, or <strong>Never expires</strong>.</li>
-<li>Optionally enable <strong>Single-use</strong> — the link is consumed after the first registration and cannot be reused.</li>
-<li>Copy the generated token and share it with the new user via a secure channel.</li>
-</ol>
-<p>The raw token value is shown only once at creation — it is not stored in plain text and cannot be retrieved later. If a link is lost before it is used, revoke it and generate a new one.</p>
-<p><strong>Link statuses:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Status</th>
+<th>Class</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Pending</td>
-<td>Valid and not yet used</td>
+<td><strong>Binding</strong></td>
+<td>The server rejects or filters on it. Where a write path skips the check, the gap is listed below with a tracking issue</td>
 </tr>
 <tr>
-<td>Used</td>
-<td>Consumed by a registration (single-use links only)</td>
+<td><strong>Advisory</strong></td>
+<td>Stored and returned, and may shape a default or the UI, but no write is ever rejected for violating it</td>
 </tr>
 <tr>
-<td>Expired</td>
-<td>Past the expiry date</td>
-</tr>
-<tr>
-<td>Revoked</td>
-<td>Manually invalidated by a site admin</td>
+<td><strong>Scaffold</strong></td>
+<td>Stored and editable, but no code path reads it yet</td>
 </tr>
 </tbody>
 </table>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>A maximum of 50 active (pending, non-expired) invite links can exist at one time per instance. Revoke unused links to stay below this limit.</p>
-</div>
-<h3 id="creating-accounts-manually-closed-mode">Creating accounts manually (Closed mode)<a class="headerlink" href="#creating-accounts-manually-closed-mode" title="Permanent link">&para;</a></h3>
-<p>When registration mode is Closed, use <strong>Admin → Users → Add user</strong> to create accounts directly. Set a temporary password and enable <strong>Force password reset</strong> so the user chooses their own password on first login.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Copy the temporary password before closing the Create User dialog — it is not shown again. Share it with the new user via a secure channel.</p>
-</div>
+<p>Any field that is not binding on every write path says so in its OpenAPI description, starting with the token <code>Enforcement: binding</code>, <code>Enforcement: advisory</code>, or <code>Enforcement: scaffold</code>. The strings live in <code>backend/visiban/field_enforcement.py</code> and are attached at the serializer layer. <code>backend/boards/tests/test_field_enforcement_schema.py</code> checks that every string starts with its token and pins it to every schema component that carries the field.</p>
+<p>Out of scope: enterprise code, env-var settings, and plain values that do not read as rules, such as <code>name</code>, <code>color</code>, <code>position</code>, <code>card_density</code>, or <code>staleness_threshold_days</code>. <code>Board.show_wip_at_limit</code> is display-only, and its description already says so.</p>
+<h2 id="gaps-and-scaffolds">Gaps and scaffolds<a class="headerlink" href="#gaps-and-scaffolds" title="Permanent link">&para;</a></h2>
+<p>These fields are the reason this page exists. Each gap and scaffold has a tracking issue; the <code>Card.version</code> row is by design.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Class</th>
+<th>What it promises</th>
+<th>What actually happens</th>
+<th>Tracking</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Column.wip_limit</code></td>
+<td>Binding (move only)</td>
+<td>At most N active cards in the column</td>
+<td>Checked only by <code>POST /cards/{id}/move/</code> (<code>services/cards.py</code> <code>move_card</code>). Card create, restore from archive, board import, and saving a card in the Django admin (<code>CardAdmin.save_model</code>) do not check it, even with <code>enforce_wip_hard</code> on</td>
+<td>#1428</td>
+</tr>
+<tr>
+<td><code>Column.weight_limit</code></td>
+<td>Binding (move only)</td>
+<td>Column weight stays within budget</td>
+<td>Same as <code>wip_limit</code> (including the Django admin), and raising a card's <code>weight</code> with PATCH is not checked either</td>
+<td>#1428</td>
+</tr>
+<tr>
+<td><code>Board.enforce_wip_limits</code></td>
+<td>Binding (move only)</td>
+<td>Over-limit placement returns 409</td>
+<td>Applies to moves only, for the same reason</td>
+<td>#1428</td>
+</tr>
+<tr>
+<td><code>Board.enforce_wip_hard</code></td>
+<td>Binding (move only)</td>
+<td>No role can exceed a WIP limit</td>
+<td>No role can <em>move</em> a card past it. Any member can still create a card in a full column or restore one into it</td>
+<td>#1428</td>
+</tr>
+<tr>
+<td><code>Board.enforce_weight_limits</code></td>
+<td>Binding (move only)</td>
+<td>Over-budget placement returns 409</td>
+<td>Applies to moves only</td>
+<td>#1428</td>
+</tr>
+<tr>
+<td><code>Board.allowed_priorities</code></td>
+<td>Scaffold</td>
+<td>Cards on this board use only the listed priorities</td>
+<td>Validated as a list when written, then never read. Card create and update accept any priority, and no UI filters by it</td>
+<td>#1429</td>
+</tr>
+<tr>
+<td><code>Group.allowed_priorities</code></td>
+<td>Advisory</td>
+<td>Restricts priorities on the group's boards</td>
+<td>Copied onto <code>Board.allowed_priorities</code> when a board is created through <code>POST /groups/{id}/boards/</code>, where it is itself a scaffold</td>
+<td>#1429</td>
+</tr>
+<tr>
+<td><code>Group.default_board_member_role</code></td>
+<td>Scaffold</td>
+<td>Role group members get on new boards</td>
+<td>Stored, editable in the group's Settings tab, never read. Group members' board access comes from their <code>GroupMembership.role</code> through <code>get_board_role()</code></td>
+<td>#1430</td>
+</tr>
+<tr>
+<td><code>CustomFieldDefinition.is_required</code></td>
+<td>Scaffold</td>
+<td>A card must have a value</td>
+<td>Not enforced. Already documented in <a href="../../features/custom-fields/">Custom Fields</a></td>
+<td>#1433</td>
+</tr>
+<tr>
+<td><code>SwimlaneCustomFieldDefinition.is_required</code></td>
+<td>Scaffold</td>
+<td>A swimlane must have a value</td>
+<td>Not enforced</td>
+<td>#1433</td>
+</tr>
+<tr>
+<td><code>Card.version</code></td>
+<td>Binding (opt-in, move only)</td>
+<td>Optimistic concurrency guard</td>
+<td>Checked only when a client sends it back as <code>version</code> on the move endpoint. PATCH and PUT do not accept or check it. This is by design, and the schema says so</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="binding-fields">Binding fields<a class="headerlink" href="#binding-fields" title="Permanent link">&para;</a></h2>
+<p>Classified from a review of the code on 2026-10-04; see the tracking issues for known gaps. Each row names where the main check lives.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Enforced at</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Column.allow_card_creation</code></td>
+<td><code>create_card()</code> in <code>boards/services/cards.py</code> (REST and MCP)</td>
+<td>Board import creates cards directly, which is expected because import builds the board. Creating a card in the Django admin (<code>CardAdmin.save_model</code>) skips the check, along with the rest of the card service (see <a href="../service-layer/">Service Layer</a>); tracked in #1428</td>
+</tr>
+<tr>
+<td><code>Column.is_done</code></td>
+<td>Cycle-time and throughput analytics</td>
+<td>Shapes metrics only. It is not a write rule and does not read as one</td>
+</tr>
+<tr>
+<td><code>BoardMembership.role</code></td>
+<td><code>get_board_role()</code> / <code>get_board_roles()</code> in <code>boards/permissions.py</code>, shared by REST, WebSocket, and MCP</td>
+<td>The per-action matrix is in <a href="../../features/permissions/">Permissions</a></td>
+</tr>
+<tr>
+<td><code>BoardMembership.is_moderator</code></td>
+<td><code>can_modify_others_content()</code> in <code>boards/permissions.py</code>, called by the card service and the comment, attachment, and checklist views</td>
+<td>Field visibility on <code>member.*</code> events is gated separately by <code>moderator_field_visible()</code></td>
+</tr>
+<tr>
+<td><code>GroupMembership.role</code></td>
+<td>Inherited into board roles through <code>get_board_role()</code> (nearest ancestor wins; explicit board membership overrides)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Board.share_token_expires_at</code></td>
+<td><code>boards/views/share.py</code> returns <code>410 Gone</code> after expiry</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>CustomFieldDefinition.show_on_card</code> (max 2), <code>SwimlaneCustomFieldDefinition.show_on_row</code> (max 3)</td>
+<td>Serializer validation</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>SwimlaneCustomFieldDefinition.is_admin_only</code></td>
+<td>Read filter in <code>SwimlaneSerializer</code> / <code>SwimlaneAdminSerializer</code>, REST and broadcast payloads</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>SiteSetting.registration_mode</code></td>
+<td><code>RegistrationAdapter</code> and <code>SocialRegistrationAdapter.is_open_for_signup</code> in <code>accounts/adapter.py</code></td>
+<td>Covers password and social signup</td>
+</tr>
+<tr>
+<td><code>SiteSetting.uploads_enabled</code></td>
+<td>Card attachment upload (<code>boards/views/cards.py</code>)</td>
+<td>Scoped to attachments, as its description says. Board import (JSON, CSV, Trello) also takes a multipart file and does not consult it</td>
+</tr>
+<tr>
+<td><code>SiteSetting.maintenance_mode</code></td>
+<td><code>MaintenanceModeMiddleware</code>, plus <code>_require_maintenance_off()</code> for <code>/mcp</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>User.is_site_admin</code></td>
+<td><code>IsSiteAdmin</code> in <code>accounts/permissions.py</code>, which gates <code>/api/admin/*</code>; also exempts the user from the maintenance-mode write block</td>
+<td>Binding only for the admin surface. It does <strong>not</strong> grant board or group access (<code>boards/permissions.py</code> <code>get_board_role</code>); that is <code>can_access_all_content</code></td>
+</tr>
+<tr>
+<td><code>User.is_superuser</code>, <code>User.is_staff</code></td>
+<td>Django built-ins, not exposed by any API serializer</td>
+<td><code>is_staff</code> gates only the Django admin site. Setting <code>is_superuser</code> also sets <code>is_site_admin</code> (<code>accounts/signals.py</code>)</td>
+</tr>
+<tr>
+<td><code>User.can_access_all_content</code></td>
+<td>Board and group access helpers, WebSocket consumer, MCP tools</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>User.notif_*</code>, <code>User.email_notif_*</code></td>
+<td>Notification dispatch (<code>boards/notifications_email.py</code>, <code>boards/signals.py</code>, the <code>notify_*</code> management commands)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>InviteLink.expires_at</code>, <code>single_use</code>, <code>revoked_at</code></td>
+<td><code>accounts/invite_utils.py</code>, consumed atomically at registration</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>GroupInviteLink.is_active</code>, <code>expires_at</code>, <code>single_use</code></td>
+<td>Group invite lookup and join in <code>groups/views.py</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>PersonalAccessToken.expires_at</code>, <code>scopes</code></td>
+<td><code>accounts/authentication.py</code> (REST) and <code>mcp_server/auth.py</code> (<code>mcp:*</code> scopes)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fields-that-do-not-exist">Fields that do not exist<a class="headerlink" href="#fields-that-do-not-exist" title="Permanent link">&para;</a></h2>
+<p>One candidate named in #1077 needed no classification:</p>
+<ul>
+<li><strong><code>Column.automation_skip</code></strong> was proposed in #201 and never landed. When it does, it must ship either binding or with an <code>Enforcement: scaffold</code> description.</li>
+</ul>
+<h2 id="keeping-this-page-true">Keeping this page true<a class="headerlink" href="#keeping-this-page-true" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>New constraint-shaped field:</strong> it ships binding on every path, or it ships with an <code>Enforcement:</code> description in <code>backend/visiban/field_enforcement.py</code>, a row on this page, and a tracking issue.</li>
+<li><strong>Closing a gap:</strong> update the description constant, this page, and the behavioral pin in <code>test_field_enforcement_schema.py</code> (<code>WipGapBehaviorTests</code> fails on purpose once the WIP gap is fixed) in the same MR.</li>
+<li><strong>Put descriptions on the serializer, not the model.</strong> A model <code>help_text</code> change generates an <code>AlterField</code> migration for what is a documentation-only change.</li>
+</ul>
 
 
 
