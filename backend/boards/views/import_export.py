@@ -38,7 +38,7 @@ from ..serializers import (
     BoardExportLogSerializer, BoardSerializer, CSVImportOptionsSerializer,
     CustomFieldDefinitionSerializer, ExternalRefSerializer, ImportOptionsSerializer,
     SwimlaneCustomFieldDefinitionSerializer, _normalize_custom_field_value,
-    _swimlane_custom_field_values,
+    _run_custom_field_validator_hooks, _swimlane_custom_field_values,
 )
 from ..services import trello_import as _trello
 from ._helpers import get_board_for_user
@@ -230,7 +230,7 @@ def _validate_import_field_definitions(raw, serializer_class, model, pin_attr, l
     return validated, None
 
 
-def _import_field_values(raw, definitions_by_name):
+def _import_field_values(raw, definitions_by_name, hook_name):
     """Normalize one owner's imported ``{field name: value}`` map.
 
     Returns ``[(definition, stored_value)]``. Lenient, like the importer's
@@ -239,7 +239,9 @@ def _import_field_values(raw, definitions_by_name):
     refuses, is dropped rather than failing the whole import. Every value
     passes through the API's own normalizer, so what is stored is exactly
     what a PATCH would have stored; an exported value (already canonical)
-    round-trips unchanged.
+    round-trips unchanged. The ``boards.hooks`` validator list named by
+    *hook_name* runs too, as on the API path, so an extension's value policy
+    cannot be sidestepped by importing instead of editing.
     """
     if not isinstance(raw, dict):
         return []
@@ -250,6 +252,7 @@ def _import_field_values(raw, definitions_by_name):
             continue
         try:
             stored = _normalize_custom_field_value(definition, value)
+            stored = _run_custom_field_validator_hooks(definition, stored, hook_name=hook_name)
         except drf_serializers.ValidationError:
             continue
         if stored != "":
@@ -710,6 +713,7 @@ class BoardImportExportMixin:
                     for sw in sw_data
                     for definition, value in _import_field_values(
                         sw.get("custom_field_values"), swimlane_field_map,
+                        "SWIMLANE_CUSTOM_FIELD_VALIDATORS",
                     )
                 ])
 
@@ -813,6 +817,7 @@ class BoardImportExportMixin:
 
                 for definition, value in _import_field_values(
                     card_data.get("custom_field_values"), card_field_map,
+                    "CUSTOM_FIELD_VALIDATORS",
                 ):
                     field_values_to_create.append(CustomFieldValue(
                         card_id=card_pk, field_definition=definition, value=value,

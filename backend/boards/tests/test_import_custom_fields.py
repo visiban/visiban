@@ -171,6 +171,27 @@ class CustomFieldImportTests(TestCase):
         self.assertEqual(values["Champion"], "Dana")
         self.assertEqual(self._lane_values(board, "West"), {"Owner": "Blake"})
 
+    def test_extension_validator_hooks_apply_to_imported_values(self, *_):
+        """An enterprise value policy (boards.hooks) holds on import, not just on PATCH."""
+        from django.core.exceptions import ValidationError
+        from boards import hooks
+
+        def no_dana(definition, value):
+            if value == "Dana":
+                raise ValidationError("blocked by policy")
+            return None
+
+        def upper_owner(definition, value):
+            return value.upper() if definition.name == "Owner" else None
+
+        with mock.patch.object(hooks, "CUSTOM_FIELD_VALIDATORS", [no_dana]), \
+                mock.patch.object(hooks, "SWIMLANE_CUSTOM_FIELD_VALIDATORS", [upper_owner]):
+            resp = self._post(_board())
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.data)
+        board = Board.objects.get(pk=resp.data["id"])
+        self.assertNotIn("Champion", self._card_values(board))
+        self.assertEqual(self._lane_values(board, "West"), {"Owner": "BLAKE"})
+
     def _assert_rejected(self, data, fragment):
         before = Board.objects.count()
         resp = self._post(data)
