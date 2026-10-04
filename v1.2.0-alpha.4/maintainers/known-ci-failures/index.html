@@ -3806,8 +3806,8 @@ main pipelines were red for exactly this reason (#1165).</p>
 <p><strong>Fix:</strong> do <strong>not</strong> retry it and do not add a <code>schemathesis-baseline.json</code> entry. Read the job's
 <code>FAILURES</code> section (operation, status, <code>Test Case ID</code>) and the <code>seed=</code> line the job prints. A
 5xx is an endpoint bug; an undocumented 4xx needs the response declared; a schema mismatch needs
-the serializer or annotation fixed. Replay with the pipeline variable <code>FUZZ_SEED=&lt;n&gt;</code> or
-<code>st replay &lt;id&gt;</code>. Full triage steps: <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake"><code>docs/api/openapi.md</code></a>.
+the serializer or annotation fixed. Replay on an MR with a <code>Fuzz-Seed: &lt;n&gt;</code> trailer on an empty head commit
+(or the pipeline variable <code>FUZZ_SEED=&lt;n&gt;</code> off MRs), or with <code>st replay &lt;id&gt;</code>. Full triage steps: <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake"><code>docs/api/openapi.md</code></a>.
 Known still-open defects it can hit: #1166.</p>
 <h2 id="docker-hub-429-too-many-requests-on-image-pulls">Docker Hub <code>429 Too Many Requests</code> on image pulls<a class="headerlink" href="#docker-hub-429-too-many-requests-on-image-pulls" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> a job fails resolving a Docker Hub image, e.g.</p>
