@@ -670,7 +670,7 @@ One more option is not an include flag:
 
 | Key | Type | Effect |
 |---|---|---|
-| `shift_dates_from` | `YYYY-MM-DD` string, JSON only, optional | Moves every date in the file forward by the whole days between this date and today: card due dates, `date` custom field values on cards and swimlanes, and the timestamps on cards, comments, movements, and activities. Spacing between dates is preserved. Absent by default, so a plain import is unchanged. Must not be in the future or more than 10 years ago. A CSV import rejects it as an unknown option. Used by the sample flow with a sample's `date_anchor`. When given, it is echoed in `import_summary.options_applied` and the `board.created` event's `import_options`. |
+| `shift_dates_from` | `YYYY-MM-DD` string, JSON only, optional | Moves every date in the file forward by the whole days between this date and today: card due dates, `date` custom field values on cards and swimlanes, the timestamps on cards, comments, movements, and activities, and the old and new values of due-date-change history entries. Spacing between dates is preserved. Absent by default, so a plain import is unchanged. Must not be in the future or more than 10 years ago. A CSV import rejects it as an unknown option. Used by the sample flow with a sample's `date_anchor`. When given, it is echoed in `import_summary.options_applied` and the `board.created` event's `import_options`. |
 
 An omitted `comments`, `checklist`, or `history` follows `cards`, so `{"cards": false}` alone imports structure and labels only. An explicit contradiction such as `{"cards": false, "comments": true}` is rejected.
 
