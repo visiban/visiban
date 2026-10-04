@@ -1,7 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { SwimlaneCustomFieldDefinition } from "../../types";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
+import { useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { useOverflowFade } from "../../hooks/useOverflowFade";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 
 export interface SwimlaneFieldEntry {
@@ -40,8 +42,12 @@ export default function SwimlaneFieldsPopover({
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  // null until the measuring pass has placed the panel (see useLayoutEffect below).
-  const [top, setTop] = useState<number | null>(null);
+  // null until the measuring pass has placed the panel.
+  const top = useAnchoredPlacement(panelRef, {
+    anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
+    deps: [entries.length],
+  });
+
 
   // Above ModalWrapper's 40 is unnecessary here — this popover lives on the
   // board surface, not inside a modal — so the default dropdown tier is right.
@@ -122,23 +128,9 @@ export default function SwimlaneFieldsPopover({
   const PANEL_WIDTH = 256;
   const MARGIN = 8;
   const left = Math.min(anchorRect.left, window.innerWidth - PANEL_WIDTH - MARGIN);
-  useLayoutEffect(() => {
-    const height = panelRef.current?.offsetHeight ?? 0;
-    const below = anchorRect.bottom + 4;
-    const above = anchorRect.top - 4 - height;
-    if (below + height <= window.innerHeight - MARGIN) setTop(below);
-    else if (above >= MARGIN) setTop(above);
-    else setTop(Math.max(MARGIN, window.innerHeight - MARGIN - height));
-  }, [anchorRect, entries.length]);
-
   // Bottom fade while more of the list is below the fold: the overflow is
   // otherwise invisible wherever the OS hides scrollbars.
-  const [moreBelow, setMoreBelow] = useState(false);
-  const updateMoreBelow = () => {
-    const el = listRef.current;
-    if (el) setMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
-  };
-  useLayoutEffect(updateMoreBelow, [entries.length]);
+  const { moreBelow, onScroll: updateMoreBelow } = useOverflowFade(listRef, [entries.length]);
 
   const renderEntry = ({ def, value }: SwimlaneFieldEntry, i: number) => (
     <div
