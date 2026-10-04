@@ -72,7 +72,7 @@
       "name": "TechNova Inc",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "support@technova.example",
+      "contact_email": "",
       "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1.",
       "custom_field_values": {
         "Support plan": "Premier",
@@ -86,7 +86,7 @@
       "name": "Apex Retail Group",
       "position": 1,
       "color": "#F59E0B",
-      "contact_email": "support@apexretail.example",
+      "contact_email": "",
       "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager.",
       "custom_field_values": {
         "Support plan": "Business",
@@ -100,7 +100,7 @@
       "name": "FinEdge Ltd",
       "position": 2,
       "color": "#8B5CF6",
-      "contact_email": "support@finedge.example",
+      "contact_email": "",
       "notes": "Compliance-sensitive. All support comms may be audited. Use formal language.",
       "custom_field_values": {
         "Support plan": "Standard",
@@ -114,7 +114,7 @@
       "name": "BlueSky Health",
       "position": 3,
       "color": "#10B981",
-      "contact_email": "support@blueskyhealth.example",
+      "contact_email": "",
       "notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal.",
       "custom_field_values": {
         "Support plan": "Premier",
@@ -128,7 +128,7 @@
       "name": "Mosaic Creative",
       "position": 4,
       "color": "#EC4899",
-      "contact_email": "support@mosaiccreative.example",
+      "contact_email": "",
       "notes": "SMB tier. Self-serve. Generally quick to resolve -- low SLA pressure.",
       "custom_field_values": {
         "Support plan": "Business",
@@ -142,7 +142,7 @@
       "name": "Global Freight Co",
       "position": 5,
       "color": "#14B8A6",
-      "contact_email": "support@globalfreight.example",
+      "contact_email": "",
       "notes": "Enterprise tier. 300 seats. Logistics-heavy workflows. SLA: 4-hour response.",
       "custom_field_values": {
         "Support plan": "Premier",
@@ -156,7 +156,7 @@
       "name": "Pinnacle Finance",
       "position": 6,
       "color": "#6366F1",
-      "contact_email": "support@pinnaclefin.example",
+      "contact_email": "",
       "notes": "Financial services. SOC 2 environment. Audit trail exports are critical.",
       "custom_field_values": {
         "Support plan": "Business",
@@ -170,7 +170,7 @@
       "name": "Redwood Agency",
       "position": 7,
       "color": "#0EA5E9",
-      "contact_email": "support@redwoodagency.example",
+      "contact_email": "",
       "notes": "SMB creative agency. 25 seats. Fast response expected but no formal SLA.",
       "custom_field_values": {
         "Support plan": "Standard",
@@ -184,7 +184,7 @@
       "name": "Atlas Logistics BV",
       "position": 8,
       "color": "#F43F5E",
-      "contact_email": "support@atlaslogistics.example",
+      "contact_email": "",
       "notes": "EMEA mid-market. 200 seats. GDPR-sensitive. Dutch business hours only.",
       "custom_field_values": {
         "Support plan": "Premier",
@@ -198,7 +198,7 @@
       "name": "Vertex Media",
       "position": 9,
       "color": "#A855F7",
-      "contact_email": "support@vertexmedia.example",
+      "contact_email": "",
       "notes": "Growing account. 75 seats approaching 150. High feature request volume.",
       "custom_field_values": {
         "Support plan": "Business",
@@ -212,7 +212,7 @@
       "name": "Ironside Manufacturing",
       "position": 10,
       "color": "#EAB308",
-      "contact_email": "support@ironsidemfg.example",
+      "contact_email": "",
       "notes": "Manufacturing. Shop floor workers with limited tech literacy. Extra patience needed.",
       "custom_field_values": {
         "Support plan": "Premier",

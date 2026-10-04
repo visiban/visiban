@@ -47,72 +47,72 @@ COLUMNS = [
     {"name": "Lost",       "position": 8, "color": "#EF4444", "wip_limit": None, "weight_limit": None, "allow_card_creation": False, "is_done": True},
 ]
 
-# (name, color, contact_email, notes, row field values)
+# (name, color, notes, row field values)
 _ACCOUNTS = [
-    ("Harborview Bank", "#14B8A6", "harborview-team@example.com",
+    ("Harborview Bank", "#14B8A6",
      "Tier-one retail bank. Core modernization program funded through 2027.",
      {"AD": "Laura Bennett", "AE": "Ethan Ross", "SA": "Julia Park", "OAE": "Rachel Kim", "OSA": "Diego Alvarez",
       "SVC": "Sam Ortega", "Region": "AMER East", "Coverage": "Full", "Segment": "Financial services",
       "Install base ARR": "1850000", "Renewal date": _date(118),
       "Overlay products owned": '["Data Platform","Security"]', "Strategic account": "true",
       "Executive sponsor": "R. Castellanos, CIO"}),
-    ("Granite Peak Energy", "#F97316", "granitepeak-team@example.com",
+    ("Granite Peak Energy", "#F97316",
      "Regional utility. Grid modernization grant drives this year's spend.",
      {"AD": "Laura Bennett", "AE": "Ethan Ross", "SA": "Julia Park", "OAE": "Nathan Cole", "OSA": "Aisha Bello",
       "SVC": "Sam Ortega", "Region": "AMER East", "Coverage": "Full", "Segment": "Energy and utilities",
       "Install base ARR": "920000", "Renewal date": _date(64),
       "Overlay products owned": '["Observability"]', "Strategic account": "false",
       "Executive sponsor": "P. Lindgren, COO"}),
-    ("Copperline Telecom", "#6366F1", "copperline-team@example.com",
+    ("Copperline Telecom", "#6366F1",
      "Fiber and wireless carrier. Consolidating three network operations centers.",
      {"AD": "Laura Bennett", "AE": "Monica Reyes", "SA": "Julia Park", "OAE": "Rachel Kim", "OSA": "Diego Alvarez",
       "SVC": "Sam Ortega", "Region": "AMER East", "Coverage": "Full", "Segment": "Telecommunications",
       "Install base ARR": "1340000", "Renewal date": _date(201),
       "Overlay products owned": '["Observability","Integration"]', "Strategic account": "true",
       "Executive sponsor": "D. Mwangi, CTO"}),
-    ("Orion State Transit Authority", "#0EA5E9", "orion-transit-team@example.com",
+    ("Orion State Transit Authority", "#0EA5E9",
      "Public transit agency. Purchases run through a state cooperative contract.",
      {"AD": "Laura Bennett", "AE": "Monica Reyes", "SA": "Julia Park", "OAE": "Grace Okafor", "OSA": "Henrik Larsen",
       "SVC": "Sam Ortega", "Region": "AMER East", "Coverage": "Full", "Segment": "Public sector",
       "Install base ARR": "410000", "Renewal date": _date(35),
       "Overlay products owned": "", "Strategic account": "false",
       "Executive sponsor": "A. Brennan, Chief Digital Officer"}),
-    ("Evergreen Health System", "#22C55E", "evergreen-team@example.com",
+    ("Evergreen Health System", "#22C55E",
      "Twelve-hospital system. Clinical data teams are the main buyers.",
      {"AD": "Victor Shah", "AE": "Liam Foster", "SA": "Kenji Mori", "OAE": "Grace Okafor", "OSA": "Henrik Larsen",
       "SVC": "Dana Whitfield", "Region": "AMER West", "Coverage": "Full", "Segment": "Healthcare",
       "Install base ARR": "1120000", "Renewal date": _date(150),
       "Overlay products owned": '["Data Platform","AI Services"]', "Strategic account": "true",
       "Executive sponsor": "S. Whitaker, Chief Medical Information Officer"}),
-    ("Altair Semiconductor", "#A855F7", "altair-team@example.com",
+    ("Altair Semiconductor", "#A855F7",
      "Fab and design house. Engineering-led buying; procurement is strict on security.",
      {"AD": "Victor Shah", "AE": "Liam Foster", "SA": "Kenji Mori", "OAE": "Nathan Cole", "OSA": "Aisha Bello",
       "SVC": "Dana Whitfield", "Region": "AMER West", "Coverage": "Full", "Segment": "Manufacturing",
       "Install base ARR": "760000", "Renewal date": _date(88),
       "Overlay products owned": '["Security"]', "Strategic account": "false",
       "Executive sponsor": "Y. Tanaka, VP Engineering"}),
-    ("Bluefin Insurance", "#EC4899", "bluefin-team@example.com",
+    ("Bluefin Insurance", "#EC4899",
      "Property and casualty carrier. Overlay SA is covering without an overlay AE.",
      {"AD": "Victor Shah", "AE": "Hannah Wright", "SA": "Kenji Mori", "OAE": "Unassigned", "OSA": "Aisha Bello",
       "SVC": "Dana Whitfield", "Region": "AMER West", "Coverage": "Partial", "Segment": "Insurance",
       "Install base ARR": "690000", "Renewal date": _date(27),
       "Overlay products owned": '["AI Services"]', "Strategic account": "false",
       "Executive sponsor": "M. Okonkwo, Chief Underwriting Officer"}),
-    ("Halcyon Pharma", "#84CC16", "halcyon-team@example.com",
+    ("Halcyon Pharma", "#84CC16",
      "Mid-size pharma. Inspection readiness is the board-level priority this year.",
      {"AD": "Mira Chen", "AE": "Oliver Grant", "SA": "Sofia Lind", "OAE": "Grace Okafor", "OSA": "Henrik Larsen",
       "SVC": "Ines Moreau", "Region": "EMEA", "Coverage": "Full", "Segment": "Life sciences",
       "Install base ARR": "1480000", "Renewal date": _date(176),
       "Overlay products owned": '["Data Platform","Security","AI Services"]', "Strategic account": "true",
       "Executive sponsor": "H. Lindqvist, Chief Scientific Officer"}),
-    ("Keystone Logistics", "#78716C", "keystone-team@example.com",
+    ("Keystone Logistics", "#78716C",
      "Freight and warehousing. No overlay pod assigned since the last reorg.",
      {"AD": "Mira Chen", "AE": "Oliver Grant", "SA": "Sofia Lind", "OAE": "Unassigned", "OSA": "Unassigned",
       "SVC": "Ines Moreau", "Region": "EMEA", "Coverage": "Gap", "Segment": "Transportation",
       "Install base ARR": "530000", "Renewal date": _date(19),
       "Overlay products owned": "", "Strategic account": "false",
       "Executive sponsor": "T. Nakamura, VP Operations"}),
-    ("Summit Retail Holdings", "#F43F5E", "summit-team@example.com",
+    ("Summit Retail Holdings", "#F43F5E",
      "Grocery and home-goods banners across five countries.",
      {"AD": "Mira Chen", "AE": "Chloe Dubois", "SA": "Sofia Lind", "OAE": "Rachel Kim", "OSA": "Diego Alvarez",
       "SVC": "Ines Moreau", "Region": "EMEA", "Coverage": "Full", "Segment": "Retail",
@@ -122,11 +122,11 @@ _ACCOUNTS = [
 ]
 
 SWIMLANES = [
-    {"name": name, "position": i, "color": color, "contact_email": email, "notes": notes,
+    {"name": name, "position": i, "color": color, "notes": notes,
      "custom_field_values": values}
-    for i, (name, color, email, notes, values) in enumerate(_ACCOUNTS)
+    for i, (name, color, notes, values) in enumerate(_ACCOUNTS)
 ]
-_COVERAGE = {name: values["Coverage"] for name, _, _, _, values in _ACCOUNTS}
+_COVERAGE = {name: values["Coverage"] for name, _, _, values in _ACCOUNTS}
 
 LABELS = [
     {"name": "New Workload", "color": "#3B82F6"},
@@ -432,7 +432,7 @@ FEATURES = {
     ],
 }
 
-_AD_BY_LANE = {name: values["AD"] for name, _, _, _, values in _ACCOUNTS}
+_AD_BY_LANE = {name: values["AD"] for name, _, _, values in _ACCOUNTS}
 for _lane in SWIMLANES:
     _lane["custom_field_values"]["Account plan"] = (
         "https://docs.example.com/account-plans/" + _lane["name"].lower().replace(" ", "-")

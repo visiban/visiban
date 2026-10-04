@@ -81,7 +81,7 @@
       "name": "Blog & SEO",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "blog@example.com",
+      "contact_email": "",
       "notes": "Long-form SEO content. Target: 2 posts/week. Primary traffic driver. Owner: content team.",
       "custom_field_values": {
         "Channel owner": "Lucas Ferreira",
@@ -94,7 +94,7 @@
       "name": "Social Media",
       "position": 1,
       "color": "#8B5CF6",
-      "contact_email": "social@example.com",
+      "contact_email": "",
       "notes": "Twitter/X, LinkedIn, short-form video (TikTok, Reels). 2-3 posts/day across channels.",
       "custom_field_values": {
         "Channel owner": "Nadia Haddad",
@@ -107,7 +107,7 @@
       "name": "Video Production",
       "position": 2,
       "color": "#EC4899",
-      "contact_email": "video@example.com",
+      "contact_email": "",
       "notes": "Product demos, thought leadership webinars, YouTube tutorials. Studio booking required.",
       "custom_field_values": {
         "Channel owner": "Owen Gallagher",
@@ -120,7 +120,7 @@
       "name": "Email Campaigns",
       "position": 3,
       "color": "#F59E0B",
-      "contact_email": "email@example.com",
+      "contact_email": "",
       "notes": "Weekly newsletter, drip sequences, product announcements. Audience: 28,000 subscribers.",
       "custom_field_values": {
         "Channel owner": "Sofia Marino",
@@ -133,7 +133,7 @@
       "name": "Product Documentation",
       "position": 4,
       "color": "#10B981",
-      "contact_email": "docs@example.com",
+      "contact_email": "",
       "notes": "User guides, API docs, release notes. Must be versioned. Published to docs.visiban.com.",
       "custom_field_values": {
         "Channel owner": "Tariq Aziz",
@@ -146,7 +146,7 @@
       "name": "Case Studies",
       "position": 5,
       "color": "#14B8A6",
-      "contact_email": "stories@example.com",
+      "contact_email": "",
       "notes": "Customer stories. Requires customer approval. 4-6 week production time per study.",
       "custom_field_values": {
         "Channel owner": "Mei Lin",
@@ -159,7 +159,7 @@
       "name": "Webinars & Events",
       "position": 6,
       "color": "#F97316",
-      "contact_email": "events@example.com",
+      "contact_email": "",
       "notes": "Live webinars, conference talks, virtual workshops. Lead capture forms required.",
       "custom_field_values": {
         "Channel owner": "Jonas Berg",
@@ -172,7 +172,7 @@
       "name": "Press & PR",
       "position": 7,
       "color": "#EF4444",
-      "contact_email": "press@example.com",
+      "contact_email": "",
       "notes": "Press releases, media pitches, analyst briefings. All external comms require CEO approval.",
       "custom_field_values": {
         "Channel owner": "Isabel Ortiz",
@@ -185,7 +185,7 @@
       "name": "Partner Content",
       "position": 8,
       "color": "#6366F1",
-      "contact_email": "partners@example.com",
+      "contact_email": "",
       "notes": "Co-branded content with integration partners. Joint approval workflow required.",
       "custom_field_values": {
         "Channel owner": "Avery Brooks",
@@ -198,7 +198,7 @@
       "name": "Internal Communications",
       "position": 9,
       "color": "#0EA5E9",
-      "contact_email": "internal@example.com",
+      "contact_email": "",
       "notes": "All-hands decks, internal newsletters, culture posts. Published to company wiki.",
       "custom_field_values": {
         "Channel owner": "Priya Raman",

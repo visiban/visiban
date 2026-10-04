@@ -63,7 +63,7 @@
       "name": "Americas",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "csm-americas@visiban.example",
+      "contact_email": "",
       "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera.",
       "custom_field_values": {
         "CS lead": "Hana Kobayashi",
@@ -76,7 +76,7 @@
       "name": "EMEA",
       "position": 1,
       "color": "#8B5CF6",
-      "contact_email": "csm-emea@visiban.example",
+      "contact_email": "",
       "notes": "Europe, Middle East, Africa. CSM: Jordan Patel.",
       "custom_field_values": {
         "CS lead": "Lucas Ferreira",
@@ -89,7 +89,7 @@
       "name": "APAC",
       "position": 2,
       "color": "#10B981",
-      "contact_email": "csm-apac@visiban.example",
+      "contact_email": "",
       "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu.",
       "custom_field_values": {
         "CS lead": "Nadia Haddad",
@@ -102,7 +102,7 @@
       "name": "Enterprise Accounts",
       "position": 3,
       "color": "#F59E0B",
-      "contact_email": "enterprise-cs@visiban.example",
+      "contact_email": "",
       "notes": "200+ seat strategic accounts managed directly by VP CS.",
       "custom_field_values": {
         "CS lead": "Owen Gallagher",
@@ -115,7 +115,7 @@
       "name": "Mid-Market",
       "position": 4,
       "color": "#EF4444",
-      "contact_email": "midmarket-cs@visiban.example",
+      "contact_email": "",
       "notes": "20-200 seat accounts. CSM coverage pooled.",
       "custom_field_values": {
         "CS lead": "Sofia Marino",
@@ -128,7 +128,7 @@
       "name": "Strategic Partners",
       "position": 5,
       "color": "#14B8A6",
-      "contact_email": "partners-cs@visiban.example",
+      "contact_email": "",
       "notes": "Channel and technology partners. Joint success plans. CSM: Riley Kim.",
       "custom_field_values": {
         "CS lead": "Tariq Aziz",
@@ -141,7 +141,7 @@
       "name": "Government & Edu",
       "position": 6,
       "color": "#6366F1",
-      "contact_email": "gov-cs@visiban.example",
+      "contact_email": "",
       "notes": "Public sector accounts. Longer procurement, stricter compliance. CSM: Sam Torres.",
       "custom_field_values": {
         "CS lead": "Mei Lin",
@@ -154,7 +154,7 @@
       "name": "Healthcare",
       "position": 7,
       "color": "#0EA5E9",
-      "contact_email": "health-cs@visiban.example",
+      "contact_email": "",
       "notes": "HIPAA-compliant accounts. PHI handling required. CSM: Casey Park.",
       "custom_field_values": {
         "CS lead": "Jonas Berg",
@@ -167,7 +167,7 @@
       "name": "Financial Services",
       "position": 8,
       "color": "#F43F5E",
-      "contact_email": "fin-cs@visiban.example",
+      "contact_email": "",
       "notes": "SOC 2 and regulatory compliance required. CSM: Drew Martinez.",
       "custom_field_values": {
         "CS lead": "Isabel Ortiz",
@@ -180,7 +180,7 @@
       "name": "Startup & SMB",
       "position": 9,
       "color": "#A855F7",
-      "contact_email": "smb-cs@visiban.example",
+      "contact_email": "",
       "notes": "Sub-20-seat accounts. Tech-touch CSM model. Automated health scoring.",
       "custom_field_values": {
         "CS lead": "Avery Brooks",
@@ -193,7 +193,7 @@
       "name": "Agency & Creative",
       "position": 10,
       "color": "#EAB308",
-      "contact_email": "agency-cs@visiban.example",
+      "contact_email": "",
       "notes": "Creative agencies and studios. High board count, low seat count. CSM: Avery Chen.",
       "custom_field_values": {
         "CS lead": "Priya Raman",

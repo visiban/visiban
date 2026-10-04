@@ -54,7 +54,7 @@
       "name": "Frontend",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "frontend-team@example.com",
+      "contact_email": "",
       "notes": "React + TypeScript. Owns all UI components, pages, and the design system.",
       "custom_field_values": {
         "Team lead": "Priya Raman",
@@ -67,7 +67,7 @@
       "name": "Backend",
       "position": 1,
       "color": "#8B5CF6",
-      "contact_email": "backend-team@example.com",
+      "contact_email": "",
       "notes": "Django + DRF. Owns API, data models, business logic, and background tasks.",
       "custom_field_values": {
         "Team lead": "Marcus Hale",
@@ -80,7 +80,7 @@
       "name": "Mobile",
       "position": 2,
       "color": "#EC4899",
-      "contact_email": "mobile-team@example.com",
+      "contact_email": "",
       "notes": "React Native. iOS + Android. Syncs with main API.",
       "custom_field_values": {
         "Team lead": "Elena Petrova",
@@ -93,7 +93,7 @@
       "name": "DevOps",
       "position": 3,
       "color": "#14B8A6",
-      "contact_email": "devops-team@example.com",
+      "contact_email": "",
       "notes": "CI/CD, infrastructure, reliability, and monitoring.",
       "custom_field_values": {
         "Team lead": "Kwame Mensah",
@@ -106,7 +106,7 @@
       "name": "Design",
       "position": 4,
       "color": "#F59E0B",
-      "contact_email": "design-team@example.com",
+      "contact_email": "",
       "notes": "UX/UI design, design system, user research.",
       "custom_field_values": {
         "Team lead": "Hana Kobayashi",
@@ -119,7 +119,7 @@
       "name": "QA",
       "position": 5,
       "color": "#EF4444",
-      "contact_email": "qa-team@example.com",
+      "contact_email": "",
       "notes": "Manual and automated testing. Regression suites and exploratory testing.",
       "custom_field_values": {
         "Team lead": "Lucas Ferreira",
@@ -132,7 +132,7 @@
       "name": "Data",
       "position": 6,
       "color": "#10B981",
-      "contact_email": "data-team@example.com",
+      "contact_email": "",
       "notes": "Data engineering and analytics. Pipelines, dashboards, and reporting.",
       "custom_field_values": {
         "Team lead": "Nadia Haddad",
@@ -145,7 +145,7 @@
       "name": "Security",
       "position": 7,
       "color": "#6366F1",
-      "contact_email": "security-team@example.com",
+      "contact_email": "",
       "notes": "Application security, penetration testing, and compliance audits.",
       "custom_field_values": {
         "Team lead": "Owen Gallagher",
@@ -158,7 +158,7 @@
       "name": "Platform",
       "position": 8,
       "color": "#0EA5E9",
-      "contact_email": "platform-team@example.com",
+      "contact_email": "",
       "notes": "Shared libraries, SDKs, developer tooling, and internal APIs.",
       "custom_field_values": {
         "Team lead": "Sofia Marino",
@@ -171,7 +171,7 @@
       "name": "Documentation",
       "position": 9,
       "color": "#F43F5E",
-      "contact_email": "documentation-team@example.com",
+      "contact_email": "",
       "notes": "Technical writing, API docs, user guides, and onboarding materials.",
       "custom_field_values": {
         "Team lead": "Tariq Aziz",

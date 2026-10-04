@@ -90,7 +90,7 @@
       "name": "Harborview Bank",
       "position": 0,
       "color": "#14B8A6",
-      "contact_email": "harborview-team@example.com",
+      "contact_email": "",
       "notes": "Tier-one retail bank. Core modernization program funded through 2027.",
       "custom_field_values": {
         "AD": "Laura Bennett",
@@ -114,7 +114,7 @@
       "name": "Granite Peak Energy",
       "position": 1,
       "color": "#F97316",
-      "contact_email": "granitepeak-team@example.com",
+      "contact_email": "",
       "notes": "Regional utility. Grid modernization grant drives this year's spend.",
       "custom_field_values": {
         "AD": "Laura Bennett",
@@ -138,7 +138,7 @@
       "name": "Copperline Telecom",
       "position": 2,
       "color": "#6366F1",
-      "contact_email": "copperline-team@example.com",
+      "contact_email": "",
       "notes": "Fiber and wireless carrier. Consolidating three network operations centers.",
       "custom_field_values": {
         "AD": "Laura Bennett",
@@ -162,7 +162,7 @@
       "name": "Orion State Transit Authority",
       "position": 3,
       "color": "#0EA5E9",
-      "contact_email": "orion-transit-team@example.com",
+      "contact_email": "",
       "notes": "Public transit agency. Purchases run through a state cooperative contract.",
       "custom_field_values": {
         "AD": "Laura Bennett",
@@ -185,7 +185,7 @@
       "name": "Evergreen Health System",
       "position": 4,
       "color": "#22C55E",
-      "contact_email": "evergreen-team@example.com",
+      "contact_email": "",
       "notes": "Twelve-hospital system. Clinical data teams are the main buyers.",
       "custom_field_values": {
         "AD": "Victor Shah",
@@ -209,7 +209,7 @@
       "name": "Altair Semiconductor",
       "position": 5,
       "color": "#A855F7",
-      "contact_email": "altair-team@example.com",
+      "contact_email": "",
       "notes": "Fab and design house. Engineering-led buying; procurement is strict on security.",
       "custom_field_values": {
         "AD": "Victor Shah",
@@ -233,7 +233,7 @@
       "name": "Bluefin Insurance",
       "position": 6,
       "color": "#EC4899",
-      "contact_email": "bluefin-team@example.com",
+      "contact_email": "",
       "notes": "Property and casualty carrier. Overlay SA is covering without an overlay AE.",
       "custom_field_values": {
         "AD": "Victor Shah",
@@ -257,7 +257,7 @@
       "name": "Halcyon Pharma",
       "position": 7,
       "color": "#84CC16",
-      "contact_email": "halcyon-team@example.com",
+      "contact_email": "",
       "notes": "Mid-size pharma. Inspection readiness is the board-level priority this year.",
       "custom_field_values": {
         "AD": "Mira Chen",
@@ -281,7 +281,7 @@
       "name": "Keystone Logistics",
       "position": 8,
       "color": "#78716C",
-      "contact_email": "keystone-team@example.com",
+      "contact_email": "",
       "notes": "Freight and warehousing. No overlay pod assigned since the last reorg.",
       "custom_field_values": {
         "AD": "Mira Chen",
@@ -304,7 +304,7 @@
       "name": "Summit Retail Holdings",
       "position": 9,
       "color": "#F43F5E",
-      "contact_email": "summit-team@example.com",
+      "contact_email": "",
       "notes": "Grocery and home-goods banners across five countries.",
       "custom_field_values": {
         "AD": "Mira Chen",

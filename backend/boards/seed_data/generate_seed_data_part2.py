@@ -58,16 +58,16 @@ _DELIVERY_COLUMNS = [
 ]
 
 _DELIVERY_SWIMLANES = [
-    {"name": "Mobile App Relaunch",          "position": 0,  "color": "#EC4899", "contact_email": "pm-mobile@example.com",       "notes": "Full redesign + new feature set. Q2 launch target. Sponsor: VP Product."},
-    {"name": "Data Platform Migration",      "position": 1,  "color": "#3B82F6", "contact_email": "pm-data@example.com",         "notes": "Migrate from Redshift to Snowflake. 3 TB data. Zero-downtime required."},
-    {"name": "Security Compliance Audit",    "position": 2,  "color": "#EF4444", "contact_email": "ciso@example.com",            "notes": "SOC 2 Type II audit. Auditor engaged. Evidence collection deadline: end of Q2."},
-    {"name": "Customer Portal v2",           "position": 3,  "color": "#10B981", "contact_email": "pm-portal@example.com",       "notes": "Self-service portal for invoices, usage, support. Design approved, dev in progress."},
-    {"name": "GDPR Deletion Pipeline",       "position": 4,  "color": "#8B5CF6", "contact_email": "privacy@example.com",         "notes": "Automate right-to-erasure requests. Legal deadline: 90 days from receipt."},
-    {"name": "Infrastructure Modernization", "position": 5,  "color": "#F59E0B", "contact_email": "pm-infra@example.com",        "notes": "Multi-cloud migration from on-prem. Target: fully cloud-native by end of Q3. Sponsor: CTO."},
-    {"name": "Brand Redesign",               "position": 6,  "color": "#F97316", "contact_email": "pm-brand@example.com",        "notes": "Full brand refresh — logo, typography, color palette, marketing site. Agency: Mosaic Creative."},
-    {"name": "Vendor Management System",     "position": 7,  "color": "#14B8A6", "contact_email": "pm-procurement@example.com",  "notes": "Centralize vendor onboarding, contracts, and spend tracking. 40+ active vendors."},
-    {"name": "Employee Onboarding Platform", "position": 8,  "color": "#6366F1", "contact_email": "pm-hr@example.com",           "notes": "Automated onboarding for new hires — IT setup, HR paperwork, team intros. 15+ new hires/quarter."},
-    {"name": "API Gateway Overhaul",         "position": 9,  "color": "#0EA5E9", "contact_email": "pm-platform@example.com",     "notes": "Replace legacy API gateway with Kong. Rate limiting, auth, and observability. 14 upstream services."},
+    {"name": "Mobile App Relaunch",          "position": 0,  "color": "#EC4899", "notes": "Full redesign + new feature set. Q2 launch target. Sponsor: VP Product."},
+    {"name": "Data Platform Migration",      "position": 1,  "color": "#3B82F6", "notes": "Migrate from Redshift to Snowflake. 3 TB data. Zero-downtime required."},
+    {"name": "Security Compliance Audit",    "position": 2,  "color": "#EF4444", "notes": "SOC 2 Type II audit. Auditor engaged. Evidence collection deadline: end of Q2."},
+    {"name": "Customer Portal v2",           "position": 3,  "color": "#10B981", "notes": "Self-service portal for invoices, usage, support. Design approved, dev in progress."},
+    {"name": "GDPR Deletion Pipeline",       "position": 4,  "color": "#8B5CF6", "notes": "Automate right-to-erasure requests. Legal deadline: 90 days from receipt."},
+    {"name": "Infrastructure Modernization", "position": 5,  "color": "#F59E0B", "notes": "Multi-cloud migration from on-prem. Target: fully cloud-native by end of Q3. Sponsor: CTO."},
+    {"name": "Brand Redesign",               "position": 6,  "color": "#F97316", "notes": "Full brand refresh — logo, typography, color palette, marketing site. Agency: Mosaic Creative."},
+    {"name": "Vendor Management System",     "position": 7,  "color": "#14B8A6", "notes": "Centralize vendor onboarding, contracts, and spend tracking. 40+ active vendors."},
+    {"name": "Employee Onboarding Platform", "position": 8,  "color": "#6366F1", "notes": "Automated onboarding for new hires — IT setup, HR paperwork, team intros. 15+ new hires/quarter."},
+    {"name": "API Gateway Overhaul",         "position": 9,  "color": "#0EA5E9", "notes": "Replace legacy API gateway with Kong. Rate limiting, auth, and observability. 14 upstream services."},
 ]
 
 _DELIVERY_LABELS = [
@@ -238,16 +238,16 @@ _CONTENT_COLUMNS = [
 ]
 
 _CONTENT_SWIMLANES = [
-    {"name": "Blog & SEO",               "position": 0, "color": "#3B82F6", "contact_email": "blog@example.com",           "notes": "Long-form SEO content. Target: 2 posts/week. Primary traffic driver. Owner: content team."},
-    {"name": "Social Media",             "position": 1, "color": "#8B5CF6", "contact_email": "social@example.com",         "notes": "Twitter/X, LinkedIn, short-form video (TikTok, Reels). 2-3 posts/day across channels."},
-    {"name": "Video Production",         "position": 2, "color": "#EC4899", "contact_email": "video@example.com",          "notes": "Product demos, thought leadership webinars, YouTube tutorials. Studio booking required."},
-    {"name": "Email Campaigns",          "position": 3, "color": "#F59E0B", "contact_email": "email@example.com",          "notes": "Weekly newsletter, drip sequences, product announcements. Audience: 28,000 subscribers."},
-    {"name": "Product Documentation",    "position": 4, "color": "#10B981", "contact_email": "docs@example.com",           "notes": "User guides, API docs, release notes. Must be versioned. Published to docs.visiban.com."},
-    {"name": "Case Studies",             "position": 5, "color": "#14B8A6", "contact_email": "stories@example.com",        "notes": "Customer stories. Requires customer approval. 4-6 week production time per study."},
-    {"name": "Webinars & Events",        "position": 6, "color": "#F97316", "contact_email": "events@example.com",         "notes": "Live webinars, conference talks, virtual workshops. Lead capture forms required."},
-    {"name": "Press & PR",               "position": 7, "color": "#EF4444", "contact_email": "press@example.com",          "notes": "Press releases, media pitches, analyst briefings. All external comms require CEO approval."},
-    {"name": "Partner Content",          "position": 8, "color": "#6366F1", "contact_email": "partners@example.com",       "notes": "Co-branded content with integration partners. Joint approval workflow required."},
-    {"name": "Internal Communications",  "position": 9, "color": "#0EA5E9", "contact_email": "internal@example.com",       "notes": "All-hands decks, internal newsletters, culture posts. Published to company wiki."},
+    {"name": "Blog & SEO",               "position": 0, "color": "#3B82F6", "notes": "Long-form SEO content. Target: 2 posts/week. Primary traffic driver. Owner: content team."},
+    {"name": "Social Media",             "position": 1, "color": "#8B5CF6", "notes": "Twitter/X, LinkedIn, short-form video (TikTok, Reels). 2-3 posts/day across channels."},
+    {"name": "Video Production",         "position": 2, "color": "#EC4899", "notes": "Product demos, thought leadership webinars, YouTube tutorials. Studio booking required."},
+    {"name": "Email Campaigns",          "position": 3, "color": "#F59E0B", "notes": "Weekly newsletter, drip sequences, product announcements. Audience: 28,000 subscribers."},
+    {"name": "Product Documentation",    "position": 4, "color": "#10B981", "notes": "User guides, API docs, release notes. Must be versioned. Published to docs.visiban.com."},
+    {"name": "Case Studies",             "position": 5, "color": "#14B8A6", "notes": "Customer stories. Requires customer approval. 4-6 week production time per study."},
+    {"name": "Webinars & Events",        "position": 6, "color": "#F97316", "notes": "Live webinars, conference talks, virtual workshops. Lead capture forms required."},
+    {"name": "Press & PR",               "position": 7, "color": "#EF4444", "notes": "Press releases, media pitches, analyst briefings. All external comms require CEO approval."},
+    {"name": "Partner Content",          "position": 8, "color": "#6366F1", "notes": "Co-branded content with integration partners. Joint approval workflow required."},
+    {"name": "Internal Communications",  "position": 9, "color": "#0EA5E9", "notes": "All-hands decks, internal newsletters, culture posts. Published to company wiki."},
 ]
 
 _CONTENT_LABELS = [
@@ -418,16 +418,16 @@ _HIRING_COLUMNS = [
 ]
 
 _HIRING_SWIMLANES = [
-    {"name": "Engineering",       "position": 0, "color": "#3B82F6", "contact_email": "hiring-eng@example.com",      "notes": "Backend, frontend, and infrastructure roles. Python/Django and React/TypeScript. Remote-friendly."},
-    {"name": "Product",           "position": 1, "color": "#8B5CF6", "contact_email": "hiring-product@example.com",  "notes": "Product managers and product analysts. B2B SaaS experience preferred. Reports to CPO."},
-    {"name": "Design",            "position": 2, "color": "#EC4899", "contact_email": "hiring-design@example.com",   "notes": "Product designers and UX researchers. Figma expertise required. Systems design thinking valued."},
-    {"name": "Sales",             "position": 3, "color": "#10B981", "contact_email": "hiring-sales@example.com",    "notes": "Account executives and SDRs. B2B SaaS with PLG experience. OTE $120-180k."},
-    {"name": "Marketing",         "position": 4, "color": "#F59E0B", "contact_email": "hiring-mktg@example.com",     "notes": "Content, growth, and demand gen roles. PLG experience required. Reports to Head of Marketing."},
-    {"name": "Customer Success",  "position": 5, "color": "#14B8A6", "contact_email": "hiring-cs@example.com",       "notes": "CSMs and CS Ops. SaaS experience required. Owns onboarding, retention, and expansion."},
-    {"name": "Operations",        "position": 6, "color": "#F97316", "contact_email": "hiring-ops@example.com",      "notes": "DevOps, IT, and business operations. Kubernetes and Terraform experience for DevOps roles."},
-    {"name": "Finance",           "position": 7, "color": "#6366F1", "contact_email": "hiring-finance@example.com",  "notes": "Accounting, FP&A, and revenue ops. SaaS metrics experience preferred. CPA for accounting roles."},
-    {"name": "Legal",             "position": 8, "color": "#0EA5E9", "contact_email": "hiring-legal@example.com",    "notes": "Corporate counsel and compliance. SaaS contracts, IP, and data privacy experience required."},
-    {"name": "Executive",         "position": 9, "color": "#EF4444", "contact_email": "hiring-exec@example.com",     "notes": "VP and C-level searches. Board-approved headcount only. Executive recruiter engaged."},
+    {"name": "Engineering",       "position": 0, "color": "#3B82F6", "notes": "Backend, frontend, and infrastructure roles. Python/Django and React/TypeScript. Remote-friendly."},
+    {"name": "Product",           "position": 1, "color": "#8B5CF6", "notes": "Product managers and product analysts. B2B SaaS experience preferred. Reports to CPO."},
+    {"name": "Design",            "position": 2, "color": "#EC4899", "notes": "Product designers and UX researchers. Figma expertise required. Systems design thinking valued."},
+    {"name": "Sales",             "position": 3, "color": "#10B981", "notes": "Account executives and SDRs. B2B SaaS with PLG experience. OTE $120-180k."},
+    {"name": "Marketing",         "position": 4, "color": "#F59E0B", "notes": "Content, growth, and demand gen roles. PLG experience required. Reports to Head of Marketing."},
+    {"name": "Customer Success",  "position": 5, "color": "#14B8A6", "notes": "CSMs and CS Ops. SaaS experience required. Owns onboarding, retention, and expansion."},
+    {"name": "Operations",        "position": 6, "color": "#F97316", "notes": "DevOps, IT, and business operations. Kubernetes and Terraform experience for DevOps roles."},
+    {"name": "Finance",           "position": 7, "color": "#6366F1", "notes": "Accounting, FP&A, and revenue ops. SaaS metrics experience preferred. CPA for accounting roles."},
+    {"name": "Legal",             "position": 8, "color": "#0EA5E9", "notes": "Corporate counsel and compliance. SaaS contracts, IP, and data privacy experience required."},
+    {"name": "Executive",         "position": 9, "color": "#EF4444", "notes": "VP and C-level searches. Board-approved headcount only. Executive recruiter engaged."},
 ]
 
 _HIRING_LABELS = [
@@ -611,16 +611,16 @@ _INFRA_COLUMNS = [
 ]
 
 _INFRA_SWIMLANES = [
-    {"name": "Production Kubernetes",  "position": 0, "color": "#EC4899", "contact_email": "oncall-k8s@example.com",       "notes": "EKS 1.29. 3 node groups, 12 nodes. HPA on API and worker deployments. Primary production cluster."},
-    {"name": "CI/CD Pipeline",         "position": 1, "color": "#8B5CF6", "contact_email": "oncall-ci@example.com",        "notes": "GitLab CI on Kubernetes runners. Kaniko for image builds. p95 pipeline: 8 min. Zero DinD."},
-    {"name": "Database Cluster",       "position": 2, "color": "#F59E0B", "contact_email": "oncall-db@example.com",        "notes": "RDS PostgreSQL 16. Primary + 2 replicas. Nightly backups to S3. Point-in-time recovery enabled."},
-    {"name": "CDN & Edge",             "position": 3, "color": "#3B82F6", "contact_email": "oncall-cdn@example.com",       "notes": "CloudFront distribution. Edge caching for static assets and API responses. WAF rules enabled."},
-    {"name": "Monitoring Stack",       "position": 4, "color": "#10B981", "contact_email": "oncall-monitoring@example.com", "notes": "Prometheus + Grafana + Alertmanager + PagerDuty. Jaeger for distributed tracing."},
-    {"name": "Security Infrastructure","position": 5, "color": "#EF4444", "contact_email": "oncall-security@example.com",  "notes": "Vault for secrets, Falco for runtime security, Trivy for image scanning. SOC 2 controls."},
-    {"name": "Staging Environment",    "position": 6, "color": "#14B8A6", "contact_email": "oncall-staging@example.com",   "notes": "Mirror of production at 1/4 scale. Auto-deployed on merge to main. Seed data refreshed nightly."},
-    {"name": "Data Pipeline",          "position": 7, "color": "#6366F1", "contact_email": "oncall-data@example.com",      "notes": "Airflow on EKS. 42 DAGs. Snowflake as warehouse. dbt for transformations. 500k events/hour peak."},
-    {"name": "DNS & Networking",       "position": 8, "color": "#0EA5E9", "contact_email": "oncall-network@example.com",   "notes": "Route 53 for DNS. VPC peering across 3 accounts. Transit Gateway for on-prem connectivity."},
-    {"name": "Disaster Recovery",      "position": 9, "color": "#F97316", "contact_email": "oncall-dr@example.com",        "notes": "Cross-region DR in eu-west-1. RPO: 1 hour. RTO: 4 hours. Quarterly failover drills required."},
+    {"name": "Production Kubernetes",  "position": 0, "color": "#EC4899", "notes": "EKS 1.29. 3 node groups, 12 nodes. HPA on API and worker deployments. Primary production cluster."},
+    {"name": "CI/CD Pipeline",         "position": 1, "color": "#8B5CF6", "notes": "GitLab CI on Kubernetes runners. Kaniko for image builds. p95 pipeline: 8 min. Zero DinD."},
+    {"name": "Database Cluster",       "position": 2, "color": "#F59E0B", "notes": "RDS PostgreSQL 16. Primary + 2 replicas. Nightly backups to S3. Point-in-time recovery enabled."},
+    {"name": "CDN & Edge",             "position": 3, "color": "#3B82F6", "notes": "CloudFront distribution. Edge caching for static assets and API responses. WAF rules enabled."},
+    {"name": "Monitoring Stack",       "position": 4, "color": "#10B981", "notes": "Prometheus + Grafana + Alertmanager + PagerDuty. Jaeger for distributed tracing."},
+    {"name": "Security Infrastructure","position": 5, "color": "#EF4444", "notes": "Vault for secrets, Falco for runtime security, Trivy for image scanning. SOC 2 controls."},
+    {"name": "Staging Environment",    "position": 6, "color": "#14B8A6", "notes": "Mirror of production at 1/4 scale. Auto-deployed on merge to main. Seed data refreshed nightly."},
+    {"name": "Data Pipeline",          "position": 7, "color": "#6366F1", "notes": "Airflow on EKS. 42 DAGs. Snowflake as warehouse. dbt for transformations. 500k events/hour peak."},
+    {"name": "DNS & Networking",       "position": 8, "color": "#0EA5E9", "notes": "Route 53 for DNS. VPC peering across 3 accounts. Transit Gateway for on-prem connectivity."},
+    {"name": "Disaster Recovery",      "position": 9, "color": "#F97316", "notes": "Cross-region DR in eu-west-1. RPO: 1 hour. RTO: 4 hours. Quarterly failover drills required."},
 ]
 
 _INFRA_LABELS = [
@@ -789,16 +789,16 @@ _LEGAL_COLUMNS = [
 ]
 
 _LEGAL_SWIMLANES = [
-    {"name": "Contracts & Procurement",  "position": 0, "color": "#3B82F6", "contact_email": "legal-contracts@example.com",   "notes": "Vendor MSAs, order forms, procurement agreements. Average turnaround: 5 business days."},
-    {"name": "Employment Law",           "position": 1, "color": "#F59E0B", "contact_email": "legal-employment@example.com",  "notes": "Employment agreements, terminations, equity plans, HR policy reviews. Sensitive — restricted access."},
-    {"name": "Intellectual Property",    "position": 2, "color": "#8B5CF6", "contact_email": "legal-ip@example.com",          "notes": "Trademarks, patents, open-source license compliance, IP assignments. Annual IP audit required."},
-    {"name": "Data Privacy (GDPR)",      "position": 3, "color": "#EC4899", "contact_email": "legal-privacy@example.com",     "notes": "DPAs, GDPR compliance, data subject requests, privacy impact assessments. DPO oversight."},
-    {"name": "Regulatory Compliance",    "position": 4, "color": "#EF4444", "contact_email": "legal-compliance@example.com",  "notes": "SOC 2, HIPAA, PCI-DSS, industry-specific regulations. Audit deadlines are hard stops."},
-    {"name": "Corporate Governance",     "position": 5, "color": "#10B981", "contact_email": "legal-corporate@example.com",   "notes": "Board resolutions, shareholder agreements, corporate filings. Quarterly board meeting prep."},
-    {"name": "Litigation Management",    "position": 6, "color": "#F97316", "contact_email": "legal-litigation@example.com",  "notes": "Active disputes, demand letters, settlement negotiations. Outside counsel: Morrison & Associates."},
-    {"name": "Insurance & Risk",         "position": 7, "color": "#14B8A6", "contact_email": "legal-insurance@example.com",   "notes": "D&O, E&O, cyber liability, general liability. Annual renewal cycle: November."},
-    {"name": "Real Estate & Leases",     "position": 8, "color": "#6366F1", "contact_email": "legal-realestate@example.com",  "notes": "Office leases, co-working agreements, lease renewals. SF office lease expires Dec 2027."},
-    {"name": "Tax & Finance",            "position": 9, "color": "#0EA5E9", "contact_email": "legal-tax@example.com",         "notes": "Tax filings, transfer pricing, R&D tax credits, sales tax nexus. External advisor: Deloitte."},
+    {"name": "Contracts & Procurement",  "position": 0, "color": "#3B82F6", "notes": "Vendor MSAs, order forms, procurement agreements. Average turnaround: 5 business days."},
+    {"name": "Employment Law",           "position": 1, "color": "#F59E0B", "notes": "Employment agreements, terminations, equity plans, HR policy reviews. Sensitive — restricted access."},
+    {"name": "Intellectual Property",    "position": 2, "color": "#8B5CF6", "notes": "Trademarks, patents, open-source license compliance, IP assignments. Annual IP audit required."},
+    {"name": "Data Privacy (GDPR)",      "position": 3, "color": "#EC4899", "notes": "DPAs, GDPR compliance, data subject requests, privacy impact assessments. DPO oversight."},
+    {"name": "Regulatory Compliance",    "position": 4, "color": "#EF4444", "notes": "SOC 2, HIPAA, PCI-DSS, industry-specific regulations. Audit deadlines are hard stops."},
+    {"name": "Corporate Governance",     "position": 5, "color": "#10B981", "notes": "Board resolutions, shareholder agreements, corporate filings. Quarterly board meeting prep."},
+    {"name": "Litigation Management",    "position": 6, "color": "#F97316", "notes": "Active disputes, demand letters, settlement negotiations. Outside counsel: Morrison & Associates."},
+    {"name": "Insurance & Risk",         "position": 7, "color": "#14B8A6", "notes": "D&O, E&O, cyber liability, general liability. Annual renewal cycle: November."},
+    {"name": "Real Estate & Leases",     "position": 8, "color": "#6366F1", "notes": "Office leases, co-working agreements, lease renewals. SF office lease expires Dec 2027."},
+    {"name": "Tax & Finance",            "position": 9, "color": "#0EA5E9", "notes": "Tax filings, transfer pricing, R&D tax credits, sales tax nexus. External advisor: Deloitte."},
 ]
 
 _LEGAL_LABELS = [

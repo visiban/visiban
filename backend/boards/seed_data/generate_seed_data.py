@@ -343,13 +343,18 @@ def _apply_features(data: dict, features: dict, slug: str) -> None:
             value = spec["gen"](lctx)
             if value not in (None, ""):
                 values[spec["name"]] = value
-        # Every lane carries contact info (an admin-only swimlane field in
-        # the UI); fill a reserved example.com address where a template has none.
-        if not lane.get("contact_email"):
-            lane["contact_email"] = f"{lctx['slug_name']}-team@example.com"
         # Hand-written values (the overlay board) win over generated ones.
         values.update(lane.get("custom_field_values", {}))
-        lane["custom_field_values"] = values
+        # Rebuilt in the board exporter's key order. contact_email is left
+        # empty on purpose: the row header prints it under the lane name, and
+        # a placeholder team address says nothing about the lane, while the
+        # pinned row fields below it do. It stays as a key because an admin
+        # export always writes it.
+        data["swimlanes"][i] = {
+            "name": lane["name"], "position": lane["position"], "color": lane["color"],
+            "contact_email": "", "notes": lane.get("notes", ""),
+            "custom_field_values": values,
+        }
 
     refs = features.get("external_refs")
     for seq, card in enumerate(data["cards"]):
@@ -824,17 +829,17 @@ _SALES_COLUMNS = [
 ]
 
 _SALES_SWIMLANES = [
-    {"name": "North America",   "position": 0,  "color": "#3B82F6", "contact_email": "na-sales@example.com",       "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR."},
-    {"name": "APAC",            "position": 1,  "color": "#F59E0B", "contact_email": "apac-sales@example.com",     "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles."},
-    {"name": "EMEA",            "position": 2,  "color": "#8B5CF6", "contact_email": "emea-sales@example.com",     "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals."},
-    {"name": "LATAM",           "position": 3,  "color": "#10B981", "contact_email": "latam-sales@example.com",    "notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations."},
-    {"name": "ANZ",             "position": 4,  "color": "#EC4899", "contact_email": "anz-sales@example.com",      "notes": "SMB and creative agency accounts. Fast decision cycles -- typically days, not weeks."},
-    {"name": "UK & Ireland",    "position": 5,  "color": "#14B8A6", "contact_email": "uki-sales@example.com",      "notes": "Financial services and professional services verticals. GDPR applies. Q2 target: 420k GBP."},
-    {"name": "DACH",            "position": 6,  "color": "#6366F1", "contact_email": "dach-sales@example.com",     "notes": "Germany, Austria, Switzerland. Manufacturing and engineering firms. German-language demos available."},
-    {"name": "Nordics",         "position": 7,  "color": "#0EA5E9", "contact_email": "nordics-sales@example.com",  "notes": "Sweden, Norway, Denmark, Finland. Tech-forward accounts. Short procurement cycles."},
-    {"name": "Middle East",     "position": 8,  "color": "#F43F5E", "contact_email": "me-sales@example.com",       "notes": "UAE, Saudi Arabia, Qatar. Large enterprise and government. Data residency requirements common."},
-    {"name": "Southeast Asia",  "position": 9,  "color": "#A855F7", "contact_email": "sea-sales@example.com",      "notes": "Singapore, Indonesia, Philippines, Thailand. Mix of tech startups and traditional enterprises."},
-    {"name": "Japan & Korea",   "position": 10, "color": "#EAB308", "contact_email": "jpkr-sales@example.com",     "notes": "Large enterprise accounts. Localization required. Partner-led sales motion."},
+    {"name": "North America",   "position": 0,  "color": "#3B82F6", "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR."},
+    {"name": "APAC",            "position": 1,  "color": "#F59E0B", "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles."},
+    {"name": "EMEA",            "position": 2,  "color": "#8B5CF6", "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals."},
+    {"name": "LATAM",           "position": 3,  "color": "#10B981", "notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations."},
+    {"name": "ANZ",             "position": 4,  "color": "#EC4899", "notes": "SMB and creative agency accounts. Fast decision cycles -- typically days, not weeks."},
+    {"name": "UK & Ireland",    "position": 5,  "color": "#14B8A6", "notes": "Financial services and professional services verticals. GDPR applies. Q2 target: 420k GBP."},
+    {"name": "DACH",            "position": 6,  "color": "#6366F1", "notes": "Germany, Austria, Switzerland. Manufacturing and engineering firms. German-language demos available."},
+    {"name": "Nordics",         "position": 7,  "color": "#0EA5E9", "notes": "Sweden, Norway, Denmark, Finland. Tech-forward accounts. Short procurement cycles."},
+    {"name": "Middle East",     "position": 8,  "color": "#F43F5E", "notes": "UAE, Saudi Arabia, Qatar. Large enterprise and government. Data residency requirements common."},
+    {"name": "Southeast Asia",  "position": 9,  "color": "#A855F7", "notes": "Singapore, Indonesia, Philippines, Thailand. Mix of tech startups and traditional enterprises."},
+    {"name": "Japan & Korea",   "position": 10, "color": "#EAB308", "notes": "Large enterprise accounts. Localization required. Partner-led sales motion."},
 ]
 
 _SALES_LABELS = [
@@ -1000,17 +1005,17 @@ _SUPPORT_COLUMNS = [
 ]
 
 _SUPPORT_SWIMLANES = [
-    {"name": "TechNova Inc",          "position": 0,  "color": "#3B82F6", "contact_email": "support@technova.example",        "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1."},
-    {"name": "Apex Retail Group",     "position": 1,  "color": "#F59E0B", "contact_email": "support@apexretail.example",      "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager."},
-    {"name": "FinEdge Ltd",           "position": 2,  "color": "#8B5CF6", "contact_email": "support@finedge.example",         "notes": "Compliance-sensitive. All support comms may be audited. Use formal language."},
-    {"name": "BlueSky Health",        "position": 3,  "color": "#10B981", "contact_email": "support@blueskyhealth.example",   "notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal."},
-    {"name": "Mosaic Creative",       "position": 4,  "color": "#EC4899", "contact_email": "support@mosaiccreative.example",  "notes": "SMB tier. Self-serve. Generally quick to resolve -- low SLA pressure."},
-    {"name": "Global Freight Co",     "position": 5,  "color": "#14B8A6", "contact_email": "support@globalfreight.example",   "notes": "Enterprise tier. 300 seats. Logistics-heavy workflows. SLA: 4-hour response."},
-    {"name": "Pinnacle Finance",      "position": 6,  "color": "#6366F1", "contact_email": "support@pinnaclefin.example",     "notes": "Financial services. SOC 2 environment. Audit trail exports are critical."},
-    {"name": "Redwood Agency",        "position": 7,  "color": "#0EA5E9", "contact_email": "support@redwoodagency.example",   "notes": "SMB creative agency. 25 seats. Fast response expected but no formal SLA."},
-    {"name": "Atlas Logistics BV",    "position": 8,  "color": "#F43F5E", "contact_email": "support@atlaslogistics.example",  "notes": "EMEA mid-market. 200 seats. GDPR-sensitive. Dutch business hours only."},
-    {"name": "Vertex Media",          "position": 9,  "color": "#A855F7", "contact_email": "support@vertexmedia.example",     "notes": "Growing account. 75 seats approaching 150. High feature request volume."},
-    {"name": "Ironside Manufacturing","position": 10, "color": "#EAB308", "contact_email": "support@ironsidemfg.example",     "notes": "Manufacturing. Shop floor workers with limited tech literacy. Extra patience needed."},
+    {"name": "TechNova Inc",          "position": 0,  "color": "#3B82F6", "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1."},
+    {"name": "Apex Retail Group",     "position": 1,  "color": "#F59E0B", "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager."},
+    {"name": "FinEdge Ltd",           "position": 2,  "color": "#8B5CF6", "notes": "Compliance-sensitive. All support comms may be audited. Use formal language."},
+    {"name": "BlueSky Health",        "position": 3,  "color": "#10B981", "notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal."},
+    {"name": "Mosaic Creative",       "position": 4,  "color": "#EC4899", "notes": "SMB tier. Self-serve. Generally quick to resolve -- low SLA pressure."},
+    {"name": "Global Freight Co",     "position": 5,  "color": "#14B8A6", "notes": "Enterprise tier. 300 seats. Logistics-heavy workflows. SLA: 4-hour response."},
+    {"name": "Pinnacle Finance",      "position": 6,  "color": "#6366F1", "notes": "Financial services. SOC 2 environment. Audit trail exports are critical."},
+    {"name": "Redwood Agency",        "position": 7,  "color": "#0EA5E9", "notes": "SMB creative agency. 25 seats. Fast response expected but no formal SLA."},
+    {"name": "Atlas Logistics BV",    "position": 8,  "color": "#F43F5E", "notes": "EMEA mid-market. 200 seats. GDPR-sensitive. Dutch business hours only."},
+    {"name": "Vertex Media",          "position": 9,  "color": "#A855F7", "notes": "Growing account. 75 seats approaching 150. High feature request volume."},
+    {"name": "Ironside Manufacturing","position": 10, "color": "#EAB308", "notes": "Manufacturing. Shop floor workers with limited tech literacy. Extra patience needed."},
 ]
 
 _SUPPORT_LABELS = [
@@ -1168,17 +1173,17 @@ _SUCCESS_COLUMNS = [
 ]
 
 _SUCCESS_SWIMLANES = [
-    {"name": "Americas",            "position": 0,  "color": "#3B82F6", "contact_email": "csm-americas@visiban.example",  "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera."},
-    {"name": "EMEA",                "position": 1,  "color": "#8B5CF6", "contact_email": "csm-emea@visiban.example",      "notes": "Europe, Middle East, Africa. CSM: Jordan Patel."},
-    {"name": "APAC",                "position": 2,  "color": "#10B981", "contact_email": "csm-apac@visiban.example",      "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu."},
-    {"name": "Enterprise Accounts", "position": 3,  "color": "#F59E0B", "contact_email": "enterprise-cs@visiban.example", "notes": "200+ seat strategic accounts managed directly by VP CS."},
-    {"name": "Mid-Market",          "position": 4,  "color": "#EF4444", "contact_email": "midmarket-cs@visiban.example",  "notes": "20-200 seat accounts. CSM coverage pooled."},
-    {"name": "Strategic Partners",  "position": 5,  "color": "#14B8A6", "contact_email": "partners-cs@visiban.example",   "notes": "Channel and technology partners. Joint success plans. CSM: Riley Kim."},
-    {"name": "Government & Edu",    "position": 6,  "color": "#6366F1", "contact_email": "gov-cs@visiban.example",        "notes": "Public sector accounts. Longer procurement, stricter compliance. CSM: Sam Torres."},
-    {"name": "Healthcare",          "position": 7,  "color": "#0EA5E9", "contact_email": "health-cs@visiban.example",     "notes": "HIPAA-compliant accounts. PHI handling required. CSM: Casey Park."},
-    {"name": "Financial Services",  "position": 8,  "color": "#F43F5E", "contact_email": "fin-cs@visiban.example",        "notes": "SOC 2 and regulatory compliance required. CSM: Drew Martinez."},
-    {"name": "Startup & SMB",       "position": 9,  "color": "#A855F7", "contact_email": "smb-cs@visiban.example",        "notes": "Sub-20-seat accounts. Tech-touch CSM model. Automated health scoring."},
-    {"name": "Agency & Creative",   "position": 10, "color": "#EAB308", "contact_email": "agency-cs@visiban.example",     "notes": "Creative agencies and studios. High board count, low seat count. CSM: Avery Chen."},
+    {"name": "Americas",            "position": 0,  "color": "#3B82F6", "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera."},
+    {"name": "EMEA",                "position": 1,  "color": "#8B5CF6", "notes": "Europe, Middle East, Africa. CSM: Jordan Patel."},
+    {"name": "APAC",                "position": 2,  "color": "#10B981", "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu."},
+    {"name": "Enterprise Accounts", "position": 3,  "color": "#F59E0B", "notes": "200+ seat strategic accounts managed directly by VP CS."},
+    {"name": "Mid-Market",          "position": 4,  "color": "#EF4444", "notes": "20-200 seat accounts. CSM coverage pooled."},
+    {"name": "Strategic Partners",  "position": 5,  "color": "#14B8A6", "notes": "Channel and technology partners. Joint success plans. CSM: Riley Kim."},
+    {"name": "Government & Edu",    "position": 6,  "color": "#6366F1", "notes": "Public sector accounts. Longer procurement, stricter compliance. CSM: Sam Torres."},
+    {"name": "Healthcare",          "position": 7,  "color": "#0EA5E9", "notes": "HIPAA-compliant accounts. PHI handling required. CSM: Casey Park."},
+    {"name": "Financial Services",  "position": 8,  "color": "#F43F5E", "notes": "SOC 2 and regulatory compliance required. CSM: Drew Martinez."},
+    {"name": "Startup & SMB",       "position": 9,  "color": "#A855F7", "notes": "Sub-20-seat accounts. Tech-touch CSM model. Automated health scoring."},
+    {"name": "Agency & Creative",   "position": 10, "color": "#EAB308", "notes": "Creative agencies and studios. High board count, low seat count. CSM: Avery Chen."},
 ]
 
 _SUCCESS_LABELS = [
@@ -1370,16 +1375,16 @@ _KANBAN_COLUMNS = [
 ]
 
 _KANBAN_SWIMLANES = [
-    {"name": "Frontend",      "position": 0,  "color": "#3B82F6", "contact_email": "", "notes": "React + TypeScript. Owns all UI components, pages, and the design system."},
-    {"name": "Backend",       "position": 1,  "color": "#8B5CF6", "contact_email": "", "notes": "Django + DRF. Owns API, data models, business logic, and background tasks."},
-    {"name": "Mobile",        "position": 2,  "color": "#EC4899", "contact_email": "", "notes": "React Native. iOS + Android. Syncs with main API."},
-    {"name": "DevOps",        "position": 3,  "color": "#14B8A6", "contact_email": "", "notes": "CI/CD, infrastructure, reliability, and monitoring."},
-    {"name": "Design",        "position": 4,  "color": "#F59E0B", "contact_email": "", "notes": "UX/UI design, design system, user research."},
-    {"name": "QA",            "position": 5,  "color": "#EF4444", "contact_email": "", "notes": "Manual and automated testing. Regression suites and exploratory testing."},
-    {"name": "Data",          "position": 6,  "color": "#10B981", "contact_email": "", "notes": "Data engineering and analytics. Pipelines, dashboards, and reporting."},
-    {"name": "Security",      "position": 7,  "color": "#6366F1", "contact_email": "", "notes": "Application security, penetration testing, and compliance audits."},
-    {"name": "Platform",      "position": 8,  "color": "#0EA5E9", "contact_email": "", "notes": "Shared libraries, SDKs, developer tooling, and internal APIs."},
-    {"name": "Documentation", "position": 9,  "color": "#F43F5E", "contact_email": "", "notes": "Technical writing, API docs, user guides, and onboarding materials."},
+    {"name": "Frontend",      "position": 0,  "color": "#3B82F6", "notes": "React + TypeScript. Owns all UI components, pages, and the design system."},
+    {"name": "Backend",       "position": 1,  "color": "#8B5CF6", "notes": "Django + DRF. Owns API, data models, business logic, and background tasks."},
+    {"name": "Mobile",        "position": 2,  "color": "#EC4899", "notes": "React Native. iOS + Android. Syncs with main API."},
+    {"name": "DevOps",        "position": 3,  "color": "#14B8A6", "notes": "CI/CD, infrastructure, reliability, and monitoring."},
+    {"name": "Design",        "position": 4,  "color": "#F59E0B", "notes": "UX/UI design, design system, user research."},
+    {"name": "QA",            "position": 5,  "color": "#EF4444", "notes": "Manual and automated testing. Regression suites and exploratory testing."},
+    {"name": "Data",          "position": 6,  "color": "#10B981", "notes": "Data engineering and analytics. Pipelines, dashboards, and reporting."},
+    {"name": "Security",      "position": 7,  "color": "#6366F1", "notes": "Application security, penetration testing, and compliance audits."},
+    {"name": "Platform",      "position": 8,  "color": "#0EA5E9", "notes": "Shared libraries, SDKs, developer tooling, and internal APIs."},
+    {"name": "Documentation", "position": 9,  "color": "#F43F5E", "notes": "Technical writing, API docs, user guides, and onboarding materials."},
 ]
 
 _KANBAN_LABELS = [
@@ -1548,16 +1553,16 @@ _ROADMAP_COLUMNS = [
 ]
 
 _ROADMAP_SWIMLANES = [
-    {"name": "Mobile App",            "position": 0,  "color": "#EC4899", "contact_email": "", "notes": "iOS and Android. Targets field workers and on-the-go board access."},
-    {"name": "Core Platform",         "position": 1,  "color": "#3B82F6", "contact_email": "", "notes": "Web app, API, and shared infrastructure features."},
-    {"name": "Integrations",          "position": 2,  "color": "#10B981", "contact_email": "", "notes": "Third-party integrations: Slack, GitHub, Jira, Zapier, webhooks."},
-    {"name": "Analytics",             "position": 3,  "color": "#F59E0B", "contact_email": "", "notes": "Board analytics, cycle time, throughput, and reporting features."},
-    {"name": "Compliance & Security", "position": 4,  "color": "#8B5CF6", "contact_email": "", "notes": "GDPR, SOC 2, audit logging, and security hardening features."},
-    {"name": "Collaboration",         "position": 5,  "color": "#14B8A6", "contact_email": "", "notes": "Real-time collaboration, comments, mentions, and notification features."},
-    {"name": "Import & Export",       "position": 6,  "color": "#6366F1", "contact_email": "", "notes": "Data portability: CSV, JSON, API bulk operations, and migration tools."},
-    {"name": "Automation",            "position": 7,  "color": "#0EA5E9", "contact_email": "", "notes": "Rule-based automation: auto-move, auto-assign, scheduled actions."},
-    {"name": "Admin & Settings",      "position": 8,  "color": "#F43F5E", "contact_email": "", "notes": "Board and site administration, user management, billing, and configuration."},
-    {"name": "Search & Discovery",    "position": 9,  "color": "#EAB308", "contact_email": "", "notes": "Full-text search, filtering, saved views, and cross-board discovery."},
+    {"name": "Mobile App",            "position": 0,  "color": "#EC4899", "notes": "iOS and Android. Targets field workers and on-the-go board access."},
+    {"name": "Core Platform",         "position": 1,  "color": "#3B82F6", "notes": "Web app, API, and shared infrastructure features."},
+    {"name": "Integrations",          "position": 2,  "color": "#10B981", "notes": "Third-party integrations: Slack, GitHub, Jira, Zapier, webhooks."},
+    {"name": "Analytics",             "position": 3,  "color": "#F59E0B", "notes": "Board analytics, cycle time, throughput, and reporting features."},
+    {"name": "Compliance & Security", "position": 4,  "color": "#8B5CF6", "notes": "GDPR, SOC 2, audit logging, and security hardening features."},
+    {"name": "Collaboration",         "position": 5,  "color": "#14B8A6", "notes": "Real-time collaboration, comments, mentions, and notification features."},
+    {"name": "Import & Export",       "position": 6,  "color": "#6366F1", "notes": "Data portability: CSV, JSON, API bulk operations, and migration tools."},
+    {"name": "Automation",            "position": 7,  "color": "#0EA5E9", "notes": "Rule-based automation: auto-move, auto-assign, scheduled actions."},
+    {"name": "Admin & Settings",      "position": 8,  "color": "#F43F5E", "notes": "Board and site administration, user management, billing, and configuration."},
+    {"name": "Search & Discovery",    "position": 9,  "color": "#EAB308", "notes": "Full-text search, filtering, saved views, and cross-board discovery."},
 ]
 
 _ROADMAP_LABELS = [

@@ -63,7 +63,7 @@
       "name": "Contracts & Procurement",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "legal-contracts@example.com",
+      "contact_email": "",
       "notes": "Vendor MSAs, order forms, procurement agreements. Average turnaround: 5 business days.",
       "custom_field_values": {
         "Lead counsel": "Isabel Ortiz",
@@ -75,7 +75,7 @@
       "name": "Employment Law",
       "position": 1,
       "color": "#F59E0B",
-      "contact_email": "legal-employment@example.com",
+      "contact_email": "",
       "notes": "Employment agreements, terminations, equity plans, HR policy reviews. Sensitive — restricted access.",
       "custom_field_values": {
         "Lead counsel": "Avery Brooks",
@@ -87,7 +87,7 @@
       "name": "Intellectual Property",
       "position": 2,
       "color": "#8B5CF6",
-      "contact_email": "legal-ip@example.com",
+      "contact_email": "",
       "notes": "Trademarks, patents, open-source license compliance, IP assignments. Annual IP audit required.",
       "custom_field_values": {
         "Lead counsel": "Priya Raman",
@@ -99,7 +99,7 @@
       "name": "Data Privacy (GDPR)",
       "position": 3,
       "color": "#EC4899",
-      "contact_email": "legal-privacy@example.com",
+      "contact_email": "",
       "notes": "DPAs, GDPR compliance, data subject requests, privacy impact assessments. DPO oversight.",
       "custom_field_values": {
         "Lead counsel": "Marcus Hale",
@@ -111,7 +111,7 @@
       "name": "Regulatory Compliance",
       "position": 4,
       "color": "#EF4444",
-      "contact_email": "legal-compliance@example.com",
+      "contact_email": "",
       "notes": "SOC 2, HIPAA, PCI-DSS, industry-specific regulations. Audit deadlines are hard stops.",
       "custom_field_values": {
         "Lead counsel": "Elena Petrova",
@@ -123,7 +123,7 @@
       "name": "Corporate Governance",
       "position": 5,
       "color": "#10B981",
-      "contact_email": "legal-corporate@example.com",
+      "contact_email": "",
       "notes": "Board resolutions, shareholder agreements, corporate filings. Quarterly board meeting prep.",
       "custom_field_values": {
         "Lead counsel": "Kwame Mensah",
@@ -135,7 +135,7 @@
       "name": "Litigation Management",
       "position": 6,
       "color": "#F97316",
-      "contact_email": "legal-litigation@example.com",
+      "contact_email": "",
       "notes": "Active disputes, demand letters, settlement negotiations. Outside counsel: Morrison & Associates.",
       "custom_field_values": {
         "Lead counsel": "Hana Kobayashi",
@@ -147,7 +147,7 @@
       "name": "Insurance & Risk",
       "position": 7,
       "color": "#14B8A6",
-      "contact_email": "legal-insurance@example.com",
+      "contact_email": "",
       "notes": "D&O, E&O, cyber liability, general liability. Annual renewal cycle: November.",
       "custom_field_values": {
         "Lead counsel": "Lucas Ferreira",
@@ -159,7 +159,7 @@
       "name": "Real Estate & Leases",
       "position": 8,
       "color": "#6366F1",
-      "contact_email": "legal-realestate@example.com",
+      "contact_email": "",
       "notes": "Office leases, co-working agreements, lease renewals. SF office lease expires Dec 2027.",
       "custom_field_values": {
         "Lead counsel": "Nadia Haddad",
@@ -171,7 +171,7 @@
       "name": "Tax & Finance",
       "position": 9,
       "color": "#0EA5E9",
-      "contact_email": "legal-tax@example.com",
+      "contact_email": "",
       "notes": "Tax filings, transfer pricing, R&D tax credits, sales tax nexus. External advisor: Deloitte.",
       "custom_field_values": {
         "Lead counsel": "Owen Gallagher",

@@ -81,7 +81,7 @@
       "name": "North America",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "na-sales@example.com",
+      "contact_email": "",
       "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR.",
       "custom_field_values": {
         "Regional VP": "Avery Brooks",
@@ -94,7 +94,7 @@
       "name": "APAC",
       "position": 1,
       "color": "#F59E0B",
-      "contact_email": "apac-sales@example.com",
+      "contact_email": "",
       "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles.",
       "custom_field_values": {
         "Regional VP": "Priya Raman",
@@ -107,7 +107,7 @@
       "name": "EMEA",
       "position": 2,
       "color": "#8B5CF6",
-      "contact_email": "emea-sales@example.com",
+      "contact_email": "",
       "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals.",
       "custom_field_values": {
         "Regional VP": "Marcus Hale",
@@ -120,7 +120,7 @@
       "name": "LATAM",
       "position": 3,
       "color": "#10B981",
-      "contact_email": "latam-sales@example.com",
+      "contact_email": "",
       "notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations.",
       "custom_field_values": {
         "Regional VP": "Elena Petrova",
@@ -133,7 +133,7 @@
       "name": "ANZ",
       "position": 4,
       "color": "#EC4899",
-      "contact_email": "anz-sales@example.com",
+      "contact_email": "",
       "notes": "SMB and creative agency accounts. Fast decision cycles -- typically days, not weeks.",
       "custom_field_values": {
         "Regional VP": "Kwame Mensah",
@@ -146,7 +146,7 @@
       "name": "UK & Ireland",
       "position": 5,
       "color": "#14B8A6",
-      "contact_email": "uki-sales@example.com",
+      "contact_email": "",
       "notes": "Financial services and professional services verticals. GDPR applies. Q2 target: 420k GBP.",
       "custom_field_values": {
         "Regional VP": "Hana Kobayashi",
@@ -159,7 +159,7 @@
       "name": "DACH",
       "position": 6,
       "color": "#6366F1",
-      "contact_email": "dach-sales@example.com",
+      "contact_email": "",
       "notes": "Germany, Austria, Switzerland. Manufacturing and engineering firms. German-language demos available.",
       "custom_field_values": {
         "Regional VP": "Lucas Ferreira",
@@ -172,7 +172,7 @@
       "name": "Nordics",
       "position": 7,
       "color": "#0EA5E9",
-      "contact_email": "nordics-sales@example.com",
+      "contact_email": "",
       "notes": "Sweden, Norway, Denmark, Finland. Tech-forward accounts. Short procurement cycles.",
       "custom_field_values": {
         "Regional VP": "Nadia Haddad",
@@ -185,7 +185,7 @@
       "name": "Middle East",
       "position": 8,
       "color": "#F43F5E",
-      "contact_email": "me-sales@example.com",
+      "contact_email": "",
       "notes": "UAE, Saudi Arabia, Qatar. Large enterprise and government. Data residency requirements common.",
       "custom_field_values": {
         "Regional VP": "Owen Gallagher",
@@ -198,7 +198,7 @@
       "name": "Southeast Asia",
       "position": 9,
       "color": "#A855F7",
-      "contact_email": "sea-sales@example.com",
+      "contact_email": "",
       "notes": "Singapore, Indonesia, Philippines, Thailand. Mix of tech startups and traditional enterprises.",
       "custom_field_values": {
         "Regional VP": "Sofia Marino",
@@ -211,7 +211,7 @@
       "name": "Japan & Korea",
       "position": 10,
       "color": "#EAB308",
-      "contact_email": "jpkr-sales@example.com",
+      "contact_email": "",
       "notes": "Large enterprise accounts. Localization required. Partner-led sales motion.",
       "custom_field_values": {
         "Regional VP": "Tariq Aziz",

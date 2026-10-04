@@ -81,7 +81,7 @@
       "name": "Production Kubernetes",
       "position": 0,
       "color": "#EC4899",
-      "contact_email": "oncall-k8s@example.com",
+      "contact_email": "",
       "notes": "EKS 1.29. 3 node groups, 12 nodes. HPA on API and worker deployments. Primary production cluster.",
       "custom_field_values": {
         "Owning team": "Platform",
@@ -95,7 +95,7 @@
       "name": "CI/CD Pipeline",
       "position": 1,
       "color": "#8B5CF6",
-      "contact_email": "oncall-ci@example.com",
+      "contact_email": "",
       "notes": "GitLab CI on Kubernetes runners. Kaniko for image builds. p95 pipeline: 8 min. Zero DinD.",
       "custom_field_values": {
         "Owning team": "Release Eng",
@@ -109,7 +109,7 @@
       "name": "Database Cluster",
       "position": 2,
       "color": "#F59E0B",
-      "contact_email": "oncall-db@example.com",
+      "contact_email": "",
       "notes": "RDS PostgreSQL 16. Primary + 2 replicas. Nightly backups to S3. Point-in-time recovery enabled.",
       "custom_field_values": {
         "Owning team": "Data Infra",
@@ -123,7 +123,7 @@
       "name": "CDN & Edge",
       "position": 3,
       "color": "#3B82F6",
-      "contact_email": "oncall-cdn@example.com",
+      "contact_email": "",
       "notes": "CloudFront distribution. Edge caching for static assets and API responses. WAF rules enabled.",
       "custom_field_values": {
         "Owning team": "Edge",
@@ -137,7 +137,7 @@
       "name": "Monitoring Stack",
       "position": 4,
       "color": "#10B981",
-      "contact_email": "oncall-monitoring@example.com",
+      "contact_email": "",
       "notes": "Prometheus + Grafana + Alertmanager + PagerDuty. Jaeger for distributed tracing.",
       "custom_field_values": {
         "Owning team": "Observability",
@@ -151,7 +151,7 @@
       "name": "Security Infrastructure",
       "position": 5,
       "color": "#EF4444",
-      "contact_email": "oncall-security@example.com",
+      "contact_email": "",
       "notes": "Vault for secrets, Falco for runtime security, Trivy for image scanning. SOC 2 controls.",
       "custom_field_values": {
         "Owning team": "SecOps",
@@ -165,7 +165,7 @@
       "name": "Staging Environment",
       "position": 6,
       "color": "#14B8A6",
-      "contact_email": "oncall-staging@example.com",
+      "contact_email": "",
       "notes": "Mirror of production at 1/4 scale. Auto-deployed on merge to main. Seed data refreshed nightly.",
       "custom_field_values": {
         "Owning team": "Platform",
@@ -179,7 +179,7 @@
       "name": "Data Pipeline",
       "position": 7,
       "color": "#6366F1",
-      "contact_email": "oncall-data@example.com",
+      "contact_email": "",
       "notes": "Airflow on EKS. 42 DAGs. Snowflake as warehouse. dbt for transformations. 500k events/hour peak.",
       "custom_field_values": {
         "Owning team": "Data Infra",
@@ -193,7 +193,7 @@
       "name": "DNS & Networking",
       "position": 8,
       "color": "#0EA5E9",
-      "contact_email": "oncall-network@example.com",
+      "contact_email": "",
       "notes": "Route 53 for DNS. VPC peering across 3 accounts. Transit Gateway for on-prem connectivity.",
       "custom_field_values": {
         "Owning team": "Network",
@@ -207,7 +207,7 @@
       "name": "Disaster Recovery",
       "position": 9,
       "color": "#F97316",
-      "contact_email": "oncall-dr@example.com",
+      "contact_email": "",
       "notes": "Cross-region DR in eu-west-1. RPO: 1 hour. RTO: 4 hours. Quarterly failover drills required.",
       "custom_field_values": {
         "Owning team": "Resilience",

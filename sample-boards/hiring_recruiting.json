@@ -81,7 +81,7 @@
       "name": "Engineering",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "hiring-eng@example.com",
+      "contact_email": "",
       "notes": "Backend, frontend, and infrastructure roles. Python/Django and React/TypeScript. Remote-friendly.",
       "custom_field_values": {
         "Hiring manager": "Mei Lin",
@@ -94,7 +94,7 @@
       "name": "Product",
       "position": 1,
       "color": "#8B5CF6",
-      "contact_email": "hiring-product@example.com",
+      "contact_email": "",
       "notes": "Product managers and product analysts. B2B SaaS experience preferred. Reports to CPO.",
       "custom_field_values": {
         "Hiring manager": "Jonas Berg",
@@ -107,7 +107,7 @@
       "name": "Design",
       "position": 2,
       "color": "#EC4899",
-      "contact_email": "hiring-design@example.com",
+      "contact_email": "",
       "notes": "Product designers and UX researchers. Figma expertise required. Systems design thinking valued.",
       "custom_field_values": {
         "Hiring manager": "Isabel Ortiz",
@@ -120,7 +120,7 @@
       "name": "Sales",
       "position": 3,
       "color": "#10B981",
-      "contact_email": "hiring-sales@example.com",
+      "contact_email": "",
       "notes": "Account executives and SDRs. B2B SaaS with PLG experience. OTE $120-180k.",
       "custom_field_values": {
         "Hiring manager": "Avery Brooks",
@@ -133,7 +133,7 @@
       "name": "Marketing",
       "position": 4,
       "color": "#F59E0B",
-      "contact_email": "hiring-mktg@example.com",
+      "contact_email": "",
       "notes": "Content, growth, and demand gen roles. PLG experience required. Reports to Head of Marketing.",
       "custom_field_values": {
         "Hiring manager": "Priya Raman",
@@ -146,7 +146,7 @@
       "name": "Customer Success",
       "position": 5,
       "color": "#14B8A6",
-      "contact_email": "hiring-cs@example.com",
+      "contact_email": "",
       "notes": "CSMs and CS Ops. SaaS experience required. Owns onboarding, retention, and expansion.",
       "custom_field_values": {
         "Hiring manager": "Marcus Hale",
@@ -159,7 +159,7 @@
       "name": "Operations",
       "position": 6,
       "color": "#F97316",
-      "contact_email": "hiring-ops@example.com",
+      "contact_email": "",
       "notes": "DevOps, IT, and business operations. Kubernetes and Terraform experience for DevOps roles.",
       "custom_field_values": {
         "Hiring manager": "Elena Petrova",
@@ -172,7 +172,7 @@
       "name": "Finance",
       "position": 7,
       "color": "#6366F1",
-      "contact_email": "hiring-finance@example.com",
+      "contact_email": "",
       "notes": "Accounting, FP&A, and revenue ops. SaaS metrics experience preferred. CPA for accounting roles.",
       "custom_field_values": {
         "Hiring manager": "Kwame Mensah",
@@ -185,7 +185,7 @@
       "name": "Legal",
       "position": 8,
       "color": "#0EA5E9",
-      "contact_email": "hiring-legal@example.com",
+      "contact_email": "",
       "notes": "Corporate counsel and compliance. SaaS contracts, IP, and data privacy experience required.",
       "custom_field_values": {
         "Hiring manager": "Hana Kobayashi",
@@ -198,7 +198,7 @@
       "name": "Executive",
       "position": 9,
       "color": "#EF4444",
-      "contact_email": "hiring-exec@example.com",
+      "contact_email": "",
       "notes": "VP and C-level searches. Board-approved headcount only. Executive recruiter engaged.",
       "custom_field_values": {
         "Hiring manager": "Lucas Ferreira",

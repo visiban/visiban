@@ -63,7 +63,7 @@
       "name": "Mobile App Relaunch",
       "position": 0,
       "color": "#EC4899",
-      "contact_email": "pm-mobile@example.com",
+      "contact_email": "",
       "notes": "Full redesign + new feature set. Q2 launch target. Sponsor: VP Product.",
       "custom_field_values": {
         "Sponsor": "Kwame Mensah",
@@ -76,7 +76,7 @@
       "name": "Data Platform Migration",
       "position": 1,
       "color": "#3B82F6",
-      "contact_email": "pm-data@example.com",
+      "contact_email": "",
       "notes": "Migrate from Redshift to Snowflake. 3 TB data. Zero-downtime required.",
       "custom_field_values": {
         "Sponsor": "Hana Kobayashi",
@@ -89,7 +89,7 @@
       "name": "Security Compliance Audit",
       "position": 2,
       "color": "#EF4444",
-      "contact_email": "ciso@example.com",
+      "contact_email": "",
       "notes": "SOC 2 Type II audit. Auditor engaged. Evidence collection deadline: end of Q2.",
       "custom_field_values": {
         "Sponsor": "Lucas Ferreira",
@@ -102,7 +102,7 @@
       "name": "Customer Portal v2",
       "position": 3,
       "color": "#10B981",
-      "contact_email": "pm-portal@example.com",
+      "contact_email": "",
       "notes": "Self-service portal for invoices, usage, support. Design approved, dev in progress.",
       "custom_field_values": {
         "Sponsor": "Nadia Haddad",
@@ -115,7 +115,7 @@
       "name": "GDPR Deletion Pipeline",
       "position": 4,
       "color": "#8B5CF6",
-      "contact_email": "privacy@example.com",
+      "contact_email": "",
       "notes": "Automate right-to-erasure requests. Legal deadline: 90 days from receipt.",
       "custom_field_values": {
         "Sponsor": "Owen Gallagher",
@@ -128,7 +128,7 @@
       "name": "Infrastructure Modernization",
       "position": 5,
       "color": "#F59E0B",
-      "contact_email": "pm-infra@example.com",
+      "contact_email": "",
       "notes": "Multi-cloud migration from on-prem. Target: fully cloud-native by end of Q3. Sponsor: CTO.",
       "custom_field_values": {
         "Sponsor": "Sofia Marino",
@@ -141,7 +141,7 @@
       "name": "Brand Redesign",
       "position": 6,
       "color": "#F97316",
-      "contact_email": "pm-brand@example.com",
+      "contact_email": "",
       "notes": "Full brand refresh — logo, typography, color palette, marketing site. Agency: Mosaic Creative.",
       "custom_field_values": {
         "Sponsor": "Tariq Aziz",
@@ -154,7 +154,7 @@
       "name": "Vendor Management System",
       "position": 7,
       "color": "#14B8A6",
-      "contact_email": "pm-procurement@example.com",
+      "contact_email": "",
       "notes": "Centralize vendor onboarding, contracts, and spend tracking. 40+ active vendors.",
       "custom_field_values": {
         "Sponsor": "Mei Lin",
@@ -167,7 +167,7 @@
       "name": "Employee Onboarding Platform",
       "position": 8,
       "color": "#6366F1",
-      "contact_email": "pm-hr@example.com",
+      "contact_email": "",
       "notes": "Automated onboarding for new hires — IT setup, HR paperwork, team intros. 15+ new hires/quarter.",
       "custom_field_values": {
         "Sponsor": "Jonas Berg",
@@ -180,7 +180,7 @@
       "name": "API Gateway Overhaul",
       "position": 9,
       "color": "#0EA5E9",
-      "contact_email": "pm-platform@example.com",
+      "contact_email": "",
       "notes": "Replace legacy API gateway with Kong. Rate limiting, auth, and observability. 14 upstream services.",
       "custom_field_values": {
         "Sponsor": "Isabel Ortiz",
