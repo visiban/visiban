@@ -151,8 +151,9 @@ class ImportedBoardNameTests(TestCase):
         group = self._group()
         self.assertEqual(self._post(_csv_file("plan.csv"), group_id=group.pk), "Imported: plan")
 
-    def test_csv_windows_path_components_are_dropped(self):
-        self.assertEqual(self._post(_csv_file("C:\\Users\\me\\plan.csv")), "Imported: plan")
+    def test_csv_colon_in_filename_is_kept(self):
+        # A colon is not a drive separator in an uploaded filename.
+        self.assertEqual(self._post(_csv_file("A: notes.csv")), "Imported: A: notes")
 
 
 class ImportedBoardNameHelperTests(TestCase):

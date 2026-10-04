@@ -6,7 +6,7 @@ import hashlib
 import io
 import json
 import logging
-import ntpath
+import os
 import re
 
 from django.conf import settings as django_settings
@@ -1251,9 +1251,7 @@ class BoardImportExportMixin:
         # uploaded filename without its extension (#1446). An explicit
         # ``name`` is used exactly as given.
         board_name = request.data.get("name") or _imported_board_name(
-            # ntpath.basename splits on both "/" and "\\", so a Windows-style
-            # client path never leaks directory components into the name.
-            ntpath.splitext(ntpath.basename(file.name or ""))[0], request.user, group
+            os.path.splitext(file.name or "")[0], request.user, group
         )
 
         # What the chosen options leave out (#119). A CSV row has no comments,
