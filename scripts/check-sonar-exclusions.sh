@@ -46,6 +46,12 @@
 # a SECOND home elsewhere. The durable fix for that is on the code side - keep a
 # suppressed pattern in ONE place so a copy has nowhere to hide.
 #
+# Known limits of check 4 (both tracked in #1425):
+#   (a) RULE_TITLES proves a human registered the key, not that the rule is
+#       active in the SonarCloud quality profile.
+#   (b) A criterion whose preceding comment cites no S-number is only
+#       table-checked, so a wrong key that is in the table still passes.
+#
 # Suppression policy lives in the header of sonar-project.properties; see also
 # docs/development/suppressions.md.
 #
