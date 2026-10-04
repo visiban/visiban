@@ -324,6 +324,22 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
         heightSpy.mockRestore()
       }
     })
+
+    it('pins to the bottom edge when it fits neither below nor above the trigger', async () => {
+      // Taller than the space on either side of a trigger near the top.
+      const height = window.innerHeight - 60
+      const heightSpy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(height)
+      try {
+        const user = userEvent.setup()
+        renderRow(lane(), defs)
+        const trigger = screen.getByRole('button', { name: /Show all 4 field values/ })
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 120, left: 10, right: 40, width: 30, height: 20, x: 10, y: 100, toJSON: () => ({}) } as DOMRect)
+        await user.click(trigger)
+        expect(screen.getByRole('dialog').style.top).toBe(`${window.innerHeight - 8 - height}px`)
+      } finally {
+        heightSpy.mockRestore()
+      }
+    })
   })
 
   it('renders nothing at all when the swimlane carries no values', () => {
