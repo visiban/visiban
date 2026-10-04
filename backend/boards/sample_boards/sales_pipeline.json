@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Sales Pipeline",
+  "name": "Sales Pipeline",
   "description": "Track open deals from first contact through close. Each swimlane is a sales region; each card is a deal or opportunity.",
   "columns": [
     {

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Product Roadmap",
+  "name": "Product Roadmap",
   "description": "Track features from idea through launch and monitoring. Each swimlane is a product area; each card is a feature or initiative.",
   "columns": [
     {

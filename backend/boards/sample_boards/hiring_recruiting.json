@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Hiring & Recruiting",
+  "name": "Hiring & Recruiting",
   "description": "Track candidates from application through offer. Each swimlane is a department; each card is a candidate or hiring action.",
   "columns": [
     {

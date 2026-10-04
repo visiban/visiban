@@ -1,9 +1,6 @@
 """Tests for the seed_template_boards management command."""
 
-import json
-import tempfile
 from io import StringIO
-from pathlib import Path
 from unittest import mock
 
 from django.core.management import call_command
@@ -387,97 +384,16 @@ class SeedErrorTests(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Export
+# Export (retired in #1452)
 # ---------------------------------------------------------------------------
 
 @override_settings(DEBUG=True)
-class SeedExportTests(TestCase):
-    def test_export_flag_calls_export_method(self):
-        with mock.patch(
-            "boards.management.commands.seed_template_boards.Command._export"
-        ) as mock_export:
-            _seed("sales_pipeline", export=True)
-        mock_export.assert_called_once()
-
-    def test_json_export_structure(self):
-        _seed("sales_pipeline")
-        board = Board.objects.get(name="Template: Sales Pipeline")
-
-        from boards.management.commands.seed_template_boards import Command
-
-        cmd = Command()
-        cmd.stdout = StringIO()
-        cmd.style = mock.MagicMock()
-        cmd.style.SUCCESS = lambda s: s
-
-        template_data = TEMPLATE_DATA["sales_pipeline"]
-        cols = list(board.columns.order_by("position"))
-        card_qs = (
-            board.cards
-            .select_related("column", "swimlane", "assignee")
-            .prefetch_related(
-                "labels", "checklist_items", "comments__author",
-                "movements__moved_by",
-            )
-        )
-
-        with tempfile.TemporaryDirectory() as tmp:
-            out_path = Path(tmp) / "seed.json"
-            cmd._export_json(
-                board,
-                cols,
-                template_data["swimlanes"],
-                template_data["labels"],
-                card_qs,
-                out_path,
-            )
-            data = json.loads(out_path.read_text())
-
-        for key in ("name", "columns", "swimlanes", "labels", "cards"):
-            self.assertIn(key, data)
-        # sales_pipeline v3: 8 columns, 11 swimlanes, 4 labels
-        self.assertEqual(len(data["columns"]), 8)
-        self.assertEqual(len(data["swimlanes"]), 11)
-        self.assertEqual(len(data["labels"]), 4)
-
-        # Every card must export its movement history
-        for card_data in data["cards"]:
-            self.assertIn("movements", card_data, f"Card '{card_data['title']}' missing movements")
-            self.assertGreater(len(card_data["movements"]), 0, f"Card '{card_data['title']}' has empty movements")
-        # Spot-check movement shape
-        mv = data["cards"][0]["movements"][0]
-        for field in ("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_at", "moved_by"):
-            self.assertIn(field, mv)
-
-    def test_csv_export_headers(self):
-        import csv as csv_module
-
-        _seed("sales_pipeline")
-        board = Board.objects.get(name="Template: Sales Pipeline")
-        card_qs = (
-            board.cards
-            .select_related("column", "swimlane", "assignee")
-            .prefetch_related("labels", "checklist_items", "comments__author")
-        )
-
-        from boards.management.commands.seed_template_boards import Command
-
-        cmd = Command()
-        cmd.stdout = StringIO()
-        cmd.style = mock.MagicMock()
-        cmd.style.SUCCESS = lambda s: s
-
-        with tempfile.TemporaryDirectory() as tmp:
-            out_path = Path(tmp) / "seed.csv"
-            cmd._export_csv(card_qs, out_path)
-            with out_path.open() as f:
-                reader = csv_module.DictReader(f)
-                rows = list(reader)
-
-        expected_headers = {
-            "title", "column", "swimlane", "priority", "due_date",
-            "weight", "labels", "assignee", "checklist_total",
-            "checklist_done", "comment_count", "description_preview",
-        }
-        self.assertEqual(set(rows[0].keys()), expected_headers)
-        self.assertEqual(len(rows), board.cards.count())
+class SeedExportRetiredTests(TestCase):
+    def test_export_flag_is_refused_and_writes_nothing(self):
+        """generate_seed_data.py is the only writer of the sample files (#1450, #1452)."""
+        with mock.patch("builtins.open") as mock_open:
+            with self.assertRaises(CommandError) as ctx:
+                _seed("sales_pipeline", export=True)
+        self.assertIn("generate_seed_data.py", str(ctx.exception))
+        mock_open.assert_not_called()
+        self.assertFalse(Board.objects.filter(name="Template: Sales Pipeline").exists())

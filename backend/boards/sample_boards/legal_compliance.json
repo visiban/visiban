@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Legal & Compliance",
+  "name": "Legal & Compliance",
   "description": "Track contracts, policy requests, and compliance reviews. Each swimlane is a practice area; each card is a request or obligation.",
   "columns": [
     {

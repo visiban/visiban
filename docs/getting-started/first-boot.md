@@ -181,7 +181,7 @@ When registration mode is Closed, use **Admin → Users → Add user** to create
 
 To see a fully populated board before your team's real work arrives, import one of the
 sample boards. They are not shipped inside the Docker images or the Helm chart; download
-them from [`sample-boards/` on GitLab](https://gitlab.com/visiban/visiban/-/tree/main/sample-boards)
-(or the [GitHub mirror](https://github.com/visiban/visiban/tree/main/sample-boards)), then
+them from [`backend/boards/sample_boards/` on GitLab](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards)
+(or the [GitHub mirror](https://github.com/visiban/visiban/tree/main/backend/boards/sample_boards)), then
 use **Dashboard → Import**. See [Sample Boards](sample-boards.md) for the list and for what
 each board demonstrates.

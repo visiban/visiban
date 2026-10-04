@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Sales Overlay",
+  "name": "Sales Overlay",
   "description": "Account coverage under an enterprise overlay model: each row is an account with its primary team (AD, AE, SA, services) and an overlay pod (overlay AE + overlay SA). Which accounts have a coverage gap, and which deals does it put at risk?",
   "columns": [
     {

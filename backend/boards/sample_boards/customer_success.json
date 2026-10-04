@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Customer Success",
+  "name": "Customer Success",
   "description": "Track account health from onboarding through expansion and renewal. Each swimlane represents a customer segment.",
   "columns": [
     {

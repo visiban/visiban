@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Simple Kanban",
+  "name": "Simple Kanban",
   "description": "General-purpose kanban for any team. Each swimlane is a team or workstream; each card is a work item.",
   "columns": [
     {

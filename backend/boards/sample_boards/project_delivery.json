@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "name": "Template: Project Delivery",
+  "name": "Project Delivery",
   "description": "Track cross-functional projects from planning through retrospective. Each swimlane is a project; each card is a deliverable or milestone.",
   "columns": [
     {
