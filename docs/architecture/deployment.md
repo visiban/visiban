@@ -22,17 +22,17 @@ For a production-oriented Docker Compose stack (nginx, TLS via certbot, a `sched
 
 ## Production Docker images
 
-Pre-built images are published to the GitLab container registry automatically by CI. Every merge to `main` pushes an amd64-only `:latest` and short-SHA tag; multi-arch (linux/amd64 + linux/arm64) `:latest` comes from a **stable** release-tag pipeline only — a pre-release tag (`-alpha`/`-beta`/`-rc`) publishes its own exact version tag and never touches `:latest`:
+Pre-built images are published to the GitLab container registry automatically by CI. `:latest` always means the newest **stable** release: it is written only by a stable release-tag pipeline, as a multi-arch (linux/amd64 + linux/arm64) manifest list. A pre-release tag (`-alpha`/`-beta`/`-rc`) publishes its own exact version tag and never touches `:latest`. Every merge to `main` pushes an amd64-only `:main` and short-SHA tag instead:
 
-| Image | Registry path |
-|---|---|
-| Backend | `registry.gitlab.com/visiban/visiban/backend:latest` |
-| Frontend | `registry.gitlab.com/visiban/visiban/frontend:latest` |
+| Image | Stable release (multi-arch) | Latest `main` build (amd64 only) |
+|---|---|---|
+| Backend | `registry.gitlab.com/visiban/visiban/backend:latest` | `registry.gitlab.com/visiban/visiban/backend:main` |
+| Frontend | `registry.gitlab.com/visiban/visiban/frontend:latest` | `registry.gitlab.com/visiban/visiban/frontend:main` |
 
-Each merge also pushes a short-SHA tag (e.g. `registry.gitlab.com/visiban/visiban/backend:a1b2c3d4`) for rollback.
+Each `main` merge also pushes a short-SHA tag (e.g. `registry.gitlab.com/visiban/visiban/backend:a1b2c3d4`) for rollback.
 
-!!! warning "GitLab-registry `:latest` is amd64-only between releases"
-    The GitLab-registry `:latest` and short-SHA tags built on `main` are **linux/amd64 only**. `:latest` is multi-arch (linux/amd64 + linux/arm64) only right after a release tag's pipeline runs, and the next `main` merge overwrites it with an amd64-only image again. On arm64 hosts (Apple Silicon, Graviton, Raspberry Pi), pull a pinned release tag (for example `v1.2.0`) or GHCR's `ghcr.io/visiban/visiban/backend:latest` / `frontend:latest`, which only release tags update and which stay multi-arch. See [Container image retention](../administration/container-image-retention.md#gitlab-registry-latest-is-amd64-only-between-releases).
+!!! warning "GitLab-registry `:main` and short-SHA tags are amd64-only and unvetted"
+    The GitLab-registry `:main` and short-SHA tags built on `main` are **linux/amd64 only** and have not been through a release's gates. Use `:latest` or a pinned release tag (for example `v1.2.0`) for anything you run in production; both are multi-arch, so they work on arm64 hosts (Apple Silicon, Graviton, Raspberry Pi). GHCR's `ghcr.io/visiban/visiban/backend:latest` / `frontend:latest` behave the same way. Before 1.2, GitLab `:latest` tracked `main` builds; if you relied on that, switch to `:main`. See [Container image retention](../administration/container-image-retention.md#gitlab-registry-latest-is-stable-only-main-publishes-main).
 
 To build images manually:
 
