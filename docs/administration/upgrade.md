@@ -283,6 +283,14 @@ After rolling back, restart the backend container with the previous image versio
 
 ### Upgrading to 1.2.x
 
+!!! warning "GitLab registry `:latest` no longer tracks `main` builds"
+    Previously every `main` merge overwrote `registry.gitlab.com/visiban/visiban/backend:latest`
+    and `frontend:latest` with an amd64-only build. `:latest` on the GitLab registry is now
+    written only by stable release tags (multi-arch), matching GHCR, so it stays on the last
+    stable release until the next stable tag. If you tracked GitLab `:latest` to follow `main`,
+    switch to `:main` (amd64 only); short-SHA tags are still pushed for rollback. Pinned release
+    tags and GHCR are unaffected. See [Container image retention](container-image-retention.md#gitlab-registry-latest-is-stable-only-main-publishes-main).
+
 Migration `accounts/0027_maintenance_mode` adds two nullable-by-default columns
 (`maintenance_mode`, `maintenance_message`) to the `site_settings` singleton for the new
 [maintenance mode](maintenance-mode.md) feature. It is a plain `AddField` migration — no index,

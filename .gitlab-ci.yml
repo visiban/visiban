@@ -2863,9 +2863,9 @@ frontend-docker-build:
 # GitLab Runners API directly for an online runner tagged `arm64` and fails
 # within seconds if none is found, before either arm64 leg is even scheduled.
 #
-# On main-branch merges: :latest and :<short-sha> to the GitLab registry
+# On main-branch merges: :main and :<short-sha> to the GitLab registry
 # (amd64 only — arm64 and the manifest jobs run on release tags only, see
-# their `rules:`).
+# their `rules:`). Never :latest — that name is stable-release-only (#1409).
 # On release tags: this leg pushes only arch-suffixed intermediate tags (see
 # the destinations() comment below) — the real :<tag> tag, and (for stable
 # releases only) the :latest/:MAJOR.MINOR aliases, are written exclusively by
@@ -2926,11 +2926,13 @@ frontend-docker-build:
       # job and the arm64 leg) is the ONLY thing that ever writes the real
       # `:<tag>`/`:latest`/`:MINOR` names — so a failed or skipped arm64 leg
       # leaves whatever was already published under those names (the previous
-      # release, or the last main-branch merge's amd64 image) untouched,
+      # stable release) untouched,
       # rather than silently replacing it with an incomplete one.
       #
-      # On an ordinary main-branch merge (no tag), nothing changes: plain
-      # amd64-only :latest/:<short-sha> to the GitLab registry only — no
+      # On an ordinary main-branch merge (no tag): plain amd64-only
+      # :main/:<short-sha> to the GitLab registry only (NOT :latest — that
+      # is written only by `*-manifest` on stable tags, so it always means
+      # the newest stable release, multi-arch, on both registries; #1409) — no
       # arm64 leg or manifest job runs off a branch push (see their `rules:`
       # — release tags only), so there is no multi-arch alternative to defer
       # to here, and GHCR is untouched by main-branch merges as before.
@@ -2946,7 +2948,7 @@ frontend-docker-build:
           echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_TAG}-amd64"
           echo "--destination=ghcr.io/visiban/visiban/${img}:${CI_COMMIT_TAG}-amd64"
         else
-          echo "--destination=${CI_REGISTRY_IMAGE}/${img}:latest"
+          echo "--destination=${CI_REGISTRY_IMAGE}/${img}:main"
           echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_SHORT_SHA}"
         fi
       }
@@ -3480,7 +3482,7 @@ helm-publish:
 # on demand (kaniko, amd64-only) via the play button on any pipeline's
 # deploy stage. Removed: since #1084 restored multi-arch publishing, GHCR
 # `:latest` is a real linux/amd64+arm64 manifest list between release tags
-# (see the "Docker push" comment block above) — these jobs had no `rules:`
+# (main merges push `:main`, never `:latest`, since #1409; see the "Docker push" comment block above) — these jobs had no `rules:`
 # restricting them to any particular pipeline, so clicking either one on
 # ANY pipeline would silently overwrite that multi-arch manifest with a
 # single-arch amd64 image, with no arm64 leg or manifest-assembly step to

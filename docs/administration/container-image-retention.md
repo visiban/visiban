@@ -57,7 +57,8 @@ this policy against Visiban's actual tag set:
   no matter how old it gets or how many other tags have been pushed since. `v*` protection is
   the exact gap TruePPM's incident exploited — it predates this page's history. `latest`
   previously survived only incidentally, via `backend-docker-push`/`frontend-docker-push`
-  re-pushing `:latest` on every `main`-branch merge, which almost always kept it inside
+  re-pushing `:latest` on every `main`-branch merge (until #1409 moved those pushes to
+  `:main`, which makes the explicit protection essential), which almost always kept it inside
   `keep_n: 10` most-recently-pushed or younger than `older_than: 90d` — a mechanism that
   stops working the moment `main` goes 90+ days without a merge to either image while 10
   other tags get pushed in the meantime. #1190 closes that gap unconditionally instead of
@@ -212,30 +213,33 @@ before re-running the chain for anything other than the current newest stable re
 pre-release tag (`-alpha.N`/`-beta.N`/`-rc.N`) gets no `--tags` at all — restoring one only
 ever recreates its own exact `:<tag>`, never touches `:latest`.
 
-## GitLab-registry `:latest` is amd64-only between releases
+## GitLab-registry `:latest` is stable-only; `main` publishes `:main`
 
-The two registries do not behave the same for `:latest`:
+Both registries now treat `:latest` the same way (#1409):
 
-| Registry | What updates `:latest` | Architectures |
+| Tag | Written by | Architectures |
 |---|---|---|
-| GHCR | **Stable** release tags only (`backend-manifest` / `frontend-manifest`) — a pre-release tag (`-alpha`/`-beta`/`-rc`) never touches `:latest` | linux/amd64 + linux/arm64, persistently, until the next stable release |
-| GitLab | Stable release tags (multi-arch manifest) **and** every `main`-branch merge (`backend-docker-push` / `frontend-docker-push`, via kaniko) | Multi-arch right after a stable release tag, then **amd64 only** after the next `main` merge |
+| `:latest` (GHCR and GitLab) | **Stable** release tags only (`backend-manifest` / `frontend-manifest`) — a pre-release tag (`-alpha`/`-beta`/`-rc`) never touches it | linux/amd64 + linux/arm64, until the next stable release |
+| `:main` (GitLab only) | Every `main`-branch merge (`backend-docker-push` / `frontend-docker-push`, via kaniko) | amd64 only |
+| `:<short-sha>` (GitLab only) | Every `main`-branch merge — for rollback | amd64 only |
 
 The native arm64 legs (`*-docker-push-arm64`), `arm64-runner-preflight`, and the manifest jobs
-all have release-tag-only `rules:`. A `main` merge therefore pushes an amd64-only `:latest`
-and `:<short-sha>` to the GitLab registry, overwriting the multi-arch `:latest` from the last
-release.
+all have release-tag-only `rules:`, so a `main` merge cannot produce a multi-arch image. Before
+#1409 the GitLab `:latest` was overwritten with that amd64-only build on every merge, which
+meant GitLab `:latest` was an unvetted `main` build between releases and disagreed with GHCR.
+Main builds now go to `:main`, leaving `:latest` on the newest stable release.
 
-**This is an accepted tradeoff (#1208).** Building arm64 on every `main` merge would serialize
-each merge through the single dedicated Apple Silicon runner (`Max1-Runner-Visiban`), and that
-throughput cost has not been evaluated. GHCR is unaffected, so there is a persistently
-multi-arch `:latest` available.
+**Retention:** `:main` is re-pushed on every merge, so it stays fresh under the ordinary
+`keep_n`/`older_than` sweep and needs no entry in `name_regex_keep`. Short-SHA tags age out under
+that same sweep, as before. `:latest` and release tags stay unconditionally protected.
 
-**Guidance for arm64 self-hosters:** pin a release tag (`:v1.2.0`) rather than `:latest`, or use
-GHCR's `:latest`. Do not pull the GitLab-registry `:latest` or a short-SHA tag on arm64 between
-releases; it may resolve to an amd64-only image. If this tradeoff stops being acceptable, the
-fix is to run the arm64 leg and manifest assembly on `main` merges, which means changing those
-jobs' `rules:` in `.gitlab-ci.yml`.
+**Building arm64 on every `main` merge** would serialize each merge through the single dedicated
+Apple Silicon runner (`Max1-Runner-Visiban`); that throughput cost has not been evaluated
+(#1208), which is why `:main` remains amd64-only. If that changes, the fix is to run the arm64
+leg and manifest assembly on `main` merges by changing those jobs' `rules:` in `.gitlab-ci.yml`.
+
+**Guidance:** run `:latest` or a pinned release tag (`:v1.2.0`) in production. Anyone who was
+tracking GitLab `:latest` to follow `main` should switch to `:main`.
 
 ## Digest pinning
 
