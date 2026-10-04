@@ -1302,6 +1302,22 @@ VALUES
   [ "$bad" -eq 0 ] && pass "database-url percent-encodes the username and password on the bundled and external branches"
 }
 
+# Render a chart's NOTES.txt with no cluster: `helm template` skips NOTES.txt,
+# so copy the chart and add NOTES.txt as a template whose every line is a YAML
+# comment, then print just that file. Each source line is prefixed, so the
+# template actions are the real NOTES.txt's; a NOTES.txt this cannot render
+# fails loudly instead of passing. Extra args are helm flags.
+render_notes() {
+  local chart="$1" t rc=0; shift
+  t="$(mktemp -d)"
+  cp -R "$chart" "$t/chart"
+  sed 's/^/# /' "$t/chart/templates/NOTES.txt" > "$t/chart/templates/zz-notes-probe.yaml"
+  helm template "$RELEASE" "$t/chart" "${RENDER_ARGS[@]}" "$@" \
+    --show-only templates/zz-notes-probe.yaml | sed 's/^# //' || rc=$?
+  rm -rf "$t"
+  return "$rc"
+}
+
 # ---------------------------------------------------------------------------
 # 14. ALLOWED_HOSTS holds operator-configured hosts only (#1230).
 # ---------------------------------------------------------------------------
@@ -1416,6 +1432,29 @@ check_allowed_hosts_not_widened() {
       bad=1
     fi
   done
+  # The opt-in is not silent: NOTES.txt must name the entries (#1360). `helm
+  # template` never renders NOTES.txt, and `helm install --dry-run=client`
+  # still dials the cluster on Helm 3.16 (CI's pin) despite its help text, so
+  # render_notes renders the real NOTES.txt offline as a comment-only template.
+  # A NOTES warning that silently disappeared would otherwise leave every gate
+  # green.
+  local notes
+  if ! notes="$(render_notes "$CHART_UNDER_TEST" \
+         --set-string 'backend.settings.allowedHosts=a.com\,LocalHost\,*' \
+         --set backend.settings.allowUnsafeHosts=true 2>"$errf")"; then
+    fail "NOTES.txt does not render with the opt-in: $(head -3 "$errf" | tr '\n' ' ')"
+    bad=1
+  elif ! grep -qF 'WARNING: backend.settings.allowedHosts contains "localhost", "*"' <<< "$notes"; then
+    fail "allowUnsafeHosts=true with 'a.com,LocalHost,*': NOTES.txt does not warn naming \"localhost\", \"*\" -- the opt-in would be silent (#1360)"
+    bad=1
+  fi
+  if ! notes="$(render_notes "$CHART_UNDER_TEST" --set backend.settings.allowUnsafeHosts=true 2>"$errf")"; then
+    fail "NOTES.txt does not render with the opt-in and safe hosts: $(head -3 "$errf" | tr '\n' ' ')"
+    bad=1
+  elif grep -qF 'WARNING: backend.settings.allowedHosts contains' <<< "$notes"; then
+    fail "NOTES.txt warns about unsafe allowedHosts entries when there are none (allowedHosts=structure-check.visiban.local)"
+    bad=1
+  fi
   # The opt-in renders, and passes the entries through verbatim.
   if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
        --set-string 'backend.settings.allowedHosts=a.com\,localhost' \
@@ -1545,6 +1584,8 @@ self_test() {
     "14 leading-dot form not normalized|templates/_helpers.tpl|s/regexReplaceAll \"^[^\"]*\" \$e \"\"/\$e/"
     # 14: the opt-in defaults to on, so the guard never fires on a default install.
     "14 allowUnsafeHosts defaults to true|values.yaml|s/allowUnsafeHosts: false/allowUnsafeHosts: true/"
+    # 14 (#1360): the NOTES.txt opt-in warning disappears, so the opt-in is silent.
+    "14 NOTES opt-in warning removed|templates/NOTES.txt|s/{{- if and \$unsafeHosts .Values.backend.settings.allowUnsafeHosts }}/{{- if false }}/"
     # 10 (#1360): the demo stops refusing the unsafe-hosts opt-in.
     "10 demo unsafe-hosts opt-in guard removed|templates/_validate.tpl|s/{{- if .Values.backend.settings.allowUnsafeHosts -}}/{{- if false -}}/"
   )
