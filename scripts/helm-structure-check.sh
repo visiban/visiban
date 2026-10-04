@@ -876,6 +876,7 @@ DEMO_GUARD_CASES=(
   "numProxies zero|backend.settings.numProxies is less than 1|--set=backend.settings.numProxies=0"
   "reset schedule the backend cannot evaluate|demo.reset.schedule must be a minute/hour cron|--set-string=demo.reset.schedule=0 0 1 * *"
   "malformed user throttle rate|demo.throttle.userRate must look like|--set=demo.throttle.userRate=lots"
+  "unsafe-allowedHosts opt-in (#1360)|backend.settings.allowUnsafeHosts is true|--set=backend.settings.allowUnsafeHosts=true"
 )
 
 check_demo_guards() {
@@ -1312,6 +1313,11 @@ VALUES
 # helm tests) send an explicit Host instead, so this section also proves every
 # backend probe's Host is one ALLOWED_HOSTS accepts: removing the widening
 # without moving the callers would take every pod out of rotation.
+#
+# The operator-opt-in half (#1360): a "*" or loopback entry the operator lists
+# themselves re-opens the same exposure, so the render must FAIL on each one
+# unless backend.settings.allowUnsafeHosts=true -- matched per exact entry, so
+# a hostname that merely contains "localhost" must still render.
 check_allowed_hosts_not_widened() {
   section "14. ALLOWED_HOSTS is operator-configured hosts only"
 
@@ -1351,8 +1357,11 @@ check_allowed_hosts_not_widened() {
   for shape in 'a.com,b.com|a.com' '.a.com|a.com' '*|localhost'; do
     allowed="${shape%%|*}"; want_probe="${shape##*|}"
     out="$(mktemp)"
+    # "*" is refused by the #1360 guard unless opted in; the opt-in is what
+    # lets this shape prove the probe-Host fallback still works.
     if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
-          --set-string "backend.settings.allowedHosts=${allowed//,/\\,}" > "$out" 2>"$errf"; then
+          --set-string "backend.settings.allowedHosts=${allowed//,/\\,}" \
+          --set backend.settings.allowUnsafeHosts=true > "$out" 2>"$errf"; then
       fail "allowedHosts='$allowed' does not render: $(head -2 "$errf" | tr '\n' ' ')"
       bad=1; rm -f "$out"; continue
     fi
@@ -1381,7 +1390,42 @@ check_allowed_hosts_not_widened() {
     bad=1
   fi
 
-  [ "$bad" -eq 0 ] && pass "ALLOWED_HOSTS is exactly the configured hosts and every backend probe sends one of them"
+  # Catch-all / loopback entries (#1360): each must fail the render with the
+  # guard's own message when the opt-in is left at its default. Deliberately
+  # does NOT pass allowUnsafeHosts=false, so a default flipped to true in
+  # values.yaml is caught too.
+  local unsafe
+  errf="$(mktemp)"
+  for unsafe in '*' 'localhost' 'LocalHost' ' localhost ' '.localhost' '..localhost' \
+                'localhost.localdomain' 'ip6-localhost' '127.0.0.1' '.127.0.0.1' '0.0.0.0' '0' \
+                '[::1]' '::1' '[0:0:0:0:0:0:0:1]' '[0::1]' '[::]' '::' '[::ffff:127.0.0.1]' 'a.com,localhost'; do
+    if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
+         --set-string "backend.settings.allowedHosts=${unsafe//,/\\,}" >/dev/null 2>"$errf"; then
+      fail "allowedHosts='$unsafe' rendered -- a catch-all/loopback entry re-opens Host-header poisoning (#1360) and must need backend.settings.allowUnsafeHosts=true"
+      bad=1
+    elif ! grep -qF "backend.settings.allowUnsafeHosts=true" "$errf"; then
+      fail "allowedHosts='$unsafe' failed the render, but not with the #1360 guard's message: $(head -3 "$errf" | tr '\n' ' ')"
+      bad=1
+    fi
+  done
+  # Exact-entry match: hostnames that merely contain a loopback name render.
+  for unsafe in 'localhost.example.com' 'mylocalhost' '127.0.0.1.nip.io' '.example.com' '10.0.0.1'; do
+    if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
+         --set-string "backend.settings.allowedHosts=$unsafe" >/dev/null 2>"$errf"; then
+      fail "allowedHosts='$unsafe' was refused -- the #1360 guard must match whole entries, not substrings: $(head -3 "$errf" | tr '\n' ' ')"
+      bad=1
+    fi
+  done
+  # The opt-in renders, and passes the entries through verbatim.
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
+       --set-string 'backend.settings.allowedHosts=a.com\,localhost' \
+       --set backend.settings.allowUnsafeHosts=true >/dev/null 2>"$errf"; then
+    fail "allowedHosts='a.com,localhost' with allowUnsafeHosts=true does not render: $(head -3 "$errf" | tr '\n' ' ')"
+    bad=1
+  fi
+  rm -f "$errf"
+
+  [ "$bad" -eq 0 ] && pass "ALLOWED_HOSTS is exactly the configured hosts, every backend probe sends one of them, and catch-all/loopback entries need the explicit opt-in"
 }
 
 run_all_checks() {
@@ -1493,6 +1537,16 @@ self_test() {
     "14 probe Host not in ALLOWED_HOSTS|templates/backend-deployment.yaml|s/value: {{ include \"visiban.probeHost\" . | quote }}/value: localhost/"
     # 14: the empty-allowedHosts render guard stops firing.
     "14 empty allowedHosts guard removed|templates/_validate.tpl|s/{{- if eq (trim (toString .Values.backend.settings.allowedHosts)) \"\" }}/{{- if false }}/"
+    # 14 (#1360): the catch-all/loopback guard stops firing.
+    "14 unsafe allowedHosts guard removed|templates/_validate.tpl|s/{{- if and \$unsafeHosts (not .Values.backend.settings.allowUnsafeHosts) }}/{{- if false }}/"
+    # 14: the guard degrades to a substring match ("localhost.example.com" refused).
+    "14 unsafe allowedHosts matched as substrings|templates/_helpers.tpl|s/{{- if and (or (has \$bare \$unsafe)/{{- if and (or (contains \"localhost\" \$bare) (has \$bare \$unsafe)/"
+    # 14: leading dots no longer stripped, so ".127.0.0.1" (Django: matches 127.0.0.1) slips through.
+    "14 leading-dot form not normalized|templates/_helpers.tpl|s/regexReplaceAll \"^[^\"]*\" \$e \"\"/\$e/"
+    # 14: the opt-in defaults to on, so the guard never fires on a default install.
+    "14 allowUnsafeHosts defaults to true|values.yaml|s/allowUnsafeHosts: false/allowUnsafeHosts: true/"
+    # 10 (#1360): the demo stops refusing the unsafe-hosts opt-in.
+    "10 demo unsafe-hosts opt-in guard removed|templates/_validate.tpl|s/{{- if .Values.backend.settings.allowUnsafeHosts -}}/{{- if false -}}/"
   )
 
   for fixture in "${fixtures[@]}"; do

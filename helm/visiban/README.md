@@ -25,6 +25,11 @@ helm install visiban oci://ghcr.io/visiban/charts/visiban \
   --set backend.settings.siteDomain=boards.example.com
 ```
 
+`backend.settings.allowedHosts` must list your real hostnames only: a catch-all
+or loopback entry (`*`, `localhost`, `127.0.0.1`, `[::1]`, ...) fails the render
+unless you set `backend.settings.allowUnsafeHosts=true`. See the upgrade guide
+(`docs/administration/upgrade.md`) for why.
+
 Release tags are Cosign-signed. Verify before installing:
 
 ```bash

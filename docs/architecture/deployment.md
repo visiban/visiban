@@ -210,7 +210,8 @@ helm install visiban helm/visiban \
 | `ingress.host` | `visiban.example.com` | Public hostname — **must be set** |
 | `ingress.tls.enabled` | `false` | Enable TLS (requires cert-manager or a pre-existing secret) |
 | `ingress.tls.secretName` | `visiban-tls` | Secret name for the TLS certificate |
-| `backend.settings.allowedHosts` | `visiban.example.com` | Django `ALLOWED_HOSTS` — **must match `ingress.host`**. Comma-separated; rendered verbatim (the chart no longer appends `localhost`/`127.0.0.1`). Add `localhost` here yourself if you reach the app via `kubectl port-forward` |
+| `backend.settings.allowedHosts` | `visiban.example.com` | Django `ALLOWED_HOSTS` — **must match `ingress.host`**. Comma-separated; rendered verbatim (the chart no longer appends `localhost`/`127.0.0.1`). A catch-all or loopback entry (`*`, `localhost`, `localhost.localdomain`, `ip6-localhost`, `127.0.0.1`, `0.0.0.0`, `[::ffff:127.0.0.1]`, the IPv6 loopback or unspecified address in any spelling (`[::1]`, `::1`, `[::]`, `[0:0:0:0:0:0:0:1]`), or a leading-dot form of any of these (`.localhost`)) fails the render unless `backend.settings.allowUnsafeHosts` is `true` |
+| `backend.settings.allowUnsafeHosts` | `false` | Opt-in for the catch-all/loopback `allowedHosts` entries above, e.g. to browse through `kubectl port-forward`. Prefer sending the real `Host` header. Refused when `demo.enabled` is true |
 | `backend.settings.corsAllowedOrigins` | `https://visiban.example.com` | CORS allowed origins — **must match the public URL** |
 | `backend.settings.frontendUrl` | `https://visiban.example.com` | Full URL of the SPA — allauth redirects here after OAuth login/logout |
 | `backend.settings.siteDomain` | `visiban.example.com` | Public hostname for OAuth callback URLs |
@@ -321,7 +322,8 @@ The backend port is **not** exposed outside the cluster. For direct backend acce
 ```bash
 kubectl port-forward -n visiban svc/<release-name>-backend 8000:8000
 # then: http://localhost:8000/api/schema/swagger-ui/
-# (needs `localhost` in backend.settings.allowedHosts, or send the real Host header)
+# (send the real Host header, or put `localhost` in backend.settings.allowedHosts
+#  together with backend.settings.allowUnsafeHosts=true)
 ```
 
 ### Upgrade

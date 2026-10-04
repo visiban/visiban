@@ -77,7 +77,8 @@ data:
         # Defense-in-depth: the same allowlist is enforced by Django middleware.
         # Without an allowlist, access via:
         #   kubectl port-forward svc/<release>-visiban-backend 8000:8000
-        # (needs `localhost` in backend.settings.allowedHosts, or a real Host header)
+        # (send a real Host header; a `localhost` allowedHosts entry also needs
+        #  backend.settings.allowUnsafeHosts=true, #1360)
         location /admin/ {
             allow 127.0.0.1;
             allow ::1;

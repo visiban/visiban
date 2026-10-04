@@ -23,8 +23,20 @@ backend:
     # Comma-separated list of allowed hosts / ingress hostnames. Rendered into
     # ALLOWED_HOSTS verbatim: the chart does NOT append localhost/127.0.0.1
     # (#1230). The first entry is also the Host header the chart's probes and
-    # helm tests send. Add `localhost` here yourself for `kubectl port-forward`.
+    # helm tests send. For `kubectl port-forward`, send the real Host header
+    # (curl -H "Host: <your host>") rather than adding `localhost` here.
     allowedHosts: "visiban.example.com"
+    # The render FAILS when allowedHosts has a catch-all or loopback entry --
+    # exactly "*", "localhost", "localhost.localdomain", "ip6-localhost",
+    # "127.0.0.1", "0.0.0.0", "[::ffff:127.0.0.1]", the IPv6 loopback or
+    # unspecified address in any spelling ("[::1]", "::1", "[::]", ...), or a
+    # leading-dot form of these (".localhost") (#1360): the frontend nginx
+    # forwards any client Host, so such an
+    # entry re-opens Host-header poisoning to anyone who reaches the Service.
+    # Set true only if you knowingly need one (e.g. a browser on a
+    # `kubectl port-forward`); NOTES.txt then lists the entries on every
+    # install/upgrade. Refused when demo.enabled is true.
+    allowUnsafeHosts: false
     # Comma-separated CORS origins for the frontend
     corsAllowedOrigins: "https://visiban.example.com"
     # Public URL of the frontend SPA — used by allauth for OAuth redirects.

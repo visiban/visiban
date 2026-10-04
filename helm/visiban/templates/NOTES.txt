@@ -6,16 +6,18 @@ Visiban has been deployed!
 {{- else }}
   export POD=$(kubectl get pods -n {{ .Release.Namespace }} -l "{{ include "visiban.frontend.selectorArg" . }}" -o jsonpath="{.items[0].metadata.name}")
   kubectl port-forward $POD 8080:8080
-  # Then open http://localhost:8080 -- the backend answers 400 unless that Host is
-  # in backend.settings.allowedHosts (add `localhost` to browse it), or the
-  # request carries the real Host, e.g. curl -H "Host: {{ include "visiban.probeHost" . }}" ...
+  # Then send the real Host, e.g. curl -H "Host: {{ include "visiban.probeHost" . }}" http://localhost:8080/
+  # -- the backend answers 400 to Host: localhost. Browsing http://localhost
+  # needs `localhost` in backend.settings.allowedHosts AND
+  # backend.settings.allowUnsafeHosts=true (#1360).
 {{- end }}
 
 2. Backend API is available under /api/ (proxied through the frontend Nginx).
    NOTE: ALLOWED_HOSTS holds only backend.settings.allowedHosts (no localhost).
-   Reaching the app or backend through `kubectl port-forward` needs `localhost`
-   in backend.settings.allowedHosts (comma-separated), or send
+   Reach the app or backend through `kubectl port-forward` by sending
    `curl -H "Host: {{ include "visiban.probeHost" . }}" http://localhost:<port>/`.
+   (Adding `localhost` to allowedHosts also needs
+   backend.settings.allowUnsafeHosts=true, #1360.)
 
 3. Database migrations run automatically, in the backend pod's `migrate` init
    container, before the application container starts. Follow them with:
@@ -25,7 +27,7 @@ Visiban has been deployed!
 
 4. Django admin — by default restricted to loopback only. Either:
    - Port-forward: kubectl port-forward svc/{{ include "visiban.fullname" . }}-backend 8000:8000
-     (needs `localhost` in backend.settings.allowedHosts, or a real Host header)
+     (send the real Host header; `localhost` in allowedHosts needs allowUnsafeHosts=true)
    - Or set backend.settings.adminAllowedIPs to a comma-separated CIDR list.
 
 {{- if .Values.backend.mediaPersistence.enabled }}
@@ -72,6 +74,17 @@ WARNING: Placeholder values still in use:
 {{- end }}
   These default to "visiban.example.com" and won't fail Django startup, but
   OAuth redirects, CSRF, and CORS will misbehave. Set them to your real domain.
+{{- end }}
+
+{{- $unsafeHosts := include "visiban.unsafeAllowedHosts" . }}
+{{- if and $unsafeHosts .Values.backend.settings.allowUnsafeHosts }}
+
+WARNING: backend.settings.allowedHosts contains {{ $unsafeHosts }}
+  (opted in with backend.settings.allowUnsafeHosts=true).
+  The frontend nginx forwards any client Host header, so any client that
+  reaches the frontend Service directly is accepted under that Host, which
+  allows password-reset link and cache-key poisoning. Remove the entry and
+  allowUnsafeHosts once you no longer need it. See docs/administration/upgrade.md.
 {{- end }}
 
 {{- if and (gt (int .Values.backendReplicaCount) 1) (has "ReadWriteOnce" .Values.backend.mediaPersistence.accessModes) }}

@@ -440,10 +440,59 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     pods now send the first configured host as their `Host` header, so they need
     no change. One thing you may notice: reaching the app through
     `kubectl port-forward` and browsing `http://localhost:...` returns HTTP 400
-    (`DisallowedHost`). To keep doing that, opt back in explicitly with a
-    comma-separated list, for example
-    `--set backend.settings.allowedHosts=boards.example.com\,localhost`, or send
-    the real host: `curl -H "Host: boards.example.com" http://localhost:8080/`.
+    (`DisallowedHost`). Send the real host instead:
+    `curl -H "Host: boards.example.com" http://localhost:8080/`. Adding
+    `localhost` back to `allowedHosts` now also needs an explicit opt-in; see the
+    next note.
+
+!!! warning "Helm: catch-all and loopback `allowedHosts` entries fail the render"
+    `helm install`, `helm upgrade` and `helm template` now **fail** when
+    `backend.settings.allowedHosts` contains any of these entries, matched
+    per whole comma-separated entry and case-insensitively: `*`, `localhost`,
+    `localhost.localdomain`, `ip6-localhost`, `127.0.0.1`, `0.0.0.0`,
+    `[::ffff:127.0.0.1]`, the IPv6 loopback or unspecified address in any
+    spelling (`[::1]`, `::1`, `[::]`, `[0:0:0:0:0:0:0:1]`), and a leading-dot
+    form of any of these (`.localhost`, `.127.0.0.1`), which Django treats as
+    matching the bare name too. The check is a best-effort list of the names
+    copy-pasted dev configs carry, not a proof that every entry is public:
+    other 127.0.0.0/8 addresses and broad suffixes such as `.local` are not
+    checked, so keep the list to your real hostnames. A hostname that merely
+    contains one of them, such as `localhost.example.com`, is not affected (#1360).
+
+    **Why.** The frontend nginx accepts any `Host` and forwards it. With `*`,
+    Django accepts every `Host`. With a loopback entry, any client that reaches
+    the frontend Service directly (NodePort, LoadBalancer, or a host-less Ingress
+    rule) can send `Host: localhost` and be accepted. Either way the
+    password-reset links Visiban emails and its cache keys can be poisoned. That
+    is the same exposure the previous note closed for the entries the chart used
+    to append. This note covers the entries an operator adds themselves.
+
+    **Who is affected.** Only values files that list one of those entries. The
+    chart's default and shipped values files do not. If yours does, `helm upgrade`
+    stops before anything is applied, the running release keeps serving, and the
+    error names the offending entries. Fix it one of two ways:
+
+    - Remove the entry and list only your real hostname(s). For
+      `kubectl port-forward`, send the real `Host` header instead of adding `localhost`.
+    - If you knowingly need the entry, for example to browse the app through
+      `kubectl port-forward`, or because a strict Ingress already rejects every
+      other host, opt in explicitly:
+      `--set backend.settings.allowUnsafeHosts=true`. The install and upgrade
+      notes then print a warning that names the entries on every run. The opt-in
+      is refused when `demo.enabled` is true, because a public demo has no reason
+      to need it.
+
+    **Why a hard fail and not a warning.** The chart already fails the render on
+    an empty or placeholder `allowedHosts`, and this check follows that rule.
+    A warning would appear only in Helm's install/upgrade notes, which GitOps
+    tools (Argo CD, Flux) and `helm template | kubectl apply` never show, so
+    those installs would keep the entry without anyone seeing a message. The
+    explicit opt-in keeps the upgrade a one-flag change for anyone who needs the
+    entry. Chart 1.1.0 already appended `localhost`/`127.0.0.1` itself, so a 1.1
+    values file had no reason to list them. Adding them yourself was the
+    documented port-forward workaround only in the 1.2.0 pre-releases
+    (alpha.3 onward), so the fail mainly reaches pre-release installs and
+    values files that use `*`.
 
 !!! warning "Helm: give `externalDatabase.password` verbatim"
     The chart now percent-encodes the database username and password when it

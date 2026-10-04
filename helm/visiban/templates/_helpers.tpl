@@ -464,6 +464,33 @@ value accepts any Host, so "localhost" is as good as anything there.
 {{- end }}
 
 {{/*
+The catch-all / loopback entries of backend.settings.allowedHosts (#1360), as a
+comma-separated, quoted list ("" when there are none). Exact per-entry match
+after trim + lowercase, so "localhost.example.com" is not one. Shared by the
+render guard in _validate.tpl and the opt-in warning in NOTES.txt so the two
+can never disagree about what counts.
+
+Leading dots are stripped before the check: Django's ".x" pattern matches the
+bare "x" too, so ".localhost" and ".127.0.0.1" are as open as their bare forms.
+The regex catches the IPv6 loopback/unspecified address in any zero-padded or
+compressed spelling ("[0:0:0:0:0:0:0:1]", "[0::1]", "[::]", "::"), plus the
+bare "0" short form of 0.0.0.0. Best effort over the names a copy-pasted dev
+config carries; other 127/8 addresses are deliberately not listed.
+*/}}
+{{- define "visiban.unsafeAllowedHosts" -}}
+{{- $unsafe := list "*" "localhost" "localhost.localdomain" "ip6-localhost" "127.0.0.1" "0.0.0.0" "[::ffff:127.0.0.1]" -}}
+{{- $found := list -}}
+{{- range splitList "," (toString .Values.backend.settings.allowedHosts) -}}
+{{- $e := lower (trim .) -}}
+{{- $bare := regexReplaceAll "^\\.+" $e "" -}}
+{{- if and (or (has $bare $unsafe) (regexMatch "^\\[?[0:]+1?\\]?$" $bare)) (not (has (quote $e) $found)) -}}
+{{- $found = append $found (quote $e) -}}
+{{- end -}}
+{{- end -}}
+{{- join ", " $found -}}
+{{- end }}
+
+{{/*
 Bundled Valkey password auth (#1211). Opt-in: valkey.auth.enabled defaults to
 false, and every helper below renders nothing on that path, so an install that
 does not turn auth on renders what it did before #1211. The one difference is
