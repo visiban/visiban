@@ -137,7 +137,7 @@ The following fields are returned for every card object in this endpoint, `POST 
 | `checklist_done` | integer | yes | no | Number of checked checklist items |
 | `is_stale` | boolean | yes | no | `true` when the card has not moved within the board's `staleness_threshold_days` window; `false` otherwise |
 | `archived_at` | string / null | yes | yes | ISO 8601 timestamp of archiving, or `null` for active cards |
-| `version` | integer | yes | no | Optimistic concurrency counter; increments on every mutation. Pass as `version` in the [move endpoint](#move) to enable OCC. |
+| `version` | integer | yes | no | Optimistic concurrency counter; increments on every mutation. Pass as `version` in the [move endpoint](#move) to enable OCC. PATCH and PUT do not accept or check `version`. |
 | `custom_field_values` | array | no | no | Values for the board's [custom fields](boards.md#custom-fields-since-12) — `[{ field_definition, value }]`. Readable and writable in the same shape; see below. Empty array when the card has no values. |
 | `external_ref` | object / null | no | no | Link to the GitLab/GitHub merge request, pull request, or issue that implements this card (since 1.2) — `{ provider, ref, url }` or `null`. Always present; `null` when unset. Readable and writable in the same shape; see [External ref](#external-ref-since-12). |
 | `blocker_count` | integer | yes | no | Number of active cards blocking this one — see [Relations](#relations-since-12). Counts only the `blocks` relation type, only where this card is the blocked end, and only where the blocking card is not archived. `relates_to` never contributes. The relation list itself is not on the card payload; fetch it from the relations endpoint. |

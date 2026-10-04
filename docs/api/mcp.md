@@ -283,7 +283,7 @@ Lists a board's columns, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, name, position, color, wip_limit, card_count}` — `card_count` excludes archived cards.
+**Returns:** an array of `{id, name, position, color, wip_limit, card_count}` — `card_count` excludes archived cards. `wip_limit` is checked on `move_card` only; `create_card` does not check it, so `card_count` can exceed it (see [Field Enforcement](../architecture/field-enforcement.md)).
 
 ### `list_swimlanes`
 

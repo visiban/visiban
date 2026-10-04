@@ -88,7 +88,7 @@ Board
  ├── description (text, optional — board description; blank = no description)
  ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
  ├── stale_warning_pct (int 0–100 — yellow threshold for analytics heatmap; default 50)
- ├── allowed_priorities (JSON — restricts available card priorities; empty = all allowed)
+ ├── allowed_priorities (JSON — intended card priorities; not enforced, see field-enforcement.md)
  ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
  ├── share_token_expires_at (datetime, nullable — null = never expires; past this the share endpoint returns 410)
  ├── export_min_role (str, default viewer — minimum BoardMembership.Role required to export)
@@ -201,7 +201,7 @@ Append-only record of a fixed, enumerable set of instance-wide admin actions (#1
 
 `stale_warning_pct` (default 50, range 0--100) controls the yellow warning band in the analytics heatmap. At this percentage of `staleness_threshold_days` the heatmap cell turns yellow; at 100% it turns red.
 
-`allowed_priorities` is a JSON list. When non-empty, it restricts which priority values are available for cards on this board. An empty list means all priorities (`low`, `medium`, `high`, `urgent`) are allowed.
+`allowed_priorities` is a JSON list of the priority values intended for cards on this board; an empty list means all priorities (`low`, `medium`, `high`, `urgent`). It is a **scaffold**: stored and returned, but card create and update accept any priority regardless of it — see [Field Enforcement](field-enforcement.md) (#1429).
 
 `share_token` is a UUID generated when a board admin enables public sharing. When set, the board is accessible at `/share/:token` as a read-only view with no login required. Setting the token to null disables sharing immediately. `share_token_expires_at` (nullable) optionally bounds that link: past the timestamp the share endpoint returns `410 Gone` rather than auto-rotating the token.
 

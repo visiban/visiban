@@ -12,6 +12,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 from accounts.serializers import BoardUserSerializer
+from visiban import field_enforcement
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 # Module-level (not lazy) so ``@extend_schema_field`` can reference it at class-body
 # evaluation time — see BoardSerializer.get_group_detail. No import cycle: neither
@@ -217,11 +218,27 @@ class BoardExportLogSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+# Schema-only (#1077): the model help_text on these three says "card moves ...
+# are blocked", which is accurate but silent about the write paths that are not
+# moves. Shared by BoardSerializer and BoardFullSerializer so the two published
+# components cannot drift apart.
+_BOARD_ENFORCEMENT_EXTRA_KWARGS = {
+    "enforce_wip_limits": {"help_text": field_enforcement.BOARD_ENFORCE_WIP_LIMITS},
+    "enforce_wip_hard": {"help_text": field_enforcement.BOARD_ENFORCE_WIP_HARD},
+    "enforce_weight_limits": {"help_text": field_enforcement.BOARD_ENFORCE_WEIGHT_LIMITS},
+}
+
+
 class ColumnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Column
         fields = ["id", "uid", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation", "is_done"]
         read_only_fields = ["uid"]
+        # Schema-only (#1077): say which write paths the limits actually bind on.
+        extra_kwargs = {
+            "wip_limit": {"help_text": field_enforcement.COLUMN_WIP_LIMIT},
+            "weight_limit": {"help_text": field_enforcement.COLUMN_WEIGHT_LIMIT},
+        }
 
     def validate(self, attrs):
         board = self.context.get("board") or (self.instance.board if self.instance else None)
@@ -980,6 +997,10 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
+        # Schema-only (#1077): class token without a model help_text migration.
+        extra_kwargs = {
+            "is_required": {"help_text": field_enforcement.CUSTOM_FIELD_IS_REQUIRED},
+        }
 
     def validate_name(self, value):
         name = (value or "").strip()
@@ -1523,6 +1544,10 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
+        # Schema-only (#1077): class token without a model help_text migration.
+        extra_kwargs = {
+            "is_required": {"help_text": field_enforcement.SWIMLANE_CUSTOM_FIELD_IS_REQUIRED},
+        }
 
     def validate_name(self, value):
         name = (value or "").strip()
@@ -2311,6 +2336,9 @@ class CardSerializer(serializers.ModelSerializer):
             "blocker_count", "external_ref",
         ]
         read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at", "version"]
+        # Schema-only (#1077): `version` reads as an OCC guard on every write;
+        # only the move endpoint checks it.
+        extra_kwargs = {"version": {"help_text": field_enforcement.CARD_VERSION}}
 
     # -- custom field values -------------------------------------------------
     #
@@ -2560,9 +2588,11 @@ class BoardSerializer(serializers.ModelSerializer):
     group_name = serializers.SerializerMethodField(allow_null=True)
     group_detail = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
+    # Not the model help_text (#1077): that one describes the intent, and the
+    # schema has to describe what the server does — which is nothing yet.
     allowed_priorities = AllowedPrioritiesField(
         required=False,
-        help_text=Board._meta.get_field("allowed_priorities").help_text,
+        help_text=field_enforcement.BOARD_ALLOWED_PRIORITIES,
     )
     # Write-only and not a Board model field — it exists only to be validated
     # here and read back off `serializer.validated_data["template"]` by the
@@ -2575,6 +2605,7 @@ class BoardSerializer(serializers.ModelSerializer):
         model = Board
         fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "is_starred", "template"]
         read_only_fields = ["uid", "created_at", "updated_at"]
+        extra_kwargs = _BOARD_ENFORCEMENT_EXTRA_KWARGS
 
     @extend_schema_field(GroupBriefSerializer(allow_null=True))
     def get_group_detail(self, obj):
@@ -2823,7 +2854,9 @@ class BoardFullSerializer(serializers.ModelSerializer):
     # Schema only: the model JSONField would otherwise publish with no type now
     # that BoardFull is a component (#1137). Output is identical — a read-only
     # JSONField returns the stored value unchanged either way.
-    allowed_priorities = AllowedPrioritiesField(read_only=True)
+    allowed_priorities = AllowedPrioritiesField(
+        read_only=True, help_text=field_enforcement.BOARD_ALLOWED_PRIORITIES,
+    )
     # A SerializerMethodField, not `CharField(source="group.name", default=None)`
     # — same #1166 SkipField-under-partial pitfall as BoardSerializer.group_name
     # above (dotted-source fields fall back to Field.get_default(), which raises
@@ -2870,6 +2903,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "archived_card_count",
         ]
         read_only_fields = ["uid"]
+        extra_kwargs = _BOARD_ENFORCEMENT_EXTRA_KWARGS
 
     def get_archived_card_count(self, obj) -> int:
         # BoardViewSet.full() annotates this via get_board_for_user(

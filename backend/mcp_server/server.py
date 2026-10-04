@@ -284,7 +284,10 @@ def build_mcp_server():
 
     @mcp.tool(
         name="list_columns",
-        description="List a board's columns (id, name, position, color, wip_limit, card_count), ordered by position.",
+        description=(
+            "List a board's columns (id, name, position, color, wip_limit, card_count), ordered by "
+            "position. wip_limit is checked on move_card only, so card_count can exceed it."
+        ),
     )
     @_throttled()
     async def list_columns(board_id: int) -> _TOOL_OUTPUT:
@@ -380,7 +383,8 @@ def build_mcp_server():
         name="create_card",
         description=(
             "Create a card in a column/swimlane cell, appended to the end unless position "
-            "is given. Requires admin or member board role and the mcp:write scope."
+            "is given. Requires admin or member board role and the mcp:write scope. "
+            "Column WIP and weight limits are not checked on create (only move_card checks them)."
         ),
     )
     @_throttled()

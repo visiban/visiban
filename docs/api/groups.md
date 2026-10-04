@@ -42,8 +42,8 @@ Get group details.
 | `subgroup_count` | integer | Number of direct subgroups |
 | `is_starred` | boolean | Whether the requesting user has starred this group |
 | `shared_labels` | array | Labels shared across all boards in this group |
-| `default_board_member_role` | string | Role assigned to group members on new boards |
-| `allowed_priorities` | array | Priority values permitted on boards in this group. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
+| `default_board_member_role` | string | **Scaffold.** Intended role for group members on new boards. **Not enforced:** stored but not read by any code path; group members' board access comes from their group role (scaffold, see [Field Enforcement](../architecture/field-enforcement.md)) |
+| `allowed_priorities` | array | **Advisory.** Copied onto a board's `allowed_priorities` when the board is created through `POST /groups/{id}/boards/`; it does not restrict card priorities, because the board-level field is not enforced either. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
 | `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. **Only present on this single-object retrieve endpoint** — the list endpoint (`GET /api/v1/groups/`) omits `ancestors`. |
 | `created_at` | string | ISO 8601 timestamp |
 
@@ -100,7 +100,7 @@ List direct subgroups of this group that are visible to the requesting user. Req
 List boards in this group. Requires group membership.
 
 ### `POST /api/v1/groups/{id}/boards/`
-Create a board in this group. Requires group admin. Boards created here inherit the group's `shared_labels` and `allowed_priorities` automatically.
+Create a board in this group. Requires group admin. Boards created here inherit the group's `shared_labels` and `allowed_priorities` automatically. The seeded `allowed_priorities` value is not enforced on cards (see [Field Enforcement](../architecture/field-enforcement.md)).
 
 **Request**
 
@@ -275,8 +275,8 @@ Update the default settings applied to new boards created in this group. Require
 
 | Field | Type | Description |
 |---|---|---|
-| `default_board_member_role` | string | Role assigned to group members on new boards — `admin`, `member`, `collaborator`, or `viewer` |
-| `allowed_priorities` | array / null | Restricts which priorities new boards may use (e.g. `["low", "medium", "high"]`); `null` allows all |
+| `default_board_member_role` | string | **Scaffold.** `admin`, `member`, `collaborator`, or `viewer`. Stored but not yet enforced — see the field table above |
+| `allowed_priorities` | array / null | **Advisory.** Seeds `allowed_priorities` on new boards created in this group (e.g. `["low", "medium", "high"]`); `null` means all. Not enforced on cards — see the field table above |
 
 **Request**
 ```json

@@ -157,6 +157,8 @@ By default, WIP limit enforcement is "soft" — board admins can bypass a full c
 - The API returns a `409` error with `code: "wip_hard_blocked"`.
 - The toast indicator uses a `⛔` icon instead of `⚠` to distinguish hard blocks from soft blocks.
 
+WIP and weight limits, soft or hard, are checked when a card is **moved** into a column. Creating a new card in a column and restoring an archived card into it are not checked yet, so a column can still go over its limit that way. See [Field Enforcement](../architecture/field-enforcement.md).
+
 Hard enforcement is **off by default**. Enable it in **Board Settings → Rules → Enforce WIP hard**. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.
 
 !!! tip
