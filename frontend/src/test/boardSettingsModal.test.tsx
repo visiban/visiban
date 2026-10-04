@@ -278,6 +278,46 @@ describe('BoardSettingsModal — Members tab', () => {
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
   })
 
+  // #1367 — focus returns to the ✕ trigger when the inline confirm is dismissed.
+  it('Cancel on remove confirmation returns focus to that member\'s trigger (#1367)', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+
+    const removeButtons = screen.getAllByTitle('Remove direct board role')
+    const bobTrigger = removeButtons[removeButtons.length - 1]
+    await user.click(bobTrigger)
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+    const after = screen.getAllByTitle('Remove direct board role')
+    expect(after[after.length - 1]).toHaveFocus()
+  })
+
+  it('Confirm stays disabled while the remove request is in flight (#1367)', async () => {
+    const user = userEvent.setup()
+    mockRemoveBoardMember.mockReturnValue(new Promise(() => {}))
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+
+    const removeButtons = screen.getAllByTitle('Remove direct board role')
+    await user.click(removeButtons[removeButtons.length - 1])
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    // The prompt stays open until the request settles, so the guard is live
+    // (not dead code) and prevents a double submit.
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+  })
+
+  it('Cancel on the hard WIP confirm returns focus to the hard mode toggle (#1367)', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} />)
+
+    await user.click(screen.getByRole('switch', { name: 'Hard mode (no admin override)' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(screen.getByRole('switch', { name: 'Hard mode (no admin override)' })).toHaveFocus()
+  })
+
   it('shows empty state "No members yet." when members=[]', () => {
     const emptyBoard: BoardFull = { ...fakeBoard, members: [] }
     render(<BoardSettingsModal board={emptyBoard} isAdmin={true} onClose={vi.fn()} />)

@@ -293,6 +293,25 @@ describe('GroupDetail', () => {
     expect(screen.getByText('Remove')).toBeInTheDocument()
   })
 
+  it('cancelling a member removal returns focus to that member\'s Remove trigger (#1367)', async () => {
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'member', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Alice Smith')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Remove Alice Smith from group' })).toHaveFocus()
+  })
+
   it('hides admin controls for non-admin member', async () => {
     const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
     mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: otherOwner })
@@ -1034,6 +1053,28 @@ describe('GroupDetail', () => {
       await waitFor(() => {
         expect(screen.queryByText('Design')).not.toBeInTheDocument()
       })
+    })
+
+    it('cancelling label removal returns focus to the Remove trigger (#1367)', async () => {
+      const groupWithLabel: Group = {
+        ...fakeGroup,
+        shared_labels: [{ id: 1, name: 'Design', color: '#f59e0b' }],
+      }
+      mockGetGroup.mockResolvedValue(groupWithLabel)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Design')
+
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Remove Design from group' }))
+      await screen.findByText(/from this group\?/)
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(screen.getByRole('button', { name: 'Remove Design from group' })).toHaveFocus()
     })
 
     it('cancelling label removal preserves the label in the list', async () => {

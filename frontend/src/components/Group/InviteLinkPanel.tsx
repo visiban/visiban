@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { listInviteLinks, createInviteLink, revokeInviteLink } from "../../api/groups";
 import type { GroupInviteLink } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -81,6 +82,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
+  const revokeTriggerRef = useConfirmFocusReturn(confirmRevokeId);
   const [loadError, setLoadError] = useState(false);
   const [copyErrorId, setCopyErrorId] = useState<number | null>(null);
 
@@ -340,6 +342,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                     </div>
                     {confirmRevokeId !== link.id && (
                       <button
+                        ref={revokeTriggerRef(link.id)}
                         onClick={() => setConfirmRevokeId(link.id)}
                         className="text-xs text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1"
                       >

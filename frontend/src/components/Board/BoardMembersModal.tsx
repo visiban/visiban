@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import type { BoardFull, EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 import { setBoardMember, removeBoardMember } from "../../api/boards";
@@ -31,6 +32,7 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged, cu
   const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<number | null>(null);
+  const removeTriggerRef = useConfirmFocusReturn(confirmRemoveUserId);
 
   const handleRoleChange = async (userId: number, role: BoardRole) => {
     setSaving(userId);
@@ -102,6 +104,7 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged, cu
                 )}
                 {!isSelf && !isLocked && m.id !== null && (
                   <button
+                    ref={removeTriggerRef(m.user.id)}
                     onClick={() => setConfirmRemoveUserId(m.user.id)}
                     disabled={isDisabled}
                     className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"

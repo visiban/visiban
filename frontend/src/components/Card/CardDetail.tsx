@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
@@ -86,6 +87,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
+  const deleteCommentTriggerRef = useConfirmFocusReturn(confirmDeleteCommentId);
   const [commentBody, setCommentBody] = useState("");
   const [tab, setTab] = useState<"details" | "activity">("details");
   const [addingLabel, setAddingLabel] = useState(false);
@@ -1196,6 +1198,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                 </div>
                               ) : (
                                 <button
+                                  ref={deleteCommentTriggerRef(c.id)}
                                   title="Delete comment"
                                   onClick={() => setConfirmDeleteCommentId(c.id)}
                                   className="ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 p-0.5 rounded text-fg-muted hover:text-danger hover:bg-surface-active focus:outline-none focus:ring-2 focus:ring-danger-emphasis"

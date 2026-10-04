@@ -247,6 +247,29 @@ describe('InviteLinkPanel', () => {
     expect(await screen.findByRole('button', { name: 'Revoke' })).toBeInTheDocument()
   })
 
+  it('Cancel on the revoke confirm returns focus to the Revoke trigger (#1367)', async () => {
+    mockListInviteLinks.mockResolvedValue([fakeExistingLink])
+    const user = userEvent.setup()
+    render(<InviteLinkPanel groupId={1} />)
+    await screen.findByText('Existing link')
+    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Revoke' })).toHaveFocus()
+  })
+
+  it('Escape on the revoke confirm returns focus to the Revoke trigger (#1367)', async () => {
+    mockListInviteLinks.mockResolvedValue([fakeExistingLink])
+    const user = userEvent.setup()
+    render(<InviteLinkPanel groupId={1} />)
+    await screen.findByText('Existing link')
+    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    // Move focus onto the prompt, as a keyboard user tabbing into it would.
+    screen.getByRole('button', { name: 'Cancel' }).focus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Revoke' })).toHaveFocus()
+  })
+
   it('shows createError UI when createInviteLink rejects', async () => {
     mockCreateInviteLink.mockRejectedValue(new Error('server error'))
     const user = userEvent.setup()

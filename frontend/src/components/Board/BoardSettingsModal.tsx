@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
+import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
@@ -104,6 +105,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
+  const removeTriggerRef = useConfirmFocusReturn(pendingRemove);
   const [deleteInput, setDeleteInput] = useState("");
   // #1373 — role/moderator/remove mutations used to have no catch at all (not
   // just an unsurfaced error — a genuine unhandled promise rejection). Shared
@@ -131,6 +133,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const syncedStalenessWarningPctRef = useRef(board.stale_warning_pct ?? 50);
   // Inline confirmation before enabling hard WIP mode — mirrors the member-removal confirm pattern.
   const [pendingHardWip, setPendingHardWip] = useState(false);
+  const hardWipTriggerRef = useConfirmFocusReturn(pendingHardWip ? "hard-wip" : null);
 
   // #974 — remembers the last personal density the user picked, for this
   // modal session only (NOT a separate persisted value from
@@ -542,6 +545,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         )}
                         {canRemove && !isRemoving && (
                           <button
+                            ref={removeTriggerRef(m.user.id)}
                             onClick={() => setPendingRemove(m.user.id)}
                             disabled={isDisabled}
                             className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 w-5 text-center"
@@ -768,6 +772,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           }
                         }}
                         aria-label="Hard mode (no admin override)"
+                        buttonRef={hardWipTriggerRef("hard-wip")}
                       />
                     </div>
                     {pendingHardWip && (

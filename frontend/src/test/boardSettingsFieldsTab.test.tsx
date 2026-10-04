@@ -417,6 +417,19 @@ describe("BoardSettingsFieldsTab — number format (#1391)", () => {
     expect(screen.queryByText("Enter 0 to 10.")).not.toBeInTheDocument();
   });
 
+  it("Cancel on the Change type prompt returns focus to the type button (#1367)", async () => {
+    const user = userEvent.setup();
+    const def = makeDefinition({ id: 4, name: "Budget", field_type: "number", number_prefix: "$", number_suffix: "", number_decimals: 0 });
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Edit Budget" }));
+
+    await user.click(screen.getByRole("button", { name: "Aa Text" }));
+    const prompt = screen.getByText(/may make existing values unreadable/).parentElement as HTMLElement;
+    await user.click(within(prompt).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText(/may make existing values unreadable/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aa Text" })).toHaveFocus();
+  });
+
   it("loads an existing format, and retyping away from number hides the block and omits the options", async () => {
     const user = userEvent.setup();
     const def = makeDefinition({ id: 4, name: "Budget", field_type: "number", number_prefix: "$", number_suffix: "", number_decimals: 0 });

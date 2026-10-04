@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
+import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
 import {
   clearAdminUserLockout,
   createAdminUser,
@@ -269,6 +270,7 @@ function InviteLinksTab() {
   const [copied, setCopied] = useState(false);
   const [revokeConfirm, setRevokeConfirm] = useState<number | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
+  const revokeTriggerRef = useConfirmFocusReturn(revokeConfirm);
 
   // Escape cancels an open inline revoke confirm before the page-level
   // Escape-to-navigate handler (priority 0) can leave the page (#1238).
@@ -458,6 +460,7 @@ function InviteLinksTab() {
                   </div>
                 ) : (
                   <button
+                    ref={revokeTriggerRef(link.id)}
                     type="button"
                     onClick={() => setRevokeConfirm(link.id)}
                     aria-label={`Revoke invite link ${link.prefix}`}
@@ -682,6 +685,7 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
   // every user, so it goes through the inline-confirmation pattern. Turning it
   // OFF just restores normal service and needs no confirmation.
   const [confirmingEnable, setConfirmingEnable] = useState(false);
+  const maintenanceTriggerRef = useConfirmFocusReturn(confirmingEnable ? "maintenance" : null);
 
   useEffect(() => {
     return () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current) };
@@ -895,6 +899,7 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
               <Toggle
                 checked={settings?.maintenance_mode ?? false}
                 onChange={handleMaintenanceToggleClick}
+                buttonRef={maintenanceTriggerRef("maintenance")}
                 disabled={saving}
                 aria-label="Maintenance mode"
               />

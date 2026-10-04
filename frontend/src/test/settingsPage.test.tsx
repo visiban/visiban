@@ -745,6 +745,19 @@ describe('SecurityTab — connected accounts', () => {
     expect(mockDisconnectAccount).not.toHaveBeenCalled()
   })
 
+  it('Cancel and Escape on the disconnect confirm return focus to the Disconnect trigger (#1367)', async () => {
+    const ue = await open()
+    await ue.click(screen.getByTestId('disconnect-google'))
+    await ue.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByTestId('disconnect-google')).toHaveFocus()
+
+    await ue.click(screen.getByTestId('disconnect-google'))
+    screen.getByTestId('confirm-disconnect-google').focus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByTestId('confirm-disconnect-google')).not.toBeInTheDocument()
+    expect(screen.getByTestId('disconnect-google')).toHaveFocus()
+  })
+
   it('Escape cancels the disconnect confirm and does not navigate (#1366)', async () => {
     const ue = await open()
     await ue.click(screen.getByTestId('disconnect-google'))
