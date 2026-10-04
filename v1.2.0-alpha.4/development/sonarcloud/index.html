@@ -3748,6 +3748,11 @@ pipeline schedule, and what to do when the nightly run breaks), see the
 <td><code>.gitlab-ci.yml</code>, <code>lint</code> stage</td>
 <td>MRs that touch <code>sonar-project.properties</code>, <code>scripts/check-sonar-exclusions.sh</code>, or the CI file; also <code>main</code></td>
 </tr>
+<tr>
+<td><code>sonar:rules-check</code></td>
+<td><code>.gitlab-ci.yml</code>, <code>security</code> stage</td>
+<td>Scheduled pipelines only, when the schedule sets <code>SONAR_SCHEDULED=true</code>; advisory (<code>allow_failure</code>)</td>
+</tr>
 </tbody>
 </table>
 <p><code>sonar:scan</code> runs on the <strong>Nightly</strong> pipeline schedule (05:00 UTC), never on MR or push
@@ -3869,7 +3874,9 @@ exclusion because a file is hard to cover, write the test instead.</p>
 triaged and confirmed as false positives. Every criterion carries a comment saying why. The
 <code>lint:sonar-exclusions</code> job (<code>scripts/check-sonar-exclusions.sh</code>) fails when a criterion's glob
 matches no tracked file, which is what a rename looks like when it silently un-suppresses
-findings. See <a href="../suppressions/#sonarcloud-suppressions">Suppression Markers § SonarCloud suppressions</a>.</p>
+findings. Each criterion's comment must also name its rule. The nightly <code>sonar:rules-check</code> job
+adds an online check that every rule key is still active in the project's quality profile
+(fail-open: no token or an API error warns and passes). See <a href="../suppressions/#sonarcloud-suppressions">Suppression Markers § SonarCloud suppressions</a>.</p>
 <p>These properties apply only to CI-based analysis (the <code>sonar:scan</code> job and a local
 <code>scripts/sonar-scan.sh</code> run). SonarCloud's Automatic Analysis ignores
 <code>sonar-project.properties</code>, so it must stay off for this project.</p>

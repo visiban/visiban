@@ -3794,6 +3794,15 @@ honest: it fails when a criterion's glob matches no tracked file (dead or silent
 when the <code>multicriteria=</code> index and the <code>.ruleKey</code>/<code>.resourceKey</code> definitions disagree, or when
 a glob is pinned to <code>*.ts</code>/<code>*.js</code> in a directory that also holds <code>.tsx</code>/<code>.jsx</code>. It is pure
 <code>git ls-files</code> matching, with no network and no <code>SONAR_TOKEN</code>.</p>
+<p>Each criterion's own comment block must also name its rule: cite its <code>S&lt;NNNN&gt;</code> number or quote
+its title from the script's <code>RULE_TITLES</code> table. A criterion under a shared header needs its
+own naming line, because the check cannot otherwise tell a copy-pasted wrong key from a right
+one.</p>
+<p>The nightly <code>sonar:rules-check</code> job runs <code>bash scripts/check-sonar-exclusions.sh --online</code>,
+which additionally asks SonarCloud whether each <code>ruleKey</code> is still active in the project's
+quality profile. It needs <code>SONAR_TOKEN</code> and fails open: with no token, no network, no active rules returned, or an
+unparseable response it prints a warning and exits 0, so only a rule that is really inactive
+turns the job yellow. MR pipelines never run it.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>bash<span class="w"> </span>scripts/check-sonar-exclusions.sh
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>bash<span class="w"> </span>scripts/check-sonar-exclusions.sh<span class="w"> </span>--self-test
 </code></pre></div>
