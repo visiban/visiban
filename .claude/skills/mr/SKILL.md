@@ -157,6 +157,13 @@ Rules:
   `.claude/skills/`** — a name that resolves to nothing is a phantom gate: the
   ledger tallies it as covered while it can never actually run, which is worse
   than no gate at all.
+- **A gate that has a distinct second mode gets a `/<mode>` label, not a new name
+  and not parentheses.** `completeness-check/fix-diff` is the narrow re-check of the
+  commits made in response to the first `completeness-check` (see
+  `.claude/agents/completeness-check.md` § Fix-diff re-check). The ledger parser's
+  gate-name pattern allows `/` but not spaces or parentheses, so
+  `completeness-check (fix-diff)` is silently dropped from the tally. The label
+  resolves to an existing agent, so it is not a phantom gate.
 - **Design-stage gates belong on the ledger too.** `architect`, `ux-design`, and
   `voc` already run before any code exists. Their `<N>` is the count of findings
   that **changed the design** — a gap closed before coding, a risk mitigated or
