@@ -775,6 +775,69 @@ class BoardImportCSVRoundtripTests(TestCase):
         self.assertEqual(str(imported_card.due_date), "2026-06-15")
 
 
+class BoardImportCSVAssigneeTests(TestCase):
+    """The CSV Assignee column is honored on import with the JSON importer's rule (#1442)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="csv_assign_importer", password="pass")
+        self.member = User.objects.create_user(username="MemberUser", password="pass")
+        self.outsider = User.objects.create_user(username="outsider_user", password="pass")
+        self.client.force_authenticate(self.user)
+
+    def _import(self, assignee_cells):
+        header = "Title,Column,Swimlane,Assignee\n"
+        rows = "".join(f"Card {i},To Do,General,{a}\n" for i, a in enumerate(assignee_cells))
+        f = io.BytesIO((header + rows).encode("utf-8"))
+        f.name = "assignees.csv"
+        resp = self.client.post(
+            "/api/v1/boards/import/", {"file": f, "name": "Assignee Board"}, format="multipart"
+        )
+        self.assertEqual(resp.status_code, 201)
+        return {c.title: c.assignee for c in Card.objects.filter(board_id=resp.data["id"])}
+
+    def test_known_user_assigned_case_insensitively(self):
+        got = self._import(["MemberUser", "memberuser"])
+        self.assertEqual(got["Card 0"], self.member)
+        self.assertEqual(got["Card 1"], self.member)
+
+    def test_unknown_username_imports_unassigned(self):
+        self.assertIsNone(self._import(["nobody_here"])["Card 0"])
+
+    def test_blank_cell_imports_unassigned(self):
+        self.assertIsNone(self._import([""])["Card 0"])
+
+    def test_user_not_on_source_board_is_still_assigned(self):
+        # Same as the JSON importer: any user on the instance matches; board
+        # membership is not required (the new board has only the importer).
+        self.assertEqual(self._import(["outsider_user"])["Card 0"], self.outsider)
+
+    def test_export_import_roundtrip_keeps_assignee(self):
+        board = Board.objects.create(name="Source", owner=self.user)
+        BoardMembership.objects.create(board=board, user=self.user, role=BoardMembership.Role.ADMIN)
+        col = Column.objects.create(board=board, name="Backlog", position=0, allow_card_creation=True)
+        swim = Swimlane.objects.create(board=board, name="General", position=0)
+        Card.objects.create(
+            board=board, column=col, swimlane=swim, title="Assigned", assignee=self.member,
+            created_by=self.user, position=0,
+        )
+        Card.objects.create(
+            board=board, column=col, swimlane=swim, title="Unassigned",
+            created_by=self.user, position=1,
+        )
+        export = self.client.get(f"/api/v1/boards/{board.id}/export/")
+        self.assertEqual(export.status_code, 200)
+        f = io.BytesIO(export.content)
+        f.name = "rt.csv"
+        resp = self.client.post(
+            "/api/v1/boards/import/", {"file": f, "name": "RT"}, format="multipart"
+        )
+        self.assertEqual(resp.status_code, 201)
+        cards = {c.title: c.assignee for c in Card.objects.filter(board_id=resp.data["id"])}
+        self.assertEqual(cards["Assigned"], self.member)
+        self.assertIsNone(cards["Unassigned"])
+
+
 class BoardImportBulkUserLookupTests(TestCase):
     """Verify that JSON import resolves users via a single bulk query
     instead of per-card lookups (#420)."""

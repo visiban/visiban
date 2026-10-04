@@ -545,7 +545,7 @@ Once you pick a file, an **Include** list lets you leave parts of the export out
 
 | Option | What it covers | Formats |
 |---|---|---|
-| **Cards** | Cards. From JSON: with their assignees and due dates. From CSV: title, description, priority, weight, and due date — CSV carries no assignees. | JSON, CSV |
+| **Cards** | Cards. From JSON: with their assignees and due dates. From CSV: title, description, priority, weight, due date, and assignee. | JSON, CSV |
 | **Comments** | Card comments | JSON |
 | **Checklist items** | Card checklist items | JSON |
 | **Card history** | Movements, imported activity entries, and the "weight changed" entry recorded for a card with a non-default weight | JSON |
@@ -571,7 +571,7 @@ Everything is included by default ("Importing: everything"), so an import where 
     Boards exported from Visiban stay well within these limits in normal use. If you are migrating from an external tool and your board exceeds a limit, split it into smaller boards before importing.
 
 !!! note "JSON vs CSV import fidelity"
-    JSON imports restore movement history, activity log, and assignees (matched by username). CSV imports create cards with their current field values only — no history or activity log is restored.
+    JSON imports restore movement history, activity log, and assignees (matched by username). CSV imports create cards with their current field values only, including the **Assignee** column (matched by username, case-insensitively) — no history or activity log is restored. A blank Assignee, or a username that does not exist on this instance, imports the card unassigned. The user does not need to be a member of the source board; any user on the instance matches, as with JSON.
 
 - `POST /api/v1/boards/import/` — multipart file upload
 

@@ -654,7 +654,7 @@ Board structure (name, columns, swimlanes) is always imported. Every option is a
 
 | Key | Imports | Formats |
 |---|---|---|
-| `cards` | Cards. JSON: with their assignees, due dates, weights, and MR/PR links, plus the "weight changed" activity entry for a non-default weight when `history` is on. CSV: title, description, priority, weight, and due date only — no assignee or MR/PR link. | JSON, CSV |
+| `cards` | Cards. JSON: with their assignees, due dates, weights, and MR/PR links, plus the "weight changed" activity entry for a non-default weight when `history` is on. CSV: title, description, priority, weight, due date, and assignee (the `Assignee` username, matched case-insensitively; blank or unknown usernames import unassigned) — no MR/PR link. | JSON, CSV |
 | `labels` | Label definitions, the labels on cards, and the "label added" activity entries the importer records for them | JSON, CSV |
 | `comments` | Card comments. Requires `cards`. | JSON |
 | `checklist` | Card checklist items, and the "checklist item added" activity entries the importer records for them. Requires `cards`. | JSON |
