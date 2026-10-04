@@ -296,7 +296,12 @@ class ShiftBoardDatesUnitTests(SimpleTestCase):
                 "custom_field_values": {"Due": "2026-03-12", "Note": "2026-03-12"},
                 "comments": [{"created_at": "2026-02-01T00:00:00+00:00"}],
                 "movements": [{"moved_at": "2026-02-02T00:00:00+00:00"}],
-                "activities": [{"created_at": "2026-02-03T00:00:00+00:00"}],
+                "activities": [
+                    {"created_at": "2026-02-03T00:00:00+00:00"},
+                    {"event_type": "due_date_change", "from_value": "", "to_value": "2026-03-10",
+                     "created_at": "2026-02-04T00:00:00+00:00"},
+                    {"event_type": "title_change", "from_value": "2026-03-10", "to_value": "x"},
+                ],
             }],
         }
 
@@ -310,6 +315,10 @@ class ShiftBoardDatesUnitTests(SimpleTestCase):
         self.assertEqual(card["comments"][0]["created_at"], "2026-03-03T00:00:00+00:00")
         self.assertEqual(card["movements"][0]["moved_at"], "2026-03-04T00:00:00+00:00")
         self.assertEqual(card["activities"][0]["created_at"], "2026-03-05T00:00:00+00:00")
+        # History agrees with the shifted card; an empty "from" and other event types are untouched.
+        self.assertEqual(card["activities"][1]["from_value"], "")
+        self.assertEqual(card["activities"][1]["to_value"], card["due_date"])
+        self.assertEqual(card["activities"][2]["from_value"], "2026-03-10")
         self.assertEqual(data["swimlanes"][0]["custom_field_values"], {"Renewal": "2026-03-31"})
 
     def test_zero_days_changes_nothing(self):
@@ -335,7 +344,7 @@ class ShiftBoardDatesUnitTests(SimpleTestCase):
 
 
 class SampleFetchCompressionTests(SimpleTestCase):
-    """Each sample is 240-560 KB raw, ~21-36 KB gzipped, so the proxy in front of
+    """Each sample is 265-560 KB raw, ~30-60 KB gzipped at nginx's default level, so the proxy in front of
     /api/ must compress application/json. Pin it in every shipped nginx config
     (Compose dev, Compose prod, Helm) so dropping it fails here, not as a slow gallery."""
 
@@ -355,3 +364,22 @@ class SampleFetchCompressionTests(SimpleTestCase):
                 text = path.read_text()
                 self.assertRegex(text, r"gzip\s+on;")
                 self.assertRegex(text, r"gzip_types[^;]*application/json")
+
+
+class SampleTypeContractTests(SimpleTestCase):
+    """The TS ``SampleBoardInclude`` union must list exactly the values the API can send (#1452)."""
+
+    def test_ts_includes_union_matches_the_serializer_choices(self):
+        import re
+        from boards.views.samples import SampleBoardSummarySerializer
+
+        types_ts = Path(__file__).resolve().parents[3] / "frontend/src/types/index.ts"
+        if not types_ts.exists():
+            self.skipTest("frontend sources are not part of the backend image")
+        m = re.search(r"export type SampleBoardInclude =([^;]+);", types_ts.read_text())
+        self.assertIsNotNone(m, "SampleBoardInclude not found in frontend/src/types/index.ts")
+        ts_values = set(re.findall(r"'([a-z]+)'", m.group(1)))
+        choices = set(SampleBoardSummarySerializer().fields["includes"].child.choices)
+        self.assertEqual(ts_values, choices)
+        for entry in sample_boards.list_samples():
+            self.assertLessEqual(set(entry["includes"]), choices, entry["id"])

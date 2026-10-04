@@ -7,8 +7,9 @@ checks as an unshifted one, and a malformed date is left as it was for the
 existing validators to report.
 
 Shifted: card ``due_date``, ``archived_at`` and ``created_at``; comment,
-movement and activity timestamps; and values of ``date`` custom fields on
-cards and swimlanes. Relative spacing between all of them is preserved.
+movement and activity timestamps; the ``from_value`` / ``to_value`` of
+``due_date_change`` activities (so history agrees with the shifted card); and
+values of ``date`` custom fields on cards and swimlanes. Relative spacing between all of them is preserved.
 """
 
 import datetime
@@ -82,4 +83,7 @@ def shift_board_dates(data, days):
             for item in items if isinstance(items, list) else []:
                 if isinstance(item, dict) and item.get(key):
                     item[key] = _shift_datetime(item[key], delta)
+                if child == "activities" and isinstance(item, dict) and item.get("event_type") == "due_date_change":
+                    for value_key in ("from_value", "to_value"):
+                        item[value_key] = _shift_date(item.get(value_key), delta)
     return data
