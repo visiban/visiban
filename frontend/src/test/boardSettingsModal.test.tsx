@@ -232,6 +232,15 @@ describe('BoardSettingsModal — Members tab', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
   })
 
+  it('announces the remove-member prompt through a polite live region (#1421)', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const removeButtons = screen.getAllByTitle('Remove direct board role')
+    await user.click(removeButtons[removeButtons.length - 1])
+    const region = screen.getByText(/from this board\?/).closest('[aria-live]')
+    expect(region).toHaveAttribute('aria-live', 'polite')
+  })
+
   it('confirm remove calls removeBoardMember and removes the member from the list', async () => {
     const user = userEvent.setup()
     mockRemoveBoardMember.mockResolvedValue(undefined)

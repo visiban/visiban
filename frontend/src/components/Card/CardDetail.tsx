@@ -88,6 +88,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
   const deleteCommentTriggerRef = useConfirmFocusReturn(confirmDeleteCommentId);
+  // In-flight + error state for the inline comment-delete confirm (#1421).
+  const [deletingCommentId, setDeletingCommentId] = useState<number | null>(null);
+  const [commentDeleteError, setCommentDeleteError] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState("");
   const [tab, setTab] = useState<"details" | "activity">("details");
   const [addingLabel, setAddingLabel] = useState(false);
@@ -487,9 +490,26 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     canModifyOthersContent;
 
   const handleDeleteComment = async (commentId: number) => {
-    await deleteComment(board.id, card.id, commentId);
-    setComments((prev) => prev.filter((x) => x.id !== commentId));
+    // Re-entry guard: the disabled Confirm covers clicks, this covers a
+    // double-fire before React re-renders, so only one DELETE is ever sent.
+    if (deletingCommentId !== null) return;
+    setDeletingCommentId(commentId);
+    setCommentDeleteError(null);
+    try {
+      await deleteComment(board.id, card.id, commentId);
+      setComments((prev) => prev.filter((x) => x.id !== commentId));
+      setConfirmDeleteCommentId(null);
+    } catch {
+      // Keep the prompt open so the user can retry or Cancel; never leave it stuck.
+      setCommentDeleteError("Could not delete comment.");
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
+  const cancelCommentDelete = () => {
     setConfirmDeleteCommentId(null);
+    setCommentDeleteError(null);
   };
 
   const allLabels = [...board.labels];
@@ -1181,17 +1201,20 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   </svg>
                                 </button>
                               ) : confirmDeleteCommentId === c.id ? (
-                                <div className="ml-auto flex items-center gap-2 text-xs shrink-0 whitespace-nowrap">
+                                <div role="status" aria-live="polite" className="ml-auto flex items-center gap-2 text-xs shrink-0 whitespace-nowrap">
                                   <span className="text-fg-tertiary">Delete this comment?</span>
+                                  {commentDeleteError && <span className="text-danger">{commentDeleteError}</span>}
                                   <button
                                     onClick={() => handleDeleteComment(c.id)}
-                                    className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                                    disabled={deletingCommentId !== null}
+                                    className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                                   >
                                     Confirm
                                   </button>
                                   <button
-                                    onClick={() => setConfirmDeleteCommentId(null)}
-                                    className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                                    onClick={cancelCommentDelete}
+                                    disabled={deletingCommentId !== null}
+                                    className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                                   >
                                     Cancel
                                   </button>
@@ -1200,7 +1223,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                 <button
                                   ref={deleteCommentTriggerRef(c.id)}
                                   title="Delete comment"
-                                  onClick={() => setConfirmDeleteCommentId(c.id)}
+                                  onClick={() => { setCommentDeleteError(null); setConfirmDeleteCommentId(c.id); }}
                                   className="ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 p-0.5 rounded text-fg-muted hover:text-danger hover:bg-surface-active focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                                   aria-label="Delete comment"
                                 >

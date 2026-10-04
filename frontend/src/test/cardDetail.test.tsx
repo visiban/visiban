@@ -1149,6 +1149,47 @@ describe('CardDetail', () => {
       expect(deleteComment).toHaveBeenCalledTimes(1)
     })
 
+    it('announces the prompt through a polite live region (#1421)', async () => {
+      await renderWithComment()
+      const region = screen.getByText('Delete this comment?').closest('[aria-live]')
+      expect(region).not.toBeNull()
+      expect(region).toHaveAttribute('aria-live', 'polite')
+    })
+
+    it('disables Confirm and Cancel while in flight and sends only one DELETE (#1421)', async () => {
+      const { deleteComment } = await import('../api/cards')
+      const mockDelete = deleteComment as ReturnType<typeof vi.fn>
+      mockDelete.mockClear()
+      let resolveDelete!: () => void
+      mockDelete.mockImplementationOnce(() => new Promise<void>((r) => { resolveDelete = r }))
+      const { user } = await renderWithComment()
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      expect(mockDelete).toHaveBeenCalledTimes(1)
+      resolveDelete()
+      await waitFor(() => expect(screen.queryByText('Delete this comment?')).not.toBeInTheDocument())
+    })
+
+    it('a failed delete keeps the prompt open with an error and re-enables the buttons (#1421)', async () => {
+      const { deleteComment } = await import('../api/cards')
+      const mockDelete = deleteComment as ReturnType<typeof vi.fn>
+      mockDelete.mockClear()
+      mockDelete.mockRejectedValueOnce(new Error('boom'))
+      const { user } = await renderWithComment()
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      expect(await screen.findByText('Could not delete comment.')).toBeInTheDocument()
+      expect(screen.getByText('Delete this comment?')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
+      // Retry succeeds.
+      mockDelete.mockResolvedValueOnce(undefined)
+      await user.click(screen.getByRole('button', { name: 'Confirm' }))
+      await waitFor(() => expect(screen.queryByText('Delete this comment?')).not.toBeInTheDocument())
+      expect(mockDelete).toHaveBeenCalledTimes(2)
+    })
+
     it('Cancel dismisses the prompt without deleting', async () => {
       const { deleteComment } = await import('../api/cards')
       ;(deleteComment as ReturnType<typeof vi.fn>).mockClear()
