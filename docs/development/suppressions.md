@@ -110,6 +110,17 @@ when the `multicriteria=` index and the `.ruleKey`/`.resourceKey` definitions di
 a glob is pinned to `*.ts`/`*.js` in a directory that also holds `.tsx`/`.jsx`. It is pure
 `git ls-files` matching, with no network and no `SONAR_TOKEN`.
 
+Each criterion's own comment block must also name its rule: cite its `S<NNNN>` number or quote
+its title from the script's `RULE_TITLES` table. A criterion under a shared header needs its
+own naming line, because the check cannot otherwise tell a copy-pasted wrong key from a right
+one.
+
+The nightly `sonar:rules-check` job runs `bash scripts/check-sonar-exclusions.sh --online`,
+which additionally asks SonarCloud whether each `ruleKey` is still active in the project's
+quality profile. It needs `SONAR_TOKEN` and fails open: with no token, no network, or an
+unparseable response it prints a warning and exits 0, so only a rule that is really inactive
+turns the job yellow. MR pipelines never run it.
+
 ```bash
 bash scripts/check-sonar-exclusions.sh
 bash scripts/check-sonar-exclusions.sh --self-test
