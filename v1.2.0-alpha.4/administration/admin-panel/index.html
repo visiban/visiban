@@ -3331,6 +3331,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#inviting-by-email" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inviting by email
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#revoking-a-link" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4192,6 +4203,7 @@ the departing user created.</p>
 </tr>
 </tbody>
 </table>
+<p>Links that Visiban emailed (see <a href="#inviting-by-email">Inviting by email</a>) carry an <strong>Emailed</strong> badge and never show a copyable link, because the token exists only in the email.</p>
 <h3 id="creating-a-new-invite-link">Creating a new invite link<a class="headerlink" href="#creating-a-new-invite-link" title="Permanent link">&para;</a></h3>
 <p>Click <strong>New invite link</strong> to open the creation dialog. Fields:</p>
 <table>
@@ -4217,6 +4229,12 @@ the departing user created.</p>
 <p class="admonition-title">Warning</p>
 <p>The full join URL is only revealed at creation time. If you close the dialog without copying it, you must revoke the link and create a new one.</p>
 </div>
+<h3 id="inviting-by-email">Inviting by email<a class="headerlink" href="#inviting-by-email" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong> (#731)</p>
+</blockquote>
+<p>Above the link list, the <strong>Invite by email</strong> section lets you have Visiban email an invite straight to an address: enter it and select <strong>Send invite</strong>. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. The address is not stored. Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See <a href="../site-admins/">Site Admins</a> for the API and rate-limit details.</p>
+<p>When emailing isn't possible, the section is replaced by a note that points to <strong>Settings → Email</strong> (select it to open the Settings tab) and reminds you that email invites must be enabled (<code>INVITE_EMAIL_ENABLED</code>, see <a href="../configuration/">Configuration</a>). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.</p>
 <h3 id="revoking-a-link">Revoking a link<a class="headerlink" href="#revoking-a-link" title="Permanent link">&para;</a></h3>
 <p>Click <strong>Revoke</strong> on any active link to invalidate it immediately. Revoked links cannot be re-activated. Users who attempt to use a revoked link receive a clear error message.</p>
 <h2 id="cli-alternatives">CLI alternatives<a class="headerlink" href="#cli-alternatives" title="Permanent link">&para;</a></h2>
