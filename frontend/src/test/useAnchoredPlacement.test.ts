@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { computeAnchoredPlacement, placeFixedElement } from "../hooks/useAnchoredPlacement";
+import { computeAnchoredPlacement, computeAnchoredTop, placeFixedElement } from "../hooks/useAnchoredPlacement";
 
 /**
  * #1457 — the side lock shared by every `useAnchoredPlacement` adopter, and
@@ -47,6 +47,12 @@ describe("computeAnchoredPlacement side lock (#1457)", () => {
     expect(computeAnchoredPlacement({
       anchorTop: 100, anchorBottom: 130, height: 60, viewportHeight: VH, lockedSide: "pinned",
     })).toEqual({ top: VH - 8 - 60, side: "pinned" });
+  });
+
+  it("computeAnchoredTop returns the placement's top alone", () => {
+    expect(computeAnchoredTop({
+      anchorTop: 568, anchorBottom: 598, height: 60, viewportHeight: VH, lockedSide: "above",
+    })).toBe(504);
   });
 });
 
