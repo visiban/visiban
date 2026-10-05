@@ -52,10 +52,17 @@ export function useBoard() {
   const pendingMoveRef = useRef(pendingMove);
   pendingMoveRef.current = pendingMove;
 
+  // Request-sequence guard (#1463): overlapping fetches (visibility + reconnect
+  // resync, or a manual reload) can resolve out of order, so only the most
+  // recently *started* request may write to state. A ref keeps load /
+  // silentReload identities stable.
+  const fetchSeqRef = useRef(0);
+
   const load = useCallback(() => {
     setLoading(true);
+    const seq = ++fetchSeqRef.current;
     getBoardFull(boardId)
-      .then(setBoard)
+      .then((b) => { if (seq === fetchSeqRef.current) setBoard(b); })
       .catch((err) => {
         if (err?.response?.status === 404 || err?.response?.status === 403) {
           // Board doesn't exist or user lost access — go back to dashboard.
@@ -75,8 +82,9 @@ export function useBoard() {
   // skeleton.  Used by tab-focus reconciliation so the resync is invisible
   // to the user unless the board no longer exists or access was revoked.
   const silentReload = useCallback(() => {
+    const seq = ++fetchSeqRef.current;
     getBoardFull(boardId)
-      .then(setBoard)
+      .then((b) => { if (seq === fetchSeqRef.current) setBoard(b); })
       .catch((err) => {
         if (err?.response?.status === 404 || err?.response?.status === 403) {
           // See the `load` catch above re: fire-and-forget navigate().

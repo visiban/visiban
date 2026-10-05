@@ -62,6 +62,7 @@ import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useBoardResync } from "../../hooks/useBoardResync";
+import { useDeferredResync } from "../../hooks/useDeferredResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
 import { LayoutCompactIcon, LayoutExpandedIcon, OverlayIcon } from "./toolbarIcons";
 import BoardActivityDrawer from "./BoardActivityDrawer";
@@ -599,8 +600,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     collectActivityEvent(event);
   }, [handleSocketEvent, collectActivityEvent]);
 
-  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: silentReload });
-
   const [searchParams, setSearchParams] = useSearchParams();
   // Lens filter-row visibility (mirrors the board's local `showFilters`). Opens on
   // mount when a shared link already carries an active lens filter.
@@ -612,6 +611,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // (Alt). Reorder and delete should not look like the same gesture.
   const [altHeldDuringColumnDrag, setAltHeldDuringColumnDrag] = useState(false);
   const [activeSwimlane, setActiveSwimlane] = useState<Swimlane | null>(null);
+  // Reconnect resync (#1463) waits for any in-flight drag to finish so the
+  // refetch cannot replace board state under the dragged item.
+  const reconnectResync = useDeferredResync(
+    silentReload,
+    activeCard !== null || activeColumn !== null || activeSwimlane !== null,
+  );
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync });
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);

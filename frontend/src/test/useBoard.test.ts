@@ -92,6 +92,24 @@ describe('useBoard', () => {
     mockNavigate.mockClear()
   })
 
+  it('ignores a stale silentReload response that resolves after a newer one (#1463)', async () => {
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard({ name: 'Initial' }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let resolveOld!: (b: BoardFull) => void
+    let resolveNew!: (b: BoardFull) => void
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((r) => { resolveOld = r }))
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((r) => { resolveNew = r }))
+    const reload = result.current.silentReload
+    act(() => { reload(); reload() })
+    expect(result.current.silentReload).toBe(reload)
+
+    await act(async () => { resolveNew(makeBoard({ name: 'Newer' })) })
+    await act(async () => { resolveOld(makeBoard({ name: 'Older' })) })
+    expect(result.current.board?.name).toBe('Newer')
+  })
+
   it('loads board on mount', async () => {
     const board = makeBoard()
     mockGetBoardFull.mockResolvedValue(board)
