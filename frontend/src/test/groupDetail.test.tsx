@@ -113,6 +113,7 @@ vi.mock('../api/auth', () => ({
 
 import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup } from '../api/groups'
 import { importBoard } from '../api/boards'
+import { getSiteConfig } from '../api/auth'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
@@ -142,14 +143,14 @@ const fakeGroup: Group = {
   is_starred: false,
 }
 
-function renderGroupDetail(locationState?: Record<string, unknown>) {
+function renderGroupDetail(locationState?: Record<string, unknown>, user: User = fakeUser) {
   const initialEntries = locationState
     ? [{ pathname: '/groups/1', state: locationState }]
     : ['/groups/1']
   return render(
     <MemoryRouter initialEntries={initialEntries}>
       <Routes>
-        <Route path="/groups/:id" element={<GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
+        <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
       </Routes>
     </MemoryRouter>
   )
@@ -352,6 +353,24 @@ describe('GroupDetail', () => {
     // Navigate to Settings tab where the invite link panel lives
     fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
     expect(await screen.findByText('Invite links')).toBeInTheDocument()
+  })
+
+  it('passes the site-admin flag to the email invite form (#1445)', async () => {
+    vi.mocked(getSiteConfig).mockResolvedValueOnce({
+      registration_open: false, registration_mode: 'invite_only', demo_mode: false, demo_login: null, invite_email_available: true,
+    } as Awaited<ReturnType<typeof getSiteConfig>>)
+    const siteAdmin: User = { ...fakeUser, is_site_admin: true }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: siteAdmin })
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: siteAdmin, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail(undefined, siteAdmin)
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    expect(await screen.findByText('New people can join this site only from invites you email, not from a shareable link.')).toBeInTheDocument()
+    expect(screen.queryByText(/New users can't sign up/)).not.toBeInTheDocument()
   })
 
   it('shows subgroup empty state description for non-admin', async () => {
