@@ -9,8 +9,8 @@ export type BoardEvent = {
    *
    * Optional because it is additive and absent on any frame broadcast without a
    * feed row — the group channel's frames, for instance. Nothing in the SPA
-   * reads it yet; the SPA re-fetches `/full/` on reconnect and that remains
-   * correct. It is declared here so the type keeps matching what the server
+   * reads it yet; on reconnect the SPA re-fetches `/full/` via the
+   * `onReconnected` option (#1463). It is declared here so the type keeps matching what the server
    * sends, and so a future resume-from-cursor client does not have to widen the
    * type first.
    */
@@ -49,12 +49,17 @@ const PING_TIMEOUT_MS = 45_000;
  * connection as dead, closes the socket, and triggers a reconnect.  Ping
  * events are silently consumed — they are not forwarded to `onEvent`.
  *
+ * `options.onReconnected` fires on each successful open after the first, so
+ * callers can resync state missed during the gap (#1463). It does not fire on
+ * the initial connect.
+ *
  * `onEvent` is stored in a ref so callers can pass an inline arrow function
  * without causing the effect to re-run on every render.
  */
 export function useBoardSocket(
   boardId: number | null,
-  onEvent: (event: BoardEvent) => void
+  onEvent: (event: BoardEvent) => void,
+  options?: { onReconnected?: () => void },
 ): { connected: boolean; status: SocketStatus; lastEventAt: number | null; reconnectAttempt: number } {
   const [status, setStatus] = useState<SocketStatus>("connecting");
   // `lastEventAt` ticks once per incoming message (including pings). It's used
@@ -68,6 +73,11 @@ export function useBoardSocket(
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
+  // Called on every open after the first one for a given board. Events
+  // broadcast while the socket was down are lost, so the caller refetches
+  // (#1463). Bypasses the visibility throttle: a reconnect is a real gap signal.
+  const onReconnectedRef = useRef(options?.onReconnected);
+  onReconnectedRef.current = options?.onReconnected;
 
   useEffect(() => {
     if (!boardId) return;
@@ -86,6 +96,9 @@ export function useBoardSocket(
     let reconnectTimer: ReturnType<typeof setTimeout>;
     let pingTimer: ReturnType<typeof setTimeout>;
     let canceled = false;
+    // Per-effect (so per-board): navigating to another board opens a new
+    // socket whose first open is an initial connect, not a reconnect.
+    let everConnected = false;
 
     function resetPingTimeout() {
       clearTimeout(pingTimer);
@@ -101,9 +114,12 @@ export function useBoardSocket(
 
       ws.onopen = () => {
         if (!canceled) {
+          const wasReconnect = everConnected;
+          everConnected = true;
           setStatus("connected");
           setReconnectAttempt(0);
           resetPingTimeout();
+          if (wasReconnect) onReconnectedRef.current?.();
         }
       };
 

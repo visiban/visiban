@@ -64,8 +64,9 @@ vi.mock('react-router-dom', () => ({
   MemoryRouter: ({ children }: { children: React.ReactNode }) => children,
 }))
 
+const socketOptionsSpy = vi.fn()
 vi.mock('../hooks/useBoardSocket', () => ({
-  useBoardSocket: () => ({ connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 }),
+  useBoardSocket: (_id: unknown, _onEvent: unknown, options?: unknown) => { socketOptionsSpy(options); return { connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 } },
 }))
 
 vi.mock('../hooks/useBoardPan', () => ({
@@ -295,6 +296,18 @@ describe('BoardView', () => {
     mockBoardContextValue = defaultContext()
     // Default: getCardStatus returns null (card deleted/unknown)
     mockedGetCardStatus.mockResolvedValue(null)
+  })
+
+  it('passes an onReconnected to useBoardSocket that triggers a silent reload (#1463)', () => {
+    const silentReload = vi.fn()
+    mockBoardContextValue = defaultContext({ silentReload })
+    socketOptionsSpy.mockClear()
+    render(<BoardView {...defaultProps()} />)
+    const options = socketOptionsSpy.mock.calls.at(-1)?.[0] as { onReconnected?: () => void }
+    expect(typeof options.onReconnected).toBe('function')
+    expect(silentReload).not.toHaveBeenCalled()
+    options.onReconnected!()
+    expect(silentReload).toHaveBeenCalledTimes(1)
   })
 
   it('renders view toggle buttons', () => {
