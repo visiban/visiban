@@ -153,6 +153,15 @@ every other number in the report if left unmentioned:
    file is being tallied as "covered" while it can never actually run —
    report it before any yield number, since it means the adoption/run counts
    for that name are uninterpretable.
+   Two ledger labels resolve to the `completeness-check` agent and are not
+   phantoms: `completeness-check/fix-diff` and `completeness-check:r2` (the
+   parser's key for a `completeness-check` line whose parenthetical opens with
+   `round 2`). Read `:r2` yield as the measure of whether the conditional
+   round-2 audit earns its agent (its total counts only what round 1 missed;
+   consistently high `overlap k/N` means it adds little), and sum the `causes:`
+   tallies across both rounds — a real share of `requirement-unclear` supports an
+   acceptance-criteria check in `/batch` Step 2; near zero means up-front
+   questions would not have prevented the findings.
 2. **Self-inconsistent reporting.** A gate reported both numerically and as
    a deliverable across different MRs (see `test-scaffold` above) — the
    harness doesn't have one shared idea of what the gate produces.

@@ -79,6 +79,15 @@ GATE_LINE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# The conditional round-2 full audit of `completeness-check` is recorded under the
+# SAME gate name, with `round 2` first in the parenthetical (the gate-name pattern
+# above drops labels with spaces or parentheses, so it cannot live in the name):
+#   gate: completeness-check — 2 findings (round 2; opus; causes: ...; overlap 1/3)
+# analyze() re-keys such a line to `completeness-check:r2` so its yield is measured
+# apart from round 1 (#1473).
+ROUND2_RE = re.compile(r"\(\s*round[ -]?2\b", re.IGNORECASE)
+ROUND2_SUFFIX = ":r2"
+
 GATES_HEADING_RE = re.compile(r"^##\s+Gates\b", re.IGNORECASE | re.MULTILINE)
 
 FINDINGS_RE = re.compile(r"^(?P<n>\d+)\s+findings?\b", re.IGNORECASE)
@@ -204,6 +213,8 @@ def analyze(mrs):
         if find_gates_section_present(desc):
             adopted += 1
         for name, outcome_text in extract_gate_lines(desc):
+            if name == "completeness-check" and ROUND2_RE.search(outcome_text):
+                name += ROUND2_SUFFIX
             gs = gates.setdefault(name, GateStats(name=name))
             if not outcome_text:
                 gs.malformed += 1
@@ -309,7 +320,7 @@ def render_text(result) -> str:
         f"{pct}% sample, not the whole branch population."
     )
     lines.append("")
-    header = f"{'gate':<20} {'runs':>5} {'zero':>5} {'>0':>4} {'n/a':>5} {'skipped':>8} {'unscored':>9}  yield   verdict"
+    header = f"{'gate':<24} {'runs':>5} {'zero':>5} {'>0':>4} {'n/a':>5} {'skipped':>8} {'unscored':>9}  yield   verdict"
     lines.append(header)
     lines.append("-" * len(header))
 
@@ -317,7 +328,7 @@ def render_text(result) -> str:
         y = gs.yield_pct
         y_str = "n/a" if y is None else f"{y}%"
         lines.append(
-            f"{name:<20} {gs.runs:>5} {gs.zero:>5} {gs.positive:>4} {gs.na:>5} "
+            f"{name:<24} {gs.runs:>5} {gs.zero:>5} {gs.positive:>4} {gs.na:>5} "
             f"{gs.skipped:>8} {len(gs.unscored):>9}  {y_str:<6}  {gs.verdict}"
         )
 
