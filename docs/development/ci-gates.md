@@ -152,8 +152,11 @@ load-test schedule only. The load test keeps its own schedule, two hours earlier
 latency budgets are noisy on a busy runner. `backend-schema-fuzz`, the MR job, never runs on
 a schedule; `backend-schema-fuzz-deep` replaces it there.
 
-`seed-demo-data`'s weekly refresh (`SEED_SCHEDULE`) still has no schedule. It needs the demo
-environment's `DEMO_*` variables, so it is an accepted gap tracked in #1232.
+`seed-demo-data` has no schedule on purpose (#1232): it is manual-only on `main`, because the
+try.visiban.com demo now runs from the Helm chart's demo mode (see
+[Demo deployment](../maintainers/demo-deploy.md)) rather than a weekly CI reseed.
+`SCHEDULE_AUDIT_ACCEPTED_GAPS` is therefore empty, so every schedule-gated variable must have
+an active schedule.
 
 ### Changing a schedule
 

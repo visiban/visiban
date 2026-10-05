@@ -258,7 +258,7 @@ with transaction.atomic():
 
 ## GitLab CI setup for automated demo refresh
 
-The `seed-demo-data` GitLab CI job refreshes the demo board on a weekly schedule and can also be triggered manually from the GitLab pipeline UI. It requires three GitLab CI/CD variables and a pipeline schedule to be configured before it will work.
+The `seed-demo-data` GitLab CI job refreshes the demo board on demand. It is manual-only and runs from `main` pipelines; there is no weekly schedule. The public demo at try.visiban.com runs from the Helm chart's demo mode instead (see [Demo deployment](../maintainers/demo-deploy.md)), so this job is only needed for a separate Compose-based demo environment. It requires three GitLab CI/CD variables to be configured before it will work.
 
 ### Required GitLab CI/CD variables
 
@@ -271,26 +271,16 @@ In your GitLab project, go to **Settings → CI/CD → Variables** and add the f
 | `DEMO_REDIS_URL` | Valkey (or Redis-compatible) connection string for the demo environment, e.g. `redis://host:6379/0` |
 
 !!! warning
-    If any of these variables are missing or empty, the GitLab CI job fails immediately with `ImproperlyConfigured: DJANGO_SECRET_KEY must be set`. The job appears in all pipelines as a manual trigger — if you see this error after clicking **Run**, check that all three variables are set and scoped correctly to the `demo` environment in **Settings → CI/CD → Variables**.
-
-### Setting up the weekly GitLab CI schedule
-
-1. In your GitLab project, go to **CI/CD → Schedules** and click **New schedule**.
-2. Set the cron to `0 4 * * 1` (Mondays at 04:00 UTC).
-3. Set the target branch to `main`.
-4. Add a schedule variable: `SEED_SCHEDULE` = `true`.
-5. Save the schedule.
-
-The schedule variable `SEED_SCHEDULE=true` is what activates the job — without it the scheduled GitLab pipeline runs but `seed-demo-data` is skipped.
+    If any of these variables are missing or empty, the GitLab CI job fails immediately with `ImproperlyConfigured: DJANGO_SECRET_KEY must be set`. The job appears in `main` pipelines as a manual trigger — if you see this error after clicking **Run**, check that all three variables are set and scoped correctly to the `demo` environment in **Settings → CI/CD → Variables**.
 
 ### Optional: custom random seed
 
-The job uses today's date (`YYYYMMDD`) as the random seed by default, so each weekly refresh produces a naturally varied board while remaining reproducible within the same day. To override this, set `SEED_VALUE` to any integer when triggering the job manually via the GitLab pipeline UI:
+The job uses today's date (`YYYYMMDD`) as the random seed by default, so each refresh produces a naturally varied board while remaining reproducible within the same day. To override this, set `SEED_VALUE` to any integer when triggering the job manually via the GitLab pipeline UI:
 
 | Variable | Example value | Effect |
 |---|---|---|
 | `SEED_VALUE` | `42` | Uses seed 42 — same board layout every time |
-| *(unset)* | — | Uses today's date — varies weekly |
+| *(unset)* | — | Uses today's date — varies per run |
 
 ## Import files and test data
 

@@ -3755,13 +3755,15 @@ cleanup-merged-branches:
 # ─── Demo data seed ───────────────────────────────────────────────────────────
 #
 # Refreshes the Visiban Demo Board on the dedicated demo environment.
-# Runs weekly via a GitLab CI schedule and can be triggered manually at any time.
+# Manual-only, on main (#1232). It has no pipeline schedule: try.visiban.com
+# (k3s Helm chart demo mode, #1180) replaced the weekly CI reseed, and the
+# DEMO_* variables this job needs were never provisioned. Kept as an on-demand
+# path for a legacy Compose-based demo environment.
 #
-# Setup:
-#   1. Create a protected CI/CD variable DEMO_DATABASE_URL pointing to the demo
-#      environment's PostgreSQL instance (Settings → CI/CD → Variables).
-#   2. Create a GitLab schedule (CI/CD → Schedules) targeting main with cron
-#      "0 4 * * 1" (Mondays at 04:00 UTC) and set variable SEED_SCHEDULE=true.
+# Setup (only if you use this job):
+#   Create protected CI/CD variables DEMO_DATABASE_URL, DEMO_REDIS_URL and
+#   DEMO_SECRET_KEY (Settings → CI/CD → Variables), then run the job manually
+#   from a main pipeline.
 #
 # The --wipe flag deletes the "Visiban Demo Board" and recreates it from scratch.
 # --force overrides the DEBUG=False guard so the command runs in CI without DEBUG=True.
@@ -3784,8 +3786,8 @@ seed-demo-data:
     DJANGO_SECRET_KEY: $DEMO_SECRET_KEY
     DEBUG: "False"
     ALLOWED_HOSTS: "localhost"
-    # Set SEED_VALUE in the schedule or manual trigger variables to use a custom
-    # random seed. Leave unset to use the default (42).
+    # Set SEED_VALUE in the manual trigger variables to use a custom random
+    # seed. Leave unset to use the default (today's date, YYYYMMDD).
     SEED_VALUE: ""
   before_script:
     # Fail fast with a clear message if the required CI/CD variables are missing.
@@ -3805,13 +3807,13 @@ seed-demo-data:
     - pip install --quiet -r backend/requirements.txt
   script:
     - cd backend
-    # Use today's date (YYYYMMDD) as the random seed so each weekly refresh
+    # Use today's date (YYYYMMDD) as the random seed so each refresh
     # produces a naturally varied board while remaining reproducible within
-    # the same day. Override by setting SEED_VALUE in the CI schedule variables.
+    # the same day. Override by setting SEED_VALUE in the manual trigger variables.
     - python manage.py seed_demo_data --wipe --force --seed ${SEED_VALUE:-$(date +%Y%m%d)}
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SEED_SCHEDULE == "true"'
-    - when: manual
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"'
+      when: manual
       allow_failure: true
 
 # ─── Seed export drift check ──────────────────────────────────────────────────
@@ -3915,7 +3917,7 @@ nightly-load-test:
     - python manage.py migrate --noinput
     # A dedicated, larger board — never the normal demo board — so this job's
     # fixture size is independent of and cannot collide with seed-demo-data's
-    # weekly refresh of "Visiban Demo Board".
+    # manual refresh of "Visiban Demo Board".
     - python manage.py seed_demo_data --force --scale ${LOAD_TEST_SCALE} --with-notifications
     - python manage.py provision_fuzz_token --username demo2 --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}"
     - python manage.py runserver 0.0.0.0:8000 &
@@ -3982,23 +3984,14 @@ nightly-load-test:
 # SCHEDULE_AUDIT_ACCEPTED_GAPS below lists gaps #1213's own audit already
 # found and filed as #1232 — a documented, temporary exception (same shape as
 # check-release-images' ACCEPTED_GAPS), not a way to quiet this gate
-# permanently. Remove each entry as its schedule is created.
+# permanently. It is empty now (#1232 resolved); the script defaults it to
+# empty, so the variable is omitted rather than set to "".
 schedule-config-check:
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-  variables:
-    # SUPPRESSED-UNTIL(#1232): seed-demo-data's weekly refresh has never had
-    # a schedule configured. It also needs the demo environment's DEMO_*
-    # variables, so it is not folded into the Nightly schedule. OSV_SCAN,
-    # KAIZEN_YIELD_WATCH and SONAR_SCHEDULED left this list in #1383, which
-    # put them on the Nightly schedule, so this gate now asserts they stay
-    # configured. FUZZ_DEEP was never in it. Order matters: the schedule must
-    # carry a variable BEFORE the commit that removes it from this list
-    # reaches main, or the next scheduled pipeline reports it MISSING.
-    SCHEDULE_AUDIT_ACCEPTED_GAPS: "SEED_SCHEDULE"
   before_script:
     - apk add --no-cache bash curl jq
   script:

@@ -547,7 +547,7 @@ class SeedScaleTests(TestCase):
 
     def test_scale_n_creates_separate_load_test_board(self):
         """--scale > 1 must never touch 'Visiban Demo Board' — it seeds a
-        distinctly-named board instead, so the weekly demo refresh job and the
+        distinctly-named board instead, so the manual demo refresh job and the
         nightly load-test job can never collide or overwrite each other."""
         _seed(scale=3)
         self.assertFalse(Board.objects.filter(name=BOARD_NAME).exists())
@@ -596,7 +596,7 @@ class SeedNotificationsTests(TestCase):
     """--with-notifications (#1082): fixture data for the notification-poll endpoints."""
 
     def test_notifications_off_by_default(self):
-        """The weekly demo-board refresh job's existing behavior must not change
+        """The manual demo-board refresh job's existing behavior must not change
         unless --with-notifications is passed explicitly."""
         _seed()
         self.assertEqual(Notification.objects.count(), 0)
