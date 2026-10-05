@@ -1429,6 +1429,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#new-users-on-invite-only-instances" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New users on invite-only instances
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4013,8 +4024,12 @@
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Following the emailed link does <strong>not</strong> verify the recipient's email address. If they create a new account from it, registration still follows the instance's normal email-verification setting. On an instance whose registration mode is <strong>Invite-only</strong> or <strong>Closed</strong>, a group invite link does not currently let a newcomer create an account (tracked in #1445) — invite people who already have one, or ask a site admin for a site invite.</p>
+<p>Following the emailed link does <strong>not</strong> verify the recipient's email address. If they create a new account from it, registration still follows the instance's normal email-verification setting.</p>
 </div>
+<h3 id="new-users-on-invite-only-instances">New users on invite-only instances<a class="headerlink" href="#new-users-on-invite-only-instances" title="Permanent link">&para;</a></h3>
+<p><em>(New in 1.2)</em> On an instance whose registration mode is <strong>Invite-only</strong>, an invite <strong>emailed by a site admin</strong> also lets a newcomer create an account: they select <strong>Create an account</strong> (or an OAuth provider) on the join page, and the new account is added to the group with the invite's role. Registering uses up the invite, so it creates one account (for OAuth sign-up this is best-effort, as it is for site invites: two simultaneous OAuth sign-ups with one link could both create an account, but only one joins the group). Anyone holding the link can use it — the address it was sent to is not stored or checked. The invite stops creating accounts if the person who sent it is deactivated, is no longer a site admin, or is no longer an admin of the group, or if email invites are turned off (<code>INVITE_EMAIL_ENABLED=false</code>); revoke it in the panel to stop it sooner.</p>
+<p>Only site admins' emailed invites do this — admitting new people to an invite-only instance stays a site-admin decision, since any user can create a group and become its admin. An emailed invite from a group admin who is not a site admin, and any <strong>shareable</strong> link from the panel (single-use or not), still only work for people who already have an account. A newcomer who tries one is told: <em>"This invite link can't be used to create an account on this site. Ask a site admin for an invite."</em></p>
+<p>The <strong>Invite by email</strong> section shows which case applies. A site admin on an invite-only instance sees: <em>"New people can join this site only from invites you email, not from a shareable link."</em> Everyone else on an invite-only instance, and everyone on a <strong>Closed</strong> instance (where no invite creates an account), sees the warning: <em>"New users can't sign up on this site. Only people who already have an account can join from this invite."</em></p>
 <h2 id="moving-boards-between-groups">Moving boards between groups<a class="headerlink" href="#moving-boards-between-groups" title="Permanent link">&para;</a></h2>
 <p>Any board can move to a different group or back to personal boards, via <strong>Move to group</strong> in board settings (gear icon in the toolbar). Only board admins and site admins can move a board.</p>
 <p><strong>API:</strong> <code>POST /api/v1/boards/{id}/move-group/</code> with <code>{ "group_id": 5 }</code> or <code>{ "group_id": null }</code> for personal.</p>

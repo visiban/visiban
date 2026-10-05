@@ -4708,6 +4708,7 @@
 <p>Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP.</p>
 <p><strong>Response</strong> <code>{ "group_id": 5, "group_name": "Engineering", "role": "member" }</code></p>
 <p><strong>Errors:</strong> <code>404 Not Found</code> (invalid or revoked token), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed)</p>
+<p><em>(1.2+)</em> An authenticated caller who is already a member of the link's group gets <code>200</code> with the preview for a consumed single-use link instead of <code>410</code>. This is the path a newcomer takes after an emailed invite created their account (see <a href="../authentication/"><code>POST /api/v1/auth/registration/</code></a>); everyone else still gets <code>410</code>.</p>
 <h3 id="post-apiv1groupsjointoken"><code>POST /api/v1/groups/join/{token}/</code><a class="headerlink" href="#post-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
 <p>Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP.</p>
 <p><strong>Response body</strong> — returns the full group object (same shape as <code>GET /api/v1/groups/{id}/</code> but using the list serializer, without <code>ancestors</code>):</p>
@@ -4730,7 +4731,8 @@
 </code></pre></div>
 <p><strong>Status:</strong> <code>201 Created</code> on first join; <code>200 OK</code> if the caller was already a member (existing role preserved, no downgrade).</p>
 <p><strong>Note:</strong> Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.</p>
-<p><strong>Errors:</strong> <code>401 Unauthorized</code> (not authenticated), <code>404 Not Found</code> (invalid or revoked token), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed)</p>
+<p><strong>Errors:</strong> <code>401 Unauthorized</code> (not authenticated), <code>404 Not Found</code> (invalid or revoked token), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed by someone who is not a member)</p>
+<p><em>(1.2+)</em> If the caller is already a member of the link's group, a consumed single-use link returns <code>200</code> with the group, the same as any repeat join; the link is not re-stamped and the caller's role is unchanged.</p>
 
 
 
