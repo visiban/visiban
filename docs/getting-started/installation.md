@@ -569,7 +569,7 @@ The connection indicator in the toolbar reflects the WebSocket connection to `/w
    ```
    Wait for a line containing `daphne` before reloading the page.
 
-2. **Valkey unavailable** — Django Channels requires Valkey for the channel layer. If Valkey is down, the backend accepts the WebSocket upgrade but immediately closes the connection:
+2. **Valkey unavailable** — Django Channels requires Valkey for the channel layer. If Valkey is down, the backend accepts the WebSocket upgrade but immediately closes the connection. Edits still save normally, but their live updates are dropped, and the backend logs a `board broadcast dropped` warning for each one. Clients catch up from the [change feed](../api/events.md) once Valkey is back:
    ```bash
    docker compose -f docker-compose.prod.yml logs valkey
    docker compose -f docker-compose.prod.yml exec backend python manage.py shell -c "from django.core.cache import cache; cache.set('healthcheck', 'ok'); print(cache.get('healthcheck'))"
