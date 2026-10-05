@@ -303,7 +303,15 @@ WebSocket events are registered with `transaction.on_commit()` inside a database
 - Events fire **after** the transaction commits, so the data is guaranteed to be visible to any subsequent REST read by the time the event reaches clients.
 - The publish is **best-effort** (since 1.2). If the channel layer (Valkey) is unreachable when the event fires, the frame is dropped and the backend logs a `WARNING` (`board broadcast dropped` or `group broadcast dropped`, with the board or group id, event name, and exception class). The write that caused it still returns its normal success status, because the change is already committed. Before 1.2 such a write returned `500` even though it had been saved, and retrying it created a duplicate.
 
-The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is not re-sent over the socket. Board events are still recorded in the durable [change feed](events.md), so a client that keeps the last `event_id` it processed can replay what it missed with `GET /api/v1/boards/{id}/events/?after=<event_id>` on reconnect. Group-channel frames have no feed row, so group clients should re-fetch the group view on reconnect.
+The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.
+
+A transient publish failure does **not** close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. For the Visiban web app, that is the next reconnect, the next tab refocus (board view), or the next event that triggers a refetch.
+
+How to resync:
+
+- **API clients** can replay board events from the durable [change feed](events.md). Keep the last `event_id` you processed and call `GET /api/v1/boards/{id}/events/?after=<event_id>`.
+- **The Visiban web app** does not read the change feed. It re-fetches full board state (`GET /api/v1/boards/{id}/full/`) on reconnect and on tab refocus, and re-fetches the group view on reconnect.
+- **Group-channel frames** have no feed row, so group clients re-fetch the group view.
 
 ---
 

@@ -16,6 +16,7 @@ the real send helper — the code under test — runs against a layer whose
 """
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from django.db import transaction
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -132,3 +133,65 @@ class GroupBoardCreateWithChannelLayerDownTests(_LayerDownMixin, TestCase):
         self.assertTrue(Board.objects.filter(group=self.group, name="Live Board").exists())
         sent_to = {c.args[0] for c in self.layer.group_send.await_args_list}
         self.assertIn(f"group_{self.group.id}", sent_to)
+
+
+class BroadcastFailureScopeTests(TestCase):
+    """The catch is deliberately broad, and a failed send must not abandon the
+    on_commit callbacks queued after it (#1462 gate follow-up)."""
+
+    def _layer(self, side_effect):
+        layer = MagicMock()
+        layer.group_send = AsyncMock(side_effect=side_effect)
+        return layer
+
+    def test_later_on_commit_broadcasts_still_run_after_first_send_raises(self):
+        # First send fails, the rest succeed: every queued callback must still
+        # reach group_send, and the transaction's caller must see no exception.
+        layer = self._layer([ConnectionError("down"), None, None])
+        with patch("boards.broadcast.get_channel_layer", return_value=layer):
+            with self.assertLogs("boards.broadcast", level="WARNING") as logs:
+                with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                    with transaction.atomic():
+                        for i in range(3):
+                            transaction.on_commit(
+                                lambda i=i: broadcast_board_event(1, "card.updated", {"n": i})
+                            )
+        self.assertEqual(len(callbacks), 3)
+        self.assertEqual(layer.group_send.await_count, 3)
+        self.assertEqual(len([r for r in logs.records if r.levelname == "WARNING"]), 1)
+
+    def test_non_connection_error_is_swallowed_and_logged_the_same_way(self):
+        layer = self._layer(TypeError("can't serialize " + SECRET_TITLE))
+        with patch("boards.broadcast.get_channel_layer", return_value=layer):
+            with self.assertLogs("boards.broadcast", level="DEBUG") as logs:
+                broadcast_board_event(5, "card.moved", {"title": SECRET_TITLE})
+        warnings = [r for r in logs.records if r.levelname == "WARNING"]
+        self.assertEqual(len(warnings), 1)
+        msg = warnings[0].getMessage()
+        self.assertIn("board_id=5", msg)
+        self.assertIn("event=card.moved", msg)
+        self.assertIn("TypeError", msg)
+        self.assertNotIn(SECRET_TITLE, msg)
+        self.assertIsNone(warnings[0].exc_info)
+        # The traceback is available only at DEBUG.
+        debug = [r for r in logs.records if r.levelname == "DEBUG"]
+        self.assertEqual(len(debug), 1)
+        self.assertIsNotNone(debug[0].exc_info)
+
+    def test_group_helper_non_connection_error_is_swallowed(self):
+        layer = self._layer(TypeError("boom"))
+        with patch("groups.broadcast.get_channel_layer", return_value=layer):
+            with self.assertLogs("groups.broadcast", level="DEBUG") as logs:
+                broadcast_group_event(3, "board.updated", {"name": "x"})
+        warnings = [r for r in logs.records if r.levelname == "WARNING"]
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("TypeError", warnings[0].getMessage())
+        self.assertTrue(any(r.levelname == "DEBUG" and r.exc_info for r in logs.records))
+
+    def test_payload_serialization_error_still_raises(self):
+        # Outside the try on purpose: an unserializable payload is a code bug.
+        layer = self._layer(None)
+        with patch("boards.broadcast.get_channel_layer", return_value=layer):
+            with self.assertRaises(Exception):
+                broadcast_board_event(1, "card.updated", {"bad": object()})
+        layer.group_send.assert_not_awaited()

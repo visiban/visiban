@@ -76,8 +76,11 @@ def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None
 
     Best-effort, like ``broadcast_board_event`` (#1462): it runs post-commit, so
     a channel-layer (Valkey) outage is logged — group id, event type and
-    exception class only — and swallowed rather than turning a saved change into
-    a 500. Group clients resync by refetching the group view on reconnect.
+    exception class only at WARNING, the traceback at DEBUG — and swallowed
+    rather than turning a saved change into a 500. The ``except Exception`` is
+    deliberately broad for the same reason as the board helper. It is not a
+    "never raises" guarantee: payload serialization runs outside the ``try``, so
+    an unserializable payload (a code bug) still raises.
     """
     channel_layer = get_channel_layer()
     if channel_layer is None:
@@ -99,4 +102,10 @@ def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None
             group_id,
             event_type,
             type(exc).__name__,
+        )
+        logger.debug(
+            "group broadcast failure traceback: group_id=%s event=%s",
+            group_id,
+            event_type,
+            exc_info=True,
         )
