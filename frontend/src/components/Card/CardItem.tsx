@@ -306,11 +306,14 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   };
 
   // card.assignee stays in this OR-chain even though the avatar itself no
-  // longer renders inside the row (#1411): the row's `pr-7` clearance is the
-  // only thing that reserves the avatar's footprint, so when the assignee is
-  // the card's ONLY metadata, the row must still render — empty of chips,
-  // purely to reserve that space — or the absolutely-positioned avatar sits
-  // on top of the title with nothing stopping it.
+  // longer renders inside the row (#1411): the row is what reserves the
+  // absolutely-positioned avatar's footprint, so when the assignee is the
+  // card's ONLY metadata the row must still render. An empty row has zero
+  // height, though, so `pr-7` alone reserves nothing vertically — the row also
+  // carries `min-h-5` (20px, the xs Avatar's height) whenever an assignee is
+  // set. Height + right padding together reserve the avatar's box below the
+  // title; without the min-height the 20px avatar (bottom-1.5) overlaps the
+  // last title line by ~12px.
   const hasMetadataRow =
     (showDescriptionIndicator && !!card.description) ||
     card.labels.length > 0 ||
@@ -406,7 +409,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         {/* Description exists — indicator only; full content shown in card detail */}
 
         {hasMetadataRow && (
-          <div className={`flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap focus-within:overflow-visible focus-within:flex-wrap ${card.assignee ? "pr-7" : ""}`}>
+          <div className={`flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap focus-within:overflow-visible focus-within:flex-wrap ${card.assignee ? "min-h-5 pr-7" : ""}`}>
             {/* Blocked indicator (#449) — FIRST in the row, and deliberately
                 outside the `!compact` branch and every density gate.
 
