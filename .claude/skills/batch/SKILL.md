@@ -202,7 +202,7 @@ Every agent finishes by, in order:
    total, run **round 2** instead of the fix-diff re-check: a fresh **Opus**
    `Agent(subagent_type: "completeness-check")` auditing the **whole branch** at HEAD
    (fix commits included), briefed exactly as round 1 was and **not shown round 1's
-   findings**. Compare the two lists and record `overlap k/N`. Hard stop after round
+   findings**. Compare the two lists and record `overlap k/M`. Hard stop after round
    2: if it still reports a BLOCKER, do not start round 3 — put the choice to the
    user. Otherwise (round 2 not triggered), decide whether the fix diff needs its own
    re-check — once, narrowly. Spawn a fresh `Agent(subagent_type: "completeness-check")` scoped to the fix
@@ -213,7 +213,7 @@ Every agent finishes by, in order:
      logic, a gate or check script, or a migration — rather than only docs, tests,
      comments, or changelog text.
 
-   Model: Sonnet, unless the branch met the escalation criteria above. **One pass
+   Model (fix-diff re-check only; round 2 is always Opus): Sonnet, unless the branch met the escalation criteria above. **One pass
    only, never a loop**: fix what it finds and stop — a re-check of a re-check is the
    whack-a-mole loop `/pre-release` warns about. Record it as its own ledger line
    (see Step 5.7). A fix round that touched only docs, tests, comments, or

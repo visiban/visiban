@@ -243,6 +243,15 @@ check "round-2 line is tallied as completeness-check:r2 (2 runs, 1 positive, 2 f
   "$([ "$(r2 gates completeness-check:r2 runs)" = "2" ] && [ "$(r2 gates completeness-check:r2 positive)" = "1" ] && [ "$(r2 gates completeness-check:r2 positive_total)" = "2" ] && echo 0 || echo 1)"
 check "round 1 keeps only its own lines (2 runs, 4 findings), round 2 not folded in" \
   "$([ "$(r2 gates completeness-check runs)" = "2" ] && [ "$(r2 gates completeness-check positive_total)" = "4" ] && echo 0 || echo 1)"
+# Deliberate leniency: ROUND2_RE also accepts `round-2` / `round2` spellings.
+python3 - "$TMP/r2dash.json" <<'PYEOF'
+import json, sys
+desc = "## Gates\n- gate: completeness-check \u2014 1 finding (round-2; opus; overlap 0/1)\n"
+json.dump([{"iid": 104, "title": "r2 dash", "description": desc}], open(sys.argv[1], "w"))
+PYEOF
+python3 "$SCRIPT" --input "$TMP/r2dash.json" --json > "$TMP/r2dash_out.json"
+check "'(round-2; ...)' spelling is leniently tallied as completeness-check:r2" \
+  "$(python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))["gates"].get("completeness-check:r2",{}).get("positive")==1 else 1)' "$TMP/r2dash_out.json" && echo 0 || echo 1)"
 check "fix-diff stays its own gate alongside round 2" \
   "$([ "$(r2 gates completeness-check/fix-diff zero)" = "1" ] && echo 0 || echo 1)"
 

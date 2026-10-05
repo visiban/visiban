@@ -167,13 +167,13 @@ carries the tally (see Recording it).
 
 ## After round 1 — which re-check runs
 
-Round 1's fixes are committed in a new commit first. Then exactly one of these applies:
+Round 1's fixes are committed in a new commit first. Then exactly one of these applies (the round-2 row takes precedence when more than one matches):
 
 | Round 1 reported | Next step |
 |---|---|
-| 0 findings, or only docs/tests/comments/changelog fixes with no BLOCKER | none — `completeness-check/fix-diff — n/a`; push |
-| a BLOCKER (not `class-missed`/`collateral`) with fewer than 4 findings in total, or a fix commit changing executable behavior | **fix-diff** — narrow re-check of the fix diff, once (§ Fix-diff re-check) |
 | a BLOCKER tagged `class-missed` or `collateral`, **or** 4 or more BLOCKERS + GAPS in total | **round 2** — full audit (§ Round 2); it **replaces** fix-diff for this branch |
+| a BLOCKER (not `class-missed`/`collateral`) with fewer than 4 findings in total, or a fix commit changing executable behavior | **fix-diff** — narrow re-check of the fix diff, once (§ Fix-diff re-check) |
+| fewer than 4 findings in total, no BLOCKER, and only docs/tests/comments/changelog fixes | none — `completeness-check/fix-diff — n/a`; push |
 
 Round 2's own fixes get no further audit by this gate. Hard stop after round 2: if it
 still reports a BLOCKER, do not start round 3 — put the choice to the user.
