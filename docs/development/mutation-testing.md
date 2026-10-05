@@ -211,14 +211,15 @@ Each mutant costs about 25 s, nearly all of it pytest and Django start-up, not t
 - `backend/setup.cfg` `[mutmut]` holds the scope (`paths_to_mutate`, the test files). `backend/mutmut_config.py` gives shard k of N the lines where `line_index % N == k` (`MUTATION_SHARDS` and `MUTATION_SHARD`).
 - mutmut is installed **inside the job** with `pip install "mutmut==2.5.1"`. It stays out of `requirements*.txt`. Bumping the pin changes the mutants generated and so moves the score; bump it on purpose and re-baseline.
 - mutmut 2.5.1 has no `export-cicd-stats` command (that is 3.x). `scripts/check_mutation_score.py --export-cache` reads `.mutmut-cache` instead and writes one stats file per shard.
-- `backend-mutation-report` sums the shards, prints the score and writes `mutmut-cicd-stats.json` (kept 30 days). It exits 2 (yellow) if a shard died or mutants were left untested, even in report-only mode, so a dead run is never a meaningless green.
+- `backend-mutation-report` sums the shards, prints the score and writes `mutmut-cicd-stats.json` (kept 30 days). It is told how many shards to expect (`--expect-shards 4`, matching `parallel: 4`) and exits 2 (yellow), even in report-only mode, if fewer stats files arrive (a shard timed out or failed before writing its file), if a file is malformed, or if mutants were left untested. A run that is incomplete is never summed into a smaller, apparently complete score. The one case it cannot see is a shard that finished and wrote a file with an unusually low mutant count.
 - Dependency review for mutmut 2.5.1: BSD-3-Clause; dependencies click (BSD-3), glob2 (BSD), parso (MIT), pony (Apache-2.0), junit-xml (MIT), toml (MIT); no OSV advisories for any of them on 2026-10-04. 2.x rather than 3.x because 3.x copies the tree into a sandbox (needs `also_copy` bookkeeping for every file the suite reads), which does not suit a Django suite.
 
 ### Maintainer steps and what comes next
 
-1. After the pilot MR merges, add `MUTATION_TEST=true` to the Nightly schedule (4176726). Until then the jobs never run. `MUTATION_TEST` is in `SCHEDULE_AUDIT_ACCEPTED_GAPS` so `schedule-config-check` does not report it MISSING; remove it from that list once the schedule carries it.
-2. After about a week of nightly artifacts, set `MUTATION_MIN` one point under the lowest observed score and record the decision on #1384. #1384 stays open until then.
-3. Triage survivors as described in [How to read the results](#how-to-read-the-results).
+1. After the pilot MR merges, add `MUTATION_TEST=true` to the Nightly schedule (4176726). Until then the jobs never run. `MUTATION_TEST` is in `SCHEDULE_AUDIT_ACCEPTED_GAPS` so `schedule-config-check` does not report it MISSING.
+2. Remove `MUTATION_TEST` from `SCHEDULE_AUDIT_ACCEPTED_GAPS` in `.gitlab-ci.yml` once the schedule carries it (not machine-checked).
+3. After about a week of nightly artifacts, set `MUTATION_MIN` one point under the lowest observed score and record the decision on #1384. #1384 stays open until then.
+4. Triage survivors as described in [How to read the results](#how-to-read-the-results).
 
 ## Limits of this baseline
 

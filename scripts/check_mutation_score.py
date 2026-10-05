@@ -12,7 +12,7 @@ follow from using mutmut **2.5.1** (see docs/development/mutation-testing.md):
 Usage::
 
     python scripts/check_mutation_score.py --export-cache backend/.mutmut-cache OUT.json
-    python scripts/check_mutation_score.py STATS.json [STATS2.json ...] [--write-merged OUT.json]
+    python scripts/check_mutation_score.py STATS.json [STATS2.json ...] [--expect-shards N] [--write-merged OUT.json]
     python scripts/check_mutation_score.py --self-test
 
 The score is ``(killed + timeout) / (killed + timeout + survived + suspicious)``.
@@ -118,9 +118,11 @@ def _load(paths: list[Path]) -> dict[str, int] | int:
     return total
 
 
-def _run_real_script(paths: list[Path], floor: str) -> int:
+def _run_real_script(paths: list[Path], floor: str, expect_shards: int | None = None) -> int:
     """Run this script as a subprocess so the self-test sees the real exit code."""
     cmd = [sys.executable, str(Path(__file__).resolve()), *map(str, paths), "--min", floor]
+    if expect_shards is not None:
+        cmd += ["--expect-shards", str(expect_shards)]
     return subprocess.run(cmd, capture_output=True, text=True).returncode
 
 
@@ -169,6 +171,25 @@ def _self_test() -> int:
             print("SELF-TEST FAILED: a missing stats file must exit 2", file=sys.stderr)
             rc = 1
 
+        # --expect-shards: a missing shard must never read as a smaller complete run,
+        # in report-only mode too. Three good files with 4 expected is the
+        # "shard 3 timed out and never wrote its artifact" case.
+        good = []
+        for i in range(3):
+            p = Path(tmp) / f"g{i}.json"
+            p.write_text(json.dumps({"killed": 10, "survived": 0}), "utf-8")
+            good.append(p)
+        for name, paths, expect, want in (
+            ("3 of 4 shards, report-only", good, 4, 2),
+            ("1 of 4 shards, report-only", good[:1], 4, 2),
+            ("4 of 4 shards", good + [good[0]], 4, 0),
+            ("more files than expected", good, 2, 2),
+        ):
+            got_rc = _run_real_script(paths, "0", expect)
+            if got_rc != want:
+                print(f"SELF-TEST FAILED: {name} exited {got_rc}, expected {want}", file=sys.stderr)
+                rc = 1
+
         # --write-merged must write the summed file even when the run is then
         # judged "not measured" (exit 2): the artifact is the evidence.
         merged = Path(tmp) / "merged.json"
@@ -201,7 +222,7 @@ def _self_test() -> int:
             rc = 1
 
     if rc == 0:
-        print(f"SELF-TEST OK: {len(cases) + 3} checks passed "
+        print(f"SELF-TEST OK: {len(cases) + 7} checks passed "
               "(above, at, below, shards, absent, malformed, unmeasured, export).")
     return rc
 
@@ -216,6 +237,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--export-cache", type=Path, metavar="CACHE",
                         help="read a .mutmut-cache and write stats JSON to the single positional path")
+    parser.add_argument("--expect-shards", type=int, metavar="N",
+                        help="exit 2 (not measured) unless exactly N stats files are given; "
+                             "a shard that never wrote its file must not read as a smaller, complete run")
     parser.add_argument("--write-merged", type=Path, metavar="OUT",
                         help="also write the summed stats JSON to OUT before judging the run")
     parser.add_argument("--self-test", action="store_true", help="prove the checker can still fail, then exit")
@@ -240,6 +264,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.stats_paths:
         parser.error("give at least one stats file (or --self-test / --export-cache)")
 
+    if args.expect_shards is not None and len(args.stats_paths) != args.expect_shards:
+        print(f"NOT MEASURED: expected {args.expect_shards} shard stats files, got "
+              f"{len(args.stats_paths)}. A shard died or its artifact is missing; "
+              "summing the rest would read as a complete run.", file=sys.stderr)
+        return 2
     loaded = _load(args.stats_paths)
     if isinstance(loaded, int):
         return loaded

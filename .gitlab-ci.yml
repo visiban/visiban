@@ -1070,6 +1070,7 @@ backend-mutation:
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # Keep in step with --expect-shards in backend-mutation-report.
   parallel: 4
   timeout: 40m
   allow_failure: true
@@ -1125,7 +1126,7 @@ backend-mutation-report:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $MUTATION_TEST == "true"'
   script:
     - python3 scripts/check_mutation_score.py --self-test
-    - python3 scripts/check_mutation_score.py backend/mutmut-stats-*.json --write-merged mutmut-cicd-stats.json
+    - python3 scripts/check_mutation_score.py backend/mutmut-stats-*.json --expect-shards 4 --write-merged mutmut-cicd-stats.json
   artifacts:
     paths:
       - mutmut-cicd-stats.json
@@ -4091,9 +4092,10 @@ schedule-config-check:
     # configured. FUZZ_DEEP was never in it. Order matters: the schedule must
     # carry a variable BEFORE the commit that removes it from this list
     # reaches main, or the next scheduled pipeline reports it MISSING.
-    # SUPPRESSED-UNTIL(#1384): MUTATION_TEST gates the backend-mutation pilot.
-    # A maintainer must add MUTATION_TEST=true to the Nightly schedule (4176726)
-    # by hand after the pilot MR merges, then drop it from this list.
+    # Temporary (tracked in #1384, not machine-checked): MUTATION_TEST gates the
+    # backend-mutation pilot. A maintainer must add MUTATION_TEST=true to the
+    # Nightly schedule (4176726) by hand after the pilot MR merges, then remove
+    # MUTATION_TEST from this list.
     SCHEDULE_AUDIT_ACCEPTED_GAPS: "SEED_SCHEDULE MUTATION_TEST"
   before_script:
     - apk add --no-cache bash curl jq
