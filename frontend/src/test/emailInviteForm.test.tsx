@@ -181,11 +181,18 @@ describe('EmailInviteForm', () => {
     expect(msg).toHaveClass('text-warning')
   })
 
-  it('429 rounds up and handles a missing header', async () => {
+  it('429 rounds Retry-After up to whole minutes', async () => {
     send.mockRejectedValueOnce(httpError(429, {}, { 'retry-after': '61' }))
     await renderForm()
     await submit()
     expect(await screen.findByText("You've sent a lot of invites. Try again in 2 minutes.")).toBeInTheDocument()
+  })
+
+  it('429 without a Retry-After header falls back to "a few minutes"', async () => {
+    send.mockRejectedValueOnce(httpError(429, {}))
+    await renderForm()
+    await submit()
+    expect(await screen.findByText("You've sent a lot of invites. Try again in a few minutes.")).toBeInTheDocument()
   })
 
   it('a failed send keeps the address so the user can retry', async () => {
@@ -208,10 +215,18 @@ describe('EmailInviteForm', () => {
     mockGetSiteConfig.mockResolvedValue({ ...baseConfig, invite_email_available: false })
     const onOpen = vi.fn()
     render(<EmailInviteForm surface="site" send={send} onOpenEmailSettings={onOpen} />)
-    expect(await screen.findByText(/Email isn't set up, so invites can't be sent\./)).toHaveClass('text-fg-muted')
+    expect(await screen.findByText(/Email invites aren't available\./)).toHaveClass('text-fg-muted')
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Settings → Email' }))
     expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('site admins on a demo site see a neutral line with no Settings link', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...baseConfig, demo_mode: true, invite_email_available: false })
+    render(<EmailInviteForm surface="site" send={send} onOpenEmailSettings={vi.fn()} />)
+    expect(await screen.findByText('Email invites are disabled on this demo site.')).toHaveClass('text-fg-muted')
+    expect(screen.queryByRole('button', { name: 'Settings → Email' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/set up/)).not.toBeInTheDocument()
   })
 
   it('renders nothing when site-config fails to load', async () => {

@@ -171,6 +171,8 @@ Each row in the list shows:
 | **Single-use** | Whether the link can only be used once |
 | **Uses** | How many times the link has been successfully redeemed |
 
+Links that Visiban emailed (see [Inviting by email](#inviting-by-email)) carry an **Emailed** badge and never show a copyable link, because the token exists only in the email.
+
 ### Creating a new invite link
 
 Click **New invite link** to open the creation dialog. Fields:
@@ -184,6 +186,14 @@ After clicking **Create**, the full join URL (`/join/<token>`) is displayed **on
 
 !!! warning
     The full join URL is only revealed at creation time. If you close the dialog without copying it, you must revoke the link and create a new one.
+
+### Inviting by email
+
+> **Added in 1.2** (#731)
+
+Above the link list, the **Invite by email** section lets you have Visiban email an invite straight to an address: enter it and select **Send invite**. Visiban creates a single-use link that expires in 1, 7 (default) or 30 days and sends it from the instance's sender address. The address is not stored. Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See [Site Admins](site-admins.md) for the API and rate-limit details.
+
+When emailing isn't possible, the section is replaced by a note that points to **Settings → Email** (select it to open the Settings tab) and reminds you that email invites must be enabled (`INVITE_EMAIL_ENABLED`, see [Configuration](configuration.md)). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.
 
 ### Revoking a link
 

@@ -133,10 +133,22 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
 
   if (!config.invite_email_available) {
     if (surface === "group") return null;
+    // Demo sites switch emailing off on purpose; pointing at Settings would
+    // send the admin to a fix that cannot work.
+    if (config.demo_mode) {
+      return (
+        <div className="flex flex-col gap-4">
+          <p className="text-xs text-fg-muted">Email invites are disabled on this demo site.</p>
+          {divider}
+        </div>
+      );
+    }
+    // site-config does not say *why* sending is unavailable (email not set up
+    // vs INVITE_EMAIL_ENABLED=false), so the copy covers both causes honestly.
     return (
       <div className="flex flex-col gap-4">
         <p className="text-xs text-fg-muted">
-          Email isn't set up, so invites can't be sent. Set up email in{" "}
+          Email invites aren't available. Check that email is set up in{" "}
           {onOpenEmailSettings ? (
             <button
               type="button"
@@ -147,8 +159,8 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
             </button>
           ) : (
             "Settings → Email"
-          )}
-          .
+          )}{" "}
+          and that email invites are enabled.
         </p>
         {divider}
       </div>

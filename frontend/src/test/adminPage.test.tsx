@@ -1426,10 +1426,10 @@ describe('AdminPage — Invite by email', () => {
   it('when email is not set up, shows the muted line and the link opens the Settings tab', async () => {
     mockGetSiteConfig.mockResolvedValue({ ...fakeSiteConfig, invite_email_available: false })
     await openInviteLinksTab()
-    expect(await screen.findByText(/Email isn't set up, so invites can't be sent\./)).toBeInTheDocument()
+    expect(await screen.findByText(/Email invites aren't available\./)).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Email address' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Settings → Email' }))
     expect(await screen.findByText('Registration requires a valid invite link')).toBeInTheDocument()
-    expect(screen.queryByText(/Email isn't set up/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Email invites aren't available/)).not.toBeInTheDocument()
   })
 })
