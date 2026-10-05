@@ -301,8 +301,21 @@ WebSocket events are registered with `transaction.on_commit()` inside a database
 
 - Events are **never broadcast for rolled-back transactions** — if a write fails and rolls back, no event fires.
 - Events fire **after** the transaction commits, so the data is guaranteed to be visible to any subsequent REST read by the time the event reaches clients.
+- The publish is **best-effort** (since 1.2). If the channel layer (Valkey) is unreachable when the event fires, the frame is dropped and the backend logs a `WARNING` (`board broadcast dropped` or `group broadcast dropped`, with the board or group id, event name, and exception class). The write that caused it still returns its normal success status, because the change is already committed. Before 1.2 such a write returned `500` even though it had been saved, and retrying it created a duplicate.
 
-There is no at-least-once delivery guarantee — if a client is disconnected when an event fires, it will not be replayed. Clients should re-fetch the full board state (`GET /api/v1/boards/{id}/full/`) on reconnect.
+The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.
+
+A transient publish failure does **not** close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect.
+
+How to resync:
+
+- **API clients** can replay board events from the durable [change feed](events.md). Keep the last `event_id` you processed and call `GET /api/v1/boards/{id}/events/?after=<event_id>`.
+- **The Visiban web app** does not read the change feed. The board view re-fetches full board state (`GET /api/v1/boards/{id}/full/`) in these cases:
+    - When its socket reconnects. This happens immediately, without the 30-second throttle. If a drag is in progress, the refetch waits until the drag ends.
+    - When the tab regains focus, at most once every 30 seconds.
+    - After an event that triggers a refetch.
+    - When you choose **Refresh board** in the connection popover.
+- **Group-channel frames** have no feed row, so group clients re-fetch the group's boards list. The web app's group page does this when its socket reconnects.
 
 ---
 

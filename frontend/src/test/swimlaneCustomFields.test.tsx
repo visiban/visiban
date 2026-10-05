@@ -85,14 +85,19 @@ function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   }
 }
 
-function renderRow(swimlane: Swimlane, defs: SwimlaneCustomFieldDefinition[], collapsed = false) {
+function renderRow(
+  swimlane: Swimlane,
+  defs: SwimlaneCustomFieldDefinition[],
+  collapsed = false,
+  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void } = {},
+) {
   return render(
     <SwimlaneRow
       swimlane={swimlane}
       columns={columns}
       cards={[] as Card[]}
       boardId={1}
-      isAdmin
+      isAdmin={extra.isAdmin ?? true}
       canEdit
       closeEditorOnEnter={false}
       collapsedColumnIds={new Set()}
@@ -109,6 +114,7 @@ function renderRow(swimlane: Swimlane, defs: SwimlaneCustomFieldDefinition[], co
       onExitFocus={vi.fn()}
       isFocused={false}
       swimlaneFieldDefinitions={defs}
+      onEditFieldOrder={extra.onEditFieldOrder}
     />
   )
 }
@@ -345,6 +351,66 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
   it('renders nothing at all when the swimlane carries no values', () => {
     renderRow(makeSwimlane(), [makeDef()])
     expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('"Edit field order…" popover shortcut (#1458)', () => {
+  const defs = [
+    makeDef({ id: 1, name: 'Owner', show_on_row: false, position: 0 }),
+    makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
+  ]
+  const lane = () => makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] })
+  const open = async (extra: Parameters<typeof renderRow>[3]) => {
+    const user = userEvent.setup()
+    renderRow(lane(), defs, false, extra)
+    await user.click(screen.getByRole('button', { name: /Show all 1 field values/ }))
+    return user
+  }
+
+  it('shows the item to an admin when the board hands over the callback', async () => {
+    await open({ isAdmin: true, onEditFieldOrder: vi.fn() })
+    expect(screen.getByRole('button', { name: 'Edit field order…' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit fields…' })).toBeInTheDocument()
+  })
+
+  it('hides the item when the board withholds the callback (admin, fewer than 2 fields)', async () => {
+    await open({ isAdmin: true })
+    expect(screen.queryByRole('button', { name: 'Edit field order…' })).not.toBeInTheDocument()
+  })
+
+  it('hides the item from a non-admin even if the callback is passed', async () => {
+    await open({ isAdmin: false, onEditFieldOrder: vi.fn() })
+    expect(screen.queryByRole('button', { name: 'Edit field order…' })).not.toBeInTheDocument()
+  })
+
+  it('closes the popover, then calls the callback, on click', async () => {
+    const onEditFieldOrder = vi.fn()
+    const user = await open({ isAdmin: true, onEditFieldOrder })
+    await user.click(screen.getByRole('button', { name: 'Edit field order…' }))
+    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
+  })
+
+  it('activates from the keyboard with Enter', async () => {
+    const onEditFieldOrder = vi.fn()
+    const user = await open({ isAdmin: true, onEditFieldOrder })
+    screen.getByRole('button', { name: 'Edit field order…' }).focus()
+    await user.keyboard('{Enter}')
+    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('"Edit fields…" popover item', () => {
+  it('closes the popover and opens the Edit Swimlane modal', async () => {
+    const user = userEvent.setup()
+    renderRow(
+      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'x' }] }),
+      [makeDef({ show_on_row: false })],
+    )
+    await user.click(screen.getByRole('button', { name: /Show all 1 field values/ }))
+    await user.click(screen.getByRole('button', { name: 'Edit fields…' }))
+    expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('edit-swimlane-modal')).toBeInTheDocument()
   })
 })
 
