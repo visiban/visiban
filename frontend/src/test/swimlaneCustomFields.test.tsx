@@ -400,6 +400,20 @@ describe('"Edit field order…" popover shortcut (#1458)', () => {
   })
 })
 
+describe('"Edit fields…" popover item', () => {
+  it('closes the popover and opens the Edit Swimlane modal', async () => {
+    const user = userEvent.setup()
+    renderRow(
+      makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'x' }] }),
+      [makeDef({ show_on_row: false })],
+    )
+    await user.click(screen.getByRole('button', { name: /Show all 1 field values/ }))
+    await user.click(screen.getByRole('button', { name: 'Edit fields…' }))
+    expect(screen.queryByRole('dialog', { name: 'Field values for Acme Corp' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('edit-swimlane-modal')).toBeInTheDocument()
+  })
+})
+
 describe('mergeSwimlaneFromBroadcast (#1140)', () => {
   const adminOnly = makeDef({ id: 1, name: 'ARR', is_admin_only: true })
   const publicDef = makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', is_admin_only: false })

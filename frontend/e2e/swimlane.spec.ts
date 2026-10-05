@@ -72,19 +72,19 @@ test.describe('swimlane field order shortcut', () => {
   }
   const board = {
     ...BOARD_FULL,
-    swimlane_custom_field_definitions: [
+    swimlane_custom_field_definitions: ([
       { ...defBase, id: 1, uid: 'sfuid0000001', name: 'Owner', position: 0 },
       { ...defBase, id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 },
-    ],
+    ] as unknown) as typeof BOARD_FULL.swimlane_custom_field_definitions,
     swimlanes: BOARD_FULL.swimlanes.map((s) => ({
       ...s,
       custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }],
-    })),
+    })) as typeof BOARD_FULL.swimlanes,
   }
 
   test('admin opens Swimlane fields from the +N popover; Ctrl+, still opens Members', async ({ page }) => {
     await routeAuth(page)
-    await routeBoard(page, board as typeof BOARD_FULL)
+    await routeBoard(page, board)
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
