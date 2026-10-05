@@ -18,6 +18,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invite_used: "This invite link has already been used. Please ask your administrator for a new one.",
   invite_revoked: "This invite link has been revoked. Please ask your administrator for a new one.",
   invite_required: "An invite link is required to create an account.",
+  invite_not_for_registration: "This invite link can't be used to create an account on this site. Ask a site admin for an invite.",
   invite_invalid: "This invite link is no longer valid. Please ask your administrator for a new one.",
   signup_closed: "Registration is currently closed.",
   oauth_failed: AUTH_ERROR_FALLBACK,
@@ -112,6 +113,13 @@ export default function LoginPage({ onLogin }: Props) {
     getSiteConfig()
       .then((c) => {
         setRegistrationOpen(c.registration_open);
+        // A closed site creates no accounts from any invite (#1445). JoinPage
+        // hands every group token to this form, so drop it here rather than
+        // offering an enabled form the backend will refuse with 403.
+        if (c.registration_mode === "closed") {
+          sessionStorage.removeItem("invite_token");
+          setHasInviteToken(false);
+        }
         // Demo banner (#1034): only when the server says demo mode is on AND
         // supplied credentials — a demo without credentials has nothing to show.
         setDemoLogin(c.demo_mode && c.demo_login ? c.demo_login : null);
@@ -188,6 +196,15 @@ export default function LoginPage({ onLogin }: Props) {
       }
     } catch (err: unknown) {
       setError(loginErrorMessage(err));
+      // Any invite_token rejection (invalid, expired, used, or a shareable
+      // group link that can't create accounts, #1445) means the stored token
+      // is dead: drop it, like the OAuth invite_* errors above, so the form
+      // falls back to "An invite link is required" instead of resending it.
+      const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      if (mode === "register" && data && "invite_token" in data) {
+        sessionStorage.removeItem("invite_token");
+        setHasInviteToken(false);
+      }
     } finally {
       setSubmitting(false);
     }

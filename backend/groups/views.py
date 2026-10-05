@@ -1259,6 +1259,15 @@ class JoinGroupRateThrottle(AnonRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": ident}
 
 
+def _is_member(user, group_id) -> bool:
+    """True when ``user`` is an authenticated member of the group ``group_id``."""
+    return bool(
+        user is not None
+        and user.is_authenticated
+        and GroupMembership.objects.filter(group_id=group_id, user=user).exists()
+    )
+
+
 class JoinGroupView(APIView):
     """
     Invite-link join flow.
@@ -1297,7 +1306,7 @@ class JoinGroupView(APIView):
                 {"detail": "Not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if link.single_use and link.used_at is not None:
+        if link.single_use and link.used_at is not None and not _is_member(request.user, link.group_id):
             logger.info(
                 "Invite token lookup failed: already used. token=%s ip=%s",
                 token_hint,
@@ -1348,7 +1357,13 @@ class JoinGroupView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            if link.single_use and link.used_at is not None:
+            # An already-used single-use invite still answers its own group's
+            # members (#1445): an emailed invite that authorized registration
+            # was redeemed by that registration, and the SPA's follow-up join
+            # must land the new member in the group rather than on a "this
+            # link has already been used" dead end. Non-members still get 410.
+            already_member = _is_member(request.user, link.group_id)
+            if link.single_use and link.used_at is not None and not already_member:
                 logger.info(
                     "Invite token redemption failed: already used. token=%s user_id=%s ip=%s outcome=failure",
                     token_hint,
@@ -1381,7 +1396,7 @@ class JoinGroupView(APIView):
                 defaults={"role": link.role},
             )
 
-            if link.single_use:
+            if link.single_use and link.used_at is None:
                 link.used_at = timezone.now()
                 link.save(update_fields=["used_at"])
 

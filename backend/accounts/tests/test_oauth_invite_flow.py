@@ -175,7 +175,7 @@ class OAuthInviteTokenMiddlewareTests(TestCase):
         self.middleware(request)
         self.assertEqual(request.session[PENDING_INVITE_SESSION_KEY], "vbnl_abc123")
 
-    def test_ignores_non_vbnl_tokens(self):
+    def test_ignores_unknown_prefix_tokens(self):
         request = self._make_request(
             "/accounts/google/login/",
             "process=login&invite_token=not_a_valid_prefix",

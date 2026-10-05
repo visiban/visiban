@@ -166,6 +166,35 @@ describe('JoinPage', () => {
     expect(sessionStorage.getItem('pendingJoinToken')).toBe('abc123')
   })
 
+  it('hands the group invite to the registration form as invite_token (#1445)', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    renderJoinPage(null, 'vbng_emailed')
+    fireEvent.click(await screen.findByText('Create an account'))
+    expect(sessionStorage.getItem('invite_token')).toBe('vbng_emailed')
+  })
+
+  it('does not set invite_token when signing in to an existing account (#1445)', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    renderJoinPage(null, 'vbng_emailed')
+    fireEvent.click(await screen.findByText('Sign in'))
+    expect(sessionStorage.getItem('invite_token')).toBeNull()
+  })
+
+  it('passes the group invite to the OAuth login URL (#1445)', async () => {
+    const original = window.location
+    Object.defineProperty(window, 'location', { value: { ...original, href: '' }, writable: true, configurable: true })
+    try {
+      mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false, oidc: false, oidc_name: null })
+      mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+      renderJoinPage(null, 'vbng_emailed')
+      fireEvent.click(await screen.findByText('Continue with Google'))
+      expect(window.location.href).toMatch(/\/accounts\/google\/login\/\?process=login&invite_token=vbng_emailed$/)
+      expect(sessionStorage.getItem('pendingJoinToken')).toBe('vbng_emailed')
+    } finally {
+      Object.defineProperty(window, 'location', { value: original, writable: true, configurable: true })
+    }
+  })
+
   it('shows countdown redirect on invalid invite', async () => {
     mockResolveJoinToken.mockRejectedValue(new Error('Not found'))
     renderJoinPage(fakeUser)

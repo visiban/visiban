@@ -1000,7 +1000,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             </section>
 
             {/* Invite links */}
-            <InviteLinkPanel groupId={groupId} reloadSignal={inviteReloadKey} />
+            <InviteLinkPanel groupId={groupId} reloadSignal={inviteReloadKey} isSiteAdmin={user.is_site_admin} />
 
             {/* Board defaults */}
             <section>

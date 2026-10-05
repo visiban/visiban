@@ -98,6 +98,11 @@ export default function JoinPage({ user }: Props) {
   const handleAuthRedirect = (mode: "login" | "register") => {
     sessionStorage.setItem("pendingJoinToken", token!);
     sessionStorage.setItem("returnTo", `/join/${token}`);
+    // An emailed group invite also authorizes sign-up on an invite-only site
+    // (#1445): hand the token to the registration form, which sends it as
+    // invite_token. Open sites ignore it; a shareable link is refused there
+    // with a message saying so.
+    if (mode === "register") sessionStorage.setItem("invite_token", token!);
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // there is nothing to roll back if the navigation itself rejects.
     void navigate("/", { state: { authMode: mode } });
@@ -109,7 +114,9 @@ export default function JoinPage({ user }: Props) {
     // pendingJoinToken directly (handleLogin is never called for OAuth).
     sessionStorage.setItem("pendingJoinToken", token!);
     sessionStorage.setItem("returnTo", `/join/${token}`);
-    window.location.href = providerLoginUrl(provider);
+    // The backend stashes the token for an OAuth sign-up on an invite-only
+    // site (#1445); an existing account signing in never reads it.
+    window.location.href = `${providerLoginUrl(provider)}&invite_token=${encodeURIComponent(token!)}`;
   };
 
   if (loading) {

@@ -178,6 +178,54 @@ describe('LoginPage', () => {
     expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password1234', 'password1234', undefined)
   })
 
+  it('drops a rejected invite token after a failed registration (#1445)', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
+    sessionStorage.setItem('invite_token', 'vbng_shared')
+    const detail = "This invite link can't be used to create an account on this site. Ask a site admin for an invite."
+    mockRegister.mockRejectedValue({ response: { status: 400, data: { invite_token: [detail] } } })
+
+    const user = userEvent.setup({ delay: null })
+    renderLoginPage({ authMode: 'register' })
+    await screen.findByText('Complete your registration')
+    await user.type(screen.getByPlaceholderText('Email address'), 'new@example.com')
+    await user.type(screen.getByPlaceholderText('Password'), 'password1234')
+    await user.type(screen.getByPlaceholderText('Confirm password'), 'password1234')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(detail)
+    expect(sessionStorage.getItem('invite_token')).toBeNull()
+    expect(screen.getByText('An invite link is required to create an account.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled()
+  })
+
+  it('drops an invite token on a closed site instead of enabling registration (#1445)', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, registration_mode: 'closed', invite_email_available: false })
+    sessionStorage.setItem('invite_token', 'vbng_emailed')
+    renderLoginPage({ authMode: 'register' })
+
+    await screen.findByText('An invite link is required to create an account.')
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled()
+    expect(screen.queryByText('Complete your registration')).not.toBeInTheDocument()
+    expect(sessionStorage.getItem('invite_token')).toBeNull()
+  })
+
+  it('keeps the invite token when registration fails for another reason', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
+    sessionStorage.setItem('invite_token', 'vbng_emailed')
+    mockRegister.mockRejectedValue({ response: { status: 400, data: { email: ['A user is already registered with this e-mail address.'] } } })
+
+    const user = userEvent.setup({ delay: null })
+    renderLoginPage({ authMode: 'register' })
+    await screen.findByText('Complete your registration')
+    await user.type(screen.getByPlaceholderText('Email address'), 'taken@example.com')
+    await user.type(screen.getByPlaceholderText('Password'), 'password1234')
+    await user.type(screen.getByPlaceholderText('Confirm password'), 'password1234')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
+    await screen.findByRole('alert')
+    expect(sessionStorage.getItem('invite_token')).toBe('vbng_emailed')
+  })
+
   it('hides "Create one" and shows invite-only message when registration is closed', async () => {
     mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     renderLoginPage()
@@ -345,6 +393,18 @@ describe('LoginPage', () => {
       )
 
       expect(await screen.findByText('An invite link is required to create an account.')).toBeInTheDocument()
+    })
+
+    it('explains a shareable group link cannot create an account (#1445)', async () => {
+      sessionStorage.setItem('invite_token', 'vbng_shared')
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=invite_not_for_registration']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      expect(await screen.findByText(/This invite link can't be used to create an account on this site\. Ask a site admin for an invite\./)).toBeInTheDocument()
+      expect(sessionStorage.getItem('invite_token')).toBeNull()
     })
 
     it('clears invite_token from sessionStorage on invite errors', async () => {

@@ -13,6 +13,9 @@ interface Props {
   /** Bumped by the parent on an invite_link.revoked socket event to trigger a
    *  refetch so another admin's revoke converges here in real time (#1051). */
   reloadSignal?: number;
+  /** Whether the signed-in admin is a site admin — decides the sign-up
+   *  notice on the email form (#1445). */
+  isSiteAdmin?: boolean;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -66,7 +69,7 @@ function effectiveStatus(link: GroupInviteLink): GroupInviteLink["status"] {
   return link.status ?? (link.is_expired ? "expired" : "pending");
 }
 
-export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
+export default function InviteLinkPanel({ groupId, reloadSignal, isSiteAdmin = false }: Props) {
   const [links, setLinks] = useState<GroupInviteLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -242,6 +245,7 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
         surface="group"
         send={(payload) => sendInviteLinkEmail(groupId, payload)}
         onSent={() => void fetchLinks()}
+        senderIsSiteAdmin={isSiteAdmin}
       />
 
       {loading ? (
