@@ -136,7 +136,7 @@ from ._demo_site_data import (
 BOARD_NAME = "Visiban Demo Board"
 # Distinct name for the --scale > 1 fixture (#1082) so a large-fixture run can
 # never collide with, or be mistaken for, the real demo board — most visibly
-# on the shared "demo" environment, where the weekly seed-demo-data refresh
+# on the shared "demo" environment, where the manual seed-demo-data
 # job must keep operating on BOARD_NAME regardless of what other scale this
 # command has ever been invoked with elsewhere.
 LOAD_TEST_BOARD_NAME = "Visiban Load Test Board"

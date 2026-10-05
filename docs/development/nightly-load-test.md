@@ -45,8 +45,8 @@ python manage.py seed_demo_data --force --scale 20 --with-notifications
 - `--scale 20` replicates the demo board's 10-swimlane layout 20 times: **200 swimlanes,
   ~2,400 cards** (11-13 cards per swimlane, same distribution `seed_demo_data` always uses —
   see its docstring). The board is named **"Visiban Load Test Board"**, distinct from
-  `"Visiban Demo Board"`, so this job can never collide with or overwrite the weekly
-  `seed-demo-data` refresh job's data, in CI or on the shared demo environment.
+  `"Visiban Demo Board"`, so this job can never collide with or overwrite the
+  manual `seed-demo-data` job's data, in CI or on the shared demo environment.
 - `--with-notifications` seeds 60 unread `Notification` rows for the `demo2` user — more than
   the 50-row cap `NotificationListView` / `NotificationUnreadCountView` apply, so the job
   exercises the same "more unread than the cap" path a busy real inbox hits.
