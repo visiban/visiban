@@ -267,7 +267,7 @@ describe("MultiSelectChips — colored choices (#1391)", () => {
     const def = shape({ field_type: "multi_select", choices: ["web", "ios"], choice_colors: { web: "green" } });
     render(<MultiSelectChips entries={["web", "ios"]} definition={def} max={2} />);
     const tinted = screen.getByTitle("web");
-    expect(tinted).toHaveClass("cf-choice-badge", "max-w-[6rem]", "truncate");
+    expect(tinted).toHaveClass("cf-choice-badge", "max-w-[6rem]", "truncate", "min-w-0");
     expect(tinted).toHaveTextContent("web");
     expect(screen.getByTitle("ios")).toHaveClass("bg-surface-hover");
   });
