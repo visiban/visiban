@@ -92,3 +92,8 @@ values.secret.yaml
 /node_modules
 /backend/.venv
 /frontend/node_modules
+
+# mutmut local output (#1384)
+.mutmut-cache
+mutmut-stats-*.json
+mutmut-cicd-stats.json
