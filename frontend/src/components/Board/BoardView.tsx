@@ -31,6 +31,7 @@ import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
+import { canEditSwimlaneFieldOrder } from "../../utils/swimlaneFieldOrder";
 import BoardExportModal from "./BoardExportModal";
 import { useExportSeenPref } from "../../hooks/useExportSeenPref";
 import { useShortcutsSeenPref } from "../../hooks/useShortcutsSeenPref";
@@ -62,6 +63,7 @@ import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useBoardResync } from "../../hooks/useBoardResync";
+import { useDeferredResync } from "../../hooks/useDeferredResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
 import { LayoutCompactIcon, LayoutExpandedIcon, OverlayIcon } from "./toolbarIcons";
 import BoardActivityDrawer from "./BoardActivityDrawer";
@@ -599,8 +601,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     collectActivityEvent(event);
   }, [handleSocketEvent, collectActivityEvent]);
 
-  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler);
-
   const [searchParams, setSearchParams] = useSearchParams();
   // Lens filter-row visibility (mirrors the board's local `showFilters`). Opens on
   // mount when a shared link already carries an active lens filter.
@@ -612,6 +612,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // (Alt). Reorder and delete should not look like the same gesture.
   const [altHeldDuringColumnDrag, setAltHeldDuringColumnDrag] = useState(false);
   const [activeSwimlane, setActiveSwimlane] = useState<Swimlane | null>(null);
+  // Reconnect resync (#1463) waits for any in-flight drag to finish so the
+  // refetch cannot replace board state under the dragged item.
+  const reconnectResync = useDeferredResync(
+    silentReload,
+    activeCard !== null || activeColumn !== null || activeSwimlane !== null,
+  );
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync });
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -798,6 +805,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  // Set only by the swimlane +N popover shortcut (#1458); every other opener
+  // leaves it undefined so Board settings opens on Members as before.
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | undefined>(undefined);
+  const closeSettings = useCallback(() => {
+    setShowSettings(false);
+    setSettingsInitialTab(undefined);
+  }, []);
+  const openSwimlaneFieldOrder = useCallback(() => {
+    setSettingsInitialTab("swimlane-fields");
+    setShowSettings(true);
+  }, []);
 
   // --- Issue board lens (read-only GitHub/GitLab mirror) ---
   // The Lens tab is shown only when the board has a lens connection AND the
@@ -2386,6 +2404,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       stale_warning_pct={board.stale_warning_pct ?? 50}
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+                      onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
                       onCardUpdated={onCardUpdated}
                       overlayCells={gridOverlayState?.cells}
                       overlayLabel={gridOverlayState?.label}
@@ -2531,7 +2550,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <BoardSettingsModal
           board={board}
           isAdmin={isAdmin}
-          onClose={() => setShowSettings(false)}
+          onClose={closeSettings}
+          initialTab={settingsInitialTab}
           viewPrefs={viewPrefs}
           onToggleHiddenColumn={toggleHiddenColumn}
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
@@ -2541,7 +2561,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onSetCardDensityOverride={setCardDensityOverride}
           gitLensEnabled={gitLensEnabled}
           lensConnection={lensConnection}
-          onManageLens={() => { setShowSettings(false); setShowLensModal(true); }}
+          onManageLens={() => { closeSettings(); setShowLensModal(true); }}
           onFieldsUpdated={onCustomFieldDefinitionsApplied}
           onSwimlaneFieldsUpdated={onSwimlaneFieldDefinitionsApplied}
           demoMode={currentUser?.demo_mode === true}

@@ -64,8 +64,9 @@ vi.mock('react-router-dom', () => ({
   MemoryRouter: ({ children }: { children: React.ReactNode }) => children,
 }))
 
+const socketOptionsSpy = vi.fn()
 vi.mock('../hooks/useBoardSocket', () => ({
-  useBoardSocket: () => ({ connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 }),
+  useBoardSocket: (_id: unknown, _onEvent: unknown, options?: unknown) => { socketOptionsSpy(options); return { connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 } },
 }))
 
 vi.mock('../hooks/useBoardPan', () => ({
@@ -107,12 +108,13 @@ vi.mock('../components/Board/ColumnHeader', () => ({
 // existing per-board write gate) so tests can assert on it without rendering the
 // real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, onFocus, onExitFocus, isFocused, compact, canEdit }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean }) => {
+  default: ({ swimlane, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void }) => {
     return (
       <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
+        {onEditFieldOrder && <button data-testid={`edit-order-${swimlane.id}`} onClick={onEditFieldOrder}>EditOrderMock</button>}
       </div>
     )
   },
@@ -136,11 +138,17 @@ vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
   default: () => <div data-testid="add-swimlane-modal">Add Swimlane Modal</div>,
 }))
 // Captures the props BoardView hands the settings modal (#1290).
-let capturedSettingsProps: { currentUserIsSiteAdmin?: boolean } = {}
+let capturedSettingsProps: { currentUserIsSiteAdmin?: boolean; initialTab?: string } = {}
 vi.mock('../components/Board/BoardSettingsModal', () => ({
-  default: (props: { currentUserIsSiteAdmin?: boolean }) => {
+  default: (props: { currentUserIsSiteAdmin?: boolean; initialTab?: string; onClose?: () => void; onManageLens?: () => void }) => {
     capturedSettingsProps = props
-    return <div data-testid="settings-modal">Settings Modal</div>
+    return (
+      <div data-testid="settings-modal">
+        Settings Modal
+        <button onClick={props.onClose}>MockSettingsClose</button>
+        <button onClick={props.onManageLens}>MockManageLens</button>
+      </div>
+    )
   },
 }))
 // Capture props passed into FilterBar so tests can assert on `scope` and `onScopeChange`
@@ -297,6 +305,18 @@ describe('BoardView', () => {
     mockedGetCardStatus.mockResolvedValue(null)
   })
 
+  it('passes an onReconnected to useBoardSocket that triggers a silent reload (#1463)', () => {
+    const silentReload = vi.fn()
+    mockBoardContextValue = defaultContext({ silentReload })
+    socketOptionsSpy.mockClear()
+    render(<BoardView {...defaultProps()} />)
+    const options = socketOptionsSpy.mock.calls.at(-1)?.[0] as { onReconnected?: () => void }
+    expect(typeof options.onReconnected).toBe('function')
+    expect(silentReload).not.toHaveBeenCalled()
+    options.onReconnected!()
+    expect(silentReload).toHaveBeenCalledTimes(1)
+  })
+
   it('renders view toggle buttons', () => {
     render(<BoardView {...defaultProps()} />)
     expect(screen.getByText('Board')).toBeInTheDocument()
@@ -444,6 +464,49 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByLabelText('Board settings'))
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+  })
+
+  describe('swimlane field order shortcut (#1458)', () => {
+    const twoDefs = [1, 2].map((n) => ({
+      id: n, uid: `sfuid000000${n}`, name: `F${n}`, field_type: 'text' as const, choices: [], position: n,
+      show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+    }))
+
+    it('opens settings on Swimlane fields via the shortcut; closing resets so a reopen is on the default tab', async () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlane_custom_field_definitions: twoDefs }) })
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      await user.click(screen.getByTestId('edit-order-20'))
+      expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+      expect(capturedSettingsProps.initialTab).toBe('swimlane-fields')
+
+      await user.click(screen.getByText('MockSettingsClose'))
+      expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+      await user.click(screen.getByLabelText('Board settings'))
+      expect(capturedSettingsProps.initialTab).toBeUndefined()
+    })
+
+    it('onManageLens closes settings and clears the deep-linked tab', async () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlane_custom_field_definitions: twoDefs }) })
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      await user.click(screen.getByTestId('edit-order-20'))
+      await user.click(screen.getByText('MockManageLens'))
+      expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+      await user.click(screen.getByLabelText('Board settings'))
+      expect(capturedSettingsProps.initialTab).toBeUndefined()
+    })
+
+    it('does not offer the shortcut with fewer than 2 definitions or to a non-admin', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlane_custom_field_definitions: twoDefs.slice(0, 1) }) })
+      const { unmount } = render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('edit-order-20')).not.toBeInTheDocument()
+      unmount()
+      mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer', swimlane_custom_field_definitions: twoDefs }) })
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('edit-order-20')).not.toBeInTheDocument()
+    })
   })
 
   it("passes the current user's own is_site_admin to the settings modal (#1290)", async () => {

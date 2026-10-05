@@ -92,6 +92,71 @@ describe('useBoard', () => {
     mockNavigate.mockClear()
   })
 
+  it('ignores a stale silentReload response that resolves after a newer one (#1463)', async () => {
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard({ name: 'Initial' }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let resolveOld!: (b: BoardFull) => void
+    let resolveNew!: (b: BoardFull) => void
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((r) => { resolveOld = r }))
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((r) => { resolveNew = r }))
+    const reload = result.current.silentReload
+    act(() => { reload(); reload() })
+    expect(result.current.silentReload).toBe(reload)
+
+    await act(async () => { resolveNew(makeBoard({ name: 'Newer' })) })
+    await act(async () => { resolveOld(makeBoard({ name: 'Older' })) })
+    expect(result.current.board?.name).toBe('Newer')
+  })
+
+  it('a superseded load does not leave loading stuck (#1463)', async () => {
+    let resolveLoad!: (b: BoardFull) => void
+    let resolveSilent!: (b: BoardFull) => void
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((r) => { resolveLoad = r }))
+    const { result } = renderHook(() => useBoard())
+    expect(result.current.loading).toBe(true)
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((r) => { resolveSilent = r }))
+    act(() => { result.current.silentReload() })
+    await act(async () => { resolveLoad(makeBoard({ name: 'Old' })) })
+    await act(async () => { resolveSilent(makeBoard({ name: 'New' })) })
+    expect(result.current.loading).toBe(false)
+    expect(result.current.board?.name).toBe('New')
+  })
+
+  it('a superseded failure does not set an error (#1463)', async () => {
+    let rejectLoad!: (e: Error) => void
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((_r, rej) => { rejectLoad = rej }))
+    const { result } = renderHook(() => useBoard())
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard({ name: 'Fresh' }))
+    act(() => { result.current.silentReload() })
+    await waitFor(() => expect(result.current.board?.name).toBe('Fresh'))
+    await act(async () => { rejectLoad(new Error('late')) })
+    expect(result.current.error).toBeNull()
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('a failed silentReload that superseded an in-flight load falls back to load (#1463)', async () => {
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>(() => {}))
+    const { result } = renderHook(() => useBoard())
+    mockGetBoardFull.mockRejectedValueOnce(new Error('net'))
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard({ name: 'Recovered' }))
+    act(() => { result.current.silentReload() })
+    await waitFor(() => expect(result.current.board?.name).toBe('Recovered'))
+    expect(mockGetBoardFull).toHaveBeenCalledTimes(3)
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('a failed silentReload with no load pending stays silent (#1463)', async () => {
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    mockGetBoardFull.mockRejectedValueOnce(new Error('net'))
+    await act(async () => { result.current.silentReload() })
+    expect(result.current.error).toBeNull()
+    expect(mockGetBoardFull).toHaveBeenCalledTimes(2)
+  })
+
   it('loads board on mount', async () => {
     const board = makeBoard()
     mockGetBoardFull.mockResolvedValue(board)
