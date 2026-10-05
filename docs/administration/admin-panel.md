@@ -191,7 +191,7 @@ After clicking **Create**, the full join URL (`/join/<token>`) is displayed **on
 
 > **Added in 1.2** (#731)
 
-Above the link list, the **Invite by email** section lets you have Visiban email an invite straight to an address: enter it and select **Send invite**. Visiban creates a single-use link that expires in 1, 7 (default) or 30 days and sends it from the instance's sender address. The address is not stored. Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See [Site Admins](site-admins.md) for the API and rate-limit details.
+Above the link list, the **Invite by email** section lets you have Visiban email an invite straight to an address: enter it and select **Send invite**. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. The address is not stored. Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See [Site Admins](site-admins.md) for the API and rate-limit details.
 
 When emailing isn't possible, the section is replaced by a note that points to **Settings → Email** (select it to open the Settings tab) and reminds you that email invites must be enabled (`INVITE_EMAIL_ENABLED`, see [Configuration](configuration.md)). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.
 
