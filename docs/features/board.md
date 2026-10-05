@@ -150,7 +150,7 @@ Dragging a column shows a **Hold ⌥ to delete** hint on the drag overlay.
 
 > **Added in 1.0**
 
-By default, WIP limit enforcement is "soft" — board admins can bypass a full column by appending `?force=true` to the move request. The **Enforce WIP hard** board setting removes this override entirely. When enabled:
+By default, WIP limit enforcement is "soft" — board admins can bypass a full column by appending `?force=true` to the request. The **Enforce WIP hard** board setting removes this override entirely. When enabled:
 
 - Moving a card into a column at or over its WIP limit, creating a card in it, and restoring an archived card into it are blocked for **all roles**, including board admins and site admins.
 - The `?force=true` query parameter is ignored — there is no bypass.
@@ -175,7 +175,7 @@ The column header's stat line only ever flips out of its calm state to warn abou
 - Columns **over** their limit are unaffected — the existing `⚠ Over WIP` treatment always takes precedence
 - Columns under the limit are unaffected — always `N cards`
 
-This setting is purely ambient: it does not change move enforcement, which is controlled independently by **Enforce WIP limits** / **Enforce WIP hard** above (#973).
+This setting is purely ambient: it does not change limit enforcement, which is controlled independently by **Enforce WIP limits** / **Enforce WIP hard** above (#973).
 
 ## Cards
 

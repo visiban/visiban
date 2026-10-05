@@ -83,9 +83,9 @@ Board
  ├── uid  (16-char hex, unique, read-only)
  ├── owner → User
  ├── group → Group (nullable — null = personal board)
- ├── enforce_wip_limits (bool — block moves into over-limit columns; default true)
+ ├── enforce_wip_limits (bool — block card placement into over-limit columns; default true)
  ├── enforce_wip_hard (bool — hard-block mode with no admin override; default false)
- ├── enforce_weight_limits (bool — block moves that exceed column weight budget; default true)
+ ├── enforce_weight_limits (bool — block placement or weight increases that exceed column weight budget; default true)
  ├── description (text, optional — board description; blank = no description)
  ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
  ├── stale_warning_pct (int 0–100 — yellow threshold for analytics heatmap; default 50)
@@ -196,9 +196,9 @@ Append-only record of a fixed, enumerable set of instance-wide admin actions (#1
 
 ### Board
 
-`enforce_wip_limits` (default true) blocks card moves into a column that is at or over its WIP limit with a 409 response. Board admins can override with `?force=true`. When `enforce_wip_hard` is also true, the limit becomes a hard stop for all roles including admins — no override is possible.
+`enforce_wip_limits` (default true) blocks moving, creating, or restoring a card into a column that is at or over its WIP limit with a 409 response (board import is exempt). Board admins can override with `?force=true`. When `enforce_wip_hard` is also true, the limit becomes a hard stop for all roles including admins — no override is possible.
 
-`enforce_weight_limits` (default true) blocks card moves into a column that would exceed its weight budget. Like WIP limits, board admins can override unless hard mode is active.
+`enforce_weight_limits` (default true) blocks moving, creating, or restoring a card into a column that would exceed its weight budget, and raising a card's weight past it. Like WIP limits, board admins can override unless hard mode is active.
 
 `stale_warning_pct` (default 50, range 0--100) controls the yellow warning band in the analytics heatmap. At this percentage of `staleness_threshold_days` the heatmap cell turns yellow; at 100% it turns red.
 
