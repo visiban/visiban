@@ -316,3 +316,46 @@ describe('useBoardSocket', () => {
     expect(latestWS().close).toHaveBeenCalledWith(4002)
   })
 })
+
+describe('useBoardSocket onReconnected (#1463)', () => {
+  it('does not fire on the initial open', () => {
+    const onReconnected = vi.fn()
+    renderHook(() => useBoardSocket(1, vi.fn(), { onReconnected }))
+    act(() => { latestWS().onopen?.() })
+    expect(onReconnected).not.toHaveBeenCalled()
+  })
+
+  it('fires on each open after a drop', () => {
+    const onReconnected = vi.fn()
+    renderHook(() => useBoardSocket(1, vi.fn(), { onReconnected }))
+    act(() => { latestWS().onopen?.() })
+    for (let i = 1; i <= 2; i++) {
+      act(() => { latestWS().onclose?.({ code: 1006 }) })
+      act(() => { vi.advanceTimersByTime(3000) })
+      act(() => { latestWS().onopen?.() })
+      expect(onReconnected).toHaveBeenCalledTimes(i)
+    }
+  })
+
+  it('treats a board change as an initial connect, not a reconnect', () => {
+    const onReconnected = vi.fn()
+    const { rerender } = renderHook(
+      ({ id }) => useBoardSocket(id, vi.fn(), { onReconnected }),
+      { initialProps: { id: 1 } },
+    )
+    act(() => { latestWS().onopen?.() })
+    rerender({ id: 2 })
+    act(() => { latestWS().onopen?.() })
+    expect(onReconnected).not.toHaveBeenCalled()
+  })
+
+  it('does not fire when auth rejection stops reconnecting', () => {
+    const onReconnected = vi.fn()
+    renderHook(() => useBoardSocket(1, vi.fn(), { onReconnected }))
+    act(() => { latestWS().onopen?.() })
+    act(() => { latestWS().onclose?.({ code: 4003 }) })
+    act(() => { vi.advanceTimersByTime(10000) })
+    expect(instances).toHaveLength(1)
+    expect(onReconnected).not.toHaveBeenCalled()
+  })
+})

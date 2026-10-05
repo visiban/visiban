@@ -174,6 +174,8 @@ When a browser tab is backgrounded, the operating system may throttle or suspend
 
 To guard against this, Visiban automatically re-fetches the full board state when a tab returns to the foreground (`visibilitychange` event). A 30-second throttle prevents redundant fetches when the user rapidly switches between tabs. The reload is "silent" — it does not flash a loading skeleton.
 
+The board is also re-fetched automatically each time the WebSocket reconnects after a dropped connection, regardless of the 30-second throttle, so changes made while you were disconnected appear without a manual refresh. The initial connection does not trigger an extra fetch.
+
 ## Resuming after a dropped connection
 
 > **Added in 1.2**

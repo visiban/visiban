@@ -599,7 +599,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     collectActivityEvent(event);
   }, [handleSocketEvent, collectActivityEvent]);
 
-  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler);
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: silentReload });
 
   const [searchParams, setSearchParams] = useSearchParams();
   // Lens filter-row visibility (mirrors the board's local `showFilters`). Opens on
