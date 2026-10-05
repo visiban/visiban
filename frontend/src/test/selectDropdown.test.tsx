@@ -134,6 +134,158 @@ describe('SelectDropdown', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
+  // #1480 — the menu is a fixed, anchored portal so a scrolling modal/panel
+  // ancestor can never clip it (jsdom does not clip; see e2e/select-dropdown-clip.spec.ts).
+  describe('anchored portal menu (#1480)', () => {
+    const rect = (top: number, bottom: number, left = 20, width = 100) =>
+      ({ top, bottom, left, right: left + width, width, height: bottom - top, x: left, y: top, toJSON: () => ({}) }) as DOMRect
+
+    function mockGeometry(triggerTop: number, triggerBottom: number, menuHeight: number, left = 20, width = 100) {
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(triggerTop, triggerBottom, left, width))
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(menuHeight)
+    }
+
+    afterEach(() => { vi.restoreAllMocks() })
+
+    const renderIt = (onChange: (v: string) => void = () => undefined) =>
+      render(<SelectDropdown value="a" onChange={onChange} options={options} />)
+
+    it('renders the menu in a body portal, outside the trigger subtree', async () => {
+      const { container } = renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      const panel = screen.getByRole('listbox').parentElement as HTMLElement
+      expect(container.contains(panel)).toBe(false)
+      expect(panel.parentElement).toBe(document.body)
+      expect(panel.style.position).toBe('fixed')
+    })
+
+    it('places the menu below the trigger when it fits', async () => {
+      mockGeometry(100, 130, 120)
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      const panel = screen.getByRole('listbox').parentElement as HTMLElement
+      expect(panel.style.top).toBe('134px')
+      expect(panel.style.visibility).not.toBe('hidden')
+    })
+
+    it('flips above the trigger when there is no room below', async () => {
+      mockGeometry(window.innerHeight - 40, window.innerHeight - 10, 120)
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      const panel = screen.getByRole('listbox').parentElement as HTMLElement
+      expect(panel.style.top).toBe(`${window.innerHeight - 40 - 4 - 120}px`)
+    })
+
+    it('clamps to the viewport right edge and is at least trigger-wide', async () => {
+      mockGeometry(100, 130, 120, window.innerWidth - 20, 100)
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      const panel = screen.getByRole('listbox').parentElement as HTMLElement
+      expect(panel.style.left).toBe(`${window.innerWidth - 100 - 8}px`)
+      expect(panel.style.minWidth).toBe('100px')
+    })
+
+    it('stays hidden until placed', async () => {
+      renderIt()
+      const trigger = screen.getByRole('combobox')
+      // Observe the first committed style by reading it inside a layout-time spy.
+      const seen: (string | undefined)[] = []
+      const orig = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')!
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+        configurable: true,
+        get() {
+          const el = this as HTMLElement
+          if (el.style?.position === 'fixed') seen.push(el.style.visibility)
+          return 100
+        },
+      })
+      await userEvent.click(trigger)
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', orig)
+      expect(seen[0]).toBe('hidden')
+      expect((screen.getByRole('listbox').parentElement as HTMLElement).style.visibility).not.toBe('hidden')
+    })
+
+    it('returns focus to the trigger after a selection', async () => {
+      const onChange = vi.fn()
+      renderIt(onChange)
+      const trigger = screen.getByRole('combobox')
+      await userEvent.click(trigger)
+      await userEvent.click(screen.getByRole('option', { name: 'Option B' }))
+      expect(onChange).toHaveBeenCalledWith('b')
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+      expect(trigger).toHaveFocus()
+    })
+
+    it('closes on Tab and leaves focus on the trigger', async () => {
+      renderIt()
+      const trigger = screen.getByRole('combobox')
+      await userEvent.click(trigger)
+      fireEvent.keyDown(trigger, { key: 'Tab' })
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+      expect(trigger).toHaveFocus()
+    })
+
+    it('Escape closes only the menu, not an enclosing priority-40 handler', async () => {
+      const outer = vi.fn()
+      const { useEscapeStack } = await import('../hooks/useEscapeStack')
+      function Host() {
+        useEscapeStack(() => { outer() }, 40)
+        return <SelectDropdown value="a" onChange={() => undefined} options={options} />
+      }
+      render(<Host />)
+      const trigger = screen.getByRole('combobox')
+      await userEvent.click(trigger)
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+      expect(outer).not.toHaveBeenCalled()
+      expect(trigger).toHaveFocus()
+      // With the menu closed, Escape falls through to the enclosing handler.
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(outer).toHaveBeenCalledTimes(1)
+    })
+
+    it('shows the overflow fade only while more options sit below the fold', async () => {
+      mockGeometry(100, 130, 120)
+      vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(500)
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(100)
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      expect(screen.getByTestId('select-more-below')).toBeInTheDocument()
+    })
+
+    it('closes on window resize', async () => {
+      mockGeometry(100, 130, 120)
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      act(() => { window.dispatchEvent(new Event('resize')) })
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+
+    it('closes on a scroll outside the menu but not inside it', async () => {
+      mockGeometry(100, 130, 120)
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      act(() => { screen.getByRole('listbox').dispatchEvent(new Event('scroll')) })
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
+      act(() => { document.dispatchEvent(new Event('scroll')) })
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+
+    it('closes on an outside click but not on a click inside the portaled menu', async () => {
+      render(
+        <>
+          <SelectDropdown value="a" onChange={() => undefined} options={options} />
+          <button type="button">Outside</button>
+        </>,
+      )
+      await userEvent.click(screen.getByRole('combobox'))
+      fireEvent.mouseDown(screen.getByRole('listbox'))
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Outside' }))
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+  })
+
   describe('size variants', () => {
     it('renders with default sm size', () => {
       render(<SelectDropdown value="a" onChange={() => undefined} options={options} size="sm" />)
