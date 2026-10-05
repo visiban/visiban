@@ -1,7 +1,7 @@
 # Mutation Testing Baseline
 
-!!! note "One-off and non-gating"
-    This page records a **manual** mutation-testing baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Nothing here runs in CI and nothing fails a pipeline. A recurring CI pilot with a floor is tracked separately (#1384).
+!!! note "Baseline is manual; a report-only CI pilot also runs"
+    The numbers below are a **manual** baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a report-only CI job, `backend-mutation`, also runs on the Nightly schedule against `boards/permissions.py` and publishes a score artifact. Nothing here fails a pipeline: the job is `allow_failure: true` and has no floor yet. See [CI pilot](#ci-pilot-backend-mutation).
 
 Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong. A tool makes one small change at a time (flip `==` to `!=`, change a string, replace a value with `None`), runs the tests, and counts the change as **killed** if a test fails or **survived** if every test still passes. The kill rate is `killed / (killed + survived)`.
 
@@ -180,6 +180,45 @@ For each survivor, read the diff and ask in order:
 3. **Otherwise it is a missing assertion.** Add the smallest assertion that fails on the mutant: the exact message or key, the boundary value (`limit` and `limit + 1`), the empty-collection case, or the ordering.
 
 Two patterns recur in this codebase. A string-literal mutant that adds `XX` around a message survives whenever a test uses `assertIn` with a fragment of the message, because the fragment is still a substring; assert the full message, or both its start and its end. A `>=` to `>` mutant on a limit survives unless a test sits exactly on the limit.
+
+## CI pilot (`backend-mutation`)
+
+Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`. It is a **pilot, not a gate**: it runs on the Nightly schedule only (`MUTATION_TEST=true`, never on an MR or a `main` push), both jobs are `allow_failure: true`, and `MUTATION_MIN` is unset. The report job prints the score and says the floor is unset. The floor is set later from observed scores, never chosen up front and never set to 0.
+
+### Beachhead: `boards/permissions.py`
+
+| | |
+|---|---|
+| Module | `backend/boards/permissions.py` (role and permission rule helpers) |
+| Mutants | 118 |
+| Tests | `test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions`, `test_permissions_unit_mutation_gaps` (132 tests, 44 s once, SQLite) |
+| Kill rate | 96.6% by the manual baseline above (before the pilot) |
+
+Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. `boards/services/cards.py` (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and the remaining survivors there are mostly untested `update_card` paths already tracked in #1454.
+
+Runtime evidence, measured 2026-10-04 on a loaded laptop (another mutmut run was using the CPUs), SQLite, mutmut 2.5.1, one process, `-x` per mutant:
+
+| Run | Mutants run | Wall time |
+|---|---:|---:|
+| shard 0 of 16 | 4 | 183 s |
+| shard 3 of 16 | 9 | 311 s |
+| one full test pass, no mutation | n/a | 44 s |
+
+Each mutant costs about 25 s, nearly all of it pytest and Django start-up, not the tests themselves. That is consistent with the manual baseline (~0.85 CPU-hours for 118 mutants). A serial run would take about 50 minutes, which is over the 15 to 20 minute target, so CI runs **4 parallel shards** (`parallel: 4`), each with its own Postgres service, which brings each shard to roughly 14 minutes of mutants plus one baseline run. This is an estimate, not a CI measurement: the first nightlies will give the real number, and `timeout: 40m` leaves headroom. PostgreSQL start-up and migrations may cost more than SQLite did here.
+
+### How it works
+
+- `backend/setup.cfg` `[mutmut]` holds the scope (`paths_to_mutate`, the test files). `backend/mutmut_config.py` gives shard k of N the lines where `line_index % N == k` (`MUTATION_SHARDS` and `MUTATION_SHARD`).
+- mutmut is installed **inside the job** with `pip install "mutmut==2.5.1"`. It stays out of `requirements*.txt`. Bumping the pin changes the mutants generated and so moves the score; bump it on purpose and re-baseline.
+- mutmut 2.5.1 has no `export-cicd-stats` command (that is 3.x). `scripts/check_mutation_score.py --export-cache` reads `.mutmut-cache` instead and writes one stats file per shard.
+- `backend-mutation-report` sums the shards, prints the score and writes `mutmut-cicd-stats.json` (kept 30 days). It exits 2 (yellow) if a shard died or mutants were left untested, even in report-only mode, so a dead run is never a meaningless green.
+- Dependency review for mutmut 2.5.1: BSD-3-Clause; dependencies click (BSD-3), glob2 (BSD), parso (MIT), pony (Apache-2.0), junit-xml (MIT), toml (MIT); no OSV advisories for any of them on 2026-10-04. 2.x rather than 3.x because 3.x copies the tree into a sandbox (needs `also_copy` bookkeeping for every file the suite reads), which does not suit a Django suite.
+
+### Maintainer steps and what comes next
+
+1. After the pilot MR merges, add `MUTATION_TEST=true` to the Nightly schedule (4176726). Until then the jobs never run. `MUTATION_TEST` is in `SCHEDULE_AUDIT_ACCEPTED_GAPS` so `schedule-config-check` does not report it MISSING; remove it from that list once the schedule carries it.
+2. After about a week of nightly artifacts, set `MUTATION_MIN` one point under the lowest observed score and record the decision on #1384. #1384 stays open until then.
+3. Triage survivors as described in [How to read the results](#how-to-read-the-results).
 
 ## Limits of this baseline
 
