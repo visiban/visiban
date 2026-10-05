@@ -5086,7 +5086,7 @@ parked out of sight cannot wash out every tint on the board.</p>
 <tbody>
 <tr>
 <td><strong>Cards</strong></td>
-<td>Cards. From JSON: with their assignees and due dates. From CSV: title, description, priority, weight, and due date — CSV carries no assignees.</td>
+<td>Cards. From JSON: with their assignees and due dates. From CSV: title, description, priority, weight, due date, and assignee.</td>
 <td>JSON, CSV</td>
 </tr>
 <tr>
@@ -5150,7 +5150,7 @@ parked out of sight cannot wash out every tint on the board.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">JSON vs CSV import fidelity</p>
-<p>JSON imports restore movement history, activity log, and assignees (matched by username). CSV imports create cards with their current field values only — no history or activity log is restored.</p>
+<p>JSON imports restore movement history, activity log, and assignees (matched by username). CSV imports create cards with their current field values only, including the <strong>Assignee</strong> column (matched by username, case-insensitively) — no history or activity log is restored. A blank Assignee, or a username that does not exist on this instance, imports the card unassigned. The user does not need to be a member of the source board; any user on the instance matches, including deactivated accounts, as with JSON.</p>
 </div>
 <ul>
 <li><code>POST /api/v1/boards/import/</code> — multipart file upload</li>
