@@ -3849,7 +3849,7 @@ green tick still reads as a verdict.</p>
 enterprise add-ons, and it is not the WebSocket surface. The two agree on five card event
 names and deliberately diverge on one: unarchiving a card broadcasts <code>card.unarchived</code>
 over the socket but fires the hook event <code>card.restored</code>. Both strings are frozen
-independently; neither may be "corrected" to match the other. The mapping table in
+independently; neither may be "corrected" to match the other. Hook handlers run after commit; a raising handler is logged and swallowed and cannot veto or roll back the write. The mapping table in
 <code>hooks.py</code> is the only place that correspondence is written down.</p>
 <p>The gate also does not check payload <em>shapes</em> — only names. A docs row whose <code>data</code> column
 lies about the payload still passes, so keep the row honest when you change a serializer.</p>

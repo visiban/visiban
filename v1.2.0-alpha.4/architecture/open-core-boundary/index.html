@@ -4388,7 +4388,7 @@
 <tr>
 <td><code>CARD_MUTATION_HOOKS</code> list (<code>boards/hooks.py</code>)</td>
 <td>Enterprise automation (enterprise #69) and any in-process reaction to card create/update/move/delete/archive/restore</td>
-<td>✅ Implemented — <code>boards/hooks.py</code>, fired on commit from <code>boards/services/cards.py</code>; pinned by <code>boards/tests/test_card_mutation_hooks.py</code></td>
+<td>✅ Implemented — <code>boards/hooks.py</code>, fired on commit from <code>boards/services/cards.py</code> (handler exceptions are logged and swallowed; handlers cannot veto or roll back the write); pinned by <code>boards/tests/test_card_mutation_hooks.py</code></td>
 </tr>
 <tr>
 <td>Board change feed (<code>GET /api/v1/boards/{id}/events/</code>)</td>
