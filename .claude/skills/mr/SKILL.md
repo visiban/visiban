@@ -164,6 +164,15 @@ Rules:
   gate-name pattern allows `/` but not spaces or parentheses, so
   `completeness-check (fix-diff)` is silently dropped from the tally. The label
   resolves to an existing agent, so it is not a phantom gate.
+- **`completeness-check` may carry two lines — the one sanctioned exception to "one
+  line per gate".** When its round-2 full audit ran (see
+  `.claude/agents/completeness-check.md` § Round 2), round 2 gets its own line under the
+  same gate name with `round 2` first in the parenthetical:
+  `- gate: completeness-check — 2 findings (round 2; opus; causes: class-missed 2; overlap 1/3)`.
+  Round 1's line carries `causes: <tally>` too. Do not invent a `completeness-check-r2`
+  name — it resolves to no agent and would be a phantom gate; the ledger parser
+  (`scripts/kaizen_gate_ledger.py`) splits the two rounds by the marker and reports round 2
+  as `completeness-check:r2`. Round 2 replaces fix-diff, so the fix-diff line is `n/a`.
 - **Design-stage gates belong on the ledger too.** `architect`, `ux-design`, and
   `voc` already run before any code exists. Their `<N>` is the count of findings
   that **changed the design** — a gap closed before coding, a risk mitigated or

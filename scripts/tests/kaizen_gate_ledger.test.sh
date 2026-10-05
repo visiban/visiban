@@ -210,6 +210,51 @@ sys.exit(0 if set(gates) == {"completeness-check", "completeness-check/fix-diff"
 PYEOF
 check "a spaced/parenthesized label is not mistaken for either gate" "$rc"
 
+# Round 2 (#1473): `completeness-check — N findings (round 2; ...)` is the same gate
+# name with a parenthetical marker; the parser re-keys it to `completeness-check:r2`
+# so round-2 yield is measured apart from round 1. A line that merely mentions
+# "round 2" outside the leading parenthetical position must stay round 1.
+python3 - "$TMP/r2.json" <<'PYEOF'
+import json, sys
+desc = (
+    "## Gates\n"
+    "- gate: completeness-check \u2014 3 findings (opus; causes: class-missed 2, test-weak 1)\n"
+    "- gate: completeness-check \u2014 2 findings (round 2; opus; causes: class-missed 2; overlap 1/3)\n"
+    "- gate: completeness-check/fix-diff \u2014 0 findings (model: sonnet)\n"
+)
+desc2 = (
+    "## Gates\n"
+    "- gate: completeness-check \u2014 1 finding (sonnet; a gist about round 2 wording)\n"
+    "- gate: completeness-check \u2014 0 findings (round 2; opus; overlap 0/0)\n"
+)
+json.dump([{"iid": 102, "title": "r2", "description": desc},
+           {"iid": 103, "title": "r2b", "description": desc2}], open(sys.argv[1], "w"))
+PYEOF
+python3 "$SCRIPT" --input "$TMP/r2.json" --json > "$TMP/r2_out.json"
+r2() { python3 - "$TMP/r2_out.json" "$@" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for key in sys.argv[2:]:
+    d = d[key]
+print(d)
+PYEOF
+}
+check "round-2 line is tallied as completeness-check:r2 (2 runs, 1 positive, 2 findings)" \
+  "$([ "$(r2 gates completeness-check:r2 runs)" = "2" ] && [ "$(r2 gates completeness-check:r2 positive)" = "1" ] && [ "$(r2 gates completeness-check:r2 positive_total)" = "2" ] && echo 0 || echo 1)"
+check "round 1 keeps only its own lines (2 runs, 4 findings), round 2 not folded in" \
+  "$([ "$(r2 gates completeness-check runs)" = "2" ] && [ "$(r2 gates completeness-check positive_total)" = "4" ] && echo 0 || echo 1)"
+# Deliberate leniency: ROUND2_RE also accepts `round-2` / `round2` spellings.
+python3 - "$TMP/r2dash.json" <<'PYEOF'
+import json, sys
+desc = "## Gates\n- gate: completeness-check \u2014 1 finding (round-2; opus; overlap 0/1)\n"
+json.dump([{"iid": 104, "title": "r2 dash", "description": desc}], open(sys.argv[1], "w"))
+PYEOF
+python3 "$SCRIPT" --input "$TMP/r2dash.json" --json > "$TMP/r2dash_out.json"
+check "'(round-2; ...)' spelling is leniently tallied as completeness-check:r2" \
+  "$(python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))["gates"].get("completeness-check:r2",{}).get("positive")==1 else 1)' "$TMP/r2dash_out.json" && echo 0 || echo 1)"
+check "fix-diff stays its own gate alongside round 2" \
+  "$([ "$(r2 gates completeness-check/fix-diff zero)" = "1" ] && echo 0 || echo 1)"
+
 # validate_project / validate_window: reject newline, dot segments, option-like input
 vp() { (cd "$REPO_ROOT/scripts" && python3 -c 'import sys, argparse, kaizen_gate_ledger as l
 try:

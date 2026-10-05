@@ -47,6 +47,9 @@ What it caught, by class — use these as the checklist, they are the ones that 
   won't hold once the branch changes underneath them.
 - **Again, narrowly, on the commits made in response to it** — a fix for a completeness
   finding is new code, not a formality.
+- **Again, in full, when round 1 says the branch is in trouble** — see
+  [Round 2](#round-2--a-second-full-audit-when-round-1-says-the-branch-is-in-trouble).
+  This replaces the narrow re-run for that branch; it covers the fix commits too.
 - Exempt: dependency bumps, CI-config-only and chore branches with no behavior change.
 
 ## How the orchestrator invokes it
@@ -140,20 +143,94 @@ deferred to an **open** issue that is named in the MR description — verify it 
 this gate exists to catch. Paste the `## Requirements` table into the MR description. Push
 only after this.
 
+## Cause tags
+
+Every BLOCKER and GAP opens with exactly one **cause tag** — why the gap exists, not
+which checklist step found it:
+
+| Tag | The gap exists because... |
+|---|---|
+| `requirement-unclear` | the issue (body + comments) did not settle what was wanted, so a reasonable implementer could have built it either way |
+| `requirement-missed` | the issue settled it and the branch did not do it — including a comment's scope correction |
+| `class-missed` | the reported instance is fixed and another member of the same class is not |
+| `collateral` | a shared rule moved and another consumer of the old behavior broke |
+| `test-weak` | a test that cannot fail, or a test-plan line nobody ran |
+| `docs-stale` | a docs claim is false of the code, or the old claim survives elsewhere |
+| `merged-tree` | a collision with `origin/main` as fetched now |
+
+Format: `- **BLOCKER** [class-missed] — <finding> — file:line — why`. The tags exist to
+answer one question with data: would asking for requirement clarification *before*
+implementation (`/batch` Step 2) prevent a real share of these findings? Only
+`requirement-unclear` would. Tag honestly — a `requirement-missed` filed as
+`requirement-unclear` makes the upstream fix look cheaper than it is. The ledger line
+carries the tally (see Recording it).
+
+## After round 1 — which re-check runs
+
+Round 1's fixes are committed in a new commit first. Then exactly one of these applies (the round-2 row takes precedence when more than one matches):
+
+| Round 1 reported | Next step |
+|---|---|
+| a BLOCKER tagged `class-missed` or `collateral`, **or** 4 or more BLOCKERS + GAPS in total | **round 2** — full audit (§ Round 2); it **replaces** fix-diff for this branch |
+| a BLOCKER (not `class-missed`/`collateral`) with fewer than 4 findings in total, or a fix commit changing executable behavior | **fix-diff** — narrow re-check of the fix diff, once (§ Fix-diff re-check) |
+| fewer than 4 findings in total, no BLOCKER, and only docs/tests/comments/changelog fixes | none — `completeness-check/fix-diff — n/a`; push |
+
+Round 2's own fixes get no further audit by this gate. Hard stop after round 2: if it
+still reports a BLOCKER, do not start round 3 — put the choice to the user.
+
+## Round 2 — a second full audit when round 1 says the branch is in trouble
+
+The narrow re-run audits only the fix commits, so it catches a bad fix but never what
+round 1 failed to see. One auditor's recall is incomplete, and a branch that produced many
+or structural findings is the branch where that matters: the author's model of the problem
+was off, and the fixes reach code round 1 never had to reason about.
+
+- **Trigger:** see the table above (a `class-missed`/`collateral` BLOCKER, or 4+ findings).
+- A **fresh** agent — not round 1's auditor, not via `SendMessage` to it, not the author.
+- **Do not show it round 1's findings.** Give it the same brief round 1 got (worktree,
+  issue numbers, user decisions). A list of known findings anchors the audit on them; the
+  point of round 2 is the findings round 1 did not have.
+- **Opus**, regardless of the escalation criteria — the trigger is itself the evidence
+  that this branch needs the stronger reasoner. It audits the whole branch at HEAD,
+  fix commits included.
+- After it reports, **compare the two lists** and record the overlap: how many round-2
+  findings round 1 had already reported. High overlap means the audits converge; low
+  overlap means there are probably more gaps neither found.
+- **Stop after two rounds.** If round 2 still reports a BLOCKER, the problem is the
+  branch, not the audit. Stop and put the choice to the user — split the branch, rethink
+  the approach, or fix and push with the residual risk stated in the MR. This is the same
+  reasoning that makes `/pre-release full` a one-time gate: fresh agents always find
+  something adjacent, and an audit loop has no natural end.
+
 ## Recording it
 
 The `## Gates` ledger (format in `.claude/skills/mr/SKILL.md`) carries:
 
 ```
-- gate: completeness-check — <N> findings (model: <sonnet|opus>)
+- gate: completeness-check — <N> findings (model: <sonnet|opus>; causes: <tally>)
 ```
 
 `<N>` counts BLOCKERs and GAPs that **changed the branch or were consciously deferred** —
-not rows in the table. `0` is a real outcome; record it. Never inflate.
+not rows in the table. `0` is a real outcome; record it. Never inflate. `<tally>` lists
+each cause tag used with its count (`causes: class-missed 2, test-weak 1`); omit the
+`causes:` item at 0 findings.
+
+If round 2 ran, it gets **its own line** under the same gate name, with `round 2` as the
+first item in the parenthetical and the overlap last:
+
+```
+- gate: completeness-check — <N> findings (round 2; opus; causes: <tally>; overlap <k>/<M>)
+```
+
+`<N>` counts only what round 1 did not already report; `<k>/<M>` is how many of round 2's
+`<M>` findings round 1 had already reported. Keep the gate name unchanged — it must
+resolve to an existing agent, and `scripts/kaizen_gate_ledger.py` splits the line out as
+`completeness-check:r2` by the `(round 2` marker. When round 2 ran, the fix-diff line is
+`completeness-check/fix-diff — n/a` (round 2 replaced it).
 
 ### Fix-diff re-check
 
-When the first pass returned a BLOCKER, or a commit made in response to it changes
+When round 2 is not triggered (see "After round 1"), and the first pass returned a BLOCKER, or a commit made in response to it changes
 executable behavior (application code, CI or chart logic, a gate or check script, a
 migration — not docs, tests, comments, or changelog text), a fresh agent audits **only
 that fix diff** (`git diff <audited-sha>..HEAD`), once. Judge the fix commit against the
