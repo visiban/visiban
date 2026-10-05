@@ -68,6 +68,9 @@ interface Props {
    * them would render card fields on a row or vice versa.
    */
   swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
+  /** Admin-only shortcut from the `+N` popover to Board settings → Swimlane
+   *  fields (#1458). BoardView omits it when there is no order to edit. */
+  onEditFieldOrder?: () => void;
   onCardUpdated?: (card: Card) => void;
   /**
    * Grid-overlay shading for this row's cells (#1147), keyed by
@@ -80,7 +83,7 @@ interface Props {
   overlayLabel?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, onCardUpdated, overlayCells, overlayLabel }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -482,6 +485,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           anchorRect={fieldsPopoverRect}
           userDateFormat={userDateFormat}
           onEdit={isAdmin ? () => setEditing(true) : undefined}
+          onEditOrder={isAdmin ? onEditFieldOrder : undefined}
           onDismiss={() => setFieldsPopoverRect(null)}
           triggerRef={overflowRef}
         />

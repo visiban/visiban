@@ -4,6 +4,8 @@
  * routeAuth()  — mocks the authenticated-user endpoints so tests can skip
  *               the login flow and navigate directly to protected pages.
  * routeBoard() — mocks all board-detail endpoints for a given board fixture.
+ * END_OF_LINE  — the key that moves an editor's caret to the end of its line
+ *               on the host platform (see its comment before using bare 'End').
  *
  * All route patterns use ** so they match regardless of the origin
  * (http://localhost:8000 in dev, any host in CI).
@@ -59,3 +61,20 @@ export async function routeBoard(page: Page, board = BOARD_FULL): Promise<void> 
     ws.send(JSON.stringify({ event: 'connected', data: {} }))
   })
 }
+
+/**
+ * The key that moves a text caret to the end of its line, on the platform the
+ * browser runs on. Use it instead of a bare `'End'` in editor specs.
+ *
+ * Why it differs: on a macOS host, Playwright's Chromium driver attaches the
+ * native Cocoa editing command to each key (`macEditingCommands` in
+ * playwright-core), and macOS binds End to `scrollToEndOfDocument:` — a
+ * smooth scroll of the nearest scroll container to its bottom that does not
+ * move the caret. Linux (CI) has no such binding, so End moves the caret to
+ * the end of the line there. A spec that presses End therefore scrolls the
+ * card panel to its bottom only on a developer's Mac, and any text typed
+ * during that animation is inserted while the caret is still visible, so
+ * ProseMirror's scroll-into-view has nothing to correct (#1475).
+ * Cmd+ArrowRight is macOS's `moveToRightEndOfLine:`.
+ */
+export const END_OF_LINE = process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End'

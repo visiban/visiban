@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
-import { routeAuth, routeBoard } from './helpers'
+import { END_OF_LINE, routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, BOARD_USER, CARD } from './fixtures/board'
 
 /**
@@ -155,7 +155,7 @@ test.describe('rich text editor', () => {
     const { dialog, editor } = await openDescriptionEditor(page)
 
     await editor.click()
-    await page.keyboard.press('End')
+    await page.keyboard.press(END_OF_LINE)
     await page.keyboard.type(' Extra sentence.')
 
     await dialog.getByRole('button', { name: 'Save' }).click()
@@ -170,7 +170,7 @@ test.describe('rich text editor', () => {
     const { dialog, editor } = await openDescriptionEditor(page)
 
     await editor.click()
-    await page.keyboard.press('End')
+    await page.keyboard.press(END_OF_LINE)
     // Type the word, then select just it so the mark applies to a known range.
     await page.keyboard.type(' standout')
     await selectWordInEditor(editor, 'standout')
@@ -190,7 +190,7 @@ test.describe('rich text editor', () => {
     const { dialog, editor } = await openDescriptionEditor(page)
 
     await editor.click()
-    await page.keyboard.press('End')
+    await page.keyboard.press(END_OF_LINE)
     await page.keyboard.type(' https://example.com ')
 
     await dialog.getByRole('button', { name: 'Save' }).click()
@@ -216,7 +216,7 @@ test.describe('rich text editor', () => {
     const { dialog, editor } = await openDescriptionEditor(page)
 
     await editor.click()
-    await page.keyboard.press('End')
+    await page.keyboard.press(END_OF_LINE)
     await page.keyboard.type(' underlined')
     // Without a real selection this guard can pass vacuously: Ctrl+U has no text
     // to mark, so no <u> is written even with Underline enabled.
@@ -245,7 +245,7 @@ test.describe('rich text editor', () => {
     const { dialog, editor } = await openDescriptionEditor(page)
 
     await editor.click()
-    await page.keyboard.press('End')
+    await page.keyboard.press(END_OF_LINE)
     await page.keyboard.type(' discarded text')
 
     await dialog.getByRole('button', { name: 'Cancel' }).click()
@@ -274,7 +274,7 @@ test.describe('rich text editor', () => {
     const { editor } = await openDescriptionEditor(page)
 
     await editor.click()
-    await page.keyboard.press('End')
+    await page.keyboard.press(END_OF_LINE)
     // Room above the text, so the panel can scroll the caret's line down.
     await page.addStyleTag({ content: '.ProseMirror { padding-top: 1000px !important; }' })
     await page.keyboard.type(' @test')
@@ -306,14 +306,10 @@ test.describe('rich text editor', () => {
           visible: getComputedStyle(pop).visibility === 'visible',
         }
       })
-    // The card panel can still scroll itself just after typing; if the
-    // anchor has moved back up, scroll it down again and re-check.
+    // A bare 'End' used to smooth-scroll the panel on macOS hosts (#1475), which
+    // is why this once re-scrolled inside the poll; END_OF_LINE moves the caret.
     await scrollAnchorLow()
-    await expect.poll(async () => {
-      const g = await geometry()
-      if (g.fitsBelow) await scrollAnchorLow()
-      return g
-    }, { timeout: 5_000 }).toEqual({ fitsBelow: false, above: true, onScreen: true, visible: true })
+    await expect.poll(geometry, { timeout: 5_000 }).toEqual({ fitsBelow: false, above: true, onScreen: true, visible: true })
 
     // A resize ends the suggestion through Tiptap's exit path, which removes
     // the popup, and leaves the editor open.
