@@ -10,11 +10,11 @@
 [![docs](https://img.shields.io/badge/docs-docs.visiban.com-blue)](https://docs.visiban.com/next/)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
-**Visiban is a self-hosted Kanban board for teams that track many independent entities through a shared pipeline.** Think customers moving through a sales process, accounts in an onboarding flow, or projects across delivery stages — each gets its own swimlane row, and the whole board gives you an at-a-glance view of where everything stands.
+**Visiban is an open-source Kanban board where every row is an entity and every move is on the record.** Each swimlane is a customer, account, or project moving through a shared pipeline, so the whole board gives you an at-a-glance view of where everything stands. You get typed fields on the row, WIP limits, card aging and dwell-time analytics, and a permanent audit trail of every card movement. An API and MCP server let you connect your own tools.
 
 Every card move is recorded automatically. You always know where something is _and_ how it got there.
 
-**In one line: kill the spreadsheet, visualize the workflow, interrogate it with your own AI — every move on the record.** Swimlane rows carry typed fields of their own, so the data teams usually keep in a side-spreadsheet lives on the board instead. A first-class MCP server lets any AI agent you already run query and change the board through a scoped token you issue — Visiban ships the *interface*, not a model, so no data leaves your install. OIDC/OAuth SSO is in the Apache-2.0 core, not a paid tier.
+**In one line: kill the spreadsheet, see how work actually moves, interrogate it with your own AI — every move on the record.** Swimlane rows carry typed fields of their own, so the data teams usually keep in a side-spreadsheet lives on the board instead. A first-class MCP server lets any AI agent you already run query and change the board through a scoped token you issue — Visiban ships the *interface*, not a model, so no data leaves your install. OIDC/OAuth SSO is in the Apache-2.0 core, not a paid tier.
 
 Comparing options? [Why Visiban](https://docs.visiban.com/next/getting-started/why-visiban/) is an honest look at what it does differently — and when one of the alternatives is the better pick.
 

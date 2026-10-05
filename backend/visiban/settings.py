@@ -640,7 +640,7 @@ MCP_THROTTLE_COMPUTE_RATE = env("MCP_THROTTLE_COMPUTE_RATE", default="30/min")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Visiban API",
-    "DESCRIPTION": "REST API for the Visiban Kanban board. Full OpenAPI 3.0 spec.",
+    "DESCRIPTION": "REST API for Visiban, an open-source Kanban board where every row is an entity and every move is on the record. Full OpenAPI 3.0 spec.",
     "VERSION": "1.1.0",
     "LICENSE": {"name": "Apache 2.0", "url": "https://www.apache.org/licenses/LICENSE-2.0"},
     "CONTACT": {"name": "Visiban", "url": "https://visiban.com"},
