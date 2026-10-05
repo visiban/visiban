@@ -1,5 +1,6 @@
 import io
 import json
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.test.utils import override_settings
@@ -811,6 +812,31 @@ class BoardImportCSVAssigneeTests(TestCase):
         # Same as the JSON importer: any user on the instance matches; board
         # membership is not required (the new board has only the importer).
         self.assertEqual(self._import(["outsider_user"])["Card 0"], self.outsider)
+
+    def test_lowercase_assignee_header_resolves(self):
+        # _HEADER_MAP normalizes header case, so "assignee" works like "Assignee".
+        f = io.BytesIO(b"title,column,swimlane,assignee\nLower,To Do,General,MemberUser\n")
+        f.name = "lower.csv"
+        resp = self.client.post(
+            "/api/v1/boards/import/", {"file": f, "name": "Lower"}, format="multipart"
+        )
+        self.assertEqual(resp.status_code, 201)
+        card = Card.objects.get(board_id=resp.data["id"], title="Lower")
+        self.assertEqual(card.assignee, self.member)
+
+    def test_cards_option_off_skips_assignee_lookup(self):
+        header = "Title,Column,Swimlane,Assignee\nCard,To Do,General,MemberUser\n"
+        f = io.BytesIO(header.encode("utf-8"))
+        f.name = "off.csv"
+        with patch("boards.views.import_export._resolve_import_users") as resolver:
+            resp = self.client.post(
+                "/api/v1/boards/import/",
+                {"file": f, "name": "Off", "options": json.dumps({"cards": False})},
+                format="multipart",
+            )
+        self.assertEqual(resp.status_code, 201)
+        resolver.assert_not_called()
+        self.assertFalse(Card.objects.filter(board_id=resp.data["id"]).exists())
 
     def test_export_import_roundtrip_keeps_assignee(self):
         board = Board.objects.create(name="Source", owner=self.user)
