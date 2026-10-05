@@ -74,7 +74,12 @@ class Board(models.Model):
     )
     enforce_wip_limits = models.BooleanField(
         default=True,
-        help_text="When enabled, card moves into a column at or over its WIP limit are blocked with a 409 response. Board admins can override with ?force=true.",
+        help_text=(
+            "When enabled, moving, creating, or restoring a card into a column at or over its "
+            "WIP limit is blocked with a 409 response, as is saving a card in the Django admin. "
+            "Board admins can override with ?force=true (not in the Django admin). "
+            "Board import is not checked."
+        ),
     )
     enforce_wip_hard = models.BooleanField(
         default=False,
@@ -85,7 +90,12 @@ class Board(models.Model):
     )
     enforce_weight_limits = models.BooleanField(
         default=True,
-        help_text="When enabled, card moves into a column that would exceed its weight budget are blocked with a 409 response. Board admins can override with ?force=true.",
+        help_text=(
+            "When enabled, moving, creating, or restoring a card into a column that would exceed "
+            "its weight budget, or raising a card's weight with PATCH/PUT, is blocked with a 409 "
+            "response, as is saving a card in the Django admin. Board admins can override with "
+            "?force=true (not in the Django admin). Board import is not checked."
+        ),
     )
     share_token = models.UUIDField(
         null=True, blank=True, default=None, editable=False, unique=True,

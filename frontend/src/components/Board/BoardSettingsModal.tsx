@@ -793,7 +793,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <div className="min-w-0 pr-4">
                       <span className="text-sm text-fg">Enforce WIP limits</span>
                       <p className="text-xs text-fg-muted mt-0.5">
-                        When enabled, moving a card into a column that is at or over its WIP limit is blocked. Admins can override.
+                        When enabled, moving, creating, or restoring a card into a column that is at or over its WIP limit is blocked. Admins can override.
                       </p>
                     </div>
                     <Toggle
@@ -849,7 +849,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <div className="min-w-0 pr-4">
                       <span className="text-sm text-fg">Enforce weight limits</span>
                       <p className="text-xs text-fg-muted mt-0.5">
-                        When enabled, moving a card into a column that would exceed its weight budget is blocked. Admins can override. Columns must have a weight limit set for this to take effect.
+                        When enabled, moving, creating, or restoring a card into a column that would exceed its weight budget, or raising a card's weight, is blocked. Admins can override. Columns must have a weight limit set for this to take effect.
                       </p>
                     </div>
                     <Toggle
