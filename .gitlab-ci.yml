@@ -3809,7 +3809,7 @@ seed-demo-data:
     - cd backend
     # Use today's date (YYYYMMDD) as the random seed so each refresh
     # produces a naturally varied board while remaining reproducible within
-    # the same day. Override by setting SEED_VALUE in the CI schedule variables.
+    # the same day. Override by setting SEED_VALUE in the manual trigger variables.
     - python manage.py seed_demo_data --wipe --force --seed ${SEED_VALUE:-$(date +%Y%m%d)}
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"'
