@@ -310,8 +310,12 @@ A transient publish failure does **not** close the socket. A client that stays c
 How to resync:
 
 - **API clients** can replay board events from the durable [change feed](events.md). Keep the last `event_id` you processed and call `GET /api/v1/boards/{id}/events/?after=<event_id>`.
-- **The Visiban web app** does not read the change feed. The board view re-fetches full board state (`GET /api/v1/boards/{id}/full/`) in three cases: when the tab regains focus (at most once every 30 seconds), after events that trigger a refetch, and when you choose **Refresh board** in the connection popover. The group page re-fetches the group's boards list on reconnect.
-- **Group-channel frames** have no feed row, so group clients re-fetch the group view.
+- **The Visiban web app** does not read the change feed. The board view re-fetches full board state (`GET /api/v1/boards/{id}/full/`) in these cases:
+    - When its socket reconnects. This happens immediately, without the 30-second throttle. If a drag is in progress, the refetch waits until the drag ends.
+    - When the tab regains focus, at most once every 30 seconds.
+    - After an event that triggers a refetch.
+    - When you choose **Refresh board** in the connection popover.
+- **Group-channel frames** have no feed row, so group clients re-fetch the group's boards list. The web app's group page does this when its socket reconnects.
 
 ---
 
