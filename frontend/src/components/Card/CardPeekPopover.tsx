@@ -4,6 +4,7 @@ import { PRIORITY_COLORS } from "../../constants/colors";
 import { formatRelativeTime } from "../../utils/date";
 import { formatCustomFieldValue, isValidForType } from "../../utils/customFieldValue";
 import { PROVIDER_LABELS } from "../../utils/externalRef";
+import { useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 
 interface CardPeekPopoverProps {
   card: Card;           // from ../../types
@@ -23,6 +24,15 @@ const POPOVER_GAP = 8;
 
 export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMouseLeave, customFieldDefinitions = [], userDateFormat = "MM/DD/YYYY" }: CardPeekPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  // Top-aligned with the card, sliding up only as far as its measured height
+  // needs to stay on screen (#1457): a card near the bottom of the board would
+  // otherwise push the peek off the viewport. Hover-only, so no resize or
+  // scroll dismissal: mouse-leave already closes it.
+  const top = useAnchoredPlacement(popoverRef, {
+    anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
+    mode: "side",
+    deps: [card],
+  });
 
   // Check prefers-reduced-motion — when true, skip the fade-in animation class.
   // Guard against jsdom and older environments where matchMedia may not exist.
@@ -36,7 +46,9 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
 
   const style: React.CSSProperties = {
     position: "fixed",
-    top: anchorRect.top,
+    top: top ?? 0,
+    // Hidden only for the pre-paint measuring pass.
+    visibility: top === null ? "hidden" : undefined,
     zIndex: 50,
     width: POPOVER_WIDTH,
     ...(wouldOverflowRight

@@ -251,6 +251,23 @@ describe("CustomFieldQuickEditPopover", () => {
       expect(onDismiss).toHaveBeenCalled();
     });
 
+    it("dismisses on a scroll outside the panel, but not on a scroll of its own list", () => {
+      const onDismiss = vi.fn();
+      render(
+        <CustomFieldQuickEditPopover
+          anchorRect={makeRect()}
+          choices={CHOICES}
+          selected="Low"
+          onSelect={() => {}}
+          onDismiss={onDismiss}
+        />
+      );
+      fireEvent.scroll(screen.getByRole("listbox", { name: "Choices" }));
+      expect(onDismiss).not.toHaveBeenCalled();
+      fireEvent.scroll(document);
+      expect(onDismiss).toHaveBeenCalled();
+    });
+
     it("exposes a keyboard-focusable, labeled scroll region", () => {
       mount(makeRect());
       const list = screen.getByRole("listbox", { name: "Choices" });

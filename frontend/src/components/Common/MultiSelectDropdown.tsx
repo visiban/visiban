@@ -82,12 +82,14 @@ type Anchor = { left: number; minWidth: number; top: number; bottom: number };
  * (same approach as `SingleSelectDropdown`'s `portalMenu`). Per the #1455
  * rules for anchored `fixed` popovers it is sized to content up to the
  * viewport, placed from its measured height (below the trigger, else above,
- * else pinned to the bottom edge), hidden until placed, and clamped to the
- * viewport horizontally. It closes on any scroll or resize outside itself
+ * else pinned to the bottom edge, and that side is kept while filtering
+ * shrinks the list), hidden until placed, and clamped to the viewport
+ * horizontally. It closes on any scroll or resize outside itself
  * rather than drifting away from its trigger. Its list shows a bottom fade
  * while more options sit below the fold. The list is not a Tab stop: focus
  * lives in the search combobox, whose arrow keys scroll the active option into
- * view (the combobox pattern), and Tab there closes the menu.
+ * view (the combobox pattern), and Tab there closes the menu. This is the
+ * named exception to #1455 rule (a) recorded in frontend/CLAUDE.md.
  */
 export default function MultiSelectDropdown({
   label, options, selected, onCommit, disabled, escapePriority,
@@ -164,15 +166,19 @@ export default function MultiSelectDropdown({
   // Listeners below always call this render's closeMenu (it reads `draft`).
   const closeRef = useRef(closeMenu);
   closeRef.current = closeMenu;
-  const closeFromResize = useCallback(() => closeRef.current(), []);
+  const closeFromViewport = useCallback(() => closeRef.current(), []);
+  // The side chosen at open is kept while filtering shrinks the list (#1457).
   const top = useAnchoredPlacement(menuRef, {
     anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
     deps: [open, all.length, orphans.length],
-    onResize: closeFromResize,
+    onResize: closeFromViewport,
+    // A scroll of any ancestor (not just the window) moves the trigger out
+    // from under the fixed-position menu; scrolling its own list is ignored.
+    onOutsideScroll: closeFromViewport,
   });
   const { moreBelow, onScroll } = useOverflowFade(listRef, [open, all.length, orphans.length]);
 
-  const closeFromOutside = useCallback((e: Event) => {
+  const closeFromOutside = useCallback((e: MouseEvent) => {
     const target = e.target as Node | null;
     if (target && (menuRef.current?.contains(target) || wrapperRef.current?.contains(target))) return;
     closeRef.current();
@@ -181,14 +187,7 @@ export default function MultiSelectDropdown({
   useEffect(() => {
     if (!open) return;
     document.addEventListener("mousedown", closeFromOutside);
-    // Capture phase: a scroll of any ancestor (not just the window) moves the
-    // trigger out from under the fixed-position menu. Scrolling the menu's own
-    // list is ignored by closeFromOutside.
-    document.addEventListener("scroll", closeFromOutside, true);
-    return () => {
-      document.removeEventListener("mousedown", closeFromOutside);
-      document.removeEventListener("scroll", closeFromOutside, true);
-    };
+    return () => document.removeEventListener("mousedown", closeFromOutside);
   }, [open, closeFromOutside]);
 
   // Focus the search only once the menu is placed: a browser ignores focus()

@@ -147,6 +147,19 @@ describe('CollapsedFlyout', () => {
       expect(onClose).toHaveBeenCalledTimes(1)
     })
 
+    it('closes on a scroll outside the panel, but not on a scroll of its own list', () => {
+      const onClose = vi.fn()
+      render(
+        <MemoryRouter>
+          <CollapsedFlyout title="Boards" sections={defaultSections} anchor={{ top: 100, left: 48 }} onClose={onClose} onNavigate={vi.fn()} />
+        </MemoryRouter>,
+      )
+      fireEvent.scroll(screen.getByRole('menu', { name: 'Boards' }))
+      expect(onClose).not.toHaveBeenCalled()
+      fireEvent.scroll(document)
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
     it('exposes a keyboard-focusable, labeled menu as the scroll region', () => {
       mount(100)
       const menu = screen.getByRole('menu', { name: 'Boards' })

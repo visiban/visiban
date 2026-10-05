@@ -40,7 +40,8 @@ interface Props {
  * Click-anchored flyout panel for the collapsed sidebar rail.
  *
  * Rendered via createPortal so it escapes the sidebar's overflow-hidden
- * container. Closed on outside mousedown, Escape, or window resize.
+ * container. Closed on outside mousedown, Escape, window resize, or a scroll
+ * outside the panel (scrolling its own list keeps it open).
  *
  * The item list is unbounded (every board and group the user can see), so it
  * follows the #1455 rules for anchored `fixed` popovers: sized to content up
@@ -65,6 +66,7 @@ export default function CollapsedFlyout({
     mode: "side",
     deps: [itemCount],
     onResize: onClose,
+    onOutsideScroll: onClose,
   });
   const { moreBelow, onScroll } = useOverflowFade(listRef, [itemCount]);
 
@@ -76,7 +78,7 @@ export default function CollapsedFlyout({
     if (!placed || focusedRef.current) return;
     focusedRef.current = true;
     const list = listRef.current;
-    if (list && list.scrollHeight > list.clientHeight) list.focus();
+    if (list && list.scrollHeight > list.clientHeight) list.focus({ preventScroll: true });
   }, [placed]);
 
   // Close on outside mousedown

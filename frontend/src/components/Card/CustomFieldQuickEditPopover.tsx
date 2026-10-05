@@ -24,7 +24,7 @@ const POPOVER_WIDTH = 190;
  * A field may define many choices, so the panel follows the #1455 rules for
  * anchored `fixed` popovers: sized to content up to the viewport, placed from
  * its measured height (below, else above, else bottom-pinned), dismissed on
- * resize, and — when the list overflows — a focusable scroll region with a
+ * resize and on any scroll outside the panel (never its own list), and — when the list overflows — a focusable scroll region with a
  * bottom fade that takes focus after placement.
  */
 export default function CustomFieldQuickEditPopover({ anchorRect, choices, selected, onSelect, onDismiss }: Props) {
@@ -34,6 +34,7 @@ export default function CustomFieldQuickEditPopover({ anchorRect, choices, selec
     anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
     deps: [choices.length],
     onResize: onDismiss,
+    onOutsideScroll: onDismiss,
   });
   const { moreBelow, onScroll } = useOverflowFade(listRef, [choices.length]);
 
@@ -46,7 +47,7 @@ export default function CustomFieldQuickEditPopover({ anchorRect, choices, selec
     if (!placed || focusedRef.current) return;
     focusedRef.current = true;
     const list = listRef.current;
-    if (list && list.scrollHeight > list.clientHeight) list.focus();
+    if (list && list.scrollHeight > list.clientHeight) list.focus({ preventScroll: true });
   }, [placed]);
 
   useEffect(() => {

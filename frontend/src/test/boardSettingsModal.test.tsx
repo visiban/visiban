@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import type { BoardFull, User } from '../types'
@@ -551,6 +551,47 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
 
     clearSpy.mockRestore()
     errorSpy.mockRestore()
+  })
+
+  // #1457 — the suggestions are an anchored `fixed` popover of user data.
+  async function showSuggestionsAt(top: number, bottom: number, height: number) {
+    mockSearchUsers.mockResolvedValue([aliceUser])
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(height)
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const input = screen.getByPlaceholderText(/search by name or email/i)
+    input.getBoundingClientRect = () =>
+      ({ top, bottom, left: 40, right: 440, width: 400, height: bottom - top, x: 40, y: top, toJSON: () => ({}) }) as DOMRect
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+      setter?.call(input, 'ali')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => { vi.advanceTimersByTime(350) })
+    await waitFor(() => screen.getByText('Alice Wonder'))
+    return screen.getByTestId('member-suggestions')
+  }
+
+  it('places the suggestions below the search when they fit, capped at the viewport', async () => {
+    const panel = await showSuggestionsAt(100, 130, 200)
+    expect(panel.style.top).toBe('134px')
+    expect(panel.style.visibility).toBe('')
+    expect(panel.style.maxHeight).toBe('calc(100vh - 16px)')
+    vi.restoreAllMocks()
+  })
+
+  it('places the suggestions above the search when they do not fit below', async () => {
+    const panel = await showSuggestionsAt(window.innerHeight - 60, window.innerHeight - 30, 200)
+    expect(panel.style.top).toBe(`${window.innerHeight - 60 - 4 - 200}px`)
+    vi.restoreAllMocks()
+  })
+
+  it('dismisses the suggestions on an outside scroll, not on a scroll of their own list', async () => {
+    const panel = await showSuggestionsAt(100, 130, 200)
+    fireEvent.scroll(panel)
+    expect(screen.getByTestId('member-suggestions')).toBeInTheDocument()
+    fireEvent.scroll(document)
+    expect(screen.queryByTestId('member-suggestions')).toBeNull()
+    vi.restoreAllMocks()
   })
 
   it('clicking a suggestion adds it to the staged list', async () => {

@@ -13,6 +13,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { BoardUser, EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 import MentionList from "./MentionList";
+import { placeFixedElement, type AnchoredSide } from "../../hooks/useAnchoredPlacement";
 import type { MentionListRef } from "./MentionList";
 
 interface Props {
@@ -254,6 +255,14 @@ export default function RichTextEditor({
           render: () => {
             let component: ReactRenderer<MentionListRef>;
             let popup: HTMLDivElement;
+            // Placed from its measured height per the #1455 rules (below the
+            // caret, else above, else bottom-pinned), and the side found on
+            // the first measurement is kept while the typed query narrows the
+            // list, so it never jumps across the caret (#1457).
+            let side: AnchoredSide | undefined;
+            const place = (rect: DOMRect) => {
+              side = placeFixedElement(popup, rect, side) ?? side;
+            };
 
             return {
               onStart(props) {
@@ -265,22 +274,24 @@ export default function RichTextEditor({
                 popup = document.createElement("div");
                 popup.style.position = "fixed";
                 popup.style.zIndex = "9999";
-                const rect = props.clientRect();
-                if (rect) {
-                  popup.style.left = `${rect.left}px`;
-                  popup.style.top = `${rect.bottom + 4}px`;
-                }
                 document.body.appendChild(popup);
                 popup.appendChild(component.element);
+                const rect = props.clientRect();
+                if (!rect) return;
+                place(rect);
+                // The list may not have rendered yet; measure again next frame.
+                if (side === undefined) {
+                  requestAnimationFrame(() => {
+                    const next = popup.isConnected ? props.clientRect?.() : null;
+                    if (next) place(next);
+                  });
+                }
               },
               onUpdate(props) {
                 component.updateProps(props);
                 if (!props.clientRect || !popup) return;
                 const rect = props.clientRect();
-                if (rect) {
-                  popup.style.left = `${rect.left}px`;
-                  popup.style.top = `${rect.bottom + 4}px`;
-                }
+                if (rect) place(rect);
               },
               onKeyDown({ event }) {
                 if (event.key === "Escape") {

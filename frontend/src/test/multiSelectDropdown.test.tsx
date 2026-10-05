@@ -132,6 +132,28 @@ describe("MultiSelectDropdown (#1391)", () => {
       expect(menu().style.top).toBe(`${window.innerHeight - 40 - 4 - 200}px`);
     });
 
+    it("keeps the side chosen at open while filtering shrinks the list", async () => {
+      // 20 options; the menu's measured height follows the rendered rows.
+      const many = Array.from({ length: 20 }, (_, i) => `opt${i}`);
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+        return this.dataset.testid === "multiselect-menu"
+          ? 40 + 20 * this.querySelectorAll("[role='option']").length
+          : 0;
+      });
+      renderDropdown({ options: many });
+      const trigger = screen.getByRole("button", { name: /^Tags:/ });
+      const triggerTop = window.innerHeight - 200;
+      trigger.getBoundingClientRect = () => rectAt(triggerTop, triggerTop + 30);
+      const search = await open();
+      // 440px does not fit below, so it opens upward, flush above the trigger.
+      expect(menu().style.top).toBe(`${triggerTop - 4 - 440}px`);
+      fireEvent.change(search, { target: { value: "opt19" } });
+      // One row (60px) would now fit below; it must stay above, its bottom
+      // edge still at the trigger, rather than jumping across it.
+      expect(screen.getAllByRole("option")).toHaveLength(1);
+      expect(menu().style.top).toBe(`${triggerTop - 4 - 60}px`);
+    });
+
     it("pins to the bottom edge when it fits neither below nor above", async () => {
       const height = window.innerHeight - 60;
       vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(height);
