@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { MENU_ITEM_FOCUS_RING } from "./menuItemFocusRing";
 
@@ -36,7 +38,14 @@ export interface SingleSelectDropdownProps<T extends string | number> {
   onOpenChange?: (open: boolean) => void;
   /**
    * #1147 — render the menu into a `document.body` portal, anchored with
-   * `getBoundingClientRect` + `position: fixed`, exactly as `SplitButton` does.
+   * `getBoundingClientRect` + `position: fixed`.
+   *
+   * #1478 — placement now comes from the shared `useAnchoredPlacement` hook
+   * (below, else above, else pinned; side kept while it fits; hidden until
+   * measured) and the menu dismisses on window resize or a scroll outside it,
+   * per the "Anchored fixed popovers" rule in frontend/CLAUDE.md. Required for
+   * any menu inside a clipping or scrolling ancestor, such as the Edit
+   * Swimlane modal's field list.
    *
    * Required for any dropdown placed inside the Row 2 board toolbar: that strip is
    * `overflow-x-auto` on an `h-10` box, and per the CSS spec `overflow-x: auto` with
@@ -48,6 +57,8 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    */
   portalMenu?: boolean;
 }
+
+const MIN_MENU_WIDTH = 140;
 
 export default function SingleSelectDropdown<T extends string | number>({
   label,
@@ -63,10 +74,11 @@ export default function SingleSelectDropdown<T extends string | number>({
   const [open, setOpenState] = useState(false);
   // Menu anchor captured at open time (portal mode only), so the position survives a
   // re-render without re-measuring. Same approach as SplitButton.
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [anchor, setAnchor] = useState<{ top: number; bottom: number; left: number; minWidth: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const id = useId();
   const menuId = `${id}-menu`;
@@ -79,7 +91,17 @@ export default function SingleSelectDropdown<T extends string | number>({
     (next: boolean) => {
       if (next && portalMenu) {
         const rect = triggerRef.current?.getBoundingClientRect();
-        if (rect) setAnchor({ top: rect.bottom + 4, left: rect.left });
+        if (rect) {
+          // Menu is at least as wide as its trigger (a `w-full` field trigger
+          // must not get a narrower menu) and is clamped so it never runs off
+          // the viewport's right edge (#1478).
+          const minWidth = Math.max(rect.width, MIN_MENU_WIDTH);
+          const left = Math.max(
+            POPOVER_VIEWPORT_MARGIN,
+            Math.min(rect.left, window.innerWidth - minWidth - POPOVER_VIEWPORT_MARGIN),
+          );
+          setAnchor({ top: rect.top, bottom: rect.bottom, left, minWidth });
+        }
       }
       if (!next) setAnchor(null);
       setOpenState(next);
@@ -87,6 +109,17 @@ export default function SingleSelectDropdown<T extends string | number>({
     },
     [onOpenChange, portalMenu],
   );
+
+  // Measured placement; the side chosen at open is kept while it still fits.
+  const closeFromViewport = useCallback(() => setOpen(false), [setOpen]);
+  const top = useAnchoredPlacement(panelRef, {
+    anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
+    deps: [open, options.length],
+    onResize: closeFromViewport,
+    onOutsideScroll: closeFromViewport,
+  });
+
+  const { moreBelow, onScroll } = useOverflowFade(listRef, [open, options.length]);
 
   useDropdownEscape(open, () => setOpen(false), triggerRef, escapePriority);
 
@@ -116,6 +149,10 @@ export default function SingleSelectDropdown<T extends string | number>({
       }
       return;
     }
+    if (e.key === "Tab" && portalMenu) {
+      setOpen(false);
+      return;
+    }
     if (e.key === "ArrowDown") {
       itemRefs.current[0]?.focus();
       e.preventDefault();
@@ -123,6 +160,14 @@ export default function SingleSelectDropdown<T extends string | number>({
   };
 
   const handleItemKeyDown = (e: React.KeyboardEvent, i: number) => {
+    if (e.key === "Tab" && portalMenu) {
+      // The portaled menu sits at the end of <body>, so Tab from it would leave
+      // the dialog. Close and hand focus back to the trigger; the browser's own
+      // Tab then moves on from there (#1478).
+      setOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
     if (e.key === "ArrowDown") {
       itemRefs.current[Math.min(i + 1, options.length - 1)]?.focus();
       e.preventDefault();
@@ -145,9 +190,25 @@ export default function SingleSelectDropdown<T extends string | number>({
       role="menu"
       id={menuId}
       aria-labelledby={`${id}-trigger`}
-      style={portalMenu && anchor ? { position: "fixed", top: anchor.top, left: anchor.left } : undefined}
+      style={
+        portalMenu && anchor
+          ? {
+              position: "fixed",
+              top: top ?? 0,
+              left: anchor.left,
+              minWidth: anchor.minWidth,
+              // Hidden only for the pre-paint measuring pass.
+              visibility: top === null ? "hidden" : undefined,
+              maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+              display: "flex",
+              flexDirection: "column",
+            }
+          : undefined
+      }
       className={`${portalMenu ? "" : "absolute top-full mt-1 left-0 "}z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]`}
     >
+      {/* Inner scroll region so the overflow fade can sit over it (#1455 rule (b)). */}
+      <div ref={listRef} onScroll={onScroll} className={portalMenu ? "min-h-0 overflow-y-auto" : undefined}>
       {options.map((opt, i) => (
         <div key={opt.value}>
           {i > 0 && (
@@ -162,6 +223,9 @@ export default function SingleSelectDropdown<T extends string | number>({
             onClick={() => {
               onChange(selected === opt.value ? null : opt.value);
               setOpen(false);
+              // The focused item unmounts with the menu; without this focus drops to <body>,
+              // which for a portaled menu is outside the surrounding dialog (#1478).
+              triggerRef.current?.focus();
             }}
             onKeyDown={(e) => handleItemKeyDown(e, i)}
             // Menu items are real tab stops, reached by roving arrow-key
@@ -179,6 +243,13 @@ export default function SingleSelectDropdown<T extends string | number>({
           </button>
         </div>
       ))}
+      </div>
+      {portalMenu && moreBelow && (
+        <div
+          data-testid="singleselect-more-below"
+          className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-surface to-transparent pointer-events-none rounded-b-lg"
+        />
+      )}
     </div>
   );
 

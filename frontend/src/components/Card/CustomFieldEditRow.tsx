@@ -6,6 +6,8 @@ import AutosaveIndicator from "../Common/AutosaveIndicator";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import { urlErrorFromServer } from "../../utils/customFieldValue";
 
+const CARD_DETAIL_FIELD_ESCAPE_PRIORITY = 41;
+
 interface Props {
   definition: CustomFieldDefinition;
   value: string | undefined;
@@ -66,6 +68,9 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
           value={value}
           disabled={disabled}
           onCommit={commit}
+          // Above CardDetail's panel close (30) and ModalWrapper's (40), so Escape on an
+          // open dropdown menu closes only the menu (#1478).
+          escapePriority={CARD_DETAIL_FIELD_ESCAPE_PRIORITY}
           serverError={isUrl ? urlServerError : undefined}
         />
       )}

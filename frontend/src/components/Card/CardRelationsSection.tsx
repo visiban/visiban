@@ -120,14 +120,14 @@ export default function CardRelationsSection({
   useEffect(load, [load]);
 
   // Refetch when another session adds/removes a relation on this card while
-  // the panel is open (#1310) — skips the initial mount, which the effect
-  // above already covers.
-  const skipInitialRefreshRef = useRef(true);
+  // the panel is open (#1310). Keyed on whether the signal CHANGED rather than
+  // a "skip first run" flag: StrictMode's dev mount/unmount/remount keeps refs,
+  // so a boolean skip flag is already false on the second pass and would fire
+  // an extra fetch on mount (#1479). The effect above covers the mount load.
+  const lastSignalRef = useRef(refreshSignal);
   useEffect(() => {
-    if (skipInitialRefreshRef.current) {
-      skipInitialRefreshRef.current = false;
-      return;
-    }
+    if (lastSignalRef.current === refreshSignal) return;
+    lastSignalRef.current = refreshSignal;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-fetches only in response to refreshSignal; `load` is already covered by the effect above
   }, [refreshSignal]);
