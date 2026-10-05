@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -278,6 +279,24 @@ describe('InviteLinkPanel', () => {
     // Parent bumps the signal when an invite_link.revoked socket event arrives.
     rerender(<InviteLinkPanel groupId={1} reloadSignal={1} />)
     await waitFor(() => expect(mockListInviteLinks).toHaveBeenCalledTimes(2))
+  })
+
+  it('under StrictMode fetches only from the mount effect (2), then once per reloadSignal bump (#1479)', async () => {
+    vi.mocked(listInviteLinks).mockResolvedValue([])
+    const el = (signal: number) => (
+      <StrictMode>
+        <InviteLinkPanel groupId={1} reloadSignal={signal} />
+      </StrictMode>
+    )
+    const { rerender } = render(el(0))
+    await waitFor(() => expect(listInviteLinks).toHaveBeenCalledTimes(2))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(listInviteLinks).toHaveBeenCalledTimes(2)
+
+    rerender(el(1))
+    await waitFor(() => expect(listInviteLinks).toHaveBeenCalledTimes(3))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(listInviteLinks).toHaveBeenCalledTimes(3)
   })
 
   it('does not double-fetch on mount when reloadSignal is provided', async () => {
