@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -1125,6 +1126,32 @@ describe('CardDetail', () => {
       expect(mockGetChecklist).toHaveBeenCalledTimes(2)
       expect(mockGetAttachments).toHaveBeenCalledTimes(2)
       expect(mockGetCardRelations).toHaveBeenCalledTimes(2)
+    })
+
+    it('under StrictMode fires only the mount fetches (2 each), then exactly one refetch per signal bump (#1479)', async () => {
+      const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
+      const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
+      const mockGetAttachments = getCardAttachments as ReturnType<typeof vi.fn>
+      mockGetComments.mockResolvedValue([])
+      mockGetChecklist.mockResolvedValue([])
+      mockGetAttachments.mockResolvedValue([])
+      mockGetCardRelations.mockResolvedValue([])
+      const props = defaultProps()
+      const el = (signal: number) => (
+        <StrictMode>
+          <CardDetail {...props} refreshSignal={signal} />
+        </StrictMode>
+      )
+      const mocks = [mockGetComments, mockGetChecklist, mockGetAttachments, mockGetCardRelations]
+      const { rerender } = render(el(0))
+      await waitFor(() => expect(mockGetComments).toHaveBeenCalledTimes(2))
+      await new Promise((r) => setTimeout(r, 20))
+      for (const m of mocks) expect(m).toHaveBeenCalledTimes(2)
+
+      rerender(el(1))
+      await waitFor(() => expect(mockGetComments).toHaveBeenCalledTimes(3))
+      await new Promise((r) => setTimeout(r, 20))
+      for (const m of mocks) expect(m).toHaveBeenCalledTimes(3)
     })
 
     it('does not refetch on mount beyond the initial load (refreshSignal defaults to 0)', async () => {

@@ -187,15 +187,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   // Refetch comments/checklist/attachments when another session mutates this
   // card while the panel is open (#1310 — none of these live-update without a
-  // manual refresh otherwise). Skips the initial mount, which the effect
-  // above already covers; deliberately does not touch the *Open collapse
+  // manual refresh otherwise). Keyed on whether the signal CHANGED (not a
+  // "skip first run" flag, which StrictMode's ref-preserving remount defeats and
+  // turns into an extra mount fetch, #1479); the effect above covers the mount
+  // load. Deliberately does not touch the *Open collapse
   // state, so a background refresh never snaps a collapsed section back open.
-  const skipInitialRefreshRef = useRef(true);
+  const lastSignalRef = useRef(refreshSignal);
   useEffect(() => {
-    if (skipInitialRefreshRef.current) {
-      skipInitialRefreshRef.current = false;
-      return;
-    }
+    if (lastSignalRef.current === refreshSignal) return;
+    lastSignalRef.current = refreshSignal;
     getCardComments(board.id, card.id).then(setComments).catch(() => setLoadError(true));
     getCardAttachments(board.id, card.id).then(setAttachments).catch(() => setLoadError(true));
     getChecklist(board.id, card.id).then(setChecklist).catch(() => setLoadError(true));

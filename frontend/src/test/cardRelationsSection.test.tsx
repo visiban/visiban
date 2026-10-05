@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -252,6 +253,31 @@ describe('CardRelationsSection — live refresh on socket event (#1310)', () => 
 
     await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2))
     expect(await screen.findByText('Blocker card')).toBeInTheDocument()
+  })
+
+  it('under StrictMode fires only the mount fetches (2), then exactly one refetch per signal bump (#1479)', async () => {
+    mockGet.mockResolvedValue([])
+    const el = (signal: number) => (
+      <StrictMode>
+        <CardRelationsSection
+          board={board}
+          card={makeCard()}
+          canEdit
+          onBlockerCountChange={vi.fn()}
+          refreshSignal={signal}
+        />
+      </StrictMode>
+    )
+    const { rerender } = render(el(0))
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2))
+    // Let any stray refresh-effect fetch surface before asserting the count.
+    await new Promise((r) => setTimeout(r, 20))
+    expect(mockGet).toHaveBeenCalledTimes(2)
+
+    rerender(el(1))
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(3))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(mockGet).toHaveBeenCalledTimes(3)
   })
 
   it('does not refetch on mount beyond the initial load (refreshSignal defaults to 0)', async () => {
