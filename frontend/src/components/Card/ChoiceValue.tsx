@@ -31,7 +31,11 @@ interface BadgeProps {
 export function ChoiceBadge({ colorKey, children, className, title }: BadgeProps) {
   return (
     <span
-      className={`cf-choice-badge rounded px-1.5 py-0.5 text-xs truncate ${className ?? ""}`}
+      // min-w-0 baked in here (not left to call sites) — #1411: a `truncate`
+      // span's ellipsis never engages inside a flex container without an
+      // explicit min-width override, so every caller needs it, not just the
+      // ones that happened to add it.
+      className={`cf-choice-badge rounded px-1.5 py-0.5 text-xs truncate min-w-0 ${className ?? ""}`}
       style={choiceBadgeStyle(colorKey)}
       data-choice-color={colorKey}
       title={title}

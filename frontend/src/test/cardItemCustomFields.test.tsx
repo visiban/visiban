@@ -594,7 +594,12 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(avatarStub.parentElement).not.toBe(row);
   });
 
-  it("renders the avatar stub but no metadata row when the card has only an assignee (hasMetadataRow rename didn't leave an empty row)", () => {
+  it("still renders an (empty) metadata row when the card has only an assignee, so the row's pr-7 reserves the avatar's footprint (#1411 ux-review blocker)", () => {
+    // card.assignee deliberately stays in the hasMetadataRow OR-chain even
+    // though the avatar itself renders outside the row: the row's `pr-7` is
+    // the only thing reserving the avatar's space, so an assignee-only card
+    // must still render the row — with no chips in it — or the absolutely-
+    // positioned avatar has nothing stopping it from sitting on the title.
     const { container } = render(
       <CardItem
         card={makeCard({
@@ -605,6 +610,8 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     );
 
     expect(screen.getByTestId("avatar-stub")).toBeInTheDocument();
-    expect(container.querySelector(".overflow-hidden.group-hover\\:overflow-visible")).toBeNull();
+    const row = container.querySelector(".overflow-hidden.group-hover\\:overflow-visible");
+    expect(row).not.toBeNull();
+    expect(row).toHaveClass("pr-7");
   });
 });

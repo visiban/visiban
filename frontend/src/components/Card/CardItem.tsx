@@ -305,12 +305,19 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     }
   };
 
+  // card.assignee stays in this OR-chain even though the avatar itself no
+  // longer renders inside the row (#1411): the row's `pr-7` clearance is the
+  // only thing that reserves the avatar's footprint, so when the assignee is
+  // the card's ONLY metadata, the row must still render — empty of chips,
+  // purely to reserve that space — or the absolutely-positioned avatar sits
+  // on top of the title with nothing stopping it.
   const hasMetadataRow =
     (showDescriptionIndicator && !!card.description) ||
     card.labels.length > 0 ||
     card.checklist_total > 0 ||
     (showAttachments && card.attachment_count > 0) ||
     (showDueDatePill && dueInfo && !dueAlreadyInUrgency) ||
+    !!card.assignee ||
     (showWeight && card.weight > 1) ||
     (showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency) ||
     !!movedLabel ||

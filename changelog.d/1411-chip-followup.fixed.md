@@ -1,0 +1,1 @@
+Cards whose only metadata is an assignee now keep the metadata row's right-hand clearance so the avatar no longer overlaps the title, and tinted custom-field choice badges truncate with an ellipsis on every card layout (follow-up to #1411).
