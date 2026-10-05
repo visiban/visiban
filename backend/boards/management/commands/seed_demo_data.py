@@ -578,7 +578,7 @@ class Command(BaseCommand):
             help=(
                 "Also seed unread Notification rows for 'demo2' so the "
                 "notification-poll endpoints (list/unread-count) have realistic "
-                "data. Off by default: the weekly demo-board refresh job's "
+                "data. Off by default: the manual demo-board refresh job's "
                 "existing behavior is left untouched unless this is passed "
                 "explicitly (used by the nightly load-test job, #1082)."
             ),

@@ -3786,8 +3786,8 @@ seed-demo-data:
     DJANGO_SECRET_KEY: $DEMO_SECRET_KEY
     DEBUG: "False"
     ALLOWED_HOSTS: "localhost"
-    # Set SEED_VALUE in the schedule or manual trigger variables to use a custom
-    # random seed. Leave unset to use the default (42).
+    # Set SEED_VALUE in the manual trigger variables to use a custom random
+    # seed. Leave unset to use the default (today's date, YYYYMMDD).
     SEED_VALUE: ""
   before_script:
     # Fail fast with a clear message if the required CI/CD variables are missing.
@@ -3812,7 +3812,7 @@ seed-demo-data:
     # the same day. Override by setting SEED_VALUE in the CI schedule variables.
     - python manage.py seed_demo_data --wipe --force --seed ${SEED_VALUE:-$(date +%Y%m%d)}
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE != "schedule"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"'
       when: manual
       allow_failure: true
 
@@ -3917,7 +3917,7 @@ nightly-load-test:
     - python manage.py migrate --noinput
     # A dedicated, larger board — never the normal demo board — so this job's
     # fixture size is independent of and cannot collide with seed-demo-data's
-    # weekly refresh of "Visiban Demo Board".
+    # manual refresh of "Visiban Demo Board".
     - python manage.py seed_demo_data --force --scale ${LOAD_TEST_SCALE} --with-notifications
     - python manage.py provision_fuzz_token --username demo2 --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}"
     - python manage.py runserver 0.0.0.0:8000 &
