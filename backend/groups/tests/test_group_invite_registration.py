@@ -42,7 +42,11 @@ def join_url(token):
 
 class _GroupInviteFixture:
     def make_group(self):
+        # The sender is a site admin: only a site admin's emailed invite may
+        # admit new accounts. Tests for other senders flip the flag.
         self.admin = User.objects.create_user(username="gadmin", password="pass", email="gadmin@acme.test")
+        self.admin.is_site_admin = True
+        self.admin.save(update_fields=["is_site_admin"])
         self.group = Group.objects.create(name="Platform Team", owner=self.admin)
         GroupMembership.objects.create(group=self.group, user=self.admin, role=GroupMembership.Role.ADMIN)
 
@@ -155,6 +159,30 @@ class GroupInviteRegistrationTests(_GroupInviteFixture, TestCase):
         })
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(User.objects.filter(email="bogus@example.com").exists())
+
+    def test_invite_from_non_site_admin_group_admin_is_refused(self):
+        self.admin.is_site_admin = False
+        self.admin.save(update_fields=["is_site_admin"])
+        link, raw = self.make_link()
+        r = self._register("groupadmin@example.com", raw)
+        link = self._assert_refused(r, "groupadmin@example.com", link)
+        self.assertEqual(r.json(), {"invite_token": [NOT_FOR_REGISTRATION_DETAIL]})
+        self.assertIsNone(link.used_at)
+
+    def test_invite_from_sender_demoted_from_site_admin_is_refused(self):
+        link, raw = self.make_link()  # sent while a site admin
+        self.admin.is_site_admin = False
+        self.admin.save(update_fields=["is_site_admin"])
+        r = self._register("demotedsa@example.com", raw)
+        self._assert_refused(r, "demotedsa@example.com", link)
+
+    @override_settings(INVITE_EMAIL_ENABLED=False)
+    def test_invite_refused_once_email_invites_are_disabled(self):
+        link, raw = self.make_link()
+        r = self._register("disabled@example.com", raw)
+        link = self._assert_refused(r, "disabled@example.com", link)
+        self.assertEqual(r.json(), {"invite_token": ["Invalid or expired invite link."]})
+        self.assertIsNone(link.used_at)
 
     def test_invite_from_deactivated_sender_is_refused(self):
         link, raw = self.make_link()
@@ -311,6 +339,30 @@ class GroupInviteOAuthSignupTests(_GroupInviteFixture, TestCase):
             self.adapter.is_open_for_signup(request, mock.MagicMock())
         self.assertIn("auth_error=invite_not_for_registration", ctx.exception.response.url)
         self.assertNotIn(PENDING_INVITE_SESSION_KEY, request.session)
+
+    def test_non_site_admin_invite_redirects_with_specific_error(self):
+        self.admin.is_site_admin = False
+        self.admin.save(update_fields=["is_site_admin"])
+        _link, raw = self.make_link()
+        with self.assertRaises(ImmediateHttpResponse) as ctx:
+            self.adapter.is_open_for_signup(self._request(raw), mock.MagicMock())
+        self.assertIn("auth_error=invite_not_for_registration", ctx.exception.response.url)
+
+    @override_settings(INVITE_EMAIL_ENABLED=False)
+    def test_invite_redirects_once_email_invites_are_disabled(self):
+        _link, raw = self.make_link()
+        with self.assertRaises(ImmediateHttpResponse) as ctx:
+            self.adapter.is_open_for_signup(self._request(raw), mock.MagicMock())
+        self.assertIn("auth_error=invite_invalid", ctx.exception.response.url)
+
+    def test_save_user_with_non_site_admin_invite_creates_no_membership(self):
+        link, raw = self.make_link()
+        self.admin.is_site_admin = False
+        self.admin.save(update_fields=["is_site_admin"])
+        user = self._save(raw, "oauth_groupadmin")
+        self.assertFalse(GroupMembership.objects.filter(group=self.group, user=user).exists())
+        link.refresh_from_db()
+        self.assertIsNone(link.used_at)
 
     def test_expired_invite_redirects(self):
         _link, raw = self.make_link(expires_at=timezone.now() - timedelta(hours=1))

@@ -18,7 +18,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invite_used: "This invite link has already been used. Please ask your administrator for a new one.",
   invite_revoked: "This invite link has been revoked. Please ask your administrator for a new one.",
   invite_required: "An invite link is required to create an account.",
-  invite_not_for_registration: "This invite link can't be used to create an account. Ask a group admin to send an invite to your email address.",
+  invite_not_for_registration: "This invite link can't be used to create an account on this site. Ask a site admin for an invite.",
   invite_invalid: "This invite link is no longer valid. Please ask your administrator for a new one.",
   signup_closed: "Registration is currently closed.",
   oauth_failed: AUTH_ERROR_FALLBACK,

@@ -242,17 +242,31 @@ describe('EmailInviteForm', () => {
     expect(screen.getByText(/New users can't sign up on this site\. Only people who already have an account can join from this invite\./)).toHaveClass('text-warning')
   })
 
-  it('no sign-up warning on an invite-only site — the emailed invite authorizes sign-up (#1445)', async () => {
+  it('site admin on an invite-only site sees the hint, not the warning (#1445)', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...baseConfig, registration_mode: 'invite_only', registration_open: false })
+    await renderForm('group', { senderIsSiteAdmin: true })
+    expect(screen.queryByText(/New users can't sign up/)).not.toBeInTheDocument()
+    expect(screen.getByText('New people can join this site only from invites you email, not from a shareable link.')).toHaveClass('text-fg-muted')
+  })
+
+  it('non-site-admin on an invite-only site sees the sign-up warning (#1445)', async () => {
     mockGetSiteConfig.mockResolvedValue({ ...baseConfig, registration_mode: 'invite_only', registration_open: false })
     await renderForm('group')
-    expect(screen.queryByText(/New users can't sign up/)).not.toBeInTheDocument()
-    expect(screen.getByText('New people can only join this site from an emailed invite, not a shareable link.')).toHaveClass('text-fg-muted')
+    expect(screen.getByText(/New users can't sign up on this site\./)).toHaveClass('text-warning')
+    expect(screen.queryByText(/only from invites you email/)).not.toBeInTheDocument()
+  })
+
+  it('site admin on a closed site still sees the sign-up warning (#1445)', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...baseConfig, registration_mode: 'closed', registration_open: false })
+    await renderForm('group', { senderIsSiteAdmin: true })
+    expect(screen.getByText(/New users can't sign up on this site\./)).toHaveClass('text-warning')
+    expect(screen.queryByText(/only from invites you email/)).not.toBeInTheDocument()
   })
 
   it('no sign-up warning on an open site, nor on the site surface', async () => {
     await renderForm('group')
     expect(screen.queryByText(/New users can't sign up/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/only join this site from an emailed invite/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/only from invites you email/)).not.toBeInTheDocument()
   })
 
   it('site surface never shows the sign-up warning', async () => {

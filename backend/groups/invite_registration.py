@@ -10,8 +10,10 @@ lets exactly one kind of group invite stand in for a site invite:
 - ``single_use=True`` — consumed by the first registration, so one email
   authorizes at most one account (strictly on password registration, which
   holds the row lock; best-effort on OAuth, exactly like site invites there —
-  see ``SocialRegistrationAdapter.save_user``); and
-- sent by someone who is still an active admin of the group.
+  see ``SocialRegistrationAdapter.save_user``);
+- sent by someone who is still an active **site admin** (and still able to
+  send it — an admin of the group or an ancestor); and
+- email invites still enabled (``INVITE_EMAIL_ENABLED``).
 
 A shareable group link (``delivery=link``, single-use or not) is refused: it is
 built to be pasted into chat, and letting it register accounts would let any
@@ -38,8 +40,8 @@ from .models import GroupInviteLink, GroupMembership
 logger = logging.getLogger(__name__)
 
 NOT_FOR_REGISTRATION_DETAIL = (
-    "This invite link can't be used to create an account. "
-    "Ask a group admin to send an invite to your email address."
+    "This invite link can't be used to create an account on this site. "
+    "Ask a site admin for an invite."
 )
 
 
@@ -58,7 +60,7 @@ def validate_group_registration_token(raw_token: str) -> GroupInviteLink:
     Raises ``InviteTokenError`` with the same codes as the site-invite
     validator (``invite_missing`` / ``invite_invalid`` / ``invite_expired``)
     plus ``invite_not_for_registration`` for a live group link that is not an
-    emailed single-use invite. Telling a token holder their link is shareable
+    emailed single-use invite from a site admin. Telling a token holder their link is shareable
     discloses nothing: they already hold it, and the public join preview
     accepts it.
     """
@@ -76,31 +78,52 @@ def validate_group_registration_token(raw_token: str) -> GroupInviteLink:
 
     if not (link.single_use and link.delivery == GroupInviteLink.Delivery.EMAIL):
         raise InviteTokenError("invite_not_for_registration", NOT_FOR_REGISTRATION_DETAIL)
+    sender = link.created_by
+    if sender is not None and sender.is_active and not sender.is_site_admin:
+        # A group admin's emailed invite: valid for joining, never for sign-up.
+        raise InviteTokenError("invite_not_for_registration", NOT_FOR_REGISTRATION_DETAIL)
     if link.used_at is not None:
         raise InviteTokenError("invite_invalid", "Invalid or expired invite link.")
     if link.is_expired:
         raise InviteTokenError("invite_expired", "This invite link has expired.")
-    if not _sender_still_admits(link):
+    if not _email_invites_enabled() or not _sender_still_admits(link):
         raise InviteTokenError("invite_invalid", "Invalid or expired invite link.")
     return link
 
 
-def _sender_still_admits(link: GroupInviteLink) -> bool:
-    """True when whoever sent the invite could still send it now.
+def _email_invites_enabled() -> bool:
+    """False once the operator turns email invites off (``INVITE_EMAIL_ENABLED``).
 
-    Before #1445 an emailed group invite could only add an *existing* account
-    to a group; now it creates accounts. A sender who has since been
-    deactivated, or is no longer an admin of the group (or an ancestor), must
-    not keep admitting new people through invites already in flight — the
-    same reason site invites are revoked when their creator is deactivated.
-    The plain join path is unchanged: it never created accounts.
+    Switching the feature off must also stop invites already in people's
+    inboxes from creating accounts, not just stop new sends.
+    """
+    from visiban.invite_email import invite_email_enabled
+
+    return invite_email_enabled()
+
+
+def _sender_still_admits(link: GroupInviteLink) -> bool:
+    """True when the invite's sender may admit new accounts, checked *now*.
+
+    Only a **site admin** may admit new people to an invite-only site — the
+    same people who can mint site invites (``IsSiteAdmin``). Any user can
+    create a group and become its admin, so letting every group admin's
+    emailed invite create accounts would turn INVITE_ONLY into "any member can
+    invite, transitively". A group admin who is not a site admin keeps the
+    pre-#1445 behavior: their emailed invite adds existing accounts only.
+
+    Re-checked at redemption, not at send: a sender who has since been
+    deactivated, lost the site-admin flag, or is no longer an admin of the
+    group (or an ancestor) must not keep admitting people through invites
+    already in flight — the same reason site invites are revoked when their
+    creator is deactivated. The plain join path is unchanged.
     """
     from rest_framework.exceptions import PermissionDenied
 
     from .views import _require_group_admin
 
     sender = link.created_by
-    if sender is None or not sender.is_active:
+    if sender is None or not sender.is_active or not sender.is_site_admin:
         return False
     try:
         _require_group_admin(sender, link.group)

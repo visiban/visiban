@@ -120,6 +120,15 @@ describe('InviteLinkPanel', () => {
     await waitFor(() => expect(mockListInviteLinks).toHaveBeenCalledTimes(2))
   })
 
+  it('passes the site-admin flag to the email form on an invite-only site (#1445)', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...siteConfig, registration_mode: 'invite_only', registration_open: false })
+    const { unmount } = render(<InviteLinkPanel groupId={7} isSiteAdmin />)
+    expect(await screen.findByText(/only from invites you email/)).toBeInTheDocument()
+    unmount()
+    render(<InviteLinkPanel groupId={7} />)
+    expect(await screen.findByText(/New users can't sign up on this site\./)).toBeInTheDocument()
+  })
+
   it('hides the Invite by email section when email is unavailable', async () => {
     mockGetSiteConfig.mockResolvedValue({ ...siteConfig, invite_email_available: false })
     render(<InviteLinkPanel groupId={1} />)

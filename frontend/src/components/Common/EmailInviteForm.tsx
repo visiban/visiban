@@ -45,7 +45,7 @@ const TONE_CLASS: Record<Line["tone"], string> = {
 };
 
 interface Props {
-  /** "group" shows the role picker and, on a closed site, the sign-up notice; "site" the
+  /** "group" shows the role picker and the sign-up notice; "site" the
    *  Settings → Email pointer when mail is not set up. */
   surface: "group" | "site";
   send: (payload: { email: string; role?: Role }) => Promise<InviteEmailSent>;
@@ -53,6 +53,10 @@ interface Props {
   onSent?: () => void;
   /** Site surface only: switches the Admin page to its Settings tab. */
   onOpenEmailSettings?: () => void;
+  /** Group surface: whether the sender (the signed-in user) is a site admin.
+   *  On an invite-only site only a site admin's emailed invite lets a new
+   *  person create an account (#1445). */
+  senderIsSiteAdmin?: boolean;
 }
 
 interface ErrorShape {
@@ -90,7 +94,7 @@ function errorLines(err: unknown): Line[] {
   return [{ tone: "danger", text: GENERIC_SEND_ERROR }];
 }
 
-export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSettings }: Props) {
+export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSettings, senderIsSiteAdmin = false }: Props) {
   const [config, setConfig] = useState<SiteConfig | null>(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("member");
@@ -168,11 +172,13 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
   }
 
   const valid = EMAIL_RE.test(email.trim());
-  // Only a CLOSED site stops a new person from signing up through a group
-  // invite: on an invite-only site the emailed single-use link itself
-  // authorizes registration (#1445).
-  const closedSite = surface === "group" && config.registration_mode === "closed";
-  const inviteOnlySite = surface === "group" && config.registration_mode === "invite_only";
+  // A new person can sign up from a group invite only on an invite-only site,
+  // and only when a site admin sent it (#1445). Everyone else sending on a
+  // closed or invite-only site gets the "can't sign up" warning.
+  const inviteOnly = config.registration_mode === "invite_only";
+  const closedSite =
+    surface === "group" && (config.registration_mode === "closed" || (inviteOnly && !senderIsSiteAdmin));
+  const inviteOnlySite = surface === "group" && inviteOnly && senderIsSiteAdmin;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,7 +257,7 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
 
       {inviteOnlySite && (
         <p className="text-xs text-fg-muted">
-          New people can only join this site from an emailed invite, not a shareable link.
+          New people can join this site only from invites you email, not from a shareable link.
         </p>
       )}
 

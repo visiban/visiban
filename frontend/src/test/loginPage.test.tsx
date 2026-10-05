@@ -181,7 +181,7 @@ describe('LoginPage', () => {
   it('drops a rejected invite token after a failed registration (#1445)', async () => {
     mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     sessionStorage.setItem('invite_token', 'vbng_shared')
-    const detail = "This invite link can't be used to create an account. Ask a group admin to send an invite to your email address."
+    const detail = "This invite link can't be used to create an account on this site. Ask a site admin for an invite."
     mockRegister.mockRejectedValue({ response: { status: 400, data: { invite_token: [detail] } } })
 
     const user = userEvent.setup({ delay: null })
@@ -403,7 +403,7 @@ describe('LoginPage', () => {
         </MemoryRouter>
       )
 
-      expect(await screen.findByText(/This invite link can't be used to create an account\./)).toBeInTheDocument()
+      expect(await screen.findByText(/This invite link can't be used to create an account on this site\. Ask a site admin for an invite\./)).toBeInTheDocument()
       expect(sessionStorage.getItem('invite_token')).toBeNull()
     })
 

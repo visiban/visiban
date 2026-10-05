@@ -95,19 +95,16 @@ The change takes effect immediately — no restart required.
 
 **What changes when invite-only or closed is enabled:**
 
-- `POST /api/v1/auth/registration/` returns `403 Forbidden` for new sign-ups
-- OAuth sign-up flows (Google, GitHub, GitLab) are also blocked — existing OAuth-linked accounts can still log in, but new OAuth accounts cannot be created
+- **Invite-only:** `POST /api/v1/auth/registration/` refuses a sign-up without a valid invite token with `400 Bad Request`, and OAuth sign-up (Google, GitHub, GitLab, OIDC) is refused the same way. With a valid invite — a site invite link, or *(1.2+)* an emailed group invite sent by a site admin — both work.
+- **Closed:** `POST /api/v1/auth/registration/` returns `403 Forbidden` for every new sign-up, invite or not, and new OAuth accounts cannot be created. The only way to add a user is **Admin → Users → Add user**.
+- Existing users, including OAuth-linked accounts, can still log in either way.
 - The login page shows: *"An invite link is required to create an account."*
-- Existing users are unaffected
 
 **Inviting users when invite-only is on:**
 
 Go to **Site Admin → Invite Links** to generate a new invite link. Send the link to the prospective user — they can follow it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.
 
-*(New in 1.2)* Group admins can bring in newcomers too: an invite a group admin **emails** from a group's invite panel lets its recipient create an account (password or OAuth) and joins them to that group with the invite's role. It is single-use and expires in 7 days by default, and stops working if its sender is deactivated or loses group-admin rights. Shareable group links never create accounts.
-
-!!! warning
-    Any signed-in user can create a group and becomes its admin, so on an invite-only instance with email invites available, **any user can admit new accounts** this way — and those new users can do the same. If only site admins should admit new users, switch the mode to **Closed** — or turn off email invites with `INVITE_EMAIL_ENABLED=false` (see [Configuration](configuration.md)). See [Groups](../features/groups.md#new-users-on-invite-only-instances).
+**Who can admit new accounts on an invite-only instance:** only site admins. Besides site invite links, *(New in 1.2)* an invite a **site admin** emails from a group's invite panel lets its recipient create an account (password or OAuth) and joins them to that group with the invite's role. It is single-use and expires in 7 days by default. It stops creating accounts if its sender is deactivated, is no longer a site admin, or is no longer an admin of the group, and when email invites are turned off (`INVITE_EMAIL_ENABLED=false`, see [Configuration](configuration.md)) — including invites already sent. Emailed invites from group admins who are not site admins, and every shareable group link, only work for people who already have an account; the group panel tells those senders so. See [Groups](../features/groups.md#new-users-on-invite-only-instances).
 
 *(New in 1.2)* Site admins can also have Visiban **email an invite** straight to an address: under **Site Admin → Invite Links**, enter the address in **Invite by email** and select **Send invite** (also available as `POST /api/v1/admin/invite-links/send/`; see the [Admin API](../api/admin.md)). If emailing isn't available — email isn't set up, or `INVITE_EMAIL_ENABLED` is off — the section points you to **Settings → Email** instead; on a demo site it just says email invites are disabled. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. Emailed links have their own limit — 200 pending — and don't count against the 50 shareable links. The address is not stored; the `202` response includes `already_registered`, saying whether it already belongs to an account (the email is sent either way), and never the raw token. If the mail server rejects the message, the endpoint returns `502` with a sanitized error `code` and revokes the link automatically. `invite_email_available` on `GET /api/v1/auth/site-config/` tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with `INVITE_EMAIL_ENABLED=false` (see [Configuration](configuration.md)). Following the link does not verify the recipient's address — registration still follows the normal email-verification setting.
 
