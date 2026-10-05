@@ -48,7 +48,8 @@ async function routeCardWithPatchCapture(page: Page, sink: { description?: strin
  * poll just times out. The specs now set the range deterministically with
  * `selectWordInEditor` (see it for the full explanation) and use this helper
  * only to confirm the state holds exactly that text. Keep that confirmation:
- * a mark applied to a stale or empty selection passes vacuously.
+ * a mark applied to a stale or empty selection passes vacuously, and the
+ * Ctrl+U guard would then assert nothing.
  *
  * Tiptap attaches the Editor instance to its root element (`dom.editor`),
  * which lets the test wait on the real editor state instead of on a
