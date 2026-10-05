@@ -920,6 +920,21 @@ describe('BoardSettingsModal — initialTab prop', () => {
     expect(screen.getByText('Admin User')).toBeInTheDocument()
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
   })
+
+  it('opens on Swimlane fields and focuses that tab button when deep-linked (#1458)', async () => {
+    render(
+      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" />
+    )
+    const tab = screen.getByRole('button', { name: 'Swimlane fields' })
+    await waitFor(() => expect(document.activeElement).toBe(tab))
+  })
+
+  it('opens on Members by default without moving focus to a tab button (#1458)', async () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await new Promise((r) => requestAnimationFrame(() => r(null)))
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^Members/ }))
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
+  })
 })
 
 // ─── Display tab → Card density radio (#961) ───────────────────────────────

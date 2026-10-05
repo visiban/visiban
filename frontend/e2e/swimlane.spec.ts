@@ -62,3 +62,44 @@ test.describe('swimlane collapse', () => {
     await expect(page.getByRole('button', { name: `Expand ${SWIMLANE.name}` })).toBeVisible({ timeout: 10_000 })
   })
 })
+
+// #1458 — admin shortcut from the row's +N popover to Board settings → Swimlane fields.
+test.describe('swimlane field order shortcut', () => {
+  const defBase = {
+    field_type: 'text', choices: [], show_on_row: false, is_admin_only: false, is_required: false,
+    help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+    created_at: '2026-01-01T00:00:00Z',
+  }
+  const board = {
+    ...BOARD_FULL,
+    swimlane_custom_field_definitions: [
+      { ...defBase, id: 1, uid: 'sfuid0000001', name: 'Owner', position: 0 },
+      { ...defBase, id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 },
+    ],
+    swimlanes: BOARD_FULL.swimlanes.map((s) => ({
+      ...s,
+      custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }],
+    })),
+  }
+
+  test('admin opens Swimlane fields from the +N popover; Cmd+, still opens Members', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page, board as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+
+    await page.getByRole('button', { name: /Show all 1 field values/ }).click()
+    await page.getByRole('button', { name: 'Edit field order…' }).click()
+
+    const tab = page.getByRole('button', { name: 'Swimlane fields' })
+    await expect(tab).toBeFocused()
+    await expect(page.getByRole('dialog', { name: /Field values for/ })).toHaveCount(0)
+
+    await page.keyboard.press('Escape')
+    await expect(tab).toHaveCount(0)
+
+    await page.keyboard.press('Control+,')
+    await expect(page.getByRole('button', { name: /^Members \(/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Swimlane fields' })).not.toBeFocused()
+  })
+})

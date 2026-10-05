@@ -804,6 +804,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  // Set only by the swimlane +N popover shortcut (#1458); every other opener
+  // leaves it undefined so Board settings opens on Members as before.
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | undefined>(undefined);
+  const closeSettings = useCallback(() => {
+    setShowSettings(false);
+    setSettingsInitialTab(undefined);
+  }, []);
+  const openSwimlaneFieldOrder = useCallback(() => {
+    setSettingsInitialTab("swimlane-fields");
+    setShowSettings(true);
+  }, []);
 
   // --- Issue board lens (read-only GitHub/GitLab mirror) ---
   // The Lens tab is shown only when the board has a lens connection AND the
@@ -2392,6 +2403,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       stale_warning_pct={board.stale_warning_pct ?? 50}
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+                      onEditFieldOrder={isAdmin && board.swimlane_custom_field_definitions.length >= 2 ? openSwimlaneFieldOrder : undefined}
                       onCardUpdated={onCardUpdated}
                       overlayCells={gridOverlayState?.cells}
                       overlayLabel={gridOverlayState?.label}
@@ -2537,7 +2549,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <BoardSettingsModal
           board={board}
           isAdmin={isAdmin}
-          onClose={() => setShowSettings(false)}
+          onClose={closeSettings}
+          initialTab={settingsInitialTab}
           viewPrefs={viewPrefs}
           onToggleHiddenColumn={toggleHiddenColumn}
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
@@ -2547,7 +2560,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onSetCardDensityOverride={setCardDensityOverride}
           gitLensEnabled={gitLensEnabled}
           lensConnection={lensConnection}
-          onManageLens={() => { setShowSettings(false); setShowLensModal(true); }}
+          onManageLens={() => { closeSettings(); setShowLensModal(true); }}
           onFieldsUpdated={onCustomFieldDefinitionsApplied}
           onSwimlaneFieldsUpdated={onSwimlaneFieldDefinitionsApplied}
           demoMode={currentUser?.demo_mode === true}

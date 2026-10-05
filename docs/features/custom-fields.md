@@ -208,6 +208,8 @@ A board can have up to **15 swimlane fields**, and up to **8 of them pinned** to
 
 Open **Board Settings** and select the **Swimlane fields** tab, beside **Card fields**. Only board admins can create, edit, reorder, pin, or delete swimlane fields.
 
+Admins can also jump straight here from the board: when a swimlane's `+N` popover is open and the board has two or more swimlane fields, choose **Edit field order…** in its footer. It closes the popover and opens Board Settings on the Swimlane fields tab. The order is shared by every swimlane on the board.
+
 The tab lists every swimlane field in display order, with the same type glyph, name, type label, and pin state that the Card fields tab uses. The tab header shows a running count, e.g. `12 of 15 · 2 of 8 pinned`. At **13–14 fields**, a warning line shows how many fields are left before **+ Add field** locks out; at **15 fields**, **+ Add field** is disabled with an inline explanation.
 
 The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns and multi-selects, the [number format](#number-formatting) options for number fields, and a pin toggle — plus one addition:
