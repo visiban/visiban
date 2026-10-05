@@ -1,13 +1,20 @@
 """Middleware for the accounts app."""
 
+from groups.models import GroupInviteLink
+
 from .adapter import PENDING_INVITE_SESSION_KEY
 from .models import INVITE_LINK_PREFIX
+
+# Site invites, plus group invites (#1445): an emailed single-use group invite
+# also authorizes OAuth signup on an invite-only site. The adapter decides
+# which group invites qualify; this is only the prefix gate.
+_STASHABLE_PREFIXES = (INVITE_LINK_PREFIX, GroupInviteLink.GROUP_INVITE_PREFIX)
 
 
 class OAuthInviteTokenMiddleware:
     """Stash an invite token in the Django session before an OAuth redirect.
 
-    When the frontend appends ?invite_token=vbnl_xxx to an OAuth login URL
+    When the frontend appends ?invite_token=vbnl_xxx (or vbng_xxx) to an OAuth login URL
     (e.g. /accounts/google/login/?process=login&invite_token=vbnl_abc123),
     this middleware captures the token and stores it in the session so that
     it survives the round-trip through the IdP. The SocialRegistrationAdapter
@@ -24,7 +31,7 @@ class OAuthInviteTokenMiddleware:
     def __call__(self, request):
         if self._is_oauth_login_path(request.path):
             raw_token = request.GET.get("invite_token", "")
-            if raw_token and raw_token.startswith(INVITE_LINK_PREFIX):
+            if raw_token and raw_token.startswith(_STASHABLE_PREFIXES):
                 request.session[PENDING_INVITE_SESSION_KEY] = raw_token
 
         return self.get_response(request)

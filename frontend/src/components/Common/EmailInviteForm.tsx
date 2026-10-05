@@ -45,7 +45,7 @@ const TONE_CLASS: Record<Line["tone"], string> = {
 };
 
 interface Props {
-  /** "group" shows the role picker and the sign-up notice; "site" the
+  /** "group" shows the role picker and, on a closed site, the sign-up notice; "site" the
    *  Settings → Email pointer when mail is not set up. */
   surface: "group" | "site";
   send: (payload: { email: string; role?: Role }) => Promise<InviteEmailSent>;
@@ -168,7 +168,11 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
   }
 
   const valid = EMAIL_RE.test(email.trim());
-  const closedSite = surface === "group" && config.registration_mode !== "open";
+  // Only a CLOSED site stops a new person from signing up through a group
+  // invite: on an invite-only site the emailed single-use link itself
+  // authorizes registration (#1445).
+  const closedSite = surface === "group" && config.registration_mode === "closed";
+  const inviteOnlySite = surface === "group" && config.registration_mode === "invite_only";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +248,12 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
           ))
         )}
       </div>
+
+      {inviteOnlySite && (
+        <p className="text-xs text-fg-muted">
+          New people can only join this site from an emailed invite, not a shareable link.
+        </p>
+      )}
 
       {closedSite && (
         <p className="text-xs text-warning">

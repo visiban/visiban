@@ -132,10 +132,31 @@ def clear_login_lockout(request, user) -> None:
             cache.delete(get_cache_key(request, action="login_failed", rate=rate, key=cache_key_seed))
 
 # Session key used to pass an invite token through the OAuth redirect flow.
-# The frontend appends ?invite_token=vbnl_xxx to the OAuth login URL; middleware
+# The frontend appends ?invite_token=vbnl_xxx (or an emailed group invite's
+# vbng_xxx, #1445) to the OAuth login URL; middleware
 # stashes it here before redirecting to the IdP. The SocialRegistrationAdapter
 # reads it on the callback to decide whether signup is permitted.
 PENDING_INVITE_SESSION_KEY = "pending_invite_token"
+
+
+def _is_group_token(raw_token: str) -> bool:
+    from groups.invite_registration import is_group_invite_token
+
+    return is_group_invite_token(raw_token)
+
+
+def _validate_signup_token(raw_token: str):
+    """Validate a pending OAuth invite token of either kind (#1445).
+
+    Site invites (``vbnl_``) and emailed single-use group invites (``vbng_``)
+    both authorize signup in INVITE_ONLY mode. Must run inside
+    ``transaction.atomic()`` — both validators lock the row.
+    """
+    if _is_group_token(raw_token):
+        from groups.invite_registration import validate_group_registration_token
+
+        return validate_group_registration_token(raw_token)
+    return validate_invite_token(raw_token)
 
 
 class RegistrationAdapter(DefaultAccountAdapter):
@@ -304,7 +325,7 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         # Validate the token inside a transaction so select_for_update works.
         try:
             with transaction.atomic():
-                validate_invite_token(raw_token)
+                _validate_signup_token(raw_token)
         except InviteTokenError as exc:
             # Token is invalid/expired — clean up the session and redirect
             # with a specific error code.
@@ -313,6 +334,7 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
                 "invite_missing": "invite_required",
                 "invite_invalid": "invite_invalid",
                 "invite_expired": "invite_expired",
+                "invite_not_for_registration": "invite_not_for_registration",
             }.get(exc.code, "invite_invalid")
             self._redirect_with_error(request, error_code)
             return False  # pragma: no cover — _redirect_with_error raises
@@ -496,7 +518,9 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         mode = get_registration_mode()
         if mode == SiteSetting.RegistrationMode.INVITE_ONLY:
             raw_token = request.session.pop(PENDING_INVITE_SESSION_KEY, "")
-            if raw_token:
+            if raw_token and _is_group_token(raw_token):
+                self._redeem_group_invite(raw_token, user)
+            elif raw_token:
                 try:
                     link = validate_invite_token(raw_token)
                     # Pass the OAuth-provided email so multi-use invite redemption
@@ -527,6 +551,33 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
                     )
 
         return user
+
+    @staticmethod
+    def _redeem_group_invite(raw_token, user):
+        """Join a new OAuth account to its emailed group invite's group (#1445).
+
+        Best-effort, like the site-invite branch above: allauth has already
+        saved the user, and this adapter owns no rollback boundary around that
+        save. The redeem's conditional ``used_at`` update still guarantees the
+        invite joins at most one account to the group; a lost race leaves the
+        account created without the membership, and is logged.
+        """
+        from groups.invite_registration import (
+            redeem_group_registration_token,
+            validate_group_registration_token,
+        )
+
+        try:
+            with transaction.atomic():
+                link = validate_group_registration_token(raw_token)
+                redeem_group_registration_token(link, user)
+        except InviteTokenError as exc:
+            logger.warning(
+                "Group invite not redeemed in save_user (code=%s, user=%s). "
+                "The user was created but was not joined to the group.",
+                exc.code,
+                user.pk,
+            )
 
     def get_connect_redirect_url(self, request, socialaccount):
         """Redirect to the SPA's Settings page after connecting a social account.

@@ -93,7 +93,15 @@ Group admins can have Visiban email an invite straight to someone's address. In 
 - Whether sending is possible is published as `invite_email_available` on the public `GET /api/v1/auth/site-config/` endpoint: it is `true` only when outbound email is configured (see [Configuration](../administration/configuration.md)), `INVITE_EMAIL_ENABLED` is not `false`, and the instance is not a demo. When the feature is switched off the endpoint returns `403` with `code: "invite_email_disabled"`.
 
 !!! note
-    Following the emailed link does **not** verify the recipient's email address. If they create a new account from it, registration still follows the instance's normal email-verification setting. On an instance whose registration mode is **Invite-only** or **Closed**, a group invite link does not currently let a newcomer create an account (tracked in #1445) — invite people who already have one, or ask a site admin for a site invite.
+    Following the emailed link does **not** verify the recipient's email address. If they create a new account from it, registration still follows the instance's normal email-verification setting.
+
+### New users on invite-only instances
+
+*(New in 1.2)* On an instance whose registration mode is **Invite-only**, an **emailed** invite also lets a newcomer create an account: they select **Create an account** (or an OAuth provider) on the join page, and the new account is added to the group with the invite's role. Registering uses up the invite, so it creates one account (for OAuth sign-up this is best-effort, as it is for site invites: two simultaneous OAuth sign-ups with one link could both create an account, but only one joins the group). Anyone holding the link can use it — the address it was sent to is not stored or checked. The invite stops creating accounts if the person who sent it is deactivated or is no longer an admin of the group; revoke it in the panel to stop it sooner.
+
+Only emailed invites do this. A **shareable** link from the panel (single-use or not) still only works for people who already have an account: it is built to be pasted into chat, so letting it create accounts would open an invite-only instance to anyone the link reaches. A newcomer who tries one is told to ask for an email invite. On an invite-only instance the **Invite by email** section reminds group admins of this: *"New people can only join this site from an emailed invite, not a shareable link."*
+
+On a **Closed** instance no invite creates an account, and the **Invite by email** section warns: *"New users can't sign up on this site. Only people who already have an account can join from this invite."*
 
 ## Moving boards between groups
 

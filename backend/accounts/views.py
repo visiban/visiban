@@ -1078,8 +1078,15 @@ class InviteRegisterView(RegisterView):
     with user creation so a single-use token cannot be replayed under concurrent
     load (select_for_update on the token row).
 
+    An emailed, single-use group invite (``vbng_``, ``delivery=email``) is
+    also accepted in INVITE_ONLY mode (#1445): the account is created and
+    joined to the group with the invite's role, and the invite is consumed, in
+    one transaction. Shareable group links are refused — see
+    groups/invite_registration.py.
+
     In OPEN mode: delegates to the parent RegisterView unchanged.
-    In CLOSED mode: adapter.save_user raises PermissionDenied before this runs.
+    In CLOSED mode: adapter.save_user raises PermissionDenied before this runs,
+    for every token kind — CLOSED means no new accounts at all.
 
     Same OpenAPI-schema gap as #1408's other dj-rest-auth subclasses:
     drf-spectacular's RestAuthRegisterView fix matches
@@ -1119,7 +1126,17 @@ class InviteRegisterView(RegisterView):
         if mode != SiteSetting.RegistrationMode.INVITE_ONLY:
             return super().create(request, *args, **kwargs)
 
-        token_raw = (request.data.get("invite_token") or "").strip()
+        token_raw = request.data.get("invite_token") or ""
+        # A non-string JSON value (number, list, object) is no token at all —
+        # refuse it as missing instead of letting .strip() raise a 500.
+        token_raw = token_raw.strip() if isinstance(token_raw, str) else ""
+
+        # An emailed, single-use group invite (vbng_) also authorizes
+        # registration here (#1445); every other group link is refused.
+        from groups.invite_registration import is_group_invite_token
+
+        if is_group_invite_token(token_raw):
+            return self._create_with_group_invite(request, token_raw, *args, **kwargs)
 
         try:
             link = validate_invite_token(token_raw)
@@ -1152,6 +1169,43 @@ class InviteRegisterView(RegisterView):
                     )
                 raise
 
+        return response
+
+    def perform_create(self, serializer):
+        # Keep the new account so the group-invite branch can join it to the
+        # group; dj-rest-auth's create() does not hand the user back.
+        user = super().perform_create(serializer)
+        self._registered_user = user
+        return user
+
+    def _create_with_group_invite(self, request, token_raw, *args, **kwargs):
+        """Register with an emailed group invite, then join its group (#1445).
+
+        Runs inside create()'s transaction: the invite row is locked before the
+        account is created, and a failed registration (400) or a lost redeem
+        race rolls the account back, leaving the invite unconsumed.
+        """
+        from groups.invite_registration import (
+            redeem_group_registration_token,
+            validate_group_registration_token,
+        )
+
+        try:
+            group_link = validate_group_registration_token(token_raw)
+        except InviteTokenError as exc:
+            return Response({"invite_token": [exc.detail]}, status=status.HTTP_400_BAD_REQUEST)
+
+        self._registered_user = None
+        response = super().create(request, *args, **kwargs)
+        if self._registered_user is not None:
+            try:
+                redeem_group_registration_token(group_link, self._registered_user)
+            except InviteTokenError as exc:
+                # Unreachable while the row lock above is held; kept so a
+                # future caller without the lock still fails closed and the
+                # account is not left behind without its group.
+                transaction.set_rollback(True)
+                return Response({"invite_token": [exc.detail]}, status=status.HTTP_409_CONFLICT)
         return response
 
 
