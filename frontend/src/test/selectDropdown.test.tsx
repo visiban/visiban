@@ -253,6 +253,38 @@ describe('SelectDropdown', () => {
       expect(screen.getByTestId('select-more-below')).toBeInTheDocument()
     })
 
+    it('caps the panel width to the viewport', async () => {
+      mockGeometry(100, 130, 120)
+      renderIt()
+      await userEvent.click(screen.getByRole('combobox'))
+      expect((screen.getByRole('listbox').parentElement as HTMLElement).style.maxWidth).toBe('calc(100vw - 16px)')
+    })
+
+    it('scrolls the active option into view on arrow keys, and Home/End jump to the ends', async () => {
+      const spy = vi.fn()
+      Element.prototype.scrollIntoView = spy
+      renderIt()
+      const trigger = screen.getByRole('combobox')
+      trigger.focus()
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+      spy.mockClear()
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+      expect(spy).toHaveBeenCalledWith({ block: 'nearest' })
+      fireEvent.keyDown(trigger, { key: 'End' })
+      expect(trigger.getAttribute('aria-activedescendant')).toMatch(/-2$/)
+      fireEvent.keyDown(trigger, { key: 'Home' })
+      expect(trigger.getAttribute('aria-activedescendant')).toMatch(/-0$/)
+      expect(spy).toHaveBeenCalledTimes(3)
+      delete (Element.prototype as unknown as Record<string, unknown>).scrollIntoView
+    })
+
+    it('ignores Home/End while closed', () => {
+      renderIt()
+      const trigger = screen.getByRole('combobox')
+      fireEvent.keyDown(trigger, { key: 'End' })
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+
     it('closes on window resize', async () => {
       mockGeometry(100, 130, 120)
       renderIt()

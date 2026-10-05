@@ -107,6 +107,13 @@ export default function SelectDropdown<T extends string>({
     }
   }, [open, value, options]);
 
+  // The list is viewport-capped and scrolls, so arrowing must keep the active
+  // option visible (the trigger keeps focus; nothing else scrolls it).
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    document.getElementById(`${optionIdPrefix}-${activeIndex}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [open, activeIndex, optionIdPrefix]);
+
   const handleSelect = (val: T) => {
     onChange(val);
     close();
@@ -128,6 +135,14 @@ export default function SelectDropdown<T extends string>({
             ? Math.min(activeIndex + 1, options.length - 1)
             : Math.max(activeIndex - 1, 0);
           setActiveIndex(next);
+        }
+        break;
+      }
+      case "Home":
+      case "End": {
+        if (open) {
+          e.preventDefault();
+          setActiveIndex(e.key === "Home" ? 0 : options.length - 1);
         }
         break;
       }
@@ -203,56 +218,57 @@ export default function SelectDropdown<T extends string>({
             // Hidden only for the pre-paint measuring pass.
             visibility: top === null ? "hidden" : undefined,
             maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+            maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
             display: "flex",
             flexDirection: "column",
           }}
           className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1"
         >
-        <div
-          id={listboxId}
-          ref={listRef}
-          onScroll={onScroll}
-          role="listbox"
-          className="min-h-0 overflow-y-auto"
-        >
-          {options.map((opt, i) => (
-            <div key={opt.value}>
-              {i > 0 && (
-                <div role="separator" className="mx-4">
-                  <div className="h-px bg-sunken" />
-                  <div className="h-px bg-surface-active/50" />
-                </div>
-              )}
-              <div
-                id={`${optionIdPrefix}-${i}`}
-                role="option"
-                aria-selected={opt.value === value}
-                tabIndex={-1}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelect(opt.value)}
-                // The trigger (combobox) drives keyboard selection via aria-activedescendant;
-                // this keeps Enter/Space parity if an option ever holds focus (#1376).
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handleSelect(opt.value);
-                  }
-                }}
-                className={`w-full text-left px-3 py-1.5 text-sm transition cursor-pointer hover:bg-surface-hover
-                  ${i === activeIndex ? "bg-surface-hover" : ""}
-                  ${opt.value === value ? "text-info" : "text-fg-secondary"}`}
-              >
-                {opt.label}
-              </div>
-            </div>
-          ))}
-        </div>
-        {moreBelow && (
           <div
-            data-testid="select-more-below"
-            className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-surface to-transparent pointer-events-none rounded-b-lg"
-          />
-        )}
+            id={listboxId}
+            ref={listRef}
+            onScroll={onScroll}
+            role="listbox"
+            className="min-h-0 overflow-y-auto"
+          >
+            {options.map((opt, i) => (
+              <div key={opt.value}>
+                {i > 0 && (
+                  <div role="separator" className="mx-4">
+                    <div className="h-px bg-sunken" />
+                    <div className="h-px bg-surface-active/50" />
+                  </div>
+                )}
+                <div
+                  id={`${optionIdPrefix}-${i}`}
+                  role="option"
+                  aria-selected={opt.value === value}
+                  tabIndex={-1}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(opt.value)}
+                  // The trigger (combobox) drives keyboard selection via aria-activedescendant;
+                  // this keeps Enter/Space parity if an option ever holds focus (#1376).
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleSelect(opt.value);
+                    }
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-sm transition cursor-pointer hover:bg-surface-hover
+                    ${i === activeIndex ? "bg-surface-hover" : ""}
+                    ${opt.value === value ? "text-info" : "text-fg-secondary"}`}
+                >
+                  {opt.label}
+                </div>
+              </div>
+            ))}
+          </div>
+          {moreBelow && (
+            <div
+              data-testid="select-more-below"
+              className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-surface to-transparent pointer-events-none rounded-b-lg"
+            />
+          )}
         </div>,
         document.body,
       )}

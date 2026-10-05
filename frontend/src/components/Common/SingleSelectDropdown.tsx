@@ -200,6 +200,7 @@ export default function SingleSelectDropdown<T extends string | number>({
               // Hidden only for the pre-paint measuring pass.
               visibility: top === null ? "hidden" : undefined,
               maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+              maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
               display: "flex",
               flexDirection: "column",
             }
