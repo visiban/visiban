@@ -340,6 +340,26 @@ sonar-scan-selftest:
   script:
     - sh scripts/sonar-scan.sh --self-test
 
+# ─── Mutation score checker self-test (#1384) ────────────────────────────────
+#
+# scripts/check_mutation_score.py judges the nightly backend-mutation pilot, and
+# that job runs only on the Nightly schedule with MUTATION_TEST=true, so its
+# --self-test there would catch a broken checker a night late, and never while
+# the schedule lacks the variable. This runs the same self-test on MRs that
+# touch the script or the CI file (#1093 house rule), and on main.
+mutation-score-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  rules:
+    - changes: &mutation-score-selftest-paths
+        - scripts/check_mutation_score.py
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *mutation-score-selftest-paths
+  script:
+    - python3 scripts/check_mutation_score.py --self-test
+
 # ─── Sonar exclusion-integrity guard (#1380) ─────────────────────────────────
 #
 # Every sonar.issue.ignore.multicriteria criterion is a reviewed false positive;
@@ -4078,8 +4098,13 @@ nightly-load-test:
 # SCHEDULE_AUDIT_ACCEPTED_GAPS below lists gaps #1213's own audit already
 # found and filed as #1232 — a documented, temporary exception (same shape as
 # check-release-images' ACCEPTED_GAPS), not a way to quiet this gate
-# permanently. It is empty now (#1232 resolved); the script defaults it to
-# empty, so the variable is omitted rather than set to "".
+# permanently. #1232's entries are all resolved. The one entry now is
+# MUTATION_TEST (#1384): the backend-mutation pilot's rules read it, but no
+# schedule can set it until the pilot MR has merged and a maintainer adds it to
+# the Nightly schedule by hand, so without the entry every scheduled pipeline in
+# between would report it MISSING. Remove the entry (the script defaults the list
+# to empty) once the schedule carries the variable; see the comment on the
+# variable below.
 schedule-config-check:
   stage: lint
   needs: []

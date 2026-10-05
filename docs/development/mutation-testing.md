@@ -117,11 +117,13 @@ PYTHONPATH=/tmp/mutmut-tools .venv/bin/python -m mutmut run \
   --paths-to-mutate boards/permissions.py \
   --tests-dir boards/tests/ \
   --runner ".venv/bin/python -m pytest -x -q -p no:cacheprovider \
-    boards/tests/test_rbac.py boards/tests/test_rbac_boundaries.py boards/tests/test_explicit_permissions.py"
+    boards/tests/test_rbac.py boards/tests/test_rbac_boundaries.py boards/tests/test_explicit_permissions.py \
+    boards/tests/test_permissions_unit_mutation_gaps.py"
 ```
 
 - `-x` stops each mutant's test run at the first failure, which is what makes a kill cheap.
-- The runner must name the venv interpreter explicitly; `python` is not on the path mutmut uses.
+- These are the same four test files the CI pilot runs (`[mutmut] runner` in `backend/setup.cfg`).
+- mutmut 2.5.1 starts the runner without a shell, resolving the first word through the inherited `PATH`. The command above calls `.venv/bin/python` without activating the venv, so the runner names the venv interpreter too; a plain `python` would resolve to whatever is first on `PATH` (often none at all on macOS). The committed `setup.cfg` runner uses plain `python`, which is right in CI (the job's interpreter is the one with the dependencies) and locally only after `source .venv/bin/activate`.
 - `--tests-dir` is required even though the runner lists its own files.
 - Results are stored in `.mutmut-cache`. Delete it before changing the test list, or mutmut will reuse stale verdicts.
 
@@ -129,10 +131,10 @@ For the other modules, swap `--paths-to-mutate` and the test files using the tab
 
 ### Restricting to one class
 
-Create `mutmut_config.py` in the copy's `backend/` directory. mutmut imports it automatically:
+mutmut imports `mutmut_config.py` from the working directory automatically. The committed `backend/mutmut_config.py` is the CI shard hook (it skips nothing when `MUTATION_SHARDS` is unset). To restrict a run to a line range, overwrite it **in the throwaway copy only**:
 
 ```python
-# mutmut_config.py -- not committed
+# mutmut_config.py -- in the throwaway copy only; do not commit over the shard hook
 import os
 
 LO = int(os.environ.get("MM_LO", "0"))              # first line, 0-based
@@ -147,7 +149,7 @@ Then export `MM_LO=357 MM_HI=423` and run with `--paths-to-mutate boards/models.
 
 ### Parallel runs
 
-mutmut 2.x is single-process. To use many cores, make N copies of the tree (each has its own SQLite file) and give each copy a share of the lines through the same hook:
+mutmut 2.x is single-process. To use many cores, make N copies of the tree (each has its own SQLite file) and give each copy a share of the lines. The committed hook already does this with `MUTATION_SHARDS=N MUTATION_SHARD=k`; to combine sharding with a line range, use this variant in the copies instead:
 
 ```python
 # mutmut_config.py -- sharded variant
@@ -211,14 +213,14 @@ Each mutant costs about 25 s, nearly all of it pytest and Django start-up, not t
 - `backend/setup.cfg` `[mutmut]` holds the scope (`paths_to_mutate`, the test files). `backend/mutmut_config.py` gives shard k of N the lines where `line_index % N == k` (`MUTATION_SHARDS` and `MUTATION_SHARD`).
 - mutmut is installed **inside the job** with `pip install "mutmut==2.5.1"`. It stays out of `requirements*.txt`. Bumping the pin changes the mutants generated and so moves the score; bump it on purpose and re-baseline.
 - mutmut 2.5.1 has no `export-cicd-stats` command (that is 3.x). `scripts/check_mutation_score.py --export-cache` reads `.mutmut-cache` instead and writes one stats file per shard.
-- `backend-mutation-report` sums the shards, prints the score and writes `mutmut-cicd-stats.json` (kept 30 days). It is told how many shards to expect (`--expect-shards 4`, matching `parallel: 4`) and exits 2 (yellow), even in report-only mode, if fewer stats files arrive (a shard timed out or failed before writing its file), if a file is malformed, or if mutants were left untested. A run that is incomplete is never summed into a smaller, apparently complete score. The one case it cannot see is a shard that finished and wrote a file with an unusually low mutant count.
+- `backend-mutation-report` sums the shards, prints the score and writes `mutmut-cicd-stats.json` (kept 30 days). It is told how many shards to expect (`--expect-shards 4`, matching `parallel: 4`) and exits 2 (yellow), even in report-only mode, if fewer stats files arrive (a shard timed out or failed before writing its file), if a file is malformed, or if mutants were left untested. It also checks that the shards are one run: every shard registers the whole module's mutants (other shards' lines as `skipped`), so every shard's `total` must be equal, and the shards' non-skipped mutants must add up to exactly that total. A stale or mismatched shard, or a shard hook that covers a line twice or not at all, is exit 2. A run that is incomplete is never summed into a smaller, apparently complete score. The merged file's `total` is the module's mutant count (not 4 x total), and on an exit 2 it is still written, with a `not_measured` key giving the reason.
 - Dependency review for mutmut 2.5.1: BSD-3-Clause; dependencies click (BSD-3), glob2 (BSD), parso (MIT), pony (Apache-2.0), junit-xml (MIT), toml (MIT); no OSV advisories for any of them on 2026-10-04. 2.x rather than 3.x because 3.x copies the tree into a sandbox (needs `also_copy` bookkeeping for every file the suite reads), which does not suit a Django suite.
 
 ### Maintainer steps and what comes next
 
 1. After the pilot MR merges, add `MUTATION_TEST=true` to the Nightly schedule (4176726). Until then the jobs never run. `MUTATION_TEST` is in `SCHEDULE_AUDIT_ACCEPTED_GAPS` so `schedule-config-check` does not report it MISSING.
 2. Remove `MUTATION_TEST` from `SCHEDULE_AUDIT_ACCEPTED_GAPS` in `.gitlab-ci.yml` once the schedule carries it (not machine-checked).
-3. After about a week of nightly artifacts, set `MUTATION_MIN` one point under the lowest observed score and record the decision on #1384. #1384 stays open until then.
+3. After about a week of nightly artifacts, set `MUTATION_MIN` one point under the lowest observed score, written as a fraction: a 96% low gives `MUTATION_MIN=0.95`, not `95`. The checker rejects `0` and anything outside (0, 1] (exit 2). Record the decision on #1384. #1384 stays open until then.
 4. Triage survivors as described in [How to read the results](#how-to-read-the-results).
 
 ## Limits of this baseline
