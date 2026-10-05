@@ -41,15 +41,14 @@ async function routeCardWithPatchCapture(page: Page, sink: { description?: strin
  *
  * Why the two can differ: Shift+Arrow extends the DOM selection natively, and
  * ProseMirror only copies it into `editor.state.selection` when the browser's
- * asynchronous `selectionchange` event reaches its DOMObserver. A toolbar
- * button's mousedown handler runs outside ProseMirror's own event handling, so
- * nothing syncs the state first. `toggleBold()` therefore acts on whatever
- * selection the state holds. A human cannot click a toolbar button inside that
- * gap, but Playwright fires the click about 1 ms after the last keypress. On a
- * loaded CI runner the pending `selectionchange` tasks can still be queued
- * behind the mousedown (see #1195: a job bolded nothing, then "ut", then
- * "dout" across its three attempts, and a later pipeline with a byte-identical
- * frontend tree passed).
+ * asynchronous `selectionchange` event reaches its DOMObserver. `toggleBold()`
+ * and Ctrl+U act on the state, not the DOM. #1195 therefore polled this helper
+ * after the keypresses, but that was insufficient (#1474): under load a
+ * Shift+ArrowLeft can be dropped, so the state never reaches the word and the
+ * poll just times out. The specs now set the range deterministically with
+ * `selectWordInEditor` (see it for the full explanation) and use this helper
+ * only to confirm the state holds exactly that text. Keep that confirmation:
+ * a mark applied to a stale or empty selection passes vacuously.
  *
  * Tiptap attaches the Editor instance to its root element (`dom.editor`),
  * which lets the test wait on the real editor state instead of on a
