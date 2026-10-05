@@ -1,7 +1,7 @@
 # Mutation Testing Baseline
 
-!!! note "One-off and non-gating"
-    This page records a **manual** mutation-testing baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Nothing here runs in CI and nothing fails a pipeline. A recurring CI pilot with a floor is tracked separately (#1384).
+!!! note "Baseline is manual; a report-only CI pilot also runs"
+    The numbers below are a **manual** baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a report-only CI job, `backend-mutation`, also runs on the Nightly schedule against `boards/permissions.py` and publishes a score artifact. Nothing here fails a pipeline: the job is `allow_failure: true` and has no floor yet. See [CI pilot](#ci-pilot-backend-mutation).
 
 Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong. A tool makes one small change at a time (flip `==` to `!=`, change a string, replace a value with `None`), runs the tests, and counts the change as **killed** if a test fails or **survived** if every test still passes. The kill rate is `killed / (killed + survived)`.
 
@@ -117,11 +117,13 @@ PYTHONPATH=/tmp/mutmut-tools .venv/bin/python -m mutmut run \
   --paths-to-mutate boards/permissions.py \
   --tests-dir boards/tests/ \
   --runner ".venv/bin/python -m pytest -x -q -p no:cacheprovider \
-    boards/tests/test_rbac.py boards/tests/test_rbac_boundaries.py boards/tests/test_explicit_permissions.py"
+    boards/tests/test_rbac.py boards/tests/test_rbac_boundaries.py boards/tests/test_explicit_permissions.py \
+    boards/tests/test_permissions_unit_mutation_gaps.py"
 ```
 
 - `-x` stops each mutant's test run at the first failure, which is what makes a kill cheap.
-- The runner must name the venv interpreter explicitly; `python` is not on the path mutmut uses.
+- These are the same four test files the CI pilot runs (`[mutmut] runner` in `backend/setup.cfg`).
+- mutmut 2.5.1 starts the runner without a shell, resolving the first word through the inherited `PATH`. The command above calls `.venv/bin/python` without activating the venv, so the runner names the venv interpreter too; a plain `python` would resolve to whatever is first on `PATH` (often none at all on macOS). The committed `setup.cfg` runner uses plain `python`, which is right in CI (the job's interpreter is the one with the dependencies) and locally only after `source .venv/bin/activate`.
 - `--tests-dir` is required even though the runner lists its own files.
 - Results are stored in `.mutmut-cache`. Delete it before changing the test list, or mutmut will reuse stale verdicts.
 
@@ -129,10 +131,10 @@ For the other modules, swap `--paths-to-mutate` and the test files using the tab
 
 ### Restricting to one class
 
-Create `mutmut_config.py` in the copy's `backend/` directory. mutmut imports it automatically:
+mutmut imports `mutmut_config.py` from the working directory automatically. The committed `backend/mutmut_config.py` is the CI shard hook (it skips nothing when `MUTATION_SHARDS` is unset). To restrict a run to a line range, overwrite it **in the throwaway copy only**:
 
 ```python
-# mutmut_config.py -- not committed
+# mutmut_config.py -- in the throwaway copy only; do not commit over the shard hook
 import os
 
 LO = int(os.environ.get("MM_LO", "0"))              # first line, 0-based
@@ -147,7 +149,7 @@ Then export `MM_LO=357 MM_HI=423` and run with `--paths-to-mutate boards/models.
 
 ### Parallel runs
 
-mutmut 2.x is single-process. To use many cores, make N copies of the tree (each has its own SQLite file) and give each copy a share of the lines through the same hook:
+mutmut 2.x is single-process. To use many cores, make N copies of the tree (each has its own SQLite file) and give each copy a share of the lines. The committed hook already does this with `MUTATION_SHARDS=N MUTATION_SHARD=k`; to combine sharding with a line range, use this variant in the copies instead:
 
 ```python
 # mutmut_config.py -- sharded variant
@@ -180,6 +182,46 @@ For each survivor, read the diff and ask in order:
 3. **Otherwise it is a missing assertion.** Add the smallest assertion that fails on the mutant: the exact message or key, the boundary value (`limit` and `limit + 1`), the empty-collection case, or the ordering.
 
 Two patterns recur in this codebase. A string-literal mutant that adds `XX` around a message survives whenever a test uses `assertIn` with a fragment of the message, because the fragment is still a substring; assert the full message, or both its start and its end. A `>=` to `>` mutant on a limit survives unless a test sits exactly on the limit.
+
+## CI pilot (`backend-mutation`)
+
+Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`. It is a **pilot, not a gate**: it runs on the Nightly schedule only (`MUTATION_TEST=true`, never on an MR or a `main` push), both jobs are `allow_failure: true`, and `MUTATION_MIN` is unset. The report job prints the score and says the floor is unset. The floor is set later from observed scores, never chosen up front and never set to 0.
+
+### Beachhead: `boards/permissions.py`
+
+| | |
+|---|---|
+| Module | `backend/boards/permissions.py` (role and permission rule helpers) |
+| Mutants | 118 |
+| Tests | `test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions`, `test_permissions_unit_mutation_gaps` (132 tests, 44 s once, SQLite) |
+| Kill rate | 96.6% by the manual baseline above (before the pilot) |
+
+Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. `boards/services/cards.py` (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and the remaining survivors there are mostly untested `update_card` paths already tracked in #1454.
+
+Runtime evidence, measured 2026-10-04 on a loaded laptop (another mutmut run was using the CPUs), SQLite, mutmut 2.5.1, one process, `-x` per mutant:
+
+| Run | Mutants run | Wall time |
+|---|---:|---:|
+| shard 0 of 16 | 4 | 183 s |
+| shard 3 of 16 | 9 | 311 s |
+| one full test pass, no mutation | n/a | 44 s |
+
+Each mutant costs about 25 s, nearly all of it pytest and Django start-up, not the tests themselves. That is consistent with the manual baseline (~0.85 CPU-hours for 118 mutants). A serial run would take about 50 minutes, which is over the 15 to 20 minute target, so CI runs **4 parallel shards** (`parallel: 4`), each with its own Postgres service, which brings each shard to roughly 14 minutes of mutants plus one baseline run. This is an estimate, not a CI measurement: the first nightlies will give the real number, and `timeout: 40m` leaves headroom. PostgreSQL start-up and migrations may cost more than SQLite did here.
+
+### How it works
+
+- `backend/setup.cfg` `[mutmut]` holds the scope (`paths_to_mutate`, the test files). `backend/mutmut_config.py` gives shard k of N the lines where `line_index % N == k` (`MUTATION_SHARDS` and `MUTATION_SHARD`).
+- mutmut is installed **inside the job** with `pip install "mutmut==2.5.1"`. It stays out of `requirements*.txt`. Bumping the pin changes the mutants generated and so moves the score; bump it on purpose and re-baseline.
+- mutmut 2.5.1 has no `export-cicd-stats` command (that is 3.x). `scripts/check_mutation_score.py --export-cache` reads `.mutmut-cache` instead and writes one stats file per shard.
+- `backend-mutation-report` sums the shards, prints the score and writes `mutmut-cicd-stats.json` (kept 30 days). It is told how many shards to expect (`--expect-shards 4`, matching `parallel: 4`) and exits 2 (yellow), even in report-only mode, if fewer stats files arrive (a shard timed out or failed before writing its file), if a file is malformed, or if mutants were left untested. It also checks that the shards are one run: every shard registers the whole module's mutants (other shards' lines as `skipped`), so every shard's `total` must be equal, and the shards' non-skipped mutants must add up to exactly that total. A stale or mismatched shard, or a shard hook that covers a line twice or not at all, is exit 2. A run that is incomplete is never summed into a smaller, apparently complete score. The merged file's `total` is the module's mutant count (not 4 x total), and on a not-measured exit 2 it is still written, with a `not_measured` key giving the reason. A floor configuration error (for example `MUTATION_MIN=95`) exits 2 before anything is read, so no merged file is written for that run.
+- Dependency review for mutmut 2.5.1: BSD-3-Clause; dependencies click (BSD-3), glob2 (BSD), parso (MIT), pony (Apache-2.0), junit-xml (MIT), toml (MIT); no OSV advisories for any of them on 2026-10-04. 2.x rather than 3.x because 3.x copies the tree into a sandbox (needs `also_copy` bookkeeping for every file the suite reads), which does not suit a Django suite.
+
+### Maintainer steps and what comes next
+
+1. After the pilot MR merges, add `MUTATION_TEST=true` to the Nightly schedule (4176726). Until then the jobs never run. `MUTATION_TEST` is in `SCHEDULE_AUDIT_ACCEPTED_GAPS` so `schedule-config-check` does not report it MISSING.
+2. Remove `MUTATION_TEST` from `SCHEDULE_AUDIT_ACCEPTED_GAPS` in `.gitlab-ci.yml` once the schedule carries it (not machine-checked).
+3. After about a week of nightly artifacts, set `MUTATION_MIN` one point under the lowest observed score, written as a fraction: a 96% low gives `MUTATION_MIN=0.95`, not `95`. The checker rejects `0` and anything outside (0, 1] (exit 2). Record the decision on #1384. #1384 stays open until then.
+4. Triage survivors as described in [How to read the results](#how-to-read-the-results).
 
 ## Limits of this baseline
 

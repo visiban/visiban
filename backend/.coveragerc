@@ -12,6 +12,8 @@ omit =
     visiban/wsgi.py
     visiban/asgi.py
     boards/routing.py
+    # mutmut hook (#1384): only ever imported by the nightly mutation job, never by pytest.
+    mutmut_config.py
 
 [report]
 skip_covered = true

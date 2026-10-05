@@ -311,4 +311,53 @@ describe('OverflowMenu — keyboard navigation', () => {
     fireEvent.keyDown(alpha, { key: 'ArrowUp' })
     expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Gamma' }))
   })
+
+  describe('viewport fit (#1457)', () => {
+    afterEach(() => { vi.restoreAllMocks() })
+
+    const rectAt = (top: number, bottom: number) =>
+      ({ top, bottom, left: 900, right: 924, width: 24, height: bottom - top, x: 900, y: top, toJSON: () => ({}) }) as DOMRect
+
+    function openAt(top: number, bottom: number, height = 200) {
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(height)
+      const utils = render(
+        <OverflowMenu items={[item('a', 'Alpha'), item('b', 'Beta')]} ariaLabel="Actions for alice" />,
+      )
+      const trigger = screen.getByRole('button', { name: 'Actions for alice' })
+      trigger.getBoundingClientRect = () => rectAt(top, bottom)
+      fireEvent.click(trigger)
+      return utils
+    }
+
+    it('opens below the trigger when the measured height fits', () => {
+      openAt(100, 124)
+      const menu = screen.getByRole('menu')
+      expect(menu.style.top).toBe('128px')
+      expect(menu.style.visibility).toBe('')
+      expect(menu.style.maxHeight).toBe('calc(100vh - 16px)')
+    })
+
+    it('opens upward for a bottom-row trigger instead of running off-screen', () => {
+      openAt(window.innerHeight - 40, window.innerHeight - 16)
+      expect(screen.getByRole('menu').style.top).toBe(`${window.innerHeight - 40 - 4 - 200}px`)
+    })
+
+    it('pins to the bottom edge when it fits neither below nor above', () => {
+      const height = window.innerHeight - 60
+      openAt(100, 124, height)
+      expect(screen.getByRole('menu').style.top).toBe(`${window.innerHeight - 8 - height}px`)
+    })
+
+    it('closes on resize and on an outside scroll, not on a scroll of the menu itself', () => {
+      openAt(100, 124)
+      fireEvent.scroll(screen.getByRole('menu'))
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      fireEvent.scroll(document)
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for alice' }))
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      fireEvent(window, new Event('resize'))
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+  })
 })

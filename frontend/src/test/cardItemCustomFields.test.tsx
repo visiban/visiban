@@ -594,7 +594,14 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(avatarStub.parentElement).not.toBe(row);
   });
 
-  it("renders the avatar stub but no metadata row when the card has only an assignee (hasMetadataRow rename didn't leave an empty row)", () => {
+  it("still renders an (empty) metadata row when the card has only an assignee, with min-h-5 + pr-7 reserving the avatar's footprint (#1411 ux-review blocker)", () => {
+    // card.assignee deliberately stays in the hasMetadataRow OR-chain even
+    // though the avatar itself renders outside the row: the row is the only
+    // thing reserving the avatar's space, so an assignee-only card must still
+    // render the row — with no chips in it — or the absolutely-positioned
+    // avatar has nothing stopping it from sitting on the title. An empty row
+    // has zero height, so `pr-7` alone reserves nothing vertically: the row
+    // also needs `min-h-5` (the xs Avatar's 20px) to actually clear the title.
     const { container } = render(
       <CardItem
         card={makeCard({
@@ -605,6 +612,23 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     );
 
     expect(screen.getByTestId("avatar-stub")).toBeInTheDocument();
-    expect(container.querySelector(".overflow-hidden.group-hover\\:overflow-visible")).toBeNull();
+    const row = container.querySelector(".overflow-hidden.group-hover\\:overflow-visible");
+    expect(row).not.toBeNull();
+    expect(row).toHaveClass("min-h-5");
+    expect(row).toHaveClass("pr-7");
+  });
+
+  it("does not reserve avatar space (min-h-5 / pr-7) on the metadata row when the card has no assignee (#1411)", () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({ assignee: null, checklist_total: 2, checklist_done: 1 })}
+        customFieldDefinitions={[]}
+      />
+    );
+
+    const row = container.querySelector(".overflow-hidden.group-hover\\:overflow-visible");
+    expect(row).not.toBeNull();
+    expect(row).not.toHaveClass("min-h-5");
+    expect(row).not.toHaveClass("pr-7");
   });
 });

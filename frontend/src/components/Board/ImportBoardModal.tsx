@@ -47,13 +47,9 @@ interface IncludeRow {
 const CARDS_ROW: IncludeRow = {
   key: "cards",
   label: "Cards",
-  // JSON copy; a CSV import carries no assignees (see CSV_CARDS_ROW).
   rest: "Includes assignees and due dates.",
   off: "Cards and everything on them are skipped",
 };
-/** A CSV row carries title, description, priority, weight, due date and
- *  labels — no assignee — so the Cards rest copy names only due dates. */
-const CSV_CARDS_ROW: IncludeRow = { ...CARDS_ROW, rest: "Includes due dates." };
 const DEPENDENT_ROWS: IncludeRow[] = [
   { key: "comments", label: "Comments", rest: "", off: "Comments are skipped" },
   { key: "checklist", label: "Checklist items", rest: "", off: "Checklist items are skipped" },
@@ -315,7 +311,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
       open={true}
       onClose={onCancel}
       title="Import Board"
-      subtitle="Upload a Visiban JSON or CSV export to create a new board. JSON preserves full card history — movements, activity log, and assignees."
+      subtitle="Upload a Visiban JSON or CSV export to create a new board. JSON also preserves full card history — movements and activity log."
       maxWidth="max-w-[640px]"
       panelClassName="max-h-[calc(100dvh-2rem)]"
       noPadding
@@ -444,7 +440,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
                   : "Board structure (name, columns, swimlanes, custom fields) is always imported."}
               </p>
               <div className="space-y-2 bg-sunken border border-line rounded-lg px-3 py-2.5">
-                {renderRow(isCsv ? CSV_CARDS_ROW : CARDS_ROW, false)}
+                {renderRow(CARDS_ROW, false)}
                 {!isCsv && DEPENDENT_ROWS.map((row) => renderRow(row, true))}
                 {renderRow(LABELS_ROW, false)}
               </div>

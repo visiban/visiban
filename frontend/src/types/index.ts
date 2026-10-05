@@ -962,6 +962,16 @@ export interface AdminInviteLink {
   delivery: "link" | "email";
 }
 
+/** 202 body of the emailed-invite endpoints (#731). `delivery` is present only
+ * when mail went to the dev console rather than a relay; `already_registered`
+ * only on the site-admin endpoint. The raw token is never returned. */
+export interface InviteEmailSent {
+  detail: string;
+  sent_to: string;
+  delivery?: "console";
+  already_registered?: boolean;
+}
+
 export interface CreatedAdminInviteLink extends AdminInviteLink {
   raw_token: string;
 }

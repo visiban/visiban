@@ -41,6 +41,8 @@ const mockRevokeAdminInviteLink = vi.fn()
 const mockGetAdminEmailSettings = vi.fn()
 const mockPatchAdminEmailSettings = vi.fn()
 const mockSendAdminTestEmail = vi.fn()
+const mockSendAdminInviteEmail = vi.fn()
+const mockGetSiteConfig = vi.fn()
 
 vi.mock('../api/auth', () => ({
   getAdminSettings: (...args: unknown[]) => mockGetAdminSettings(...args),
@@ -64,7 +66,8 @@ vi.mock('../api/auth', () => ({
   login: vi.fn(),
   register: vi.fn(),
   getAuthProviders: vi.fn(),
-  getSiteConfig: vi.fn(),
+  getSiteConfig: (...args: unknown[]) => mockGetSiteConfig(...args),
+  sendAdminInviteEmail: (...args: unknown[]) => mockSendAdminInviteEmail(...args),
   changePassword: vi.fn(),
   searchUsers: vi.fn(),
 }))
@@ -159,6 +162,19 @@ const fakeAdminUsers: AdminUser[] = [
     owned_boards: [],
   },
 ]
+
+// Full SiteConfig, including invite_email_available, which the Invite Links tab's
+// EmailInviteForm reads (#731). Set for every describe so a partial mock never leaks in.
+const fakeSiteConfig = {
+  registration_open: true,
+  registration_mode: 'open',
+  demo_mode: false,
+  demo_login: null,
+  invite_email_available: true,
+}
+beforeEach(() => {
+  mockGetSiteConfig.mockResolvedValue(fakeSiteConfig)
+})
 
 function renderAdminPage(user: User = adminUser) {
   return render(
@@ -1361,5 +1377,59 @@ describe('AdminPage — Email (SMTP) settings', () => {
       expect(screen.getByText('Enter your real sending address.')).toBeInTheDocument()
     })
     expect(screen.getByText('Failed to save email settings.')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tests: Invite by email (#731)
+// ---------------------------------------------------------------------------
+
+describe('AdminPage — Invite by email', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSiteConfig.mockResolvedValue(fakeSiteConfig)
+    mockGetAdminSettings.mockResolvedValue(fakeSettings)
+    mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
+    mockGetAdminInviteLinks.mockResolvedValue([])
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+  })
+
+  async function openInviteLinksTab() {
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Invite Links'))
+    fireEvent.click(screen.getByText('Invite Links'))
+  }
+
+  it('sends an emailed invite, confirms inline and refetches the list', async () => {
+    mockSendAdminInviteEmail.mockResolvedValue({ detail: 'Invite sent', sent_to: 'sam@example.com', already_registered: false })
+    await openInviteLinksTab()
+    const input = await screen.findByRole('textbox', { name: 'Email address' })
+    // Site surface: no role picker.
+    expect(screen.queryByText('Member')).not.toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'sam@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send invite' }))
+    await waitFor(() => expect(mockSendAdminInviteEmail).toHaveBeenCalledWith({ email: 'sam@example.com' }))
+    expect(await screen.findByText('Invite sent to sam@example.com.')).toBeInTheDocument()
+    await waitFor(() => expect(mockGetAdminInviteLinks).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows an Emailed badge on emailed links', async () => {
+    mockGetAdminInviteLinks.mockResolvedValue([
+      { id: 8, prefix: 'vbnl_em', status: 'pending', single_use: true, expires_at: null, use_count: 0, created_by_username: 'admin', delivery: 'email' },
+      { id: 9, prefix: 'vbnl_sh', status: 'pending', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin', delivery: 'link' },
+    ])
+    await openInviteLinksTab()
+    await screen.findByText('vbnl_em…')
+    expect(screen.getAllByText('Emailed')).toHaveLength(1)
+  })
+
+  it('when email is not set up, shows the muted line and the link opens the Settings tab', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...fakeSiteConfig, invite_email_available: false })
+    await openInviteLinksTab()
+    expect(await screen.findByText(/Email invites aren't available\./)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Email address' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Settings → Email' }))
+    expect(await screen.findByText('Registration requires a valid invite link')).toBeInTheDocument()
+    expect(screen.queryByText(/Email invites aren't available/)).not.toBeInTheDocument()
   })
 })

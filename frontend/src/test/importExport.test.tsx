@@ -436,11 +436,11 @@ describe('ImportBoardModal — Include options (#119)', () => {
     expect(screen.getAllByRole('status')[0]).toHaveTextContent('')
   })
 
-  it('Cards copy names assignees for JSON but only due dates for CSV', async () => {
+  it('Cards copy names assignees and due dates for both JSON and CSV', async () => {
     const { user, input } = await setup()
     expect(box('Cards')).toHaveAccessibleDescription('Includes assignees and due dates.')
     await user.upload(input, csvFile())
-    expect(box('Cards')).toHaveAccessibleDescription('Includes due dates.')
+    expect(box('Cards')).toHaveAccessibleDescription('Includes assignees and due dates.')
   })
 
   it('a CSV import does not announce a cascade for rows it does not show', async () => {

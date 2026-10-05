@@ -71,7 +71,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [members, setMembers] = useState<GroupMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Incremented on an invite_link.revoked socket event so InviteLinkPanel
+  // Incremented on an invite_link.revoked/created socket event so InviteLinkPanel
   // (which owns its own link state) refetches in real time (#1051).
   const [inviteReloadKey, setInviteReloadKey] = useState(0);
 
@@ -256,7 +256,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       // member.removed is emitted on the group channel when an admin removes a
       // member, so the panel converges in real time for other admins (#1051).
       getGroupMembers(groupId).then(setMembers).catch(() => { /* stay with current list */ });
-    } else if (evt.event === "invite_link.revoked") {
+    } else if (evt.event === "invite_link.revoked" || evt.event === "invite_link.created") {
+      // invite_link.created ({id}) is emitted when another admin emails an
+      // invite (#731); like revoked, it only needs the panel to refetch.
       // An admin revoked an invite link in another session — bump the reload
       // signal so the InviteLinkPanel (which owns its own link state) refetches
       // and drops the link to revoked without a manual reload (#1051).
