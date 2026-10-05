@@ -197,3 +197,107 @@ class CardMutationHookTests(TestCase):
             self.client.delete(self._card_url())
         self.assertFalse(Card.objects.filter(pk=card_id).exists())
         self.assertEqual(self.calls[0][1], card_id)
+
+
+class RaisingHookIsolationTests(TestCase):
+    """#1476: a raising handler must not 500 a committed card write.
+
+    Note on discrimination: under ``captureOnCommitCallbacks(execute=True)`` the
+    pre-fix failure does not appear as a 500 status. The unguarded callback's
+    exception escapes the context manager (and the test) instead, because the
+    callbacks run in the test's own frame rather than inside the request. The
+    tests still discriminate: without the guard they error out, and with it they
+    must reach the status, persistence and later-hook assertions.
+    """
+
+    def setUp(self):
+        self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
+        self._broadcast_patcher.start()
+        self.user = _make_user("raiser")
+        self.board = _make_board(self.user)
+        self.col_a = _make_column(self.board, "A", 0)
+        self.col_b = _make_column(self.board, "B", 1)
+        self.col_a.allow_card_creation = True
+        self.col_a.save(update_fields=["allow_card_creation"])
+        self.lane = _make_swimlane(self.board, "L", 0)
+        self.card = _make_card(self.col_a, self.lane, title="Raise")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.seen = []
+
+        def boom(*args):
+            raise RuntimeError("secret-payload-detail")
+
+        self._boom = boom
+        self._after = lambda *a: self.seen.append(a[0])
+        hooks.CARD_MUTATION_HOOKS.append(boom)
+        hooks.CARD_MUTATION_HOOKS.append(self._after)
+
+    def tearDown(self):
+        hooks.CARD_MUTATION_HOOKS.remove(self._boom)
+        hooks.CARD_MUTATION_HOOKS.remove(self._after)
+        self._broadcast_patcher.stop()
+
+    def test_create_returns_201_persists_and_later_hook_runs(self):
+        with self.assertLogs("boards.services.cards", level="ERROR") as logs:
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.client.post(
+                    f"/api/v1/boards/{self.board.pk}/cards/",
+                    {"title": "Survives", "column": self.col_a.pk, "swimlane": self.lane.pk},
+                    format="json",
+                )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertTrue(Card.objects.filter(title="Survives").exists())
+        self.assertEqual(self.seen, ["card.created"])
+        joined = "\n".join(logs.output)
+        self.assertIn("RuntimeError", joined)
+        self.assertNotIn("secret-payload-detail", joined)
+
+    def test_move_returns_200_and_later_hook_runs(self):
+        with self.assertLogs("boards.services.cards", level="ERROR"):
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.client.post(
+                    f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+                    {"column_id": self.col_b.pk, "swimlane_id": self.lane.pk, "position": 0},
+                    format="json",
+                )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.col_b.pk)
+        self.assertEqual(self.seen, ["card.moved"])
+
+    def test_mention_notification_failure_does_not_500(self):
+        with patch("boards.services.cards.notify_new_mentions", side_effect=RuntimeError("x")):
+            with self.assertLogs("boards.services.cards", level="ERROR") as logs:
+                with self.captureOnCommitCallbacks(execute=True):
+                    resp = self.client.post(
+                        f"/api/v1/boards/{self.board.pk}/cards/",
+                        {"title": "Mention", "description": "hi @someone",
+                         "column": self.col_a.pk, "swimlane": self.lane.pk},
+                        format="json",
+                    )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertTrue(any("notify_new_mentions failed" in o for o in logs.output))
+
+    def test_archive_returns_200_with_raising_hook(self):
+        with self.assertLogs("boards.services.cards", level="ERROR"):
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.client.post(
+                    f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/archive/"
+                )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self.seen, ["card.archived"])
+
+    def test_patch_description_mention_failure_does_not_500(self):
+        with patch("boards.services.cards.notify_new_mentions", side_effect=RuntimeError("x")):
+            with self.assertLogs("boards.services.cards", level="ERROR") as logs:
+                with self.captureOnCommitCallbacks(execute=True):
+                    resp = self.client.patch(
+                        f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
+                        {"description": "hello @someone"},
+                        format="json",
+                    )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.description, "hello @someone")
+        self.assertTrue(any("notify_new_mentions failed" in o for o in logs.output))

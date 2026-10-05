@@ -62,6 +62,9 @@ ANALYTICS_EXTENSIONS: list = []
 # the handler fires. card_id / board_id are plain integers (not ORM instances) so
 # handlers can safely issue their own DB queries without reference to a potentially
 # stale Python object.
+# A handler that raises is logged (name, ids, event, exception class — no payload)
+# and swallowed: the write is already committed, so it must not 500 the request,
+# and it never prevents later handlers from running (#1476).
 # OSS behaviour is unchanged when this list is empty (the check is guarded by
 # ``if hooks.CARD_MUTATION_HOOKS:`` at each call site).
 CARD_MUTATION_HOOKS: list = []
