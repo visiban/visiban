@@ -2681,6 +2681,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#moving-the-caret-to-the-end-of-a-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Moving the caret to the end of a line
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mobile-viewports" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4018,7 +4029,7 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>frontend/e2e/
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├── fixtures/
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>│   └── board.ts          # Single source of truth for USER, BOARD_FULL, CARD, etc.
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├── helpers.ts            # routeAuth(page), routeBoard(page)
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├── helpers.ts            # routeAuth(page), routeBoard(page), END_OF_LINE
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>├── login.spec.ts         # Unauth → login flow
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>├── board.spec.ts         # Board renders, card CRUD
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>├── filter-bar.spec.ts    # Label filters, chips, saved-filter tabs
@@ -4032,7 +4043,8 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>├── export.spec.ts        # Export button visibility + JSON trigger
 <a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>├── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
 <a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>├── rich-text-editor.spec.ts  # Card description editor + markdown round-trip
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>└── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>├── card-description-caret.spec.ts  # Caret stays visible typing at the end of a description
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>└── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
 </code></pre></div>
 <h3 id="fixture-pattern">Fixture pattern<a class="headerlink" href="#fixture-pattern" title="Permanent link">&para;</a></h3>
 <p>All fixtures live in <code>frontend/e2e/fixtures/board.ts</code>. Every test imports the shared <code>USER</code>, <code>BOARD_FULL</code>, <code>CARD</code>, <code>SITE_CONFIG</code>, etc. — never inline a bespoke payload unless the test is specifically exercising a variant shape.</p>
@@ -4095,6 +4107,8 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <li><code>page.locator('#card-detail-title')</code> — last resort, when no accessible name exists</li>
 </ol>
 <p>Avoid class-based selectors (<code>page.locator('.btn-primary')</code>) — they break on every Tailwind refactor.</p>
+<h3 id="moving-the-caret-to-the-end-of-a-line">Moving the caret to the end of a line<a class="headerlink" href="#moving-the-caret-to-the-end-of-a-line" title="Permanent link">&para;</a></h3>
+<p>Use <code>END_OF_LINE</code> from <code>./helpers</code> (<code>page.keyboard.press(END_OF_LINE)</code>), never a bare <code>'End'</code> or <code>'Home'</code>. On a macOS host, Playwright's Chromium driver maps those keys to the native editing commands <code>scrollToEndOfDocument:</code> and <code>scrollToBeginningOfDocument:</code>, which smooth-scroll the nearest scroll container without moving the caret. On Linux (CI) the same keys move the caret, so a spec that uses them behaves differently on a developer's Mac than in the pipeline (#1475). <code>END_OF_LINE</code> is <code>Meta+ArrowRight</code> on macOS and <code>End</code> elsewhere.</p>
 <h3 id="mobile-viewports">Mobile viewports<a class="headerlink" href="#mobile-viewports" title="Permanent link">&para;</a></h3>
 <p>For tests that target the below-<code>lg</code> breakpoint (1024 px), scope the viewport at the <code>describe</code> level:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nx">test</span><span class="p">.</span><span class="nx">describe</span><span class="p">(</span><span class="s1">'mobile nav drawer'</span><span class="p">,</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
