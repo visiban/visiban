@@ -57,13 +57,26 @@ export function useBoard() {
   // recently *started* request may write to state. A ref keeps load /
   // silentReload identities stable.
   const fetchSeqRef = useRef(0);
+  // True while a (loading-skeleton) `load` has been superseded or is in flight
+  // and no later fetch has produced board state yet. Lets a failed silent
+  // resync that superseded a `load` fall back to it instead of leaving the
+  // caller's rollback un-applied.
+  const loadPendingRef = useRef(false);
 
   const load = useCallback(() => {
     setLoading(true);
     const seq = ++fetchSeqRef.current;
+    loadPendingRef.current = true;
     getBoardFull(boardId)
-      .then((b) => { if (seq === fetchSeqRef.current) setBoard(b); })
+      .then((b) => {
+        if (seq !== fetchSeqRef.current) return;
+        loadPendingRef.current = false;
+        setBoard(b);
+      })
       .catch((err) => {
+        // A superseded failure must not surface: the newer request owns state.
+        if (seq !== fetchSeqRef.current) return;
+        loadPendingRef.current = false;
         if (err?.response?.status === 404 || err?.response?.status === 403) {
           // Board doesn't exist or user lost access — go back to dashboard.
           // Fire-and-forget: the declarative router resolves navigate()
@@ -73,7 +86,10 @@ export function useBoard() {
           setError("Failed to load board");
         }
       })
-      .finally(() => setLoading(false));
+      // Only the latest request clears `loading`; a superseded load is skipped,
+      // and its superseder (load or silentReload) clears it when it settles, so
+      // loading can never stay stuck true.
+      .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
   }, [boardId, navigate]);
 
   useEffect(() => { load(); }, [load]);
@@ -84,16 +100,26 @@ export function useBoard() {
   const silentReload = useCallback(() => {
     const seq = ++fetchSeqRef.current;
     getBoardFull(boardId)
-      .then((b) => { if (seq === fetchSeqRef.current) setBoard(b); })
+      .then((b) => {
+        if (seq !== fetchSeqRef.current) return;
+        loadPendingRef.current = false;
+        setBoard(b);
+      })
       .catch((err) => {
+        if (seq !== fetchSeqRef.current) return;
         if (err?.response?.status === 404 || err?.response?.status === 403) {
           // See the `load` catch above re: fire-and-forget navigate().
           void navigate("/", { replace: true });
+        } else if (loadPendingRef.current) {
+          // This resync superseded a `load` that never delivered state; retry
+          // it rather than silently dropping the caller's refresh/rollback.
+          load();
         }
-        // Swallow other errors silently — a background resync failure is not
+        // Otherwise swallow silently — a background resync failure is not
         // worth surfacing to the user; the WS connection will recover it.
-      });
-  }, [boardId, navigate]);
+      })
+      .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
+  }, [boardId, navigate, load]);
 
   const clearMoveError = useCallback(() => {
     setMoveError(null);
