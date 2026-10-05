@@ -76,8 +76,12 @@ def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None
 
     Best-effort, like ``broadcast_board_event`` (#1462): it runs post-commit, so
     a channel-layer (Valkey) outage is logged — group id, event type and
-    exception class only at WARNING, the traceback at DEBUG — and swallowed
-    rather than turning a saved change into a 500. The ``except Exception`` is
+    exception class only at WARNING, the traceback at DEBUG (lower the logger's
+    level to see it) — and swallowed rather than turning a saved change into a
+    500. A dropped *data* frame is recovered when the group page re-fetches
+    the group's boards list on reconnect. A frame the consumer acts on itself,
+    rather than only forwarding it to the client, has no such recovery path;
+    see #1477. The ``except Exception`` is
     deliberately broad for the same reason as the board helper. It is not a
     "never raises" guarantee: payload serialization runs outside the ``try``, so
     an unserializable payload (a code bug) still raises.

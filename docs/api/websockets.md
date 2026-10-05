@@ -305,12 +305,12 @@ WebSocket events are registered with `transaction.on_commit()` inside a database
 
 The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.
 
-A transient publish failure does **not** close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. For the Visiban web app, that is the next reconnect, the next tab refocus (board view), or the next event that triggers a refetch.
+A transient publish failure does **not** close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect.
 
 How to resync:
 
 - **API clients** can replay board events from the durable [change feed](events.md). Keep the last `event_id` you processed and call `GET /api/v1/boards/{id}/events/?after=<event_id>`.
-- **The Visiban web app** does not read the change feed. It re-fetches full board state (`GET /api/v1/boards/{id}/full/`) on reconnect and on tab refocus, and re-fetches the group view on reconnect.
+- **The Visiban web app** does not read the change feed. The board view re-fetches full board state (`GET /api/v1/boards/{id}/full/`) in three cases: when the tab regains focus (at most once every 30 seconds), after events that trigger a refetch, and when you choose **Refresh board** in the connection popover. The group page re-fetches the group's boards list on reconnect.
 - **Group-channel frames** have no feed row, so group clients re-fetch the group view.
 
 ---

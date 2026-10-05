@@ -173,18 +173,23 @@ def broadcast_board_event(board_id: int, event_type: str, payload: dict, *, even
     ``group_send``'s exception escape would turn a saved change into a 500 — and
     since no write endpoint takes an idempotency key, the client's retry would
     create a duplicate. It would also abandon every on_commit callback queued
-    behind this one. Dropping the frame is safe because the feed row is durable
-    and clients resync from the server (see docs/api/websockets.md).
+    behind this one.
+
+    What a dropped frame costs depends on the frame. A *data* frame is
+    recoverable: its feed row is durable, so the client gets the change on its
+    next resync or from the change feed (see docs/api/websockets.md). A frame
+    the consumer acts on itself, rather than only forwarding it to the client,
+    has no such recovery path; see #1477.
 
     The ``except Exception`` around ``group_send`` is deliberately broad: a
     transport outage surfaces as many exception classes (connection, timeout,
     redis protocol, msgpack), and enumerating them would let the next unlisted
     one 500 a committed write again. The WARNING line carries the board id,
     event type and exception class only — never the payload or the exception
-    message (which can carry the layer URL); a DEBUG line with the traceback is
-    available by raising the logger level. This is **not** a "never raises"
-    guarantee: ``_json_safe`` runs outside the ``try``, so an unserializable
-    payload — a code bug, not an outage — still raises.
+    message (which can carry the layer URL). A DEBUG line carries the
+    traceback; lower the logger's level to DEBUG to see it. This is **not** a
+    "never raises" guarantee: ``_json_safe`` runs outside the ``try``, so an
+    unserializable payload — a code bug, not an outage — still raises.
     """
     channel_layer = get_channel_layer()
     if channel_layer is None:
