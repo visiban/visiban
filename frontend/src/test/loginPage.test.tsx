@@ -34,7 +34,7 @@ describe('LoginPage', () => {
     vi.clearAllMocks()
     sessionStorage.clear()
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
-    mockGetSiteConfig.mockResolvedValue({ registration_open: true })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: true, invite_email_available: false })
   })
 
   afterEach(() => {
@@ -179,7 +179,7 @@ describe('LoginPage', () => {
   })
 
   it('hides "Create one" and shows invite-only message when registration is closed', async () => {
-    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     renderLoginPage()
 
     expect(await screen.findByText('Registration is invite-only.')).toBeInTheDocument()
@@ -187,7 +187,7 @@ describe('LoginPage', () => {
   })
 
   it('disables submit button in register mode when registration is closed', async () => {
-    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     renderLoginPage({ authMode: 'register' })
 
     // Wait for the async getSiteConfig response to propagate — the invite-only
@@ -197,14 +197,14 @@ describe('LoginPage', () => {
   })
 
   it('shows invite-only message in register mode when registration is closed', async () => {
-    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     renderLoginPage({ authMode: 'register' })
 
     expect(await screen.findByText('An invite link is required to create an account.')).toBeInTheDocument()
   })
 
   it('enables submit button in register mode when registration is closed but invite token is present', async () => {
-    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     sessionStorage.setItem('invite_token', 'vbnl_abc123')
     renderLoginPage({ authMode: 'register' })
 
@@ -214,7 +214,7 @@ describe('LoginPage', () => {
   })
 
   it('hides invite-required message when invite token is present', async () => {
-    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     sessionStorage.setItem('invite_token', 'vbnl_abc123')
     renderLoginPage({ authMode: 'register' })
 
@@ -249,7 +249,7 @@ describe('LoginPage', () => {
   describe('OAuth invite token in URLs', () => {
     it('includes invite_token in OAuth URLs in register mode with token', async () => {
       mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false, oidc: false, oidc_name: null })
-      mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+      mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
       sessionStorage.setItem('invite_token', 'vbnl_test_token_123')
       renderLoginPage({ authMode: 'register' })
 
@@ -280,7 +280,7 @@ describe('LoginPage', () => {
 
   describe('context banner', () => {
     it('shows "Complete your registration" in register mode with invite token', async () => {
-      mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+      mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
       sessionStorage.setItem('invite_token', 'vbnl_abc')
       renderLoginPage({ authMode: 'register' })
 
@@ -288,7 +288,7 @@ describe('LoginPage', () => {
     })
 
     it('hides banner in login mode', async () => {
-      mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+      mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
       sessionStorage.setItem('invite_token', 'vbnl_abc')
       renderLoginPage()
 

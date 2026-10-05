@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
-import { listInviteLinks, createInviteLink, revokeInviteLink } from "../../api/groups";
+import { listInviteLinks, createInviteLink, revokeInviteLink, sendInviteLinkEmail } from "../../api/groups";
 import type { GroupInviteLink } from "../../types";
+import EmailInviteForm from "../Common/EmailInviteForm";
 import SelectDropdown from "../Common/SelectDropdown";
 import { ToggleField } from "../Common/Toggle";
 import Spinner from "../Common/Spinner";
@@ -110,7 +111,15 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
     setLoadError(false);
     try {
       const data = await listInviteLinks(groupId);
-      setLinks(data);
+      // The list never carries raw tokens; keep one we are still revealing so a
+      // refetch (e.g. the invite_link.created echo of our own email send) does
+      // not wipe a just-created link's one-time token.
+      setLinks((prev) =>
+        data.map((l) => {
+          const token = prev.find((p) => p.id === l.id)?.token;
+          return token ? { ...l, token } : l;
+        })
+      );
     } catch {
       // Previously unhandled: a failed load left `links` at its prior value
       // (empty on first mount) with no indication anything went wrong — the
@@ -228,6 +237,12 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
         )}
       </div>
 
+      <EmailInviteForm
+        surface="group"
+        send={(payload) => sendInviteLinkEmail(groupId, payload)}
+        onSent={() => void fetchLinks()}
+      />
+
       {loading ? (
         <Spinner />
       ) : loadError ? (
@@ -274,6 +289,13 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                   >
                     {ROLE_LABELS[link.role] ?? link.role}
                   </span>
+
+                  {/* Emailed links are single-use and never reveal a token (#731). */}
+                  {link.delivery === "email" && (
+                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-surface-hover text-fg-tertiary">
+                      Emailed
+                    </span>
+                  )}
 
                   {/* Status badge — shown for non-pending states */}
                   {linkStatus !== "pending" && (

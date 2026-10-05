@@ -100,6 +100,15 @@ vi.mock('../api/notifications', () => ({
 
 vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
+  // InviteLinkPanel's EmailInviteForm reads it (#731); unavailable keeps the
+  // section hidden so these tests stay about the page.
+  getSiteConfig: vi.fn().mockResolvedValue({
+    registration_open: true,
+    registration_mode: 'open',
+    demo_mode: false,
+    demo_login: null,
+    invite_email_available: false,
+  }),
 }))
 
 import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup } from '../api/groups'
@@ -792,6 +801,20 @@ describe('GroupDetail', () => {
       })
 
       // The bumped reloadSignal triggers a refetch in InviteLinkPanel.
+      await waitFor(() => expect(mockListInviteLinks).toHaveBeenCalledTimes(2))
+    })
+
+    it('invite_link.created WS event reloads the invite panel (#731)', async () => {
+      setupAdmin()
+      renderGroupDetail()
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Invite links')
+      expect(mockListInviteLinks).toHaveBeenCalledTimes(1)
+
+      act(() => {
+        capturedOnEvent?.({ event: 'invite_link.created', data: { id: 9 } } as BoardEvent)
+      })
+
       await waitFor(() => expect(mockListInviteLinks).toHaveBeenCalledTimes(2))
     })
 

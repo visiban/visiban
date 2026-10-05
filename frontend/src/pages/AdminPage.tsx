@@ -13,8 +13,10 @@ import {
   patchAdminSettings,
   patchAdminUser,
   revokeAdminInviteLink,
+  sendAdminInviteEmail,
 } from "../api/auth";
 import Avatar from "../components/Common/Avatar";
+import EmailInviteForm from "../components/Common/EmailInviteForm";
 import EmailSettingsSection from "../components/Admin/EmailSettingsSection";
 import Navbar from "../components/Layout/Navbar";
 import OverflowMenu, { type OverflowItem } from "../components/Layout/OverflowMenu";
@@ -256,7 +258,7 @@ function formatExpiry(link: AdminInviteLink): string {
   });
 }
 
-function InviteLinksTab() {
+function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => void }) {
   const [links, setLinks] = useState<AdminInviteLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -290,6 +292,12 @@ function InviteLinksTab() {
       .catch(() => setError("Failed to load invite links."))
       .finally(() => setLoading(false));
   }, []);
+
+  // Refetch after an emailed invite so it appears in the list. Only the list is
+  // replaced: the one-time reveal lives in `newLink`, separate state.
+  const refreshLinks = () => {
+    getAdminInviteLinks().then(setLinks).catch(() => setError("Failed to load invite links."));
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -345,6 +353,15 @@ function InviteLinksTab() {
   return (
     <div className="flex flex-col gap-6">
       <h2 className="text-fg text-lg font-semibold">Invite Links</h2>
+
+      <div className="max-w-lg">
+        <EmailInviteForm
+          surface="site"
+          send={sendAdminInviteEmail}
+          onSent={refreshLinks}
+          onOpenEmailSettings={onOpenEmailSettings}
+        />
+      </div>
 
       {/* Create form */}
       <form onSubmit={handleCreate} className="flex flex-col gap-4 max-w-sm">
@@ -426,6 +443,9 @@ function InviteLinksTab() {
                   <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_STYLES[link.status]}`}>
                     {link.status}
                   </span>
+                  {link.delivery === "email" && (
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-tertiary">Emailed</span>
+                  )}
                   {link.single_use && (
                     <span className="px-2 py-0.5 text-xs rounded-full bg-fg-muted/20 text-fg-tertiary">single-use</span>
                   )}
@@ -1497,7 +1517,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
           <div className="flex-1 min-w-0">
             {activeTab === "settings" && <SettingsTab currentUser={user} />}
             {activeTab === "users" && <UsersTab currentUser={user} />}
-            {activeTab === "invite_links" && <InviteLinksTab />}
+            {activeTab === "invite_links" && <InviteLinksTab onOpenEmailSettings={() => setActiveTab("settings")} />}
           </div>
         </div>
       </main>
