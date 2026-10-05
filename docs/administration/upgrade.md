@@ -281,10 +281,10 @@ After rolling back, restart the backend container with the previous image versio
 
 ## Release-specific upgrade notes
 
-### Upgrading to 1.3.x
+### Upgrading to 1.2.x
 
 !!! warning "WIP and weight limits now apply to card create, restore, and weight changes"
-    Before 1.3, a column's `wip_limit` and `weight_limit` were checked only when a card was
+    Before 1.2, a column's `wip_limit` and `weight_limit` were checked only when a card was
     **moved** into it. They are now also checked when a card is created in the column
     (`POST /api/v1/boards/{id}/cards/` and the MCP `create_card` tool), restored into it from
     the archive (`POST .../cards/{id}/unarchive/`), or has its `weight` raised with `PATCH`,
@@ -301,8 +301,6 @@ After rolling back, restart the backend container with the previous image versio
     Trello) is not affected — it restores a board as exported, over its limits or not.
     Existing over-limit columns are left as they are. See
     [Field Enforcement](../architecture/field-enforcement.md) (#1428).
-
-### Upgrading to 1.2.x
 
 !!! warning "GitLab registry `:latest` no longer tracks `main` builds"
     Previously every `main` merge overwrote `registry.gitlab.com/visiban/visiban/backend:latest`
