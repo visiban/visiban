@@ -82,7 +82,7 @@ test.describe('swimlane field order shortcut', () => {
     })),
   }
 
-  test('admin opens Swimlane fields from the +N popover; Cmd+, still opens Members', async ({ page }) => {
+  test('admin opens Swimlane fields from the +N popover; Ctrl+, still opens Members', async ({ page }) => {
     await routeAuth(page)
     await routeBoard(page, board as typeof BOARD_FULL)
     await page.goto(`/boards/${BOARD_FULL.id}`)
@@ -93,13 +93,15 @@ test.describe('swimlane field order shortcut', () => {
 
     const tab = page.getByRole('button', { name: 'Swimlane fields' })
     await expect(tab).toBeFocused()
+    await expect(tab).toHaveAttribute('aria-current', 'true')
     await expect(page.getByRole('dialog', { name: /Field values for/ })).toHaveCount(0)
 
     await page.keyboard.press('Escape')
     await expect(tab).toHaveCount(0)
 
     await page.keyboard.press('Control+,')
-    await expect(page.getByRole('button', { name: /^Members \(/ })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Swimlane fields' })).not.toBeFocused()
+    // aria-current marks the active tab, so this fails if the modal reopens on Swimlane fields.
+    await expect(page.getByRole('button', { name: /^Members \(/ })).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByRole('button', { name: 'Swimlane fields' })).not.toHaveAttribute('aria-current', 'true')
   })
 })
