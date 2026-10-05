@@ -153,7 +153,7 @@ describe("CustomFieldQuickEditPopover", () => {
       />
     );
 
-    const popover = screen.getByRole("listbox");
+    const popover = screen.getByTestId("custom-field-quick-edit-popover");
     expect(popover.style.right).toBe(`${320 - 250}px`);
     expect(popover.style.left).toBe("");
   });
@@ -173,7 +173,7 @@ describe("CustomFieldQuickEditPopover", () => {
       />
     );
 
-    const popover = screen.getByRole("listbox");
+    const popover = screen.getByTestId("custom-field-quick-edit-popover");
     expect(popover.style.left).toBe("100px");
     expect(popover.style.right).toBe("");
   });
@@ -193,8 +193,114 @@ describe("CustomFieldQuickEditPopover", () => {
       />
     );
 
-    const popover = screen.getByRole("listbox");
+    const popover = screen.getByTestId("custom-field-quick-edit-popover");
     expect(popover.style.left).toBe("150px");
     expect(popover.style.right).toBe("");
+  });
+
+  describe("viewport fit (#1457)", () => {
+    const panel = () => screen.getByTestId("custom-field-quick-edit-popover");
+    const mount = (anchorRect: DOMRect) =>
+      render(
+        <CustomFieldQuickEditPopover
+          anchorRect={anchorRect}
+          choices={CHOICES}
+          selected="Low"
+          onSelect={() => {}}
+          onDismiss={vi.fn()}
+        />
+      );
+
+    it("places below the anchor when the measured height fits", () => {
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+      mount(makeRect({ top: 100, bottom: 120 }));
+      expect(panel().style.top).toBe("124px");
+      expect(panel().style.visibility).toBe("");
+    });
+
+    it("places above the anchor when it does not fit below", () => {
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+      mount(makeRect({ top: window.innerHeight - 40, bottom: window.innerHeight - 20 }));
+      expect(panel().style.top).toBe(`${window.innerHeight - 40 - 4 - 200}px`);
+    });
+
+    it("pins to the bottom edge when it fits neither below nor above", () => {
+      const height = window.innerHeight - 60;
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(height);
+      mount(makeRect({ top: 100, bottom: 120 }));
+      expect(panel().style.top).toBe(`${window.innerHeight - 8 - height}px`);
+    });
+
+    it("caps the panel at the viewport rather than a fixed height", () => {
+      mount(makeRect());
+      expect(panel().style.maxHeight).toBe("calc(100vh - 16px)");
+    });
+
+    it("dismisses on window resize", () => {
+      const onDismiss = vi.fn();
+      render(
+        <CustomFieldQuickEditPopover
+          anchorRect={makeRect()}
+          choices={CHOICES}
+          selected="Low"
+          onSelect={() => {}}
+          onDismiss={onDismiss}
+        />
+      );
+      fireEvent(window, new Event("resize"));
+      expect(onDismiss).toHaveBeenCalled();
+    });
+
+    it("dismisses on a scroll outside the panel, but not on a scroll of its own list", () => {
+      const onDismiss = vi.fn();
+      render(
+        <CustomFieldQuickEditPopover
+          anchorRect={makeRect()}
+          choices={CHOICES}
+          selected="Low"
+          onSelect={() => {}}
+          onDismiss={onDismiss}
+        />
+      );
+      fireEvent.scroll(screen.getByRole("listbox", { name: "Choices" }));
+      expect(onDismiss).not.toHaveBeenCalled();
+      fireEvent.scroll(document);
+      expect(onDismiss).toHaveBeenCalled();
+    });
+
+    it("exposes a keyboard-focusable, labeled scroll region", () => {
+      mount(makeRect());
+      const list = screen.getByRole("listbox", { name: "Choices" });
+      expect(list).toHaveAttribute("tabindex", "0");
+    });
+
+    it("focuses the list only when it overflows, and only after placement", () => {
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(500);
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
+      let visibilityAtFocus: string | undefined;
+      const focusSpy = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (this: HTMLElement) {
+        visibilityAtFocus = (this.closest("[data-testid='custom-field-quick-edit-popover']") as HTMLElement).style.visibility;
+      });
+      mount(makeRect());
+      expect(focusSpy).toHaveBeenCalledTimes(1);
+      expect(visibilityAtFocus).toBe("");
+    });
+
+    it("does not move focus when the list fits", () => {
+      const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+      mount(makeRect());
+      expect(focusSpy).not.toHaveBeenCalled();
+    });
+
+    it("shows the overflow fade only while more is below the fold", () => {
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(500);
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
+      mount(makeRect());
+      expect(screen.getByTestId("quick-edit-more-below")).toBeInTheDocument();
+      const list = screen.getByRole("listbox", { name: "Choices" });
+      list.scrollTop = 300;
+      fireEvent.scroll(list);
+      expect(screen.queryByTestId("quick-edit-more-below")).not.toBeInTheDocument();
+    });
   });
 });
