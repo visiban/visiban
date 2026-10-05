@@ -340,6 +340,26 @@ sonar-scan-selftest:
   script:
     - sh scripts/sonar-scan.sh --self-test
 
+# ─── Mutation score checker self-test (#1384) ────────────────────────────────
+#
+# scripts/check_mutation_score.py judges the nightly backend-mutation pilot, and
+# that job runs only on the Nightly schedule with MUTATION_TEST=true, so its
+# --self-test there would catch a broken checker a night late, and never while
+# the schedule lacks the variable. This runs the same self-test on MRs that
+# touch the script or the CI file (#1093 house rule), and on main.
+mutation-score-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  rules:
+    - changes: &mutation-score-selftest-paths
+        - scripts/check_mutation_score.py
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *mutation-score-selftest-paths
+  script:
+    - python3 scripts/check_mutation_score.py --self-test
+
 # ─── Sonar exclusion-integrity guard (#1380) ─────────────────────────────────
 #
 # Every sonar.issue.ignore.multicriteria criterion is a reviewed false positive;
@@ -1039,6 +1059,99 @@ backend-schema-fuzz-deep:
       elif [ "$CI_JOB_STATUS" = "failed" ]; then
         echo "backend-schema-fuzz-deep failed before the fuzz ran (setup, the filer self-test, or seed resolution); not filing a schema-fuzz issue."
       fi
+
+# ─── Backend mutation-testing pilot (#1384) ──────────────────────────────────
+#
+# Coverage proves a line ran under test; mutation testing proves the suite would
+# FAIL if the line were wrong. Ported from TruePPM's `api:mutation` (#4266) /
+# `scheduler:mutation` (#2282), narrowed to one pure-logic beachhead.
+#
+# PILOT, NOT A GATE. Schedule-only (MUTATION_TEST=true on the Nightly schedule,
+# 4176726), `allow_failure: true`, and MUTATION_MIN is deliberately UNSET so the
+# report job prints the score and notes the floor is unset. The floor is read off
+# about a week of observed nightly scores (one point under the low end), never
+# chosen up front and never set to 0 as a placeholder (#1384 steps 4-5).
+# The job cannot run on an MR or main push: its only rule is the schedule rule.
+#
+# Beachhead: boards/permissions.py (118 mutants, role/permission rule helpers),
+# against the four RBAC test files. Measured per-mutant cost and the sharding
+# arithmetic are in docs/development/mutation-testing.md. CI runs one job per
+# shard (`parallel:`), each with its own Postgres service, so shards cannot
+# collide on test data; backend/mutmut_config.py gives shard k of N the source
+# lines where `line_index % N == k`.
+#
+# mutmut is pip-installed here, pinned, and stays out of requirements*.txt
+# (mutmut 2.x runs pytest in place, so pytest-django needs no changes; 3.x
+# copies the tree into a sandbox and does not). A pin bump moves the score, so
+# bump it deliberately and re-baseline. `backend-mutation-report` sums the shard
+# stats files into the one `mutmut-cicd-stats.json` artifact (30 days).
+backend-mutation:
+  extends: .pip-cache
+  stage: test
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # Keep in step with --expect-shards in backend-mutation-report.
+  parallel: 4
+  timeout: 40m
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $MUTATION_TEST == "true"'
+  services:
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
+      alias: postgres
+    - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
+      alias: valkey
+  variables:
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
+    REDIS_URL: "redis://valkey:6379/0"
+    REDIS_CACHE_URL: "redis://valkey:6379/1"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    DEBUG: "True"
+    ALLOWED_HOSTS: "localhost"
+  before_script:
+    - pip install --quiet -r backend/requirements.txt
+    - pip install --quiet -r backend/requirements-test.txt
+    - pip install --quiet "mutmut==2.5.1"
+  script:
+    - cd backend
+    # CI_NODE_INDEX is 1-based; the hook's shard index is 0-based.
+    - export MUTATION_SHARDS="$CI_NODE_TOTAL" MUTATION_SHARD="$((CI_NODE_INDEX - 1))"
+    # `|| true`: a non-zero exit only means survivors exist. A run that died is
+    # caught by the report job (untested mutants or no scoreable ones, exit 2).
+    - mutmut run || true
+    - mutmut results || true
+    - python ../scripts/check_mutation_score.py --export-cache .mutmut-cache "mutmut-stats-${CI_NODE_INDEX}.json"
+  artifacts:
+    paths:
+      - backend/mutmut-stats-*.json
+    expire_in: 30 days
+    when: always
+
+# Sums the backend-mutation shards, prints the score, and writes the single
+# artifact the issue asks for. Report-only: with MUTATION_MIN unset it exits 0
+# on any score, but still exits 2 (yellow) if the run was not measured, so a
+# dead run is never a meaningless green. When the floor is set (a later MR, from
+# observed data) it gates here.
+backend-mutation-report:
+  stage: test
+  needs:
+    - job: backend-mutation
+      artifacts: true
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $MUTATION_TEST == "true"'
+  script:
+    - python3 scripts/check_mutation_score.py --self-test
+    - python3 scripts/check_mutation_score.py backend/mutmut-stats-*.json --expect-shards 4 --write-merged mutmut-cicd-stats.json
+  artifacts:
+    paths:
+      - mutmut-cicd-stats.json
+    expire_in: 30 days
+    when: always
 
 # ─── Issue Board Lens (experiment) tests ─────────────────────────────────────
 # The git_lens app is only installed when GIT_LENS_ENABLED=true, so its
@@ -3705,7 +3818,8 @@ docs-deploy:
 #   Interval    : 0 5 * * *  (daily 05:00 UTC, two hours after the load test)
 #   Target branch: main
 #   Variables   : CVE_SCAN=true OSV_SCAN=true SONAR_SCHEDULED=true
-#                 FUZZ_DEEP=true KAIZEN_YIELD_WATCH=true
+#                 FUZZ_DEEP=true KAIZEN_YIELD_WATCH=true MUTATION_TEST=true
+#                 (MUTATION_TEST is added by hand after the #1384 pilot MR merges)
 # nightly-load-test keeps its own 03:00 schedule (LOAD_TEST_SCHEDULE=true):
 # its latency budgets are noisy on a busy runner. The full schedule table, and
 # what red means for each job, is in docs/development/ci-gates.md.
@@ -3984,14 +4098,27 @@ nightly-load-test:
 # SCHEDULE_AUDIT_ACCEPTED_GAPS below lists gaps #1213's own audit already
 # found and filed as #1232 — a documented, temporary exception (same shape as
 # check-release-images' ACCEPTED_GAPS), not a way to quiet this gate
-# permanently. It is empty now (#1232 resolved); the script defaults it to
-# empty, so the variable is omitted rather than set to "".
+# permanently. #1232's entries are all resolved. The one entry now is
+# MUTATION_TEST (#1384): the backend-mutation pilot's rules read it, but no
+# schedule can set it until the pilot MR has merged and a maintainer adds it to
+# the Nightly schedule by hand, so without the entry every scheduled pipeline in
+# between would report it MISSING. Remove the entry (the script defaults the list
+# to empty) once the schedule carries the variable; see the comment on the
+# variable below.
 schedule-config-check:
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  variables:
+    # Temporary (tracked in #1384, not machine-checked): MUTATION_TEST gates the
+    # backend-mutation pilot. A maintainer must add MUTATION_TEST=true to the
+    # Nightly schedule (4176726) by hand after the pilot MR merges, then remove
+    # this variable (the script defaults the list to empty). The schedule must
+    # carry the variable BEFORE this entry is removed, or the next scheduled
+    # pipeline reports it MISSING.
+    SCHEDULE_AUDIT_ACCEPTED_GAPS: "MUTATION_TEST"
   before_script:
     - apk add --no-cache bash curl jq
   script:

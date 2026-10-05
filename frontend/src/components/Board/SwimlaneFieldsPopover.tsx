@@ -1,7 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { SwimlaneCustomFieldDefinition } from "../../types";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
+import { useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { useOverflowFade } from "../../hooks/useOverflowFade";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 
 export interface SwimlaneFieldEntry {
@@ -40,8 +42,23 @@ export default function SwimlaneFieldsPopover({
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  // null until the measuring pass has placed the panel (see useLayoutEffect below).
-  const [top, setTop] = useState<number | null>(null);
+  // null until the measuring pass has placed the panel.
+  //
+  // Close on scroll rather than reposition. Position is computed once, at
+  // click time, and the panel is `fixed`, so scrolling the board would leave
+  // it floating over whichever row happened to slide underneath. The hook's
+  // listener is capture-phase, so it fires for the board's inner scroll
+  // container too, and ignores a scroll inside this panel's own list (#1455:
+  // scrolling down to the fields below the fold closed the popover instead).
+  // A resize moves the trigger and changes the viewport the height was fitted
+  // to, so it dismisses too.
+  const top = useAnchoredPlacement(panelRef, {
+    anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
+    deps: [entries.length],
+    onResize: onDismiss,
+    onOutsideScroll: onDismiss,
+  });
+
 
   // Above ModalWrapper's 40 is unnecessary here — this popover lives on the
   // board surface, not inside a modal — so the default dropdown tier is right.
@@ -58,30 +75,6 @@ export default function SwimlaneFieldsPopover({
     return () => document.removeEventListener("mousedown", handler);
   }, [onDismiss, triggerRef]);
 
-  // Close on scroll rather than reposition. Position is computed once, at
-  // click time, and the panel is `fixed` — so scrolling the board would leave
-  // it floating over whichever row happened to slide underneath. The pattern
-  // this borrows from (CardPeekPopover) never had to solve that because it is
-  // hover-triggered and dismisses on mouse-leave; this one is click-persistent.
-  // `capture: true` so it fires for the board's inner scroll container, not
-  // just the window — which also means it fires for this panel's own list, so
-  // a scroll that starts inside the panel is ignored (#1455: scrolling down to
-  // the fields below the fold closed the popover instead).
-  useEffect(() => {
-    const onScroll = (e: Event) => {
-      if (e.target instanceof Node && panelRef.current?.contains(e.target)) return;
-      onDismiss();
-    };
-    window.addEventListener("scroll", onScroll, true);
-    // A resize moves the trigger out from under the fixed panel and changes
-    // the viewport its height was fitted to — same reasoning as scroll.
-    const onResize = () => onDismiss();
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [onDismiss]);
 
   // Move focus into the panel on open. The popover renders in normal document
   // flow, after this row's card cells, so without this a keyboard user who
@@ -122,23 +115,9 @@ export default function SwimlaneFieldsPopover({
   const PANEL_WIDTH = 256;
   const MARGIN = 8;
   const left = Math.min(anchorRect.left, window.innerWidth - PANEL_WIDTH - MARGIN);
-  useLayoutEffect(() => {
-    const height = panelRef.current?.offsetHeight ?? 0;
-    const below = anchorRect.bottom + 4;
-    const above = anchorRect.top - 4 - height;
-    if (below + height <= window.innerHeight - MARGIN) setTop(below);
-    else if (above >= MARGIN) setTop(above);
-    else setTop(Math.max(MARGIN, window.innerHeight - MARGIN - height));
-  }, [anchorRect, entries.length]);
-
   // Bottom fade while more of the list is below the fold: the overflow is
   // otherwise invisible wherever the OS hides scrollbars.
-  const [moreBelow, setMoreBelow] = useState(false);
-  const updateMoreBelow = () => {
-    const el = listRef.current;
-    if (el) setMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
-  };
-  useLayoutEffect(updateMoreBelow, [entries.length]);
+  const { moreBelow, onScroll: updateMoreBelow } = useOverflowFade(listRef, [entries.length]);
 
   const renderEntry = ({ def, value }: SwimlaneFieldEntry, i: number) => (
     <div

@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
@@ -121,7 +122,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
-  const [dropdownAnchor, setDropdownAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [dropdownAnchor, setDropdownAnchor] = useState<{ top: number; bottom: number; left: number; width: number } | null>(null);
 
   const [stalenessThreshold, setStalenessThreshold] = useState(board.staleness_threshold_days ?? 14);
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
@@ -262,7 +263,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         const filtered = results.filter((u) => !memberIds.has(u.id) && !stagedIds.has(u.id));
         if (filtered.length > 0 && searchInputRef.current) {
           const rect = searchInputRef.current.getBoundingClientRect();
-          setDropdownAnchor({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+          setDropdownAnchor({ top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width });
         } else {
           setDropdownAnchor(null);
         }
@@ -273,6 +274,25 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       }
     }, 300);
   }, [inviteQuery, members, staged]);
+
+  // The member-search suggestions are an anchored `fixed` popover of user
+  // data (up to a page of results), so they follow the #1455 rules (#1457):
+  // placed from the measured height (below the search, else above, else
+  // bottom-pinned, keeping that side while the query changes), capped at the
+  // viewport, hidden until placed, and dismissed on resize or outside scroll.
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const dismissSuggestions = useCallback(() => {
+    setSuggestions([]);
+    setDropdownAnchor(null);
+  }, []);
+  const suggestionsTop = useAnchoredPlacement(suggestionsRef, {
+    anchor: suggestions.length > 0 && dropdownAnchor
+      ? { top: dropdownAnchor.top, bottom: dropdownAnchor.bottom }
+      : null,
+    deps: [suggestions.length],
+    onResize: dismissSuggestions,
+    onOutsideScroll: dismissSuggestions,
+  });
 
   const handleRoleChange = async (userId: number, role: BoardRole) => {
     setSaving(userId);
@@ -653,8 +673,18 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       />
                       {suggestions.length > 0 && dropdownAnchor && (
                         <div
-                          style={{ position: "fixed", top: dropdownAnchor.top, left: dropdownAnchor.left, width: dropdownAnchor.width }}
-                          className="bg-surface border border-line-strong rounded-lg shadow-xl z-[60] overflow-hidden"
+                          ref={suggestionsRef}
+                          data-testid="member-suggestions"
+                          style={{
+                            position: "fixed",
+                            top: suggestionsTop ?? 0,
+                            left: dropdownAnchor.left,
+                            width: dropdownAnchor.width,
+                            maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+                            // Hidden only for the pre-paint measuring pass.
+                            visibility: suggestionsTop === null ? "hidden" : undefined,
+                          }}
+                          className="bg-surface border border-line-strong rounded-lg shadow-xl z-[60] overflow-y-auto"
                         >
                           {suggestions.map((u) => (
                             <button

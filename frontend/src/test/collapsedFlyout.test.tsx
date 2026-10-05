@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import CollapsedFlyout, { type FlyoutSection } from '../components/Common/CollapsedFlyout'
@@ -92,5 +92,107 @@ describe('CollapsedFlyout', () => {
     const panel = screen.getByTestId('collapsed-flyout') as HTMLElement
     expect(panel.style.top).toBe('100px')
     expect(panel.style.left).toBe('52px') // anchor.left + 4
+  })
+
+  describe('viewport fit (#1457)', () => {
+    afterEach(() => { vi.restoreAllMocks() })
+
+    function mount(top: number) {
+      return render(
+        <MemoryRouter>
+          <CollapsedFlyout
+            title="Boards"
+            sections={defaultSections}
+            anchor={{ top, left: 48 }}
+            onClose={vi.fn()}
+            onNavigate={vi.fn()}
+          />
+        </MemoryRouter>,
+      )
+    }
+    const panel = () => screen.getByTestId('collapsed-flyout')
+
+    it('aligns with the trigger top when the measured height fits', () => {
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(200)
+      mount(100)
+      expect(panel().style.top).toBe('100px')
+      expect(panel().style.visibility).toBe('')
+    })
+
+    it('slides up to stay on screen when the trigger is near the bottom', () => {
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(200)
+      mount(window.innerHeight - 50)
+      expect(panel().style.top).toBe(`${window.innerHeight - 8 - 200}px`)
+    })
+
+    it('pins to the top margin when taller than the viewport allows', () => {
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(window.innerHeight + 100)
+      mount(100)
+      expect(panel().style.top).toBe('8px')
+    })
+
+    it('caps the panel at the viewport rather than a fixed height', () => {
+      mount(100)
+      expect(panel().style.maxHeight).toBe('calc(100vh - 16px)')
+    })
+
+    it('closes on window resize', () => {
+      const onClose = vi.fn()
+      render(
+        <MemoryRouter>
+          <CollapsedFlyout title="Boards" sections={defaultSections} anchor={{ top: 100, left: 48 }} onClose={onClose} onNavigate={vi.fn()} />
+        </MemoryRouter>,
+      )
+      fireEvent(window, new Event('resize'))
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('closes on a scroll outside the panel, but not on a scroll of its own list', () => {
+      const onClose = vi.fn()
+      render(
+        <MemoryRouter>
+          <CollapsedFlyout title="Boards" sections={defaultSections} anchor={{ top: 100, left: 48 }} onClose={onClose} onNavigate={vi.fn()} />
+        </MemoryRouter>,
+      )
+      fireEvent.scroll(screen.getByRole('menu', { name: 'Boards' }))
+      expect(onClose).not.toHaveBeenCalled()
+      fireEvent.scroll(document)
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('exposes a keyboard-focusable, labeled menu as the scroll region', () => {
+      mount(100)
+      const menu = screen.getByRole('menu', { name: 'Boards' })
+      expect(menu).toHaveAttribute('tabindex', '0')
+    })
+
+    it('focuses the list only when it overflows, and only after placement', () => {
+      vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(500)
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200)
+      let visibilityAtFocus: string | undefined
+      const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement) {
+        visibilityAtFocus = (this.closest("[data-testid='collapsed-flyout']") as HTMLElement).style.visibility
+      })
+      mount(100)
+      expect(focusSpy).toHaveBeenCalledTimes(1)
+      expect(visibilityAtFocus).toBe('')
+    })
+
+    it('does not move focus when the list fits', () => {
+      const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus')
+      mount(100)
+      expect(focusSpy).not.toHaveBeenCalled()
+    })
+
+    it('shows the overflow fade only while more is below the fold', () => {
+      vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(500)
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200)
+      mount(100)
+      expect(screen.getByTestId('collapsed-flyout-more-below')).toBeInTheDocument()
+      const menu = screen.getByRole('menu')
+      menu.scrollTop = 300
+      fireEvent.scroll(menu)
+      expect(screen.queryByTestId('collapsed-flyout-more-below')).not.toBeInTheDocument()
+    })
   })
 })

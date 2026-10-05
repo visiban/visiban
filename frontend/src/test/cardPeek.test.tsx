@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
+import CardPeekPopover from '../components/Card/CardPeekPopover'
 import type { Card, CustomFieldDefinition } from '../types'
 
 // Mock dnd-kit — CardItem calls useDraggable unconditionally (hook rules).
@@ -349,5 +350,27 @@ describe('Card peek popover — custom fields (#1308)', () => {
     const line = within(tooltip).getByTestId('card-peek-custom-fields')
     expect(line).toHaveTextContent(/^Other fields — F7: v27 · F6: v26 · F5: v25 · F4: v24 · F3: v23 · \+3 more$/)
     expect(within(line).getByText('+3 more')).toHaveAttribute('title', 'F2, F1, F0')
+  })
+})
+
+// #1457 — the peek was top-aligned with the card with no vertical clamp, so a
+// card near the bottom of the board pushed it off the viewport.
+describe('CardPeekPopover viewport fit (#1457)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  const rectAt = (top: number) =>
+    ({ top, bottom: top + 60, left: 50, right: 250, width: 200, height: 60, x: 50, y: top, toJSON: () => ({}) }) as DOMRect
+  const mount = (top: number) =>
+    render(<CardPeekPopover card={makeCard()} anchorRect={rectAt(top)} onMouseEnter={() => {}} onMouseLeave={() => {}} />)
+
+  it('aligns with the card top when the measured height fits', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(200)
+    mount(100)
+    expect(screen.getByRole('tooltip').style.top).toBe('100px')
+  })
+
+  it('slides up to stay on screen for a card near the bottom of the viewport', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(200)
+    mount(window.innerHeight - 80)
+    expect(screen.getByRole('tooltip').style.top).toBe(`${window.innerHeight - 8 - 200}px`)
   })
 })

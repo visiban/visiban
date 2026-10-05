@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
+import { useOverflowFade } from "../../hooks/useOverflowFade";
 
 export interface MultiSelectDropdownProps {
   /** Field name: the trigger's and listbox's accessible name, and the search label. */
@@ -36,9 +38,7 @@ export interface MultiSelectDropdownProps {
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** `max-h-60` — the menu's height cap, used to decide whether to open upward. */
-const MENU_MAX_HEIGHT = 240;
-const VIEWPORT_MARGIN = 8;
+const VIEWPORT_MARGIN = POPOVER_VIEWPORT_MARGIN;
 
 /**
  * Tab out of the menu: forward moves to the focusable element after `from`
@@ -60,7 +60,8 @@ function sameSet(a: string[], b: string[]): boolean {
   return b.every((entry) => set.has(entry));
 }
 
-type Anchor = { left: number; minWidth: number } & ({ top: number } | { bottom: number });
+/** Trigger geometry captured on open; the menu's `top` is derived from it plus the measured menu height. */
+type Anchor = { left: number; minWidth: number; top: number; bottom: number };
 
 /**
  * A searchable checklist that commits **once, on close** (#1391) — the third
@@ -78,10 +79,17 @@ type Anchor = { left: number; minWidth: number } & ({ top: number } | { bottom: 
  * never silently lost.
  *
  * The menu is portaled to `document.body` and anchored with `position: fixed`
- * (same approach as `SingleSelectDropdown`'s `portalMenu`); it opens upward
- * when there is not room below, is clamped to the viewport horizontally, and
- * closes on any scroll or resize outside itself rather than drifting away
- * from its trigger.
+ * (same approach as `SingleSelectDropdown`'s `portalMenu`). Per the #1455
+ * rules for anchored `fixed` popovers it is sized to content up to the
+ * viewport, placed from its measured height (below the trigger, else above,
+ * else pinned to the bottom edge, and that side is kept while filtering
+ * shrinks the list), hidden until placed, and clamped to the viewport
+ * horizontally. It closes on any scroll or resize outside itself
+ * rather than drifting away from its trigger. Its list shows a bottom fade
+ * while more options sit below the fold. The list is not a Tab stop: focus
+ * lives in the search combobox, whose arrow keys scroll the active option into
+ * view (the combobox pattern), and Tab there closes the menu. This is the
+ * named exception to #1455 rule (a) recorded in frontend/CLAUDE.md.
  */
 export default function MultiSelectDropdown({
   label, options, selected, onCommit, disabled, escapePriority,
@@ -104,6 +112,7 @@ export default function MultiSelectDropdown({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const id = useId();
   const listboxId = `${id}-listbox`;
 
@@ -130,13 +139,7 @@ export default function MultiSelectDropdown({
         VIEWPORT_MARGIN,
         Math.min(rect.left, window.innerWidth - minWidth - VIEWPORT_MARGIN),
       );
-      const below = window.innerHeight - rect.bottom;
-      const flip = below < MENU_MAX_HEIGHT + VIEWPORT_MARGIN && rect.top > below;
-      setAnchor(
-        flip
-          ? { left, minWidth, bottom: window.innerHeight - rect.top + 4 }
-          : { left, minWidth, top: rect.bottom + 4 },
-      );
+      setAnchor({ left, minWidth, top: rect.top, bottom: rect.bottom });
     }
     setDraft(current);
     setOrphans(current.filter((entry) => !options.includes(entry)));
@@ -163,7 +166,19 @@ export default function MultiSelectDropdown({
   // Listeners below always call this render's closeMenu (it reads `draft`).
   const closeRef = useRef(closeMenu);
   closeRef.current = closeMenu;
-  const closeFromOutside = useCallback((e: Event) => {
+  const closeFromViewport = useCallback(() => closeRef.current(), []);
+  // The side chosen at open is kept while filtering shrinks the list (#1457).
+  const top = useAnchoredPlacement(menuRef, {
+    anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
+    deps: [open, all.length, orphans.length],
+    onResize: closeFromViewport,
+    // A scroll of any ancestor (not just the window) moves the trigger out
+    // from under the fixed-position menu; scrolling its own list is ignored.
+    onOutsideScroll: closeFromViewport,
+  });
+  const { moreBelow, onScroll } = useOverflowFade(listRef, [open, all.length, orphans.length]);
+
+  const closeFromOutside = useCallback((e: MouseEvent) => {
     const target = e.target as Node | null;
     if (target && (menuRef.current?.contains(target) || wrapperRef.current?.contains(target))) return;
     closeRef.current();
@@ -171,20 +186,17 @@ export default function MultiSelectDropdown({
 
   useEffect(() => {
     if (!open) return;
-    setTimeout(() => searchRef.current?.focus({ preventScroll: true }), 0);
-    const onResize = () => closeRef.current();
     document.addEventListener("mousedown", closeFromOutside);
-    // Capture phase: a scroll of any ancestor (not just the window) moves the
-    // trigger out from under the fixed-position menu. Scrolling the menu's own
-    // list is ignored by closeFromOutside.
-    document.addEventListener("scroll", closeFromOutside, true);
-    window.addEventListener("resize", onResize);
-    return () => {
-      document.removeEventListener("mousedown", closeFromOutside);
-      document.removeEventListener("scroll", closeFromOutside, true);
-      window.removeEventListener("resize", onResize);
-    };
+    return () => document.removeEventListener("mousedown", closeFromOutside);
   }, [open, closeFromOutside]);
+
+  // Focus the search only once the menu is placed: a browser ignores focus()
+  // on the `visibility: hidden` measuring pass (#1455). One-shot per open.
+  const placed = top !== null;
+  useEffect(() => {
+    if (!open || !placed) return;
+    searchRef.current?.focus({ preventScroll: true });
+  }, [open, placed]);
 
   // Keep the keyboard-highlighted option visible as the arrows move it.
   useEffect(() => {
@@ -237,9 +249,8 @@ export default function MultiSelectDropdown({
         // mousedown, not click, with preventDefault: focus stays in the search
         // input so the keyboard map keeps working after a mouse toggle.
         onMouseDown={(e) => { e.preventDefault(); setActive(i); toggle(entry); }}
-        // scroll-m*: keep a scrolled-to row clear of the sticky search and footer.
         className={[
-          "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer scroll-mt-14 scroll-mb-12",
+          "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer",
           isSelected ? "bg-primary-emphasis/20" : "hover:bg-surface-hover",
           isActive ? "ring-2 ring-inset ring-primary-emphasis" : "",
           orphan ? "text-fg-muted" : "text-fg-secondary",
@@ -261,10 +272,19 @@ export default function MultiSelectDropdown({
   const menu = (
     <div
       ref={menuRef}
-      style={anchor ? { position: "fixed", ...anchor } : undefined}
-      className="z-50 bg-surface shadow-xl border border-line rounded max-h-60 overflow-y-auto flex flex-col"
+      data-testid="multiselect-menu"
+      style={anchor ? {
+        position: "fixed",
+        left: anchor.left,
+        minWidth: anchor.minWidth,
+        top: top ?? 0,
+        // Hidden only for the pre-paint measuring pass.
+        visibility: top === null ? "hidden" : undefined,
+        maxHeight: `calc(100vh - ${2 * VIEWPORT_MARGIN}px)`,
+      } : undefined}
+      className="z-50 bg-surface shadow-xl border border-line rounded flex flex-col"
     >
-      <div className="sticky top-0 z-10 bg-surface p-1.5 border-b border-line">
+      <div className="shrink-0 bg-surface p-1.5 border-b border-line">
         <input
           ref={searchRef}
           type="text"
@@ -285,7 +305,16 @@ export default function MultiSelectDropdown({
       {all.length === 0 && (
         <p className="px-3 py-2 text-sm text-fg-muted italic">No matching choices</p>
       )}
-      <div id={listboxId} role="listbox" aria-multiselectable="true" aria-label={label} className="py-1 flex-1">
+      <div className="relative min-h-0 flex flex-col">
+      <div
+        ref={listRef}
+        id={listboxId}
+        role="listbox"
+        aria-multiselectable="true"
+        aria-label={label}
+        onScroll={onScroll}
+        className="py-1 min-h-0 overflow-y-auto"
+      >
         {visibleOptions.map((entry, i) => renderOption(entry, i, false))}
         {visibleOrphans.length > 0 && (
           <div role="group" aria-label={orphanLabel}>
@@ -296,7 +325,14 @@ export default function MultiSelectDropdown({
           </div>
         )}
       </div>
-      <div className="sticky bottom-0 z-10 bg-surface border-t border-line px-3 py-1.5 flex items-center justify-between gap-3">
+      {moreBelow && (
+        <div
+          data-testid="multiselect-more-below"
+          className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-surface to-transparent pointer-events-none"
+        />
+      )}
+      </div>
+      <div className="shrink-0 bg-surface border-t border-line px-3 py-1.5 flex items-center justify-between gap-3">
         <span role="status" className="text-xs text-fg-muted">{draft.length} selected</span>
         <button
           type="button"

@@ -403,6 +403,29 @@ def _csv_custom_field_cell(definition, value):
     return _sanitize_csv_field(value)
 
 
+def _resolve_import_users(usernames):
+    """Map imported usernames to existing users, keyed by lowered username.
+
+    Shared by the JSON and CSV importers so both apply one assignee rule:
+    match case-insensitively (imported data may differ in casing from the
+    stored username) against users on this instance. A name with no match is
+    simply absent from the map, so the card imports unassigned instead of
+    failing the whole import. Board membership is deliberately not required:
+    the board is brand new and only the importer is a member of it, so a
+    membership filter would drop every assignee.  One query for the whole
+    import avoids a lookup per card (#420).
+    """
+    names = {n.lower() for n in usernames if n}
+    if not names:
+        return {}
+    from django.db.models.functions import Lower
+    return {
+        u.username.lower(): u
+        for u in User.objects.annotate(lower_username=Lower("username"))
+        .filter(lower_username__in=names)
+    }
+
+
 class BoardImportExportMixin:
     """Mixin providing import and export @action methods for BoardViewSet."""
 
@@ -809,16 +832,7 @@ class BoardImportExportMixin:
                 for act in card_data.get("activities", []):
                     if act.get("actor"):
                         all_usernames.add(act["actor"])
-            # Case-insensitive user resolution: imported data may contain
-            # usernames in a different casing than stored in the DB.
-            # Annotate with Lower so the __in filter matches regardless of
-            # the stored casing, and key the map by lowered username.
-            from django.db.models.functions import Lower
-            user_map = {
-                u.username.lower(): u
-                for u in User.objects.annotate(lower_username=Lower("username"))
-                .filter(lower_username__in=[n.lower() for n in all_usernames])
-            } if all_usernames else {}
+            user_map = _resolve_import_users(all_usernames)
 
             # ---------- Phase 1: build Card instances (no DB writes yet) ----------
             # We defer all per-card related objects until after bulk_create returns
@@ -1307,6 +1321,8 @@ class BoardImportExportMixin:
         Required headers: Title, Column, Swimlane.
         Optional headers: Description, Priority, Weight, Labels (comma-separated),
                           Assignee (username), Due Date (YYYY-MM-DD).
+                          An Assignee that matches no user on this instance, or a
+                          blank cell, imports the card unassigned.
 
         Columns, swimlanes, and labels are auto-created from the values seen in
         the file. Their order matches their first appearance in the CSV so that
@@ -1494,6 +1510,11 @@ class BoardImportExportMixin:
             # 500-card CSV with weight/label metadata.
             cards_to_create = []
             valid_rows = []
+            # The export writes the assignee's username; resolve with the same
+            # rule as the JSON importer so a CSV round trip keeps assignees (#1442).
+            csv_user_map = _resolve_import_users(
+                (row.get("Assignee") or "").strip() for row in rows
+            ) if options["cards"] else {}
             # ``cards`` off imports structure (and labels) only (#119).
             for row in (rows if options["cards"] else []):
                 column = column_map.get(row["Column"].strip())
@@ -1506,6 +1527,8 @@ class BoardImportExportMixin:
                     priority = "medium"
 
                 due_date = row.get("Due Date", "").strip() or None
+                assignee_name = (row.get("Assignee") or "").strip()
+                assignee = csv_user_map.get(assignee_name.lower()) if assignee_name else None
 
                 weight_str = row.get("Weight", "1").strip()
                 try:
@@ -1520,6 +1543,7 @@ class BoardImportExportMixin:
                     title=row["Title"].strip(),
                     description=row.get("Description", "").strip(),
                     priority=priority,
+                    assignee=assignee,
                     due_date=due_date,
                     weight=weight,
                     position=0,

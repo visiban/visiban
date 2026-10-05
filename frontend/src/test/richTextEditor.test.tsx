@@ -1,12 +1,16 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import type { Element as HastElement, Root } from 'hast'
-import { useEditor } from '@tiptap/react'
+import { useEditor, ReactRenderer } from '@tiptap/react'
+import MentionExtension from '@tiptap/extension-mention'
 import RichTextEditor from '../components/Card/RichTextEditor'
 
 // Tiptap uses ProseMirror which requires a real browser DOM; mock it for unit tests.
-// Behavioural tests for the full editor (toolbar clicks, mention autocomplete) live
-// in Playwright/Cypress e2e tests where a real DOM is available.
+// Behavioral tests for the real editor (typing, toolbar marks, markdown
+// serialization, and the @mention popup's placement and resize dismissal) live
+// in e2e/rich-text-editor.spec.ts (Playwright), where a real DOM is available.
+// The mention popup's placement math is also unit-tested via placeFixedElement
+// in useAnchoredPlacement.test.ts.
 vi.mock('@tiptap/react', () => ({
   useEditor: vi.fn(() => null),
   EditorContent: ({ className }: { className?: string }) => (
@@ -632,5 +636,135 @@ describe('RichTextEditor toolbar actions (fake non-null editor)', () => {
       vi.useRealTimers()
       vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
     }
+  })
+})
+
+// The suggestion `render()` lifecycle (#1457) driven directly with fake Tiptap
+// props: jsdom can't run ProseMirror, so the real typing path stays in
+// e2e/rich-text-editor.spec.ts. This pins the wiring — listeners attached and
+// removed, placement from the live caret rect, resize ending the suggestion
+// through the plugin key, Escape consumed — that the e2e only proves end-to-end.
+describe('RichTextEditor mention popup lifecycle (#1457)', () => {
+  type Rect = () => DOMRect | null
+  interface SuggestionRenderer {
+    onStart: (props: { editor: unknown; clientRect?: Rect | null }) => void
+    onUpdate: (props: { clientRect?: Rect | null }) => void
+    onKeyDown: (props: { event: KeyboardEvent }) => boolean
+    onExit: () => void
+  }
+
+  const rect = (top: number): DOMRect =>
+    ({ top, bottom: top + 20, left: 30, right: 130, width: 100, height: 20, x: 30, y: top, toJSON: () => ({}) }) as DOMRect
+
+  function setup() {
+    const listKeyDown = vi.fn(() => false)
+    const component = {
+      element: document.createElement('div'),
+      updateProps: vi.fn(),
+      destroy: vi.fn(),
+      ref: { onKeyDown: listKeyDown },
+    }
+    // ReactRenderer is constructed with `new`, so the stub must be a function.
+    vi.mocked(ReactRenderer).mockImplementation(function () { return component } as never)
+    let observe: (() => void) | undefined
+    const disconnect = vi.fn()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb: () => void) { observe = cb }
+      observe() {}
+      disconnect = disconnect
+    })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(40)
+
+    render(<RichTextEditor value="text" onSave={vi.fn()} members={[]} />)
+    const configure = vi.mocked(MentionExtension.extend).mock.results[0].value.configure as ReturnType<typeof vi.fn>
+    const { suggestion } = configure.mock.calls.at(-1)?.[0] as { suggestion: { render: () => SuggestionRenderer } }
+
+    const dispatch = vi.fn()
+    const setMeta = vi.fn(() => 'exit-tr')
+    const editor = { isDestroyed: false, view: { dispatch }, state: { tr: { setMeta } } }
+    return { renderer: suggestion.render(), component, editor, dispatch, setMeta, disconnect, listKeyDown, fireObserver: () => observe?.() }
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    document.querySelectorAll('[data-testid="mention-popup"]').forEach((el) => el.remove())
+  })
+
+  it('places the popup below the caret, re-anchors on outside scroll, and cleans up on exit', () => {
+    const { renderer, component, editor, disconnect, fireObserver } = setup()
+    let caret: DOMRect | null = rect(100)
+    renderer.onStart({ editor, clientRect: () => caret })
+
+    const popup = document.querySelector<HTMLElement>('[data-testid="mention-popup"]')!
+    expect(popup.contains(component.element)).toBe(true)
+    expect(popup.style.position).toBe('fixed')
+    expect(popup.style.top).toBe('124px')
+    expect(popup.style.left).toBe('30px')
+    expect(popup.style.visibility).toBe('')
+
+    // A scroll outside the popup re-places it at the live caret.
+    caret = rect(200)
+    fireEvent.scroll(window)
+    expect(popup.style.top).toBe('224px')
+    // A scroll inside the popup (its own list) is ignored.
+    caret = rect(300)
+    fireEvent.scroll(component.element)
+    expect(popup.style.top).toBe('224px')
+    // A size change of the list re-places it too.
+    fireObserver()
+    expect(popup.style.top).toBe('324px')
+
+    // onUpdate adopts the new clientRect and re-places.
+    renderer.onUpdate({ clientRect: () => rect(50) })
+    expect(component.updateProps).toHaveBeenCalled()
+    expect(popup.style.top).toBe('74px')
+
+    renderer.onExit()
+    expect(disconnect).toHaveBeenCalled()
+    expect(component.destroy).toHaveBeenCalled()
+    expect(document.querySelector('[data-testid="mention-popup"]')).toBeNull()
+    // Listeners are gone: a later scroll does nothing.
+    caret = rect(400)
+    expect(() => fireEvent.scroll(window)).not.toThrow()
+  })
+
+  it('starts hidden when the caret rect is not available yet', () => {
+    const { renderer, editor } = setup()
+    renderer.onStart({ editor, clientRect: () => null })
+    const popup = document.querySelector<HTMLElement>('[data-testid="mention-popup"]')!
+    expect(popup.style.visibility).toBe('hidden')
+    renderer.onUpdate({ clientRect: null })
+    expect(popup.style.visibility).toBe('hidden')
+    renderer.onExit()
+  })
+
+  it('ends the suggestion through its plugin key on window resize, unless the editor is gone', () => {
+    const { renderer, editor, dispatch, setMeta } = setup()
+    renderer.onStart({ editor, clientRect: () => rect(100) })
+
+    fireEvent(window, new Event('resize'))
+    expect(setMeta).toHaveBeenCalledWith(expect.anything(), { exit: true })
+    expect(dispatch).toHaveBeenCalledWith('exit-tr')
+
+    dispatch.mockClear()
+    editor.isDestroyed = true
+    fireEvent(window, new Event('resize'))
+    expect(dispatch).not.toHaveBeenCalled()
+    renderer.onExit()
+  })
+
+  it('consumes Escape and forwards other keys to the list', () => {
+    const { renderer, editor, listKeyDown } = setup()
+    renderer.onStart({ editor, clientRect: () => rect(100) })
+
+    expect(renderer.onKeyDown({ event: new KeyboardEvent('keydown', { key: 'Escape' }) })).toBe(true)
+    expect(document.querySelector('[data-testid="mention-popup"]')).toBeNull()
+    expect(listKeyDown).not.toHaveBeenCalled()
+
+    const down = new KeyboardEvent('keydown', { key: 'ArrowDown' })
+    renderer.onKeyDown({ event: down })
+    expect(listKeyDown).toHaveBeenCalledWith({ event: down })
+    renderer.onExit()
   })
 })

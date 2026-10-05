@@ -51,7 +51,12 @@
 #      checks 1-4. Resolves the project's profiles
 #      (api/qualityprofiles/search?project=&organization=), then lists each
 #      profile's active rules (api/rules/search?qprofile=&activation=true) and
-#      compares. FAILS OPEN: no SONAR_TOKEN, no jq/curl, a network error or an
+#      compares. A key missing from that bulk list is re-checked one by one with
+#      api/rules/show?actives=true before it fails: the bulk search has been
+#      seen to omit a rule that rules/show reports active in the project's own
+#      profile (pythonsecurity:S8705, 2026-10-05), and rules/show also tells a
+#      deleted/never-existed key (404) apart from a deactivated one.
+#      FAILS OPEN: no SONAR_TOKEN, no jq/curl, a network error or an
 #      unparseable response prints a warning and exits 0 - an infra problem must
 #      never turn a pipeline red. Wired into the nightly `sonar:rules-check` job,
 #      the only place a token exists; the MR job `lint:sonar-exclusions` never
@@ -103,12 +108,9 @@ javascript:S7761|Data attributes should be accessed using .dataset
 python:S1192|String literals should not be duplicated
 python:S2068|Hard-coded passwords are security-sensitive
 python:S2245|Pseudorandom number generators are security-sensitive
-python:S2589|Boolean expressions should not be gratuitous
 python:S3776|Cognitive Complexity of functions should not be too high
 pythonsecurity:S8705|Argument injection
-secrets:S6437|Secrets should not be hardcoded
 shell:S5332|Using clear-text protocols is security-sensitive
-yaml:S6437|Secrets should not be hardcoded
 '
 
 # --- Ant glob -> ERE ----------------------------------------------------------
@@ -134,15 +136,27 @@ ant_to_regex() {
 # set it reads a fixture (self-test: no network); otherwise it calls the API.
 # The token goes in through curl's stdin config (`-K -`) so it never appears in
 # argv (visible in `ps`) or in any message this script prints. A non-zero return
-# means "could not fetch", which the caller treats as fail-open.
+# means "could not fetch", which the caller treats as fail-open. With a third
+# argument `allow404`, an HTTP 404 is returned as a normal body (rules/show
+# answers an unknown key with 404 + {"errors":[...]}, which is an answer, not an
+# outage); any other non-2xx status still means "could not fetch".
 sonar_fetch() {
+    local out code
     if [[ -n "${SONAR_API_FIXTURE_DIR:-}" ]]; then
         [[ -f "$SONAR_API_FIXTURE_DIR/$1" ]] || return 1
         cat "$SONAR_API_FIXTURE_DIR/$1"
         return 0
     fi
-    printf 'user = "%s:"\n' "$SONAR_TOKEN" |
-        curl --silent --fail --max-time 30 -K - "${SONAR_HOST_URL:-https://sonarcloud.io}/$2"
+    if [[ "${3:-}" != "allow404" ]]; then
+        printf 'user = "%s:"\n' "$SONAR_TOKEN" |
+            curl --silent --fail --max-time 30 -K - "${SONAR_HOST_URL:-https://sonarcloud.io}/$2"
+        return
+    fi
+    out="$(printf 'user = "%s:"\n' "$SONAR_TOKEN" |
+        curl --silent --max-time 30 --write-out '\n%{http_code}' -K - "${SONAR_HOST_URL:-https://sonarcloud.io}/$2")" || return 1
+    code="${out##*$'\n'}"
+    [[ "$code" == 2?? || "$code" == 404 ]] || return 1
+    printf '%s\n' "${out%$'\n'*}"
 }
 
 # Fail-open skip: say so loudly (a silent skip would look like a pass), exit 0.
@@ -153,7 +167,7 @@ online_skip() {
 
 # Check 5. Sets the global `fail` when a rule key is not active in any profile.
 run_online_check() {
-    local project org repos prof_json pkeys pk page resp total keys active="" id rkey n
+    local project org repos prof_json pkeys pk page resp total keys active="" id rkey n show
     command -v jq >/dev/null 2>&1 || { online_skip "jq is not installed"; return 0; }
     if [[ -z "${SONAR_API_FIXTURE_DIR:-}" ]]; then
         command -v curl >/dev/null 2>&1 || { online_skip "curl is not installed"; return 0; }
@@ -206,9 +220,23 @@ run_online_check() {
         [[ "$line" =~ ^sonar\.issue\.ignore\.multicriteria\.([A-Za-z0-9_]+)\.ruleKey=(.*)$ ]] || continue
         id="${BASH_REMATCH[1]}"; rkey="${BASH_REMATCH[2]}"
         n=$((n + 1))
-        if ! grep -qxF -- "$rkey" <<<"$active"; then
+        grep -qxF -- "$rkey" <<<"$active" && continue
+        # Not in the bulk list: confirm against rules/show before failing.
+        if ! [[ "$rkey" =~ ^[A-Za-z0-9_]+:[A-Za-z0-9_]+$ ]] ||
+            ! show="$(sonar_fetch "show-${rkey/:/_}.json" "api/rules/show?key=${rkey}&organization=${org}&actives=true" allow404)" ||
+            ! jq -e 'type == "object"' >/dev/null 2>&1 <<<"$show"; then
+            echo "! $id: could not confirm ruleKey '$rkey' via rules/show (fail open, not an error)"
+            continue
+        fi
+        if [[ "$(jq -r '.rule.key // empty' <<<"$show")" != "$rkey" ]]; then
+            echo "x $id: ruleKey '$rkey' does not exist in SonarCloud"
+            echo "    The key was never valid or the rule was removed/renamed, so this"
+            echo "    suppression excuses nothing. Delete the criterion, or fix the key (and"
+            echo "    its RULE_TITLES row) to the rule's current key."
+            fail=1
+        elif ! jq -r '.actives[]?.qProfile' <<<"$show" | grep -qxF -f <(printf '%s\n' "$pkeys"); then
             echo "x $id: ruleKey '$rkey' is not active in any quality profile of $project"
-            echo "    The rule was deactivated or renamed in the SonarCloud profile, so this"
+            echo "    The rule was deactivated in the SonarCloud profile, so this"
             echo "    suppression excuses nothing. Delete the criterion, or fix the key (and"
             echo "    its RULE_TITLES row) to the rule's current key."
             fail=1
@@ -323,7 +351,19 @@ $mc.zz.resourceKey=Makefile"
     rules_json "$all_keys" >"$fx/rules-P1-p1.json"
     run_online "online-all-active" 0 "ok sonar online" "SONAR_API_FIXTURE_DIR=$fx"
     rules_json "$(grep -vxF 'python:S1192' <<<"$all_keys")" >"$fx/rules-P1-p1.json"
+    # Missing from the bulk list, rules/show confirms it active in P1 -> pass
+    # (the pythonsecurity:S8705 search-index gap, 2026-10-05).
+    printf '{"rule":{"key":"python:S1192"},"actives":[{"qProfile":"P1"}]}\n' >"$fx/show-python_S1192.json"
+    run_online "online-search-gap-confirmed" 0 "ok sonar online" "SONAR_API_FIXTURE_DIR=$fx"
+    # ...active only in some other org's profile -> inactive here.
+    printf '{"rule":{"key":"python:S1192"},"actives":[{"qProfile":"OTHER"}]}\n' >"$fx/show-python_S1192.json"
     run_online "online-rule-inactive" 1 "is not active in any quality profile" "SONAR_API_FIXTURE_DIR=$fx"
+    # ...404 "Rule not found" -> the key does not exist.
+    printf '{"errors":[{"msg":"Rule not found: python:S1192"}]}\n' >"$fx/show-python_S1192.json"
+    run_online "online-rule-not-found" 1 "does not exist in SonarCloud" "SONAR_API_FIXTURE_DIR=$fx"
+    # ...rules/show unreachable -> fail open for that key.
+    rm "$fx/show-python_S1192.json"
+    run_online "online-show-unreachable" 0 "could not confirm ruleKey" "SONAR_API_FIXTURE_DIR=$fx"
     # Fail open: every infra failure must exit 0 and say it skipped.
     run_online "online-no-token" 0 "SKIPPED (fail open" -u SONAR_TOKEN -u SONAR_API_FIXTURE_DIR
     mkdir -p "$tmp/fx-empty"

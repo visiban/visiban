@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 import { MENU_ITEM_FOCUS_RING, MENU_ITEM_FOCUS_RING_DANGER } from "../Common/menuItemFocusRing";
 
 export interface OverflowItem {
@@ -48,6 +49,12 @@ interface OverflowMenuProps {
  * The menu panel is portaled to document.body so future Row 2 restructures
  * don't reintroduce the `overflow-x-auto` clipping trap that hid the
  * SplitButton dropdown on narrow viewports.
+ *
+ * Also used per row in the admin user table, where a bottom-row kebab sits
+ * near the viewport's bottom edge, so the panel follows the #1455 rules for
+ * anchored `fixed` popovers (#1457): placed from its measured height (below
+ * the trigger, else above, else pinned to the bottom edge), capped at the
+ * viewport, hidden until placed, and closed on resize or an outside scroll.
  */
 export default function OverflowMenu({
   items,
@@ -61,7 +68,7 @@ export default function OverflowMenu({
   const [internalOpen, setInternalOpen] = useState(false);
   const open = isControlled ? externalOpen : internalOpen;
 
-  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+  const [anchor, setAnchor] = useState<{ top: number; bottom: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -76,6 +83,18 @@ export default function OverflowMenu({
 
   useDropdownEscape(open, () => setOpen(false), triggerRef);
 
+  // Listeners registered by the placement hook always close via this render's setOpen.
+  const setOpenRef = useRef(setOpen);
+  setOpenRef.current = setOpen;
+  const closeFromViewport = useCallback(() => setOpenRef.current(false), []);
+  const top = useAnchoredPlacement(panelRef, {
+    anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
+    deps: [items.length],
+    onResize: closeFromViewport,
+    onOutsideScroll: closeFromViewport,
+  });
+  const placed = top !== null;
+
   // Capture position whenever the menu opens (internally or externally).
   useEffect(() => {
     if (!open) {
@@ -84,7 +103,7 @@ export default function OverflowMenu({
     }
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
-      setAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+      setAnchor({ top: rect.top, bottom: rect.bottom, right: window.innerWidth - rect.right });
     }
   }, [open]);
 
@@ -101,17 +120,18 @@ export default function OverflowMenu({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handler reads panelRef/triggerRef/setOpen, all stable across renders
   }, [open]);
 
-  // Focus the first enabled item when opened (keyboard or external path).
+  // Focus the first enabled item when opened (keyboard or external path),
+  // only once placed: a browser ignores focus() on the hidden measuring pass.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !placed) return;
     const t = window.setTimeout(() => {
       const firstEnabled = itemRefs.current.findIndex(
         (el, i) => el !== null && !items[i]?.disabled,
       );
-      if (firstEnabled >= 0) itemRefs.current[firstEnabled]?.focus();
+      if (firstEnabled >= 0) itemRefs.current[firstEnabled]?.focus({ preventScroll: true });
     }, 0);
     return () => window.clearTimeout(t);
-  }, [open, items]);
+  }, [open, placed, items]);
 
   const handleTriggerClick = () => {
     const next = !open;
@@ -175,8 +195,15 @@ export default function OverflowMenu({
       role="menu"
       id={menuId}
       aria-label={ariaLabel}
-      style={{ position: "fixed", top: anchor.top, right: anchor.right }}
-      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] max-h-[70vh] overflow-y-auto"
+      style={{
+        position: "fixed",
+        top: top ?? 0,
+        right: anchor.right,
+        maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+        // Hidden only for the pre-paint measuring pass.
+        visibility: placed ? undefined : "hidden",
+      }}
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] overflow-y-auto"
     >
       {items.map((item, i) => (
         <div key={item.id}>
