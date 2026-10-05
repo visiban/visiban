@@ -136,7 +136,7 @@ from ._demo_site_data import (
 BOARD_NAME = "Visiban Demo Board"
 # Distinct name for the --scale > 1 fixture (#1082) so a large-fixture run can
 # never collide with, or be mistaken for, the real demo board — most visibly
-# on the shared "demo" environment, where the weekly seed-demo-data refresh
+# on the shared "demo" environment, where the manual seed-demo-data
 # job must keep operating on BOARD_NAME regardless of what other scale this
 # command has ever been invoked with elsewhere.
 LOAD_TEST_BOARD_NAME = "Visiban Load Test Board"
@@ -578,7 +578,7 @@ class Command(BaseCommand):
             help=(
                 "Also seed unread Notification rows for 'demo2' so the "
                 "notification-poll endpoints (list/unread-count) have realistic "
-                "data. Off by default: the weekly demo-board refresh job's "
+                "data. Off by default: the manual demo-board refresh job's "
                 "existing behavior is left untouched unless this is passed "
                 "explicitly (used by the nightly load-test job, #1082)."
             ),
