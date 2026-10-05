@@ -31,6 +31,7 @@ import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
+import { canEditSwimlaneFieldOrder } from "../../utils/swimlaneFieldOrder";
 import BoardExportModal from "./BoardExportModal";
 import { useExportSeenPref } from "../../hooks/useExportSeenPref";
 import { useShortcutsSeenPref } from "../../hooks/useShortcutsSeenPref";
@@ -2403,7 +2404,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       stale_warning_pct={board.stale_warning_pct ?? 50}
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
-                      onEditFieldOrder={isAdmin && board.swimlane_custom_field_definitions.length >= 2 ? openSwimlaneFieldOrder : undefined}
+                      onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
                       onCardUpdated={onCardUpdated}
                       overlayCells={gridOverlayState?.cells}
                       overlayLabel={gridOverlayState?.label}

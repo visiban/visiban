@@ -108,7 +108,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const activeTabRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!initialTab) return;
-    const id = requestAnimationFrame(() => activeTabRef.current?.focus());
+    const id = requestAnimationFrame(() => {
+      const btn = activeTabRef.current;
+      if (!btn) return;
+      // Only claim focus while it is still where ModalWrapper left it (the
+      // panel, body, or nothing). A control deeper in the modal that already
+      // took focus must keep it.
+      const active = document.activeElement;
+      if (!active || active === document.body || (active !== btn && active.contains(btn))) btn.focus();
+    });
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: initialTab is read once, like the tab state
   }, []);
@@ -465,6 +473,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <button
                 key={t}
                 ref={tab === t ? activeTabRef : undefined}
+                aria-current={tab === t ? "true" : undefined}
                 onClick={() => setTab(t)}
                 className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px rounded shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   tab === t ? "border-primary-emphasis text-fg" : "border-transparent text-fg-tertiary hover:text-fg"

@@ -913,7 +913,7 @@ describe('BoardSettingsModal — initialTab prop', () => {
     expect(screen.getByRole('button', { name: 'Export JSON' })).toBeInTheDocument()
   })
 
-  it('renders with initialTab="members" (default) starting on the members tab', () => {
+  it('renders with an explicit initialTab="members" starting on the members tab', () => {
     render(
       <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="members" />
     )
@@ -927,6 +927,21 @@ describe('BoardSettingsModal — initialTab prop', () => {
     )
     const tab = screen.getByRole('button', { name: 'Swimlane fields' })
     await waitFor(() => expect(document.activeElement).toBe(tab))
+  })
+
+  it('marks only the active tab with aria-current (#1458)', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" />)
+    expect(screen.getByRole('button', { name: 'Swimlane fields' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('button', { name: 'Card fields' })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('button', { name: /^Members/ })).not.toHaveAttribute('aria-current')
+  })
+
+  it('does not steal focus from a control inside the modal that already has it (#1458)', async () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    const radio = screen.getByRole('radio', { name: /CSV/i })
+    radio.focus()
+    await new Promise((r) => requestAnimationFrame(() => r(null)))
+    expect(document.activeElement).toBe(radio)
   })
 
   it('opens on Members by default without moving focus to a tab button (#1458)', async () => {
