@@ -4106,7 +4106,7 @@ build. If you are adding an event, see
 <tr>
 <td><code>board.created</code></td>
 <td>New board created (only emitted to subscribers already connected to the board channel)</td>
-<td>Full <code>BoardSerializer</code> object. On a Visiban JSON/CSV import (<a href="../boards/#post-apiv1boardsimport"><code>POST /api/v1/boards/import/</code></a>) it also carries <code>import_options</code> — all five resolved booleans (<code>labels</code>, <code>cards</code>, <code>comments</code>, <code>checklist</code>, <code>history</code>; added in 1.2), plus <code>shift_dates_from</code> (a <code>YYYY-MM-DD</code> string; added in 1.3) when the import sent it. The same payload goes to the group channel when the import sets <code>group_id</code>. <code>import_options</code> is absent on ordinary board creation, Trello imports, and group-move events.</td>
+<td>Full <code>BoardSerializer</code> object. On a Visiban JSON/CSV import (<a href="../boards/#post-apiv1boardsimport"><code>POST /api/v1/boards/import/</code></a>) it also carries <code>import_options</code> — all five resolved booleans (<code>labels</code>, <code>cards</code>, <code>comments</code>, <code>checklist</code>, <code>history</code>; added in 1.2), plus <code>shift_dates_from</code> (a <code>YYYY-MM-DD</code> string; added in 1.2) when the import sent it. The same payload goes to the group channel when the import sets <code>group_id</code>. <code>import_options</code> is absent on ordinary board creation, Trello imports, and group-move events.</td>
 </tr>
 <tr>
 <td><code>board.updated</code></td>
@@ -4465,7 +4465,7 @@ sees it appear or disappear without a reload.</p>
 <tr>
 <td><code>board.created</code></td>
 <td>Board created in this group, imported into it, or moved into it from elsewhere</td>
-<td>Full <code>BoardSerializer</code> object. A Visiban JSON/CSV import into this group also carries <code>import_options</code> (all five resolved booleans, added in 1.2, plus <code>shift_dates_from</code> as a <code>YYYY-MM-DD</code> string when the import sent it, added in 1.3); it is absent on ordinary creation, Trello imports, and move-in events.</td>
+<td>Full <code>BoardSerializer</code> object. A Visiban JSON/CSV import into this group also carries <code>import_options</code> (all five resolved booleans, added in 1.2, plus <code>shift_dates_from</code> as a <code>YYYY-MM-DD</code> string when the import sent it, added in 1.2); it is absent on ordinary creation, Trello imports, and move-in events.</td>
 </tr>
 <tr>
 <td><code>board.updated</code></td>

@@ -4403,18 +4403,18 @@
 </tr>
 <tr>
 <td><code>wip_limit_exceeded</code> / <code>wip_hard_blocked</code></td>
-<td>The target column is at its WIP limit. Returned by <code>move_card</code> and, since 1.3 (#1428), <code>create_card</code>. Neither tool overrides either — there is no <code>force</code> option over MCP.</td>
+<td>The target column is at its WIP limit. Returned by <code>move_card</code> and, since 1.2 (#1428), <code>create_card</code>. Neither tool overrides either — there is no <code>force</code> option over MCP.</td>
 </tr>
 <tr>
 <td><code>weight_limit_exceeded</code></td>
-<td>The target column is at its weight limit (<code>move_card</code>, and <code>create_card</code> since 1.3).</td>
+<td>The target column is at its weight limit (<code>move_card</code>, and <code>create_card</code> since 1.2).</td>
 </tr>
 </tbody>
 </table>
 <h3 id="list_columns"><code>list_columns</code><a class="headerlink" href="#list_columns" title="Permanent link">&para;</a></h3>
 <p>Lists a board's columns, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
-<p><strong>Returns:</strong> an array of <code>{id, name, position, color, wip_limit, card_count}</code> — <code>card_count</code> excludes archived cards. <code>wip_limit</code> is checked by both <code>move_card</code> and <code>create_card</code> (since 1.3, #1428); only a board import can leave <code>card_count</code> above it (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
+<p><strong>Returns:</strong> an array of <code>{id, name, position, color, wip_limit, card_count}</code> — <code>card_count</code> excludes archived cards. <code>wip_limit</code> is checked by both <code>move_card</code> and <code>create_card</code> (since 1.2, #1428); only a board import can leave <code>card_count</code> above it (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
 <h3 id="list_swimlanes"><code>list_swimlanes</code><a class="headerlink" href="#list_swimlanes" title="Permanent link">&para;</a></h3>
 <p>Lists a board's swimlanes, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
@@ -4427,7 +4427,7 @@
 <p>Creates a card, appended to the end of its column/swimlane cell (or inserted at <code>position</code> if given). Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
 <p><strong>Arguments:</strong> <code>board_id</code>, <code>column_id</code>, <code>swimlane_id</code>, <code>title</code> (required); <code>description</code>, <code>priority</code> (default <code>"medium"</code>), <code>assignee_email</code>, <code>labels</code> (array of names), <code>due_date</code> (<code>YYYY-MM-DD</code>), <code>position</code> — all optional.</p>
 <p><strong>Returns:</strong> the created card, same shape as one row of <code>list_cards</code>. Writes a <code>CardMovement</code> record with no "from" column (matching how the REST API records card creation) and broadcasts <code>card.created</code> on the board's WebSocket channel.</p>
-<p>Enforces the column's WIP and weight limits exactly as <code>move_card</code> does, with no override: a create into a full column returns <code>wip_limit_exceeded</code>/<code>wip_hard_blocked</code>/<code>weight_limit_exceeded</code> and writes nothing. <em>Changed in 1.3 (#1428): creates were not checked before.</em></p>
+<p>Enforces the column's WIP and weight limits exactly as <code>move_card</code> does, with no override: a create into a full column returns <code>wip_limit_exceeded</code>/<code>wip_hard_blocked</code>/<code>weight_limit_exceeded</code> and writes nothing. <em>Changed in 1.2 (#1428): creates were not checked before.</em></p>
 <h3 id="move_card"><code>move_card</code><a class="headerlink" href="#move_card" title="Permanent link">&para;</a></h3>
 <p>Moves a card to a new column and/or swimlane and/or position. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
 <p><strong>Arguments:</strong> <code>card_id</code> (required); <code>to_column_id</code>, <code>to_swimlane_id</code> — at least one required, the other defaults to the card's current value; <code>position</code> (default <code>0</code>).</p>

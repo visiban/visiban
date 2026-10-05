@@ -4853,17 +4853,17 @@
 <tr>
 <td><code>enforce_wip_limits</code></td>
 <td>boolean</td>
-<td>When <code>true</code>, moving, creating, or restoring a card into a column at its WIP limit returns <code>409 Conflict</code> (default: <code>true</code> for new boards); board admins can override with <code>?force=true</code>. Board import is not checked (by design). Create and restore checked since 1.3 (#1428)</td>
+<td>When <code>true</code>, moving, creating, or restoring a card into a column at its WIP limit returns <code>409 Conflict</code> (default: <code>true</code> for new boards); board admins can override with <code>?force=true</code>. Board import is not checked (by design). Create and restore checked since 1.2 (#1428)</td>
 </tr>
 <tr>
 <td><code>enforce_wip_hard</code></td>
 <td>boolean</td>
-<td>When <code>true</code>, WIP limits on card move, create, and restore cannot be overridden by any role — all users are blocked (default: <code>false</code>). Active regardless of <code>enforce_wip_limits</code>. Board import is not checked (by design). Create and restore checked since 1.3 (#1428)</td>
+<td>When <code>true</code>, WIP limits on card move, create, and restore cannot be overridden by any role — all users are blocked (default: <code>false</code>). Active regardless of <code>enforce_wip_limits</code>. Board import is not checked (by design). Create and restore checked since 1.2 (#1428)</td>
 </tr>
 <tr>
 <td><code>enforce_weight_limits</code></td>
 <td>boolean</td>
-<td>When <code>true</code>, moving, creating, or restoring a card, or raising a card's <code>weight</code> with PATCH, so that a column would exceed its weight limit returns <code>409 Conflict</code> (default: <code>true</code> for new boards); board admins can override with <code>?force=true</code>. Lowering a weight is never blocked. Board import is not checked (by design). Create, restore, and PATCH checked since 1.3 (#1428)</td>
+<td>When <code>true</code>, moving, creating, or restoring a card, or raising a card's <code>weight</code> with PATCH, so that a column would exceed its weight limit returns <code>409 Conflict</code> (default: <code>true</code> for new boards); board admins can override with <code>?force=true</code>. Lowering a weight is never blocked. Board import is not checked (by design). Create, restore, and PATCH checked since 1.2 (#1428)</td>
 </tr>
 <tr>
 <td><code>export_min_role</code></td>
@@ -4959,7 +4959,7 @@
 <hr />
 <h2 id="sample-boards">Sample boards<a class="headerlink" href="#sample-boards" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p><strong>Added in 1.3</strong></p>
+<p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>Read-only endpoints behind the <strong>Start from a sample</strong> gallery on the Import Board screen. They need the same access as importing (authentication, no pending password or username change) and, for a personal access token, the <code>read</code> scope. Both set <code>Cache-Control: private, max-age=3600</code>.</p>
 <p>The files are shipped inside the backend image, so a sample always matches the importer of the same release. To use one, fetch it and post it to <a href="#post-apiv1boardsimport"><code>POST /api/v1/boards/import/</code></a> like any other export file; group access and the import rate limit are enforced there.</p>
@@ -6623,7 +6623,7 @@ Visiban are already in stored form and round-trip unchanged.</p>
 <blockquote>
 <p>When <code>allow_card_creation</code> is <code>false</code>, posting a new card to that column returns <code>400 Bad Request</code> with <code>{"column": "Card creation is not allowed in this column."}</code>.</p>
 <p>WIP and weight limits are enforced when <code>enforce_wip_limits</code> or <code>enforce_weight_limits</code> is enabled on the board. A card move, create, or restore into an over-limit column (or a PATCH raising a card's <code>weight</code> past the weight limit) returns <code>409 Conflict</code> — see the move endpoint in the <a href="../cards/">Cards API</a> for the full error schema and the <code>?force=true</code> admin override. When enforcement is disabled, limits are displayed but not enforced.</p>
-<p>Since 1.3 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see <a href="../../architecture/field-enforcement/">Field Enforcement</a>.</p>
+<p>Since 1.2 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see <a href="../../architecture/field-enforcement/">Field Enforcement</a>.</p>
 </blockquote>
 <h3 id="put-apiv1boardsidcolumnscol_id"><code>PUT /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#put-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
 <p>Update a column. Requires board admin.</p>
