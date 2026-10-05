@@ -3421,17 +3421,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#setting-up-the-weekly-gitlab-ci-schedule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setting up the weekly GitLab CI schedule
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#optional-custom-random-seed" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4268,7 +4257,7 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__startswith</span><span class="o">=</span><span class="s2">"demo"</span><span class="p">,</span> <span class="n">email__endswith</span><span class="o">=</span><span class="s2">"@visiban.example"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <h2 id="gitlab-ci-setup-for-automated-demo-refresh">GitLab CI setup for automated demo refresh<a class="headerlink" href="#gitlab-ci-setup-for-automated-demo-refresh" title="Permanent link">&para;</a></h2>
-<p>The <code>seed-demo-data</code> GitLab CI job refreshes the demo board on a weekly schedule and can also be triggered manually from the GitLab pipeline UI. It requires three GitLab CI/CD variables and a pipeline schedule to be configured before it will work.</p>
+<p>The <code>seed-demo-data</code> GitLab CI job refreshes the demo board on demand. It is manual-only and runs from <code>main</code> pipelines; there is no weekly schedule. The public demo at try.visiban.com runs from the Helm chart's demo mode instead (see <a href="../../maintainers/demo-deploy/">Demo deployment</a>), so this job is only needed for a separate Compose-based demo environment. It requires three GitLab CI/CD variables to be configured before it will work.</p>
 <h3 id="required-gitlab-cicd-variables">Required GitLab CI/CD variables<a class="headerlink" href="#required-gitlab-cicd-variables" title="Permanent link">&para;</a></h3>
 <p>In your GitLab project, go to <strong>Settings → CI/CD → Variables</strong> and add the following. All three must be <strong>Protected</strong> and <strong>Masked</strong>, scoped to the <code>demo</code> environment.</p>
 <table>
@@ -4295,19 +4284,10 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 </table>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>If any of these variables are missing or empty, the GitLab CI job fails immediately with <code>ImproperlyConfigured: DJANGO_SECRET_KEY must be set</code>. The job appears in all pipelines as a manual trigger — if you see this error after clicking <strong>Run</strong>, check that all three variables are set and scoped correctly to the <code>demo</code> environment in <strong>Settings → CI/CD → Variables</strong>.</p>
+<p>If any of these variables are missing or empty, the GitLab CI job fails immediately with <code>ImproperlyConfigured: DJANGO_SECRET_KEY must be set</code>. The job appears in <code>main</code> pipelines as a manual trigger — if you see this error after clicking <strong>Run</strong>, check that all three variables are set and scoped correctly to the <code>demo</code> environment in <strong>Settings → CI/CD → Variables</strong>.</p>
 </div>
-<h3 id="setting-up-the-weekly-gitlab-ci-schedule">Setting up the weekly GitLab CI schedule<a class="headerlink" href="#setting-up-the-weekly-gitlab-ci-schedule" title="Permanent link">&para;</a></h3>
-<ol>
-<li>In your GitLab project, go to <strong>CI/CD → Schedules</strong> and click <strong>New schedule</strong>.</li>
-<li>Set the cron to <code>0 4 * * 1</code> (Mondays at 04:00 UTC).</li>
-<li>Set the target branch to <code>main</code>.</li>
-<li>Add a schedule variable: <code>SEED_SCHEDULE</code> = <code>true</code>.</li>
-<li>Save the schedule.</li>
-</ol>
-<p>The schedule variable <code>SEED_SCHEDULE=true</code> is what activates the job — without it the scheduled GitLab pipeline runs but <code>seed-demo-data</code> is skipped.</p>
 <h3 id="optional-custom-random-seed">Optional: custom random seed<a class="headerlink" href="#optional-custom-random-seed" title="Permanent link">&para;</a></h3>
-<p>The job uses today's date (<code>YYYYMMDD</code>) as the random seed by default, so each weekly refresh produces a naturally varied board while remaining reproducible within the same day. To override this, set <code>SEED_VALUE</code> to any integer when triggering the job manually via the GitLab pipeline UI:</p>
+<p>The job uses today's date (<code>YYYYMMDD</code>) as the random seed by default, so each refresh produces a naturally varied board while remaining reproducible within the same day. To override this, set <code>SEED_VALUE</code> to any integer when triggering the job manually via the GitLab pipeline UI:</p>
 <table>
 <thead>
 <tr>
@@ -4325,7 +4305,7 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 <tr>
 <td><em>(unset)</em></td>
 <td>—</td>
-<td>Uses today's date — varies weekly</td>
+<td>Uses today's date — varies per run</td>
 </tr>
 </tbody>
 </table>

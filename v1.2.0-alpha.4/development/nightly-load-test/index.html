@@ -3859,8 +3859,8 @@ budget.</p>
 <li><code>--scale 20</code> replicates the demo board's 10-swimlane layout 20 times: <strong>200 swimlanes,
   ~2,400 cards</strong> (11-13 cards per swimlane, same distribution <code>seed_demo_data</code> always uses —
   see its docstring). The board is named <strong>"Visiban Load Test Board"</strong>, distinct from
-  <code>"Visiban Demo Board"</code>, so this job can never collide with or overwrite the weekly
-  <code>seed-demo-data</code> refresh job's data, in CI or on the shared demo environment.</li>
+  <code>"Visiban Demo Board"</code>, so this job can never collide with or overwrite the
+  manual <code>seed-demo-data</code> job's data, in CI or on the shared demo environment.</li>
 <li><code>--with-notifications</code> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user — more than
   the 50-row cap <code>NotificationListView</code> / <code>NotificationUnreadCountView</code> apply, so the job
   exercises the same "more unread than the cap" path a busy real inbox hits.</li>

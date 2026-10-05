@@ -4088,8 +4088,11 @@ pipeline as their slot: <code>schedule-config-check</code>, <code>check-release-
 load-test schedule only. The load test keeps its own schedule, two hours earlier, because its
 latency budgets are noisy on a busy runner. <code>backend-schema-fuzz</code>, the MR job, never runs on
 a schedule; <code>backend-schema-fuzz-deep</code> replaces it there.</p>
-<p><code>seed-demo-data</code>'s weekly refresh (<code>SEED_SCHEDULE</code>) still has no schedule. It needs the demo
-environment's <code>DEMO_*</code> variables, so it is an accepted gap tracked in #1232.</p>
+<p><code>seed-demo-data</code> has no schedule on purpose (#1232): it is manual-only on <code>main</code>, because the
+try.visiban.com demo now runs from the Helm chart's demo mode (see
+<a href="../../maintainers/demo-deploy/">Demo deployment</a>) rather than a weekly CI reseed.
+<code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> is therefore empty, so every schedule-gated variable must have
+an active schedule.</p>
 <h3 id="changing-a-schedule">Changing a schedule<a class="headerlink" href="#changing-a-schedule" title="Permanent link">&para;</a></h3>
 <p>Schedules are GitLab project configuration (<strong>Build → Pipeline schedules</strong>), not files in this
 repository. <code>schedule-config-check</code> runs on every scheduled pipeline. It fails if any
