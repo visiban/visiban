@@ -487,6 +487,7 @@ describe('SingleSelectDropdown', () => {
         const menu = screen.getByRole('menu') as HTMLElement
         expect(menu.style.left).toBe(`${window.innerWidth - 140 - 8}px`)
         expect(menu.style.minWidth).toBe('140px')
+        expect(menu.style.maxWidth).toBe('calc(100vw - 16px)')
       })
 
       it('matches a wider trigger', async () => {
