@@ -41,6 +41,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   // @ts-expect-error -- jsdom has no scrollIntoView; remove the stub again
   delete Element.prototype.scrollIntoView;
 });
@@ -106,15 +107,88 @@ describe("MultiSelectDropdown (#1391)", () => {
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
-  it("opens upward when there is no room below the trigger", async () => {
-    renderDropdown();
-    const trigger = screen.getByRole("button", { name: /^Tags:/ });
-    trigger.getBoundingClientRect = () =>
-      ({ top: window.innerHeight - 40, bottom: window.innerHeight - 10, left: 20, width: 100, height: 30, right: 120, x: 20, y: 0, toJSON: () => ({}) }) as DOMRect;
-    await open();
-    const menu = screen.getByRole("listbox").parentElement as HTMLElement;
-    expect(menu.style.bottom).toBe("44px");
-    expect(menu.style.top).toBe("");
+  describe("viewport fit (#1457)", () => {
+    const rectAt = (top: number, bottom: number) =>
+      ({ top, bottom, left: 20, width: 100, height: bottom - top, right: 120, x: 20, y: top, toJSON: () => ({}) }) as DOMRect;
+    const menu = () => screen.getByTestId("multiselect-menu");
+    const withTrigger = async (top: number, bottom: number) => {
+      renderDropdown();
+      const trigger = screen.getByRole("button", { name: /^Tags:/ });
+      trigger.getBoundingClientRect = () => rectAt(top, bottom);
+      await open();
+    };
+
+    it("opens below the trigger when the measured height fits", async () => {
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+      await withTrigger(100, 130);
+      expect(menu().style.top).toBe("134px");
+      expect(menu().style.bottom).toBe("");
+      expect(menu().style.visibility).toBe("");
+    });
+
+    it("opens upward when there is no room below the trigger", async () => {
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+      await withTrigger(window.innerHeight - 40, window.innerHeight - 10);
+      expect(menu().style.top).toBe(`${window.innerHeight - 40 - 4 - 200}px`);
+    });
+
+    it("keeps the side chosen at open while filtering shrinks the list", async () => {
+      // 20 options; the menu's measured height follows the rendered rows.
+      const many = Array.from({ length: 20 }, (_, i) => `opt${i}`);
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+        return this.dataset.testid === "multiselect-menu"
+          ? 40 + 20 * this.querySelectorAll("[role='option']").length
+          : 0;
+      });
+      renderDropdown({ options: many });
+      const trigger = screen.getByRole("button", { name: /^Tags:/ });
+      const triggerTop = window.innerHeight - 200;
+      trigger.getBoundingClientRect = () => rectAt(triggerTop, triggerTop + 30);
+      const search = await open();
+      // 440px does not fit below, so it opens upward, flush above the trigger.
+      expect(menu().style.top).toBe(`${triggerTop - 4 - 440}px`);
+      fireEvent.change(search, { target: { value: "opt19" } });
+      // One row (60px) would now fit below; it must stay above, its bottom
+      // edge still at the trigger, rather than jumping across it.
+      expect(screen.getAllByRole("option")).toHaveLength(1);
+      expect(menu().style.top).toBe(`${triggerTop - 4 - 60}px`);
+    });
+
+    it("pins to the bottom edge when it fits neither below nor above", async () => {
+      const height = window.innerHeight - 60;
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(height);
+      await withTrigger(100, 130);
+      expect(menu().style.top).toBe(`${window.innerHeight - 8 - height}px`);
+    });
+
+    it("caps the menu at the viewport rather than a fixed height", async () => {
+      await withTrigger(100, 130);
+      expect(menu().style.maxHeight).toBe("calc(100vh - 16px)");
+    });
+
+    it("focuses the search only after placement", async () => {
+      let visibilityAtFocus: string | undefined;
+      const real = HTMLElement.prototype.focus;
+      vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (this: HTMLElement, ...args) {
+        if (this.getAttribute("role") === "combobox") {
+          visibilityAtFocus = (this.closest("[data-testid='multiselect-menu']") as HTMLElement).style.visibility;
+        }
+        real.apply(this, args);
+      });
+      await withTrigger(100, 130);
+      expect(visibilityAtFocus).toBe("");
+    });
+
+    it("shows the overflow fade only while more options are below the fold", async () => {
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(500);
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
+      await withTrigger(100, 130);
+      expect(screen.getByTestId("multiselect-more-below")).toBeInTheDocument();
+      const list = screen.getByRole("listbox");
+      list.scrollTop = 300;
+      fireEvent.scroll(list);
+      expect(screen.queryByTestId("multiselect-more-below")).not.toBeInTheDocument();
+    });
   });
 
   it("commits a set comparison: re-checking the same entries is not a change", async () => {

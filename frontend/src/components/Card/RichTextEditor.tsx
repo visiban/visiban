@@ -5,6 +5,9 @@ import StarterKit from "@tiptap/starter-kit";
 import { TextStyle, Color } from "@tiptap/extension-text-style";
 import { Placeholder } from "@tiptap/extensions";
 import MentionExtension from "@tiptap/extension-mention";
+// @tiptap/pm is the required peer of @tiptap/react and @tiptap/core (same
+// version); PluginKey is the only way to address the suggestion plugin.
+import { PluginKey } from "@tiptap/pm/state";
 import type { MentionOptions } from "@tiptap/extension-mention";
 import { Markdown } from "tiptap-markdown";
 import ReactMarkdown from "react-markdown";
@@ -13,7 +16,17 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { BoardUser, EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 import MentionList from "./MentionList";
+import { placeFixedElement, type AnchoredSide } from "../../hooks/useAnchoredPlacement";
 import type { MentionListRef } from "./MentionList";
+
+/**
+ * Our own key for the mention suggestion plugin, so the popup can end the
+ * suggestion the same way Escape does (a metadata-only `{ exit: true }`
+ * transaction, as `@tiptap/suggestion`'s `exitSuggestion` dispatches). Hiding
+ * the element alone would leave the suggestion active and still capturing
+ * Enter and the arrow keys.
+ */
+const mentionSuggestionKey = new PluginKey("mentionSuggestion");
 
 interface Props {
   value: string;
@@ -251,9 +264,34 @@ export default function RichTextEditor({
               })
               .slice(0, 6);
           },
+          pluginKey: mentionSuggestionKey,
           render: () => {
             let component: ReactRenderer<MentionListRef>;
             let popup: HTMLDivElement;
+            // Placed from its measured height per the #1455 rules (below the
+            // caret, else above, else bottom-pinned), and the side found on
+            // the first measurement is kept while the typed query narrows the
+            // list, so it never jumps across the caret (#1457).
+            let side: AnchoredSide | undefined;
+            let clientRect: (() => DOMRect | null) | null | undefined;
+            const place = (rect: DOMRect) => {
+              side = placeFixedElement(popup, rect, side) ?? side;
+            };
+            // A resize changes the viewport the popup was fitted to: end the
+            // suggestion (onExit then removes the popup), as Escape does.
+            let endSuggestion = () => {};
+            // A scroll re-anchors to the live caret instead of dismissing: the
+            // named exception in frontend/CLAUDE.md. ProseMirror and the
+            // browser scroll the caret into view as the query is typed, which
+            // happens exactly when the caret is near the edge, so a
+            // scroll-dismiss would close the list mid-word.
+            const onScroll = (e: Event) => {
+              if (!popup || (e.target instanceof Node && popup.contains(e.target))) return;
+              const rect = clientRect?.();
+              if (rect) place(rect);
+            };
+            const onResize = () => endSuggestion();
+            let resizeObserver: ResizeObserver | undefined;
 
             return {
               onStart(props) {
@@ -261,26 +299,44 @@ export default function RichTextEditor({
                   props,
                   editor: props.editor,
                 });
-                if (!props.clientRect) return;
+                // Always create the popup, hidden: `clientRect()` can return
+                // null until the suggestion's decoration renders, and the list
+                // itself renders later still. A later update or resize
+                // observation places and shows it.
+                clientRect = props.clientRect;
+                const { editor } = props;
+                endSuggestion = () => {
+                  if (editor.isDestroyed) return;
+                  editor.view.dispatch(editor.state.tr.setMeta(mentionSuggestionKey, { exit: true }));
+                };
                 popup = document.createElement("div");
+                popup.dataset.testid = "mention-popup";
                 popup.style.position = "fixed";
                 popup.style.zIndex = "9999";
-                const rect = props.clientRect();
-                if (rect) {
-                  popup.style.left = `${rect.left}px`;
-                  popup.style.top = `${rect.bottom + 4}px`;
-                }
                 document.body.appendChild(popup);
                 popup.appendChild(component.element);
+                window.addEventListener("scroll", onScroll, true);
+                window.addEventListener("resize", onResize);
+                popup.style.visibility = "hidden";
+                const rect = clientRect?.();
+                if (rect) place(rect);
+                // ReactRenderer commits the list asynchronously (and React may
+                // defer it while the user is still typing), so the height read
+                // above can be 0 or stale. Re-place whenever the list's size
+                // actually changes: its first render, and each narrowing.
+                if (typeof ResizeObserver !== "undefined") {
+                  resizeObserver = new ResizeObserver(() => {
+                    const next = clientRect?.();
+                    if (next && popup.isConnected) place(next);
+                  });
+                  resizeObserver.observe(popup);
+                }
               },
               onUpdate(props) {
                 component.updateProps(props);
-                if (!props.clientRect || !popup) return;
-                const rect = props.clientRect();
-                if (rect) {
-                  popup.style.left = `${rect.left}px`;
-                  popup.style.top = `${rect.bottom + 4}px`;
-                }
+                if (props.clientRect) clientRect = props.clientRect;
+                const rect = clientRect?.();
+                if (rect && popup) place(rect);
               },
               onKeyDown({ event }) {
                 if (event.key === "Escape") {
@@ -295,6 +351,9 @@ export default function RichTextEditor({
                 return component.ref?.onKeyDown({ event }) ?? false;
               },
               onExit() {
+                resizeObserver?.disconnect();
+                window.removeEventListener("scroll", onScroll, true);
+                window.removeEventListener("resize", onResize);
                 popup?.remove();
                 component?.destroy();
               },
