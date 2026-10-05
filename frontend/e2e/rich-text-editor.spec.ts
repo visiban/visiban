@@ -41,15 +41,15 @@ async function routeCardWithPatchCapture(page: Page, sink: { description?: strin
  *
  * Why the two can differ: Shift+Arrow extends the DOM selection natively, and
  * ProseMirror only copies it into `editor.state.selection` when the browser's
- * asynchronous `selectionchange` event reaches its DOMObserver. A toolbar
- * button's mousedown handler runs outside ProseMirror's own event handling, so
- * nothing syncs the state first. `toggleBold()` therefore acts on whatever
- * selection the state holds. A human cannot click a toolbar button inside that
- * gap, but Playwright fires the click about 1 ms after the last keypress. On a
- * loaded CI runner the pending `selectionchange` tasks can still be queued
- * behind the mousedown (see #1195: a job bolded nothing, then "ut", then
- * "dout" across its three attempts, and a later pipeline with a byte-identical
- * frontend tree passed).
+ * asynchronous `selectionchange` event reaches its DOMObserver. `toggleBold()`
+ * and Ctrl+U act on the state, not the DOM. #1195 therefore polled this helper
+ * after the keypresses, but that was insufficient (#1474): under load a
+ * Shift+ArrowLeft can be dropped, so the state never reaches the word and the
+ * poll just times out. The specs now set the range deterministically with
+ * `selectWordInEditor` (see it for the full explanation) and use this helper
+ * only to confirm the state holds exactly that text. Keep that confirmation:
+ * a mark applied to a stale or empty selection passes vacuously, and the
+ * Ctrl+U guard would then assert nothing.
  *
  * Tiptap attaches the Editor instance to its root element (`dom.editor`),
  * which lets the test wait on the real editor state instead of on a
@@ -68,6 +68,44 @@ async function editorSelectedText(editor: Locator): Promise<string> {
     const { from, to } = ed.state.selection
     return ed.state.doc.textBetween(from, to)
   })
+}
+
+/**
+ * Selects the last occurrence of `word` by writing the range straight into the
+ * editor's own state, then returns once the state reports exactly that text.
+ *
+ * Why not Shift+ArrowLeft x N (what #1195 kept): the keystrokes are not
+ * idempotent. Under CI load a keypress can be consumed while ProseMirror is
+ * still flushing the typed text and re-asserting its own DOM selection, so the
+ * selection stops one character short and stays there ("d" for "underlined",
+ * "tandout" for "standout", or empty). Waiting longer cannot fix that, which is
+ * why polling `editorSelectedText` alone (#1195) still flaked in CI (#1474):
+ * the expected value was never going to arrive. These specs guard the markdown
+ * serializer and the Underline extension, not native text selection, so the
+ * range is set deterministically.
+ */
+async function selectWordInEditor(editor: Locator, word: string): Promise<void> {
+  await editor.evaluate((el, w) => {
+    type EditorLike = {
+      state: { doc: { textBetween(from: number, to: number, sep?: string): string; content: { size: number } } }
+      commands: { setTextSelection(range: { from: number; to: number }): boolean; focus(): boolean }
+    }
+    const ed = (el as HTMLElement & { editor?: EditorLike }).editor
+    if (!ed) throw new Error('Tiptap editor instance not found on the contenteditable root')
+    const size = ed.state.doc.content.size
+    // Doc positions are offset by node boundaries, so scan backwards for the
+    // last position whose text equals the word.
+    for (let from = size; from >= 0; from--) {
+      const to = from + w.length
+      if (to <= size && ed.state.doc.textBetween(from, to) === w) {
+        ed.commands.focus()
+        ed.commands.setTextSelection({ from, to })
+        return
+      }
+    }
+    throw new Error(`could not map "${w}" to a document range`)
+  }, word)
+  await expect.poll(() => editorSelectedText(editor), { timeout: 5_000 }).toBe(word)
 }
 
 /** Opens the card detail dialog and puts the description into edit mode. */
@@ -135,12 +173,7 @@ test.describe('rich text editor', () => {
     await page.keyboard.press('End')
     // Type the word, then select just it so the mark applies to a known range.
     await page.keyboard.type(' standout')
-    for (let i = 0; i < 'standout'.length; i++) {
-      await page.keyboard.press('Shift+ArrowLeft')
-    }
-    // Wait until the editor state, not just the DOM, holds the whole word. See
-    // editorSelectedText for why clicking straight after the keypresses races.
-    await expect.poll(() => editorSelectedText(editor), { timeout: 5_000 }).toBe('standout')
+    await selectWordInEditor(editor, 'standout')
     await dialog.getByTitle('Bold (Ctrl+B)').click()
 
     await dialog.getByRole('button', { name: 'Save' }).click()
@@ -185,13 +218,9 @@ test.describe('rich text editor', () => {
     await editor.click()
     await page.keyboard.press('End')
     await page.keyboard.type(' underlined')
-    for (let i = 0; i < 'underlined'.length; i++) {
-      await page.keyboard.press('Shift+ArrowLeft')
-    }
-    // Same wait as the bold test. Without it this guard can pass vacuously: if
-    // the editor state still holds an empty selection, Ctrl+U has no text to
-    // mark, so no <u> is written even with Underline enabled.
-    await expect.poll(() => editorSelectedText(editor), { timeout: 5_000 }).toBe('underlined')
+    // Without a real selection this guard can pass vacuously: Ctrl+U has no text
+    // to mark, so no <u> is written even with Underline enabled.
+    await selectWordInEditor(editor, 'underlined')
     // ControlOrMeta, not Control: Tiptap binds Mod-u, which is Cmd on macOS and
     // Ctrl on CI's Linux. A bare 'Control+u' is a no-op on macOS and would make
     // this test pass whether or not Underline is enabled.
