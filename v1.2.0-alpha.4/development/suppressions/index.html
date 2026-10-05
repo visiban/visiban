@@ -3862,7 +3862,11 @@ one.</p>
 which additionally asks SonarCloud whether each <code>ruleKey</code> is still active in the project's
 quality profile. It needs <code>SONAR_TOKEN</code> and fails open: with no token, no network, no active rules returned, or an
 unparseable response it prints a warning and exits 0, so only a rule that is really inactive
-turns the job yellow. MR pipelines never run it.</p>
+turns the job yellow. A key missing from the bulk rule search is re-checked with
+<code>api/rules/show</code> before it is reported, because the search can omit a rule that is active in
+the project's profile. The job then reports either "does not exist in SonarCloud" (the key was
+never valid, or the rule was removed) or "is not active in any quality profile" (the rule was
+deactivated). MR pipelines never run it.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>bash<span class="w"> </span>scripts/check-sonar-exclusions.sh
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>bash<span class="w"> </span>scripts/check-sonar-exclusions.sh<span class="w"> </span>--self-test
 </code></pre></div>
