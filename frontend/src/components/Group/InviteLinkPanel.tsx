@@ -137,12 +137,13 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
 
   // Refetch when the parent signals an invite_link.revoked socket event so the
   // panel converges with another admin's revoke without a manual reload (#1051).
-  const didMountRef = useRef(false);
+  // Keyed on whether the signal CHANGED, not a "skip first run" flag: StrictMode's
+  // dev remount keeps refs, so a boolean flag would fire an extra mount fetch
+  // (#1479). `fetchLinks` changing alone is already covered by the effect above.
+  const lastSignalRef = useRef(reloadSignal);
   useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
+    if (lastSignalRef.current === reloadSignal) return;
+    lastSignalRef.current = reloadSignal;
     void fetchLinks();
   }, [reloadSignal, fetchLinks]);
 
