@@ -33,9 +33,10 @@ Exit codes (same contract as TruePPM, #3216):
 ====  =============================================================
 
 ``--write-merged`` writes the summed counts (``total`` is the module's mutant
-count, not N x total) on every judged run; a run that exits 2 gets a
+count, not N x total) on every judged run; a not-measured run (exit 2) gets a
 ``not_measured`` key with the reason, so the artifact is never mistaken for a
-complete run.
+complete run. An invalid floor is a config error raised before any stats are
+read, so it writes no merged file.
 
 ``MUTATION_MIN`` is deliberately unset in CI during the pilot (report-only). A
 floor is a fraction (``0.95``, not ``95``), read off a week of observed nightlies,
