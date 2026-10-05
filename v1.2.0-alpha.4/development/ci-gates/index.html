@@ -4013,6 +4013,11 @@ own header — is never mistaken for a real exemption.</p>
 <td>#1213: <code>nightly-load-test</code>'s GitLab pipeline schedule was never configured, and nothing asserted it existed — same failure shape as <code>check-release-images</code>. Self-test stubs <code>SCHEDULE_PROBE</code> with fixed JSON covering a covered variable, one with no schedule at all, one on an <code>active:false</code> schedule, one set to <code>"false"</code>, an <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> entry, a probe failure (must fail open, not report a false MISSING), a CI file with no schedule-gated rules at all, and (#1383) the real probe falling through from a rejected <code>CI_JOB_TOKEN</code> to <code>GITLAB_API_TOKEN</code>. See <a href="../nightly-load-test/#the-schedule">Nightly load test § The schedule</a>.</td>
 </tr>
 <tr>
+<td><code>scripts/check_mutation_score.py</code></td>
+<td><code>mutation-score-selftest</code> (MRs touching the script or CI file; also main) and <code>backend-mutation-report</code> (Nightly schedule only, with <code>MUTATION_TEST=true</code>)</td>
+<td>#1384, ported from TruePPM's <code>check_mutation_score.py</code>. Exports mutmut 2.5.1's <code>.mutmut-cache</code> to a stats JSON (2.x has no <code>export-cicd-stats</code>), sums the parallel shards (<code>--expect-shards N</code>: fewer files than expected is exit 2, so a dead shard is never summed into a smaller complete run; shards must also agree on <code>total</code> and their non-skipped mutants must add up to it), and judges the score. Report-only while <code>MUTATION_MIN</code> is unset; exit 2 (not measured: missing, malformed or inconsistent shard stats, untested mutants, or zero scoreable mutants) applies even then, and a floor outside (0, 1], such as <code>95</code> or <code>0</code>, is also exit 2 (a config error, raised before any stats are read, so no merged file is written). 40-check self-test (run on MRs by <code>mutation-score-selftest</code>, and in the nightly <code>script:</code> before the real call): above, at and one mutant below a floor, a floor of exactly 1, timeouts counted as killed, <code>suspicious</code> not, <code>skipped</code> excluded, shards summed, a missing shard, shards with unequal totals, an uncovered or doubly covered mutant, a shard with no <code>total</code>, malformed and missing inputs, unfinished and empty runs, report-only, out-of-range floors from <code>--min</code> and <code>MUTATION_MIN</code>, <code>--write-merged</code> writing the real module total and still writing (with a <code>not_measured</code> reason) on a not-measured run and a missing shard, and a cache export from a SQLite fixture in mutmut's schema.</td>
+</tr>
+<tr>
 <td><code>scripts/fuzz_deep_file_issue.py</code></td>
 <td><code>backend-schema-fuzz-deep</code> (Nightly schedule only)</td>
 <td>#1383: the deep fuzz job is <code>allow_failure: true</code>, so a finding shows as a yellow job in a green pipeline and emails nobody. This script, run from <code>after_script</code> on failure, keeps one open tracking issue: it files it, or comments on it when it is already open. Self-test (run in <code>script:</code> before the fuzz) covers report-only with no token (no API call at all), a comment on an existing exact-title match (a near-miss search hit must not count), a new issue via the <code>KAIZEN_API_TOKEN</code> fallback, failing open on an API error, and quick-action smuggling: a multi-line <code>FUZZ_SEED</code> becomes <code>invalid</code>, and no CI-variable text can start a body line with <code>/</code>. The job files only when a marker written after the self-test exists, so a self-test or setup failure is never reported as a schema-fuzz finding.</td>
@@ -4066,10 +4071,10 @@ So the project keeps <strong>two</strong> schedules (#1383), not one per job:</p
 <tr>
 <td>Nightly (CVE/OSV, Sonar, deep fuzz, kaizen) (4176726)</td>
 <td><code>0 5 * * *</code></td>
-<td><code>CVE_SCAN</code>, <code>OSV_SCAN</code>, <code>SONAR_SCHEDULED</code>, <code>FUZZ_DEEP</code>, <code>KAIZEN_YIELD_WATCH</code> (all <code>true</code>)</td>
+<td><code>CVE_SCAN</code>, <code>OSV_SCAN</code>, <code>SONAR_SCHEDULED</code>, <code>FUZZ_DEEP</code>, <code>KAIZEN_YIELD_WATCH</code> (all <code>true</code>), plus <code>MUTATION_TEST=true</code> once a maintainer adds it (#1384)</td>
 <td>maintainers (schedule owner: <code>kellyhair</code>)</td>
-<td><code>backend-dep-scan</code>, <code>frontend-dep-scan</code> (blocking); <code>dep-scan-osv</code> (blocking on HIGH/CRITICAL, warns otherwise); <code>sonar:scan</code>, <code>backend-schema-fuzz-deep</code>, <code>kaizen-yield-watch</code> (all <code>allow_failure: true</code>)</td>
-<td><strong>Red:</strong> a dependency on <code>main</code> has a new HIGH/CRITICAL advisory, or an ordinary <code>main</code> job failed. Fix or document it (an expiring <code>IgnoredVulns</code> entry for OSV). <strong>Yellow <code>backend-schema-fuzz-deep</code>:</strong> a real API contract defect, never a flake (#1165); see its tracking issue. <strong>Yellow <code>sonar:scan</code>:</strong> the SonarCloud dashboard did not refresh that night.</td>
+<td><code>backend-dep-scan</code>, <code>frontend-dep-scan</code> (blocking); <code>dep-scan-osv</code> (blocking on HIGH/CRITICAL, warns otherwise); <code>sonar:scan</code>, <code>backend-schema-fuzz-deep</code>, <code>kaizen-yield-watch</code>, <code>backend-mutation</code> and <code>backend-mutation-report</code> (all <code>allow_failure: true</code>)</td>
+<td><strong>Red:</strong> a dependency on <code>main</code> has a new HIGH/CRITICAL advisory, or an ordinary <code>main</code> job failed. Fix or document it (an expiring <code>IgnoredVulns</code> entry for OSV). <strong>Yellow <code>backend-schema-fuzz-deep</code>:</strong> a real API contract defect, never a flake (#1165); see its tracking issue. <strong>Yellow <code>backend-mutation-report</code>:</strong> the mutation run was not measured (a shard died or finished with untested mutants); a low <em>score</em> is not red or yellow, it is only reported, see <a href="../mutation-testing/">Mutation testing</a>. <strong>Yellow <code>sonar:scan</code>:</strong> the SonarCloud dashboard did not refresh that night.</td>
 </tr>
 <tr>
 <td>Nightly load test (#1082) (4463581)</td>
@@ -4091,8 +4096,9 @@ a schedule; <code>backend-schema-fuzz-deep</code> replaces it there.</p>
 <p><code>seed-demo-data</code> has no schedule on purpose (#1232): it is manual-only on <code>main</code>, because the
 try.visiban.com demo now runs from the Helm chart's demo mode (see
 <a href="../../maintainers/demo-deploy/">Demo deployment</a>) rather than a weekly CI reseed.
-<code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> is therefore empty, so every schedule-gated variable must have
-an active schedule.</p>
+<code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> is otherwise empty, so every schedule-gated variable must have
+an active schedule. The one temporary exception is <code>MUTATION_TEST</code> (#1384), until a maintainer
+adds it to the Nightly schedule.</p>
 <h3 id="changing-a-schedule">Changing a schedule<a class="headerlink" href="#changing-a-schedule" title="Permanent link">&para;</a></h3>
 <p>Schedules are GitLab project configuration (<strong>Build → Pipeline schedules</strong>), not files in this
 repository. <code>schedule-config-check</code> runs on every scheduled pipeline. It fails if any
