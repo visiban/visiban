@@ -293,6 +293,57 @@ describe('SingleSelectDropdown', () => {
         expect(menu.style.top).toBe(`${window.innerHeight - 40 - 4 - 120}px`)
       })
 
+      it('clamps the menu to the viewport right edge and is at least trigger-wide', async () => {
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+          ({ top: 100, bottom: 130, left: window.innerWidth - 20, right: window.innerWidth + 80, width: 100, height: 30, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect,
+        )
+        vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(120)
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+        const menu = screen.getByRole('menu') as HTMLElement
+        expect(menu.style.left).toBe(`${window.innerWidth - 140 - 8}px`)
+        expect(menu.style.minWidth).toBe('140px')
+      })
+
+      it('matches a wider trigger', async () => {
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+          ({ top: 100, bottom: 130, left: 20, right: 420, width: 400, height: 30, x: 20, y: 100, toJSON: () => ({}) }) as DOMRect,
+        )
+        vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(120)
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+        expect((screen.getByRole('menu') as HTMLElement).style.minWidth).toBe('400px')
+      })
+
+      it('returns focus to the trigger after a selection', async () => {
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        const trigger = screen.getByRole('button', { name: /Overlay/ })
+        await userEvent.click(trigger)
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Option B' }))
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+        expect(trigger).toHaveFocus()
+      })
+
+      it('closes on Tab from an item and leaves focus on the trigger', async () => {
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        const trigger = screen.getByRole('button', { name: /Overlay/ })
+        await userEvent.click(trigger)
+        screen.getByRole('menuitem', { name: 'Option A' }).focus()
+        fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Option A' }), { key: 'Tab' })
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+        expect(trigger).toHaveFocus()
+      })
+
+      it('shows the overflow fade only while more choices sit below the fold', async () => {
+        mockGeometry(100, 130, 120)
+        const sh = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(500)
+        vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(100)
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+        expect(screen.getByTestId('singleselect-more-below')).toBeInTheDocument()
+        sh.mockReturnValue(100)
+      })
+
       it('closes on window resize', async () => {
         mockGeometry(100, 130, 120)
         render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
