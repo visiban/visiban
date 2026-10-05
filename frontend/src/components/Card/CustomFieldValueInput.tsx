@@ -365,6 +365,9 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           onChange={(v) => { const next = v ?? ""; setLocal(next); void onCommit(next); }}
           className={size === "md" ? "w-full justify-between" : undefined}
           escapePriority={escapePriority}
+          // #1478: the menu must escape scroll-clipping ancestors (the Edit
+          // Swimlane modal's field list is `overflow-y-auto`).
+          portalMenu
         />
       );
     }

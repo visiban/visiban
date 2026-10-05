@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { useEscapeStack } from '../hooks/useEscapeStack'
 import CustomFieldEditRow from '../components/Card/CustomFieldEditRow'
 import type { CustomFieldDefinition } from '../types'
 
@@ -126,5 +127,32 @@ describe('CustomFieldEditRow — url (#1390)', () => {
     fireEvent.blur(input)
     expect(onSave).toHaveBeenCalledWith('https://example.com')
     expect(await screen.findByText('Enter a web address starting with http:// or https://')).toBeInTheDocument()
+  })
+})
+
+
+// #1478 — CardDetail's panel close registers on the Escape stack at 30; a
+// dropdown field's menu must sit above it so Escape closes only the menu.
+describe('CustomFieldEditRow — dropdown Escape priority (#1478)', () => {
+  function PanelHost({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+    useEscapeStack(onClose, 30)
+    return <>{children}</>
+  }
+
+  it('Escape on an open dropdown field closes the menu, not the surrounding panel', () => {
+    const onClose = vi.fn()
+    const definition = makeDefinition({ field_type: 'dropdown', name: 'Status', choices: ['Red', 'Green'] })
+    render(
+      <PanelHost onClose={onClose}>
+        <CustomFieldEditRow definition={definition} value={undefined} disabled={false} onSave={noop} />
+      </PanelHost>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /— No value —/ }))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

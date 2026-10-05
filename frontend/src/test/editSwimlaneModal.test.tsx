@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EditSwimlaneModal from '../components/Board/EditSwimlaneModal'
-import type { Swimlane } from '../types'
+import type { Swimlane, SwimlaneCustomFieldDefinition } from '../types'
 
 vi.mock('../api/boards', () => ({
   updateSwimlane: vi.fn(),
@@ -373,5 +373,57 @@ describe('EditSwimlaneModal — URL fields (#1390)', () => {
     expect(onClose).not.toHaveBeenCalled()
     await user.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  // #1478 — a dropdown field's menu used to render inside the field list's
+  // `overflow-y-auto` region and was clipped away. It must portal out of it.
+  describe('dropdown swimlane field (#1478)', () => {
+    const onDeleted = vi.fn()
+    const def: SwimlaneCustomFieldDefinition = {
+      id: 5, uid: 'sfuid0000005', name: 'Owner', field_type: 'dropdown', choices: ['Bob', 'Ed', 'Sally'],
+      position: 0, show_on_row: true, is_admin_only: false, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '2026-01-01',
+    }
+
+    function renderModal() {
+      return render(
+        <EditSwimlaneModal
+          boardId={1}
+          swimlane={makeSwimlane({ custom_field_values: [] })}
+          cardCount={0}
+          onUpdated={onUpdated}
+          onDeleted={onDeleted}
+          onClose={onClose}
+          swimlaneFieldDefinitions={[def]}
+        />
+      )
+    }
+
+    it('renders every choice outside the scrolling field list', async () => {
+      renderModal()
+      await userEvent.click(screen.getByRole('button', { name: /— No value —/ }))
+      const menu = screen.getByRole('menu')
+      expect(menu.closest('.overflow-y-auto')).toBeNull()
+      expect(screen.getAllByRole('menuitem').map((el) => el.textContent)).toEqual(['Bob', 'Ed', 'Sally'])
+    })
+
+    it('saves the picked choice', async () => {
+      mockUpdateSwimlane.mockResolvedValue(makeSwimlane())
+      renderModal()
+      await userEvent.click(screen.getByRole('button', { name: /— No value —/ }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Sally' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(mockUpdateSwimlane).toHaveBeenCalledWith(
+        1, 1, expect.objectContaining({ custom_field_values: [{ field_definition: 5, value: 'Sally' }] })
+      )
+    })
+
+    it('Escape closes only the menu, not the modal', async () => {
+      renderModal()
+      await userEvent.click(screen.getByRole('button', { name: /— No value —/ }))
+      await userEvent.keyboard('{Escape}')
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      expect(onClose).not.toHaveBeenCalled()
+    })
   })
 })

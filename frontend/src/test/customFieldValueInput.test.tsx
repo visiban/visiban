@@ -159,6 +159,14 @@ describe('CustomFieldValueInput', () => {
   })
 
   describe('dropdown — commits immediately, no debounce', () => {
+    it('portals the menu out of its container so a scrolling ancestor cannot clip it (#1478)', () => {
+      const { container } = render(<CustomFieldValueInput definition={dropdownDef()} value="" onCommit={vi.fn()} />)
+      fireEvent.click(screen.getByRole('button', { name: /— No value —/ }))
+      const menu = screen.getByRole('menu')
+      expect(container.contains(menu)).toBe(false)
+      expect(menu.style.position).toBe('fixed')
+    })
+
     it('selecting an option calls onCommit synchronously', async () => {
       vi.useFakeTimers()
       const onCommit = vi.fn()
