@@ -51,9 +51,9 @@ Get board summary. Response includes:
 | `archived_card_count` | integer | Number of archived cards. Reported separately because `card_count` excludes them, yet `DELETE /api/v1/boards/{id}/` deletes them too. Clients that confirm a board delete should treat `card_count + archived_card_count` as the number of cards at stake. Also present on `GET /api/v1/boards/`, `GET /api/v1/groups/{id}/boards/`, and `/full/`. Added in 1.2 (#1289). |
 | `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
 | `allowed_priorities` | array / null | Intended list of priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` or `[]` means all. **Not enforced:** card create and update accept any priority regardless of this list (scaffold, see [Field Enforcement](../architecture/field-enforcement.md)). Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
-| `enforce_wip_limits` | boolean | When `true`, moving, creating, or restoring a card into a column at its WIP limit returns `409 Conflict` (default: `true` for new boards); board admins can override with `?force=true`. Board import is not checked (by design). Create and restore checked since 1.3 (#1428) |
-| `enforce_wip_hard` | boolean | When `true`, WIP limits on card move, create, and restore cannot be overridden by any role — all users are blocked (default: `false`). Active regardless of `enforce_wip_limits`. Board import is not checked (by design). Create and restore checked since 1.3 (#1428) |
-| `enforce_weight_limits` | boolean | When `true`, moving, creating, or restoring a card, or raising a card's `weight` with PATCH, so that a column would exceed its weight limit returns `409 Conflict` (default: `true` for new boards); board admins can override with `?force=true`. Lowering a weight is never blocked. Board import is not checked (by design). Create, restore, and PATCH checked since 1.3 (#1428) |
+| `enforce_wip_limits` | boolean | When `true`, moving, creating, or restoring a card into a column at its WIP limit returns `409 Conflict` (default: `true` for new boards); board admins can override with `?force=true`. Board import is not checked (by design). Create and restore checked since 1.2 (#1428) |
+| `enforce_wip_hard` | boolean | When `true`, WIP limits on card move, create, and restore cannot be overridden by any role — all users are blocked (default: `false`). Active regardless of `enforce_wip_limits`. Board import is not checked (by design). Create and restore checked since 1.2 (#1428) |
+| `enforce_weight_limits` | boolean | When `true`, moving, creating, or restoring a card, or raising a card's `weight` with PATCH, so that a column would exceed its weight limit returns `409 Conflict` (default: `true` for new boards); board admins can override with `?force=true`. Lowering a weight is never blocked. Board import is not checked (by design). Create, restore, and PATCH checked since 1.2 (#1428) |
 | `export_min_role` | string | Minimum role required to export this board. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"` (default: `"viewer"`). Owners and site admins always bypass. Admin-only when writing; sending any other value (including `"site_admin"` or `"owner"`) returns `400 Bad Request`. Added in 1.1 (#843). |
 | `card_density` | string | Per-board card layout density. One of `"comfortable"`, `"standard"`, `"dense"` (default: `"comfortable"` for new boards; existing boards on upgrade are migrated to `"dense"` to preserve their pre-1.1 visual). Drives how much metadata renders on the card face — see the [Card density](../features/board.md#card-density) feature doc. Admin-only when writing; sending any other value returns `400 Bad Request`. Added in 1.1 (#961). |
 | `show_wip_at_limit` | boolean | When `true`, a column's header stat row shows a calm `WIP n/n` indicator (in place of the card count) once the column's card count exactly equals its `wip_limit` (default: `false`). Purely ambient — does not affect move enforcement. Admin-only when writing. See the [At-limit WIP indicator](../features/board.md#at-limit-wip-indicator) feature doc. Added in 1.2 (#973). |
@@ -134,7 +134,7 @@ Move board to a different group (or `null` for personal).
 
 ## Sample boards
 
-> **Added in 1.3**
+> **Added in 1.2**
 
 Read-only endpoints behind the **Start from a sample** gallery on the Import Board screen. They need the same access as importing (authentication, no pending password or username change) and, for a personal access token, the `read` scope. Both set `Cache-Control: private, max-age=3600`.
 
@@ -1116,7 +1116,7 @@ Column objects returned by all endpoints include the following fields:
 >
 > WIP and weight limits are enforced when `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board. A card move, create, or restore into an over-limit column (or a PATCH raising a card's `weight` past the weight limit) returns `409 Conflict` — see the move endpoint in the [Cards API](cards.md) for the full error schema and the `?force=true` admin override. When enforcement is disabled, limits are displayed but not enforced.
 >
-> Since 1.3 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see [Field Enforcement](../architecture/field-enforcement.md).
+> Since 1.2 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see [Field Enforcement](../architecture/field-enforcement.md).
 
 ### `PUT /api/v1/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.

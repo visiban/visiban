@@ -274,8 +274,8 @@ Every error has a `code` your agent can branch on. The common ones:
 | `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`) keep working regardless. Added in 1.2. |
 | `throttled` | Your token has exceeded its per-token rate limit. Carries a `retry_after` (seconds) — see [Rate limiting](#rate-limiting). Added in 1.2. |
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee_email`/label name that does not resolve to a real board member/label. |
-| `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. Returned by `move_card` and, since 1.3 (#1428), `create_card`. Neither tool overrides either — there is no `force` option over MCP. |
-| `weight_limit_exceeded` | The target column is at its weight limit (`move_card`, and `create_card` since 1.3). |
+| `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. Returned by `move_card` and, since 1.2 (#1428), `create_card`. Neither tool overrides either — there is no `force` option over MCP. |
+| `weight_limit_exceeded` | The target column is at its weight limit (`move_card`, and `create_card` since 1.2). |
 
 ### `list_columns`
 
@@ -283,7 +283,7 @@ Lists a board's columns, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, name, position, color, wip_limit, card_count}` — `card_count` excludes archived cards. `wip_limit` is checked by both `move_card` and `create_card` (since 1.3, #1428); only a board import can leave `card_count` above it (see [Field Enforcement](../architecture/field-enforcement.md)).
+**Returns:** an array of `{id, name, position, color, wip_limit, card_count}` — `card_count` excludes archived cards. `wip_limit` is checked by both `move_card` and `create_card` (since 1.2, #1428); only a board import can leave `card_count` above it (see [Field Enforcement](../architecture/field-enforcement.md)).
 
 ### `list_swimlanes`
 
@@ -309,7 +309,7 @@ Creates a card, appended to the end of its column/swimlane cell (or inserted at 
 
 **Returns:** the created card, same shape as one row of `list_cards`. Writes a `CardMovement` record with no "from" column (matching how the REST API records card creation) and broadcasts `card.created` on the board's WebSocket channel.
 
-Enforces the column's WIP and weight limits exactly as `move_card` does, with no override: a create into a full column returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded` and writes nothing. *Changed in 1.3 (#1428): creates were not checked before.*
+Enforces the column's WIP and weight limits exactly as `move_card` does, with no override: a create into a full column returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded` and writes nothing. *Changed in 1.2 (#1428): creates were not checked before.*
 
 ### `move_card`
 

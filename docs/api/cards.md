@@ -91,7 +91,7 @@ List all cards on the board. Pagination is disabled — all cards are returned i
 ### `POST /api/v1/boards/{board_id}/cards/`
 Create a card. Requires member or above. The target column must have `allow_card_creation` enabled.
 
-The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.3 (#1428): creates were not checked before.*
+The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
 
 **Request**
 ```json
@@ -190,7 +190,7 @@ Update card fields. Requires member or above.
 
 **Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `custom_field_values`, `external_ref`
 
-> **Weight limit:** raising `weight` in a column with a `weight_limit`, on a board with `enforce_weight_limits` on, returns `409` with `weight_limit_exceeded` (same body as a [move](#wip-weight-limit-enforcement)) when the column's total would exceed the limit; a board admin may override with the optional `?force=true` query parameter. Lowering `weight`, leaving it unchanged, or editing any other field is never blocked — even in a column that is already over its WIP or weight limit. The WIP limit is not checked here, since the column's card count does not change. *Changed in 1.3 (#1428).*
+> **Weight limit:** raising `weight` in a column with a `weight_limit`, on a board with `enforce_weight_limits` on, returns `409` with `weight_limit_exceeded` (same body as a [move](#wip-weight-limit-enforcement)) when the column's total would exceed the limit; a board admin may override with the optional `?force=true` query parameter. Lowering `weight`, leaving it unchanged, or editing any other field is never blocked — even in a column that is already over its WIP or weight limit. The WIP limit is not checked here, since the column's card count does not change. *Changed in 1.2 (#1428).*
 
 #### Custom field values (since 1.2)
 
@@ -312,7 +312,7 @@ Unarchive a card. Clears `archived_at`; the card re-enters its original column a
 
 **Response** — full card object with `archived_at: null`.
 
-Archived cards do not count toward a column's limits, so a restore is checked like a [move](#wip-weight-limit-enforcement) into the card's column: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, nothing restored. A board admin may override a soft limit with the optional `?force=true` query parameter; hard mode has no override. Restoring a card that is not archived is still a no-op `200`. *Changed in 1.3 (#1428).*
+Archived cards do not count toward a column's limits, so a restore is checked like a [move](#wip-weight-limit-enforcement) into the card's column: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, nothing restored. A board admin may override a soft limit with the optional `?force=true` query parameter; hard mode has no override. Restoring a card that is not archived is still a no-op `200`. *Changed in 1.2 (#1428).*
 
 Broadcasts `card.unarchived` to all board WebSocket subscribers. Also broadcasts `card.updated` for every card this one was actively blocking, whose [`blocker_count`](#relations-since-12) changes when it leaves (or rejoins) the board.
 
@@ -423,7 +423,7 @@ The `movement` key is **absent** from the response when only the position change
 
 #### WIP / weight limit enforcement
 
-When `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board and the target column is at or above its limit, the move returns `409 Conflict`. Since 1.3 (#1428) the same check, bodies, and override rules also apply to card create, restore from archive, and a `PATCH` that raises `weight` (see those endpoints above). Board import is exempt by design, because it restores a board as exported. The bodies:
+When `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board and the target column is at or above its limit, the move returns `409 Conflict`. Since 1.2 (#1428) the same check, bodies, and override rules also apply to card create, restore from archive, and a `PATCH` that raises `weight` (see those endpoints above). Board import is exempt by design, because it restores a board as exported. The bodies:
 
 ```json
 { "code": "wip_limit_exceeded", "column_name": "Doing", "current_count": 5, "wip_limit": 5 }

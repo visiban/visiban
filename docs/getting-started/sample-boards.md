@@ -58,7 +58,7 @@ The demo board, `sample-boards/demo_board.json` (115 cards, swimlanes by team), 
 
 ### From the app
 
-!!! note "Added in 1.3"
+!!! note "Added in 1.2"
     The sample gallery in the Import Board dialog.
 
 1. Log in to your Visiban instance.
