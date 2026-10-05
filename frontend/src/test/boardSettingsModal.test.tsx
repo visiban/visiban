@@ -585,6 +585,40 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     vi.restoreAllMocks()
   })
 
+  it('flips the suggestions above the search when a later query returns more rows than fit below', async () => {
+    const users = Array.from({ length: 8 }, (_, i) => ({
+      ...aliceUser, id: 200 + i, username: `user${i}`, email: `user${i}@example.com`, display_name: `User ${i}`,
+    }))
+    mockSearchUsers.mockResolvedValueOnce([aliceUser]).mockResolvedValue(users)
+    // The panel's measured height follows its rendered rows.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.testid === 'member-suggestions' ? 20 + 52 * this.querySelectorAll('button').length : 0
+    })
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const input = screen.getByPlaceholderText(/search by name or email/i)
+    input.getBoundingClientRect = () =>
+      ({ top: 638, bottom: 668, left: 40, right: 440, width: 400, height: 30, x: 40, y: 638, toJSON: () => ({}) }) as DOMRect
+    const type = async (value: string) => {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+        setter?.call(input, value)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      await act(async () => { vi.advanceTimersByTime(350) })
+    }
+    await type('ali')
+    await waitFor(() => screen.getByText('Alice Wonder'))
+    // One row (72px) fits below the input.
+    expect(screen.getByTestId('member-suggestions').style.top).toBe('672px')
+    await type('use')
+    await waitFor(() => screen.getByText('User 7'))
+    // Eight rows (436px) do not: it flips above rather than sliding up over the input.
+    const top = parseFloat(screen.getByTestId('member-suggestions').style.top)
+    expect(top).toBe(638 - 4 - 436)
+    expect(top + 436).toBeLessThanOrEqual(638)
+    vi.restoreAllMocks()
+  })
+
   it('dismisses the suggestions on an outside scroll, not on a scroll of their own list', async () => {
     const panel = await showSuggestionsAt(100, 130, 200)
     fireEvent.scroll(panel)

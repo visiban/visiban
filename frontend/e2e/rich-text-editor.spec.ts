@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, CARD } from './fixtures/board'
+import { BOARD_FULL, BOARD_USER, CARD } from './fixtures/board'
 
 /**
  * Runtime coverage for the Tiptap description editor.
@@ -224,5 +224,71 @@ test.describe('rich text editor', () => {
     // Back to view mode with the original content, and nothing PATCHed.
     await expect(dialog.getByText(CARD.description)).toBeVisible({ timeout: 5_000 })
     expect(sink.description).toBeUndefined()
+  })
+
+  // #1457: the @mention suggestion list is a `fixed` popup that is not a React
+  // child, placed by `placeFixedElement` from its measured height. When the
+  // caret sits low in the viewport a full list (six members) cannot fit below
+  // it, so it must sit above the caret. A scroll re-anchors it to the live
+  // caret instead of dismissing it (the named exception in frontend/CLAUDE.md),
+  // which is how this test moves the caret down deterministically. A resize
+  // must end the suggestion.
+  test('the @mention list sits above a caret near the bottom edge and closes on resize', async ({ page }) => {
+    const members = [BOARD_USER, ...Array.from({ length: 5 }, (_, i) => ({
+      ...BOARD_USER, id: 100 + i, username: `tester${i}`, display_name: `Tester ${i}`,
+    }))].map((user, i) => ({ id: i + 1, user, role: 'member' as const, is_moderator: false, joined_at: '2026-01-01T00:00:00Z' }))
+    // Registered after beforeEach's routeBoard, so this route wins.
+    await routeBoard(page, { ...BOARD_FULL, members })
+    await routeCardWithPatchCapture(page, {})
+    const { editor } = await openDescriptionEditor(page)
+
+    await editor.click()
+    await page.keyboard.press('End')
+    // Room above the text, so the panel can scroll the caret's line down.
+    await page.addStyleTag({ content: '.ProseMirror { padding-top: 1000px !important; }' })
+    await page.keyboard.type(' @test')
+
+    const popup = page.getByTestId('mention-popup')
+    await expect(popup.getByRole('button')).toHaveCount(6, { timeout: 5_000 })
+
+    // Scroll the panel so the suggestion's anchor (its decoration) sits 60px
+    // above the bottom of the panel's visible area.
+    const scrollAnchorLow = () =>
+      page.evaluate(() => {
+        const deco = document.querySelector('[data-decoration-id]') as HTMLElement
+        let scroller = deco.parentElement
+        while (scroller && !(getComputedStyle(scroller).overflowY === 'auto' && scroller.scrollHeight > scroller.clientHeight)) {
+          scroller = scroller.parentElement
+        }
+        const bottom = Math.min(window.innerHeight, scroller!.getBoundingClientRect().bottom)
+        scroller!.scrollTop += deco.getBoundingClientRect().bottom - (bottom - 60)
+      })
+    const geometry = () =>
+      page.evaluate(() => {
+        const deco = document.querySelector('[data-decoration-id]')!.getBoundingClientRect()
+        const pop = document.querySelector('[data-testid="mention-popup"]') as HTMLElement
+        const rect = pop.getBoundingClientRect()
+        return {
+          fitsBelow: deco.bottom + 4 + rect.height <= window.innerHeight - 8,
+          above: rect.bottom <= deco.top,
+          onScreen: rect.top >= 0,
+          visible: getComputedStyle(pop).visibility === 'visible',
+        }
+      })
+    // The card panel can still scroll itself just after typing; if the
+    // anchor has moved back up, scroll it down again and re-check.
+    await scrollAnchorLow()
+    await expect.poll(async () => {
+      const g = await geometry()
+      if (g.fitsBelow) await scrollAnchorLow()
+      return g
+    }, { timeout: 5_000 }).toEqual({ fitsBelow: false, above: true, onScreen: true, visible: true })
+
+    // A resize ends the suggestion through Tiptap's exit path, which removes
+    // the popup, and leaves the editor open.
+    const { width, height } = page.viewportSize()!
+    await page.setViewportSize({ width, height: height - 100 })
+    await expect(page.getByTestId('mention-popup')).toHaveCount(0)
+    await expect(editor).toBeVisible()
   })
 })

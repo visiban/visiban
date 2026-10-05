@@ -18,10 +18,29 @@ describe("computeAnchoredPlacement side lock (#1457)", () => {
     expect(after).toEqual({ top: 504, side: "above" });
   });
 
-  it("keeps a downward popover below, sliding up only when it grows past the edge", () => {
+  it("keeps a downward popover below while it still fits there", () => {
     expect(computeAnchoredPlacement({
-      anchorTop: 500, anchorBottom: 530, height: 400, viewportHeight: VH, lockedSide: "below",
-    })).toEqual({ top: VH - 8 - 400, side: "below" });
+      anchorTop: 100, anchorBottom: 130, height: 60, viewportHeight: VH, lockedSide: "below",
+    })).toEqual({ top: 134, side: "below" });
+  });
+
+  it("flips a locked-below popover above when it grows past the bottom edge, never over the trigger", () => {
+    // Opened below an input at 638-668 with one row (fits: 672 + 60 <= 760),
+    // then a later query returns more rows (400px).
+    const first = computeAnchoredPlacement({ anchorTop: 638, anchorBottom: 668, height: 60, viewportHeight: VH });
+    expect(first.side).toBe("below");
+    const grown = computeAnchoredPlacement({
+      anchorTop: 638, anchorBottom: 668, height: 400, viewportHeight: VH, lockedSide: first.side,
+    });
+    expect(grown).toEqual({ top: 638 - 4 - 400, side: "above" });
+    // Its bottom edge stays above the trigger instead of covering it.
+    expect(grown.top + 400).toBeLessThanOrEqual(638);
+  });
+
+  it("re-chooses a locked-above popover that grows past the top edge", () => {
+    expect(computeAnchoredPlacement({
+      anchorTop: 200, anchorBottom: 230, height: 400, viewportHeight: VH, lockedSide: "above",
+    })).toEqual({ top: 234, side: "below" });
   });
 
   it("keeps a pinned popover pinned", () => {
@@ -34,12 +53,27 @@ describe("computeAnchoredPlacement side lock (#1457)", () => {
 describe("placeFixedElement (#1457)", () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it("stays hidden and returns no side until the element has a height", () => {
+  it("returns no side and leaves the element untouched while it has no height", () => {
     const el = document.createElement("div");
+    el.style.visibility = "hidden";
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(0);
     expect(placeFixedElement(el, { top: 100, bottom: 120, left: 30 })).toBeUndefined();
     expect(el.style.visibility).toBe("hidden");
-    expect(el.style.left).toBe("30px");
+    expect(el.style.top).toBe("");
+  });
+
+  it("never re-hides a placed element on a transient empty measurement", () => {
+    // ReactRenderer can render the list empty (items loading) and refill it
+    // within one frame; a ResizeObserver then sees no size change, so a
+    // re-hide here would leave the popup hidden for good.
+    const el = document.createElement("div");
+    const height = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+    placeFixedElement(el, { top: 100, bottom: 120, left: 30 });
+    expect(el.style.visibility).toBe("");
+    height.mockReturnValue(0);
+    expect(placeFixedElement(el, { top: 100, bottom: 120, left: 30 })).toBeUndefined();
+    expect(el.style.visibility).toBe("");
+    expect(el.style.top).toBe("124px");
   });
 
   it("places from the measured height and honors the locked side", () => {

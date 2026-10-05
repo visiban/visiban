@@ -5,8 +5,11 @@ import { useEditor } from '@tiptap/react'
 import RichTextEditor from '../components/Card/RichTextEditor'
 
 // Tiptap uses ProseMirror which requires a real browser DOM; mock it for unit tests.
-// Behavioural tests for the full editor (toolbar clicks, mention autocomplete) live
-// in Playwright/Cypress e2e tests where a real DOM is available.
+// Behavioral tests for the real editor (typing, toolbar marks, markdown
+// serialization, and the @mention popup's placement and resize dismissal) live
+// in e2e/rich-text-editor.spec.ts (Playwright), where a real DOM is available.
+// The mention popup's placement math is also unit-tested via placeFixedElement
+// in useAnchoredPlacement.test.ts.
 vi.mock('@tiptap/react', () => ({
   useEditor: vi.fn(() => null),
   EditorContent: ({ className }: { className?: string }) => (

@@ -15,10 +15,14 @@ interface PlacementInput {
   margin?: number;
   gap?: number;
   /**
-   * Keep this side instead of choosing again (#1457). A re-measure while the
-   * popover is open (a filter shrinking the list) must not flip it across the
-   * trigger: an upward menu keeps its bottom edge at the trigger, a downward
-   * one keeps its top edge there, a pinned one stays pinned.
+   * The side chosen earlier; kept while the popover still fits there (#1457).
+   * A re-measure while it is open (a filter shrinking the list) must not flip
+   * it across the trigger: an upward menu keeps its bottom edge at the
+   * trigger, a downward one its top edge, a pinned one stays pinned. A list
+   * that only shrinks therefore never changes side. When it has *grown* past
+   * the edge on its locked side, the side is chosen again from scratch (below,
+   * else above, else pinned) rather than sliding the panel over the trigger,
+   * which would cover the field being typed in.
    */
   lockedSide?: AnchoredSide;
 }
@@ -45,14 +49,14 @@ export function computeAnchoredPlacement({
   }
   const below = anchorBottom + gap;
   const above = anchorTop - gap - height;
-  if (lockedSide === "below") {
-    // Grown past the bottom edge: slide up only as far as needed.
-    return { top: Math.max(margin, Math.min(below, viewportHeight - margin - height)), side: "below" };
-  }
-  if (lockedSide === "above") return { top: Math.max(margin, above), side: "above" };
+  const fitsBelow = below + height <= viewportHeight - margin;
+  const fitsAbove = above >= margin;
+  if (lockedSide === "below" && fitsBelow) return { top: below, side: "below" };
+  if (lockedSide === "above" && fitsAbove) return { top: above, side: "above" };
   if (lockedSide === "pinned") return { top: pinned, side: "pinned" };
-  if (below + height <= viewportHeight - margin) return { top: below, side: "below" };
-  if (above >= margin) return { top: above, side: "above" };
+  // Unlocked, or grown past the edge on its locked side: choose again.
+  if (fitsBelow) return { top: below, side: "below" };
+  if (fitsAbove) return { top: above, side: "above" };
   return { top: pinned, side: "pinned" };
 }
 
@@ -66,20 +70,21 @@ export function computeAnchoredTop(input: PlacementInput): number {
  * React child, such as the Tiptap mention suggestion popup (#1457). Sets the
  * element's `left` and, from its measured height, its `top`; pass back the
  * returned side on later calls so it never flips across the anchor while the
- * list narrows. Returns `undefined` (and keeps the element hidden) while it has
- * no height yet: not rendered, or nothing to show.
+ * list narrows. Start the element `visibility: hidden`; the first call that
+ * measures a height places it and shows it. A call that measures no height
+ * (not rendered yet, nothing to show, or a transient empty render between two
+ * lists) returns `undefined` and leaves its placement and visibility as they
+ * were, so a list that empties and refills within one frame is never left
+ * hidden.
  */
 export function placeFixedElement(
   el: HTMLElement,
   anchor: { top: number; bottom: number; left: number },
   lockedSide?: AnchoredSide,
 ): AnchoredSide | undefined {
-  el.style.left = `${anchor.left}px`;
   const height = el.offsetHeight;
-  if (height === 0) {
-    el.style.visibility = "hidden";
-    return undefined;
-  }
+  if (height === 0) return undefined;
+  el.style.left = `${anchor.left}px`;
   const placement = computeAnchoredPlacement({
     anchorTop: anchor.top, anchorBottom: anchor.bottom, height,
     viewportHeight: window.innerHeight, lockedSide,
