@@ -1,4 +1,5 @@
 import json
+import logging
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -14,6 +15,8 @@ from boards.broadcast import (
     EVT_MEMBER_UPDATED,
     EVT_PING,
 )
+
+logger = logging.getLogger(__name__)
 
 # ─── Group-channel event registry (#1078) ────────────────────────────────────
 #
@@ -70,6 +73,18 @@ def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None
     broadcaster because the two channels have different subscribers and permission
     scopes: per-board events are scoped to board members; group events are scoped to
     group members and cover the boards-list view.
+
+    Best-effort, like ``broadcast_board_event`` (#1462): it runs post-commit, so
+    a channel-layer (Valkey) outage is logged — group id, event type and
+    exception class only at WARNING, the traceback at DEBUG (lower the logger's
+    level to see it) — and swallowed rather than turning a saved change into a
+    500. A dropped *data* frame is recovered when the group page re-fetches
+    the group's boards list on reconnect. A frame the consumer acts on itself,
+    rather than only forwarding it to the client, has no such recovery path;
+    see #1477. The ``except Exception`` is
+    deliberately broad for the same reason as the board helper. It is not a
+    "never raises" guarantee: payload serialization runs outside the ``try``, so
+    an unserializable payload (a code bug) still raises.
     """
     channel_layer = get_channel_layer()
     if channel_layer is None:
@@ -77,10 +92,24 @@ def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None
     # DRF serializer.data may contain datetime/Decimal objects that msgpack cannot
     # serialize. Round-trip through JSONRenderer to get plain Python types.
     safe_payload = json.loads(JSONRenderer().render(payload))
-    async_to_sync(channel_layer.group_send)(
-        f"group_{group_id}",
-        {
-            "type": "group_event",
-            "payload": {"event": event_type, "data": safe_payload},
-        },
-    )
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f"group_{group_id}",
+            {
+                "type": "group_event",
+                "payload": {"event": event_type, "data": safe_payload},
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort publish, see docstring
+        logger.warning(
+            "group broadcast dropped: group_id=%s event=%s error=%s",
+            group_id,
+            event_type,
+            type(exc).__name__,
+        )
+        logger.debug(
+            "group broadcast failure traceback: group_id=%s event=%s",
+            group_id,
+            event_type,
+            exc_info=True,
+        )
