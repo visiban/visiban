@@ -177,9 +177,14 @@ def broadcast_board_event(board_id: int, event_type: str, payload: dict, *, even
 
     What a dropped frame costs depends on the frame. A *data* frame is
     recoverable: its feed row is durable, so the client gets the change on its
-    next resync or from the change feed (see docs/api/websockets.md). A frame
-    the consumer acts on itself, rather than only forwarding it to the client,
-    has no such recovery path; see #1477.
+    next resync or from the change feed (see docs/api/websockets.md). The
+    change feed does not cover a frame the consumer acts on itself rather than
+    only forwarding, and the one such frame, ``member.removed``, closes a
+    removed user's socket. Eviction therefore does not depend on it: the
+    consumer re-checks access before it forwards any frame and closes the
+    socket when access is gone (``BoardConsumer._verify_access``, #1477), so
+    losing this frame delays the close by at most ``ACCESS_RECHECK_SECONDS``
+    and leaks no board data.
 
     The ``except Exception`` around ``group_send`` is deliberately broad: a
     transport outage surfaces as many exception classes (connection, timeout,

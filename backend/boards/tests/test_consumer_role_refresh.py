@@ -28,7 +28,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from accounts.ws_auth import issue_ws_ticket
-from boards.consumers import BoardConsumer, _lookup_role
+from boards.consumers import BoardConsumer, _lookup_role, _now
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
 
@@ -71,6 +71,9 @@ class ConsumerRoleRefreshUnitTests(TransactionTestCase):
             "user": User.objects.get(pk=self.subscriber.pk),
         }
         consumer._role = role
+        # A just-connected socket: connect() stamps this after its access
+        # check, so the #1477 per-frame re-check is served from the cache.
+        consumer._access_verified_at = _now()
         return consumer
 
     def _deliver(self, consumer, payload):
@@ -166,7 +169,7 @@ class ConsumerRoleRefreshUnitTests(TransactionTestCase):
         self.assertEqual(consumer._role, "viewer")
 
     def test_frames_about_others_do_not_re_resolve(self):
-        """The refresh is bounded to self-subject frames, never per frame."""
+        """Within the #1477 re-check window only self-subject frames refresh."""
         self._set_row(ADMIN)
         consumer = self._consumer("admin")
         consumer._refresh_role = AsyncMock(return_value="viewer")
