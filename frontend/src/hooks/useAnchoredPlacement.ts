@@ -119,8 +119,10 @@ interface Options {
  * `focus()` on a hidden element.
  *
  * The side (below / above / pinned) is chosen on the first measurement for a
- * given anchor and kept for later re-measures (#1457), so a list that shrinks
- * as the user types stays adjacent to its trigger instead of jumping across it.
+ * given anchor and kept on later re-measures while the panel still fits there
+ * (#1457), so a list that shrinks as the user types stays adjacent to its
+ * trigger instead of jumping across it; a list that grows past that edge has
+ * its side chosen again rather than sliding over the trigger.
  */
 export function useAnchoredPlacement(
   panelRef: RefObject<HTMLElement | null>,

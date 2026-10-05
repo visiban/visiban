@@ -238,7 +238,9 @@ test.describe('rich text editor', () => {
       ...BOARD_USER, id: 100 + i, username: `tester${i}`, display_name: `Tester ${i}`,
     }))].map((user, i) => ({ id: i + 1, user, role: 'member' as const, is_moderator: false, joined_at: '2026-01-01T00:00:00Z' }))
     // Registered after beforeEach's routeBoard, so this route wins.
-    await routeBoard(page, { ...BOARD_FULL, members })
+    // BOARD_FULL's fixture types `role` as the literal "admin"; these members are
+    // deliberately plain members.
+    await routeBoard(page, { ...BOARD_FULL, members: members as unknown as typeof BOARD_FULL.members })
     await routeCardWithPatchCapture(page, {})
     const { editor } = await openDescriptionEditor(page)
 
@@ -289,6 +291,9 @@ test.describe('rich text editor', () => {
     const { width, height } = page.viewportSize()!
     await page.setViewportSize({ width, height: height - 100 })
     await expect(page.getByTestId('mention-popup')).toHaveCount(0)
+    // The suggestion decoration only clears on Tiptap's `{ exit: true }`, so this
+    // fails if the popup were merely removed from the DOM.
+    await expect(page.locator('[data-decoration-id]')).toHaveCount(0)
     await expect(editor).toBeVisible()
   })
 })
