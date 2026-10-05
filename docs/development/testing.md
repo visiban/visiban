@@ -66,7 +66,7 @@ Playwright auto-starts the Vite dev server on port 5173 (`playwright.config.ts` 
 frontend/e2e/
 ├── fixtures/
 │   └── board.ts          # Single source of truth for USER, BOARD_FULL, CARD, etc.
-├── helpers.ts            # routeAuth(page), routeBoard(page)
+├── helpers.ts            # routeAuth(page), routeBoard(page), END_OF_LINE
 ├── login.spec.ts         # Unauth → login flow
 ├── board.spec.ts         # Board renders, card CRUD
 ├── filter-bar.spec.ts    # Label filters, chips, saved-filter tabs
@@ -80,6 +80,7 @@ frontend/e2e/
 ├── export.spec.ts        # Export button visibility + JSON trigger
 ├── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
 ├── rich-text-editor.spec.ts  # Card description editor + markdown round-trip
+├── card-description-caret.spec.ts  # Caret stays visible typing at the end of a description
 └── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
 ```
 
@@ -163,6 +164,10 @@ Match the semantic role whenever it exists — tests that assert on role + acces
 6. `page.locator('#card-detail-title')` — last resort, when no accessible name exists
 
 Avoid class-based selectors (`page.locator('.btn-primary')`) — they break on every Tailwind refactor.
+
+### Moving the caret to the end of a line
+
+Use `END_OF_LINE` from `./helpers` (`page.keyboard.press(END_OF_LINE)`), never a bare `'End'` or `'Home'`. On a macOS host, Playwright's Chromium driver maps those keys to the native editing commands `scrollToEndOfDocument:` and `scrollToBeginningOfDocument:`, which smooth-scroll the nearest scroll container without moving the caret. On Linux (CI) the same keys move the caret, so a spec that uses them behaves differently on a developer's Mac than in the pipeline (#1475). `END_OF_LINE` is `Meta+ArrowRight` on macOS and `End` elsewhere.
 
 ### Mobile viewports
 
