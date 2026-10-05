@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
+import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { MENU_ITEM_FOCUS_RING } from "./menuItemFocusRing";
 
@@ -36,7 +37,14 @@ export interface SingleSelectDropdownProps<T extends string | number> {
   onOpenChange?: (open: boolean) => void;
   /**
    * #1147 — render the menu into a `document.body` portal, anchored with
-   * `getBoundingClientRect` + `position: fixed`, exactly as `SplitButton` does.
+   * `getBoundingClientRect` + `position: fixed`.
+   *
+   * #1478 — placement now comes from the shared `useAnchoredPlacement` hook
+   * (below, else above, else pinned; side kept while it fits; hidden until
+   * measured) and the menu dismisses on window resize or a scroll outside it,
+   * per the "Anchored fixed popovers" rule in frontend/CLAUDE.md. Required for
+   * any menu inside a clipping or scrolling ancestor, such as the Edit
+   * Swimlane modal's field list.
    *
    * Required for any dropdown placed inside the Row 2 board toolbar: that strip is
    * `overflow-x-auto` on an `h-10` box, and per the CSS spec `overflow-x: auto` with
@@ -63,7 +71,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   const [open, setOpenState] = useState(false);
   // Menu anchor captured at open time (portal mode only), so the position survives a
   // re-render without re-measuring. Same approach as SplitButton.
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [anchor, setAnchor] = useState<{ top: number; bottom: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -79,7 +87,7 @@ export default function SingleSelectDropdown<T extends string | number>({
     (next: boolean) => {
       if (next && portalMenu) {
         const rect = triggerRef.current?.getBoundingClientRect();
-        if (rect) setAnchor({ top: rect.bottom + 4, left: rect.left });
+        if (rect) setAnchor({ top: rect.top, bottom: rect.bottom, left: rect.left });
       }
       if (!next) setAnchor(null);
       setOpenState(next);
@@ -87,6 +95,15 @@ export default function SingleSelectDropdown<T extends string | number>({
     },
     [onOpenChange, portalMenu],
   );
+
+  // Measured placement; the side chosen at open is kept while it still fits.
+  const closeFromViewport = useCallback(() => setOpen(false), [setOpen]);
+  const top = useAnchoredPlacement(panelRef, {
+    anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
+    deps: [open, options.length],
+    onResize: closeFromViewport,
+    onOutsideScroll: closeFromViewport,
+  });
 
   useDropdownEscape(open, () => setOpen(false), triggerRef, escapePriority);
 
@@ -145,7 +162,19 @@ export default function SingleSelectDropdown<T extends string | number>({
       role="menu"
       id={menuId}
       aria-labelledby={`${id}-trigger`}
-      style={portalMenu && anchor ? { position: "fixed", top: anchor.top, left: anchor.left } : undefined}
+      style={
+        portalMenu && anchor
+          ? {
+              position: "fixed",
+              top: top ?? 0,
+              left: anchor.left,
+              // Hidden only for the pre-paint measuring pass.
+              visibility: top === null ? "hidden" : undefined,
+              maxHeight: `calc(100vh - ${2 * POPOVER_VIEWPORT_MARGIN}px)`,
+              overflowY: "auto",
+            }
+          : undefined
+      }
       className={`${portalMenu ? "" : "absolute top-full mt-1 left-0 "}z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]`}
     >
       {options.map((opt, i) => (

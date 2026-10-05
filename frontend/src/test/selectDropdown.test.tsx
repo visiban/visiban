@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRef } from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SelectDropdown from '../components/Common/SelectDropdown'
 import SingleSelectDropdown from '../components/Common/SingleSelectDropdown'
@@ -261,6 +261,55 @@ describe('SingleSelectDropdown', () => {
       await userEvent.click(screen.getByRole('menuitem', { name: 'Option B' }))
       expect(onChange).toHaveBeenCalledWith('b')
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
+    // #1478 — placement is measured, not assumed: below the trigger when it fits,
+    // else above it, and dismissed when the page resizes or scrolls under it.
+    describe('anchored placement (#1478)', () => {
+      const rect = (top: number, bottom: number) =>
+        ({ top, bottom, left: 20, right: 120, width: 100, height: bottom - top, x: 20, y: top, toJSON: () => ({}) }) as DOMRect
+
+      function mockGeometry(triggerTop: number, triggerBottom: number, menuHeight: number) {
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(triggerTop, triggerBottom))
+        vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(menuHeight)
+      }
+
+      afterEach(() => { vi.restoreAllMocks() })
+
+      it('places the menu below the trigger when it fits', async () => {
+        mockGeometry(100, 130, 120)
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+        const menu = screen.getByRole('menu') as HTMLElement
+        expect(menu.style.top).toBe('134px')
+        expect(menu.style.visibility).not.toBe('hidden')
+      })
+
+      it('flips above the trigger when there is no room below', async () => {
+        mockGeometry(window.innerHeight - 40, window.innerHeight - 10, 120)
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+        const menu = screen.getByRole('menu') as HTMLElement
+        expect(menu.style.top).toBe(`${window.innerHeight - 40 - 4 - 120}px`)
+      })
+
+      it('closes on window resize', async () => {
+        mockGeometry(100, 130, 120)
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+        act(() => { window.dispatchEvent(new Event('resize')) })
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      })
+
+      it('closes on a scroll outside the menu but not inside it', async () => {
+        mockGeometry(100, 130, 120)
+        render(<SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />)
+        await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+        act(() => { screen.getByRole('menu').dispatchEvent(new Event('scroll')) })
+        expect(screen.getByRole('menu')).toBeInTheDocument()
+        act(() => { document.dispatchEvent(new Event('scroll')) })
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      })
     })
 
     it('closes a portaled menu on an outside click', async () => {
