@@ -192,9 +192,51 @@ def _fire_hooks(event, card_id, board_id, actor_id):
     Python object.
     """
     if hooks.CARD_MUTATION_HOOKS:
-        transaction.on_commit(
-            lambda: [h(event, card_id, board_id, actor_id) for h in hooks.CARD_MUTATION_HOOKS]
-        )
+        transaction.on_commit(lambda: _run_hooks(event, card_id, board_id, actor_id))
+
+
+def _run_hooks(event, card_id, board_id, actor_id):
+    """Call every ``CARD_MUTATION_HOOKS`` handler, isolating each from the rest.
+
+    This is the single choke point for the fan-out. By the time it runs the
+    write is already committed, so a raising handler (webhook, automation, audit
+    sink) must not propagate: it would surface as a 500 for a card that *was*
+    saved, and the client's retry would create a duplicate (there are no
+    idempotency keys). It also must not abandon the handlers after it or any
+    other ``on_commit`` callback. Only the handler name, ids, event type and
+    exception class are logged — never the exception message or payload, which
+    may carry PII.
+
+    Iterates a snapshot so a handler that registers another handler cannot
+    mutate the list mid-loop; the list itself is still re-read per commit.
+    """
+    for handler in list(hooks.CARD_MUTATION_HOOKS):
+        try:
+            handler(event, card_id, board_id, actor_id)
+        except Exception as exc:  # noqa: BLE001 - extension code is untrusted
+            logger.error(
+                "CARD_MUTATION_HOOKS handler %s failed for %s (card=%s board=%s): %s",
+                getattr(handler, "__qualname__", repr(handler)),
+                event, card_id, board_id, type(exc).__name__,
+            )
+
+
+def _notify_mentions_after_commit(card, actor, old_text, new_text):
+    """Register ``notify_new_mentions`` for after the commit, failure-isolated.
+
+    Same reasoning as ``_run_hooks``: the card write is committed, so a failure
+    creating mention notifications must not turn it into a 500 (and a retry
+    duplicate). Logs only the card id and exception class.
+    """
+    def _run():
+        try:
+            notify_new_mentions(card, actor, old_text, new_text)
+        except Exception as exc:  # noqa: BLE001 - best-effort side effect
+            logger.error(
+                "notify_new_mentions failed for card=%s: %s", card.pk, type(exc).__name__,
+            )
+
+    transaction.on_commit(_run)
 
 
 def _broadcast_after_commit(board_id, event, payload, actor_id=None):
@@ -440,9 +482,7 @@ def create_card(
         _fire_hooks("card.created", card.id, board_id, actor.id)
         if card.description:
             # Notify any @mentioned board members in the initial description.
-            # Bound to locals so the closure cannot observe a later rebind.
-            _card, _actor, _desc = card, actor, card.description
-            transaction.on_commit(lambda: notify_new_mentions(_card, _actor, "", _desc))
+            _notify_mentions_after_commit(card, actor, "", card.description)
     return CardMutationResult(card=card, payload=payload)
 
 
@@ -611,8 +651,7 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None, forc
             ))
             # Deferred so the updated description is already committed when the
             # mention notifications are created.
-            _card, _actor, _old, _new = card, actor, old_description, card.description
-            transaction.on_commit(lambda: notify_new_mentions(_card, _actor, _old, _new))
+            _notify_mentions_after_commit(card, actor, old_description, card.description)
         new_label_ids = {label.id for label in card.labels.all()}
         if old_label_ids != new_label_ids:
             added = new_label_ids - old_label_ids

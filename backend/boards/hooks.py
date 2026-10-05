@@ -62,6 +62,9 @@ ANALYTICS_EXTENSIONS: list = []
 # the handler fires. card_id / board_id are plain integers (not ORM instances) so
 # handlers can safely issue their own DB queries without reference to a potentially
 # stale Python object.
+# A handler that raises is logged (name, ids, event, exception class — no payload)
+# and swallowed: the write is already committed, so it must not 500 the request,
+# and it never prevents later handlers from running (#1476).
 # OSS behaviour is unchanged when this list is empty (the check is guarded by
 # ``if hooks.CARD_MUTATION_HOOKS:`` at each call site).
 CARD_MUTATION_HOOKS: list = []
@@ -111,6 +114,9 @@ TEMPLATE_PROVIDERS: list = []
 # SWIMLANE_CUSTOM_FIELD_VALIDATORS below.
 # Register via: from boards.hooks import CUSTOM_FIELD_VALIDATORS
 #               CUSTOM_FIELD_VALIDATORS.append(my_validator)
+# A handler that raises is logged (name, ids, event, exception class — no payload)
+# and swallowed: the write is already committed, so it must not 500 the request,
+# and it never prevents later handlers from running (#1476).
 # OSS behaviour is unchanged when this list is empty. Per the stability guarantee
 # above, call sites must read the module attribute rather than a copy taken at
 # import time, and must never rebind it.
@@ -143,5 +149,8 @@ CUSTOM_FIELD_VALIDATORS: list = []
 # nothing that already exists. A validator that is genuinely generic across
 # both levels is registered in both lists — one line, and deliberately visible.
 #
+# A handler that raises is logged (name, ids, event, exception class — no payload)
+# and swallowed: the write is already committed, so it must not 500 the request,
+# and it never prevents later handlers from running (#1476).
 # OSS behaviour is unchanged when this list is empty.
 SWIMLANE_CUSTOM_FIELD_VALIDATORS: list = []

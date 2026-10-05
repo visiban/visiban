@@ -110,7 +110,7 @@ Swimlane and column reorder and the other structural mutations are slated to fol
 1. Put the invariants in a service function; leave parsing, validation, and rendering to the caller.
 2. Add a class to `errors.py` for each new failure mode — never build a response body in a view.
 3. Reach `broadcast` and `hooks` through the **module object** (`from .. import broadcast as _broadcast`). The test suite patches `boards.broadcast.broadcast_board_event` at its source module, and a direct-name import binds a reference the patch cannot reach — so tests that patch only to suppress the channel layer would silently start broadcasting for real.
-4. Register hook callbacks by reading `hooks.CARD_MUTATION_HOOKS` inside the `on_commit` callback. Enterprise code appends to that list in place; a copy taken at import time would miss late registrations, and rebinding the attribute would drop every enterprise handler.
+4. Register hook callbacks by reading `hooks.CARD_MUTATION_HOOKS` inside the `on_commit` callback. Enterprise code appends to that list in place; a copy taken at import time would miss late registrations, and rebinding the attribute would drop every enterprise handler. Each handler runs in isolation (`_run_hooks`): an exception is logged (handler name, ids, event type, exception class only) and swallowed, because the write is already committed and a 500 would invite a duplicate-creating retry. Handlers must therefore handle their own failures; they cannot veto or roll back the write.
 5. Add a query budget to `CardMutationQueryCountTests`. Mutation budgets are `measured + 3`, tighter than the 2× used for read endpoints, because they have to catch a constant regression rather than a row-scaling one.
 
 ## Frozen asymmetries
