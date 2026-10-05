@@ -4557,8 +4557,22 @@ sees it appear or disappear without a reload.</p>
 <ul>
 <li>Events are <strong>never broadcast for rolled-back transactions</strong> — if a write fails and rolls back, no event fires.</li>
 <li>Events fire <strong>after</strong> the transaction commits, so the data is guaranteed to be visible to any subsequent REST read by the time the event reaches clients.</li>
+<li>The publish is <strong>best-effort</strong> (since 1.2). If the channel layer (Valkey) is unreachable when the event fires, the frame is dropped and the backend logs a <code>WARNING</code> (<code>board broadcast dropped</code> or <code>group broadcast dropped</code>, with the board or group id, event name, and exception class). The write that caused it still returns its normal success status, because the change is already committed. Before 1.2 such a write returned <code>500</code> even though it had been saved, and retrying it created a duplicate.</li>
 </ul>
-<p>There is no at-least-once delivery guarantee — if a client is disconnected when an event fires, it will not be replayed. Clients should re-fetch the full board state (<code>GET /api/v1/boards/{id}/full/</code>) on reconnect.</p>
+<p>The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.</p>
+<p>A transient publish failure does <strong>not</strong> close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or <strong>Refresh board</strong> in the connection popover. On the group page, it is the next socket reconnect.</p>
+<p>How to resync:</p>
+<ul>
+<li><strong>API clients</strong> can replay board events from the durable <a href="../events/">change feed</a>. Keep the last <code>event_id</code> you processed and call <code>GET /api/v1/boards/{id}/events/?after=&lt;event_id&gt;</code>.</li>
+<li><strong>The Visiban web app</strong> does not read the change feed. The board view re-fetches full board state (<code>GET /api/v1/boards/{id}/full/</code>) in these cases:<ul>
+<li>When its socket reconnects. This happens immediately, without the 30-second throttle. If a drag is in progress, the refetch waits until the drag ends.</li>
+<li>When the tab regains focus, at most once every 30 seconds.</li>
+<li>After an event that triggers a refetch.</li>
+<li>When you choose <strong>Refresh board</strong> in the connection popover.</li>
+</ul>
+</li>
+<li><strong>Group-channel frames</strong> have no feed row, so group clients re-fetch the group's boards list. The web app's group page does this when its socket reconnects.</li>
+</ul>
 <hr />
 <h2 id="client-example-javascript">Client example (JavaScript)<a class="headerlink" href="#client-example-javascript" title="Permanent link">&para;</a></h2>
 <p>Same-origin, session-cookie clients:</p>
