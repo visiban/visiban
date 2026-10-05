@@ -266,3 +266,131 @@ class LostMemberRemovedFrameE2ETests(TransactionTestCase):
 
         with patch("boards.consumers._now", clock):
             asyncio.run(run())
+
+
+def _other_member_frame(user_id):
+    """A member.updated frame about someone else, carrying both admin-only fields."""
+    return {
+        "event": "member.updated",
+        "data": {"id": 900 + user_id, "user": {"id": user_id}, "role": "member",
+                 "is_moderator": True, "is_site_admin": False},
+    }
+
+
+class NoFrameAccessChangeTests(TransactionTestCase):
+    """#1340 / #1339: access changes that publish no board-channel member.* frame.
+
+    Each path below changes the subscriber's effective board role (or removes
+    it) without any frame naming them, so neither the member.removed fast path
+    nor #1332's self-subject refresh can fire. The periodic re-check (#1477)
+    must pick each one up on the first frame past the socket's window. Path
+    numbers follow #1340's issue body. #1339 (deactivation) is covered here
+    and by ``test_deactivated_user_is_evicted`` in the unit tests above and in
+    groups/tests/test_group_consumer_access_recheck.py.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="nf_owner", password="pass")
+        self.other = User.objects.create_user(username="nf_other", password="pass")
+        self.subscriber = User.objects.create_user(username="nf_sub", password="pass")
+        self.group = Group.objects.create(name="NF group", owner=self.owner)
+        self.board = Board.objects.create(name="NF board", owner=self.owner, group=self.group)
+        BoardMembership.objects.create(board=self.board, user=self.other, role=BoardMembership.Role.MEMBER)
+        self.clock = _Clock()
+        p = patch("boards.consumers._now", self.clock)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def _consumer(self, role):
+        consumer = BoardConsumer()
+        consumer.board_id = self.board.id
+        consumer.room = f"board_{self.board.id}"
+        consumer.channel_name = "test-channel"
+        consumer.channel_layer = AsyncMock()
+        consumer.send = AsyncMock()
+        consumer.close = AsyncMock()
+        consumer.scope = {
+            "url_route": {"kwargs": {"board_id": self.board.id}},
+            "user": User.objects.get(pk=self.subscriber.pk),
+        }
+        consumer._role = role
+        consumer._access_verified_at = self.clock()
+        return consumer
+
+    def _deliver(self, consumer, payload):
+        consumer.send.reset_mock()
+        asyncio.run(consumer.board_event({"payload": payload}))
+        if not consumer.send.called:
+            return None
+        return json.loads(consumer.send.call_args.kwargs["text_data"])["data"]
+
+    def _assert_admin_fields_stripped_after_window(self, consumer, expected_role):
+        # Inside the window the cached admin role still applies (the accepted,
+        # bounded exposure); past it the re-check demotes and strips.
+        self.clock.advance(ACCESS_RECHECK_SECONDS)
+        data = self._deliver(consumer, _other_member_frame(self.other.pk))
+        consumer.close.assert_not_called()
+        self.assertEqual(consumer._role, expected_role)
+        self.assertNotIn("is_moderator", data)
+        self.assertNotIn("is_site_admin", data)
+
+    def test_1340_path1_group_role_lowered(self):
+        gm = GroupMembership.objects.create(group=self.group, user=self.subscriber, role=GroupMembership.Role.ADMIN)
+        consumer = self._consumer("admin")
+        self.assertIn("is_moderator", self._deliver(consumer, _other_member_frame(self.other.pk)))
+
+        gm.role = GroupMembership.Role.VIEWER
+        gm.save(update_fields=["role"])
+        self._assert_admin_fields_stripped_after_window(consumer, "viewer")
+
+    def test_1340_path2_group_membership_removed_lower_ancestor_role_remains(self):
+        parent = Group.objects.create(name="NF parent", owner=self.owner)
+        self.group.parent = parent
+        self.group.save(update_fields=["parent"])
+        GroupMembership.objects.create(group=parent, user=self.subscriber, role=GroupMembership.Role.MEMBER)
+        GroupMembership.objects.create(group=self.group, user=self.subscriber, role=GroupMembership.Role.ADMIN)
+        consumer = self._consumer("admin")
+
+        GroupMembership.objects.filter(group=self.group, user=self.subscriber).delete()
+        self._assert_admin_fields_stripped_after_window(consumer, "member")
+
+    def test_1340_path3_can_access_all_content_revoked(self):
+        GroupMembership.objects.create(group=self.group, user=self.subscriber, role=GroupMembership.Role.VIEWER)
+        User.objects.filter(pk=self.subscriber.pk).update(can_access_all_content=True)
+        consumer = self._consumer("site_admin")
+
+        User.objects.filter(pk=self.subscriber.pk).update(can_access_all_content=False)
+        self._assert_admin_fields_stripped_after_window(consumer, "viewer")
+
+    def test_1340_path4_board_moved_to_a_group_the_user_is_not_in(self):
+        GroupMembership.objects.create(group=self.group, user=self.subscriber, role=GroupMembership.Role.MEMBER)
+        consumer = self._consumer("member")
+        elsewhere = Group.objects.create(name="NF elsewhere", owner=self.owner)
+
+        self.board.group = elsewhere
+        self.board.save(update_fields=["group"])
+        self.clock.advance(ACCESS_RECHECK_SECONDS)
+
+        self.assertIsNone(self._deliver(consumer, _card_frame()))
+        consumer.close.assert_called_once_with(code=4003)
+
+    def test_1340_path5_owner_changed_directly_in_the_db(self):
+        """Simulates a Django-admin BoardAdmin edit: a queryset update, no signal, no frame."""
+        Board.objects.filter(pk=self.board.pk).update(owner=self.subscriber, group=None)
+        consumer = self._consumer("admin")
+
+        Board.objects.filter(pk=self.board.pk).update(owner=self.owner)
+        self.clock.advance(ACCESS_RECHECK_SECONDS)
+
+        self.assertIsNone(self._deliver(consumer, _card_frame()))
+        consumer.close.assert_called_once_with(code=4003)
+
+    def test_1340_path5_group_changed_directly_in_the_db(self):
+        GroupMembership.objects.create(group=self.group, user=self.subscriber, role=GroupMembership.Role.MEMBER)
+        consumer = self._consumer("member")
+
+        Board.objects.filter(pk=self.board.pk).update(group=None)
+        self.clock.advance(ACCESS_RECHECK_SECONDS)
+
+        self.assertIsNone(self._deliver(consumer, _card_frame()))
+        consumer.close.assert_called_once_with(code=4003)

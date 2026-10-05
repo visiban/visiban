@@ -32,7 +32,7 @@ The server checks board membership before completing the handshake, regardless o
 | Close code | Meaning |
 |---|---|
 | `4001` | Unauthenticated — no valid session cookie, and no valid ticket. The client must log in (or obtain a fresh ticket) before reconnecting. |
-| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. |
+| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. Since 1.2, `4003` can also arrive **mid-stream** on an open connection, when the user loses access or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See [Access re-check and eviction](#access-re-check-and-eviction). |
 
 Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnormal) may also be observed for transport-level disconnects.
 
@@ -371,7 +371,10 @@ ws.onclose = (event) => {
   if (event.code === 4001) {
     // not authenticated — redirect to login
   } else if (event.code === 4003) {
-    // authenticated but not a member of this board — do not retry
+    // no access to this board — at the handshake, or mid-stream after access
+    // was lost or the server's access re-check failed (see "Access re-check
+    // and eviction"). Do not auto-retry. A later, user-initiated reconnect can
+    // succeed if the cause was a failed re-check.
   }
   // otherwise: reconnect logic and re-fetch full board state
 };
