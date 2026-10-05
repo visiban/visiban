@@ -634,6 +634,21 @@ class MaintenanceStateHelperTests(MaintenanceModeBaseTest):
         self.assertEqual(get_maintenance_message("Back at 5pm."), "Back at 5pm.")
 
 
+class SiteSettingCommitEvictionFailureTests(MaintenanceModeBaseTest):
+    """#1476 sweep: the on_commit cache eviction is already failure-isolated by
+    ``_invalidate_site_setting_caches``, so a cache outage cannot 500 or undo a
+    committed settings write. Pinned so a refactor cannot regress it."""
+
+    def test_cache_outage_at_commit_does_not_raise_and_row_persists(self):
+        setting = SiteSetting.get()
+        setting.maintenance_message = "Back soon"
+        with mock.patch("accounts.models.cache.delete", side_effect=ConnectionError("down")):
+            with self.assertLogs("accounts.models", level="WARNING"):
+                with self.captureOnCommitCallbacks(execute=True):
+                    setting.save()
+        self.assertEqual(SiteSetting.objects.get(pk=1).maintenance_message, "Back soon")
+
+
 class SiteSettingModelValidationTests(MaintenanceModeBaseTest):
     """The MaxLengthValidator on SiteSetting.maintenance_message is model-level,
     not just serializer-level — Django admin and management commands/shell

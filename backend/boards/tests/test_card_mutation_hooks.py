@@ -200,7 +200,15 @@ class CardMutationHookTests(TestCase):
 
 
 class RaisingHookIsolationTests(TestCase):
-    """#1476: a raising handler must not 500 a committed card write."""
+    """#1476: a raising handler must not 500 a committed card write.
+
+    Note on discrimination: under ``captureOnCommitCallbacks(execute=True)`` the
+    pre-fix failure does not appear as a 500 status. The unguarded callback's
+    exception escapes the context manager (and the test) instead, because the
+    callbacks run in the test's own frame rather than inside the request. The
+    tests still discriminate: without the guard they error out, and with it they
+    must reach the status, persistence and later-hook assertions.
+    """
 
     def setUp(self):
         self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
@@ -269,4 +277,27 @@ class RaisingHookIsolationTests(TestCase):
                         format="json",
                     )
         self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertTrue(any("notify_new_mentions failed" in o for o in logs.output))
+
+    def test_archive_returns_200_with_raising_hook(self):
+        with self.assertLogs("boards.services.cards", level="ERROR"):
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.client.post(
+                    f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/archive/"
+                )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self.seen, ["card.archived"])
+
+    def test_patch_description_mention_failure_does_not_500(self):
+        with patch("boards.services.cards.notify_new_mentions", side_effect=RuntimeError("x")):
+            with self.assertLogs("boards.services.cards", level="ERROR") as logs:
+                with self.captureOnCommitCallbacks(execute=True):
+                    resp = self.client.patch(
+                        f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
+                        {"description": "hello @someone"},
+                        format="json",
+                    )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.description, "hello @someone")
         self.assertTrue(any("notify_new_mentions failed" in o for o in logs.output))
