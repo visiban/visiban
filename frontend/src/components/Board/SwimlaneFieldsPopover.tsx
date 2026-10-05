@@ -20,6 +20,9 @@ interface Props {
   userDateFormat?: string;
   /** Admin only — omit entirely for members and viewers. */
   onEdit?: () => void;
+  /** Admin only — opens Board settings on the Swimlane fields tab, where the
+   *  board-wide field order lives (#1458). Omit for members and viewers. */
+  onEditOrder?: () => void;
   onDismiss: () => void;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
 }
@@ -38,7 +41,7 @@ interface Props {
  * only by an admin opening the edit modal — invisible to everyone else.
  */
 export default function SwimlaneFieldsPopover({
-  swimlaneName, entries, anchorRect, userDateFormat, onEdit, onDismiss, triggerRef,
+  swimlaneName, entries, anchorRect, userDateFormat, onEdit, onEditOrder, onDismiss, triggerRef,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -176,15 +179,25 @@ export default function SwimlaneFieldsPopover({
           />
         )}
       </div>
-      {onEdit && (
+      {(onEdit || onEditOrder) && (
         <>
           <div className="border-t border-line my-1" />
-          <button
-            onClick={() => { onDismiss(); onEdit(); }}
-            className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Edit fields…
-          </button>
+          {onEdit && (
+            <button
+              onClick={() => { onDismiss(); onEdit(); }}
+              className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Edit fields…
+            </button>
+          )}
+          {onEditOrder && (
+            <button
+              onClick={() => { onDismiss(); onEditOrder(); }}
+              className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Edit field order…
+            </button>
+          )}
         </>
       )}
     </div>
