@@ -25,13 +25,15 @@ from asgiref.sync import sync_to_async
 from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
 from django.core.cache import cache
+from django.db import OperationalError
 from django.test import TransactionTestCase
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from accounts.ws_auth import issue_ws_ticket
 from boards.broadcast import broadcast_board_event
-from boards.consumers import ACCESS_RECHECK_SECONDS, BoardConsumer
+from boards import consumers as consumers_module
+from boards.consumers import ACCESS_RECHECK_JITTER_SECONDS, ACCESS_RECHECK_SECONDS, BoardConsumer
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
 
@@ -134,6 +136,41 @@ class BoardConsumerAccessRecheckUnitTests(TransactionTestCase):
         self.assertIsNotNone(self._deliver(consumer, _card_frame()))
         self.assertEqual(consumer._role, "admin")
 
+    def test_window_honors_the_jitter_bound(self):
+        """Each successful check draws a window of base + jitter, jitter in [0, max]."""
+        consumer = self._consumer()
+        self.clock.advance(ACCESS_RECHECK_SECONDS)
+        with patch.object(consumers_module, "_jitter", return_value=1.5):
+            self.assertIsNotNone(self._deliver(consumer, _card_frame()))
+        self.assertEqual(consumer._access_window, ACCESS_RECHECK_SECONDS + 1.5)
+
+        consumer._refresh_role = AsyncMock(return_value="member")
+        self.clock.advance(ACCESS_RECHECK_SECONDS + 1.49)
+        self._deliver(consumer, _card_frame())
+        consumer._refresh_role.assert_not_called()  # still inside the jittered window
+        self.clock.advance(0.01)
+        self._deliver(consumer, _card_frame())
+        consumer._refresh_role.assert_called_once()  # window lapsed: re-checked
+
+        for _ in range(200):
+            self.assertTrue(0 <= consumers_module._jitter() <= ACCESS_RECHECK_JITTER_SECONDS)
+
+    def test_recheck_exception_fails_closed_and_logs(self):
+        """A DB outage during the re-check drops the frame and closes with 4003."""
+        consumer = self._consumer()
+        verified_at = consumer._access_verified_at
+        consumer._refresh_role = AsyncMock(side_effect=OperationalError("db host secret-detail"))
+        self.clock.advance(ACCESS_RECHECK_SECONDS)
+
+        with self.assertLogs("boards.consumers", level="WARNING") as logs:
+            self.assertIsNone(self._deliver(consumer, _card_frame()))
+        consumer.close.assert_called_once_with(code=4003)
+        output = "\n".join(logs.output)
+        self.assertIn("board access re-check failed", output)
+        self.assertIn("OperationalError", output)
+        self.assertNotIn("secret-detail", output)  # class name only, never the message
+        self.assertEqual(consumer._access_verified_at, verified_at)  # not cached
+
     def test_never_verified_consumer_fails_closed(self):
         """No connect()-time stamp means the first frame is re-checked, not trusted."""
         self.membership.delete()
@@ -218,7 +255,8 @@ class LostMemberRemovedFrameE2ETests(TransactionTestCase):
             # close this socket.
             self.assertTrue(await comm.receive_nothing(timeout=0.2))
 
-            clock.advance(ACCESS_RECHECK_SECONDS)
+            # connect() drew a real jitter; step past the longest window.
+            clock.advance(ACCESS_RECHECK_SECONDS + ACCESS_RECHECK_JITTER_SECONDS)
             await sync_to_async(broadcast_board_event)(self.board.id, "card.updated", _card_frame()["data"])
 
             out = await comm.receive_output(timeout=2)

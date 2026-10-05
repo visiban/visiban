@@ -182,9 +182,11 @@ def broadcast_board_event(board_id: int, event_type: str, payload: dict, *, even
     only forwarding, and the one such frame, ``member.removed``, closes a
     removed user's socket. Eviction therefore does not depend on it: the
     consumer re-checks access before it forwards any frame and closes the
-    socket when access is gone (``BoardConsumer._verify_access``, #1477), so
-    losing this frame delays the close by at most ``ACCESS_RECHECK_SECONDS``
-    and leaks no board data.
+    socket when access is gone (``BoardConsumer._verify_access``, #1477). A
+    lost ``member.removed`` therefore delays the close by at most the re-check
+    window (``ACCESS_RECHECK_SECONDS`` plus jitter, about 7 s) after the
+    socket's last successful check; the socket is closed before the first
+    frame past that window is forwarded.
 
     The ``except Exception`` around ``group_send`` is deliberately broad: a
     transport outage surfaces as many exception classes (connection, timeout,

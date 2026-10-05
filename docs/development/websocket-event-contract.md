@@ -97,7 +97,9 @@ client resyncs or replays the change feed. A lost frame that the **consumer** ac
 not, because no client-side resync runs consumer code. `member.removed` is that kind of
 frame: it closes the removed user's own socket. So it is only the fast path for
 eviction. `BoardConsumer` and `GroupConsumer` also re-check access before they forward
-any frame (`_verify_access`, cached for `ACCESS_RECHECK_SECONDS`). They use the same
+any frame (`_verify_access`, cached per socket for `ACCESS_RECHECK_SECONDS` plus up to
+`ACCESS_RECHECK_JITTER_SECONDS` of jitter, so about 7 s at most). A check that raises
+fails closed. They use the same
 predicate as `connect()`, and they close with `4003` when access is gone (#1477). See
 [Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction).
 

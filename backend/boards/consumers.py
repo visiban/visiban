@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+import secrets
 import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -20,9 +22,10 @@ from .permissions import (
 # 60–120 s of silence; 30 s keeps connections alive through most of them.
 PING_INTERVAL = 30
 
-# Upper bound, in seconds, on how long a socket can keep receiving board frames
-# after its user loses access to the board, when the member.removed frame that
-# would normally evict it at once is lost (#1477).
+# Base length, in seconds, of the window in which a socket can keep receiving
+# board frames after its user loses access to the board, when the member.removed
+# frame that would normally evict it at once is lost (#1477). Each socket adds
+# its own jitter (ACCESS_RECHECK_JITTER_SECONDS below), so the bound is about 7 s.
 #
 # Why a re-check at all: eviction used to rest on one fire-and-forget frame.
 # The publish is best-effort since #1462 (a channel-layer error is logged and
@@ -35,14 +38,37 @@ PING_INTERVAL = 30
 # subscriber, so one access query per forwarded frame would multiply DB load by
 # the subscriber count. With the cache each socket pays at most one re-check
 # per window, and only while frames are flowing (an idle socket costs nothing,
-# and also receives nothing to leak). 5 s is short next to the time it takes a
-# human to act on a removal and well under PING_INTERVAL, while still
-# collapsing a burst of frames (a bulk move, an import) into one query.
+# and also receives nothing to leak). 5 s (plus up to 2 s of jitter, below) is
+# short next to the time it takes a human to act on a removal and well under
+# PING_INTERVAL, while still collapsing a burst of frames (a bulk move, an
+# import) into one query.
 ACCESS_RECHECK_SECONDS = 5
+
+# Random extra seconds, uniform in [0, ACCESS_RECHECK_JITTER_SECONDS], added to
+# each socket's window and redrawn on every successful check. Why: every socket
+# on a board connects at about the same time (a page load, a reconnect after a
+# deploy) and is then re-checked on the same fan-out frames, so with one fixed
+# window they would all expire together and send a herd of N access queries
+# at once, queued on channels' single thread-sensitive DB executor. Spreading
+# the expiries keeps that load flat. The cost is a longer worst case: a socket
+# can forward frames for at most ACCESS_RECHECK_SECONDS +
+# ACCESS_RECHECK_JITTER_SECONDS (about 7 s) after its last successful check.
+ACCESS_RECHECK_JITTER_SECONDS = 2
+
+# SystemRandom (from secrets), not the random module, so bandit has nothing to
+# flag. This is load spreading, not a security value.
+_rng = secrets.SystemRandom()
+
+
+def _jitter():
+    """Extra seconds for one socket's re-check window. A hook tests can pin."""
+    return _rng.uniform(0, ACCESS_RECHECK_JITTER_SECONDS)
 
 # Indirection so tests can drive the re-check clock without patching
 # time.monotonic globally (the asyncio event loop reads it too).
 _now = time.monotonic
+
+logger = logging.getLogger(__name__)
 
 # `is_moderator` visibility on member.* broadcast payloads is decided per
 # subscriber by moderator_field_visible() (boards.permissions): admin/site_admin
@@ -58,8 +84,9 @@ _now = time.monotonic
 # subscriber (#1332), so a demotion or promotion applies from that frame on.
 # Role changes that emit no board-channel member.* frame (group-membership role
 # changes, board move-group, can_access_all_content toggles) apply at the next
-# access re-check — on the first frame after ACCESS_RECHECK_SECONDS has lapsed
-# (#1477) — rather than only on reconnect.
+# access re-check — on the first frame after the socket's re-check window
+# (ACCESS_RECHECK_SECONDS plus jitter, at most about 7 s) has lapsed (#1477) —
+# rather than only on reconnect.
 #
 # moderator_field_visible() is defined in boards.permissions since #1114 so
 # this consumer, the change-feed reader (BoardEventSerializer), and the two
@@ -72,6 +99,9 @@ class BoardConsumer(AsyncWebsocketConsumer):
     # verified" and forces a re-check on the next frame: fail closed rather
     # than trust a consumer that somehow skipped connect()'s check.
     _access_verified_at = None
+    # This socket's current window: ACCESS_RECHECK_SECONDS plus its own jitter,
+    # redrawn on each successful check.
+    _access_window = ACCESS_RECHECK_SECONDS
 
     async def connect(self):
         self.board_id = self.scope["url_route"]["kwargs"]["board_id"]
@@ -90,6 +120,7 @@ class BoardConsumer(AsyncWebsocketConsumer):
             return
         self._role = role
         self._access_verified_at = _now()
+        self._access_window = ACCESS_RECHECK_SECONDS + _jitter()
 
         await self.channel_layer.group_add(self.room, self.channel_name)
         await self.accept()
@@ -145,7 +176,8 @@ class BoardConsumer(AsyncWebsocketConsumer):
         # member.removed self-close above is only the fast path: that frame is
         # published best-effort and can be lost (#1462), and a socket must not
         # go on forwarding board data to a user who has lost access. The check
-        # is served from a short cache (see ACCESS_RECHECK_SECONDS).
+        # is served from a short cache (see ACCESS_RECHECK_SECONDS and
+        # ACCESS_RECHECK_JITTER_SECONDS).
         #
         # A member.added/member.updated frame about THIS subscriber forces the
         # check past the cache: their own board role may just have changed
@@ -169,7 +201,8 @@ class BoardConsumer(AsyncWebsocketConsumer):
         if not await self._verify_access(force=is_self_subject):
             # No effective access any more: a removal whose member.removed
             # frame was lost, or one that committed after this frame was
-            # queued. Close with 4003, the code connect() uses for the same
+            # queued — or the check itself failed (see _verify_access). Close
+            # with 4003, the code connect() uses for the same
             # condition, so the client stops rather than reconnecting into a
             # 4003 anyway.
             self._role = None
@@ -202,20 +235,40 @@ class BoardConsumer(AsyncWebsocketConsumer):
         """True if the subscriber may still receive this board's frames (#1477).
 
         Answered from the cache while the last successful check is younger
-        than ACCESS_RECHECK_SECONDS; otherwise, or when *force*, re-resolved
-        through _refresh_role, which runs the same get_board_role ladder that
-        connect() used, so the handshake and the re-check cannot disagree
-        about who has access. A successful check also refreshes ``self._role``.
-        A failed one is never cached: the caller closes the socket.
+        than this socket's window (ACCESS_RECHECK_SECONDS plus jitter);
+        otherwise, or when *force*, re-resolved through _refresh_role, which
+        runs the same get_board_role ladder that connect() used, so the
+        handshake and the re-check cannot disagree about who has access. A
+        successful check also refreshes ``self._role`` and draws a new
+        window. A failed one is never cached: the caller closes the socket.
+
+        A check that raises (a DB outage, say) counts as failed. Why fail
+        closed: forwarding would send board data on an unverified grant, and
+        letting the exception escape tears the consumer down with an abnormal
+        close that the client answers with a reconnect loop against the same
+        outage. Returning False makes the caller close with 4003, so the
+        client stops; a reload reconnects once the DB is back. 1011 would let
+        the client retry by itself, but it would retry every 3 s for as long
+        as the outage lasts, and the handshake would fail the same way.
         """
         verified_at = self._access_verified_at
-        if not force and verified_at is not None and _now() - verified_at < ACCESS_RECHECK_SECONDS:
+        if not force and verified_at is not None and _now() - verified_at < self._access_window:
             return True
-        role = await self._refresh_role()
+        try:
+            role = await self._refresh_role()
+        except Exception as exc:  # noqa: BLE001 — fail closed on any check failure, see docstring
+            # Class name only: the message can carry DB connection details.
+            logger.warning(
+                "board access re-check failed: board_id=%s error=%s",
+                self.board_id,
+                type(exc).__name__,
+            )
+            return False
         if role is None:
             return False
         self._role = role
         self._access_verified_at = _now()
+        self._access_window = ACCESS_RECHECK_SECONDS + _jitter()
         return True
 
     @database_sync_to_async
