@@ -1720,9 +1720,7 @@ PRODUCT_ROADMAP = {
 }
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PHASE 2 -- loaded from generate_seed_data_part2.py
-# ── 6. Software Development ───────────────────────────────────────────────────
+# ── 12. Software Development (gallery order 1; appended last, see main()) ─────
 # _auto_cards and _build draw from this module's shared RNG stream, so this
 # template is expanded from its own saved stream state here, and built last in
 # main(). Either alone would reshuffle every other sample's cards and dates.
@@ -1863,6 +1861,7 @@ SOFTWARE_DEVELOPMENT = {
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# PHASE 2 -- loaded from generate_seed_data_part2.py
 # Templates 6-10 are defined in generate_seed_data_part2.py and imported below.
 # This split keeps each file manageable.
 
