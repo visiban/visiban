@@ -86,8 +86,8 @@ Imports are limited to 10 per user per hour.
     The samples name the users `demo1` through `demo5` as assignees and as the people
     behind each move and history entry. The import links an account with one of those
     usernames only if it is visible to you: you, people who share a board or group with
-    you, or members of the group you import into (site administrators see all active
-    accounts). Otherwise cards are imported unassigned and the moves and history entries
+    you, or members of the group you import into (site administrators and users with
+    all-content access see all active accounts; inactive accounts are never linked). Otherwise cards are imported unassigned and the moves and history entries
     are attributed to you, the importing user. Comments are
     always imported as written by you.
 

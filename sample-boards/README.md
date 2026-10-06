@@ -51,8 +51,8 @@ curl -LO https://gitlab.com/visiban/visiban/-/raw/main/backend/boards/sample_boa
 
 Users named `demo1` to `demo5` in the files are linked only if accounts with those
 usernames are visible to the importing user: the importer, people who share a board or
-group with them, or members of the target group (site administrators see all active
-accounts). Otherwise cards import unassigned, and moves and history are attributed to the
+group with them, or members of the target group (site administrators and users with
+all-content access see all active accounts; inactive accounts are never linked). Otherwise cards import unassigned, and moves and history are attributed to the
 importing user.
 
 Each template's `.csv` file has the same column layout as **Export → CSV**

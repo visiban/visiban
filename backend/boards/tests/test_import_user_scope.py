@@ -77,6 +77,14 @@ class ImportUserScopeTests(TestCase):
         self.assertIsNone(a.assignee)
         self.assertIsNone(b.assignee)
 
+    def test_inactive_user_sharing_a_board_is_not_linked(self):
+        self.seen.is_active = False
+        self.seen.save(update_fields=["is_active"])
+        card = Card.objects.get(board=self._import(_payload()))
+        self.assertIsNone(card.assignee)
+        self.assertEqual(CardMovement.objects.get(card=card).moved_by, self.importer)
+        self.assertEqual(CardActivity.objects.get(card=card).actor, self.importer)
+
     def test_group_peer_is_visible_and_target_group_owner_is_visible(self):
         group = Group.objects.create(name="G", owner=self.hidden)
         GroupMembership.objects.create(group=group, user=self.importer)
@@ -100,6 +108,24 @@ class ImportUserScopeTests(TestCase):
                 resp = self.client.post(
                     URL, {"file": _file(_payload(card_count=n))}, format="multipart"
                 )
+            self.assertEqual(resp.status_code, 201, resp.content)
+            return sum(
+                1 for q in ctx.captured_queries
+                if q["sql"].lstrip().upper().startswith("SELECT")
+                and 'FROM "users"' in q["sql"] and "LOWER(" in q["sql"].upper()
+            )
+
+        self.assertEqual(count_user_selects(1), count_user_selects(8))
+        self.assertEqual(count_user_selects(8), 1)
+
+    def test_csv_lookup_query_count_does_not_grow_with_rows(self):
+        def count_user_selects(n):
+            rows = "".join(f"Card {i},To Do,General,seen\n" for i in range(n))
+            f = io.BytesIO(("Title,Column,Swimlane,Assignee\n" + rows).encode("utf-8"))
+            f.name = "b.csv"
+            cache.clear()
+            with CaptureQueriesContext(connection) as ctx:
+                resp = self.client.post(URL, {"file": f, "name": "C"}, format="multipart")
             self.assertEqual(resp.status_code, 201, resp.content)
             return sum(
                 1 for q in ctx.captured_queries

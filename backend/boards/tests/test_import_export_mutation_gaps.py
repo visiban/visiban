@@ -62,6 +62,11 @@ from boards.views.import_export import (
 from groups.models import Group, GroupMembership
 
 
+IMPORT_URL = "/api/v1/boards/import/"
+TRELLO_URL = "/api/v1/boards/import/trello/"
+Role = BoardMembership.Role
+
+
 def _make_visible(importer, *others):
     """Put ``others`` on a board with ``importer`` so the importer can see them (#1434)."""
     board = Board.objects.create(name="Shared", owner=importer)
@@ -69,10 +74,6 @@ def _make_visible(importer, *others):
         BoardMembership.objects.get_or_create(
             board=board, user=u, defaults={"role": BoardMembership.Role.MEMBER}
         )
-
-IMPORT_URL = "/api/v1/boards/import/"
-TRELLO_URL = "/api/v1/boards/import/trello/"
-Role = BoardMembership.Role
 
 
 def _upload(data, name="board.json", content_type=None):
