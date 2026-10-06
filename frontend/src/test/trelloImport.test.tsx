@@ -234,6 +234,22 @@ describe('TrelloImportModal', () => {
     expect(onCancel).not.toHaveBeenCalled()
   })
 
+  it('indeterminate upload bar pulses, and is a static one-third bar under reduced motion (#199)', async () => {
+    const user = userEvent.setup()
+    renderModal()
+    mockPreview.mockImplementation((_f: unknown, opts: { onUploadProgress: (e: unknown) => void }) => {
+      opts.onUploadProgress({ loaded: 100, total: 100 })
+      return new Promise(() => {})
+    })
+    await pickFile(user)
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    const bar = (await screen.findAllByRole('progressbar'))[0]
+    expect(bar).not.toHaveAttribute('aria-valuenow')
+    const fill = bar.firstElementChild as HTMLElement
+    expect(fill).toHaveClass('animate-pulse', 'motion-reduce:animate-none', 'motion-reduce:w-1/3')
+    expect(fill.style.width).toBe('')
+  })
+
   it('returns to review with an error when confirm fails', async () => {
     const user = userEvent.setup()
     renderModal()

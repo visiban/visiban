@@ -196,6 +196,16 @@ describe('SwimlaneRow', () => {
     expect(badge.className).toContain('text-info')
   })
 
+  it('collapsed=true match cell pulses with a reduced-motion opt-out (#199)', () => {
+    const props = defaultProps()
+    const card = makeCard({ id: 1, column: 10 })
+    props.cards = [card]
+    props.filteredCardIds = new Set([card.id])
+    props.collapsed = true
+    render(<SwimlaneRow {...props} />)
+    expect(screen.getByText('1').parentElement).toHaveClass('animate-pulse', 'motion-reduce:animate-none')
+  })
+
   it('renders focus icon button with tooltip when not focused', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     expect(screen.getByTitle('Focus on Customer A')).toBeInTheDocument()
