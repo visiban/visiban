@@ -1,6 +1,6 @@
 # Sample Boards
 
-Visiban ships ready-to-import sample boards: a set of templates and a demo board. Import
+Visiban ships ready-to-import sample boards: a set of templates. Import
 one to get a fully populated board in a few seconds. Each sample has real columns,
 swimlanes, labels and cards, typed custom fields, a full audit trail and enough movement
 history to fill the analytics charts.
@@ -38,6 +38,7 @@ To match your installed version, replace `main` with your release tag (for examp
 
 | File | Board | Swimlane = | Cards | Highlights |
 |------|-------|-----------|------:|-----------|
+| `software_development.json` | Software Development | Squad | 79 | Story points, issue type, release, environments, merge request links, on-call per squad |
 | `sales_overlay.json` | Sales Overlay | Account | 42 | Enterprise overlay coverage: AD, AE, SA, overlay AE/SA pods and services lead per account. Uses every custom field type and all 15 swimlane fields. One account is partly covered and one has no overlay coverage |
 | `simple_kanban.json` | Simple Kanban | Team | 113 | Story points, sprint, GitLab merge request links |
 | `sales_pipeline.json` | Sales Pipeline | Region | 114 | Deal value, forecast category, win probability, competitors |
@@ -51,8 +52,6 @@ To match your installed version, replace `main` with your release tag (for examp
 | `legal_compliance.json` | Legal & Compliance | Practice area | 108 | Risk, deadline, jurisdictions, admin-only privilege note |
 
 <!-- END sample-table -->
-
-The demo board, `sample-boards/demo_board.json` (115 cards, swimlanes by team), is a general product development board. It is generated separately by `seed_demo_data` and is not one of the template samples listed above.
 
 ## How to import
 
@@ -91,16 +90,14 @@ Imports are limited to 10 per user per hour.
     always imported as written by you.
 
 The `.csv` file for each template uses the same layout as **Export → CSV**
-(`demo_board.csv` keeps an older, simpler summary layout). Use it to look at
+Use it to look at
 the data in a spreadsheet or to try the CSV importer. CSV import creates cards with their
 title, description, column, swimlane, priority, labels, due date and weight. It does not
 restore movement history, comments, checklists or custom field values.
 
 ## What each template includes
 
-The templates include everything below. `demo_board.json` is generated separately
-by `seed_demo_data` and carries cards, history, labels and checklists, but no custom
-fields or column limits.
+The templates include everything below.
 
 - **Typed custom fields on cards.** Six to eleven per template. Together the templates use
   every field type: number (with `$`, `%` or unit formatting), dropdown and multi-select
@@ -132,21 +129,17 @@ suite regenerates them and fails if the committed files differ from the generato
 
 | File | Contains |
 |------|----------|
-| `backend/boards/seed_data/generate_seed_data.py` | Templates 1-5, history and audit-trail generation, CSV writer, entry point |
+| `backend/boards/seed_data/generate_seed_data.py` | Templates 1-5 and Software Development, history and audit-trail generation, CSV writer, entry point |
 | `backend/boards/seed_data/generate_seed_data_part2.py` | Templates 6-10 |
-| `backend/boards/seed_data/sample_features.py` | Custom fields, swimlane fields, column limits and links for templates 1-10 |
+| `backend/boards/seed_data/sample_features.py` | Custom fields, swimlane fields, column limits and links for every template |
 | `backend/boards/seed_data/sales_overlay.py` | The hand-written Sales Overlay board |
 
 ```bash
 # Regenerate the templates (no database needed; output is deterministic)
 python3 backend/boards/seed_data/generate_seed_data.py
-
-# Regenerate the demo board (needs Django and a running database)
-cd backend
-python manage.py seed_demo_data --wipe --export --force
 ```
 
 The first command writes the JSON files and `manifest.json` to
 `backend/boards/sample_boards/` and the CSV files to `sample-boards/`. It also rewrites the
-sample table on this page and in `sample-boards/README.md`. The demo board command writes to
-`sample-boards/`.
+sample table on this page and in `sample-boards/README.md`. That script is the only writer of
+these files; the hosted demo's seed data (`seed_demo_data`) is separate and writes no sample files.

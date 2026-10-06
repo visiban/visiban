@@ -14,6 +14,7 @@ Full guide: [docs/getting-started/sample-boards.md](../docs/getting-started/samp
 
 | File | Board | Swimlane = | Cards |
 |------|-------|-----------|------:|
+| `software_development.json` | Software Development | Squad | 79 |
 | `sales_overlay.json` | Sales Overlay | Account | 42 |
 | `simple_kanban.json` | Simple Kanban | Team | 113 |
 | `sales_pipeline.json` | Sales Pipeline | Region | 114 |
@@ -28,8 +29,7 @@ Full guide: [docs/getting-started/sample-boards.md](../docs/getting-started/samp
 
 <!-- END sample-table -->
 
-`demo_board.json` (Visiban Demo Board, 115 cards, swimlane = team) is generated separately by
-`seed_demo_data`. The JSON files for the templates above live in
+The JSON files for the boards above live in
 [`backend/boards/sample_boards/`](../backend/boards/sample_boards/); the CSV files are in this directory.
 
 ## Getting the files onto a packaged install
@@ -54,7 +54,7 @@ exist. Otherwise cards import unassigned, and moves and history are attributed t
 importing user.
 
 Each template's `.csv` file has the same column layout as **Export → CSV**
-(`demo_board.csv` keeps an older summary layout). It is meant for
+It is meant for
 spreadsheet review or for trying the CSV importer, which creates cards but not their
 history, comments, checklists or custom field values.
 
@@ -66,11 +66,8 @@ regenerates them and fails on any difference.
 ```bash
 # The templates, manifest and the tables above (no database needed; deterministic output)
 python3 backend/boards/seed_data/generate_seed_data.py
-
-# The demo board (requires Django + database)
-cd backend && python manage.py seed_demo_data --wipe --export --force
 ```
 
 Template sources live in `backend/boards/seed_data/`: `generate_seed_data.py` (templates
-1-5 and the generator), `generate_seed_data_part2.py` (templates 6-10),
+1-5, Software Development and the generator), `generate_seed_data_part2.py` (templates 6-10),
 `sample_features.py` (custom fields, limits and links) and `sales_overlay.py`.

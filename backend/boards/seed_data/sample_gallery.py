@@ -12,11 +12,19 @@ name): never rename one.
 
 GALLERY = [
     {
+        "slug": "software_development",
+        "title": "Software Development",
+        "summary": "Take engineering work from backlog to done, by squad.",
+        "swimlane_theme": "squad",
+        "order": 1,
+        "highlights": "Story points, issue type, release, environments, merge request links, on-call per squad",
+    },
+    {
         "slug": "sales_overlay",
         "title": "Sales Overlay",
         "summary": "See which accounts have coverage gaps under an enterprise overlay sales model.",
         "swimlane_theme": "account",
-        "order": 1,
+        "order": 2,
         "highlights": (
             "Enterprise overlay coverage: AD, AE, SA, overlay AE/SA pods and services lead per account. "
             "Uses every custom field type and all 15 swimlane fields. One account is partly covered "
@@ -28,7 +36,7 @@ GALLERY = [
         "title": "Simple Kanban",
         "summary": "A general-purpose team board with story points and merge request links.",
         "swimlane_theme": "team",
-        "order": 2,
+        "order": 3,
         "highlights": "Story points, sprint, GitLab merge request links",
     },
     {
@@ -36,7 +44,7 @@ GALLERY = [
         "title": "Sales Pipeline",
         "summary": "Track deals from first prospect to closed, by region.",
         "swimlane_theme": "region",
-        "order": 3,
+        "order": 4,
         "highlights": "Deal value, forecast category, win probability, competitors",
     },
     {
@@ -44,7 +52,7 @@ GALLERY = [
         "title": "Product Roadmap",
         "summary": "Move features from idea to launch, by product area.",
         "swimlane_theme": "product area",
-        "order": 4,
+        "order": 5,
         "highlights": "RICE score, target quarter, platforms, GitHub issue links",
     },
     {
@@ -52,7 +60,7 @@ GALLERY = [
         "title": "Customer Support",
         "summary": "Triage and resolve support tickets by customer account.",
         "swimlane_theme": "customer account",
-        "order": 5,
+        "order": 6,
         "highlights": "Severity, SLA due, affected components, support plan per account",
     },
     {
@@ -60,7 +68,7 @@ GALLERY = [
         "title": "Customer Success",
         "summary": "Watch account health, adoption and renewals by segment.",
         "swimlane_theme": "segment",
-        "order": 6,
+        "order": 7,
         "highlights": "Health score, ARR at stake, risk driver, products adopted",
     },
     {
@@ -68,7 +76,7 @@ GALLERY = [
         "title": "Project Delivery",
         "summary": "Follow cross-functional projects from planning to retrospective.",
         "swimlane_theme": "project",
-        "order": 7,
+        "order": 8,
         "highlights": "RAG status, percent complete, budget, sponsor per project",
     },
     {
@@ -76,7 +84,7 @@ GALLERY = [
         "title": "Content Production",
         "summary": "Take content from pitch to published, by channel.",
         "swimlane_theme": "channel",
-        "order": 8,
+        "order": 9,
         "highlights": "Content type, publish date, word count, channels",
     },
     {
@@ -84,7 +92,7 @@ GALLERY = [
         "title": "Hiring & Recruiting",
         "summary": "Move candidates from sourcing to offer, by department.",
         "swimlane_theme": "department",
-        "order": 9,
+        "order": 10,
         "highlights": "Level, source, interview loop, admin-only comp budget",
     },
     {
@@ -92,7 +100,7 @@ GALLERY = [
         "title": "Infrastructure & DevOps",
         "summary": "Track infrastructure and operations work by system.",
         "swimlane_theme": "system",
-        "order": 10,
+        "order": 11,
         "highlights": "Severity, environments, SLO and tier per system, merge request links",
     },
     {
@@ -100,7 +108,7 @@ GALLERY = [
         "title": "Legal & Compliance",
         "summary": "Manage legal documents and compliance deadlines by practice area.",
         "swimlane_theme": "practice area",
-        "order": 11,
+        "order": 12,
         "highlights": "Risk, deadline, jurisdictions, admin-only privilege note",
     },
 ]

@@ -27,10 +27,6 @@ python manage.py seed_demo_data --wipe
 python manage.py seed_demo_data --force
 python manage.py seed_demo_data --wipe --force
 
-# After seeding, write canonical JSON and CSV snapshots to scripts/seed/
-# Run this and commit the result whenever the board structure changes
-python manage.py seed_demo_data --export
-
 # Use a specific random seed instead of the command's built-in default
 python manage.py seed_demo_data --wipe --force --seed 42
 ```
@@ -38,7 +34,7 @@ python manage.py seed_demo_data --wipe --force --seed 42
 !!! info "Large fixture for load testing"
     `--scale N` (replicate the swimlane layout N times) and `--with-notifications` seed a
     much larger, separately-named **"Visiban Load Test Board"** instead of the normal demo
-    board — never combine `--scale > 1` with `--export`. This is CI-only, used by the
+    board — This is CI-only, used by the
     `nightly-load-test` job; see
     [Nightly load test](../development/nightly-load-test.md) for the full contract.
 
@@ -118,7 +114,7 @@ It creates, alongside the normal demo board:
 
 It also turns file uploads off and sets registration to **closed**.
 
-Passwords come only from the environment and are re-applied on every run. The command refuses to run unless `DEMO_MODE=true` and `DEMO_LOGIN_PASSWORD`, `DEMO_ADMIN_PASSWORD` and `DEMO_MEMBER_PASSWORD` are all set, refuses an admin password equal to the published one, refuses a `DEMO_LOGIN_USERNAME` that names another seeded account, and cannot be combined with `--export` or `--scale`. The onboarding tour is marked **completed** for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.
+Passwords come only from the environment and are re-applied on every run. The command refuses to run unless `DEMO_MODE=true` and `DEMO_LOGIN_PASSWORD`, `DEMO_ADMIN_PASSWORD` and `DEMO_MEMBER_PASSWORD` are all set, refuses an admin password equal to the published one, refuses a `DEMO_LOGIN_USERNAME` that names another seeded account, and cannot be combined with `--scale`. The onboarding tour is marked **completed** for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.
 
 ### Resetting the whole database
 
