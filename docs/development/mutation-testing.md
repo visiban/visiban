@@ -92,6 +92,8 @@ All remaining survivors change a field argument (`max_length`, `blank`, `db_inde
 
 Not triaged line by line. By region, among the paired mutants:
 
+The "Survivors after" column counts only mutants that survived. The 33 suspicious mutants (8 in helpers and `import_board`, 10 in `_import_json`, 15 in `_import_csv`) are not in it, but the kill rates above count them as not killed, so 823 - 656 = 167 = 134 survivors + 33 suspicious.
+
 | Region | Survivors after | Bucket |
 |---|---:|---|
 | helpers and `import_board` | 69 | Mostly missing assertion: throttle rate strings and the `_parse_import_options` / `_imported_board_name` defaults. A handful are equivalent (logger message strings and `or ""` fallbacks that cannot be observed). |
