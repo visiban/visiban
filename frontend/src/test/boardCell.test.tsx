@@ -167,6 +167,28 @@ describe('BoardCell', () => {
     expect(container.firstChild as HTMLElement).not.toHaveClass('border-dashed')
   })
 
+  it('empty addable cell renders the dashed boundary, min height and centered hover-aware Add card affordance (#200)', () => {
+    const { container } = render(<BoardCell {...defaultProps()} />)
+    const cell = container.firstChild as HTMLElement
+    expect(cell).toHaveClass('border-dashed', 'min-h-[80px]')
+    const affordance = screen.getByTestId('empty-cell-add-affordance')
+    expect(affordance).toHaveAttribute('aria-hidden', 'true')
+    expect(affordance).toHaveClass('items-center', 'justify-center', 'group-hover/cell:text-fg')
+    expect(screen.getByText('+ Add card')).toHaveClass('group-hover/cell:bg-surface-hover/60')
+  })
+
+  it('populated cell gets no empty treatment (#200)', () => {
+    const { container } = render(<BoardCell {...defaultProps()} cards={[makeCard()]} />)
+    expect(container.firstChild as HTMLElement).not.toHaveClass('border-dashed')
+    expect(screen.queryByTestId('empty-cell-add-affordance')).not.toBeInTheDocument()
+  })
+
+  it('viewer sees no Add card affordance on an empty cell (#200)', () => {
+    render(<BoardCell {...defaultProps()} canEdit={false} />)
+    expect(screen.queryByTestId('empty-cell-add-affordance')).not.toBeInTheDocument()
+    expect(screen.queryByText('+ Add card')).not.toBeInTheDocument()
+  })
+
   it('empty cell exposes the cell itself as the add-card button with a column+swimlane accessible name (#962)', () => {
     render(<BoardCell {...defaultProps()} />)
     // Empty cells are the keyboard-reachable creation surface — the cell wrapper
