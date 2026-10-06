@@ -1337,6 +1337,12 @@ class JoinGroupView(APIView):
         # would accept this link right now. Same value for anonymous and
         # signed-in callers, and never the reason, the mode, the delivery or
         # the sender — the preview must not disclose more than #801 allows.
+        # Disclosure decision: the bit itself is visible to any token holder
+        # and can narrow down whether the site is closed, whether the link is
+        # an emailed single-use one, and whether its sender still has admin
+        # rights. That is accepted under #801's capability model — the holder
+        # could learn the same by attempting registration with the token — and
+        # no reason or mode is ever exposed.
         # A member previewing their own consumed single-use invite gets
         # false, which is correct: it cannot create another account.
         return Response({

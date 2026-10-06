@@ -303,6 +303,18 @@ describe('JoinPage — can_register preview (#1481)', () => {
     expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
   })
 
+  it('keeps the original layout when can_register is null', async () => {
+    mockResolveJoinToken.mockResolvedValue({
+      group_id: 1,
+      group_name: 'Engineering',
+      can_register: null as unknown as boolean,
+    })
+    renderJoinPage(null)
+    expect(await screen.findByText('Create an account')).toBeInTheDocument()
+    expect(screen.getByText('already have an account?')).toBeInTheDocument()
+    expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
+  })
+
   it('still auto-joins a signed-in user when can_register is false', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: false })
     mockJoinGroup.mockReturnValue(new Promise(() => {}))

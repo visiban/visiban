@@ -526,6 +526,19 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
         link.refresh_from_db()
         self.assertIsNone(link.used_at)
 
+    def test_invite_only_preview_query_count(self):
+        """Pin the anonymous INVITE_ONLY preview's query count (#1481).
+
+        ``lookup_by_token`` joins the sender and group, so ``can_register``
+        adds only the sender's group-admin check, not a lazy sender fetch:
+        1 = the link lookup (with sender and group joined), 1 = group-admin check.
+        """
+        _link, raw = self.make_link()
+        self._preview(raw)  # warm the cached registration mode
+        with self.assertNumQueries(2):
+            r = self._preview(raw)
+        self.assertTrue(r.json()["can_register"])
+
     # -- error bodies ---------------------------------------------------------
 
     def test_unknown_token_404_has_no_can_register(self):
