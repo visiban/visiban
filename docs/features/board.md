@@ -33,7 +33,7 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 > **Changed in 1.1** — empty cells now read as a discoverable click target instead of hiding the **+ Add card** affordance in the bottom-left corner.
 
-An empty cell shows a dashed inset border with **+ Add card** centered.
+An empty cell shows a dashed inset border with **+ Add card** centered; the affordance highlights on hover or keyboard focus.
 
 - Click anywhere in the cell, or press **Tab** to focus it then **Enter**/**Space**, to open the inline new-card input.
 - The dashed border disappears the moment a card lives in the cell; populated cells keep the **+ Add card** button anchored at the bottom for additional cards.
