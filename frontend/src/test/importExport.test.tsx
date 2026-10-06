@@ -94,6 +94,26 @@ describe('ImportBoardModal', () => {
     expect(onImport).not.toHaveBeenCalled()
   })
 
+  it('associates the File and Board name labels with their controls (#1440)', () => {
+    render(<ImportBoardModal onImport={onImport} onCancel={onCancel} />)
+
+    const picker = screen.getByLabelText('File', { exact: false, selector: 'button' })
+    expect(picker.tagName).toBe('BUTTON')
+    expect(picker).toHaveAccessibleName(/^File\s+Click to select a \.json or \.csv file$/)
+
+    const nameInput = screen.getByLabelText(/Board name/)
+    expect(nameInput.tagName).toBe('INPUT')
+    expect(nameInput).toHaveAttribute('placeholder', expect.stringContaining('Imported'))
+  })
+
+  it('keeps the chosen file in the picker accessible name (#1440)', async () => {
+    const user = userEvent.setup()
+    render(<ImportBoardModal onImport={onImport} onCancel={onCancel} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(fileInput, new File(['{}'], 'board.json', { type: 'application/json' }))
+    expect(screen.getByRole('button', { name: /^File\s+board\.json/ })).toBeInTheDocument()
+  })
+
   it('accepts a .csv file without error', async () => {
     const user = userEvent.setup()
     render(<ImportBoardModal onImport={onImport} onCancel={onCancel} />)
