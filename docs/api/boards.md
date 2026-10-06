@@ -354,7 +354,7 @@ Board-level movement history for all cards on the board, sorted newest first. Re
 | `exclude_type` | comma-separated string | Exclude movement types (e.g. `archived,unarchived` hides system events) |
 | `offset` | integer | Pagination offset (default: `0`) |
 
-`export_min_role` also applies to movement exports requested with `?export=<format>`: a caller below the threshold receives the same `403` with `code: "export_restricted"` as the board export, and each export is recorded in the [export history](#get-apiv1boardsidexport-history).
+`export_min_role` also applies to movement exports requested with `?export=<format>`: a caller below the threshold receives the same `403` with `code: "export_restricted"` as the board export, and each successful export is recorded in the [export history](#get-apiv1boardsidexport-history). Movement exports share the board export rate limit (20 exports/hour per authenticated user, scope `board_export`; `429 Too Many Requests` when exceeded). Ordinary movement reads are not rate limited by it.
 
 When neither `moved_after` nor `moved_before` is specified, the full movement history is returned (no default date cutoff). Results are always paginated to `page_size: 50` so the absence of a date window does not cause runaway queries.
 
@@ -615,7 +615,7 @@ Return recent successful board exports for audit purposes (#842). Requires board
 |---|---|
 | `actor` | The user who performed the export, or `null` if the user has since been deleted. |
 | `actor_role_label` | Role the actor held at the moment of export. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"`, `"owner"`, `"site_admin"` — captured at write time, not recomputed on read. Distinct from `Board.export_min_role`, which only accepts the lower four values. |
-| `export_format` | `"csv"` or `"json"`. |
+| `export_format` | `"csv"` or `"json"` for board exports; `"movements_<format>"` (lowercased, at most 20 characters) for movement history exports. |
 | `row_count` | Number of cards included in the export. |
 | `created_at` | ISO 8601 timestamp. |
 
