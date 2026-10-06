@@ -229,6 +229,12 @@ class BoardInviteLink(models.Model):
         COLLABORATOR = "collaborator"
         VIEWER = "viewer"
 
+    #: The only roles an invite may ever grant. Enforced in ``generate()`` and
+    #: again at redemption, not just in the serializer, so no future caller
+    #: (shareable links, #439; a management command) can mint or honor an
+    #: admin-granting bearer token.
+    GRANTABLE_ROLES = frozenset(Role.values)
+
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="invite_links")
     token_hash = models.CharField(max_length=64, unique=True)
     # First 8 chars of the raw token ("vbnb_XXX") — safe for display.
@@ -298,6 +304,9 @@ class BoardInviteLink(models.Model):
         """Create an invite with a hashed token. Returns ``(instance, raw_token)``."""
         import secrets
 
+        role = role or cls.Role.MEMBER
+        if role not in cls.GRANTABLE_ROLES:
+            raise ValueError(f"A board invite cannot grant the role {role!r}.")
         raw = cls.BOARD_INVITE_PREFIX + secrets.token_hex(20)
         instance = cls.objects.create(
             board=board,
@@ -305,7 +314,7 @@ class BoardInviteLink(models.Model):
             token_hash=cls._hash_token(raw),
             prefix=raw[:8],
             name=name,
-            role=role or cls.Role.MEMBER,
+            role=role,
             expires_at=expires_at,
             single_use=single_use,
             delivery=delivery or cls.Delivery.LINK,

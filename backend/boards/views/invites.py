@@ -15,6 +15,7 @@ import datetime
 import logging
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers as drf_serializers, status
@@ -42,6 +43,9 @@ logger = logging.getLogger(__name__)
 
 # Pending emailed invites per board — the same ceiling as a group's (#731).
 BOARD_MAX_PENDING_EMAILED_INVITES = 50
+
+# Used/expired/revoked invites returned by the list, most recent first.
+BOARD_INVITE_LIST_MAX_PAST = 50
 
 _GONE_DETAILS = {
     "revoked": "This invite is no longer valid.",
@@ -73,12 +77,18 @@ class BoardInviteLinksMixin:
     @action(detail=True, methods=["get"], url_path="invite-links", pagination_class=None)
     def invite_links(self, request, pk=None):
         board = _require_board_admin(pk, request.user)
-        links = (
-            BoardInviteLink.objects.filter(board=board)
-            .select_related("created_by")
-            .order_by("-created_at", "-pk")
+        now = timezone.now()
+        base = BoardInviteLink.objects.filter(board=board).select_related("created_by")
+        pending_q = Q(revoked_at__isnull=True, used_at__isnull=True) & (
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now)
         )
-        return Response(BoardInviteLinkSerializer(links, many=True).data)
+        # Every pending invite (bounded by the send cap) plus only the most
+        # recent past ones: the history otherwise grows without bound.
+        pending = list(base.filter(pending_q).order_by("-created_at", "-pk"))
+        past = list(base.exclude(pending_q).order_by("-created_at", "-pk")[:BOARD_INVITE_LIST_MAX_PAST])
+        links = sorted(pending + past, key=lambda link: (link.created_at, link.pk), reverse=True)
+        context = {"board": board, "sender_admits_memo": {}}
+        return Response(BoardInviteLinkSerializer(links, many=True, context=context).data)
 
     @extend_schema(
         summary="Email a single-use board invite to one address",

@@ -248,7 +248,15 @@ the group channel's invite events.
 | `invite_link.revoked` | An invite was revoked — by an admin, automatically because its email could not be sent, or because its sender was deactivated | `{ "id": <int> }` |
 
 A redeemed invite publishes no event of its own: the `member.added` frame it
-causes carries the invite id when a membership was created.
+causes carries the invite id when a membership was created. When redeeming
+creates no membership — the person already had equal or higher access — the
+invite is still consumed but **no frame is sent at all**, so an admin's open
+invite list keeps showing it as pending until it is next fetched.
+`GET /boards/{id}/invite-links/` is authoritative; refetch it on open.
+
+These rows are also stored in the board's [change feed](events.md), where any
+board member can read them — with the same `{ "id": <int> }` payload and
+nothing more.
 
 ### Git Lens events (since 1.2)
 

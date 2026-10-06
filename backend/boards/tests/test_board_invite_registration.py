@@ -204,6 +204,25 @@ class BoardInviteRegistrationTests(_Fixture, TestCase):
         site_link.refresh_from_db()
         self.assertIsNotNone(site_link.used_at)
 
+    def test_multi_use_site_link_dedup_keys_on_the_saved_account_email(self):
+        """#925 dedup is keyed on the email saved on the new account (since
+        #1444), normalized, so a case variant of an address that already
+        redeemed the link is refused and leaves no account behind."""
+        from accounts.invite_utils import _email_hash_for_dedup
+        from accounts.models import InviteLink, InviteLinkRedemption
+
+        site_link, raw = InviteLink.generate(created_by=self.sender, single_use=False)
+        self.assertIn(self._register("Case.Person@Example.com", raw).status_code, (201, 204))
+        saved = User.objects.get(email__iexact="case.person@example.com").email
+        self.assertEqual(
+            InviteLinkRedemption.objects.get(invite_link=site_link).email_hash,
+            _email_hash_for_dedup(saved),
+        )
+        User.objects.filter(email__iexact="case.person@example.com").update(email="moved@example.com")
+        r = self._register("CASE.PERSON@example.COM", raw)
+        self.assertEqual(r.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(User.objects.filter(email__iexact="case.person@example.com").exists())
+
     def test_multi_use_site_link_repeat_email_is_409_and_rolled_back(self):
         from accounts.models import InviteLink
 

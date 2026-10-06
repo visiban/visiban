@@ -3649,7 +3649,13 @@ class BoardInviteLinkSerializer(serializers.ModelSerializer):
     def get_can_register(self, obj) -> bool:
         from .invites import board_link_can_register
 
-        return board_link_can_register(obj)
+        # The list view passes the board and a per-request memo so this stays
+        # O(senders), not O(rows), in queries (#1444 perf review).
+        return board_link_can_register(
+            obj,
+            board=self.context.get("board"),
+            admits_memo=self.context.get("sender_admits_memo"),
+        )
 
 
 class BoardInviteLinkEmailSerializer(serializers.Serializer):

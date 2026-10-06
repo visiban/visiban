@@ -68,15 +68,19 @@ _REFUSAL_DETAILS = {
 }
 
 
-def is_board_invite_token(raw_token: str) -> bool:
-    """True when ``raw_token`` has the board-invite prefix (``vbnb_``)."""
-    return (raw_token or "").strip().startswith(BoardInviteLink.BOARD_INVITE_PREFIX)
-
-
 def load_board(board_id):
     """The board with its group ancestor chain loaded, so ``get_board_role``
     walks inherited access without a query per level."""
     return Board.objects.select_related("owner", GROUP_ANCESTOR_SELECT_RELATED).get(pk=board_id)
+
+
+def role_is_grantable(link: BoardInviteLink) -> bool:
+    """False for an invite whose stored role is not member/collaborator/viewer.
+
+    Unreachable through ``BoardInviteLink.generate``; checked anyway so a row
+    written some other way (raw ORM, a future link type) never grants admin.
+    """
+    return link.role in BoardInviteLink.GRANTABLE_ROLES
 
 
 def sender_is_board_admin(link: BoardInviteLink, board=None) -> bool:
@@ -102,7 +106,7 @@ def unusable_code(link: BoardInviteLink, *, caller_has_access: bool) -> str | No
     the board — the person whose registration consumed it lands here on the
     SPA's follow-up join and must not hit a "this invite was used" dead end.
     """
-    if link.revoked_at is not None:
+    if link.revoked_at is not None or not role_is_grantable(link):
         return "revoked"
     if link.single_use and link.used_at is not None:
         return None if caller_has_access else "used"
@@ -113,6 +117,8 @@ def unusable_code(link: BoardInviteLink, *, caller_has_access: bool) -> str | No
 
 def _would_create_membership(user, board, invite_role) -> bool:
     """Apply the access rule (module docstring) without writing anything."""
+    if invite_role not in BoardInviteLink.GRANTABLE_ROLES:
+        raise InviteTokenError("invite_invalid", "Invalid or expired invite link.")
     if user.can_access_all_content or board.owner_id == user.id:
         return False
     if BoardMembership.objects.filter(board=board, user=user).exists():
@@ -130,6 +136,9 @@ def redeem(link: BoardInviteLink, user, board, *, via: str) -> bool:
     won the conditional ``used_at`` update) and run inside a transaction: the
     membership, the invite's counters, the redemption row and the
     ``member.added`` feed row commit or roll back together.
+
+    Raises ``InviteTokenError("invite_invalid")`` — granting nothing — for an
+    invite whose role is not grantable (see ``role_is_grantable``).
     """
     created = _would_create_membership(user, board, link.role)
     membership = None
@@ -164,14 +173,14 @@ def redeem(link: BoardInviteLink, user, board, *, via: str) -> bool:
 # Invite-only registration
 # ---------------------------------------------------------------------------
 
-def board_link_registration_refusal(link: BoardInviteLink) -> str | None:
+def board_link_registration_refusal(link: BoardInviteLink, *, board=None, admits_memo=None) -> str | None:
     """Why ``link`` cannot authorize registration on an INVITE_ONLY site, or None.
 
     Pure and lock-free (no writes, no row lock) so the public preview's
     ``can_register`` and the registration validator share one definition.
     Mirrors ``groups.invite_registration.group_link_registration_refusal``.
     """
-    if link.revoked_at is not None:
+    if link.revoked_at is not None or not role_is_grantable(link):
         return "invite_invalid"
     if not (link.single_use and link.delivery == BoardInviteLink.Delivery.EMAIL):
         return "invite_not_for_registration"
@@ -183,22 +192,27 @@ def board_link_registration_refusal(link: BoardInviteLink) -> str | None:
         return "invite_invalid"
     if link.is_expired:
         return "invite_expired"
-    if not _email_invites_enabled() or not _sender_still_admits(link):
+    if not _email_invites_enabled() or not _sender_still_admits(link, board=board, memo=admits_memo):
         return "invite_invalid"
     return None
 
 
-def board_link_can_register(link: BoardInviteLink) -> bool:
+def board_link_can_register(link: BoardInviteLink, *, board=None, admits_memo=None) -> bool:
     """Whether registration would accept ``link`` under the current mode.
 
     Advisory and racy by design (the sender can lose site admin, the invite can
     be consumed, the mode can change); registration re-checks under a row lock.
+
+    ``board`` (the invite's board, already loaded with its group ancestors) and
+    ``admits_memo`` (a dict shared across one request, keyed by sender id) let
+    the invite list answer this for every row without re-loading the board and
+    re-resolving the sender's role per row.
     """
     mode = get_registration_mode()
     if mode == SiteSetting.RegistrationMode.OPEN:
         return True
     if mode == SiteSetting.RegistrationMode.INVITE_ONLY:
-        return board_link_registration_refusal(link) is None
+        return board_link_registration_refusal(link, board=board, admits_memo=admits_memo) is None
     return False
 
 
@@ -212,7 +226,10 @@ def validate_board_registration_token(raw_token: str) -> BoardInviteLink:
     if not raw_token:
         raise InviteTokenError("invite_missing", "An invite link is required to register.")
     try:
-        link = BoardInviteLink.objects.select_for_update().select_related("created_by").get(
+        # Lock the bare row: ``created_by`` is a nullable FK, so joining it
+        # here would be a LEFT OUTER JOIN, and PostgreSQL refuses FOR UPDATE on
+        # the nullable side of one. The sender loads lazily below.
+        link = BoardInviteLink.objects.select_for_update().get(
             token_hash=BoardInviteLink._hash_token(raw_token),
             revoked_at__isnull=True,
         )
@@ -252,10 +269,15 @@ def _email_invites_enabled() -> bool:
     return invite_email_enabled()
 
 
-def _sender_still_admits(link: BoardInviteLink) -> bool:
+def _sender_still_admits(link: BoardInviteLink, *, board=None, memo=None) -> bool:
     """The sender may admit a new account: an active site admin who is still an
-    admin of the board, checked now."""
+    admin of the board, checked now. ``memo`` caches the answer per sender."""
     sender = link.created_by
     if sender is None or not sender.is_active or not sender.is_site_admin:
         return False
-    return sender_is_board_admin(link)
+    if memo is not None and sender.pk in memo:
+        return memo[sender.pk]
+    admits = sender_is_board_admin(link, board)
+    if memo is not None:
+        memo[sender.pk] = admits
+    return admits

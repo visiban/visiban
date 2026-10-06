@@ -1040,7 +1040,7 @@ Remove a member. Requires board admin. Cannot remove a site admin.
 *(New in 1.2)* A board admin can email a **single-use invite** to someone who may not have an account yet. The invite token (`vbnb_` prefix) travels only in the email and is never returned by the API; only its first 8 characters (`prefix`) are shown. The address it was sent to is not stored. Invites grant `member`, `collaborator` or `viewer` — never `admin`, and never the moderator flag. A board invite never adds anyone to the board's group.
 
 ### `GET /api/v1/boards/{id}/invite-links/`
-List the board's invites, newest first, as a bare array (not paginated). Requires board admin (an admin of the board, the owner, an admin of the board's group, or a site admin with all-content access). Includes used, expired and revoked invites.
+List the board's invites, newest first, as a bare array (not paginated). Requires board admin (an admin of the board, the owner, an admin of the board's group, or a site admin with all-content access). Returns **every pending invite plus at most the 50 most recent past ones** (used, expired or revoked); older history is not returned. A caller with no access to the board gets `403`, a board that does not exist `404`, an unauthenticated request `401` — the same as the members endpoints.
 
 | Field | Description |
 |---|---|

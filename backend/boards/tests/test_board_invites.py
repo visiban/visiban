@@ -215,40 +215,6 @@ class BoardInviteSendTests(_BoardFixture, TestCase):
         self.assertEqual(bodies[1], bodies[2])
         self.assertEqual(len(mail.outbox), 3)
 
-    # -- permission matrix ------------------------------------------------
-
-    def test_allowed_senders(self):
-        group_admin = User.objects.create_user(username="gadmin", password="p")
-        group = Group.objects.create(name="G", owner=group_admin)
-        GroupMembership.objects.create(group=group, user=group_admin, role=GroupMembership.Role.ADMIN)
-        self.board.group = group
-        self.board.save(update_fields=["group"])
-        site_admin = User.objects.create_user(username="sa", password="p")
-        site_admin.can_access_all_content = True
-        site_admin.save(update_fields=["can_access_all_content"])
-        for user in (self.owner, self.admin, group_admin, site_admin):
-            with self.subTest(user=user.username):
-                r = self._send(client=self.client_for(user))
-                self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.content)
-
-    def test_denied_senders(self):
-        users = {}
-        for role in ("member", "collaborator", "viewer"):
-            users[role] = User.objects.create_user(username=f"r_{role}", password="p")
-            BoardMembership.objects.create(board=self.board, user=users[role], role=role)
-        moderator = User.objects.create_user(username="mod", password="p")
-        BoardMembership.objects.create(board=self.board, user=moderator, role="member", is_moderator=True)
-        users["moderator"] = moderator
-        users["outsider"] = User.objects.create_user(username="outsider", password="p")
-        for label, user in users.items():
-            with self.subTest(user=label):
-                r = self._send(client=self.client_for(user))
-                self.assertIn(r.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
-        r = self._send(client=APIClient())
-        self.assertIn(r.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
-        self.assertFalse(BoardInviteLink.objects.exists())
-        self.assertEqual(len(mail.outbox), 0)
-
     @override_settings(INVITE_EMAIL_ENABLED=False)
     def test_feature_gate_off(self):
         r = self._send()
@@ -392,16 +358,6 @@ class BoardInviteListRevokeTests(_BoardFixture, TestCase):
         self.admin.save(update_fields=["is_site_admin"])
         self.assertIs(self.client.get(list_url(self.board)).json()[0]["can_register"], True)
 
-    def test_list_denied_to_non_admins(self):
-        member = User.objects.create_user(username="m", password="p")
-        BoardMembership.objects.create(board=self.board, user=member, role="member")
-        self.assertEqual(self.client_for(member).get(list_url(self.board)).status_code, status.HTTP_403_FORBIDDEN)
-        outsider = User.objects.create_user(username="o", password="p")
-        self.assertIn(
-            self.client_for(outsider).get(list_url(self.board)).status_code,
-            (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND),
-        )
-
     def test_revoke_sets_revoked_by_and_broadcasts(self):
         link, _ = self.make_invite(created_by=self.owner)
         with mock.patch("boards.broadcast.broadcast_board_event") as bcast:
@@ -433,14 +389,6 @@ class BoardInviteListRevokeTests(_BoardFixture, TestCase):
             self.client.delete(f"/api/v1/boards/{other.pk}/invite-links/{live.pk}/").status_code,
             status.HTTP_404_NOT_FOUND,
         )
-
-    def test_revoke_denied_to_non_admin(self):
-        link, _ = self.make_invite()
-        member = User.objects.create_user(username="m", password="p")
-        BoardMembership.objects.create(board=self.board, user=member, role="member")
-        self.assertEqual(self.client_for(member).delete(revoke_url(self.board, link)).status_code, status.HTTP_403_FORBIDDEN)
-        link.refresh_from_db()
-        self.assertEqual(link.status, "pending")
 
 
 # ---------------------------------------------------------------------------
@@ -673,3 +621,210 @@ class DeactivationRevokesBoardInvitesTests(_BoardFixture, TestCase):
         self.assertEqual(BoardInviteLink.objects.get(pk=pending.pk).revoked_by, self.site_admin)
         bcast.assert_called_once()
         self.assertEqual(bcast.call_args.args[:3], (self.board.pk, board_broadcast.EVT_INVITE_LINK_REVOKED, {"id": pending.pk}))
+
+
+# ---------------------------------------------------------------------------
+# RBAC matrix across list / send / revoke (pre-MR gate, #1444)
+# ---------------------------------------------------------------------------
+
+@override_settings(INVITE_EMAIL_ENABLED=True, DEMO_MODE=False, DEFAULT_FROM_EMAIL="invites@acme.test")
+class BoardInviteRbacMatrixTests(_BoardFixture, TestCase):
+    """Exact status codes, matching the existing ``/members/`` endpoint: a user
+    with no access to the board gets 403 (``get_board_for_user`` resolves the
+    board by pk, then refuses a None role), a missing board is 404, and an
+    anonymous caller is 401 (token auth's ``WWW-Authenticate`` header)."""
+
+    def setUp(self):
+        cache.clear()
+        self.make_board()
+        group_admin = User.objects.create_user(username="gadmin", password="p")
+        group = Group.objects.create(name="G", owner=group_admin)
+        GroupMembership.objects.create(group=group, user=group_admin, role=GroupMembership.Role.ADMIN)
+        self.board.group = group
+        self.board.save(update_fields=["group"])
+        site_admin = User.objects.create_user(username="sa", password="p")
+        site_admin.can_access_all_content = True
+        site_admin.save(update_fields=["can_access_all_content"])
+        self.allowed = {
+            "owner": self.owner, "explicit_admin": self.admin,
+            "group_admin": group_admin, "all_content_site_admin": site_admin,
+        }
+        self.denied = {}
+        for role in ("member", "collaborator", "viewer"):
+            user = User.objects.create_user(username=f"r_{role}", password="p")
+            BoardMembership.objects.create(board=self.board, user=user, role=role)
+            self.denied[role] = user
+        moderator = User.objects.create_user(username="mod", password="p")
+        BoardMembership.objects.create(board=self.board, user=moderator, role="member", is_moderator=True)
+        self.denied["moderator_member"] = moderator
+        self.denied["non_member"] = User.objects.create_user(username="outsider", password="p")
+
+    def tearDown(self):
+        cache.clear()
+
+    def _call(self, client, endpoint, board_pk=None):
+        board_pk = board_pk or self.board.pk
+        if endpoint == "list":
+            return client.get(f"/api/v1/boards/{board_pk}/invite-links/")
+        if endpoint == "send":
+            return client.post(f"/api/v1/boards/{board_pk}/invite-links/send/", {"email": RECIPIENT}, format="json")
+        link, _ = self.make_invite()
+        return client.delete(f"/api/v1/boards/{board_pk}/invite-links/{link.pk}/")
+
+    def test_members_endpoint_baseline_for_non_member_is_403(self):
+        r = self.client_for(self.denied["non_member"]).post(
+            f"/api/v1/boards/{self.board.pk}/members/", {"user_id": self.owner.pk}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_allowed_set(self):
+        expected = {"list": 200, "send": 202, "revoke": 204}
+        for endpoint, code in expected.items():
+            for label, user in self.allowed.items():
+                with self.subTest(endpoint=endpoint, user=label):
+                    self.assertEqual(self._call(self.client_for(user), endpoint).status_code, code)
+
+    def test_denied_set(self):
+        for endpoint in ("list", "send", "revoke"):
+            for label, user in self.denied.items():
+                with self.subTest(endpoint=endpoint, user=label):
+                    self.assertEqual(
+                        self._call(self.client_for(user), endpoint).status_code, status.HTTP_403_FORBIDDEN,
+                    )
+            with self.subTest(endpoint=endpoint, user="anonymous"):
+                self.assertEqual(self._call(APIClient(), endpoint).status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(BoardInviteLink.objects.filter(revoked_at__isnull=False).exists())
+
+    def test_nonexistent_board_is_404(self):
+        for endpoint in ("list", "send", "revoke"):
+            with self.subTest(endpoint=endpoint):
+                r = self._call(self.client_for(self.admin), endpoint, board_pk=999999)
+                self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+
+# ---------------------------------------------------------------------------
+# Role enforcement below the serializer
+# ---------------------------------------------------------------------------
+
+class BoardInviteRoleEnforcementTests(_BoardFixture, TestCase):
+
+    def setUp(self):
+        cache.clear()
+        self.make_board()
+        self.newcomer = User.objects.create_user(username="newcomer", password="p")
+
+    def test_generate_refuses_non_grantable_roles(self):
+        for role in ("admin", "moderator", "site_admin", "owner"):
+            with self.subTest(role=role), self.assertRaises(ValueError):
+                BoardInviteLink.generate(board=self.board, created_by=self.admin, role=role)
+        self.assertFalse(BoardInviteLink.objects.exists())
+
+    def test_admin_role_written_directly_is_never_honored(self):
+        from accounts.invite_utils import InviteTokenError
+        from boards import invites
+
+        link, raw = self.make_invite()
+        BoardInviteLink.objects.filter(pk=link.pk).update(role="admin")
+        link.refresh_from_db()
+        self.assertEqual(self.client_for(self.newcomer).get(join_url(raw)).json()["code"], "revoked")
+        r = self.client_for(self.newcomer).post(join_url(raw))
+        self.assertEqual(r.status_code, status.HTTP_410_GONE)
+        with self.assertRaises(InviteTokenError):
+            invites.redeem(link, self.newcomer, self.board, via="join")
+        self.assertEqual(invites.board_link_registration_refusal(link), "invite_invalid")
+        self.assertFalse(BoardMembership.objects.filter(user=self.newcomer).exists())
+        link.refresh_from_db()
+        self.assertIsNone(link.used_at)
+
+
+# ---------------------------------------------------------------------------
+# List: bounded history and constant query count
+# ---------------------------------------------------------------------------
+
+class BoardInviteListScalingTests(_BoardFixture, TestCase):
+
+    def setUp(self):
+        cache.clear()
+        self.make_board()
+        self.admin.is_site_admin = True
+        self.admin.save(update_fields=["is_site_admin"])
+        self.client = self.client_for(self.admin)
+
+    def tearDown(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        cache.clear()
+
+    def _count_queries(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        cache.clear()
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.get(list_url(self.board))
+        self.assertEqual(r.status_code, 200)
+        return len(ctx.captured_queries), r.json()
+
+    def test_query_count_does_not_grow_with_rows(self):
+        # INVITE_ONLY + site-admin sender: every row takes the full
+        # can_register path (sender role re-check).
+        set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
+        self.make_invite()
+        one, rows = self._count_queries()
+        self.assertIs(rows[0]["can_register"], True)
+        for _ in range(9):
+            self.make_invite()
+        ten, rows = self._count_queries()
+        self.assertEqual(len(rows), 10)
+        self.assertEqual(one, ten)
+
+    def test_all_pending_plus_fifty_most_recent_past(self):
+        from boards.views.invites import BOARD_INVITE_LIST_MAX_PAST
+
+        base = timezone.now() - timedelta(days=10)
+        past_ids = []
+        for i in range(BOARD_INVITE_LIST_MAX_PAST + 5):
+            link, _ = self.make_invite()
+            BoardInviteLink.objects.filter(pk=link.pk).update(
+                revoked_at=timezone.now(), created_at=base + timedelta(minutes=i),
+            )
+            past_ids.append(link.pk)
+        old_pending, _ = self.make_invite()
+        BoardInviteLink.objects.filter(pk=old_pending.pk).update(created_at=base - timedelta(days=30))
+        new_pending, _ = self.make_invite()
+        _n, rows = self._count_queries()
+        ids = [row["id"] for row in rows]
+        self.assertEqual(len(rows), 2 + BOARD_INVITE_LIST_MAX_PAST)
+        self.assertIn(old_pending.pk, ids)  # pending is never cut, however old
+        self.assertEqual(ids[0], new_pending.pk)
+        self.assertEqual(set(ids) & set(past_ids), set(past_ids[-BOARD_INVITE_LIST_MAX_PAST:]))
+        created = [row["created_at"] for row in rows]
+        self.assertEqual(created, sorted(created, reverse=True))
+
+
+# ---------------------------------------------------------------------------
+# Change feed visibility of invite events
+# ---------------------------------------------------------------------------
+
+@override_settings(INVITE_EMAIL_ENABLED=True, DEMO_MODE=False, DEFAULT_FROM_EMAIL="invites@acme.test")
+class BoardInviteFeedVisibilityTests(_BoardFixture, TestCase):
+
+    def test_non_admin_feed_reader_sees_only_the_invite_id(self):
+        """invite_link.* rows are refetch signals: a non-admin reader of the
+        change feed sees them (feed/socket parity) but only ``{id}``."""
+        cache.clear()
+        self.make_board()
+        viewer = User.objects.create_user(username="v", password="p")
+        BoardMembership.objects.create(board=self.board, user=viewer, role="viewer")
+        self.client_for(self.admin).post(send_url(self.board), {"email": RECIPIENT}, format="json")
+        link = BoardInviteLink.objects.get(board=self.board)
+        self.client_for(self.admin).delete(revoke_url(self.board, link))
+        r = self.client_for(viewer).get(f"/api/v1/boards/{self.board.pk}/events/")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        rows = body["results"] if isinstance(body, dict) else body
+        invite_rows = [row for row in rows if row["event"].startswith("invite_link.")]
+        self.assertEqual([row["event"] for row in invite_rows], ["invite_link.created", "invite_link.revoked"])
+        for row in invite_rows:
+            self.assertEqual(row["data"], {"id": link.pk})
+        cache.clear()
