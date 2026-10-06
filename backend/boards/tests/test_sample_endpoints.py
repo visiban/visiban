@@ -35,7 +35,9 @@ class SampleEndpointTests(TestCase):
         manifest = sample_boards.list_samples()
         self.assertEqual(resp.json(), manifest)
         self.assertEqual([s["order"] for s in resp.json()], sorted(s["order"] for s in resp.json()))
-        self.assertEqual(resp.json()[0]["id"], "sales_overlay")
+        # Gallery order is the manifest's own order, and the featured sample leads it.
+        self.assertEqual([s["id"] for s in resp.json()], [s["id"] for s in manifest])
+        self.assertEqual(resp.json()[0]["id"], "software_development")
         self.assertEqual(resp["Cache-Control"], "private, max-age=3600")
 
     def test_list_does_not_expose_paths_or_hashes(self):
