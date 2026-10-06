@@ -44,7 +44,7 @@ Import/export was re-measured on 2026-10-05 against `main` at `a5e4b7d20`, after
 | `_import_csv` (28, sample only) | 16 | 11 (15 more are suspicious, not counted as killed) |
 | **Total (823)** | **331 (40.2%)** | **656 (79.7%)** |
 
-The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). `export` (234 mutants) was reached only by the before run (38 killed, 32 survived of 70 tested) and has **no after measurement**; re-run it on a quiet machine with the line-range hook below (`MM_LO=1635 MM_HI=2095`) before treating the history-export area as strengthened. Suspicious mutants are counted as survivors in the rates above.
+The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). `export` (234 mutants) was reached only by the before run (38 killed, 32 survived of 70 tested) and has **no after measurement**; re-run it on a quiet machine with the line-range hook below (`MM_LO=1635 MM_HI=2095`) before treating the history-export area as strengthened. Suspicious mutants are counted as survivors in the rates above. Timeouts are counted as killed: the 2 in the table are both from the after run, in the `_imported_board_name` uniqueness loop (mutating `if candidate not in taken` or `n += 1` makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.
 
 ### Runtime
 
