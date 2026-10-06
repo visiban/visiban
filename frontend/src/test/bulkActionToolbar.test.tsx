@@ -453,6 +453,7 @@ describe('BulkActionToolbar', () => {
     await user.click(deleteButtons[deleteButtons.length - 1])
 
     expect(screen.getByText('Working...')).toBeInTheDocument()
+    expect(screen.getByText('Working...')).toHaveClass('animate-pulse', 'motion-reduce:animate-none')
     resolveDelete()
     await waitFor(() => expect(screen.queryByText('Working...')).not.toBeInTheDocument())
   })

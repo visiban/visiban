@@ -20,6 +20,19 @@ describe('ConnectionStatus', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
+  it('pulses degraded dots with a reduced-motion opt-out, never the healthy or offline dot (#199)', () => {
+    const dotOf = (status: 'connected' | 'connecting' | 'reconnecting' | 'failed') => {
+      const { container, unmount } = render(<ConnectionStatus status={status} lastEventAt={null} />)
+      const cls = container.querySelector('button span[aria-hidden="true"]')!.className
+      unmount()
+      return cls
+    }
+    expect(dotOf('connecting')).toMatch(/animate-pulse motion-reduce:animate-none/)
+    expect(dotOf('reconnecting')).toMatch(/animate-pulse motion-reduce:animate-none/)
+    expect(dotOf('connected')).not.toMatch(/animate-pulse/)
+    expect(dotOf('failed')).not.toMatch(/animate-pulse/)
+  })
+
   it('shows a visible "Connecting…" label while connecting', () => {
     render(<ConnectionStatus status="connecting" lastEventAt={null} />)
     const trigger = screen.getByRole('button', { name: /Connecting to real-time updates/i })

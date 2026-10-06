@@ -84,8 +84,8 @@ export default function ConnectionStatus({
 
   const variant = {
     connected:    { wrapper: "text-success px-1 py-0.5",                                       dot: "w-1.5 h-1.5 rounded-full bg-success-emphasis shrink-0",             label: "Live",           labelClass: "hidden lg:inline",    aria: "Real-time updates active" },
-    connecting:   { wrapper: "text-warning bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse shrink-0",  label: "Connecting\u2026", labelClass: "",                    aria: "Connecting to real-time updates" },
-    reconnecting: { wrapper: "text-warning bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse shrink-0",  label: "Reconnecting\u2026", labelClass: "",                  aria: "Reconnecting to real-time updates" },
+    connecting:   { wrapper: "text-warning bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse motion-reduce:animate-none shrink-0",  label: "Connecting\u2026", labelClass: "",                    aria: "Connecting to real-time updates" },
+    reconnecting: { wrapper: "text-warning bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse motion-reduce:animate-none shrink-0",  label: "Reconnecting\u2026", labelClass: "",                  aria: "Reconnecting to real-time updates" },
     stale:        { wrapper: "text-warning bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis shrink-0",                label: "Stale",          labelClass: "",                    aria: "Real-time updates delayed" },
     failed:       { wrapper: "text-danger bg-danger-bg/30 border border-danger-emphasis/40 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-danger-emphasis shrink-0",        label: "Offline",        labelClass: "",                    aria: "Real-time updates unavailable" },
   }[effective];

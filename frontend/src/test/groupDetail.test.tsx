@@ -1215,6 +1215,7 @@ describe('GroupDetail', () => {
       expect(liveBoard).toBeInTheDocument()
       const trigger = liveBoard.closest('[data-board-id]') as HTMLElement
       expect(trigger.parentElement?.className).toContain('animate-fade-in')
+      expect(trigger.parentElement?.className).toContain('motion-reduce:animate-none')
     })
 
     it('ignores duplicate board.created for a board already in the list', async () => {
