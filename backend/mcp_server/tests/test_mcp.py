@@ -206,6 +206,29 @@ class BearerAuthTests(McpTestCase):
         status, _ = self._initialize(token=self.raw_token)
         self.assertEqual(status, 401)
 
+    def test_must_change_password_user_is_403(self):
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        status, body = self._initialize(token=self.raw_token)
+        self.assertEqual(status, 403)
+        self.assertIn("change your password", body.decode())
+
+    def test_must_change_username_user_is_403_with_code(self):
+        self.user.must_change_username = True
+        self.user.save(update_fields=["must_change_username"])
+        status, body = self._initialize(token=self.raw_token)
+        self.assertEqual(status, 403)
+        self.assertEqual(
+            json.loads(body)["error"]["data"]["code"], "must_change_username"
+        )
+
+    def test_account_state_rejection_does_not_stamp_usage(self):
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        self._initialize(token=self.raw_token)
+        self.pat.refresh_from_db()
+        self.assertIsNone(self.pat.last_used_at)
+
     def test_valid_token_completes_initialize_handshake(self):
         status, body = self._initialize(token=self.raw_token)
         self.assertEqual(status, 200)

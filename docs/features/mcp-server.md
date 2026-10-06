@@ -36,6 +36,8 @@ The MCP server reuses Visiban's existing [Personal Access Token](personal-access
 
 **Watch out:** scopes are **not** hierarchical. A token's default `read`/`write` REST scopes don't grant MCP access, and `mcp:read` doesn't grant `mcp:write`. A token created before 1.2 has no scopes recorded and is refused at `/mcp` even though it still works over REST — create a new token instead of reusing an old one. See [Personal Access Tokens — Scopes](personal-access-tokens.md#scopes) for the full non-hierarchical-scopes rule.
 
+The `must_change_password` and `must_change_username` account flags apply to MCP as well as the REST API: while either is set on the token's account, `/mcp` returns `403` until the user resolves it in the web app.
+
 ## Connecting Claude Desktop
 
 Add a `visiban` entry to Claude Desktop's `claude_desktop_config.json`:

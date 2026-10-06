@@ -20,6 +20,11 @@ from accounts.authentication import (
     resolve_personal_access_token,
 )
 
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
+
 from .context import (
     reset_current_scopes, reset_current_token_id, reset_current_user,
     set_current_scopes, set_current_token_id, set_current_user,
@@ -41,6 +46,59 @@ def _unauthorized_body(detail):
         "id": None,
         "error": {"code": _JSONRPC_INVALID_REQUEST, "message": detail},
     }).encode()
+
+
+class AccountStateBlocked(Exception):
+    """The token's owner has a pending forced account change (HTTP 403).
+
+    Carries the same ``message`` and ``code`` the REST permission classes
+    produce, so a client sees one contract on both transports.
+    """
+
+    def __init__(self, detail, code):
+        super().__init__(detail)
+        self.detail = detail
+        self.code = code
+
+
+def _enforce_account_state(user):
+    """Apply the REST account-state gates to the MCP caller.
+
+    Reuses the REST permission classes' own predicate, message and code so the
+    two transports cannot drift. MCP exposes no password- or username-change
+    tool, so unlike REST there is no exempt endpoint: a flat reject is correct.
+    """
+    class _Request:
+        pass
+
+    request = _Request()
+    request.user = user
+    for gate in (MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange):
+        if not gate().has_permission(request, None):
+            raise AccountStateBlocked(
+                gate.message, getattr(gate, "code", "permission_denied")
+            )
+
+
+async def _send_403(send, detail, code):
+    body = json.dumps({
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {
+            "code": _JSONRPC_INVALID_REQUEST,
+            "message": detail,
+            "data": {"code": code},
+        },
+    }).encode()
+    await send({
+        "type": "http.response.start",
+        "status": 403,
+        "headers": [
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(body)).encode()),
+        ],
+    })
+    await send({"type": "http.response.body", "body": body})
 
 
 async def _send_401(send, detail):
@@ -85,6 +143,7 @@ def _authenticate_and_authorize(raw_token):
     request denied for scope never records authority it did not exercise.
     """
     pat = resolve_personal_access_token(raw_token)
+    _enforce_account_state(pat.user)
     presented_scope = enforce_mcp_scope(pat)
     record_token_usage(pat, presented_scope)
     return pat
@@ -135,6 +194,10 @@ class BearerAuthMiddleware:
             # this path is reachable by unauthenticated callers.
             logger.warning("Rejected MCP request: %s", exc.detail)
             await _send_401(send, exc.detail)
+            return
+        except AccountStateBlocked as exc:
+            logger.warning("Rejected MCP request: account state (%s)", exc.code)
+            await _send_403(send, exc.detail, exc.code)
             return
 
         user_token = set_current_user(pat.user)
