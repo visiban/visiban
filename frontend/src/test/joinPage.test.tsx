@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import JoinPage from '../pages/JoinPage'
 import type { User } from '../types'
 
@@ -236,5 +236,97 @@ describe('JoinPage', () => {
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: 'Acme Corp' })
     renderJoinPage(null)
     expect(await screen.findByText('Continue with Acme Corp')).toBeInTheDocument()
+  })
+})
+
+describe('JoinPage — can_register preview (#1481)', () => {
+  const BLOCKED_COPY = "This invite link can't be used to create a new account. Sign in with an existing account to join."
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
+  })
+
+  afterEach(() => {
+    sessionStorage.clear()
+  })
+
+  function HomeProbe() {
+    const location = useLocation()
+    return <div data-testid="home-page">{(location.state as { authMode?: string } | null)?.authMode}</div>
+  }
+
+  it('shows the sign-in-only view to an anonymous visitor when the link cannot register', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', role: 'viewer', can_register: false })
+    renderJoinPage(null)
+    expect(await screen.findByText(BLOCKED_COPY)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: "You're invited" })).toBeInTheDocument()
+    expect(screen.getByText('Engineering')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign in to join Engineering' })).toBeInTheDocument()
+    expect(screen.queryByText('Create an account')).not.toBeInTheDocument()
+    expect(screen.queryByText('already have an account?')).not.toBeInTheDocument()
+    expect(screen.queryByText(/To accept this invitation you need a Visiban account/)).not.toBeInTheDocument()
+  })
+
+  it('Sign in stores the join return path, navigates to login, and sets no invite_token', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: false })
+    render(
+      <MemoryRouter initialEntries={['/join/vbng_shared']}>
+        <Routes>
+          <Route path="/join/:token" element={<JoinPage user={null} onLogin={vi.fn()} />} />
+          <Route path="/" element={<HomeProbe />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to join Engineering' }))
+    expect(await screen.findByTestId('home-page')).toHaveTextContent('login')
+    expect(sessionStorage.getItem('returnTo')).toBe('/join/vbng_shared')
+    expect(sessionStorage.getItem('pendingJoinToken')).toBe('vbng_shared')
+    expect(sessionStorage.getItem('invite_token')).toBeNull()
+  })
+
+  it('keeps the original layout when can_register is true', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: true })
+    renderJoinPage(null)
+    expect(await screen.findByText('Create an account')).toBeInTheDocument()
+    expect(screen.getByText('already have an account?')).toBeInTheDocument()
+    expect(screen.getByText(/To accept this invitation you need a Visiban account/)).toBeInTheDocument()
+    expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
+  })
+
+  it('keeps the original layout when can_register is absent (older backend)', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    renderJoinPage(null)
+    expect(await screen.findByText('Create an account')).toBeInTheDocument()
+    expect(screen.getByText('already have an account?')).toBeInTheDocument()
+    expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
+  })
+
+  it('still auto-joins a signed-in user when can_register is false', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: false })
+    mockJoinGroup.mockReturnValue(new Promise(() => {}))
+    renderJoinPage(fakeUser)
+    expect(await screen.findByText('Joining Engineering…')).toBeInTheDocument()
+    expect(mockJoinGroup).toHaveBeenCalledWith('abc123')
+    expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
+  })
+
+  it('keeps the OAuth buttons below Sign in when can_register is false', async () => {
+    mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false, oidc: false, oidc_name: null })
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: false })
+    renderJoinPage(null)
+    const google = await screen.findByText('Continue with Google')
+    const signIn = screen.getByRole('button', { name: 'Sign in to join Engineering' })
+    expect(screen.getByText('or continue with')).toBeInTheDocument()
+    expect(signIn.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('still shows the invalid-link message on a 410', async () => {
+    const err = Object.assign(new Error('Gone'), { response: { status: 410 } })
+    mockResolveJoinToken.mockRejectedValue(err)
+    renderJoinPage(null)
+    expect(await screen.findByText('This link has already been used')).toBeInTheDocument()
+    expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
   })
 })

@@ -9,7 +9,7 @@ from unittest import mock
 
 from allauth.core.exceptions import ImmediateHttpResponse
 from django.core.cache import cache
-from django.db import connection
+from django.db import connection, transaction
 from django.test import RequestFactory, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
@@ -23,6 +23,7 @@ from groups.broadcast import EVT_MEMBER_ADDED
 from groups.invite_registration import (
     NOT_FOR_REGISTRATION_DETAIL,
     redeem_group_registration_token,
+    validate_group_registration_token,
 )
 from groups.models import Group, GroupInviteLink, GroupMembership
 
@@ -433,3 +434,178 @@ class GroupInviteRegistrationRaceTests(_GroupInviteFixture, TransactionTestCase)
         self.assertEqual(self.group.memberships.count(), 2)
         link.refresh_from_db()
         self.assertIsNotNone(link.used_at)
+
+
+class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
+    """``can_register`` on GET /groups/join/<token>/ (#1481).
+
+    A bare advisory boolean: true only when registration would accept the link
+    under the current registration mode. Same value for anonymous and signed-in
+    callers; never present on 404/410 bodies.
+    """
+
+    def setUp(self):
+        cache.clear()
+        set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
+        self.make_group()
+        self.member = User.objects.create_user(username="existing", password="pass")
+
+    def tearDown(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        cache.clear()
+
+    def _preview(self, raw, user=None):
+        client = APIClient()
+        if user is not None:
+            client.force_authenticate(user)
+        return client.get(join_url(raw))
+
+    def _can_register(self, raw):
+        """Preview as anonymous and as a signed-in user; both must agree."""
+        anon = self._preview(raw)
+        authed = self._preview(raw, user=self.member)
+        self.assertEqual(anon.status_code, status.HTTP_200_OK, anon.content)
+        self.assertEqual(authed.status_code, status.HTTP_200_OK, authed.content)
+        self.assertIs(type(anon.json()["can_register"]), bool)
+        self.assertEqual(anon.json()["can_register"], authed.json()["can_register"])
+        return anon.json()["can_register"]
+
+    def _demote_sender(self):
+        self.admin.is_site_admin = False
+        self.admin.save(update_fields=["is_site_admin"])
+
+    def _deactivate_sender(self):
+        self.admin.is_active = False
+        self.admin.save(update_fields=["is_active"])
+
+    # -- matrix -------------------------------------------------------------
+
+    def test_open_mode_is_true_even_for_a_shareable_link(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        _link, raw = self.make_link(delivery=GroupInviteLink.Delivery.LINK, single_use=False)
+        self.assertTrue(self._can_register(raw))
+
+    def test_invite_only_emailed_site_admin_single_use_is_true(self):
+        _link, raw = self.make_link()
+        self.assertTrue(self._can_register(raw))
+
+    def test_invite_only_shareable_link_is_false(self):
+        _link, raw = self.make_link(delivery=GroupInviteLink.Delivery.LINK, single_use=False)
+        self.assertFalse(self._can_register(raw))
+
+    def test_invite_only_non_site_admin_sender_is_false(self):
+        _link, raw = self.make_link()
+        self._demote_sender()
+        self.assertFalse(self._can_register(raw))
+
+    def test_invite_only_deactivated_sender_is_false(self):
+        _link, raw = self.make_link()
+        self._deactivate_sender()
+        self.assertFalse(self._can_register(raw))
+
+    @override_settings(INVITE_EMAIL_ENABLED=False)
+    def test_invite_only_email_invites_disabled_is_false(self):
+        _link, raw = self.make_link()
+        self.assertFalse(self._can_register(raw))
+
+    def test_closed_mode_is_false_even_for_a_qualifying_invite(self):
+        set_mode(SiteSetting.RegistrationMode.CLOSED)
+        _link, raw = self.make_link()
+        self.assertFalse(self._can_register(raw))
+
+    def test_preview_discloses_only_the_bare_boolean(self):
+        _link, raw = self.make_link()
+        self.assertEqual(
+            set(self._preview(raw).json()),
+            {"group_id", "group_name", "role", "can_register"},
+        )
+
+    def test_preview_takes_no_lock_and_consumes_nothing(self):
+        link, raw = self.make_link()
+        self._preview(raw)
+        link.refresh_from_db()
+        self.assertIsNone(link.used_at)
+
+    # -- error bodies ---------------------------------------------------------
+
+    def test_unknown_token_404_has_no_can_register(self):
+        r = self._preview("vbng_" + "0" * 40)
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertNotIn("can_register", r.json())
+
+    def test_expired_410_has_no_can_register(self):
+        _link, raw = self.make_link(expires_at=timezone.now() - timedelta(minutes=1))
+        r = self._preview(raw)
+        self.assertEqual(r.status_code, status.HTTP_410_GONE)
+        self.assertNotIn("can_register", r.json())
+
+    def test_used_410_has_no_can_register(self):
+        link, raw = self.make_link()
+        GroupInviteLink.objects.filter(pk=link.pk).update(used_at=timezone.now())
+        r = self._preview(raw)
+        self.assertEqual(r.status_code, status.HTTP_410_GONE)
+        self.assertNotIn("can_register", r.json())
+
+    # -- parity with the registration validator -------------------------------
+
+    def test_preview_matches_registration_validator_for_every_fixture(self):
+        """Under INVITE_ONLY the preview says true iff registration would accept."""
+        def emailed():
+            return self.make_link()
+
+        def shareable_multi():
+            return self.make_link(delivery=GroupInviteLink.Delivery.LINK, single_use=False)
+
+        def shareable_single():
+            return self.make_link(delivery=GroupInviteLink.Delivery.LINK, single_use=True)
+
+        def emailed_multi():
+            return self.make_link(single_use=False)
+
+        def non_site_admin():
+            pair = self.make_link()
+            self._demote_sender()
+            return pair
+
+        def deactivated():
+            pair = self.make_link()
+            self._deactivate_sender()
+            return pair
+
+        def no_longer_group_admin():
+            pair = self.make_link()
+            GroupMembership.objects.filter(group=self.group, user=self.admin).update(
+                role=GroupMembership.Role.VIEWER,
+            )
+            return pair
+
+        def emailed_disabled():
+            return self.make_link()
+
+        scenarios = [
+            ("emailed", emailed, True),
+            ("shareable_multi", shareable_multi, True),
+            ("shareable_single", shareable_single, True),
+            ("emailed_multi", emailed_multi, True),
+            ("non_site_admin", non_site_admin, True),
+            ("deactivated", deactivated, True),
+            ("no_longer_group_admin", no_longer_group_admin, True),
+            ("emailed_disabled", emailed_disabled, False),
+        ]
+        for name, build, email_enabled in scenarios:
+            with self.subTest(name), override_settings(INVITE_EMAIL_ENABLED=email_enabled):
+                # Fresh sender state per scenario.
+                User.objects.filter(pk=self.admin.pk).update(is_active=True, is_site_admin=True)
+                GroupMembership.objects.filter(group=self.group, user=self.admin).update(
+                    role=GroupMembership.Role.ADMIN,
+                )
+                self.admin.refresh_from_db()
+                _link, raw = build()
+                preview = self._preview(raw).json()["can_register"]
+                try:
+                    with transaction.atomic():
+                        validate_group_registration_token(raw)
+                    accepted = True
+                except InviteTokenError:
+                    accepted = False
+                self.assertEqual(preview, accepted)

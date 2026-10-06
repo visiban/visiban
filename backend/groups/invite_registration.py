@@ -33,6 +33,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.invite_utils import InviteTokenError
+from accounts.models import SiteSetting, get_registration_mode
 
 from . import broadcast as _group_broadcast
 from .models import GroupInviteLink, GroupMembership
@@ -48,6 +49,70 @@ NOT_FOR_REGISTRATION_DETAIL = (
 def is_group_invite_token(raw_token: str) -> bool:
     """True when ``raw_token`` has the group-invite prefix (``vbng_``)."""
     return (raw_token or "").strip().startswith(GroupInviteLink.GROUP_INVITE_PREFIX)
+
+
+# Detail text per refusal code, shared by the registration validator so the
+# pure predicate below and the raised errors cannot drift apart.
+_REFUSAL_DETAILS = {
+    "invite_not_for_registration": NOT_FOR_REGISTRATION_DETAIL,
+    "invite_invalid": "Invalid or expired invite link.",
+    "invite_expired": "This invite link has expired.",
+}
+
+
+def group_link_registration_refusal(link: GroupInviteLink) -> str | None:
+    """Why ``link`` cannot authorize registration on an INVITE_ONLY site, or None.
+
+    Pure and lock-free: it reads the link and its sender but never takes a row
+    lock or writes, so the public join preview (#1481) can ask the same
+    question registration asks without serializing on the invite row. The
+    registration validator calls it *after* its ``select_for_update`` lookup
+    and maps the code to an ``InviteTokenError``, so there is exactly one
+    definition of "this group link admits a new account".
+
+    Checks run in the order registration has always reported them (#1445):
+    the link's kind first (a shareable link or a non-site-admin sender's
+    invite is ``invite_not_for_registration``), then consumption, expiry,
+    the email-invite feature switch, and whether the sender still admits.
+    """
+    if not link.is_active:
+        # Unreachable from the validator (its lookup filters is_active); kept
+        # so a caller holding a revoked instance never gets a false "admits".
+        return "invite_invalid"
+    if not (link.single_use and link.delivery == GroupInviteLink.Delivery.EMAIL):
+        return "invite_not_for_registration"
+    sender = link.created_by
+    if sender is not None and sender.is_active and not sender.is_site_admin:
+        # A group admin's emailed invite: valid for joining, never for sign-up.
+        return "invite_not_for_registration"
+    if link.used_at is not None:
+        return "invite_invalid"
+    if link.is_expired:
+        return "invite_expired"
+    if not _email_invites_enabled() or not _sender_still_admits(link):
+        return "invite_invalid"
+    return None
+
+
+def link_can_register(link: GroupInviteLink) -> bool:
+    """Whether registration would accept ``link`` under the current registration mode.
+
+    Backs the ``can_register`` field of the public join preview (#1481) so the
+    SPA can steer a newcomer to "sign in" before they fill in a sign-up form
+    that would 400. OPEN admits any registration; CLOSED admits none;
+    INVITE_ONLY admits only what ``group_link_registration_refusal`` admits.
+
+    Advisory and racy by design: the sender can lose site admin, the invite
+    can be consumed, or the mode can change between this answer and the
+    registration request. Registration re-checks under a row lock and stays
+    the enforcer; this never authorizes anything.
+    """
+    mode = get_registration_mode()
+    if mode == SiteSetting.RegistrationMode.OPEN:
+        return True
+    if mode == SiteSetting.RegistrationMode.INVITE_ONLY:
+        return group_link_registration_refusal(link) is None
+    return False
 
 
 def validate_group_registration_token(raw_token: str) -> GroupInviteLink:
@@ -76,18 +141,9 @@ def validate_group_registration_token(raw_token: str) -> GroupInviteLink:
     except GroupInviteLink.DoesNotExist:
         raise InviteTokenError("invite_invalid", "Invalid or expired invite link.")
 
-    if not (link.single_use and link.delivery == GroupInviteLink.Delivery.EMAIL):
-        raise InviteTokenError("invite_not_for_registration", NOT_FOR_REGISTRATION_DETAIL)
-    sender = link.created_by
-    if sender is not None and sender.is_active and not sender.is_site_admin:
-        # A group admin's emailed invite: valid for joining, never for sign-up.
-        raise InviteTokenError("invite_not_for_registration", NOT_FOR_REGISTRATION_DETAIL)
-    if link.used_at is not None:
-        raise InviteTokenError("invite_invalid", "Invalid or expired invite link.")
-    if link.is_expired:
-        raise InviteTokenError("invite_expired", "This invite link has expired.")
-    if not _email_invites_enabled() or not _sender_still_admits(link):
-        raise InviteTokenError("invite_invalid", "Invalid or expired invite link.")
+    refusal = group_link_registration_refusal(link)
+    if refusal is not None:
+        raise InviteTokenError(refusal, _REFUSAL_DETAILS[refusal])
     return link
 
 

@@ -20,7 +20,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import User
+from accounts.models import SiteSetting, User
 from groups.models import Group, GroupInviteLink, GroupMembership
 
 
@@ -359,6 +359,32 @@ class JoinGroupSingleUseTests(TestCase):
         r = public_client.get(self._join_url(raw))
         self.assertEqual(r.status_code, status.HTTP_410_GONE)
         self.assertIn("already been used", r.json()["detail"])
+
+    def test_member_preview_of_their_used_link_says_cannot_register(self):
+        """The used-link-but-already-member 200 never offers sign-up (#1481).
+
+        Under INVITE_ONLY, a consumed single-use invite cannot create another
+        account. (In OPEN mode any registration is accepted, so the advisory
+        answer is true there by definition.)
+        """
+        setting = SiteSetting.get()
+        setting.registration_mode = SiteSetting.RegistrationMode.INVITE_ONLY
+        setting.save()
+
+        def _reopen():
+            # Reset through save() so the cached registration mode is invalidated
+            # too; the DB rollback alone would leave the cache at INVITE_ONLY.
+            s = SiteSetting.get()
+            s.registration_mode = SiteSetting.RegistrationMode.OPEN
+            s.save()
+        self.addCleanup(_reopen)
+        _, raw = GroupInviteLink.generate(
+            group=self.group, created_by=self.admin, single_use=True
+        )
+        self.client.post(self._join_url(raw))
+        r = self.client.get(self._join_url(raw))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIs(r.json()["can_register"], False)
 
     def test_multi_use_link_is_not_consumed_after_join(self):
         link, raw = GroupInviteLink.generate(

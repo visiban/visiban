@@ -22,6 +22,10 @@ export default function JoinPage({ user }: Props) {
   const [invalidReason, setInvalidReason] = useState<"expired" | "already_used">("expired");
   const [joinError, setJoinError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(5);
+  // From the preview's advisory `can_register` (#1481). Only a literal false
+  // switches to the sign-in-only view; undefined (older backend) keeps the
+  // original layout.
+  const [canRegister, setCanRegister] = useState<boolean | undefined>();
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
   // Prevent double-firing auto-join in React StrictMode.
   const autoJoinFired = useRef(false);
@@ -41,7 +45,11 @@ export default function JoinPage({ user }: Props) {
       return;
     }
     resolveJoinToken(token)
-      .then((data) => { setGroupName(data.group_name); setGroupId(data.group_id); })
+      .then((data) => {
+        setGroupName(data.group_name);
+        setGroupId(data.group_id);
+        setCanRegister(data.can_register);
+      })
       .catch((err) => {
         const httpStatus = (err as { response?: { status?: number } }).response?.status;
         setInvalidReason(httpStatus === 410 ? "already_used" : "expired");
@@ -151,6 +159,10 @@ export default function JoinPage({ user }: Props) {
   }
 
   const hasOAuth = providers && (providers.google || providers.github || providers.gitlab || providers.oidc);
+  // The link cannot create an account here (CLOSED site, shareable link,
+  // non-admin sender, or email invites off — deliberately not said which), so
+  // steer the visitor to sign in before they fill in a form that would 400.
+  const registerBlocked = canRegister === false;
 
   return (
     <div className="min-h-screen bg-sunken flex items-center justify-center">
@@ -184,29 +196,47 @@ export default function JoinPage({ user }: Props) {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-fg-tertiary text-sm mb-1">
-              To accept this invitation you need a Visiban account.
-            </p>
+            {registerBlocked ? (
+              <>
+                <p className="text-fg-tertiary text-sm mb-1">
+                  This invite link can't be used to create a new account. Sign in with an existing account to join.
+                </p>
 
-            <button
-              onClick={() => handleAuthRedirect("register")}
-              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Create an account
-            </button>
+                <button
+                  onClick={() => handleAuthRedirect("login")}
+                  aria-label={`Sign in to join ${groupName}`}
+                  className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Sign in
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-fg-tertiary text-sm mb-1">
+                  To accept this invitation you need a Visiban account.
+                </p>
 
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-surface-hover" />
-              <span className="text-xs text-fg-muted">already have an account?</span>
-              <div className="flex-1 h-px bg-surface-hover" />
-            </div>
+                <button
+                  onClick={() => handleAuthRedirect("register")}
+                  className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Create an account
+                </button>
 
-            <button
-              onClick={() => handleAuthRedirect("login")}
-              className="w-full bg-surface-hover hover:bg-surface-active text-fg font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Sign in
-            </button>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-surface-hover" />
+                  <span className="text-xs text-fg-muted">already have an account?</span>
+                  <div className="flex-1 h-px bg-surface-hover" />
+                </div>
+
+                <button
+                  onClick={() => handleAuthRedirect("login")}
+                  className="w-full bg-surface-hover hover:bg-surface-active text-fg font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Sign in
+                </button>
+              </>
+            )}
 
             {hasOAuth && (
               <>

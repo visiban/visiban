@@ -59,8 +59,20 @@ export const sendInviteLinkEmail = (
 export const revokeInviteLink = (groupId: number, linkId: number) =>
   client.delete(`/api/v1/groups/${groupId}/invite-links/${linkId}/`);
 
+/** Public preview of a group invite link (GET /groups/join/<token>/). */
+export interface JoinTokenPreview {
+  group_id: number;
+  group_name: string;
+  role?: "admin" | "member" | "collaborator" | "viewer";
+  /**
+   * Whether sign-up would accept this link right now (#1481). Advisory only —
+   * the registration endpoint still enforces. Absent on older backends.
+   */
+  can_register?: boolean;
+}
+
 export const resolveJoinToken = (token: string) =>
-  client.get<{ group_id: number; group_name: string }>(`/api/v1/groups/join/${token}/`).then((r) => r.data);
+  client.get<JoinTokenPreview>(`/api/v1/groups/join/${token}/`).then((r) => r.data);
 
 export const joinGroup = (token: string) =>
   client.post<Group>(`/api/v1/groups/join/${token}/`).then((r) => r.data);

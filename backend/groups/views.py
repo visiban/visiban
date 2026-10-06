@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 
 from visiban.invite_email import InviteEmailBadRequestSerializer, InviteEmailErrorSerializer
 from . import broadcast as _group_broadcast
+from .invite_registration import link_can_register
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
 from .serializers import (
     GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer,
@@ -1332,10 +1333,17 @@ class JoinGroupView(APIView):
             link.group_id,
             ip,
         )
+        # ``can_register`` (#1481) is a bare advisory boolean: whether sign-up
+        # would accept this link right now. Same value for anonymous and
+        # signed-in callers, and never the reason, the mode, the delivery or
+        # the sender — the preview must not disclose more than #801 allows.
+        # A member previewing their own consumed single-use invite gets
+        # false, which is correct: it cannot create another account.
         return Response({
             "group_id": link.group_id,
             "group_name": link.group.name,
             "role": link.role,
+            "can_register": link_can_register(link),
         })
 
     def post(self, request, token):
