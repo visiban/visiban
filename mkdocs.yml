@@ -1,5 +1,5 @@
 site_name: Visiban
-site_description: Swimlane pipeline board — documentation
+site_description: Open-source Kanban board where every row is an entity and every move is on the record — documentation
 site_url: https://docs.visiban.com
 repo_url: https://gitlab.com/visiban/visiban
 repo_name: visiban/visiban

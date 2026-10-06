@@ -1,0 +1,1 @@
+Product description updated across the README, docs landing page, Helm chart, OpenAPI metadata, and web app meta tags: Visiban is now described as an open-source Kanban board where every row is an entity and every move is on the record. The docs highlights list now covers 1.2 features (custom fields, MCP server, Trello import).
