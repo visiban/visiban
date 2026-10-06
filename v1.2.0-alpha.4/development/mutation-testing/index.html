@@ -2693,10 +2693,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#importexport-535-survivors-of-1078-not-triaged-line-by-line" class="md-nav__link">
+  <a href="#importexport-survivors-after-1453-partial-134-survivors-plus-33-suspicious-in-the-823-paired-mutants" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Import/export: 535 survivors of 1078 (not triaged line by line)
+        Import/export: survivors after #1453 (partial, 134 survivors plus 33 suspicious in the 823 paired mutants)
       
     </span>
   </a>
@@ -3959,7 +3959,7 @@
 <tr>
 <td>Import/export</td>
 <td><code>boards/views/import_export.py</code></td>
-<td><code>test_export</code>, <code>test_export_controls</code>, <code>test_export_edge_cases</code>, <code>test_import</code>, <code>test_moderator_export</code></td>
+<td><code>test_export</code>, <code>test_export_controls</code>, <code>test_export_edge_cases</code>, <code>test_import</code>, <code>test_moderator_export</code>; the 2026-10-05 "after" run adds <code>test_import_export_mutation_gaps</code> (#1453)</td>
 </tr>
 </tbody>
 </table>
@@ -4007,18 +4007,55 @@
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
-<td><code>boards/views/import_export.py</code></td>
-<td style="text-align: right;">1078</td>
-<td style="text-align: right;">543</td>
-<td style="text-align: right;">50.4%</td>
-<td style="text-align: right;">not re-run (see note)</td>
-<td style="text-align: right;">n/a</td>
-<td style="text-align: right;">0</td>
+<td><code>boards/views/import_export.py</code> (2026-10-05 re-measure, partial)</td>
+<td style="text-align: right;">1364</td>
+<td style="text-align: right;">331 of 823 paired</td>
+<td style="text-align: right;">40.2%</td>
+<td style="text-align: right;">656 of 823 paired</td>
+<td style="text-align: right;">79.7%</td>
+<td style="text-align: right;">2</td>
 </tr>
 </tbody>
 </table>
-<p>Import/export was deliberately <strong>not</strong> strengthened wholesale. After the baseline, only the movement-history part of the JSON export (lines 1396-1450) was re-run: 36 mutants there, 24 killed before and 29 after. If the 5 newly killed mutants are added to the module total the rate is about 50.8%, but that figure is an estimate, not a measurement.</p>
-<p><strong>Stale after the base commit.</strong> <code>import_export.py</code> was rewritten after <code>25bcfdf1e</code> (selective import, #119, and import naming, #1446), so the line ranges and function-level counts above do not map onto current <code>main</code>. Re-measure before acting on them. The import/export result is the lowest of the four areas and is tracked in #1453.</p>
+<p>Import/export was re-measured on 2026-10-05 against <code>main</code> at <code>a5e4b7d20</code>, after the module was rewritten (selective import #119, naming #1446). The module now has <strong>1364 mutants</strong> (it had 1078 at <code>25bcfdf1e</code>), so the 2026-10-04 figure is not comparable. "Before" is the five scoped files only; "after" adds <code>test_import_export_mutation_gaps.py</code> (#1453).</p>
+<p><strong>This is a partial, paired measurement, not a whole-module run.</strong> Sixteen shards (8 before, 8 after) were started on one laptop that was swapping (about 23 of 24 GB swap, load average above 250), and the after run reached about 60% of the module before being stopped. Mutants are processed in file order, so the paired set covers lines up to the middle of <code>_import_csv</code> and <strong>does not reach <code>export</code> or <code>export_history</code></strong>. Only mutants that have a verdict in both runs are compared (823 of 1364):</p>
+<table>
+<thead>
+<tr>
+<th>Region (paired mutants)</th>
+<th style="text-align: right;">Before killed</th>
+<th style="text-align: right;">After killed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>helpers and <code>import_board</code> (305)</td>
+<td style="text-align: right;">87 (28.5%)</td>
+<td style="text-align: right;">236 (77.4%)</td>
+</tr>
+<tr>
+<td><code>_import_json</code> (436)</td>
+<td style="text-align: right;">227 (52.1%)</td>
+<td style="text-align: right;">372 (85.3%)</td>
+</tr>
+<tr>
+<td><code>import_trello</code> (54)</td>
+<td style="text-align: right;">1 (1.9%)</td>
+<td style="text-align: right;">37 (68.5%)</td>
+</tr>
+<tr>
+<td><code>_import_csv</code> (28, sample only)</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">11 (15 more are suspicious, not counted as killed)</td>
+</tr>
+<tr>
+<td><strong>Total (823)</strong></td>
+<td style="text-align: right;"><strong>331 (40.2%)</strong></td>
+<td style="text-align: right;"><strong>656 (79.7%)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). <code>export</code> (234 mutants) was reached only by the before run (38 killed, 32 survived of 70 tested) and has <strong>no after measurement</strong>; re-run it on a quiet machine with the line-range hook below (<code>MM_LO=1635 MM_HI=2095</code>) before treating the history-export area as strengthened. Suspicious mutants are counted as survivors in the rates above. Timeouts are counted as killed: the 2 in the table are both from the after run, in the <code>_imported_board_name</code> uniqueness loop (mutating <code>if candidate not in taken</code> or <code>n += 1</code> makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.</p>
 <h3 id="runtime">Runtime<a class="headerlink" href="#runtime" title="Permanent link">&para;</a></h3>
 <p>Each module was split across 16 parallel copies of the tree (see <a href="#parallel-runs">Parallel runs</a>) on an 18-core machine. "Wall" is the slowest shard; "CPU total" is the sum of every shard's elapsed time, which is roughly what a single serial run would cost under the same load.</p>
 <table>
@@ -4121,44 +4158,46 @@
 </tr>
 </tbody>
 </table>
-<h3 id="importexport-535-survivors-of-1078-not-triaged-line-by-line">Import/export: 535 survivors of 1078 (not triaged line by line)<a class="headerlink" href="#importexport-535-survivors-of-1078-not-triaged-line-by-line" title="Permanent link">&para;</a></h3>
+<h3 id="importexport-survivors-after-1453-partial-134-survivors-plus-33-suspicious-in-the-823-paired-mutants">Import/export: survivors after #1453 (partial, 134 survivors plus 33 suspicious in the 823 paired mutants)<a class="headerlink" href="#importexport-survivors-after-1453-partial-134-survivors-plus-33-suspicious-in-the-823-paired-mutants" title="Permanent link">&para;</a></h3>
+<p>Not triaged line by line. By region, among the paired mutants:</p>
+<p>The "Survivors after" column counts only mutants that survived. The 33 suspicious mutants (8 in helpers and <code>import_board</code>, 10 in <code>_import_json</code>, 15 in <code>_import_csv</code>) are not in it, but the kill rates above count them as not killed, so 823 - 656 = 167 = 134 survivors + 33 suspicious.</p>
 <table>
 <thead>
 <tr>
-<th>Where</th>
-<th style="text-align: right;">Survivors</th>
-<th>Dominant kind</th>
+<th>Region</th>
+<th style="text-align: right;">Survivors after</th>
+<th>Bucket</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td>helpers and <code>import_board</code></td>
+<td style="text-align: right;">69</td>
+<td>Mostly missing assertion: throttle rate strings and the <code>_parse_import_options</code> / <code>_imported_board_name</code> defaults. A handful are equivalent (logger message strings and <code>or ""</code> fallbacks that cannot be observed).</td>
+</tr>
+<tr>
 <td><code>_import_json</code></td>
-<td style="text-align: right;">207</td>
-<td>error-message and key strings, limit boundaries (<code>&gt;</code> vs <code>&gt;=</code> on the 500/50/100 caps), field validation bounds</td>
-</tr>
-<tr>
-<td><code>export</code></td>
-<td style="text-align: right;">97</td>
-<td>JSON key names, comment and checklist ordering, CSV cell formatting</td>
-</tr>
-<tr>
-<td><code>_import_csv</code></td>
-<td style="text-align: right;">79</td>
-<td>error-message strings, row-level validation</td>
+<td style="text-align: right;">56</td>
+<td>Missing assertion on the field-level validation messages added by selective import, plus equivalent mutants in <code>.get(..., default)</code> calls whose default is always overridden.</td>
 </tr>
 <tr>
 <td><code>import_trello</code></td>
-<td style="text-align: right;">68</td>
-<td>mapping defaults and error strings</td>
+<td style="text-align: right;">7</td>
+<td>Missing assertion (mapping defaults).</td>
 </tr>
 <tr>
-<td>other (<code>import_board</code>, broadcast, throttle, helpers, <code>export_history</code>)</td>
-<td style="text-align: right;">84</td>
-<td>mixed</td>
+<td><code>_import_csv</code></td>
+<td style="text-align: right;">2 of 28 reached</td>
+<td>Sample too small to classify.</td>
+</tr>
+<tr>
+<td><code>export</code>, <code>export_history</code></td>
+<td style="text-align: right;">not measured after</td>
+<td>Untested by this run. The before run left 32 survivors of 70 tested in <code>export</code>.</td>
 </tr>
 </tbody>
 </table>
-<p>By kind, 334 are string literals (messages or dict keys that the tests never read back), 153 are value or default changes, 45 are boolean/comparison operator flips, and 3 replace a value with <code>None</code>. The tests mostly assert status codes and counts, not exact error bodies or boundary values. This is the lowest-signal area of the three and the one most worth a follow-up before the compliance-grade history export lands.</p>
+<p>The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The remaining survivors are expected to be dominated by log-message strings and unobservable defaults (equivalent); that classification is an estimate from sampling the diffs, not a full triage.</p>
 <h2 id="how-to-reproduce">How to reproduce<a class="headerlink" href="#how-to-reproduce" title="Permanent link">&para;</a></h2>
 <div class="admonition warning">
 <p class="admonition-title">Always mutate a throwaway copy</p>
