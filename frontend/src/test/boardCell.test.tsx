@@ -174,7 +174,7 @@ describe('BoardCell', () => {
     const affordance = screen.getByTestId('empty-cell-add-affordance')
     expect(affordance).toHaveAttribute('aria-hidden', 'true')
     expect(affordance).toHaveClass('items-center', 'justify-center', 'group-hover/cell:text-fg')
-    expect(screen.getByText('+ Add card')).toHaveClass('group-hover/cell:bg-surface-hover/60')
+    expect(screen.getByText('+ Add card')).toHaveClass('group-hover/cell:bg-surface-hover/50')
   })
 
   it('populated cell gets no empty treatment (#200)', () => {
