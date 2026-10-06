@@ -237,6 +237,29 @@ class BearerAuthTests(McpTestCase):
             json.loads(body)["error"]["data"]["code"], "must_change_username"
         )
 
+    def test_clearing_flags_restores_access_with_same_token(self):
+        self.user.must_change_password = True
+        self.user.must_change_username = True
+        self.user.save(update_fields=["must_change_password", "must_change_username"])
+        status, _ = self._initialize(token=self.raw_token)
+        self.assertEqual(status, 403)
+
+        self.user.must_change_password = False
+        self.user.must_change_username = False
+        self.user.save(update_fields=["must_change_password", "must_change_username"])
+        status, _ = self._initialize(token=self.raw_token)
+        self.assertEqual(status, 200)
+
+    def test_flagged_user_without_mcp_scope_gets_403_not_401(self):
+        # Deliberate ordering: the account-state gate runs before the scope
+        # check, so a flagged account is told to resolve its pending change
+        # (403) regardless of what the token's scopes are.
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        _, raw = PersonalAccessToken.generate(self.user, "legacy")
+        status, _ = self._initialize(token=raw)
+        self.assertEqual(status, 403)
+
     def test_account_state_rejection_does_not_stamp_usage(self):
         self.user.must_change_password = True
         self.user.save(update_fields=["must_change_password"])
