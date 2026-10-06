@@ -159,8 +159,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const [dropdownAnchor, setDropdownAnchor] = useState<{ top: number; bottom: number; left: number; width: number } | null>(null);
   // #1444 — the search → "Invite by email" bridge. `settledSearch` is the
-  // query the last debounced search finished for and how many addable people
-  // it found; the bridge shows only once that search has settled with none.
+  // query the last debounced search finished for and how many accounts it
+  // matched at all (members and staged people included); the bridge shows
+  // only once that search has settled with none.
   const [settledSearch, setSettledSearch] = useState<{ query: string; count: number } | null>(null);
   const [emailInviteAvailable, setEmailInviteAvailable] = useState(false);
   const emailFormRef = useRef<EmailInviteFormHandle>(null);
@@ -302,7 +303,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         const memberIds = new Set(members.map((m) => m.user.id));
         const stagedIds = new Set(staged.map((s) => s.user.id));
         const filtered = results.filter((u) => !memberIds.has(u.id) && !stagedIds.has(u.id));
-        setSettledSearch({ query: q, count: filtered.length });
+        // The RAW count: a query matching only existing members or staged
+        // people means they are already here, not that an invite is needed.
+        setSettledSearch({ query: q, count: results.length });
         if (filtered.length > 0 && searchInputRef.current) {
           const rect = searchInputRef.current.getBoundingClientRect();
           setDropdownAnchor({ top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width });
@@ -830,18 +833,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                   {/* #1444 — invite someone without an account, and the
                       invites still pending. Admins only, like Add member. */}
-                  <div className="border-t border-line pt-4 mt-6 flex flex-col gap-4">
-                    <InviteLinkPanel
-                      scope={{ kind: "board", id: board.id }}
-                      variant="embedded"
-                      allowShareableLinks={false}
-                      escapePriority={49}
-                      reloadSignal={inviteReloadSignal}
-                      isSiteAdmin={currentUserIsSiteAdmin}
-                      emailFormRef={emailFormRef}
-                      onEmailAvailabilityChange={setEmailInviteAvailable}
-                    />
-                  </div>
+                  <InviteLinkPanel
+                    className="border-t border-line pt-4 mt-6"
+                    scope={{ kind: "board", id: board.id }}
+                    variant="embedded"
+                    allowShareableLinks={false}
+                    escapePriority={49}
+                    reloadSignal={inviteReloadSignal}
+                    isSiteAdmin={currentUserIsSiteAdmin}
+                    emailFormRef={emailFormRef}
+                    onEmailAvailabilityChange={setEmailInviteAvailable}
+                  />
                 </div>
               )}
             </div>

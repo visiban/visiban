@@ -213,10 +213,51 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     renderBoard()
     await user.click(await screen.findByRole('button', { name: 'Revoke invite vbnb_ab1' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    const msg = await screen.findByText("This invite was already used, so it can't be revoked.")
-    expect(msg).toHaveClass('text-xs', 'text-danger', 'mt-1')
-    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2))
-    expect(await screen.findByText('Used')).toBeInTheDocument()
+    const MSG = "This invite was already used, so it can't be revoked."
+    await waitFor(() => expect(screen.getAllByText(MSG)).toHaveLength(2))
+    // Visual message in the row, plus the always-mounted live region that
+    // announces it (#1421) even though the prompt has closed.
+    const [first, second] = screen.getAllByText(MSG)
+    const live = [first, second].find((el) => el.getAttribute('role') === 'status')!
+    const visual = [first, second].find((el) => el !== live)!
+    expect(live).toHaveAttribute('aria-live', 'polite')
+    expect(live).toHaveClass('sr-only')
+    expect(visual).toHaveClass('text-xs', 'text-danger', 'mt-1')
+    expect(mockList).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('Used')).toBeInTheDocument()
+  })
+
+  it('a later refetch clears a stale revoke message', async () => {
+    mockList.mockResolvedValueOnce([invite()])
+    mockList.mockResolvedValue([invite({ status: 'used', used_at: '2026-10-03T00:00:00Z' })])
+    mockRevoke.mockRejectedValue({ response: { status: 400 } })
+    const user = userEvent.setup()
+    const { rerender } = renderBoard({ reloadSignal: 0 })
+    await user.click(await screen.findByRole('button', { name: 'Revoke invite vbnb_ab1' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(screen.getAllByText(/already used, so it can't be revoked/)).toHaveLength(2))
+    rerender(<InviteLinkPanel scope={{ kind: 'board', id: 9 }} variant="embedded" allowShareableLinks={false} reloadSignal={1} />)
+    await waitFor(() => expect(screen.queryByText(/already used, so it can't be revoked/)).not.toBeInTheDocument())
+  })
+
+  it('email unavailable and no invites: renders no section at all', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...siteConfig, invite_email_available: false })
+    const { container } = renderBoard({ className: 'border-t' })
+    await waitFor(() => expect(mockList).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByText('Pending invites')).not.toBeInTheDocument())
+    expect(screen.queryByText('No pending invites.')).not.toBeInTheDocument()
+    expect(container.querySelector('.border-t')).toBeNull()
+    expect(container.textContent).toBe('')
+  })
+
+  it('email turned off later but invites exist: list stays, honesty line goes', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...siteConfig, invite_email_available: false })
+    mockList.mockResolvedValue([invite()])
+    renderBoard()
+    expect(await screen.findByText('Emailed invite')).toBeInTheDocument()
+    expect(screen.getByText('Pending invites')).toBeInTheDocument()
+    expect(screen.queryByText(/doesn't keep the email address/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Invite by email')).not.toBeInTheDocument()
   })
 
   it('other revoke failures keep the prompt with buttons re-enabled', async () => {
@@ -312,8 +353,9 @@ describe('InviteLinkPanel — group revoke fixes (#1421)', () => {
     render(<InviteLinkPanel scope={{ kind: 'group', id: 3 }} />)
     await user.click(await screen.findByRole('button', { name: 'Revoke' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(await screen.findByText("This invite was already used, so it can't be revoked.")).toBeInTheDocument()
-    await waitFor(() => expect(mockGroupList).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getAllByText("This invite was already used, so it can't be revoked.")).toHaveLength(2))
+    expect(screen.getAllByRole('status').some((el) => el.textContent === "This invite was already used, so it can't be revoked.")).toBe(true)
+    expect(mockGroupList).toHaveBeenCalledTimes(2)
   })
 
   it('a network failure on revoke no longer leaves an unhandled rejection', async () => {

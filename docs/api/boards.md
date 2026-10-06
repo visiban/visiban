@@ -1049,8 +1049,47 @@ List the board's invites, newest first, as a bare array (not paginated). Require
 | `delivery` | `email` for emailed invites (`link` is reserved for shareable links, not yet available). |
 | `created_at`, `created_by_username` | When and by whom it was sent. `created_by_username` is `null` when the sender's account was deleted. |
 | `expires_at`, `is_expired`, `single_use`, `used_at` | Lifetime. |
-| `status` | `pending`, `used`, `expired` or `revoked` (precedence revoked > used > expired). A pending invite whose sender's account was deleted, or who is no longer an admin of the board, is reported as `revoked` — the join endpoints refuse it the same way — although nobody revoked it explicitly. It also stops counting toward the 50-pending cap. |
+| `status` | `pending`, `used`, `expired` or `revoked` (precedence revoked > used > expired). A pending invite whose sender's account was deleted, or who is no longer an admin of the board, is reported as `revoked` — the join endpoints refuse it the same way — although nobody revoked it explicitly, and it stops counting toward the 50-pending cap. This is **not written** to the invite: if the sender regains board admin, the invite reads as `pending` and can be redeemed again (until it expires). To make it permanent, revoke it with `DELETE` below, which accepts it because it was never actually revoked. |
 | `can_register` | Advisory: whether a new person could create an account from this invite under the site's **current** registration mode — computed when you read it, so it changes if the mode or the sender's site-admin status changes. Always `false` when `status` is not `pending`. |
+
+**Example response**
+
+```json
+[
+  {
+    "id": 42,
+    "prefix": "vbnb_3f9",
+    "name": "",
+    "role": "collaborator",
+    "delivery": "email",
+    "created_at": "2026-10-06T14:02:11.512Z",
+    "created_by_username": "alice",
+    "expires_at": "2026-10-13T14:02:11.498Z",
+    "is_expired": false,
+    "single_use": true,
+    "used_at": null,
+    "status": "pending",
+    "can_register": true
+  },
+  {
+    "id": 37,
+    "prefix": "vbnb_c07",
+    "name": "",
+    "role": "viewer",
+    "delivery": "email",
+    "created_at": "2026-10-02T09:15:40.003Z",
+    "created_by_username": null,
+    "expires_at": "2026-11-01T09:15:39.990Z",
+    "is_expired": false,
+    "single_use": true,
+    "used_at": null,
+    "status": "revoked",
+    "can_register": false
+  }
+]
+```
+
+The second invite was sent by an account that has since been deleted, so it lists as `revoked` even though `DELETE` was never called.
 
 ### `POST /api/v1/boards/{id}/invite-links/send/`
 Email one invite. Requires board admin. Same contract as the [group send endpoint](groups.md): the response is identical whether the address belongs to a member, another user, or nobody, and the email is always sent.
@@ -1087,9 +1126,15 @@ The **board name is disclosed to anyone holding the token**. That is deliberate 
 |---|---|---|
 | `404 Not Found` | `{"detail": "Not found."}` | No such token. |
 | `410 Gone` | `{"code": "used" \| "expired" \| "revoked", "detail": "..."}` | A known invite that can no longer be used. `revoked` also covers an invite whose sender has since been deactivated or is no longer an admin of the board. A used invite still answers `200` to someone who already has access to the board. |
+| `429 Too Many Requests` | `{"detail": "Request was throttled. ..."}`, `Retry-After` header | The per-IP `join_group` budget (10/hour) is spent — shared with the group join endpoints and with `POST` below. |
 
 ### `POST /api/v1/boards/join/{token}/`
-Redeem an invite as the signed-in user. Returns `{ "board_id", "board_name", "role", "created" }` — `201` when a membership was created, `200` otherwise. Same `404` / `410` bodies as the preview.
+Redeem an invite as the signed-in user. Returns `{ "board_id", "board_name", "role", "created" }` — `201` when a membership was created, `200` otherwise. Same `404` / `410` / `429` responses as the preview, plus:
+
+| Status | When |
+|---|---|
+| `401 Unauthorized` | No credentials. |
+| `403 Forbidden` | The account must change its password or username first (`must_change_password` / `must_change_username`), or a personal access token lacks the `write` scope. |
 
 What redeeming does depends on the access you already have, because an explicit board membership **replaces** any role you inherit from the board's group rather than adding to it:
 

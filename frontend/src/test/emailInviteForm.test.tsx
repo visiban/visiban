@@ -299,6 +299,17 @@ describe('EmailInviteForm — board surface (#1444)', () => {
     expect(screen.queryByText('Admin')).not.toBeInTheDocument()
   })
 
+  it('pickers have accessible names that include their current value', async () => {
+    await renderForm('board', { roleOptions: BOARD_ROLES })
+    expect(screen.getByRole('button', { name: 'Role: Member' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expires: 7 days' })).toBeInTheDocument()
+  })
+
+  it('the group role picker is named too', async () => {
+    await renderForm('group')
+    expect(screen.getByRole('button', { name: 'Role: Member' })).toBeInTheDocument()
+  })
+
   it('has an Expires picker defaulting to 7 days, reflected in the helper text', async () => {
     const user = userEvent.setup()
     await renderForm('board', { roleOptions: BOARD_ROLES, showLinkDivider: false })

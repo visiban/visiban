@@ -39,6 +39,10 @@ interface Props {
   emailFormRef?: Ref<EmailInviteFormHandle>;
   /** Forwarded to the email form: whether sending by email is available. */
   onEmailAvailabilityChange?: (available: boolean) => void;
+  /** Extra classes for the embedded root (the host's section chrome), so the
+   *  whole section — border included — disappears when there is nothing to
+   *  show (#1444). */
+  className?: string;
 }
 
 /** The fields the panel reads, common to group and board invite rows. */
@@ -158,6 +162,7 @@ export default function InviteLinkPanel({
   isSiteAdmin = false,
   emailFormRef,
   onEmailAvailabilityChange,
+  className = "",
 }: Props) {
   const { kind, id: scopeId } = scope;
   const api = INVITE_API[kind];
@@ -186,6 +191,8 @@ export default function InviteLinkPanel({
   const [revokeError, setRevokeError] = useState<{ id: number; message: string } | null>(null);
   // Board list: used/expired/revoked rows sit behind a toggle (local only).
   const [showPast, setShowPast] = useState(false);
+  // Whether the email form can send (null until site-config loads).
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
 
   // Escape cancels the open revoke prompt before the host's own Escape
   // handler — GroupDetail's priority-0 navigate (#1238), or Board Settings'
@@ -210,6 +217,9 @@ export default function InviteLinkPanel({
   const fetchLinks = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
+    // A refetch shows the rows' real state, so an earlier revoke message
+    // about one of them no longer applies.
+    setRevokeError(null);
     try {
       const data = await api.list(scopeId);
       // The list never carries raw tokens; keep one we are still revealing so a
@@ -301,9 +311,10 @@ export default function InviteLinkPanel({
       if (httpStatus === 400) {
         // Redeemed while the prompt was open: say so, and show its real state.
         setConfirmRevokeId(null);
-        setRevokeError({ id: linkId, message: ALREADY_USED_REVOKE_ERROR });
         if (isBoard) setShowPast(true);
-        void fetchLinks();
+        // Refetch first (it clears revokeError), then report the outcome.
+        await fetchLinks();
+        setRevokeError({ id: linkId, message: ALREADY_USED_REVOKE_ERROR });
       } else {
         // Leave the prompt open with both buttons re-enabled so it can be retried.
         setRevokeError({ id: linkId, message: GENERIC_REVOKE_ERROR });
@@ -403,6 +414,15 @@ export default function InviteLinkPanel({
     );
   };
 
+  // Always mounted, so the outcome of a revoke that lost to a redemption is
+  // announced even though the prompt that started it has closed and (on the
+  // board) the row has moved to the past list (#1421).
+  const revokeAnnouncement = (
+    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      {revokeError?.message === ALREADY_USED_REVOKE_ERROR ? revokeError.message : ""}
+    </div>
+  );
+
   const emailForm = (
     <EmailInviteForm
       ref={emailFormRef}
@@ -412,7 +432,10 @@ export default function InviteLinkPanel({
       senderIsSiteAdmin={isSiteAdmin}
       roleOptions={isBoard ? BOARD_ROLE_OPTIONS : undefined}
       showLinkDivider={allowShareableLinks}
-      onAvailabilityChange={onEmailAvailabilityChange}
+      onAvailabilityChange={(available) => {
+        setEmailAvailable(available);
+        onEmailAvailabilityChange?.(available);
+      }}
     />
   );
 
@@ -470,14 +493,30 @@ export default function InviteLinkPanel({
       );
     };
 
+    // Nothing to send and nothing sent: render no section at all rather than
+    // a heading over an empty list. The root stays the same element with the
+    // form at the same position (display: contents drops its box and border),
+    // so the form is not remounted and availability is not re-fetched.
+    const sectionHidden =
+      !allowShareableLinks && emailAvailable === false && !loadError && (loading || links.length === 0);
+
     return (
-      <div className={variant === "card" ? "bg-surface border border-line rounded-lg p-4 flex flex-col gap-4" : "flex flex-col gap-4"}>
+      <div
+        className={sectionHidden
+          ? "contents"
+          : `${variant === "card" ? "bg-surface border border-line rounded-lg p-4" : ""} flex flex-col gap-4 ${className}`.trim()}
+      >
         {emailForm}
+        {!sectionHidden && revokeAnnouncement}
+        {!sectionHidden && (
         <div className="flex flex-col gap-2">
           <h4 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Pending invites</h4>
-          <p className="text-xs text-fg-muted">
-            Visiban doesn't keep the email address an invite was sent to. Tell invites apart by when they were sent.
-          </p>
+          {/* About emailed invites — irrelevant once sending is unavailable. */}
+          {emailAvailable !== false && (
+            <p className="text-xs text-fg-muted">
+              Visiban doesn't keep the email address an invite was sent to. Tell invites apart by when they were sent.
+            </p>
+          )}
           {loading ? (
             <Spinner />
           ) : loadError ? (
@@ -513,12 +552,14 @@ export default function InviteLinkPanel({
             </>
           )}
         </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className={variant === "card" ? "bg-surface border border-line rounded-lg p-4 flex flex-col gap-4" : "flex flex-col gap-4"}>
+    <div className={`${variant === "card" ? "bg-surface border border-line rounded-lg p-4" : ""} flex flex-col gap-4 ${className}`.trim()}>
+      {revokeAnnouncement}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-fg-secondary">Invite links</h3>
         {allowShareableLinks && !atLimit && !showForm && (

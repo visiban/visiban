@@ -289,7 +289,7 @@ export default function JoinPage({ user }: Props) {
               </>
             ) : joinError ? (
               <>
-                <p className="text-danger text-sm">{joinError}</p>
+                <p role="alert" className="text-danger text-sm break-words">{joinError}</p>
                 <button
                   onClick={handleRetry}
                   className="bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"

@@ -1723,6 +1723,20 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
     expect(screen.queryByRole('button', { name: 'Invite by email' })).not.toBeInTheDocument()
   })
 
+  it('no bridge when the search matched only people already on the board or staged', async () => {
+    const user = userEvent.setup()
+    // The raw result is Bob, already a member: nothing addable, but an
+    // account does match — so no invite is offered.
+    mockSearchUsers.mockResolvedValue([{ ...fakeMember2, email: 'bob@example.com' }])
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await screen.findByText('Invite by email')
+    await user.type(screen.getByPlaceholderText(/search by name or email/i), 'bob@example.com')
+    await waitFor(() => expect(mockSearchUsers).toHaveBeenCalledWith('bob@example.com'))
+    await act(async () => { await new Promise((r) => setTimeout(r, 400)) })
+    expect(screen.queryByRole('button', { name: 'Invite by email' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('member-suggestions')).not.toBeInTheDocument()
+  })
+
   it('no bridge when sending by email is unavailable', async () => {
     const { getSiteConfig } = await import('../api/auth')
     ;(getSiteConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({

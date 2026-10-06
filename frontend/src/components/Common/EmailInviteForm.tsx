@@ -315,6 +315,7 @@ export default function EmailInviteForm({
         {surface === "group" && (
           <SingleSelectDropdown<Role>
             label="Role"
+            ariaLabel="Role"
             options={roleOptions}
             selected={role}
             onChange={(v) => { if (v) setRole(v); }}
@@ -324,6 +325,7 @@ export default function EmailInviteForm({
           <>
             <SingleSelectDropdown<Role>
               label="Role"
+              ariaLabel="Role"
               options={roleOptions}
               selected={role}
               onChange={(v) => { if (v) setRole(v); }}
@@ -332,6 +334,7 @@ export default function EmailInviteForm({
             />
             <SingleSelectDropdown<ExpiryDays>
               label="Expires"
+              ariaLabel="Expires"
               options={EXPIRY_OPTIONS}
               selected={expiryDays}
               onChange={(v) => { if (v) setExpiryDays(v); }}
