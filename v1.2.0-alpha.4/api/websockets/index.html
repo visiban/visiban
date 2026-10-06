@@ -2334,6 +2334,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Delivery guarantees">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#access-re-check-and-eviction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Access re-check and eviction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#missed-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Missed frames
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4012,7 +4040,7 @@
 </tr>
 <tr>
 <td><code>4003</code></td>
-<td>Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help.</td>
+<td>Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. Since 1.2, <code>4003</code> can also arrive <strong>mid-stream</strong> on an open connection, when the user loses access or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See <a href="#access-re-check-and-eviction">Access re-check and eviction</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -4399,7 +4427,7 @@ needs no special handling for either case.</p>
 <p class="admonition-title"><code>is_moderator</code> is filtered per-recipient</p>
 <p>On <code>member.added</code> and <code>member.updated</code>, the <code>is_moderator</code> field is stripped from the broadcast payload for non-<code>admin</code> / non-<code>site_admin</code> subscribers (consistent with the REST response filtering, #978) — <strong>except on the row that is the subscriber's own membership</strong>, which always carries the field so a member promoted to moderator sees their own entitlement over the socket (#1191, mirroring the <code>/full/</code> self-row exception from #1173). Every other row stays stripped for a non-admin subscriber.</p>
 <p><code>is_site_admin</code> (since 1.2) is sent only to <code>admin</code> / <code>site_admin</code> subscribers, with no self-row exception — see <a href="../boards/#members">Members</a>.</p>
-<p>The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a <code>member.added</code> or <code>member.updated</code> frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving <code>is_moderator</code> and <code>is_site_admin</code> on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no <code>member.*</code> frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect on the next reconnect.</p>
+<p>The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a <code>member.added</code> or <code>member.updated</code> frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving <code>is_moderator</code> and <code>is_site_admin</code> on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no <code>member.*</code> frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect at the server's periodic access re-check (see <a href="#access-re-check-and-eviction">Access re-check and eviction</a>). They apply to the first frame forwarded after the socket's re-check window lapses, at most about 7 seconds after its last successful check. Before #1477 they took effect only on the next reconnect. Until the re-check runs, a demoted admin can still receive the admin-only fields for up to that window.</p>
 <p>The <a href="../events/">change feed</a> applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.</p>
 </div>
 <h3 id="git-lens-events-since-12">Git Lens events (since 1.2)<a class="headerlink" href="#git-lens-events-since-12" title="Permanent link">&para;</a></h3>
@@ -4529,7 +4557,7 @@ sees it appear or disappear without a reload.</p>
 </tr>
 <tr>
 <td><code>member.removed</code></td>
-<td>User removed from this group. Fires alongside the board-channel <code>member.removed</code> sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329)</td>
+<td>User removed from this group. Fires alongside the board-channel <code>member.removed</code> sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329). If this frame is lost, the <a href="#access-re-check-and-eviction">access re-check</a> still closes that socket</td>
 <td><code>{ "user_id": &lt;int&gt; }</code></td>
 </tr>
 <tr>
@@ -4560,6 +4588,17 @@ sees it appear or disappear without a reload.</p>
 <li>The publish is <strong>best-effort</strong> (since 1.2). If the channel layer (Valkey) is unreachable when the event fires, the frame is dropped and the backend logs a <code>WARNING</code> (<code>board broadcast dropped</code> or <code>group broadcast dropped</code>, with the board or group id, event name, and exception class). The write that caused it still returns its normal success status, because the change is already committed. Before 1.2 such a write returned <code>500</code> even though it had been saved, and retrying it created a duplicate.</li>
 </ul>
 <p>The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.</p>
+<h3 id="access-re-check-and-eviction">Access re-check and eviction<a class="headerlink" href="#access-re-check-and-eviction" title="Permanent link">&para;</a></h3>
+<p>A user who loses access to a board or group stops receiving its frames even if the <code>member.removed</code> frame that announces the removal is lost (since 1.2, #1477). That frame is published best-effort like every other frame, so the server does not rely on it alone:</p>
+<ul>
+<li>When the socket's own user is the subject of a <code>member.removed</code> frame, the server closes the socket at once. This is the fast path.</li>
+<li>Before it forwards <strong>any</strong> frame, the server re-checks that the socket's user still has access. It uses the same rule as the handshake: <code>get_board_role</code> for a board channel, <code>get_accessible_group_ids</code> for a group channel. A deactivated account has no access. The result is cached per socket for a window of 5 seconds plus a random 0 to 2 seconds, redrawn after every check. The random part keeps the sockets on one board from all re-checking at the same moment. So a busy board costs at most one access query per socket per window. A <code>member.added</code> or <code>member.updated</code> frame about the socket's own user skips the cache.</li>
+<li>If the re-check finds no access, the server closes the socket with close code <code>4003</code> and does not forward the frame that triggered the check. The client treats <code>4003</code> as final and does not reconnect.</li>
+<li>If the re-check itself fails, for example because the database is unreachable, the server handles it the same way. It drops the frame, logs a <code>WARNING</code> (<code>board access re-check failed</code> or <code>group access re-check failed</code>), and closes with <code>4003</code>. Reload the page to reconnect once the database is back.</li>
+</ul>
+<p>The same window applies to the other changes the re-check picks up. A role change that sends no <code>member.*</code> frame on the board channel (a group role change, a board moved to another group, a change to all-content access) and the deactivation of a user's account both take effect within it.</p>
+<p>The window is a bound, not a guarantee of zero exposure. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket is closed before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user and no query runs. Its socket closes when the next frame arrives, or when the client disconnects.</p>
+<h3 id="missed-frames">Missed frames<a class="headerlink" href="#missed-frames" title="Permanent link">&para;</a></h3>
 <p>A transient publish failure does <strong>not</strong> close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or <strong>Refresh board</strong> in the connection popover. On the group page, it is the next socket reconnect.</p>
 <p>How to resync:</p>
 <ul>
@@ -4608,10 +4647,13 @@ sees it appear or disappear without a reload.</p>
 <a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4001</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="w">    </span><span class="c1">// not authenticated — redirect to login</span>
 <a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4003</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a><span class="w">    </span><span class="c1">// authenticated but not a member of this board — do not retry</span>
-<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="w">  </span><span class="c1">// otherwise: reconnect logic and re-fetch full board state</span>
-<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a><span class="p">};</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a><span class="w">    </span><span class="c1">// no access to this board — at the handshake, or mid-stream after access</span>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="w">    </span><span class="c1">// was lost or the server's access re-check failed (see "Access re-check</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="w">    </span><span class="c1">// and eviction"). Do not auto-retry. A later, user-initiated reconnect can</span>
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a><span class="w">    </span><span class="c1">// succeed if the cause was a failed re-check.</span>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a><span class="w">  </span><span class="c1">// otherwise: reconnect logic and re-fetch full board state</span>
+<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a><span class="p">};</span>
 </code></pre></div>
 <p>Token-authenticated clients (since 1.2) — a fresh ticket per connection, including
 every reconnect, because each one is single-use:</p>

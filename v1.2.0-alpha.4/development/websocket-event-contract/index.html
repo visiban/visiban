@@ -2905,6 +2905,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#eviction-must-not-depend-on-a-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eviction must not depend on a frame
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-gate-does-not-cover" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3844,6 +3855,20 @@ must never read as "I looked and it was fine".</p>
 <p>CI runs <code>--self-test</code> immediately before the real invocation, on the same image. A bespoke
 gate whose detectors have silently stopped detecting is worse than no gate, because the
 green tick still reads as a verdict.</p>
+<h2 id="eviction-must-not-depend-on-a-frame">Eviction must not depend on a frame<a class="headerlink" href="#eviction-must-not-depend-on-a-frame" title="Permanent link">&para;</a></h2>
+<p>Every publish is best-effort (#1462). A lost <em>data</em> frame is recoverable, because the
+client resyncs or replays the change feed. A lost frame that the <strong>consumer</strong> acts on is
+not, because no client-side resync runs consumer code. <code>member.removed</code> is that kind of
+frame: it closes the removed user's own socket. So it is only the fast path for
+eviction. <code>BoardConsumer</code> and <code>GroupConsumer</code> also re-check access before they forward
+any frame (<code>_verify_access</code>, cached per socket for <code>ACCESS_RECHECK_SECONDS</code> plus up to
+<code>ACCESS_RECHECK_JITTER_SECONDS</code> of jitter, so about 7 s at most). A check that raises
+fails closed. They use the same
+predicate as <code>connect()</code>, and they close with <code>4003</code> when access is gone (#1477). See
+<a href="../../api/websockets/#access-re-check-and-eviction">Access re-check and eviction</a>.</p>
+<p>If you add an event that the consumer acts on, and especially one that revokes
+something, it needs the same backstop. Make sure the consumer reaches a correct state on
+its own when the frame never arrives.</p>
 <h2 id="what-the-gate-does-not-cover">What the gate does not cover<a class="headerlink" href="#what-the-gate-does-not-cover" title="Permanent link">&para;</a></h2>
 <p><code>CARD_MUTATION_HOOKS</code> (<code>backend/boards/hooks.py</code>) is a <em>separate</em> frozen contract for
 enterprise add-ons, and it is not the WebSocket surface. The two agree on five card event
