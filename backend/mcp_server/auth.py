@@ -40,14 +40,6 @@ _BEARER_PREFIX = "Bearer "
 _JSONRPC_INVALID_REQUEST = -32600
 
 
-def _unauthorized_body(detail):
-    return json.dumps({
-        "jsonrpc": "2.0",
-        "id": None,
-        "error": {"code": _JSONRPC_INVALID_REQUEST, "message": detail},
-    }).encode()
-
-
 class AccountStateBlocked(Exception):
     """The token's owner has a pending forced account change (HTTP 403).
 
@@ -80,39 +72,23 @@ def _enforce_account_state(user):
             )
 
 
-async def _send_403(send, detail, code):
-    body = json.dumps({
-        "jsonrpc": "2.0",
-        "id": None,
-        "error": {
-            "code": _JSONRPC_INVALID_REQUEST,
-            "message": detail,
-            "data": {"code": code},
-        },
-    }).encode()
-    await send({
-        "type": "http.response.start",
-        "status": 403,
-        "headers": [
-            (b"content-type", b"application/json"),
-            (b"content-length", str(len(body)).encode()),
-        ],
-    })
-    await send({"type": "http.response.body", "body": body})
+async def _send_json_error(send, status, detail, code=None):
+    """Send a JSON-RPC error envelope with the given HTTP status.
 
-
-async def _send_401(send, detail):
-    body = _unauthorized_body(detail)
-    await send({
-        "type": "http.response.start",
-        "status": 401,
-        "headers": [
-            (b"content-type", b"application/json"),
-            # Advertise the scheme so compliant clients know how to retry.
-            (b"www-authenticate", b'Bearer realm="visiban-mcp"'),
-            (b"content-length", str(len(body)).encode()),
-        ],
-    })
+    One writer for every transport-level rejection so the envelope cannot
+    drift between the 401 and 403 paths. A 401 advertises the Bearer scheme so
+    compliant clients know how to retry; ``code`` adds a machine-readable
+    ``error.data.code``.
+    """
+    error = {"code": _JSONRPC_INVALID_REQUEST, "message": detail}
+    if code is not None:
+        error["data"] = {"code": code}
+    body = json.dumps({"jsonrpc": "2.0", "id": None, "error": error}).encode()
+    headers = [(b"content-type", b"application/json")]
+    if status == 401:
+        headers.append((b"www-authenticate", b'Bearer realm="visiban-mcp"'))
+    headers.append((b"content-length", str(len(body)).encode()))
+    await send({"type": "http.response.start", "status": status, "headers": headers})
     await send({"type": "http.response.body", "body": body})
 
 
@@ -176,7 +152,9 @@ class BearerAuthMiddleware:
 
         raw_token = _extract_bearer_token(scope)
         if not raw_token:
-            await _send_401(send, "Authorization header with Bearer token required.")
+            await _send_json_error(
+                send, 401, "Authorization header with Bearer token required."
+            )
             return
 
         try:
@@ -193,11 +171,11 @@ class BearerAuthMiddleware:
             # Never log the token itself, and do not log the username either —
             # this path is reachable by unauthenticated callers.
             logger.warning("Rejected MCP request: %s", exc.detail)
-            await _send_401(send, exc.detail)
+            await _send_json_error(send, 401, exc.detail)
             return
         except AccountStateBlocked as exc:
             logger.warning("Rejected MCP request: account state (%s)", exc.code)
-            await _send_403(send, exc.detail, exc.code)
+            await _send_json_error(send, 403, exc.detail, exc.code)
             return
 
         user_token = set_current_user(pat.user)

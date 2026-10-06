@@ -211,7 +211,22 @@ class BearerAuthTests(McpTestCase):
         self.user.save(update_fields=["must_change_password"])
         status, body = self._initialize(token=self.raw_token)
         self.assertEqual(status, 403)
-        self.assertIn("change your password", body.decode())
+        payload = json.loads(body)
+        self.assertEqual(payload["jsonrpc"], "2.0")
+        self.assertIsNone(payload["id"])
+        self.assertEqual(payload["error"]["code"], -32600)
+        self.assertIn("change your password", payload["error"]["message"])
+        self.assertEqual(payload["error"]["data"]["code"], "permission_denied")
+
+    def test_both_flags_set_reports_password_gate_first(self):
+        self.user.must_change_password = True
+        self.user.must_change_username = True
+        self.user.save(update_fields=["must_change_password", "must_change_username"])
+        status, body = self._initialize(token=self.raw_token)
+        self.assertEqual(status, 403)
+        error = json.loads(body)["error"]
+        self.assertIn("change your password", error["message"])
+        self.assertEqual(error["data"]["code"], "permission_denied")
 
     def test_must_change_username_user_is_403_with_code(self):
         self.user.must_change_username = True
