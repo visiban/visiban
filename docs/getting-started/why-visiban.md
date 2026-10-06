@@ -10,11 +10,11 @@
 
 ## The one-sentence answer
 
-**Visiban is a self-hosted Kanban board where rows are entities — customers, projects, teams — every
+**Visiban is an open-source, self-hosted Kanban board where every row is an entity — customers, projects, teams — every
 card movement is permanently recorded, and any AI agent you already run can query and update the
 board through your own API token.**
 
-Or, compressed: *kill the spreadsheet, visualize the workflow, interrogate it with your own AI —
+Or, compressed: *kill the spreadsheet, see how work actually moves, interrogate it with your own AI —
 every move on the record.*
 
 If you need a sentence for your manager: *"It's the board, but each row is one client, it keeps a
