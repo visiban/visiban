@@ -300,7 +300,7 @@ describe('SampleGallery — loading and cancel', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading the Sales Overlay sample.')
     expect(screen.getByText('Loading sample…')).toHaveAttribute('aria-hidden', 'true')
     expect(card('Simple Kanban')).toHaveAttribute('aria-disabled', 'true')
-    expect(screen.getByRole('button', { name: 'Click to select a .json or .csv file' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Click to select a \.json or \.csv file/ })).toBeEnabled()
 
     // A blocked card does not start a second request.
     await user.click(card('Simple Kanban'))
@@ -395,7 +395,7 @@ describe('SampleGallery — errors', () => {
     await waitFor(() => expect(retry).toHaveFocus())
 
     // The upload path and the other samples are untouched.
-    expect(screen.getByRole('button', { name: 'Click to select a .json or .csv file' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Click to select a \.json or \.csv file/ })).toBeEnabled()
     expect(card('Simple Kanban')).not.toHaveAttribute('aria-disabled')
 
     // Try again succeeds and opens the next step.
@@ -421,7 +421,7 @@ describe('SampleGallery — errors', () => {
     expect(screen.getByText('You can still upload your own file below.')).toBeInTheDocument()
     expect(screen.getByText('Upload your own file')).toBeInTheDocument() // no "or"
     expect(screen.queryByText('or upload your own file')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Click to select a .json or .csv file' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Click to select a \.json or \.csv file/ })).toBeEnabled()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Retry' })).toHaveFocus())
 
     await user.click(screen.getByRole('button', { name: 'Retry' }))
@@ -440,7 +440,7 @@ describe('SampleGallery — errors', () => {
   it('does not steal focus from a control the user already reached', async () => {
     mockList.mockRejectedValueOnce(new Error('503'))
     render(<ImportBoardModal onImport={vi.fn()} onCancel={vi.fn()} />)
-    const zone = screen.getByRole('button', { name: 'Click to select a .json or .csv file' })
+    const zone = screen.getByRole('button', { name: /Click to select a \.json or \.csv file/ })
     zone.focus()
     await screen.findByText('Samples aren’t available right now.')
     expect(zone).toHaveFocus()
