@@ -2632,6 +2632,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#remainder-re-measure-2026-10-06-1484" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remainder re-measure (2026-10-06, #1484)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#runtime" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2693,10 +2704,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#importexport-survivors-after-1453-partial-134-survivors-plus-33-suspicious-in-the-823-paired-mutants" class="md-nav__link">
+  <a href="#importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Import/export: survivors after #1453 (partial, 134 survivors plus 33 suspicious in the 823 paired mutants)
+        Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#importexport-_import_csv-export-export_history-after-1484-27-survivors-of-492" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Import/export: _import_csv, export, export_history after #1484 (27 survivors of 492)
       
     </span>
   </a>
@@ -3959,7 +3981,7 @@
 <tr>
 <td>Import/export</td>
 <td><code>boards/views/import_export.py</code></td>
-<td><code>test_export</code>, <code>test_export_controls</code>, <code>test_export_edge_cases</code>, <code>test_import</code>, <code>test_moderator_export</code>; the 2026-10-05 "after" run adds <code>test_import_export_mutation_gaps</code> (#1453)</td>
+<td><code>test_export</code>, <code>test_export_controls</code>, <code>test_export_edge_cases</code>, <code>test_import</code>, <code>test_moderator_export</code>; the "after" runs add <code>test_import_export_mutation_gaps</code> (#1453, extended by #1484)</td>
 </tr>
 </tbody>
 </table>
@@ -4007,18 +4029,28 @@
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
-<td><code>boards/views/import_export.py</code> (2026-10-05 re-measure, partial)</td>
+<td><code>boards/views/import_export.py</code> (2026-10-05 re-measure, first 823 paired mutants)</td>
 <td style="text-align: right;">1364</td>
 <td style="text-align: right;">331 of 823 paired</td>
 <td style="text-align: right;">40.2%</td>
 <td style="text-align: right;">656 of 823 paired</td>
 <td style="text-align: right;">79.7%</td>
-<td style="text-align: right;">2</td>
+<td style="text-align: right;">2 (see below)</td>
+</tr>
+<tr>
+<td><code>boards/views/import_export.py</code>, <code>_import_csv</code> + <code>export</code> + <code>export_history</code> (2026-10-06, #1484)</td>
+<td style="text-align: right;">492</td>
+<td style="text-align: right;">290 of 492</td>
+<td style="text-align: right;">58.9%</td>
+<td style="text-align: right;">465 of 492 (447 with the #1453 tests only)</td>
+<td style="text-align: right;">94.5% (90.9%)</td>
+<td style="text-align: right;">0</td>
 </tr>
 </tbody>
 </table>
+<p><strong>The 2 timeouts</strong> in the 2026-10-05 row: both are in <code>_imported_board_name</code>, in the first run's range. Mutating the <code>if candidate not in taken</code> check or the <code>n += 1</code> step makes its uniqueness loop spin forever, so pytest hangs and mutmut kills the run. Timeouts are counted as killed. The 2026-10-06 run (<code>_import_csv</code>, <code>export</code>, <code>export_history</code>) had none.</p>
 <p>Import/export was re-measured on 2026-10-05 against <code>main</code> at <code>a5e4b7d20</code>, after the module was rewritten (selective import #119, naming #1446). The module now has <strong>1364 mutants</strong> (it had 1078 at <code>25bcfdf1e</code>), so the 2026-10-04 figure is not comparable. "Before" is the five scoped files only; "after" adds <code>test_import_export_mutation_gaps.py</code> (#1453).</p>
-<p><strong>This is a partial, paired measurement, not a whole-module run.</strong> Sixteen shards (8 before, 8 after) were started on one laptop that was swapping (about 23 of 24 GB swap, load average above 250), and the after run reached about 60% of the module before being stopped. Mutants are processed in file order, so the paired set covers lines up to the middle of <code>_import_csv</code> and <strong>does not reach <code>export</code> or <code>export_history</code></strong>. Only mutants that have a verdict in both runs are compared (823 of 1364):</p>
+<p><strong>The 2026-10-05 measurement is a partial, paired measurement, not a whole-module run.</strong> The 2026-10-06 run below (#1484) measures the remainder. Sixteen shards (8 before, 8 after) were started on one laptop that was swapping (about 23 of 24 GB swap, load average above 250), and the after run reached about 60% of the module before being stopped. Mutants are processed in file order, so the paired set covers lines up to the middle of <code>_import_csv</code> and <strong>does not reach <code>export</code> or <code>export_history</code></strong>. Only mutants that have a verdict in both runs are compared (823 of 1364):</p>
 <table>
 <thead>
 <tr>
@@ -4055,7 +4087,46 @@
 </tr>
 </tbody>
 </table>
-<p>The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). <code>export</code> (234 mutants) was reached only by the before run (38 killed, 32 survived of 70 tested) and has <strong>no after measurement</strong>; re-run it on a quiet machine with the line-range hook below (<code>MM_LO=1635 MM_HI=2095</code>) before treating the history-export area as strengthened. Suspicious mutants are counted as survivors in the rates above. Timeouts are counted as killed: the 2 in the table are both from the after run, in the <code>_imported_board_name</code> uniqueness loop (mutating <code>if candidate not in taken</code> or <code>n += 1</code> makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.</p>
+<p>The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). <code>export</code> was reached only by that before run, which stopped early (38 killed, 32 survived of 70 tested); it is measured in full by the 2026-10-06 run below. Suspicious mutants are counted as survivors in the rates above. Timeouts are counted as killed: the 2 in the table are both from the after run, in the <code>_imported_board_name</code> uniqueness loop (mutating <code>if candidate not in taken</code> or <code>n += 1</code> makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.</p>
+<h3 id="remainder-re-measure-2026-10-06-1484">Remainder re-measure (2026-10-06, #1484)<a class="headerlink" href="#remainder-re-measure-2026-10-06-1484" title="Permanent link">&para;</a></h3>
+<p>Run on <code>main</code> at <code>4a5de6273</code> (<code>import_export.py</code> is unchanged since <code>a5e4b7d20</code>), 0-based line range <code>MM_LO=1317 MM_HI=2118</code>: the whole of <code>_import_csv</code>, <code>export</code> and <code>export_history</code>. Mutants with a verdict are all 492 mutants in range; none were left untested, suspicious or timed out. The machine (18 cores, 64 GB) was not swapping: four shards for each of "before" and "after" (8 processes), then 8 shards for the final run, load average 9 to 15. "Before" and "after" use the same five and six test files as above, so the numbers are comparable; the final column adds the #1484 tests to the gaps file.</p>
+<table>
+<thead>
+<tr>
+<th>Region (mutants)</th>
+<th style="text-align: right;">Before killed</th>
+<th style="text-align: right;">After #1453 killed</th>
+<th style="text-align: right;">After #1484 killed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>_import_csv</code> (240)</td>
+<td style="text-align: right;">142 (59.2%)</td>
+<td style="text-align: right;">208 (86.7%)</td>
+<td style="text-align: right;">220 (91.7%)</td>
+</tr>
+<tr>
+<td><code>export</code> (229)</td>
+<td style="text-align: right;">137 (59.8%)</td>
+<td style="text-align: right;">224 (97.8%)</td>
+<td style="text-align: right;">225 (98.3%)</td>
+</tr>
+<tr>
+<td><code>export_history</code> (23)</td>
+<td style="text-align: right;">11 (47.8%)</td>
+<td style="text-align: right;">15 (65.2%)</td>
+<td style="text-align: right;">20 (87.0%)</td>
+</tr>
+<tr>
+<td><strong>Total (492)</strong></td>
+<td style="text-align: right;"><strong>290 (58.9%)</strong></td>
+<td style="text-align: right;"><strong>447 (90.9%)</strong></td>
+<td style="text-align: right;"><strong>465 (94.5%)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Together with the 2026-10-05 table, the regions the first run could not reach have now been measured after #1453. The two runs were made on different days and the first covered only the mutants that had a verdict in both its before and after run, so the two tables are not summed into one whole-module percentage.</p>
 <h3 id="runtime">Runtime<a class="headerlink" href="#runtime" title="Permanent link">&para;</a></h3>
 <p>Each module was split across 16 parallel copies of the tree (see <a href="#parallel-runs">Parallel runs</a>) on an 18-core machine. "Wall" is the slowest shard; "CPU total" is the sum of every shard's elapsed time, which is roughly what a single serial run would cost under the same load.</p>
 <table>
@@ -4158,7 +4229,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="importexport-survivors-after-1453-partial-134-survivors-plus-33-suspicious-in-the-823-paired-mutants">Import/export: survivors after #1453 (partial, 134 survivors plus 33 suspicious in the 823 paired mutants)<a class="headerlink" href="#importexport-survivors-after-1453-partial-134-survivors-plus-33-suspicious-in-the-823-paired-mutants" title="Permanent link">&para;</a></h3>
+<h3 id="importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious">Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)<a class="headerlink" href="#importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious" title="Permanent link">&para;</a></h3>
 <p>Not triaged line by line. By region, among the paired mutants:</p>
 <p>The "Survivors after" column counts only mutants that survived. The 33 suspicious mutants (8 in helpers and <code>import_board</code>, 10 in <code>_import_json</code>, 15 in <code>_import_csv</code>) are not in it, but the kill rates above count them as not killed, so 823 - 656 = 167 = 134 survivors + 33 suspicious.</p>
 <table>
@@ -4186,18 +4257,111 @@
 <td>Missing assertion (mapping defaults).</td>
 </tr>
 <tr>
-<td><code>_import_csv</code></td>
-<td style="text-align: right;">2 of 28 reached</td>
-<td>Sample too small to classify.</td>
-</tr>
-<tr>
-<td><code>export</code>, <code>export_history</code></td>
-<td style="text-align: right;">not measured after</td>
-<td>Untested by this run. The before run left 32 survivors of 70 tested in <code>export</code>.</td>
+<td><code>_import_csv</code>, <code>export</code>, <code>export_history</code></td>
+<td style="text-align: right;">see below</td>
+<td>Measured in full on 2026-10-06 and triaged in the next subsection.</td>
 </tr>
 </tbody>
 </table>
 <p>The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The remaining survivors are expected to be dominated by log-message strings and unobservable defaults (equivalent); that classification is an estimate from sampling the diffs, not a full triage.</p>
+<h3 id="importexport-_import_csv-export-export_history-after-1484-27-survivors-of-492">Import/export: <code>_import_csv</code>, <code>export</code>, <code>export_history</code> after #1484 (27 survivors of 492)<a class="headerlink" href="#importexport-_import_csv-export-export_history-after-1484-27-survivors-of-492" title="Permanent link">&para;</a></h3>
+<p>Triaged with the three questions in <a href="#how-to-read-the-results">How to read the results</a>. The 18 additional kills from #1484 (45 survivors after #1453, 27 now) come from <code>test_import_export_mutation_gaps.py</code> (<code>ImportCsvTailGapTests</code>, <code>ExportGapTests</code>, <code>ExportHistoryGapTests</code>: the lowercase <code>labels</code> header, absent optional columns, a repeated label in one cell, the response <code>member_count</code>/<code>card_count</code>/<code>archived_card_count</code>, the group id, <code>?expand=group</code> and group broadcast on a grouped import, the <code>Movement History</code> cell for a movement with no destination column, the unpaginated <code>export-history</code> fallback, and the OpenAPI summary and description). All 27 remaining survivors are equivalent or covered elsewhere:</p>
+<table>
+<thead>
+<tr>
+<th>Survivors</th>
+<th style="text-align: right;">Count</th>
+<th>Bucket</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file.name or ""</code> default (line 1433)</td>
+<td style="text-align: right;">1</td>
+<td>Equivalent</td>
+<td>An uploaded file always has a name.</td>
+</tr>
+<tr>
+<td><code>column_map</code> / <code>swimlane_map</code> / <code>label_map</code> placeholder <code>None</code> to <code>""</code>, and <code>col_name and ...</code> to <code>or</code> (lines 1465-1477)</td>
+<td style="text-align: right;">5</td>
+<td>Equivalent</td>
+<td>The required-field check above rejects an empty column or swimlane, and every placeholder is overwritten with the created object before it is read. Re-assigning an existing key keeps dict order.</td>
+</tr>
+<tr>
+<td><code>not column or not swimlane</code> to <code>and</code>, <code>continue</code> to <code>break</code> (lines 1522-1523)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent</td>
+<td>Every column and swimlane name was just created, so the lookup cannot fail. Defensive code.</td>
+</tr>
+<tr>
+<td><code>row.get("Priority", "medium")</code> and <code>row.get("Weight", "1")</code> sentinel defaults (lines 1525, 1533)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent</td>
+<td>A sentinel such as <code>XXmediumXX</code> is not a valid priority or integer, so the existing fallback to <code>medium</code> and <code>1</code> produces the same card.</td>
+</tr>
+<tr>
+<td><code>row.get("Labels", "")</code> in the second pass (line 1574)</td>
+<td style="text-align: right;">1</td>
+<td>Equivalent</td>
+<td>A sentinel label name is never in <code>label_map</code>, so nothing is attached. (The first-pass default, line 1469, was a real gap and is killed.)</td>
+</tr>
+<tr>
+<td><code>(row.get("Assignee") or "")</code> sentinels (lines 1516, 1530)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent in practice</td>
+<td>Only observable if a user is literally named <code>XXXX</code>.</td>
+</tr>
+<tr>
+<td><code>row.get(field, "")</code> and <code>row.get("Column"/"Swimlane", "")</code> defaults (lines 1399, 1415, 1416)</td>
+<td style="text-align: right;">3</td>
+<td>Equivalent</td>
+<td><code>Title</code>, <code>Column</code> and <code>Swimlane</code> are required headers, so the key is always present and the default is never used. The value is another matter: <code>csv.DictReader</code> fills missing trailing cells with <code>None</code>. A short row makes <code>.get(field, "")</code> return <code>None</code>, so <code>.strip()</code> raises; tracked in #1496.</td>
+</tr>
+<tr>
+<td><code>CSV file has no headers.</code> key and text (line 1383)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent</td>
+<td><code>DictReader</code> has no fieldnames only for an empty file, which the earlier <code>CSV file is empty.</code> check already rejected. Dead code.</td>
+</tr>
+<tr>
+<td><code>distinct=False</code> on <code>_card_count</code> and <code>_archived_card_count</code> (lines 1608-1609)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent</td>
+<td>The imported board has one membership, so the join cannot duplicate card rows. (<code>_member_count</code> <code>distinct=False</code> and the <code>isnull</code> filters were real gaps and are killed.)</td>
+</tr>
+<tr>
+<td>403 body <code>detail</code> key and text for a role outside the four member roles (line 1658)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent</td>
+<td><code>get_board_for_user</code> raises 404 or 403 for a non-member, so <code>export</code> never sees another role. The membership message is unreachable through the API.</td>
+</tr>
+<tr>
+<td><code>board.export_min_role or "viewer"</code> (line 1672)</td>
+<td style="text-align: right;">1</td>
+<td>Equivalent</td>
+<td>The restriction branch is entered only when <code>export_min_role</code> is set.</td>
+</tr>
+<tr>
+<td><code>request.query_params.get("format", "csv")</code> default (line 1676)</td>
+<td style="text-align: right;">1</td>
+<td>Equivalent</td>
+<td>Any value other than <code>json</code> takes the CSV branch.</td>
+</tr>
+<tr>
+<td><code>BoardExportLogSerializer(..., context={"request": request})</code> (lines 2116, 2118)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent</td>
+<td>The actor serializer only reads the request when a <code>board</code> is also in its context, which this view does not pass.</td>
+</tr>
+<tr>
+<td><code>responses=BoardExportLogSerializer(many=False)</code> on <code>export_history</code> (line 2093)</td>
+<td style="text-align: right;">1</td>
+<td>Covered elsewhere</td>
+<td><code>test_board_schema_contract.py::test_export_history_matches_schema</code> fails on it; that file is outside the scoped list.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="how-to-reproduce">How to reproduce<a class="headerlink" href="#how-to-reproduce" title="Permanent link">&para;</a></h2>
 <div class="admonition warning">
 <p class="admonition-title">Always mutate a throwaway copy</p>
