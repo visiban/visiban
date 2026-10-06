@@ -222,7 +222,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       return;
     }
     if (!confirmAction) return false;
+    // Swallow Escape while the request is in flight: dismissing would hide its outcome.
+    if (cardActionInFlight.current) return;
     setConfirmAction(null);
+    setCardActionError(null);
   }, 35);
   // Close move popover before panel — priority 36 sits above confirmAction (35) so
   // it fires first when both are open, and above panel close (30) in the normal case.
@@ -1113,7 +1116,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   </div>
                 )}
                 {canComment && !showBulkAdd && (
-                  <p className="text-xs h-4 mt-1">
+                  <p role="status" aria-live="polite" aria-atomic="true" className="text-xs h-4 mt-1">
                     {checklistError && <span className="text-danger">{checklistError}</span>}
                   </p>
                 )}
@@ -1240,7 +1243,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs h-4">{attachError && <span className="text-danger">{attachError}</span>}</p>
+                  <p role="status" aria-live="polite" aria-atomic="true" className="text-xs h-4">{attachError && <span className="text-danger">{attachError}</span>}</p>
                 </>))}
               </div>
 
@@ -1446,7 +1449,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             </div>
             <div className="flex gap-3 justify-end">
               <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-50">Cancel</button>
-              <button onClick={executeDelete} disabled={cardActionBusy} className="disabled:opacity-50 bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete</button>
+              <button onClick={executeDelete} aria-disabled={cardActionBusy} className="aria-disabled:opacity-50 aria-disabled:cursor-not-allowed bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">{cardActionBusy ? "Deleting…" : "Delete"}</button>
             </div>
           </>
         ) : confirmAction === "archive" ? (
@@ -1457,7 +1460,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             </div>
             <div className="flex gap-3 justify-end">
               <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-50">Cancel</button>
-              <button onClick={executeArchive} disabled={cardActionBusy} className="disabled:opacity-50 bg-warning-bg hover:bg-warning-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">Archive</button>
+              <button onClick={executeArchive} aria-disabled={cardActionBusy} className="aria-disabled:opacity-50 aria-disabled:cursor-not-allowed bg-warning-bg hover:bg-warning-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">{cardActionBusy ? "Archiving…" : "Archive"}</button>
             </div>
           </>
         ) : null}

@@ -1685,7 +1685,7 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       fireEvent.click(confirm)
       fireEvent.click(confirm)
       expect(mockDel).toHaveBeenCalledTimes(1)
-      expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Deleting…' })).toHaveAttribute('aria-disabled', 'true')
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
       expect(props.onDeleted).not.toHaveBeenCalled()
       d.resolve()
@@ -1700,8 +1700,11 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       const props = defaultProps()
       render(<CardDetail {...props} />)
       fireEvent.click(screen.getByText('Delete card'))
-      fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Delete' }))
       const err = await screen.findByText('Could not delete card.')
+      // Focus stays on the actionable primary button (never dropped to body) after a failure.
+      expect(screen.getByRole('button', { name: 'Delete' })).toHaveFocus()
       expect(err.closest('[role="status"]')).not.toBeNull()
       expect(screen.getByText('Delete this card?')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
@@ -1728,6 +1731,36 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       d.resolve()
       await waitFor(() => expect(props.onArchived).toHaveBeenCalledWith(props.card.id))
       expect(props.onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('card archive: Escape is swallowed while the request is in flight', async () => {
+      const { archiveCard } = await import('../api/cards')
+      const d = deferred()
+      ;(archiveCard as ReturnType<typeof vi.fn>).mockImplementationOnce(() => d.promise)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      fireEvent.click(screen.getByText('Archive card'))
+      fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.getByText('Archive this card?')).toBeInTheDocument()
+      expect(props.onClose).not.toHaveBeenCalled()
+      d.resolve()
+      await waitFor(() => expect(props.onArchived).toHaveBeenCalledTimes(1))
+    })
+
+    it('checklist and attachment error slots are always-mounted polite live regions', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 1, text: 'Item 1', is_checked: false, position: 0 },
+      ])
+      mockDeleteChecklistItem.mockRejectedValueOnce(new Error('boom'))
+      render(<CardDetail {...defaultProps()} />)
+      await waitFor(() => expect(screen.getByText('Item 1')).toBeInTheDocument())
+      fireEvent.click(screen.getByTitle('Remove item'))
+      const err = await screen.findByText('Could not delete item.')
+      const region = err.closest('[aria-live]')
+      expect(region).toHaveAttribute('role', 'status')
+      expect(region).toHaveAttribute('aria-live', 'polite')
+      expect(region).toHaveAttribute('aria-atomic', 'true')
     })
 
     it('card archive: a rejection keeps the modal open with an error and Cancel clears it', async () => {
