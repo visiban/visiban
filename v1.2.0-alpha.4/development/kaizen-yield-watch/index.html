@@ -3840,7 +3840,7 @@ nobody does, the next run re-derives the same result.</p>
 <p>The kaizen scripts reject malformed arguments up front (#1377):</p>
 <ul>
 <li><code>--window</code> must be an integer from 1 to 100 (GitLab's <code>per_page</code> cap).</li>
-<li><code>--project</code> must be a plain <code>group/project</code> path (letters, digits, <code>_</code>, <code>.</code>, <code>-</code>; no leading <code>-</code>, no <code>.</code>/<code>..</code> segments).</li>
+<li><code>--project</code> must be a plain <code>group/project</code> path (letters, digits, <code>_</code>, <code>.</code>, <code>-</code>; no leading <code>-</code>, no <code>.</code>/<code>..</code> segments); a malformed value is rejected by argparse (exit 2). <code>kaizen_gate_ledger.py</code> is stricter: when it fetches from GitLab (not with <code>--input</code>), it accepts only <code>visiban/visiban</code> (the default) or <code>visiban/visiban-enterprise</code> and exits 1 for anything else.</li>
 <li>File-path arguments (<code>--input</code>, <code>--state</code>, <code>--declined</code>, <code>--write-state</code>) must resolve under the repository, the current directory, or the temp directory, through <code>scripts/_paths.py</code>. A path that escapes (via <code>..</code> or a symlink) exits non-zero; a bad <code>--declined</code> path is never treated as "nothing declined".</li>
 </ul>
 <p>See <a href="../ci-gates/#path-containment-for-cli-arguments">CI gate scripts and path containment</a> for the shared helper.</p>
