@@ -1,0 +1,1 @@
+Bump transitive dev dependency `source-map-js` to 1.2.2 (GHSA-68fv-2mgg-jv7q, event-loop denial of service) and override `postcss-selector-parser` to 7.1.6 (GHSA-rj75-hqrm-r3gf, quadratic selector parsing), clearing the scheduled `dep-scan-osv` and `frontend-dep-scan` findings.
