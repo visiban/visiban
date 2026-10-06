@@ -194,8 +194,13 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         <div
           className="absolute inset-0 flex items-center justify-center pointer-events-none text-xs text-fg-muted group-hover/cell:text-fg group-focus/cell:text-fg transition"
           aria-hidden="true"
+          data-testid="empty-cell-add-affordance"
         >
-          + Add card
+          {/* Inner pill gains a soft wash on hover/focus (#200) so the affordance reads as a
+              button without ever being a second tab stop; the cell wrapper owns the action. */}
+          <span className="rounded px-2 py-1 transition-colors group-hover/cell:bg-surface-hover/50 group-focus/cell:bg-surface-hover/50">
+            + Add card
+          </span>
         </div>
       )}
 
