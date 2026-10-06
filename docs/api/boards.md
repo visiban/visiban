@@ -354,6 +354,8 @@ Board-level movement history for all cards on the board, sorted newest first. Re
 | `exclude_type` | comma-separated string | Exclude movement types (e.g. `archived,unarchived` hides system events) |
 | `offset` | integer | Pagination offset (default: `0`) |
 
+`export_min_role` also applies to movement exports requested with `?export=<format>`: a caller below the threshold receives the same `403` with `code: "export_restricted"` as the board export, and each export is recorded in the [export history](#get-apiv1boardsidexport-history).
+
 When neither `moved_after` nor `moved_before` is specified, the full movement history is returned (no default date cutoff). Results are always paginated to `page_size: 50` so the absence of a date window does not cause runaway queries.
 
 **Response**

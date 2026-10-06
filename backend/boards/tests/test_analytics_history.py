@@ -659,3 +659,73 @@ class TestMovementsDeletedFk(AnalyticsHistorySetup):
         self.assertEqual(result["from_swimlane_uid"], swimlane_uid)
         self.assertEqual(result["to_swimlane_name"], "Customer A")
         self.assertEqual(result["to_swimlane_uid"], swimlane_uid)
+
+
+class TestMovementExportGate(AnalyticsHistorySetup):
+    """``?export=`` honors ``export_min_role`` and writes an audit row (#1432)."""
+
+    def _export(self, user, fmt="csv"):
+        from unittest.mock import MagicMock, patch
+        from django.http import HttpResponse
+
+        backend = MagicMock(return_value=HttpResponse("ok"))
+        with patch("boards.hooks.MOVEMENT_EXPORT_BACKENDS", [backend]):
+            resp = self._client_for(user).get(f"{self._movements_url()}?export={fmt}")
+        return resp, backend
+
+    def test_below_min_role_refused_without_dispatch_or_log(self):
+        from boards.models import BoardExportLog
+
+        self.board.export_min_role = "admin"
+        self.board.save()
+        resp, backend = self._export(self.viewer)
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.data["code"], "export_restricted")
+        self.assertEqual(resp.data["min_role"], "admin")
+        backend.assert_not_called()
+        self.assertEqual(BoardExportLog.objects.count(), 0)
+
+    def test_allowed_role_dispatches_and_logs_once(self):
+        from boards.models import BoardExportLog
+
+        self.board.export_min_role = "member"
+        self.board.save()
+        resp, backend = self._export(self.member, "xlsx")
+        self.assertEqual(resp.status_code, 200)
+        backend.assert_called_once()
+        log = BoardExportLog.objects.get()
+        self.assertEqual(log.board_id, self.board.pk)
+        self.assertEqual(log.actor_id, self.member.pk)
+        self.assertEqual(log.role_at_export, "member")
+        self.assertEqual(log.export_format, "movements_xlsx")
+
+    def test_default_threshold_lets_viewer_export(self):
+        from boards.models import BoardExportLog
+
+        resp, backend = self._export(self.viewer)
+        self.assertEqual(resp.status_code, 200)
+        backend.assert_called_once()
+        self.assertEqual(BoardExportLog.objects.count(), 1)
+
+    def test_owner_bypasses_threshold(self):
+        self.board.export_min_role = "admin"
+        self.board.save()
+        resp, _ = self._export(self.admin)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_long_format_is_truncated_for_log(self):
+        from boards.models import BoardExportLog
+
+        self._export(self.member, "x" * 60)
+        self.assertEqual(len(BoardExportLog.objects.get().export_format), 20)
+
+    def test_no_backend_registered_is_unchanged(self):
+        """OSS path: ?export= falls through to the JSON page, no audit row."""
+        from boards.models import BoardExportLog
+
+        self.board.export_min_role = "admin"
+        self.board.save()
+        resp = self._client_for(self.viewer).get(f"{self._movements_url()}?export=csv")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("results", resp.data)
+        self.assertEqual(BoardExportLog.objects.count(), 0)
