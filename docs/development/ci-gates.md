@@ -128,7 +128,7 @@ Gate scripts that open files named on the command line or via `--root` do so thr
 
 - `--root`-based gates (`check-rbac-coverage.py`, `check-ws-event-reachability.py`, `check-broadcast-deferral.py`) confine every read to `--root`.
 - Other file arguments (`--input`, `--state`, `--declined`, `--write-state`, `--token-file`, `--budget-file`, `--output`, `--schema`, `--types`) must resolve under the repository, the current directory, or the system temp directory (`/tmp`). The temp roots are trusted only on ephemeral single-tenant runners; there is no ownership check. A filesystem-root working directory is never treated as a root.
-- `kaizen_gate_ledger.py` validates `--window` (1..100) and `--project` (`group/project` characters) before they reach the `glab` argv.
+- `kaizen_gate_ledger.py` validates `--window` (1..100) and `--project` (an allowlist: `visiban/visiban` or `visiban/visiban-enterprise`) before they reach the `glab` argv.
 - `check-added-files-covered.mjs` rejects a `--target-ref` that starts with `-`.
 
 Run `python scripts/_paths.py --self-test` to exercise the helper (`..` traversal, symlink escape, filesystem-root cwd); the `rbac-coverage` job runs it.

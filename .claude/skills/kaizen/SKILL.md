@@ -60,7 +60,7 @@ python3 scripts/kaizen_gate_ledger.py --window "$WINDOW"                  # huma
 ```
 
 (`$WINDOW` defaults to 30 when unset; `--window` must be an integer 1..100 and
-`--project` a plain `group/project` path, or the script exits with a usage error.
+`--project` one of `visiban/visiban` (default) or `visiban/visiban-enterprise`, or the script exits with an error.
 File paths such as `--input` must resolve under the repo, cwd, or temp dir — see
 `scripts/_paths.py`.)
 

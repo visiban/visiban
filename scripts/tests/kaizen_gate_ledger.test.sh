@@ -266,6 +266,31 @@ vp 'a/b\n' && rc=0 || rc=$?; check "validate_project rejects trailing newline" "
 vp '../..' && rc=0 || rc=$?; check "validate_project rejects dot segments" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)"
 vp '-x/y' && rc=0 || rc=$?; check "validate_project rejects leading dash" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)"
 
+# load_mrs --project allowlist (S8705): unknown project exits 1 before any glab
+# call; known projects reach glab argv as their constant percent-encoded form.
+lp() { (cd "$REPO_ROOT/scripts" && python3 - "$1" <<'PYEOF'
+import sys, types, subprocess, kaizen_gate_ledger as l
+seen = []
+l.shutil.which = lambda _name: "/fake/glab"
+def fake(cmd, text=True):
+    seen.append(cmd)
+    return "[]"
+subprocess.check_output = fake
+args = types.SimpleNamespace(input=None, project=sys.argv[1], window=5)
+try:
+    l.load_mrs(args)
+except SystemExit as exc:
+    sys.exit(exc.code)
+print(seen[0][2].split("?")[0])
+PYEOF
+); }
+out="$(lp 'evil/x' 2>/dev/null)" && rc=0 || rc=$?
+check "load_mrs rejects a non-allowlisted project (exit 1)" "$([ "$rc" -eq 1 ] && [ -z "$out" ] && echo 0 || echo 1)"
+check "load_mrs maps visiban/visiban to its constant API path" \
+  "$([ "$(lp 'visiban/visiban' 2>/dev/null)" = "projects/visiban%2Fvisiban/merge_requests" ] && echo 0 || echo 1)"
+check "load_mrs maps visiban/visiban-enterprise to its constant API path" \
+  "$([ "$(lp 'visiban/visiban-enterprise' 2>/dev/null)" = "projects/visiban%2Fvisiban-enterprise/merge_requests" ] && echo 0 || echo 1)"
+
 echo ""
 if [[ "$fail" -eq 0 ]]; then
   echo "kaizen_gate_ledger.test.sh: all $pass checks passed"

@@ -293,7 +293,7 @@ def load_mrs(args) -> list:
         if project_path is None:
             print(f"error: --project must be one of {', '.join(_KNOWN_PROJECTS)}", file=sys.stderr)
             sys.exit(1)
-        window = int(validate_window(args.window))
+        window = validate_window(args.window)
         # Resolve glab once, and pass the endpoint as a single list-form argv
         # element (no shell). project_path is percent-encoded and window is an
         # int, so neither can start an option or add a query parameter.
@@ -379,7 +379,7 @@ def to_jsonable(result):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--project", type=validate_project, default=DEFAULT_PROJECT, help="GitLab project path (default: %(default)s)")
+    parser.add_argument("--project", type=validate_project, default=DEFAULT_PROJECT, help="GitLab project: visiban/visiban or visiban/visiban-enterprise (default: %(default)s)")
     parser.add_argument("--window", type=validate_window, default=DEFAULT_WINDOW, help="Number of most-recently-merged MRs to audit (default: %(default)s)")
     parser.add_argument("--input", help="Read MR objects from this local JSON file instead of calling glab (offline/test mode)")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON instead of a text table")
