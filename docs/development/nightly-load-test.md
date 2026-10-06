@@ -56,8 +56,8 @@ python manage.py seed_demo_data --force --scale 20 --with-notifications
   the timings, and `backend/nightly-load-test-baseline.json` records what the committed budgets
   were derived against.
 
-`--scale > 1` never combines with `--export` — the large fixture is regenerated fresh in an
-ephemeral CI database on every run and is never meant to be committed to `sample-boards/`.
+The large fixture is regenerated fresh in an ephemeral CI database on every run and is never
+committed anywhere.
 
 ## Auth
 

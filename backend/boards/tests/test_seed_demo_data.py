@@ -262,11 +262,10 @@ class SeedGroupCustomFieldAndSubResourceTests(TestCase):
         self.assertTrue(attachment.file.name)
         self.assertGreater(attachment.size, 0)
 
-    def test_new_fixtures_do_not_change_card_export_content(self):
+    def test_new_fixtures_do_not_change_card_corpus(self):
         """The new fixtures are created with fixed literals *after* card/movement/
         archival generation, not from the shared `random` stream, so they must not
-        perturb the deterministic card corpus that sample-boards/demo_board.json/.csv
-        is diffed against."""
+        perturb the deterministic card corpus (a reseed must reproduce the same titles)."""
         _seed()
         titles_with_fixtures = list(
             Card.objects.order_by("id").values_list("title", flat=True)
@@ -363,85 +362,20 @@ class SeedDeterminismTests(TestCase):
 
 
 @override_settings(DEBUG=True)
-class SeedExportTests(TestCase):
-    def test_export_writes_json_file(self):
-        with mock.patch(
-            "boards.management.commands.seed_demo_data.Command._export"
-        ) as mock_export:
+class SeedExportRetiredTests(TestCase):
+    """The sample boards have one writer, generate_seed_data.py (#1459)."""
+
+    def test_export_is_refused_and_names_the_generator(self):
+        with self.assertRaises(CommandError) as ctx:
             _seed(export=True)
-            mock_export.assert_called_once()
+        self.assertIn("generate_seed_data.py", str(ctx.exception))
+        self.assertFalse(Board.objects.filter(name=BOARD_NAME).exists())
 
-    def test_json_export_structure(self):
-        """The JSON export contains all required top-level keys."""
-        import json
-        import tempfile
-        from pathlib import Path
-
-        _seed()
-        board = Board.objects.get(name=BOARD_NAME)
-
-        # Call _export directly to a temp directory
-        out = StringIO()
+    def test_command_no_longer_carries_the_snapshot_writers(self):
         from boards.management.commands.seed_demo_data import Command
 
-        cmd = Command()
-        cmd.stdout = out
-        cmd.style = mock.MagicMock()
-        cmd.style.SUCCESS = lambda s: s
-
-        with tempfile.TemporaryDirectory() as tmp:
-            seed_dir = Path(tmp)
-            cols = list(board.columns.all())
-            lanes = list(board.swimlanes.all())
-            lbls = list(board.labels.all())
-            cards = list(board.cards.all())
-
-            cmd._export_json(board, cols, lanes, lbls, cards, seed_dir)
-
-            data = json.loads((seed_dir / "demo_board.json").read_text())
-
-        self.assertIn("name", data)
-        self.assertIn("columns", data)
-        self.assertIn("swimlanes", data)
-        self.assertIn("labels", data)
-        self.assertIn("cards", data)
-        self.assertEqual(len(data["columns"]), 5)
-        self.assertEqual(len(data["swimlanes"]), 10)
-        self.assertEqual(len(data["labels"]), 3)
-
-    def test_csv_export_structure(self):
-        """The CSV export contains all expected headers and one row per card."""
-        import csv
-        import tempfile
-        from pathlib import Path
-        from io import StringIO as SIO
-
-        _seed()
-        board = Board.objects.get(name=BOARD_NAME)
-        cards = list(board.cards.prefetch_related("labels", "checklist_items", "comments", "assignee"))
-
-        from boards.management.commands.seed_demo_data import Command
-
-        cmd = Command()
-        cmd.stdout = SIO()
-        cmd.style = mock.MagicMock()
-        cmd.style.SUCCESS = lambda s: s
-
-        with tempfile.TemporaryDirectory() as tmp:
-            seed_dir = Path(tmp)
-            cmd._export_csv(cards, seed_dir)
-
-            with (seed_dir / "demo_board.csv").open() as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
-
-        expected_headers = {
-            "title", "column", "swimlane", "priority", "due_date",
-            "weight", "labels", "assignee", "checklist_total",
-            "checklist_done", "comment_count", "description_preview",
-        }
-        self.assertEqual(set(rows[0].keys()), expected_headers)
-        self.assertEqual(len(rows), len(cards))
+        for name in ("_export", "_export_json", "_export_csv"):
+            self.assertFalse(hasattr(Command, name), name)
 
 
 class SeedProductionGuardTests(TestCase):
@@ -497,39 +431,6 @@ class SeedArchivingTests(TestCase):
         out, _ = _seed()
         self.assertIn("archived", out.lower())
 
-    def test_export_excludes_archived_cards(self):
-        """The JSON snapshot should only include active (non-archived) cards."""
-        import json
-        import tempfile
-        from pathlib import Path
-
-        _seed()
-        board = Board.objects.get(name=BOARD_NAME)
-
-        from boards.management.commands.seed_demo_data import Command
-
-        cmd = Command()
-        cmd.stdout = StringIO()
-        cmd.style = mock.MagicMock()
-        cmd.style.SUCCESS = lambda s: s
-
-        active_count = board.cards.filter(archived_at__isnull=True).count()
-
-        with tempfile.TemporaryDirectory() as tmp:
-            seed_dir = Path(tmp)
-            cols = list(board.columns.all())
-            lanes = list(board.swimlanes.all())
-            lbls = list(board.labels.all())
-            # Pass all cards (including archived) as the command does internally.
-            cards = list(board.cards.all())
-            # Simulate the _export filter: exclude archived.
-            active_cards = [c for c in cards if c.archived_at is None]
-            cmd._export_json(board, cols, lanes, lbls, active_cards, seed_dir)
-            data = json.loads((seed_dir / "demo_board.json").read_text())
-
-        self.assertEqual(len(data["cards"]), active_count)
-        self.assertLess(len(data["cards"]), board.cards.count())
-
 
 @override_settings(DEBUG=True)
 class SeedScaleTests(TestCase):
@@ -574,13 +475,6 @@ class SeedScaleTests(TestCase):
         with self.assertRaises(CommandError) as ctx:
             _seed(scale=0)
         self.assertIn("--scale", str(ctx.exception))
-
-    def test_scale_with_export_is_rejected(self):
-        """The large fixture is generated fresh for CI, never committed —
-        combining --scale > 1 with --export is a usage error, not a silent no-op."""
-        with self.assertRaises(CommandError) as ctx:
-            _seed(scale=2, export=True)
-        self.assertIn("--export", str(ctx.exception))
 
     def test_scale_n_wipe_only_deletes_load_test_board(self):
         """--wipe with --scale > 1 must be scoped to the load-test board, leaving

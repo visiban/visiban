@@ -617,14 +617,16 @@ class BoardImportEdgeCaseTests(TestCase):
         card = Card.objects.get(board_id=board_id, title="Fix login")
         self.assertIsNotNone(card.due_date)
 
-    def test_csv_import_accepts_seed_csv_format(self):
-        """The seed demo_board.csv uses lowercase snake_case headers — must import without error."""
+    def test_csv_import_accepts_committed_sample_csv(self):
+        """A committed sample CSV (the export layout, with extra history and custom
+        field columns) must import without error and create its cards."""
+        import csv
         import os
         seed_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "scripts", "seed", "demo_board.csv"
+            os.path.dirname(__file__), "..", "..", "..", "sample-boards", "software_development.csv"
         )
-        if not os.path.exists(seed_path):
-            self.skipTest("demo_board.csv not present in this environment")
+        with open(seed_path, encoding="utf-8", newline="") as f:
+            expected = sum(1 for _ in csv.DictReader(f))
         with open(seed_path, "rb") as f:
             resp = self.client.post(
                 "/api/v1/boards/import/",
@@ -632,6 +634,7 @@ class BoardImportEdgeCaseTests(TestCase):
                 format="multipart",
             )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Card.objects.filter(board_id=resp.data["id"]).count(), expected)
 
     def test_non_group_member_cannot_import_into_group(self):
         """A user who is not a member of a group cannot import a board into it."""

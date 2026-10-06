@@ -1720,9 +1720,148 @@ PRODUCT_ROADMAP = {
 }
 
 
+# ── 12. Software Development (gallery order 1; appended last, see main()) ─────
+# _auto_cards and _build draw from this module's shared RNG stream, so this
+# template is expanded from its own saved stream state here, and built last in
+# main(). Either alone would reshuffle every other sample's cards and dates.
+
+_SOFTDEV_COLUMNS = [
+    {"name": "Backlog",     "position": 0, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Ready",       "position": 1, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": False},
+    {"name": "In Progress", "position": 2, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
+    {"name": "In Review",   "position": 3, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Testing",     "position": 4, "color": "#EC4899", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Done",        "position": 5, "color": "#10B981", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+]
+
+_SOFTDEV_SWIMLANES = [
+    {"name": "Web App",         "position": 0, "color": "#3B82F6", "notes": "Browser client: boards, cards, and everything users click. Owns the component library."},
+    {"name": "Mobile",          "position": 1, "color": "#EC4899", "notes": "iOS and Android apps. Ships on the two-week store release train."},
+    {"name": "API",             "position": 2, "color": "#8B5CF6", "notes": "Public REST API, background jobs, and the data model behind them."},
+    {"name": "Platform",        "position": 3, "color": "#0EA5E9", "notes": "Shared services, SDKs, and internal tooling other squads build on."},
+    {"name": "Infrastructure",  "position": 4, "color": "#14B8A6", "notes": "CI/CD, hosting, observability, and on-call tooling."},
+    {"name": "Quality",         "position": 5, "color": "#EF4444", "notes": "Test automation, release verification, and flaky-test triage."},
+    {"name": "Security",        "position": 6, "color": "#6366F1", "notes": "Application security, dependency hygiene, and compliance evidence."},
+    {"name": "Developer Docs",  "position": 7, "color": "#F43F5E", "notes": "API reference, guides, and release notes."},
+]
+
+_SOFTDEV_LABELS = [
+    {"name": "Bug",         "color": "#EF4444"},
+    {"name": "Feature",     "color": "#3B82F6"},
+    {"name": "Improvement", "color": "#10B981"},
+    {"name": "Tech Debt",   "color": "#9CA3AF"},
+    {"name": "Blocked",     "color": "#F97316"},
+    {"name": "Hotfix",      "color": "#DC2626"},
+]
+
+_SOFTDEV_TITLES = [
+    # Web App
+    "Keyboard shortcut cheat sheet overlay",
+    "Fix card drag ghost image flicker in Safari",
+    "Inline editing for card titles on the board",
+    "Move board filters into a saveable view",
+    "Reduce initial bundle size below 250 KB",
+    "Empty state for boards with no swimlanes",
+    "Respect reduced-motion preference in drag animations",
+    "Fix focus loss after closing the card modal",
+    "Column header collapse remembers its state",
+    "Virtualize long columns to keep scrolling smooth",
+    # Mobile
+    "Offline queue for card edits on flaky connections",
+    "Push notification for cards assigned to me",
+    "Fix crash when opening a card with a deleted label",
+    "Swipe to move a card to the next column",
+    "Biometric unlock for the saved session",
+    "Tablet layout for the board view",
+    "Upgrade React Native to the current stable release",
+    "Share a card link from the native share sheet",
+    "Fix keyboard covering the comment box on small phones",
+    "Crash reporting with source maps for release builds",
+    # API
+    "Cursor pagination on the card list endpoint",
+    "Fix N+1 query on the board summary endpoint",
+    "Idempotency keys for card creation",
+    "Webhook retry with exponential backoff",
+    "Return 410 Gone for the retired v0 endpoints",
+    "Rate limit the invite accept endpoint",
+    "Add an updated_since filter to the card list",
+    "Bulk archive endpoint for finished cards",
+    "Fix timezone handling in due date filters",
+    "Deprecation headers on legacy query parameters",
+    # Platform
+    "Extract the shared date picker into the component library",
+    "Typed client SDK generated from the OpenAPI schema",
+    "Feature flag service with percentage rollouts",
+    "Centralize error codes in one registry",
+    "Replace hand-rolled retry loops with one helper",
+    "Audit log writer shared by every service",
+    "Local development seed command for new engineers",
+    "Deprecate the legacy event bus adapter",
+    "Structured logging format across services",
+    "Background job dashboard for stuck tasks",
+    # Infrastructure
+    "Cache dependencies between CI pipeline runs",
+    "Blue-green deploy for the API tier",
+    "Alert on queue depth before it backs up",
+    "Rotate database credentials without downtime",
+    "Autoscale workers on job latency instead of CPU",
+    "Terraform module for the staging environment",
+    "Nightly database backup restore drill",
+    "Move container builds to the new runner pool",
+    "Dashboards for p95 latency by endpoint",
+    "Runbook for failing over the primary database",
+    # Quality
+    "Quarantine and fix the five flakiest end-to-end tests",
+    "Smoke test suite that gates every deploy",
+    "Visual regression checks for the board view",
+    "Load test the card move endpoint at 500 concurrent users",
+    "Contract tests between the web app and the API",
+    "Test data factory for multi-board scenarios",
+    "Release checklist automation",
+    "Accessibility audit of the card modal",
+    "Reproduce and triage the intermittent websocket drop",
+    "Raise backend coverage on the import path",
+    # Security
+    "Upgrade the dependency flagged by the weekly scan",
+    "Add CSP headers to the web app",
+    "Review file upload limits and allowed types",
+    "Penetration test findings: triage and assign",
+    "Session timeout and forced logout after password change",
+    "Secrets scanning in pre-commit and CI",
+    "Threat model for the new sharing feature",
+    "Audit API tokens older than one year",
+    "Fix IDOR on the attachment download route",
+    "SOC 2 evidence collection for access reviews",
+    # Developer Docs
+    "Document the pagination change in the API reference",
+    "Quickstart: your first webhook in five minutes",
+    "Changelog entries for the last three releases",
+    "Document the idempotency key header",
+    "Migration guide for the retired v0 endpoints",
+    "Troubleshooting page for common import errors",
+    "Add curl examples to every endpoint page",
+    "Architecture overview diagram refresh",
+    "Style guide for release notes",
+    "Contributor guide: running the test suite locally",
+]
+
+_rng_state = _rng.getstate()
+_softdev_cards = _auto_cards(_SOFTDEV_TITLES, _SOFTDEV_COLUMNS, _SOFTDEV_SWIMLANES, _SOFTDEV_LABELS, "kanban")
+_rng.setstate(_rng_state)
+
+SOFTWARE_DEVELOPMENT = {
+    "slug": "software_development",
+    "name": "Template: Software Development",
+    "description": "A product engineering board from backlog to done. Each swimlane is a squad; each card is a story, bug, or chore.",
+    "columns": _SOFTDEV_COLUMNS,
+    "swimlanes": _SOFTDEV_SWIMLANES,
+    "labels": _SOFTDEV_LABELS,
+    "extra_cards": _softdev_cards,
+}
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # PHASE 2 -- loaded from generate_seed_data_part2.py
-# ═════════════════════════════════════════════════════════════════════════════
 # Templates 6-10 are defined in generate_seed_data_part2.py and imported below.
 # This split keeps each file manageable.
 
@@ -1900,7 +2039,9 @@ def main(json_dir: str | None = None, csv_dir: str | None = None):
     global ALL_TEMPLATES
     part2 = _load_part2()
     overlay = _load_module("sales_overlay.py", "sales_overlay")
-    ALL_TEMPLATES = ALL_TEMPLATES + part2 + [overlay.SALES_OVERLAY]
+    # Appended last: _build draws from the shared RNG stream in list order, so a
+    # template added at the end leaves every earlier sample byte-identical.
+    ALL_TEMPLATES = ALL_TEMPLATES + part2 + [overlay.SALES_OVERLAY, SOFTWARE_DEVELOPMENT]
     features = _load_module("sample_features.py", "sample_features").FEATURES
     features = {**features, overlay.SALES_OVERLAY["slug"]: overlay.FEATURES}
     gallery = {g["slug"]: g for g in _load_module("sample_gallery.py", "sample_gallery").GALLERY}
