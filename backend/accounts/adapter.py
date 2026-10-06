@@ -8,7 +8,7 @@ from django.conf import settings as django_settings
 from django.http import HttpResponseRedirect
 from rest_framework.exceptions import PermissionDenied
 
-from .invite_utils import InviteTokenError, consume_invite_token, validate_invite_token
+from .invite_utils import InviteTokenError
 from .models import (
     SiteSetting,
     get_registration_mode,
@@ -133,30 +133,23 @@ def clear_login_lockout(request, user) -> None:
 
 # Session key used to pass an invite token through the OAuth redirect flow.
 # The frontend appends ?invite_token=vbnl_xxx (or an emailed group invite's
-# vbng_xxx, #1445) to the OAuth login URL; middleware
+# vbng_xxx, #1445, or board invite's vbnb_xxx, #1444) to the OAuth login URL; middleware
 # stashes it here before redirecting to the IdP. The SocialRegistrationAdapter
 # reads it on the callback to decide whether signup is permitted.
 PENDING_INVITE_SESSION_KEY = "pending_invite_token"
 
 
-def _is_group_token(raw_token: str) -> bool:
-    from groups.invite_registration import is_group_invite_token
-
-    return is_group_invite_token(raw_token)
-
-
 def _validate_signup_token(raw_token: str):
-    """Validate a pending OAuth invite token of either kind (#1445).
+    """Validate a pending OAuth invite token of any kind (#1445, #1444).
 
-    Site invites (``vbnl_``) and emailed single-use group invites (``vbng_``)
-    both authorize signup in INVITE_ONLY mode. Must run inside
-    ``transaction.atomic()`` — both validators lock the row.
+    Site invites (``vbnl_``) and emailed single-use group (``vbng_``) and board
+    (``vbnb_``) invites all authorize signup in INVITE_ONLY mode; the prefix
+    table in ``accounts.registration_tokens`` picks the validator. Must run
+    inside ``transaction.atomic()`` — every validator locks the row.
     """
-    if _is_group_token(raw_token):
-        from groups.invite_registration import validate_group_registration_token
+    from .registration_tokens import registration_token_kind
 
-        return validate_group_registration_token(raw_token)
-    return validate_invite_token(raw_token)
+    return registration_token_kind(raw_token).validate(raw_token)
 
 
 class RegistrationAdapter(DefaultAccountAdapter):
@@ -518,63 +511,41 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         mode = get_registration_mode()
         if mode == SiteSetting.RegistrationMode.INVITE_ONLY:
             raw_token = request.session.pop(PENDING_INVITE_SESSION_KEY, "")
-            if raw_token and _is_group_token(raw_token):
-                self._redeem_group_invite(raw_token, user)
-            elif raw_token:
-                try:
-                    link = validate_invite_token(raw_token)
-                    # Pass the OAuth-provided email so multi-use invite redemption
-                    # is rejected when the same address attempts to redeem the
-                    # link twice (#925).
-                    consume_invite_token(link, email=user.email)
-                except InviteTokenError as exc:
-                    # Two cases reach this branch:
-                    #
-                    # 1. Token race — the token became invalid between
-                    #    is_open_for_signup and save_user.  The user already
-                    #    passed the gate check, so we accept the signup and log
-                    #    the anomaly (existing behaviour pre-#925).
-                    # 2. Repeat-redemption (#925) — the unique constraint on
-                    #    InviteLinkRedemption rejected a second redemption from
-                    #    the same email.  The OAuth flow is not wrapped in a
-                    #    rollback boundary the adapter controls, so the user is
-                    #    already saved.  We log and continue; the link's
-                    #    use_count is not incremented and no redemption row is
-                    #    written, so the dedup remains correct for future
-                    #    attempts.  This is best-effort enforcement on OAuth;
-                    #    REST registration provides strict enforcement.
-                    logger.warning(
-                        "Invite token not consumed in save_user (code=%s, user=%s). "
-                        "The user was created but the token was not marked used.",
-                        exc.code,
-                        user.pk,
-                    )
+            if raw_token:
+                self._redeem_invite(raw_token, user)
 
         return user
 
     @staticmethod
-    def _redeem_group_invite(raw_token, user):
-        """Join a new OAuth account to its emailed group invite's group (#1445).
+    def _redeem_invite(raw_token, user):
+        """Consume the pending invite for a new OAuth account, best-effort.
 
-        Best-effort, like the site-invite branch above: allauth has already
-        saved the user, and this adapter owns no rollback boundary around that
-        save. The redeem's conditional ``used_at`` update still guarantees the
-        invite joins at most one account to the group; a lost race leaves the
-        account created without the membership, and is logged.
+        allauth has already saved the user and this adapter owns no rollback
+        boundary around that save, so — unlike REST registration — a refused
+        redemption cannot undo the signup. Two cases reach the except branch:
+
+        1. Token race — the token became invalid between ``is_open_for_signup``
+           and here. The user already passed the gate, so the signup stands
+           and the anomaly is logged (pre-#925 behavior for site invites).
+        2. Repeat redemption (#925) — a multi-use site link already redeemed
+           with this email. Nothing is recorded, so the dedup stays correct.
+
+        Group (#1445) and board (#1444) invites are consumed by a conditional
+        ``used_at`` update, so even without the lock one invite admits at most
+        one account; a lost race leaves the account without the membership.
         """
-        from groups.invite_registration import (
-            redeem_group_registration_token,
-            validate_group_registration_token,
-        )
+        from .registration_tokens import registration_token_kind
 
+        kind = registration_token_kind(raw_token)
         try:
             with transaction.atomic():
-                link = validate_group_registration_token(raw_token)
-                redeem_group_registration_token(link, user)
+                invite = kind.validate(raw_token)
+                kind.redeem(invite, user)
         except InviteTokenError as exc:
             logger.warning(
-                "Group invite not redeemed in save_user (code=%s, user=%s). "
-                "The user was created but was not joined to the group.",
+                "Invite not redeemed in save_user (kind=%s, code=%s, user=%s). "
+                "The user was created but the invite was not consumed.",
+                kind.name,
                 exc.code,
                 user.pk,
             )

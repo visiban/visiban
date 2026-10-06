@@ -221,7 +221,7 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 
 | Event | Trigger | `data` shape |
 |---|---|---|
-| `member.added` | User added to board | Full `BoardMembershipSerializer` object |
+| `member.added` | User added to board — by an admin, or by redeeming a [board invite](boards.md#board-invites) (since 1.2) | Full `BoardMembershipSerializer` object. When the member joined through an invite it also carries `"invite": { "id": <int>, "created_by_id": <int or null> }` (additive, since 1.2) |
 | `member.updated` | Member role or moderator flag changed | Full `BoardMembershipSerializer` object |
 | `member.removed` | User removed from board | `{ "user_id": <int> }` |
 
@@ -233,6 +233,22 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
     The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a `member.added` or `member.updated` frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving `is_moderator` and `is_site_admin` on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no `member.*` frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect at the server's periodic access re-check (see [Access re-check and eviction](#access-re-check-and-eviction)). They apply to the first frame forwarded after the socket's re-check window lapses, at most about 7 seconds after its last successful check. Before #1477 they took effect only on the next reconnect. Until the re-check runs, a demoted admin can still receive the admin-only fields for up to that window.
 
     The [change feed](events.md) applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.
+
+### Invite events (since 1.2)
+
+Emitted by the [board invite](boards.md#board-invites) endpoints. Refetch
+signals only: every board subscriber receives them, including non-admins, so
+they carry just the invite id. Admin clients refetch `GET /boards/{id}/invite-links/`
+(admin-only) for the details; other clients should ignore them. Same names as
+the group channel's invite events.
+
+| Event | Trigger | `data` shape |
+|---|---|---|
+| `invite_link.created` | A board admin emailed an invite to someone | `{ "id": <int> }` |
+| `invite_link.revoked` | An invite was revoked — by an admin, automatically because its email could not be sent, or because its sender was deactivated | `{ "id": <int> }` |
+
+A redeemed invite publishes no event of its own: the `member.added` frame it
+causes carries the invite id when a membership was created.
 
 ### Git Lens events (since 1.2)
 

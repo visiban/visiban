@@ -113,7 +113,8 @@ def invite_email_available() -> bool:
 
 def join_url(raw_token: str) -> str:
     """Absolute SPA URL for an invite token — the same ``/join/<token>`` route the
-    copy-link UI builds for both group (``vbng_``) and site (``vbnl_``) tokens."""
+    copy-link UI builds for group (``vbng_``), site (``vbnl_``) and board
+    (``vbnb_``, #1444) tokens."""
     base = getattr(settings, "FRONTEND_URL", "http://localhost:5173").rstrip("/")
     return f"{base}/join/{raw_token}"
 
@@ -154,6 +155,19 @@ def build_group_invite_message(*, group_name, inviter_name, raw_token, expires_a
     }
     subject = _flatten_subject(render_to_string("groups/email/invite_subject.txt", context))
     body = render_to_string("groups/email/invite_message.txt", context)
+    return EmailMessage(subject=subject, body=body, to=[to])
+
+
+def build_board_invite_message(*, board_name, inviter_name, raw_token, expires_at, to):
+    context = {
+        "board_name": _clip(board_name),
+        "inviter_name": _clip(inviter_name) or "A board admin",
+        "site_name": _clip(SITE_NAME),
+        "join_url": join_url(raw_token),
+        "expires_on": _expires_on(expires_at),
+    }
+    subject = _flatten_subject(render_to_string("boards/email/invite_subject.txt", context))
+    body = render_to_string("boards/email/invite_message.txt", context)
     return EmailMessage(subject=subject, body=body, to=[to])
 
 
@@ -306,10 +320,27 @@ class InviteEmailGroupThrottle(SimpleRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": f"group-{self.group_id}"}
 
 
+class InviteEmailBoardThrottle(SimpleRateThrottle):
+    """Per board (``invite_email_board``), keyed on the board id so every admin
+    of one board draws from the same budget (#1444) — the board counterpart of
+    ``InviteEmailGroupThrottle``."""
+
+    scope = "invite_email_board"
+
+    def __init__(self, board_id):
+        super().__init__()
+        self.board_id = board_id
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {"scope": self.scope, "ident": f"board-{self.board_id}"}
+
+
 class InviteEmailGlobalThrottle(SimpleRateThrottle):
-    """Instance-wide ceiling on *group* invite emails (``invite_email_global``)
-    across every sender, so a handful of admin accounts cannot turn the
-    instance into a relay."""
+    """Instance-wide ceiling on *group and board* invite emails
+    (``invite_email_global``) across every sender, so a handful of admin
+    accounts cannot turn the instance into a relay. Board sends (#1444) share
+    it: any user can create a board, exactly as any user can create a group,
+    so both belong on the non-site budget."""
 
     scope = "invite_email_global"
 
@@ -344,7 +375,7 @@ def _would_allow(throttle, request, view) -> bool:
     return len(throttle.history) < throttle.num_requests
 
 
-def check_send_throttles(request, view, *, group_id=None, site=False) -> list:
+def check_send_throttles(request, view, *, group_id=None, board_id=None, site=False) -> list:
     """Apply every send throttle at once; raise ``Throttled`` if any is spent.
 
     Returns the throttles that recorded this request, for
@@ -360,6 +391,8 @@ def check_send_throttles(request, view, *, group_id=None, site=False) -> list:
     throttles = [InviteEmailUserThrottle()]
     if group_id is not None:
         throttles.append(InviteEmailGroupThrottle(group_id))
+    if board_id is not None:
+        throttles.append(InviteEmailBoardThrottle(board_id))
     throttles.append(InviteEmailGlobalSiteThrottle() if site else InviteEmailGlobalThrottle())
 
     refused = [t for t in throttles if not _would_allow(t, request, view)]

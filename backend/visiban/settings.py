@@ -611,6 +611,9 @@ REST_FRAMEWORK = {
         # deployments need the shared Valkey/Redis cache for them to hold.
         "invite_email_user": "9999/hour" if DEBUG else "10/hour",
         "invite_email_group": "9999/hour" if DEBUG else "30/day",
+        # Per board (#1444), the board counterpart of invite_email_group. Board
+        # sends draw from the same non-site instance ceiling as group sends.
+        "invite_email_board": "9999/hour" if DEBUG else "30/day",
         "invite_email_global": "9999/hour" if DEBUG else "200/day",
         # Separate instance-wide ceiling for site-admin invite emails: any
         # self-registered user can become a group admin, so sharing the group

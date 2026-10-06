@@ -75,6 +75,13 @@ EVT_MEMBER_ADDED = "member.added"
 EVT_MEMBER_UPDATED = "member.updated"
 EVT_MEMBER_REMOVED = "member.removed"
 
+# Board invites (#1444). Refetch signals only — every board subscriber receives
+# them, including non-admins, so the payload is just ``{id}`` and admins refetch
+# the admin-only list. Same names (and strings) as the group channel's invite
+# events; groups.broadcast imports them from here.
+EVT_INVITE_LINK_CREATED = "invite_link.created"
+EVT_INVITE_LINK_REVOKED = "invite_link.revoked"
+
 # Emitted from the git_lens app, but onto the *board* channel — so they are
 # board-channel contract and belong in this registry rather than a third one.
 EVT_LENS_CONNECTION_CONFIGURED = "lens_connection.configured"
@@ -120,6 +127,8 @@ BOARD_CHANNEL_EVENTS: frozenset[str] = frozenset({
     EVT_MEMBER_ADDED,
     EVT_MEMBER_UPDATED,
     EVT_MEMBER_REMOVED,
+    EVT_INVITE_LINK_CREATED,
+    EVT_INVITE_LINK_REVOKED,
     EVT_LENS_CONNECTION_CONFIGURED,
     EVT_LENS_CONNECTION_REMOVED,
     EVT_PING,

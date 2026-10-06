@@ -16,6 +16,9 @@ import type { ViewPrefs } from "../../hooks/useViewPrefs";
 import Avatar from "../Common/Avatar";
 import { Toggle, ToggleField } from "../Common/Toggle";
 import DemoInert from "../Common/DemoInert";
+import InviteLinkPanel from "../Group/InviteLinkPanel";
+import { EMAIL_RE } from "../../constants/inviteEmail";
+import type { EmailInviteFormHandle } from "../Common/EmailInviteForm";
 import { DEMO_SETTINGS_REASON } from "../../constants/demoCopy";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
@@ -67,6 +70,10 @@ interface Props {
    *  let only a site admin change or remove a member who is a site admin, so
    *  the Members tab locks those rows for everyone else. */
   currentUserIsSiteAdmin?: boolean;
+  /** #1444 — bumped by BoardView on invite_link.created / invite_link.revoked
+   *  and on a member.added that came from an invite, so the Members tab's
+   *  invite list refetches. */
+  inviteReloadSignal?: number;
 }
 
 const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
@@ -100,7 +107,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // Focus the selected tab button only when a caller deep-linked a tab (#1458);
@@ -121,6 +128,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: initialTab is read once, like the tab state
   }, []);
   const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
+  // #1444 — someone who joins from an invite while the modal is open arrives
+  // through BoardView's member.added handler as a new board.members entry.
+  // Append only ids not already listed: never replace, so a role edit in
+  // flight here is not clobbered by the incoming prop.
+  useEffect(() => {
+    setMembers((prev) => {
+      const known = new Set(prev.map((m) => m.user.id));
+      const added = board.members.filter((m) => !known.has(m.user.id));
+      return added.length > 0 ? [...prev, ...added] : prev;
+    });
+  }, [board.members]);
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const removeTriggerRef = useConfirmFocusReturn(pendingRemove);
@@ -140,6 +158,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   const [dropdownAnchor, setDropdownAnchor] = useState<{ top: number; bottom: number; left: number; width: number } | null>(null);
+  // #1444 — the search → "Invite by email" bridge. `settledSearch` is the
+  // query the last debounced search finished for and how many addable people
+  // it found; the bridge shows only once that search has settled with none.
+  const [settledSearch, setSettledSearch] = useState<{ query: string; count: number } | null>(null);
+  const [emailInviteAvailable, setEmailInviteAvailable] = useState(false);
+  const emailFormRef = useRef<EmailInviteFormHandle>(null);
 
   const [stalenessThreshold, setStalenessThreshold] = useState(board.staleness_threshold_days ?? 14);
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
@@ -271,13 +295,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     if (debounceRef.current) clearTimeout(debounceRef.current);
     // Strip a leading @ so users can type "@alice" and get the same results as "alice"
     const q = inviteQuery.trim().replace(/^@/, "");
-    if (q.length < 2) { setSuggestions([]); return; }
+    if (q.length < 2) { setSuggestions([]); setSettledSearch(null); return; }
     debounceRef.current = setTimeout(async () => {
       try {
         const results = await searchUsers(q);
         const memberIds = new Set(members.map((m) => m.user.id));
         const stagedIds = new Set(staged.map((s) => s.user.id));
         const filtered = results.filter((u) => !memberIds.has(u.id) && !stagedIds.has(u.id));
+        setSettledSearch({ query: q, count: filtered.length });
         if (filtered.length > 0 && searchInputRef.current) {
           const rect = searchInputRef.current.getBoundingClientRect();
           setDropdownAnchor({ top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width });
@@ -288,6 +313,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       } catch {
         setSuggestions([]);
         setDropdownAnchor(null);
+        setSettledSearch(null);
       }
     }, 300);
   }, [inviteQuery, members, staged]);
@@ -690,6 +716,36 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         placeholder="Search by name or email…"
                         className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                       />
+                      {(() => {
+                        // #1444 — no account matched an email-shaped query:
+                        // offer to send it an invite instead.
+                        const q = inviteQuery.trim().replace(/^@/, "");
+                        const show =
+                          emailInviteAvailable &&
+                          EMAIL_RE.test(q) &&
+                          settledSearch !== null &&
+                          settledSearch.query === q &&
+                          settledSearch.count === 0;
+                        if (!show) return null;
+                        return (
+                          <p className="text-xs text-fg-muted mt-1.5" role="status" aria-live="polite">
+                            No results for <span className="text-fg-secondary">{q}</span>.{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                emailFormRef.current?.prefill(q);
+                                setInviteQuery("");
+                                setSuggestions([]);
+                                setDropdownAnchor(null);
+                                setSettledSearch(null);
+                              }}
+                              className="text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            >
+                              Invite by email
+                            </button>
+                          </p>
+                        );
+                      })()}
                       {suggestions.length > 0 && dropdownAnchor && (
                         <div
                           ref={suggestionsRef}
@@ -770,6 +826,21 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     >
                       {inviting ? "Adding…" : staged.length > 0 ? `Add ${staged.length} member${staged.length !== 1 ? "s" : ""} to board` : "Add to board"}
                     </button>
+                  </div>
+
+                  {/* #1444 — invite someone without an account, and the
+                      invites still pending. Admins only, like Add member. */}
+                  <div className="border-t border-line pt-4 mt-6 flex flex-col gap-4">
+                    <InviteLinkPanel
+                      scope={{ kind: "board", id: board.id }}
+                      variant="embedded"
+                      allowShareableLinks={false}
+                      escapePriority={49}
+                      reloadSignal={inviteReloadSignal}
+                      isSiteAdmin={currentUserIsSiteAdmin}
+                      emailFormRef={emailFormRef}
+                      onEmailAvailabilityChange={setEmailInviteAvailable}
+                    />
                   </div>
                 </div>
               )}

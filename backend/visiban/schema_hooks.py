@@ -149,6 +149,11 @@ def add_standard_error_responses(result, generator, request, public):
 _PINNED_ENUMS = {
     ("EffectiveBoardMember", "role"): "EffectiveBoardRoleEnum",
     ("BoardFull", "current_user_role"): "EffectiveBoardRoleEnum",
+    # Board invites (#1444) grant member/collaborator/viewer only — a third
+    # ``role`` choice set, which would otherwise hash-rename RoleEnum again.
+    ("BoardInviteLink", "role"): "BoardInviteRoleEnum",
+    ("BoardInviteLinkEmailRequest", "role"): "BoardInviteRoleEnum",
+    ("BoardInviteLinkEmailRequest", "expiry_days"): "BoardInviteExpiryDaysEnum",
 }
 
 

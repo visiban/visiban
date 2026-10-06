@@ -28,7 +28,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import type { ImportSummary, User } from "./types";
-import { starBoard, unstarBoard } from "./api/boards";
+import { joinBoard, starBoard, unstarBoard } from "./api/boards";
 import { joinGroup } from "./api/groups";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
 
@@ -46,7 +46,7 @@ export default function App() {
   const oauthJoinFired = useRef(false);
 
   // OAuth return path: after an OAuth provider redirects back to the frontend root,
-  // handleLogin is never called. If the user arrived via a group invite link and
+  // handleLogin is never called. If the user arrived via a group or board invite link and
   // clicked an OAuth button, JoinPage stored the raw token in pendingJoinToken before
   // the redirect. Consume it here so the user lands in the group instead of the
   // Dashboard. Also clean up any site invite token — it was for registration, which
@@ -60,6 +60,17 @@ export default function App() {
     oauthJoinFired.current = true;
     sessionStorage.removeItem("pendingJoinToken");
     sessionStorage.removeItem("returnTo");
+    // A board invite (vbnb_, #1444) redeems through the board join endpoint;
+    // every other pending token is a group invite. On failure JoinPage shows
+    // the right state for either kind.
+    if (pendingToken.startsWith("vbnb_")) {
+      joinBoard(pendingToken)
+        .then((res) => navigate(`/boards/${res.board_id}`, {
+          state: { joinedBoard: res.board_name, joinedRole: res.role, created: res.created },
+        }))
+        .catch(() => navigate(`/join/${pendingToken}`));
+      return;
+    }
     joinGroup(pendingToken)
       .then((group) => navigate(`/groups/${group.id}`, { state: { joinedGroup: group.name } }))
       .catch(() => navigate(`/join/${pendingToken}`));

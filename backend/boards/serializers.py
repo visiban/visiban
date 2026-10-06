@@ -13,6 +13,7 @@ from rest_framework import serializers
 from accounts.models import User
 from accounts.serializers import BoardUserSerializer
 from visiban import field_enforcement
+from visiban.invite_email import InviteEmailField
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 # Module-level (not lazy) so ``@extend_schema_field`` can reference it at class-body
 # evaluation time — see BoardSerializer.get_group_detail. No import cycle: neither
@@ -27,7 +28,7 @@ from .permissions import (
 )
 
 from .models import (
-    Board, BoardEvent, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
+    Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
     CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, CardExternalRef,
     CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
@@ -3605,3 +3606,66 @@ class CSVImportOptionsSerializer(ImportOptionsSerializer):
         for key in self.DEPENDENTS:
             attrs[key] = attrs["cards"]
         return attrs
+
+
+# ---------------------------------------------------------------------------
+# Board invites (#1444)
+# ---------------------------------------------------------------------------
+
+#: Expiry choices for an emailed board invite, in days. Default 7.
+BOARD_INVITE_EXPIRY_DAYS = (1, 7, 30)
+
+
+class BoardInviteLinkSerializer(serializers.ModelSerializer):
+    """One row of the admin-only ``GET /boards/<id>/invite-links/`` list.
+
+    Never carries the token or the address the invite was emailed to — neither
+    is stored.
+    """
+
+    status = serializers.CharField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+    # SerializerMethodField for the same reasons as GroupInviteLinkSerializer
+    # (#1294 / #1226): created_by is a nullable FK.
+    created_by_username = serializers.SerializerMethodField(allow_null=True)
+    can_register = serializers.SerializerMethodField(
+        help_text=(
+            "Advisory: whether registration would accept this invite under the "
+            "site's current registration mode, computed at read time."
+        ),
+    )
+
+    class Meta:
+        model = BoardInviteLink
+        fields = [
+            "id", "prefix", "name", "role", "delivery", "created_at", "created_by_username",
+            "expires_at", "is_expired", "single_use", "used_at", "status", "can_register",
+        ]
+        read_only_fields = fields
+
+    def get_created_by_username(self, obj) -> str | None:
+        return obj.created_by.username if obj.created_by_id else None
+
+    def get_can_register(self, obj) -> bool:
+        from .invites import board_link_can_register
+
+        return board_link_can_register(obj)
+
+
+class BoardInviteLinkEmailSerializer(serializers.Serializer):
+    """Input for ``POST /boards/<id>/invite-links/send/`` (#1444).
+
+    No free-text message field, like the group and site equivalents: the
+    instance's trusted sender address must not carry caller-chosen prose.
+    Admin and the moderator flag are not grantable by invite.
+    """
+
+    email = InviteEmailField()
+    role = serializers.ChoiceField(
+        choices=[("member", "Member"), ("collaborator", "Collaborator"), ("viewer", "Viewer")],
+        required=False,
+        default="member",
+    )
+    expiry_days = serializers.ChoiceField(
+        choices=BOARD_INVITE_EXPIRY_DAYS, required=False, default=7,
+    )

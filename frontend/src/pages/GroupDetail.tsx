@@ -16,6 +16,7 @@ import {
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
 import InviteLinkPanel from "../components/Group/InviteLinkPanel";
+import JoinedNotice from "../components/Common/JoinedNotice";
 import BoardGroupPath from "../components/Group/BoardGroupPath";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
@@ -605,10 +606,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={breadcrumb} />
 
       {joinToast && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-success/60 border-b border-success/50 text-success text-sm">
-          <span>You've joined <strong className="text-success">{joinToast}</strong>. Welcome!</span>
-          <button onClick={() => setJoinToast(null)} className="text-success hover:text-success transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" aria-label="Dismiss notification">×</button>
-        </div>
+        <JoinedNotice onDismiss={() => setJoinToast(null)}>
+          You've joined <strong className="text-success">{joinToast}</strong>. Welcome!
+        </JoinedNotice>
       )}
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
@@ -1000,7 +1000,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             </section>
 
             {/* Invite links */}
-            <InviteLinkPanel groupId={groupId} reloadSignal={inviteReloadKey} isSiteAdmin={user.is_site_admin} />
+            <InviteLinkPanel scope={{ kind: "group", id: groupId }} reloadSignal={inviteReloadKey} isSiteAdmin={user.is_site_admin} />
 
             {/* Board defaults */}
             <section>

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { resolveJoinToken, joinGroup } from "../api/groups";
+import { resolveBoardJoinToken, joinBoard } from "../api/boards";
+import type { BoardInviteRole, BoardJoinResult } from "../api/boards";
 import { getAuthProviders } from "../api/auth";
 import type { User } from "../types";
 import { providerLoginUrl } from "../utils/oauth";
@@ -11,11 +13,37 @@ interface Props {
   onLogin: (user: User) => void;
 }
 
+type BoardGoneCode = "used" | "expired" | "revoked";
+
+// What each board role lets the invitee do (#1444) — shown under the preview.
+const BOARD_CAPABILITY: Record<BoardInviteRole, string> = {
+  member: "You'll be able to create, edit, and move cards.",
+  collaborator: "You'll be able to comment and upload files.",
+  viewer: "You'll be able to view the board.",
+};
+
+function goneCode(err: unknown): BoardGoneCode | null {
+  const res = (err as { response?: { status?: number; data?: { code?: string } } }).response;
+  if (res?.status !== 410) return null;
+  const code = res.data?.code;
+  return code === "used" || code === "expired" ? code : "revoked";
+}
+
+/**
+ * The /join/<token> landing page for every invite kind. One component, not a
+ * fork per kind: the token's prefix picks the API — ``vbnl_`` (site, straight
+ * to registration), ``vbnb_`` (board, #1444), anything else a group invite —
+ * and the rest of the page renders from the same name/id state.
+ */
 export default function JoinPage({ user }: Props) {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  // Name/id of what the invite joins: a group, or a board for vbnb_ tokens.
   const [groupName, setGroupName] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
+  const [boardRole, setBoardRole] = useState<BoardInviteRole | null>(null);
+  const [boardGone, setBoardGone] = useState<BoardGoneCode>("revoked");
+  const titleRef = useRef<HTMLHeadingElement & HTMLParagraphElement>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [invalid, setInvalid] = useState(false);
@@ -33,6 +61,7 @@ export default function JoinPage({ user }: Props) {
   // Site-wide invite links (vbnl_ prefix) are for registration, not group joining.
   // Redirect to the login page with the token so the registration form can consume it.
   const isSiteInvite = token?.startsWith("vbnl_") ?? false;
+  const isBoardInvite = token?.startsWith("vbnb_") ?? false;
 
   useEffect(() => {
     if (!token) return;
@@ -42,6 +71,22 @@ export default function JoinPage({ user }: Props) {
       // void: navigate() can return a Promise in React Router v7; fire-and-forget,
       // there is nothing to roll back if the navigation itself rejects.
       void navigate("/", { state: { authMode: "register" }, replace: true });
+      return;
+    }
+    if (isBoardInvite) {
+      resolveBoardJoinToken(token)
+        .then((data) => {
+          setGroupName(data.board_name);
+          setGroupId(data.board_id);
+          setBoardRole(data.role);
+          setCanRegister(data.can_register);
+        })
+        .catch((err) => {
+          // 410 names why; a 404 (unknown token) reads as "no longer valid".
+          setBoardGone(goneCode(err) ?? "revoked");
+          setInvalid(true);
+        })
+        .finally(() => setLoading(false));
       return;
     }
     resolveJoinToken(token)
@@ -56,7 +101,13 @@ export default function JoinPage({ user }: Props) {
         setInvalid(true);
       })
       .finally(() => setLoading(false));
-  }, [token, isSiteInvite, navigate]);
+  }, [token, isSiteInvite, isBoardInvite, navigate]);
+
+  // Board invites: move focus to the title when the page switches to the
+  // invalid or join-failed view, so a screen reader announces the outcome.
+  useEffect(() => {
+    if (isBoardInvite && (invalid || joinError)) titleRef.current?.focus();
+  }, [isBoardInvite, invalid, joinError]);
 
   useEffect(() => {
     if (!invalid) return;
@@ -78,23 +129,51 @@ export default function JoinPage({ user }: Props) {
   // Auto-join: fires when the user is already authenticated and the token has resolved.
   // Replaces the manual "Join" button — authenticated users should land in the group
   // without an extra click.
+  const joinBoardAndGo = (raw: string) =>
+    joinBoard(raw)
+      .then((res: BoardJoinResult) =>
+        navigate(`/boards/${res.board_id}`, {
+          state: { joinedBoard: res.board_name, joinedRole: res.role, created: res.created },
+        }),
+      )
+      .catch((err) => {
+        const code = goneCode(err);
+        if (code) {
+          // Used, expired or revoked since the preview: say which.
+          setBoardGone(code);
+          setInvalid(true);
+        } else {
+          setJoinError(`Couldn't join ${groupName}. The invite may have expired or been used.`);
+        }
+        setJoining(false);
+      });
+
   useEffect(() => {
     if (!user || !groupId || !token || autoJoinFired.current) return;
     autoJoinFired.current = true;
     setJoining(true);
+    if (isBoardInvite) {
+      void joinBoardAndGo(token);
+      return;
+    }
     joinGroup(token)
       .then(() => navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } }))
       .catch(() => {
         setJoinError("Failed to join group. The invite may have expired.");
         setJoining(false);
       });
-  }, [user, groupId, token, groupName, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- joinBoardAndGo is recreated each render; the guard ref makes this fire once
+  }, [user, groupId, token, groupName, navigate, isBoardInvite]);
 
   const handleRetry = () => {
     autoJoinFired.current = false;
     setJoinError(null);
     setJoining(true);
     if (!token) return;
+    if (isBoardInvite) {
+      void joinBoardAndGo(token);
+      return;
+    }
     joinGroup(token)
       .then(() => navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } }))
       .catch(() => {
@@ -139,7 +218,24 @@ export default function JoinPage({ user }: Props) {
     return (
       <div className="min-h-screen bg-sunken flex items-center justify-center">
         <div className="text-center">
-          {invalidReason === "already_used" ? (
+          {isBoardInvite ? (
+            boardGone === "used" ? (
+              <>
+                <p ref={titleRef} tabIndex={-1} className="text-fg-tertiary text-lg font-medium mb-2 focus:outline-none">This invite has already been used</p>
+                <p className="text-fg-muted text-sm">Invites are single-use. Ask a board admin to send you a new one.</p>
+              </>
+            ) : boardGone === "expired" ? (
+              <>
+                <p ref={titleRef} tabIndex={-1} className="text-danger text-lg font-medium mb-2 focus:outline-none">This invite has expired</p>
+                <p className="text-fg-muted text-sm">Ask a board admin for a new invite.</p>
+              </>
+            ) : (
+              <>
+                <p ref={titleRef} tabIndex={-1} className="text-danger text-lg font-medium mb-2 focus:outline-none">This invite is no longer valid</p>
+                <p className="text-fg-muted text-sm">It may have been revoked. Ask a board admin for a new one.</p>
+              </>
+            )
+          ) : invalidReason === "already_used" ? (
             <>
               <p className="text-fg-tertiary text-lg font-medium mb-2">This link has already been used</p>
               <p className="text-fg-muted text-sm">This was a single-use invite link. Ask a group admin for a new one.</p>
@@ -169,10 +265,19 @@ export default function JoinPage({ user }: Props) {
       <div className="bg-surface rounded-2xl shadow-2xl p-10 w-full max-w-sm text-center">
         <div className="flex flex-col items-center mb-6">
           <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-32 mb-6" />
-          <h1 className="text-2xl font-bold text-fg mb-2">You're invited</h1>
-          <p className="text-fg-tertiary text-sm">
-            Join <span className="text-fg font-semibold">{groupName}</span>
-          </p>
+          <h1 ref={titleRef} tabIndex={-1} className="text-2xl font-bold text-fg mb-2 focus:outline-none">You're invited</h1>
+          {isBoardInvite && boardRole ? (
+            <>
+              <p className="text-fg-tertiary text-sm">
+                Join <span className="text-fg font-semibold break-words">{groupName}</span> as a {boardRole}
+              </p>
+              <p className="text-xs text-fg-muted mt-1">{BOARD_CAPABILITY[boardRole]}</p>
+            </>
+          ) : (
+            <p className="text-fg-tertiary text-sm">
+              Join <span className="text-fg font-semibold">{groupName}</span>
+            </p>
+          )}
         </div>
 
         {user ? (
