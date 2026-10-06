@@ -1599,4 +1599,155 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
     render(<CardDetail {...defaultProps()} />)
     expect(screen.queryByText('Custom fields')).not.toBeInTheDocument()
   })
+
+  describe('async delete/archive handlers: in-flight guard + failure path (#1437)', () => {
+    const deferred = () => {
+      let resolve!: () => void
+      const promise = new Promise<void>((r) => { resolve = r })
+      return { promise, resolve }
+    }
+
+    it('checklist item delete: double-click sends one DELETE', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 1, text: 'Item 1', is_checked: false, position: 0 },
+      ])
+      const d = deferred()
+      mockDeleteChecklistItem.mockImplementationOnce(() => d.promise)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      await waitFor(() => expect(screen.getByText('Item 1')).toBeInTheDocument())
+      const btn = screen.getByTitle('Remove item')
+      fireEvent.click(btn)
+      fireEvent.click(btn)
+      expect(mockDeleteChecklistItem).toHaveBeenCalledTimes(1)
+      d.resolve()
+      await waitFor(() => expect(screen.queryByText('Item 1')).not.toBeInTheDocument())
+    })
+
+    it('checklist item delete: a rejection shows an error, keeps the item, and allows retry', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 1, text: 'Item 1', is_checked: false, position: 0 },
+      ])
+      mockDeleteChecklistItem.mockRejectedValueOnce(new Error('boom'))
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      await waitFor(() => expect(screen.getByText('Item 1')).toBeInTheDocument())
+      fireEvent.click(screen.getByTitle('Remove item'))
+      expect(await screen.findByText('Could not delete item.')).toBeInTheDocument()
+      expect(screen.getByText('Item 1')).toBeInTheDocument()
+      expect(props.onUpdated).not.toHaveBeenCalled()
+      mockDeleteChecklistItem.mockResolvedValueOnce(undefined)
+      fireEvent.click(screen.getByTitle('Remove item'))
+      await waitFor(() => expect(screen.queryByText('Item 1')).not.toBeInTheDocument())
+      expect(screen.queryByText('Could not delete item.')).not.toBeInTheDocument()
+    })
+
+    const attachment = { id: 7, filename: 'spec.pdf', size: 10, url: '/f/7', uploaded_by: fakeUser, uploaded_at: '2026-01-01' }
+
+    it('attachment delete: double-click sends one DELETE', async () => {
+      const { deleteCardAttachment } = await import('../api/cards')
+      const mockDel = deleteCardAttachment as ReturnType<typeof vi.fn>
+      ;(getCardAttachments as ReturnType<typeof vi.fn>).mockResolvedValue([attachment])
+      const d = deferred()
+      mockDel.mockImplementationOnce(() => d.promise)
+      render(<CardDetail {...defaultProps()} currentUser={fakeUser} />)
+      const btn = await screen.findByRole('button', { name: 'Delete attachment spec.pdf' })
+      fireEvent.click(btn)
+      fireEvent.click(btn)
+      expect(mockDel).toHaveBeenCalledTimes(1)
+      d.resolve()
+      await waitFor(() => expect(screen.queryByText('spec.pdf')).not.toBeInTheDocument())
+    })
+
+    it('attachment delete: a rejection shows an error and allows retry', async () => {
+      const { deleteCardAttachment } = await import('../api/cards')
+      const mockDel = deleteCardAttachment as ReturnType<typeof vi.fn>
+      ;(getCardAttachments as ReturnType<typeof vi.fn>).mockResolvedValue([attachment])
+      mockDel.mockRejectedValueOnce(new Error('boom'))
+      render(<CardDetail {...defaultProps()} currentUser={fakeUser} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete attachment spec.pdf' }))
+      expect(await screen.findByText('Could not delete attachment.')).toBeInTheDocument()
+      mockDel.mockResolvedValueOnce(undefined)
+      fireEvent.click(screen.getByRole('button', { name: 'Delete attachment spec.pdf' }))
+      await waitFor(() => expect(mockDel).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(screen.queryByText('spec.pdf')).not.toBeInTheDocument())
+    })
+
+    it('card delete: modal stays open and disabled in flight, double-click sends one DELETE', async () => {
+      const { deleteCard } = await import('../api/cards')
+      const mockDel = deleteCard as ReturnType<typeof vi.fn>
+      const d = deferred()
+      mockDel.mockImplementationOnce(() => d.promise)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      fireEvent.click(screen.getByText('Delete card'))
+      const confirm = screen.getByRole('button', { name: 'Delete' })
+      fireEvent.click(confirm)
+      fireEvent.click(confirm)
+      expect(mockDel).toHaveBeenCalledTimes(1)
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+      expect(props.onDeleted).not.toHaveBeenCalled()
+      d.resolve()
+      await waitFor(() => expect(props.onDeleted).toHaveBeenCalledWith(props.card.id))
+      expect(screen.queryByText('Delete this card?')).not.toBeInTheDocument()
+    })
+
+    it('card delete: a rejection keeps the modal open with an error, re-enables buttons, and allows retry', async () => {
+      const { deleteCard } = await import('../api/cards')
+      const mockDel = deleteCard as ReturnType<typeof vi.fn>
+      mockDel.mockRejectedValueOnce(new Error('boom'))
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      fireEvent.click(screen.getByText('Delete card'))
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+      const err = await screen.findByText('Could not delete card.')
+      expect(err.closest('[role="status"]')).not.toBeNull()
+      expect(screen.getByText('Delete this card?')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
+      expect(props.onDeleted).not.toHaveBeenCalled()
+      mockDel.mockResolvedValueOnce(undefined)
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(props.onDeleted).toHaveBeenCalledTimes(1))
+    })
+
+    it('card archive: double-click sends one request and closes only on success', async () => {
+      const { archiveCard } = await import('../api/cards')
+      const mockArch = archiveCard as ReturnType<typeof vi.fn>
+      const d = deferred()
+      mockArch.mockImplementationOnce(() => d.promise)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      fireEvent.click(screen.getByText('Archive card'))
+      const confirm = screen.getByRole('button', { name: 'Archive' })
+      fireEvent.click(confirm)
+      fireEvent.click(confirm)
+      expect(mockArch).toHaveBeenCalledTimes(1)
+      expect(props.onArchived).not.toHaveBeenCalled()
+      d.resolve()
+      await waitFor(() => expect(props.onArchived).toHaveBeenCalledWith(props.card.id))
+      expect(props.onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('card archive: a rejection keeps the modal open with an error and Cancel clears it', async () => {
+      const { archiveCard } = await import('../api/cards')
+      const mockArch = archiveCard as ReturnType<typeof vi.fn>
+      mockArch.mockRejectedValueOnce(new Error('boom'))
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      fireEvent.click(screen.getByText('Archive card'))
+      fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+      expect(await screen.findByText('Could not archive card.')).toBeInTheDocument()
+      expect(screen.getByText('Archive this card?')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Archive' })).toBeEnabled()
+      expect(props.onArchived).not.toHaveBeenCalled()
+      expect(props.onClose).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByText('Archive this card?')).not.toBeInTheDocument()
+      // Reopening starts clean.
+      fireEvent.click(screen.getByText('Archive card'))
+      expect(screen.queryByText('Could not archive card.')).not.toBeInTheDocument()
+    })
+  })
 })
