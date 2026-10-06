@@ -98,6 +98,32 @@ def sender_is_board_admin(link: BoardInviteLink, board=None) -> bool:
     return get_board_role(sender, board) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
 
+def sender_admits_cached(link: BoardInviteLink, board, memo) -> bool:
+    """``sender_is_board_admin`` memoized per sender id for one request.
+
+    A deleted sender (``created_by`` NULL) never admits. Used by the invite
+    list and the send cap, which ask this for many invites from few senders.
+    """
+    if link.created_by_id is None:
+        return False
+    if memo is None:
+        return sender_is_board_admin(link, board)
+    if link.created_by_id not in memo:
+        memo[link.created_by_id] = sender_is_board_admin(link, board)
+    return memo[link.created_by_id]
+
+
+def effective_status(link: BoardInviteLink, board, memo) -> str:
+    """The status an admin should see: the model's, except that a pending
+    invite whose sender is deleted or no longer a board admin reports
+    ``revoked`` — the join path already refuses it with ``410 revoked``. Read
+    only: nothing is written to the row."""
+    current = link.status
+    if current == "pending" and (not role_is_grantable(link) or not sender_admits_cached(link, board, memo)):
+        return "revoked"
+    return current
+
+
 def unusable_code(link: BoardInviteLink, *, caller_has_access: bool) -> str | None:
     """Why ``link`` cannot be redeemed (``revoked`` / ``used`` / ``expired``), or None.
 

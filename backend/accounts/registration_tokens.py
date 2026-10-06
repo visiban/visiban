@@ -75,7 +75,8 @@ def _board_redeem(link, user):
 
 
 # Prefix literals rather than the model constants so importing this module
-# never imports a model; ``accounts/tests`` pins them against the models.
+# never imports a model; ``RegistrationTokenTableTests.test_prefixes_match_models``
+# in boards/tests/test_board_invite_registration.py pins them against the models.
 SITE = RegistrationTokenKind("site", "vbnl_", _site_validate, _site_redeem)
 GROUP = RegistrationTokenKind("group", "vbng_", _group_validate, _group_redeem)
 BOARD = RegistrationTokenKind("board", "vbnb_", _board_validate, _board_redeem)

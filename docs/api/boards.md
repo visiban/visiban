@@ -1049,8 +1049,8 @@ List the board's invites, newest first, as a bare array (not paginated). Require
 | `delivery` | `email` for emailed invites (`link` is reserved for shareable links, not yet available). |
 | `created_at`, `created_by_username` | When and by whom it was sent. `created_by_username` is `null` when the sender's account was deleted. |
 | `expires_at`, `is_expired`, `single_use`, `used_at` | Lifetime. |
-| `status` | `pending`, `used`, `expired` or `revoked` (precedence revoked > used > expired). |
-| `can_register` | Advisory: whether a new person could create an account from this invite under the site's **current** registration mode — computed when you read it, so it changes if the mode or the sender's site-admin status changes. |
+| `status` | `pending`, `used`, `expired` or `revoked` (precedence revoked > used > expired). A pending invite whose sender's account was deleted, or who is no longer an admin of the board, is reported as `revoked` — the join endpoints refuse it the same way — although nobody revoked it explicitly. It also stops counting toward the 50-pending cap. |
+| `can_register` | Advisory: whether a new person could create an account from this invite under the site's **current** registration mode — computed when you read it, so it changes if the mode or the sender's site-admin status changes. Always `false` when `status` is not `pending`. |
 
 ### `POST /api/v1/boards/{id}/invite-links/send/`
 Email one invite. Requires board admin. Same contract as the [group send endpoint](groups.md): the response is identical whether the address belongs to a member, another user, or nobody, and the email is always sent.
@@ -1068,7 +1068,7 @@ Email one invite. Requires board admin. Same contract as the [group send endpoin
 | Status | Body | When |
 |---|---|---|
 | `202 Accepted` | `{"detail": "Invite sent", "sent_to": "...", "delivery": "console"?}` | Sent. `delivery: "console"` only in development, when mail is printed to the server console. |
-| `400 Bad Request` | field errors, or `{"code": "invite_email_cap_reached", "detail": "..."}` | Invalid input, or the board already has 50 pending emailed invites. |
+| `400 Bad Request` | field errors, or `{"code": "invite_email_cap_reached", "detail": "..."}` | Invalid input, or the board already has 50 pending emailed invites (invites from a deleted sender or one who is no longer a board admin do not count). |
 | `403 Forbidden` | `{"code": "invite_email_disabled", ...}` or `{"detail": "..."}` | Email invites are switched off (`INVITE_EMAIL_ENABLED=false`, or a demo instance), or the caller is not a board admin. |
 | `429 Too Many Requests` | `Retry-After` header | A send budget is spent: per sender (`invite_email_user`, 10/hour), per board (`invite_email_board`, 30/day, shared by every admin of the board) and instance-wide (`invite_email_global`, 200/day, shared with group invites). Refused requests spend no budget. |
 | `502 Bad Gateway` | `{"code": "<smtp code>", "detail": "..."}` | The mail server refused the message. The invite is revoked automatically and the budget refunded, so you can retry once mail works. |

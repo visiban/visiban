@@ -3623,15 +3623,18 @@ class BoardInviteLinkSerializer(serializers.ModelSerializer):
     is stored.
     """
 
-    status = serializers.CharField(read_only=True)
+    # Effective status: a pending invite whose sender was deleted or is no
+    # longer a board admin lists as "revoked", matching the join endpoints.
+    status = serializers.SerializerMethodField()
     is_expired = serializers.BooleanField(read_only=True)
     # SerializerMethodField for the same reasons as GroupInviteLinkSerializer
     # (#1294 / #1226): created_by is a nullable FK.
     created_by_username = serializers.SerializerMethodField(allow_null=True)
     can_register = serializers.SerializerMethodField(
         help_text=(
-            "Advisory: whether registration would accept this invite under the "
-            "site's current registration mode, computed at read time."
+            "Advisory: whether a new person could create an account from this "
+            "invite under the site's current registration mode, computed at read "
+            "time. Always false for an invite that is not pending."
         ),
     )
 
@@ -3646,10 +3649,18 @@ class BoardInviteLinkSerializer(serializers.ModelSerializer):
     def get_created_by_username(self, obj) -> str | None:
         return obj.created_by.username if obj.created_by_id else None
 
+    def get_status(self, obj) -> str:
+        from .invites import effective_status
+
+        return effective_status(obj, self.context.get("board"), self.context.get("sender_admin_memo"))
+
     def get_can_register(self, obj) -> bool:
         from .invites import board_link_can_register
 
-        # The list view passes the board and a per-request memo so this stays
+        # An invite nobody can use cannot admit a new account either.
+        if self.get_status(obj) != "pending":
+            return False
+        # The list view passes the board and per-request memos so this stays
         # O(senders), not O(rows), in queries (#1444 perf review).
         return board_link_can_register(
             obj,

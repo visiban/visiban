@@ -828,3 +828,78 @@ class BoardInviteFeedVisibilityTests(_BoardFixture, TestCase):
         for row in invite_rows:
             self.assertEqual(row["data"], {"id": link.pk})
         cache.clear()
+
+
+# ---------------------------------------------------------------------------
+# Invites whose sender can no longer add people (completeness check, #1444)
+# ---------------------------------------------------------------------------
+
+@override_settings(INVITE_EMAIL_ENABLED=True, DEMO_MODE=False, DEFAULT_FROM_EMAIL="invites@acme.test")
+class DeadSenderInviteTests(_BoardFixture, TestCase):
+    """The list and the send cap agree with the join path: an invite whose
+    sender was deleted or is no longer a board admin is unusable, lists as
+    ``revoked`` with ``can_register`` false, and frees its cap slot. Nothing
+    is written to the row."""
+
+    def setUp(self):
+        cache.clear()
+        self.make_board()
+        self.sender = User.objects.create_user(username="sender", password="p")
+        BoardMembership.objects.create(board=self.board, user=self.sender, role="admin")
+        self.client = self.client_for(self.admin)
+
+    def tearDown(self):
+        cache.clear()
+
+    def _row(self, link):
+        rows = self.client.get(list_url(self.board)).json()
+        return next(row for row in rows if row["id"] == link.pk)
+
+    def _fill_cap_with_sender_invites(self):
+        future = timezone.now() + timedelta(days=7)
+        for _ in range(BOARD_MAX_PENDING_EMAILED_INVITES):
+            self.make_invite(created_by=self.sender, expires_at=future)
+        r = self.client.post(send_url(self.board), {"email": RECIPIENT}, format="json")
+        self.assertEqual(r.json()["code"], "invite_email_cap_reached")
+
+    def _assert_dead(self, link):
+        row = self._row(link)
+        self.assertEqual(row["status"], "revoked")
+        self.assertIs(row["can_register"], False)
+        link.refresh_from_db()
+        self.assertIsNone(link.revoked_at)  # read-only: no write path
+
+    def test_live_sender_invite_is_pending(self):
+        link, _ = self.make_invite(created_by=self.sender)
+        row = self._row(link)
+        self.assertEqual(row["status"], "pending")
+        self.assertIs(row["can_register"], True)
+
+    def test_demoted_sender(self):
+        link, _ = self.make_invite(created_by=self.sender)
+        BoardMembership.objects.filter(board=self.board, user=self.sender).update(role="member")
+        self._assert_dead(link)
+
+    def test_deleted_sender(self):
+        link, _ = self.make_invite(created_by=self.sender)
+        self.sender.delete()
+        link.refresh_from_db()
+        self.assertIsNone(link.created_by_id)
+        self._assert_dead(link)
+
+    def test_demoted_sender_frees_cap_slots(self):
+        self._fill_cap_with_sender_invites()
+        BoardMembership.objects.filter(board=self.board, user=self.sender).update(role="viewer")
+        r = self.client.post(send_url(self.board), {"email": RECIPIENT}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.content)
+
+    def test_deleted_sender_frees_cap_slots(self):
+        self._fill_cap_with_sender_invites()
+        self.sender.delete()
+        r = self.client.post(send_url(self.board), {"email": RECIPIENT}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.content)
+
+    def test_used_and_expired_rows_never_claim_can_register(self):
+        used, _ = self.make_invite()
+        BoardInviteLink.objects.filter(pk=used.pk).update(used_at=timezone.now())
+        self.assertIs(self._row(used)["can_register"], False)

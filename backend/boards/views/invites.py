@@ -87,7 +87,7 @@ class BoardInviteLinksMixin:
         pending = list(base.filter(pending_q).order_by("-created_at", "-pk"))
         past = list(base.exclude(pending_q).order_by("-created_at", "-pk")[:BOARD_INVITE_LIST_MAX_PAST])
         links = sorted(pending + past, key=lambda link: (link.created_at, link.pk), reverse=True)
-        context = {"board": board, "sender_admits_memo": {}}
+        context = {"board": board, "sender_admits_memo": {}, "sender_admin_memo": {}}
         return Response(BoardInviteLinkSerializer(links, many=True, context=context).data)
 
     @extend_schema(
@@ -140,13 +140,25 @@ class BoardInviteLinksMixin:
         with transaction.atomic():
             # Lock the board row so two concurrent sends cannot both read 49.
             Board.objects.select_for_update().filter(pk=board.pk).first()
-            pending = BoardInviteLink.objects.filter(
+            pending_qs = BoardInviteLink.objects.filter(
                 board=board,
                 delivery=BoardInviteLink.Delivery.EMAIL,
                 revoked_at__isnull=True,
                 used_at__isnull=True,
                 expires_at__gt=timezone.now(),
-            ).count()
+            )
+            # Invites whose sender was deleted or is no longer a board admin
+            # are dead (they list as revoked) and must not hold cap slots.
+            # One role check per distinct sender — a handful per board.
+            admitting = [
+                sender_id
+                for sender_id in pending_qs.exclude(created_by__isnull=True)
+                .values_list("created_by_id", flat=True).distinct()
+                if _invites.sender_is_board_admin(
+                    BoardInviteLink(board=board, created_by_id=sender_id), board,
+                )
+            ]
+            pending = pending_qs.filter(created_by_id__in=admitting).count()
             if pending >= BOARD_MAX_PENDING_EMAILED_INVITES:
                 return Response(
                     {
