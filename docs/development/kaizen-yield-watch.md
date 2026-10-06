@@ -56,7 +56,7 @@ python3 scripts/kaizen_yield_watch.py --self-test                 # gate self-te
 The kaizen scripts reject malformed arguments up front (#1377):
 
 - `--window` must be an integer from 1 to 100 (GitLab's `per_page` cap).
-- `--project` must be `visiban/visiban` (the default) or `visiban/visiban-enterprise`. Any other value exits 1; `--input` mode is not affected. The value must also be a plain `group/project` path (letters, digits, `_`, `.`, `-`; no leading `-`, no `.`/`..` segments).
+- `--project` must be a plain `group/project` path (letters, digits, `_`, `.`, `-`; no leading `-`, no `.`/`..` segments); a malformed value is rejected by argparse (exit 2). `kaizen_gate_ledger.py` is stricter: when it fetches from GitLab (not with `--input`), it accepts only `visiban/visiban` (the default) or `visiban/visiban-enterprise` and exits 1 for anything else.
 - File-path arguments (`--input`, `--state`, `--declined`, `--write-state`) must resolve under the repository, the current directory, or the temp directory, through `scripts/_paths.py`. A path that escapes (via `..` or a symlink) exits non-zero; a bad `--declined` path is never treated as "nothing declined".
 
 See [CI gate scripts and path containment](ci-gates.md#path-containment-for-cli-arguments) for the shared helper.
