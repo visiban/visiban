@@ -17,7 +17,7 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 | Movement service | `boards/services/cards.py` | `test_card_services`, `test_card_move`, `test_card_archiving`, `test_card_mutation_hooks`, `test_card_edge_cases` |
 | Movement model | `CardMovement` in `boards/models.py` (lines 358-423 only) | same as above |
 | RBAC | `boards/permissions.py` | `test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions` |
-| Import/export | `boards/views/import_export.py` | `test_export`, `test_export_controls`, `test_export_edge_cases`, `test_import`, `test_moderator_export`; the 2026-10-05 "after" run adds `test_import_export_mutation_gaps` (#1453) |
+| Import/export | `boards/views/import_export.py` | `test_export`, `test_export_controls`, `test_export_edge_cases`, `test_import`, `test_moderator_export`; the "after" runs add `test_import_export_mutation_gaps` (#1453, extended by #1484) |
 
 `CardMovement` has no methods, so mutmut only finds field and `Meta` arguments in it. To keep the run to that class, a `pre_mutation` hook skips every line outside its range (see below). Running mutmut on all of `boards/models.py` would have generated tens of thousands of mutants for no signal.
 
@@ -30,11 +30,14 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 | `boards/services/cards.py` | 243 | 166 | 68.3% | 185 | 76.1% | 0 |
 | `CardMovement` (`boards/models.py`) | 73 | 28 | 38.4% | 45 | 61.6% | 0 |
 | `boards/permissions.py` | 118 | 44 | 37.3% | 114 | 96.6% | 0 |
-| `boards/views/import_export.py` (2026-10-05 re-measure, partial) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | 2 |
+| `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | 2 (see below) |
+| `boards/views/import_export.py`, `_import_csv` + `export` + `export_history` (2026-10-06, #1484) | 492 | 290 of 492 | 58.9% | 465 of 492 (447 with the #1453 tests only) | 94.5% (90.9%) | 0 |
+
+**The 2 timeouts** in the 2026-10-05 row: both are in `_imported_board_name`, in the first run's range. Mutating the `if candidate not in taken` check or the `n += 1` step makes its uniqueness loop spin forever, so pytest hangs and mutmut kills the run. Timeouts are counted as killed. The 2026-10-06 run (`_import_csv`, `export`, `export_history`) had none.
 
 Import/export was re-measured on 2026-10-05 against `main` at `a5e4b7d20`, after the module was rewritten (selective import #119, naming #1446). The module now has **1364 mutants** (it had 1078 at `25bcfdf1e`), so the 2026-10-04 figure is not comparable. "Before" is the five scoped files only; "after" adds `test_import_export_mutation_gaps.py` (#1453).
 
-**This is a partial, paired measurement, not a whole-module run.** Sixteen shards (8 before, 8 after) were started on one laptop that was swapping (about 23 of 24 GB swap, load average above 250), and the after run reached about 60% of the module before being stopped. Mutants are processed in file order, so the paired set covers lines up to the middle of `_import_csv` and **does not reach `export` or `export_history`**. Only mutants that have a verdict in both runs are compared (823 of 1364):
+**The 2026-10-05 measurement is a partial, paired measurement, not a whole-module run.** The 2026-10-06 run below (#1484) measures the remainder. Sixteen shards (8 before, 8 after) were started on one laptop that was swapping (about 23 of 24 GB swap, load average above 250), and the after run reached about 60% of the module before being stopped. Mutants are processed in file order, so the paired set covers lines up to the middle of `_import_csv` and **does not reach `export` or `export_history`**. Only mutants that have a verdict in both runs are compared (823 of 1364):
 
 | Region (paired mutants) | Before killed | After killed |
 |---|---:|---:|
@@ -44,7 +47,20 @@ Import/export was re-measured on 2026-10-05 against `main` at `a5e4b7d20`, after
 | `_import_csv` (28, sample only) | 16 | 11 (15 more are suspicious, not counted as killed) |
 | **Total (823)** | **331 (40.2%)** | **656 (79.7%)** |
 
-The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). `export` (234 mutants) was reached only by the before run (38 killed, 32 survived of 70 tested) and has **no after measurement**; re-run it on a quiet machine with the line-range hook below (`MM_LO=1635 MM_HI=2095`) before treating the history-export area as strengthened. Suspicious mutants are counted as survivors in the rates above. Timeouts are counted as killed: the 2 in the table are both from the after run, in the `_imported_board_name` uniqueness loop (mutating `if candidate not in taken` or `n += 1` makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.
+The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). `export` was reached only by that before run, which stopped early (38 killed, 32 survived of 70 tested); it is measured in full by the 2026-10-06 run below. Suspicious mutants are counted as survivors in the rates above. Timeouts are counted as killed: the 2 in the table are both from the after run, in the `_imported_board_name` uniqueness loop (mutating `if candidate not in taken` or `n += 1` makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.
+
+### Remainder re-measure (2026-10-06, #1484)
+
+Run on `main` at `4a5de6273` (`import_export.py` is unchanged since `a5e4b7d20`), 0-based line range `MM_LO=1317 MM_HI=2118`: the whole of `_import_csv`, `export` and `export_history`. Mutants with a verdict are all 492 mutants in range; none were left untested, suspicious or timed out. The machine (18 cores, 64 GB) was not swapping: four shards for each of "before" and "after" (8 processes), then 8 shards for the final run, load average 9 to 15. "Before" and "after" use the same five and six test files as above, so the numbers are comparable; the final column adds the #1484 tests to the gaps file.
+
+| Region (mutants) | Before killed | After #1453 killed | After #1484 killed |
+|---|---:|---:|---:|
+| `_import_csv` (240) | 142 (59.2%) | 208 (86.7%) | 220 (91.7%) |
+| `export` (229) | 137 (59.8%) | 224 (97.8%) | 225 (98.3%) |
+| `export_history` (23) | 11 (47.8%) | 15 (65.2%) | 20 (87.0%) |
+| **Total (492)** | **290 (58.9%)** | **447 (90.9%)** | **465 (94.5%)** |
+
+Together with the 2026-10-05 table, the regions the first run could not reach have now been measured after #1453. The two runs were made on different days and the first covered only the mutants that had a verdict in both its before and after run, so the two tables are not summed into one whole-module percentage.
 
 ### Runtime
 
@@ -88,7 +104,7 @@ All remaining survivors change a field argument (`max_length`, `blank`, `db_inde
 | `getattr(settings, "DEMO_MODE", False)` default flipped to `True` (line 346) | Equivalent | `DEMO_MODE` is always defined in settings. |
 | `or ""` / `"XXXX"` defaults on `user.username` (line 351, two mutants) | Equivalent | A real user always has a non-empty username. |
 
-### Import/export: survivors after #1453 (partial, 134 survivors plus 33 suspicious in the 823 paired mutants)
+### Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)
 
 Not triaged line by line. By region, among the paired mutants:
 
@@ -99,10 +115,30 @@ The "Survivors after" column counts only mutants that survived. The 33 suspiciou
 | helpers and `import_board` | 69 | Mostly missing assertion: throttle rate strings and the `_parse_import_options` / `_imported_board_name` defaults. A handful are equivalent (logger message strings and `or ""` fallbacks that cannot be observed). |
 | `_import_json` | 56 | Missing assertion on the field-level validation messages added by selective import, plus equivalent mutants in `.get(..., default)` calls whose default is always overridden. |
 | `import_trello` | 7 | Missing assertion (mapping defaults). |
-| `_import_csv` | 2 of 28 reached | Sample too small to classify. |
-| `export`, `export_history` | not measured after | Untested by this run. The before run left 32 survivors of 70 tested in `export`. |
+| `_import_csv`, `export`, `export_history` | see below | Measured in full on 2026-10-06 and triaged in the next subsection. |
 
 The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The remaining survivors are expected to be dominated by log-message strings and unobservable defaults (equivalent); that classification is an estimate from sampling the diffs, not a full triage.
+
+### Import/export: `_import_csv`, `export`, `export_history` after #1484 (27 survivors of 492)
+
+Triaged with the three questions in [How to read the results](#how-to-read-the-results). The 18 additional kills from #1484 (45 survivors after #1453, 27 now) come from `test_import_export_mutation_gaps.py` (`ImportCsvTailGapTests`, `ExportGapTests`, `ExportHistoryGapTests`: the lowercase `labels` header, absent optional columns, a repeated label in one cell, the response `member_count`/`card_count`/`archived_card_count`, the group id, `?expand=group` and group broadcast on a grouped import, the `Movement History` cell for a movement with no destination column, the unpaginated `export-history` fallback, and the OpenAPI summary and description). All 27 remaining survivors are equivalent or covered elsewhere:
+
+| Survivors | Count | Bucket | Why |
+|---|---:|---|---|
+| `file.name or ""` default (line 1433) | 1 | Equivalent | An uploaded file always has a name. |
+| `column_map` / `swimlane_map` / `label_map` placeholder `None` to `""`, and `col_name and ...` to `or` (lines 1465-1477) | 5 | Equivalent | The required-field check above rejects an empty column or swimlane, and every placeholder is overwritten with the created object before it is read. Re-assigning an existing key keeps dict order. |
+| `not column or not swimlane` to `and`, `continue` to `break` (lines 1522-1523) | 2 | Equivalent | Every column and swimlane name was just created, so the lookup cannot fail. Defensive code. |
+| `row.get("Priority", "medium")` and `row.get("Weight", "1")` sentinel defaults (lines 1525, 1533) | 2 | Equivalent | A sentinel such as `XXmediumXX` is not a valid priority or integer, so the existing fallback to `medium` and `1` produces the same card. |
+| `row.get("Labels", "")` in the second pass (line 1574) | 1 | Equivalent | A sentinel label name is never in `label_map`, so nothing is attached. (The first-pass default, line 1469, was a real gap and is killed.) |
+| `(row.get("Assignee") or "")` sentinels (lines 1516, 1530) | 2 | Equivalent in practice | Only observable if a user is literally named `XXXX`. |
+| `row.get(field, "")` and `row.get("Column"/"Swimlane", "")` defaults (lines 1399, 1415, 1416) | 3 | Equivalent | `Title`, `Column` and `Swimlane` are required headers, so the key is always present. |
+| `CSV file has no headers.` key and text (line 1383) | 2 | Equivalent | `DictReader` has no fieldnames only for an empty file, which the earlier `CSV file is empty.` check already rejected. Dead code. |
+| `distinct=False` on `_card_count` and `_archived_card_count` (lines 1608-1609) | 2 | Equivalent | The imported board has one membership, so the join cannot duplicate card rows. (`_member_count` `distinct=False` and the `isnull` filters were real gaps and are killed.) |
+| 403 body `detail` key and text for a role outside the four member roles (line 1658) | 2 | Equivalent | `get_board_for_user` raises 404 or 403 for a non-member, so `export` never sees another role. The membership message is unreachable through the API. |
+| `board.export_min_role or "viewer"` (line 1672) | 1 | Equivalent | The restriction branch is entered only when `export_min_role` is set. |
+| `request.query_params.get("format", "csv")` default (line 1676) | 1 | Equivalent | Any value other than `json` takes the CSV branch. |
+| `BoardExportLogSerializer(..., context={"request": request})` (lines 2116, 2118) | 2 | Equivalent | The actor serializer only reads the request when a `board` is also in its context, which this view does not pass. |
+| `responses=BoardExportLogSerializer(many=False)` on `export_history` (line 2093) | 1 | Covered elsewhere | `test_board_schema_contract.py::test_export_history_matches_schema` fails on it; that file is outside the scoped list. |
 
 ## How to reproduce
 

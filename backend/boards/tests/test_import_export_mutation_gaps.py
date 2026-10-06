@@ -21,6 +21,7 @@ import csv
 import datetime
 import io
 import json
+from unittest import mock
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -2724,4 +2725,128 @@ class ImportedBoardNameUnitTests(TestCase):
         other_group = Group.objects.create(name="H", owner=self.user)
         self.assertEqual(
             _imported_board_name("Plan", self.user, other_group), "Imported: Plan"
+        )
+
+
+# ---------------------------------------------------------------------------
+# #1484: the ``_import_csv`` tail, ``export`` and ``export_history`` survivors
+# of the 2026-10-06 re-measure
+# ---------------------------------------------------------------------------
+
+_MINIMAL_CSV = "Title,Column,Swimlane\nA,To Do,Lane\nB,To Do,Lane\nC,Done,Lane\n"
+
+
+class ImportCsvTailGapTests(ImportBase):
+    def test_lowercase_labels_header_is_normalized(self):
+        resp = self.post_csv("title,column,swimlane,labels\nA,To Do,Lane,bug\n")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        board = Board.objects.get()
+        self.assertEqual(list(board.labels.values_list("name", flat=True)), ["bug"])
+        self.assertEqual(
+            list(Card.objects.get().labels.values_list("name", flat=True)), ["bug"]
+        )
+
+    def test_optional_columns_absent_use_empty_defaults(self):
+        resp = self.post_csv(_MINIMAL_CSV)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        card = Card.objects.get(title="A")
+        self.assertEqual(card.description, "")
+        self.assertEqual(card.priority, "medium")
+        self.assertEqual(card.weight, 1)
+        self.assertIsNone(card.assignee)
+        self.assertEqual(Label.objects.count(), 0)
+        self.assertEqual(CardActivity.objects.count(), 0)
+
+    def test_absent_labels_column_counts_no_skipped_label_refs(self):
+        resp = self.post_csv(_MINIMAL_CSV, options=json.dumps({"labels": False}))
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["import_summary"]["skipped"]["label_refs"], 0)
+
+    def test_duplicate_label_in_one_cell_attaches_once(self):
+        resp = self.post_csv(
+            "Title,Column,Swimlane,Labels\nA,To Do,Lane,\"bug, bug\"\n"
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(Card.objects.get().labels.count(), 1)
+
+    def test_response_counts_reflect_the_imported_board(self):
+        resp = self.post_csv(_MINIMAL_CSV)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        body = resp.json()
+        self.assertEqual(body["member_count"], 1)
+        self.assertEqual(body["card_count"], 3)
+        self.assertEqual(body["archived_card_count"], 0)
+
+    def test_csv_into_group_sets_group_expands_and_broadcasts_to_group(self):
+        group = Group.objects.create(name="G", owner=self.user)
+        with mock.patch(
+            "boards.views.import_export._broadcast.broadcast_board_event"
+        ), mock.patch("groups.broadcast.broadcast_group_event") as group_event:
+            with self.captureOnCommitCallbacks(execute=True):
+                cache.clear()
+                resp = self.client.post(
+                    IMPORT_URL + "?expand=group",
+                    {"file": _csv_upload(_MINIMAL_CSV), "group_id": group.pk},
+                    format="multipart",
+                )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(Board.objects.get().group, group)
+        self.assertEqual(resp.json()["group_detail"]["id"], group.pk)
+        self.assertEqual(group_event.call_count, 1)
+        self.assertEqual(group_event.call_args.args[0], group.pk)
+
+    def test_csv_without_group_does_not_broadcast_to_a_group(self):
+        with mock.patch(
+            "boards.views.import_export._broadcast.broadcast_board_event"
+        ), mock.patch("groups.broadcast.broadcast_group_event") as group_event:
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.post_csv(_MINIMAL_CSV)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        group_event.assert_not_called()
+
+
+class ExportGapTests(ExportBase):
+    def test_csv_history_cell_for_a_movement_with_no_destination_column(self):
+        card = self.make_card("T")
+        when = timezone.now() - datetime.timedelta(days=2)
+        mv = CardMovement.objects.create(
+            card=card,
+            from_column=self.col,
+            to_column=None,
+            from_swimlane=self.sw,
+            to_swimlane=self.sw,
+            moved_by=self.owner,
+        )
+        CardMovement.objects.filter(pk=mv.pk).update(moved_at=when)
+        rows = list(
+            csv.reader(io.StringIO(self.export("csv").content.decode()))
+        )
+        history_idx = rows[0].index("Movement History")
+        self.assertEqual(rows[1][history_idx], f"{when.isoformat()}|Todo||owner")
+
+
+class ExportHistoryGapTests(ExportBase):
+    def test_unpaginated_fallback_returns_a_bare_list_newest_first(self):
+        self.export("json")
+        self.export("csv")
+        self.client.force_authenticate(self.owner)
+        with mock.patch(
+            "boards.views.boards.BoardViewSet.paginate_queryset", return_value=None
+        ):
+            resp = self.client.get(f"/api/v1/boards/{self.board.id}/export-history/")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        body = resp.json()
+        self.assertIsInstance(body, list)
+        self.assertEqual([r["export_format"] for r in body], ["csv", "json"])
+        self.assertEqual(body[0]["actor"]["username"], "owner")
+
+    def test_openapi_operation_documents_the_endpoint(self):
+        from drf_spectacular.generators import SchemaGenerator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        op = schema["paths"]["/api/v1/boards/{id}/export-history/"]["get"]
+        self.assertEqual(op["summary"], "Board export history")
+        self.assertEqual(
+            op["description"],
+            "Admin only. Recent export audit log entries for this board, newest first.",
         )
