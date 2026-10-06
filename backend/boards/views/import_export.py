@@ -410,8 +410,7 @@ def _resolve_import_users(usernames, importer, group=None):
     stored username), but only against the pool the Trello importer uses
     (``trello_import.visible_users``): the importer, co-members of their
     boards and groups, and the target group. The uploader controls the file,
-    so an unrestricted lookup would link any account on the instance to the
-    new board. A name with no match is simply absent from the map, so the card
+    so names are matched only against that pool. A name with no match is simply absent from the map, so the card
     imports unassigned instead of failing the whole import. Board membership
     of the *new* board is deliberately not the filter: the board is brand new
     and only the importer is a member of it, so that filter would drop every

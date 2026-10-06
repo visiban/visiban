@@ -71,7 +71,7 @@ class ImportUserScopeTests(TestCase):
         self.assertEqual(CardMovement.objects.get(card=card).moved_by, self.importer)
         self.assertEqual(CardActivity.objects.get(card=card).actor, self.importer)
 
-    def test_unseen_user_and_nonexistent_user_are_indistinguishable(self):
+    def test_unseen_user_and_nonexistent_user_get_the_same_result(self):
         a = Card.objects.get(board=self._import(_payload(assignee="hidden")))
         b = Card.objects.get(board=self._import(_payload(assignee="no-such-user")))
         self.assertIsNone(a.assignee)
