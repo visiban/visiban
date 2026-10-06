@@ -276,12 +276,23 @@ def validate_project(value: str) -> str:
     return value
 
 
+# Allowlist, not just a format check: the argv gets the constant value from this
+# map, never the CLI string, so no user text reaches the subprocess (S8705).
+_KNOWN_PROJECTS = {
+    "visiban/visiban": "visiban%2Fvisiban",
+    "visiban/visiban-enterprise": "visiban%2Fvisiban-enterprise",
+}
+
+
 def load_mrs(args) -> list:
     if args.input:
         with open(resolve_within(cli_roots(), args.input), encoding="utf-8") as fh:
             data = json.load(fh)
     else:
-        project_path = urllib.parse.quote(validate_project(args.project), safe="")
+        project_path = _KNOWN_PROJECTS.get(validate_project(args.project))
+        if project_path is None:
+            print(f"error: --project must be one of {', '.join(_KNOWN_PROJECTS)}", file=sys.stderr)
+            sys.exit(1)
         window = validate_window(args.window)
         # Resolve glab once, and pass the endpoint as a single list-form argv
         # element (no shell). project_path is percent-encoded and window is an
@@ -368,7 +379,7 @@ def to_jsonable(result):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--project", type=validate_project, default=DEFAULT_PROJECT, help="GitLab project path (default: %(default)s)")
+    parser.add_argument("--project", type=validate_project, default=DEFAULT_PROJECT, help="GitLab project: visiban/visiban or visiban/visiban-enterprise (default: %(default)s)")
     parser.add_argument("--window", type=validate_window, default=DEFAULT_WINDOW, help="Number of most-recently-merged MRs to audit (default: %(default)s)")
     parser.add_argument("--input", help="Read MR objects from this local JSON file instead of calling glab (offline/test mode)")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON instead of a text table")

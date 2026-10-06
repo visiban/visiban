@@ -1,0 +1,1 @@
+Harden `scripts/kaizen_gate_ledger.py`: `--project` is now checked against an allowlist of known projects, so no CLI text reaches the `glab` subprocess (SonarCloud S8705). Behavior change for this dev script: `--project` now accepts only `visiban/visiban` and `visiban/visiban-enterprise`; other projects exit 1.
