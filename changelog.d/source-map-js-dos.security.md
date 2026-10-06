@@ -1,0 +1,1 @@
+Bump transitive dev dependency `source-map-js` to 1.2.2 to fix GHSA-68fv-2mgg-jv7q (event-loop denial of service through indexed source-map section offsets), which was failing the scheduled `dep-scan-osv` and `frontend-dep-scan` jobs.
