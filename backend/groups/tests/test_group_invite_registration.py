@@ -503,6 +503,34 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
         self._deactivate_sender()
         self.assertFalse(self._can_register(raw))
 
+    def _link_from_deleted_sender(self):
+        """A qualifying emailed invite whose sender's account was then deleted.
+
+        ``created_by`` is SET_NULL. The sender is a second site admin who
+        admins the group without owning it, since deleting the owner would
+        cascade the group (and the link) away.
+        """
+        sender = User.objects.create_user(username="cosender", password="pass")
+        sender.is_site_admin = True
+        sender.save(update_fields=["is_site_admin"])
+        GroupMembership.objects.create(group=self.group, user=sender, role=GroupMembership.Role.ADMIN)
+        link, raw = GroupInviteLink.generate(
+            group=self.group, created_by=sender, role=GroupInviteLink.Role.VIEWER,
+            expires_at=timezone.now() + timedelta(days=7), single_use=True,
+            delivery=GroupInviteLink.Delivery.EMAIL,
+        )
+        sender.delete()
+        link.refresh_from_db()
+        self.assertIsNone(link.created_by)
+        return link, raw
+
+    def test_invite_only_deleted_sender_is_false(self):
+        _link, raw = self._link_from_deleted_sender()
+        self.assertFalse(self._can_register(raw))
+        with self.assertRaises(InviteTokenError) as ctx, transaction.atomic():
+            validate_group_registration_token(raw)
+        self.assertEqual(ctx.exception.code, "invite_invalid")
+
     @override_settings(INVITE_EMAIL_ENABLED=False)
     def test_invite_only_email_invites_disabled_is_false(self):
         _link, raw = self.make_link()
@@ -595,6 +623,9 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
         def emailed_disabled():
             return self.make_link()
 
+        def deleted_sender():
+            return self._link_from_deleted_sender()
+
         scenarios = [
             ("emailed", emailed, True),
             ("shareable_multi", shareable_multi, True),
@@ -604,6 +635,7 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
             ("deactivated", deactivated, True),
             ("no_longer_group_admin", no_longer_group_admin, True),
             ("emailed_disabled", emailed_disabled, False),
+            ("deleted_sender", deleted_sender, True),
         ]
         for name, build, email_enabled in scenarios:
             with self.subTest(name), override_settings(INVITE_EMAIL_ENABLED=email_enabled):

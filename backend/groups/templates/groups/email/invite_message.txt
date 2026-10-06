@@ -8,5 +8,5 @@ Open this link to accept the invite:
 
 The link works once and expires on {{ expires_on }}.
 
-If you don't have an account yet, you can create one from the link. If you weren't expecting this invite, you can ignore this email.
+If you don't have an account yet, open the link and it will show you how to join. If you weren't expecting this invite, you can ignore this email.
 {% endautoescape %}

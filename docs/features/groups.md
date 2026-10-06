@@ -72,7 +72,7 @@ Anyone with the link joins with the role assigned to that link. Expired links sh
 
 **How it works:**
 
-- **Unauthenticated visitors** see a full authentication interface: a **Create an account** button (primary), a **Sign in** option, and social login buttons (Google / GitHub / GitLab) where configured. After authenticating, the invite is accepted automatically and they land on the group page with a confirmation banner.
+- **Unauthenticated visitors** see a full authentication interface: a **Create an account** button (primary), a **Sign in** option, and social login buttons (Google / GitHub / GitLab) where configured. *(1.2+)* When the link can't create an account on this instance, they see a sign-in-only view instead, with no **Create an account** option — see [New users on invite-only instances](#new-users-on-invite-only-instances). After authenticating, the invite is accepted automatically and they land on the group page with a confirmation banner.
 - **Authenticated users** see a single **Join &lt;group name&gt;** button and are redirected to the group page right after joining. If already a member, they're silently redirected without re-joining.
 - **Invalid or expired links** show a countdown timer and auto-redirect to the dashboard after 5 seconds — no manual action needed.
 
