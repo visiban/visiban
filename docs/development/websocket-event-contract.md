@@ -90,6 +90,23 @@ CI runs `--self-test` immediately before the real invocation, on the same image.
 gate whose detectors have silently stopped detecting is worse than no gate, because the
 green tick still reads as a verdict.
 
+## Eviction must not depend on a frame
+
+Every publish is best-effort (#1462). A lost *data* frame is recoverable, because the
+client resyncs or replays the change feed. A lost frame that the **consumer** acts on is
+not, because no client-side resync runs consumer code. `member.removed` is that kind of
+frame: it closes the removed user's own socket. So it is only the fast path for
+eviction. `BoardConsumer` and `GroupConsumer` also re-check access before they forward
+any frame (`_verify_access`, cached per socket for `ACCESS_RECHECK_SECONDS` plus up to
+`ACCESS_RECHECK_JITTER_SECONDS` of jitter, so about 7 s at most). A check that raises
+fails closed. They use the same
+predicate as `connect()`, and they close with `4003` when access is gone (#1477). See
+[Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction).
+
+If you add an event that the consumer acts on, and especially one that revokes
+something, it needs the same backstop. Make sure the consumer reaches a correct state on
+its own when the frame never arrives.
+
 ## What the gate does not cover
 
 `CARD_MUTATION_HOOKS` (`backend/boards/hooks.py`) is a *separate* frozen contract for

@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.test import TestCase
 
-from boards.consumers import BoardConsumer, PING_INTERVAL
+from boards.consumers import BoardConsumer, PING_INTERVAL, _now
 
 
 class BoardConsumerPingTests(TestCase):
@@ -30,6 +30,9 @@ class BoardConsumerPingTests(TestCase):
             "url_route": {"kwargs": {"board_id": 1}},
             "user": MagicMock(is_authenticated=True),
         }
+        # A just-connected socket: connect() stamps this after its access
+        # check, so the #1477 per-frame re-check is served from the cache.
+        consumer._access_verified_at = _now()
         return consumer
 
     def test_ping_message_sent_after_interval(self):

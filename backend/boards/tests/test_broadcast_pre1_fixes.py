@@ -53,6 +53,10 @@ class BoardConsumerMemberRemovedTests(TestCase):
         consumer.scope = {"user": MagicMock(id=user_id)}
         consumer.send = AsyncMock()
         consumer.close = AsyncMock()
+        # A just-connected socket: connect() stamps this after its access
+        # check, so the #1477 per-frame re-check is served from the cache.
+        from boards.consumers import _now
+        consumer._access_verified_at = _now()
         return consumer
 
     def _run(self, coro):

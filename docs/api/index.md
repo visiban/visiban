@@ -30,12 +30,12 @@ Visiban provides a WebSocket endpoint for real-time board updates. Clients conne
 
 **Authentication:** session cookie, or a short-lived ticket (since 1.2). The browser SPA relies on the existing session cookie and needs no `Authorization` header. Token-authenticated clients — native, CLI, or a front end on another origin — obtain a ticket from `POST /api/v1/auth/ws-ticket/` and pass it as `?ticket=`. See [WebSockets](websockets.md#ticket-authentication-since-12).
 
-**Error codes on connection:**
+**Close codes:**
 
 | Code | Meaning |
 |------|---------|
 | `4001` | Not authenticated — no valid session, and no valid ticket |
-| `4003` | Not a board member — the authenticated user does not have access to this board |
+| `4003` | Not a board member — the authenticated user does not have access to this board. Since 1.2, it can also arrive mid-stream on an open connection, when access is lost or the server's access re-check fails. A later reconnect can succeed in the second case. See [Access re-check and eviction](websockets.md#access-re-check-and-eviction) |
 
 ### Message envelope
 

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.test import TestCase
 
-from groups.consumers import GroupConsumer
+from groups.consumers import GroupConsumer, _now
 
 
 class GroupConsumerAuthTests(TestCase):
@@ -24,6 +24,9 @@ class GroupConsumerAuthTests(TestCase):
             "url_route": {"kwargs": {"group_id": 1}},
             "user": MagicMock(is_authenticated=authenticated, id=42),
         }
+        # A just-connected socket: connect() stamps this after its access
+        # check, so the #1477 per-frame re-check is served from the cache.
+        consumer._access_verified_at = _now()
         return consumer
 
     def test_unauthenticated_closed_with_4001(self):

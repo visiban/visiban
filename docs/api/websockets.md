@@ -32,7 +32,7 @@ The server checks board membership before completing the handshake, regardless o
 | Close code | Meaning |
 |---|---|
 | `4001` | Unauthenticated — no valid session cookie, and no valid ticket. The client must log in (or obtain a fresh ticket) before reconnecting. |
-| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. |
+| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. Since 1.2, `4003` can also arrive **mid-stream** on an open connection, when the user loses access or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See [Access re-check and eviction](#access-re-check-and-eviction). |
 
 Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnormal) may also be observed for transport-level disconnects.
 
@@ -230,7 +230,7 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 
     `is_site_admin` (since 1.2) is sent only to `admin` / `site_admin` subscribers, with no self-row exception — see [Members](boards.md#members).
 
-    The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a `member.added` or `member.updated` frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving `is_moderator` and `is_site_admin` on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no `member.*` frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect on the next reconnect.
+    The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a `member.added` or `member.updated` frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving `is_moderator` and `is_site_admin` on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no `member.*` frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect at the server's periodic access re-check (see [Access re-check and eviction](#access-re-check-and-eviction)). They apply to the first frame forwarded after the socket's re-check window lapses, at most about 7 seconds after its last successful check. Before #1477 they took effect only on the next reconnect. Until the re-check runs, a demoted admin can still receive the admin-only fields for up to that window.
 
     The [change feed](events.md) applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.
 
@@ -284,7 +284,7 @@ Authentication uses the same two mechanisms as the board channel — session coo
 | `group.label.deleted` | Group shared label deleted | `{ "id": <int> }` |
 | `member.added` | User joined this group via an invite link. Named to mirror the board channel's `member.added` so one frontend socket layer handles both | Full `GroupMembershipSerializer` object |
 | `member.updated` | Group membership role changed. Mirrors the board channel's `member.updated` | Full `GroupMembershipSerializer` object |
-| `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329) | `{ "user_id": <int> }` |
+| `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329). If this frame is lost, the [access re-check](#access-re-check-and-eviction) still closes that socket | `{ "user_id": <int> }` |
 | `invite_link.created` | An invite link for this group was emailed to someone (new in 1.2). A refetch signal only: every group member receives it, including non-admins, so it carries just the link id — admins refetch `GET /invite-links/` (admin-only) for the details, and non-admin clients should ignore it | `{ "id": <int> }` |
 | `invite_link.revoked` | An invite link for this group was revoked (also delivered to non-admin members; a refetch signal, like `invite_link.created`) — including an emailed link revoked automatically because its email could not be sent | `{ "id": <int> }` |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
@@ -304,6 +304,21 @@ WebSocket events are registered with `transaction.on_commit()` inside a database
 - The publish is **best-effort** (since 1.2). If the channel layer (Valkey) is unreachable when the event fires, the frame is dropped and the backend logs a `WARNING` (`board broadcast dropped` or `group broadcast dropped`, with the board or group id, event name, and exception class). The write that caused it still returns its normal success status, because the change is already committed. Before 1.2 such a write returned `500` even though it had been saved, and retrying it created a duplicate.
 
 The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.
+
+### Access re-check and eviction
+
+A user who loses access to a board or group stops receiving its frames even if the `member.removed` frame that announces the removal is lost (since 1.2, #1477). That frame is published best-effort like every other frame, so the server does not rely on it alone:
+
+- When the socket's own user is the subject of a `member.removed` frame, the server closes the socket at once. This is the fast path.
+- Before it forwards **any** frame, the server re-checks that the socket's user still has access. It uses the same rule as the handshake: `get_board_role` for a board channel, `get_accessible_group_ids` for a group channel. A deactivated account has no access. The result is cached per socket for a window of 5 seconds plus a random 0 to 2 seconds, redrawn after every check. The random part keeps the sockets on one board from all re-checking at the same moment. So a busy board costs at most one access query per socket per window. A `member.added` or `member.updated` frame about the socket's own user skips the cache.
+- If the re-check finds no access, the server closes the socket with close code `4003` and does not forward the frame that triggered the check. The client treats `4003` as final and does not reconnect.
+- If the re-check itself fails, for example because the database is unreachable, the server handles it the same way. It drops the frame, logs a `WARNING` (`board access re-check failed` or `group access re-check failed`), and closes with `4003`. Reload the page to reconnect once the database is back.
+
+The same window applies to the other changes the re-check picks up. A role change that sends no `member.*` frame on the board channel (a group role change, a board moved to another group, a change to all-content access) and the deactivation of a user's account both take effect within it.
+
+The window is a bound, not a guarantee of zero exposure. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket is closed before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user and no query runs. Its socket closes when the next frame arrives, or when the client disconnects.
+
+### Missed frames
 
 A transient publish failure does **not** close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect.
 
@@ -356,7 +371,10 @@ ws.onclose = (event) => {
   if (event.code === 4001) {
     // not authenticated — redirect to login
   } else if (event.code === 4003) {
-    // authenticated but not a member of this board — do not retry
+    // no access to this board — at the handshake, or mid-stream after access
+    // was lost or the server's access re-check failed (see "Access re-check
+    // and eviction"). Do not auto-retry. A later, user-initiated reconnect can
+    // succeed if the cause was a failed re-check.
   }
   // otherwise: reconnect logic and re-fetch full board state
 };

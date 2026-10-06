@@ -79,9 +79,14 @@ def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None
     exception class only at WARNING, the traceback at DEBUG (lower the logger's
     level to see it) — and swallowed rather than turning a saved change into a
     500. A dropped *data* frame is recovered when the group page re-fetches
-    the group's boards list on reconnect. A frame the consumer acts on itself,
-    rather than only forwarding it to the client, has no such recovery path;
-    see #1477. The ``except Exception`` is
+    the group's boards list on reconnect. A lost ``member.removed`` does not
+    leave a removed member's socket open either: ``GroupConsumer`` re-checks
+    access before it forwards any frame and closes the socket when access is
+    gone (#1477), so the frame is a fast path for eviction, not the only path.
+    A lost frame delays the close by at most the re-check window
+    (``ACCESS_RECHECK_SECONDS`` plus jitter, about 7 s) after the socket's
+    last successful check.
+    The ``except Exception`` is
     deliberately broad for the same reason as the board helper. It is not a
     "never raises" guarantee: payload serialization runs outside the ``try``, so
     an unserializable payload (a code bug) still raises.
