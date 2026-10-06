@@ -30,11 +30,21 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 | `boards/services/cards.py` | 243 | 166 | 68.3% | 185 | 76.1% | 0 |
 | `CardMovement` (`boards/models.py`) | 73 | 28 | 38.4% | 45 | 61.6% | 0 |
 | `boards/permissions.py` | 118 | 44 | 37.3% | 114 | 96.6% | 0 |
-| `boards/views/import_export.py` | 1078 | 543 | 50.4% | not re-run (see note) | n/a | 0 |
+| `boards/views/import_export.py` (2026-10-05 re-measure, partial) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | 2 |
 
-Import/export was deliberately **not** strengthened wholesale. After the baseline, only the movement-history part of the JSON export (lines 1396-1450) was re-run: 36 mutants there, 24 killed before and 29 after. If the 5 newly killed mutants are added to the module total the rate is about 50.8%, but that figure is an estimate, not a measurement.
+Import/export was re-measured on 2026-10-05 against `main` at `a5e4b7d20`, after the module was rewritten (selective import #119, naming #1446). The module now has **1364 mutants** (it had 1078 at `25bcfdf1e`), so the 2026-10-04 figure is not comparable. "Before" is the five scoped files only; "after" adds `test_import_export_mutation_gaps.py` (#1453).
 
-**Stale after the base commit.** `import_export.py` was rewritten after `25bcfdf1e` (selective import, #119, and import naming, #1446), so the line ranges and function-level counts above do not map onto current `main`. Re-measure before acting on them. The import/export result is the lowest of the four areas and is tracked in #1453.
+**This is a partial, paired measurement, not a whole-module run.** Sixteen shards (8 before, 8 after) were started on one laptop that was swapping (about 23 of 24 GB swap, load average above 250), and the after run reached about 60% of the module before being stopped. Mutants are processed in file order, so the paired set covers lines up to the middle of `_import_csv` and **does not reach `export` or `export_history`**. Only mutants that have a verdict in both runs are compared (823 of 1364):
+
+| Region (paired mutants) | Before killed | After killed |
+|---|---:|---:|
+| helpers and `import_board` (305) | 87 (28.5%) | 236 (77.4%) |
+| `_import_json` (436) | 227 (52.1%) | 372 (85.3%) |
+| `import_trello` (54) | 1 (1.9%) | 37 (68.5%) |
+| `_import_csv` (28, sample only) | 16 | 11 (15 more are suspicious, not counted as killed) |
+| **Total (823)** | **331 (40.2%)** | **656 (79.7%)** |
+
+The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). `export` (234 mutants) was reached only by the before run (38 killed, 32 survived of 70 tested) and has **no after measurement**; re-run it on a quiet machine with the line-range hook below (`MM_LO=1635 MM_HI=2095`) before treating the history-export area as strengthened. Suspicious mutants are counted as survivors in the rates above.
 
 ### Runtime
 
@@ -78,17 +88,19 @@ All remaining survivors change a field argument (`max_length`, `blank`, `db_inde
 | `getattr(settings, "DEMO_MODE", False)` default flipped to `True` (line 346) | Equivalent | `DEMO_MODE` is always defined in settings. |
 | `or ""` / `"XXXX"` defaults on `user.username` (line 351, two mutants) | Equivalent | A real user always has a non-empty username. |
 
-### Import/export: 535 survivors of 1078 (not triaged line by line)
+### Import/export: survivors after #1453 (partial, 134 survivors plus 33 suspicious in the 823 paired mutants)
 
-| Where | Survivors | Dominant kind |
+Not triaged line by line. By region, among the paired mutants:
+
+| Region | Survivors after | Bucket |
 |---|---:|---|
-| `_import_json` | 207 | error-message and key strings, limit boundaries (`>` vs `>=` on the 500/50/100 caps), field validation bounds |
-| `export` | 97 | JSON key names, comment and checklist ordering, CSV cell formatting |
-| `_import_csv` | 79 | error-message strings, row-level validation |
-| `import_trello` | 68 | mapping defaults and error strings |
-| other (`import_board`, broadcast, throttle, helpers, `export_history`) | 84 | mixed |
+| helpers and `import_board` | 69 | Mostly missing assertion: throttle rate strings and the `_parse_import_options` / `_imported_board_name` defaults. A handful are equivalent (logger message strings and `or ""` fallbacks that cannot be observed). |
+| `_import_json` | 56 | Missing assertion on the field-level validation messages added by selective import, plus equivalent mutants in `.get(..., default)` calls whose default is always overridden. |
+| `import_trello` | 7 | Missing assertion (mapping defaults). |
+| `_import_csv` | 2 of 28 reached | Sample too small to classify. |
+| `export`, `export_history` | not measured after | Untested by this run. The before run left 32 survivors of 70 tested in `export`. |
 
-By kind, 334 are string literals (messages or dict keys that the tests never read back), 153 are value or default changes, 45 are boolean/comparison operator flips, and 3 replace a value with `None`. The tests mostly assert status codes and counts, not exact error bodies or boundary values. This is the lowest-signal area of the three and the one most worth a follow-up before the compliance-grade history export lands.
+The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The remaining survivors are expected to be dominated by log-message strings and unobservable defaults (equivalent); that classification is an estimate from sampling the diffs, not a full triage.
 
 ## How to reproduce
 
