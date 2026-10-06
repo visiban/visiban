@@ -1763,6 +1763,19 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       expect(region).toHaveAttribute('aria-atomic', 'true')
     })
 
+    it('attachment delete error sits inside an always-mounted polite live region', async () => {
+      const { deleteCardAttachment } = await import('../api/cards')
+      ;(getCardAttachments as ReturnType<typeof vi.fn>).mockResolvedValue([attachment])
+      ;(deleteCardAttachment as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'))
+      render(<CardDetail {...defaultProps()} currentUser={fakeUser} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete attachment spec.pdf' }))
+      const err = await screen.findByText('Could not delete attachment.')
+      const region = err.closest('[aria-live]')
+      expect(region).toHaveAttribute('role', 'status')
+      expect(region).toHaveAttribute('aria-live', 'polite')
+      expect(region).toHaveAttribute('aria-atomic', 'true')
+    })
+
     it('card archive: a rejection keeps the modal open with an error and Cancel clears it', async () => {
       const { archiveCard } = await import('../api/cards')
       const mockArch = archiveCard as ReturnType<typeof vi.fn>
