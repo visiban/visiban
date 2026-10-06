@@ -4706,7 +4706,40 @@
 <h2 id="join-public">Join (public)<a class="headerlink" href="#join-public" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsjointoken"><code>GET /api/v1/groups/join/{token}/</code><a class="headerlink" href="#get-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
 <p>Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP.</p>
-<p><strong>Response</strong> <code>{ "group_id": 5, "group_name": "Engineering", "role": "member" }</code></p>
+<p><strong>Response</strong> <code>{ "group_id": 5, "group_name": "Engineering", "role": "member", "can_register": true }</code></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>group_id</code></td>
+<td>integer</td>
+<td>The link's group</td>
+</tr>
+<tr>
+<td><code>group_name</code></td>
+<td>string</td>
+<td>The group's name</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>Role granted on join: <code>admin</code> / <code>member</code> / <code>collaborator</code> / <code>viewer</code></td>
+</tr>
+<tr>
+<td><code>can_register</code></td>
+<td>boolean</td>
+<td><strong>Added in 1.2</strong> (#1481). Whether <a href="../authentication/"><code>POST /api/v1/auth/registration/</code></a> would accept this link as <code>invite_token</code> under the current registration mode: always <code>true</code> in <code>"open"</code> mode, always <code>false</code> in <code>"closed"</code> mode, and in <code>"invite_only"</code> mode <code>true</code> only for an unused, unexpired emailed single-use invite whose sender is still an active site admin and group admin while email invites are enabled. The value is the same for anonymous and authenticated callers. It is a bare boolean — the reason a link does not qualify is never disclosed. <strong>Advisory only:</strong> it can go stale before the registration request (the sender can lose site admin, the invite can be consumed, the mode can change), and registration re-checks and stays the enforcer. Clients should treat a missing field (older servers) as unknown, not <code>false</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Disclosure:</strong> <code>can_register</code> is visible to anyone holding the token, and its value can narrow down whether the site is closed, whether the link is an emailed single-use invite, and whether its sender still has admin rights. This is accepted under the token-as-capability model of this endpoint (#801): a token holder could learn the same thing by attempting registration with it. No reason, registration mode, delivery type or sender is ever returned.</p>
+<p><code>can_register</code> is present only on <code>200</code> responses, never on <code>404</code> / <code>410</code> bodies. A member previewing their own consumed single-use invite (below) gets <code>can_register: false</code> in <code>"invite_only"</code> mode. Site invite links (<code>vbnl_</code>) are out of scope: they are not group tokens, and the SPA routes them to the registration form without calling this endpoint.</p>
 <p><strong>Errors:</strong> <code>404 Not Found</code> (invalid or revoked token), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed)</p>
 <p><em>(1.2+)</em> An authenticated caller who is already a member of the link's group gets <code>200</code> with the preview for a consumed single-use link instead of <code>410</code>. This is the path a newcomer takes after an emailed invite created their account (see <a href="../authentication/"><code>POST /api/v1/auth/registration/</code></a>); everyone else still gets <code>410</code>.</p>
 <h3 id="post-apiv1groupsjointoken"><code>POST /api/v1/groups/join/{token}/</code><a class="headerlink" href="#post-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
