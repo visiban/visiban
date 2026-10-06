@@ -143,6 +143,7 @@ describe('CardItem', () => {
     expect(root.className).toContain('ring-2')
     expect(root.className).toContain('ring-primary-soft')
     expect(root.className).toContain('animate-pulse')
+    expect(root.className).toContain('motion-reduce:animate-none')
   })
 
   it('does not apply highlight ring classes when highlighted is false', () => {
@@ -1185,6 +1186,8 @@ describe('SwimlaneRow', () => {
     expect(screen.queryByText('2')).not.toBeInTheDocument()
     // pulse highlight applied
     expect(container.querySelector('.animate-pulse')).not.toBeNull()
+    // every pulse opts out under prefers-reduced-motion (#199)
+    container.querySelectorAll('.animate-pulse').forEach((el) => expect(el).toHaveClass('motion-reduce:animate-none'))
   })
 
   it('collapsed cell shows total count (no pulse) when filter is active but no matches in this cell', () => {

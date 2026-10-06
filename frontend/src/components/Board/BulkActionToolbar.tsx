@@ -412,7 +412,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             <span className="text-warning truncate max-w-[20rem]" title={partialError}>{partialError}</span>
           )}
           {busy && (
-            <span className="text-fg-tertiary animate-pulse">Working...</span>
+            <span className="text-fg-tertiary animate-pulse motion-reduce:animate-none">Working...</span>
           )}
         </span>
       </div>

@@ -361,7 +361,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse" : selected ? "ring-2 ring-primary-soft bg-info/20" : ""}
+        ${highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse motion-reduce:animate-none" : selected ? "ring-2 ring-primary-soft bg-info/20" : ""}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

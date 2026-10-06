@@ -54,7 +54,7 @@ function ProgressBar({ pct }: { pct: number }) {
       aria-valuenow={indeterminate ? undefined : pct}
     >
       <div
-        className={`h-full bg-button-primary transition-[width] motion-reduce:transition-none ${indeterminate ? "animate-pulse" : ""}`}
+        className={`h-full bg-button-primary transition-[width] motion-reduce:transition-none ${indeterminate ? "animate-pulse motion-reduce:animate-none" : ""}`}
         style={{ width: `${indeterminate ? 100 : pct}%` }}
       />
     </div>

@@ -395,7 +395,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             return (
               <div key={col.id} className="contents">
                 {sep}
-                <div className={`w-10 shrink-0 flex items-center justify-center py-1${hasMatch ? " animate-pulse bg-info/15" : ""}`}>
+                <div className={`w-10 shrink-0 flex items-center justify-center py-1${hasMatch ? " animate-pulse motion-reduce:animate-none bg-info/15" : ""}`}>
                   {(hasMatch ? matchCount : cellCount) > 0 && (
                     <span className={`text-xs font-medium ${hasMatch ? "text-info" : "text-fg-tertiary"}`}>
                       {hasMatch ? matchCount : cellCount}
@@ -417,7 +417,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <div key={col.id} className="contents">
                 {sep}
                 <div
-                  className={`shrink-0 flex items-center justify-center bg-canvas${hasMatch ? " animate-pulse" : ""}`}
+                  className={`shrink-0 flex items-center justify-center bg-canvas${hasMatch ? " animate-pulse motion-reduce:animate-none" : ""}`}
                   style={{ width: cellWidth }}
                 >
                   {displayCount > 0 ? (

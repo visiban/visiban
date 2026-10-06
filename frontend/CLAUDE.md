@@ -2,6 +2,7 @@
 
 ## Color tokens
 
+- **Every `animate-pulse` carries `motion-reduce:animate-none` (#199)** — decorative pulses (highlighted card, search-match cells, "Working..." text, connection-status dots, indeterminate progress) must stop under `prefers-reduced-motion`. Functional `animate-spin` loading spinners are exempt.
 - **Always use `slate`, never `gray`** — they are not interchangeable. `gray` is warmer/less blue-tinted and creates visible mismatch on adjacent surfaces in the dark theme.
 
 **Three-level background depth system** — use these levels consistently, never flatten them:
@@ -407,10 +408,10 @@ The avatar-triggered user menu in `Navbar.tsx` is the single entry point for all
 `ConnectionStatus` (`src/components/Common/ConnectionStatus.tsx`) is the single canonical component for surfacing WebSocket state. Do not re-introduce a second `LiveIndicator`, and do not render a bare `●ᅠLive` in feature components.
 
 - **Prominence rule — quiet when healthy, loud when degraded.** Connected state is a bare success dot with the word "Live" shown only at `lg+` viewports (`labelClass: "hidden lg:inline"`). Every other state — `connecting`, `reconnecting`, `stale`, `failed` — always shows its label with an amber or red pill background so Maya/Jordan can see degraded state at a glance.
-- **Pulse and reduced motion.** The healthy dot stays static per the prominence rule (a pulse was proposed in #199 and declined in favor of #851). Every `animate-pulse` on a degraded-state dot carries `motion-reduce:animate-none`.
+- **Pulse and reduced motion.** The healthy dot stays static per the prominence rule (a pulse was proposed in #199 and declined in favor of #851). Degraded-state dot pulses follow the general reduced-motion rule at the top of this file (§ Color tokens).
 - **Five states:**
   - `connected` → `text-success` dot, no background
-  - `connecting` / `reconnecting` / `stale` → `text-warning bg-warning/10 border border-warning/30 rounded px-2 py-0.5`
+  - `connecting` / `reconnecting` / `stale` → `text-warning bg-warning/10 border border-warning/30 rounded px-2 py-0.5` (the connecting and reconnecting dots pulse with `animate-pulse motion-reduce:animate-none`; stale is static)
   - `failed` → `text-danger bg-danger-bg/30 border border-danger-emphasis/40 rounded px-2 py-0.5`
 - **Stale detection:** `useIsStale(status, lastEventAt, thresholdMs = 60_000)` flips `connected` into the `stale` variant when no event has arrived within 60 seconds. Do not poll; the hook schedules a single `setTimeout`.
 - **Popover:** click trigger opens a `role="dialog" aria-label="Connection status"` popover (`w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3`). Dismissal via Esc (`useEscapeStack` priority 25), outside-click, or re-clicking the trigger. On Esc close, refocus the trigger.
