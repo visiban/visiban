@@ -147,6 +147,14 @@ describe('groups API', () => {
     expect(result).toEqual(info)
   })
 
+  it('resolveJoinToken passes through the advisory can_register flag (#1481)', async () => {
+    const info = { group_id: 1, group_name: 'Test', role: 'viewer', can_register: false }
+    mockClient.get.mockResolvedValue({ data: info })
+    const result = await resolveJoinToken('vbng_x')
+    expect(result.can_register).toBe(false)
+    expect(result.role).toBe('viewer')
+  })
+
   it('joinGroup posts to join endpoint', async () => {
     const group = { id: 1, name: 'Test' }
     mockClient.post.mockResolvedValue({ data: group })

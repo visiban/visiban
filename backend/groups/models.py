@@ -343,9 +343,17 @@ class GroupInviteLink(models.Model):
 
     @classmethod
     def lookup_by_token(cls, raw_token):
-        """Look up an active invite link by its raw token. Returns instance or None."""
+        """Look up an active invite link by its raw token. Returns instance or None.
+
+        Joins ``created_by`` and ``group``: the public join preview reads the
+        group name and, for ``can_register`` (#1481), the sender, so loading
+        them here saves a query each. Read-only — callers that need a row lock
+        do their own ``select_for_update`` lookup.
+        """
         try:
-            return cls.objects.get(token_hash=cls._hash_token(raw_token), is_active=True)
+            return cls.objects.select_related("created_by", "group").get(
+                token_hash=cls._hash_token(raw_token), is_active=True,
+            )
         except cls.DoesNotExist:
             return None
 
