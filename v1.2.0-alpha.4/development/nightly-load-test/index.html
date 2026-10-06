@@ -3870,8 +3870,8 @@ budget.</p>
   the timings, and <code>backend/nightly-load-test-baseline.json</code> records what the committed budgets
   were derived against.</li>
 </ul>
-<p><code>--scale &gt; 1</code> never combines with <code>--export</code> — the large fixture is regenerated fresh in an
-ephemeral CI database on every run and is never meant to be committed to <code>sample-boards/</code>.</p>
+<p>The large fixture is regenerated fresh in an ephemeral CI database on every run and is never
+committed anywhere.</p>
 <h2 id="auth">Auth<a class="headerlink" href="#auth" title="Permanent link">&para;</a></h2>
 <p>The job reuses <code>manage.py provision_fuzz_token</code> (already used by <code>backend-schema-fuzz</code>) to mint
 a scoped, non-admin Personal Access Token for <code>demo2</code> and writes it to a CI-only file

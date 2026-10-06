@@ -3945,18 +3945,14 @@
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe<span class="w"> </span>--force
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># After seeding, write canonical JSON and CSV snapshots to scripts/seed/</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Run this and commit the result whenever the board structure changes</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--export
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Use a specific random seed instead of the command's built-in default</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe<span class="w"> </span>--force<span class="w"> </span>--seed<span class="w"> </span><span class="m">42</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Use a specific random seed instead of the command's built-in default</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe<span class="w"> </span>--force<span class="w"> </span>--seed<span class="w"> </span><span class="m">42</span>
 </code></pre></div>
 <div class="admonition info">
 <p class="admonition-title">Large fixture for load testing</p>
 <p><code>--scale N</code> (replicate the swimlane layout N times) and <code>--with-notifications</code> seed a
 much larger, separately-named <strong>"Visiban Load Test Board"</strong> instead of the normal demo
-board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. This is CI-only, used by the
+board — This is CI-only, used by the
 <code>nightly-load-test</code> job; see
 <a href="../../development/nightly-load-test/">Nightly load test</a> for the full contract.</p>
 </div>
@@ -4095,7 +4091,7 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 </li>
 </ul>
 <p>It also turns file uploads off and sets registration to <strong>closed</strong>.</p>
-<p>Passwords come only from the environment and are re-applied on every run. The command refuses to run unless <code>DEMO_MODE=true</code> and <code>DEMO_LOGIN_PASSWORD</code>, <code>DEMO_ADMIN_PASSWORD</code> and <code>DEMO_MEMBER_PASSWORD</code> are all set, refuses an admin password equal to the published one, refuses a <code>DEMO_LOGIN_USERNAME</code> that names another seeded account, and cannot be combined with <code>--export</code> or <code>--scale</code>. The onboarding tour is marked <strong>completed</strong> for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.</p>
+<p>Passwords come only from the environment and are re-applied on every run. The command refuses to run unless <code>DEMO_MODE=true</code> and <code>DEMO_LOGIN_PASSWORD</code>, <code>DEMO_ADMIN_PASSWORD</code> and <code>DEMO_MEMBER_PASSWORD</code> are all set, refuses an admin password equal to the published one, refuses a <code>DEMO_LOGIN_USERNAME</code> that names another seeded account, and cannot be combined with <code>--scale</code>. The onboarding tour is marked <strong>completed</strong> for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.</p>
 <h3 id="resetting-the-whole-database">Resetting the whole database<a class="headerlink" href="#resetting-the-whole-database" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--wipe<span class="w"> </span>--demo-site<span class="w"> </span>--reset-database
 </code></pre></div>

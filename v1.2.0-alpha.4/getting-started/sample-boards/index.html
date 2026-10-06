@@ -3781,7 +3781,7 @@
 
 
 <h1 id="sample-boards">Sample Boards<a class="headerlink" href="#sample-boards" title="Permanent link">&para;</a></h1>
-<p>Visiban ships ready-to-import sample boards: a set of templates and a demo board. Import
+<p>Visiban ships ready-to-import sample boards: a set of templates. Import
 one to get a fully populated board in a few seconds. Each sample has real columns,
 swimlanes, labels and cards, typed custom fields, a full audit trail and enough movement
 history to fill the analytics charts.</p>
@@ -3818,6 +3818,13 @@ A <code>manifest.json</code> next to the JSON files lists every sample.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>software_development.json</code></td>
+<td>Software Development</td>
+<td>Squad</td>
+<td style="text-align: right;">79</td>
+<td>Story points, issue type, release, environments, merge request links, on-call per squad</td>
+</tr>
 <tr>
 <td><code>sales_overlay.json</code></td>
 <td>Sales Overlay</td>
@@ -3899,7 +3906,6 @@ A <code>manifest.json</code> next to the JSON files lists every sample.</p>
 </table>
 <!-- END sample-table -->
 
-<p>The demo board, <code>sample-boards/demo_board.json</code> (115 cards, swimlanes by team), is a general product development board. It is generated separately by <code>seed_demo_data</code> and is not one of the template samples listed above.</p>
 <h2 id="how-to-import">How to import<a class="headerlink" href="#how-to-import" title="Permanent link">&para;</a></h2>
 <h3 id="from-the-app">From the app<a class="headerlink" href="#from-the-app" title="Permanent link">&para;</a></h3>
 <div class="admonition note">
@@ -3936,14 +3942,12 @@ moves and history entries are attributed to you, the importing user. Comments ar
 always imported as written by you.</p>
 </div>
 <p>The <code>.csv</code> file for each template uses the same layout as <strong>Export → CSV</strong>
-(<code>demo_board.csv</code> keeps an older, simpler summary layout). Use it to look at
+Use it to look at
 the data in a spreadsheet or to try the CSV importer. CSV import creates cards with their
 title, description, column, swimlane, priority, labels, due date and weight. It does not
 restore movement history, comments, checklists or custom field values.</p>
 <h2 id="what-each-template-includes">What each template includes<a class="headerlink" href="#what-each-template-includes" title="Permanent link">&para;</a></h2>
-<p>The templates include everything below. <code>demo_board.json</code> is generated separately
-by <code>seed_demo_data</code> and carries cards, history, labels and checklists, but no custom
-fields or column limits.</p>
+<p>The templates include everything below.</p>
 <ul>
 <li><strong>Typed custom fields on cards.</strong> Six to eleven per template. Together the templates use
   every field type: number (with <code>$</code>, <code>%</code> or unit formatting), dropdown and multi-select
@@ -3980,7 +3984,7 @@ suite regenerates them and fails if the committed files differ from the generato
 <tbody>
 <tr>
 <td><code>backend/boards/seed_data/generate_seed_data.py</code></td>
-<td>Templates 1-5, history and audit-trail generation, CSV writer, entry point</td>
+<td>Templates 1-5 and Software Development, history and audit-trail generation, CSV writer, entry point</td>
 </tr>
 <tr>
 <td><code>backend/boards/seed_data/generate_seed_data_part2.py</code></td>
@@ -3988,7 +3992,7 @@ suite regenerates them and fails if the committed files differ from the generato
 </tr>
 <tr>
 <td><code>backend/boards/seed_data/sample_features.py</code></td>
-<td>Custom fields, swimlane fields, column limits and links for templates 1-10</td>
+<td>Custom fields, swimlane fields, column limits and links for every template</td>
 </tr>
 <tr>
 <td><code>backend/boards/seed_data/sales_overlay.py</code></td>
@@ -3998,15 +4002,11 @@ suite regenerates them and fails if the committed files differ from the generato
 </table>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Regenerate the templates (no database needed; output is deterministic)</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python3<span class="w"> </span>backend/boards/seed_data/generate_seed_data.py
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Regenerate the demo board (needs Django and a running database)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe<span class="w"> </span>--export<span class="w"> </span>--force
 </code></pre></div>
 <p>The first command writes the JSON files and <code>manifest.json</code> to
 <code>backend/boards/sample_boards/</code> and the CSV files to <code>sample-boards/</code>. It also rewrites the
-sample table on this page and in <code>sample-boards/README.md</code>. The demo board command writes to
-<code>sample-boards/</code>.</p>
+sample table on this page and in <code>sample-boards/README.md</code>. That script is the only writer of
+these files; the hosted demo's seed data (<code>seed_demo_data</code>) is separate and writes no sample files.</p>
 
 
 
