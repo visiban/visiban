@@ -154,8 +154,8 @@ export function ViewToggle({
           view === val
             ? "bg-primary text-on-primary font-medium"
             : muted
-              ? "text-fg-tertiary italic hover:text-fg hover:bg-surface-hover"
-              : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+              ? "text-fg-tertiary italic hover:text-fg hover:bg-surface-active"
+              : "text-fg-tertiary hover:text-fg hover:bg-surface-active"
         }`}
         aria-keyshortcuts={shortcut.toUpperCase()}
         {...(muted ? { "data-deemphasized": "true" } : {})}
@@ -177,7 +177,7 @@ export function ViewToggle({
           className={`text-sm px-3 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             view === "analytics"
               ? "bg-primary text-on-primary font-medium"
-              : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+              : "text-fg-tertiary hover:text-fg hover:bg-surface-active"
           }`}
           aria-keyshortcuts="A"
         >

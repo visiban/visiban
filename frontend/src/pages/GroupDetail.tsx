@@ -855,7 +855,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <div
                     key={b.id}
                     className={`group/board relative flex items-center ${
-                      animateBoardIds.has(b.id) ? "animate-fade-in" : ""
+                      animateBoardIds.has(b.id) ? "animate-fade-in motion-reduce:animate-none" : ""
                     }`}
                   >
                     <button

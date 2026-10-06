@@ -55,7 +55,7 @@ function ProgressBar({ pct }: { pct: number }) {
     >
       <div
         // Indeterminate: full-width pulse, but a static one-third bar under reduced
-        // motion so a stopped pulse never reads as "done" (frontend/CLAUDE.md § Import samples).
+        // motion so a stopped pulse never reads as "done" (frontend/CLAUDE.md § Import Board sample gallery).
         className={`h-full bg-button-primary transition-[width] motion-reduce:transition-none ${indeterminate ? "w-full animate-pulse motion-reduce:animate-none motion-reduce:w-1/3" : ""}`}
         style={indeterminate ? undefined : { width: `${pct}%` }}
       />
