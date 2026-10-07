@@ -139,6 +139,15 @@ def clear_login_lockout(request, user) -> None:
 PENDING_INVITE_SESSION_KEY = "pending_invite_token"
 
 
+# InviteTokenError.code -> the ``auth_error`` the SPA understands.
+_INVITE_ERROR_CODES = {
+    "invite_missing": "invite_required",
+    "invite_invalid": "invite_invalid",
+    "invite_expired": "invite_expired",
+    "invite_not_for_registration": "invite_not_for_registration",
+}
+
+
 def _validate_signup_token(raw_token: str):
     """Validate a pending OAuth invite token of any kind (#1445, #1444).
 
@@ -323,13 +332,7 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
             # Token is invalid/expired — clean up the session and redirect
             # with a specific error code.
             request.session.pop(PENDING_INVITE_SESSION_KEY, None)
-            error_code = {
-                "invite_missing": "invite_required",
-                "invite_invalid": "invite_invalid",
-                "invite_expired": "invite_expired",
-                "invite_not_for_registration": "invite_not_for_registration",
-            }.get(exc.code, "invite_invalid")
-            self._redirect_with_error(request, error_code)
+            self._redirect_with_error(request, _INVITE_ERROR_CODES.get(exc.code, "invite_invalid"))
             return False  # pragma: no cover — _redirect_with_error raises
 
         return True
@@ -505,50 +508,62 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         return f"{frontend_url}/settings?{urlencode(params)}"
 
     def save_user(self, request, sociallogin, form=None):
-        """After user creation, consume the invite token if in INVITE_ONLY mode."""
-        user = super().save_user(request, sociallogin, form)
+        """Create the OAuth account and redeem its invite in ONE transaction (#1489).
 
-        mode = get_registration_mode()
-        if mode == SiteSetting.RegistrationMode.INVITE_ONLY:
-            raw_token = request.session.pop(PENDING_INVITE_SESSION_KEY, "")
-            if raw_token:
+        Design choice: redemption is made atomic with user creation rather than
+        consuming the token at gate time. ``is_open_for_signup`` runs before
+        allauth may still abort the flow (provider error, email collision,
+        signup form), so consuming there could burn a single-use invite with no
+        account to show for it. Here, the user insert and the invite's
+        validate-under-``select_for_update`` + redeem commit or roll back
+        together: of two concurrent signups on one single-use token, the second
+        blocks on the row lock, then sees the token spent, and its user row is
+        rolled back, so a losing signup never leaves an account behind. This
+        mirrors the REST registration path (``InviteRegisterView``).
+
+        The failure is raised as ``ImmediateHttpResponse`` (redirect to the SPA
+        with ``auth_error``) outside the atomic block, so the user sees a
+        normal signup-refused page instead of a 500.
+        """
+        if get_registration_mode() != SiteSetting.RegistrationMode.INVITE_ONLY:
+            return super().save_user(request, sociallogin, form)
+
+        # Popped even on failure: a refused token must not be retried.
+        raw_token = request.session.pop(PENDING_INVITE_SESSION_KEY, "")
+        error_code = None
+        try:
+            with transaction.atomic():
+                user = super().save_user(request, sociallogin, form)
+                if not raw_token:
+                    # The gate requires a token, so reaching here without one
+                    # means the session was lost mid-flow; fail closed.
+                    raise InviteTokenError("invite_missing", "An invite link is required to register.")
                 self._redeem_invite(raw_token, user)
-
+        except InviteTokenError as exc:
+            logger.warning(
+                "OAuth signup refused at invite redemption (code=%s); account rolled back.",
+                exc.code,
+            )
+            error_code = _INVITE_ERROR_CODES.get(exc.code, "invite_invalid")
+        if error_code:
+            self._redirect_with_error(request, error_code)
         return user
 
     @staticmethod
     def _redeem_invite(raw_token, user):
-        """Consume the pending invite for a new OAuth account, best-effort.
+        """Validate (row-locked) and redeem the invite for the new OAuth account.
 
-        allauth has already saved the user and this adapter owns no rollback
-        boundary around that save, so — unlike REST registration — a refused
-        redemption cannot undo the signup. Two cases reach the except branch:
-
-        1. Token race — the token became invalid between ``is_open_for_signup``
-           and here. The user already passed the gate, so the signup stands
-           and the anomaly is logged (pre-#925 behavior for site invites).
-        2. Repeat redemption (#925) — a multi-use site link already redeemed
-           with this email. Nothing is recorded, so the dedup stays correct.
-
-        Group (#1445) and board (#1444) invites are consumed by a conditional
-        ``used_at`` update, so even without the lock one invite admits at most
-        one account; a lost race leaves the account without the membership.
+        Must run inside the ``transaction.atomic()`` that created ``user`` so the
+        lock is held until the account commits and a refusal rolls it back.
+        Raises ``InviteTokenError`` when the token was lost to a concurrent
+        redemption, expired/revoked since the gate, or (multi-use site links)
+        already redeemed with this email (#925).
         """
         from .registration_tokens import registration_token_kind
 
         kind = registration_token_kind(raw_token)
-        try:
-            with transaction.atomic():
-                invite = kind.validate(raw_token)
-                kind.redeem(invite, user)
-        except InviteTokenError as exc:
-            logger.warning(
-                "Invite not redeemed in save_user (kind=%s, code=%s, user=%s). "
-                "The user was created but the invite was not consumed.",
-                kind.name,
-                exc.code,
-                user.pk,
-            )
+        invite = kind.validate(raw_token)
+        kind.redeem(invite, user)
 
     def get_connect_redirect_url(self, request, socialaccount):
         """Redirect to the SPA's Settings page after connecting a social account.
