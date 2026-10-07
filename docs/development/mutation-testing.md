@@ -251,6 +251,8 @@ For each survivor, read the diff and ask in order:
 
 Two patterns recur in this codebase. A string-literal mutant that adds `XX` around a message survives whenever a test uses `assertIn` with a fragment of the message, because the fragment is still a substring; assert the full message, or both its start and its end. A `>=` to `>` mutant on a limit survives unless a test sits exactly on the limit.
 
+For the assertion patterns that kill these mutants, with examples, see [Writing tests that catch mutations](testing.md#writing-tests-that-catch-mutations).
+
 ## CI pilot (`backend-mutation`)
 
 Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`. It is a **pilot, not a gate**: it runs on the Nightly schedule only (`MUTATION_TEST=true`, never on an MR or a `main` push), both jobs are `allow_failure: true`, and `MUTATION_MIN` is unset. The report job prints the score and says the floor is unset. The floor is set later from observed scores, never chosen up front and never set to 0.
