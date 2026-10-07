@@ -5462,6 +5462,7 @@
 </tr>
 </tbody>
 </table>
+<p><code>export_min_role</code> also applies to movement exports requested with <code>?export=&lt;format&gt;</code>: a caller below the threshold receives the same <code>403</code> with <code>code: "export_restricted"</code> as the board export, and each successful export is recorded in the <a href="#get-apiv1boardsidexport-history">export history</a>. Movement exports share the board export rate limit (20 exports/hour per authenticated user, scope <code>board_export</code>; <code>429 Too Many Requests</code> when exceeded). Ordinary movement reads are not rate limited by it.</p>
 <p>When neither <code>moved_after</code> nor <code>moved_before</code> is specified, the full movement history is returned (no default date cutoff). Results are always paginated to <code>page_size: 50</code> so the absence of a date window does not cause runaway queries.</p>
 <p><strong>Response</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
@@ -5843,7 +5844,7 @@ caller below <code>admin</code> — the same role gate this export already appli
 </tr>
 <tr>
 <td><code>export_format</code></td>
-<td><code>"csv"</code> or <code>"json"</code>.</td>
+<td><code>"csv"</code> or <code>"json"</code> for board exports; <code>"movements_&lt;format&gt;"</code> (lowercased, at most 20 characters) for movement history exports.</td>
 </tr>
 <tr>
 <td><code>row_count</code></td>
