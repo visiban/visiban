@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardRelationsSection from '../components/Card/CardRelationsSection'
 import type { BoardFull, Card, CardRelation } from '../types'
@@ -243,8 +243,12 @@ describe('CardRelationsSection — in-flight guards (#1498)', () => {
     await userEvent.click(await screen.findByRole('button', { name: '+ Add relation' }))
     await userEvent.type(screen.getByRole('combobox'), 'prov')
     const option = await screen.findByRole('option', { name: /Provision cluster/ })
-    fireEvent.mouseDown(option)
-    fireEvent.mouseDown(option)
+    // One act(): both events land before `submitting` re-renders, so only the
+    // ref guard can stop the second POST.
+    act(() => {
+      fireEvent.mouseDown(option)
+      fireEvent.mouseDown(option)
+    })
     expect(mockAdd).toHaveBeenCalledTimes(1)
     resolve(makeRelation({ id: 900, card: { id: 42, uid: 'u42', title: 'Provision cluster', column: 11, archived: false } }))
     await waitFor(() => expect(mockAdd).toHaveBeenCalledTimes(1))

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardExternalRefSection from '../components/Card/CardExternalRefSection'
 import { externalRefErrorMessage } from '../utils/externalRef'
@@ -131,8 +131,12 @@ describe('CardExternalRefSection (#352)', () => {
     const onSave = vi.fn().mockImplementation(() => new Promise<void>((r) => { resolve = r }))
     render(<CardExternalRefSection externalRef={GH} canEdit onSave={onSave} />)
     const btn = screen.getByRole('button', { name: 'Remove pull or merge request link' })
-    fireEvent.click(btn)
-    fireEvent.click(btn)
+    // One act(): both clicks land before the button re-renders disabled, so
+    // only the ref guard can stop the second call.
+    act(() => {
+      fireEvent.click(btn)
+      fireEvent.click(btn)
+    })
     expect(onSave).toHaveBeenCalledTimes(1)
     resolve()
     await waitFor(() => expect(btn).toBeEnabled())

@@ -1874,8 +1874,12 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       mockUp.mockImplementationOnce(() => d.promise)
       const { container } = render(<CardDetail {...defaultProps()} />)
       const { input, file } = pick(container)
-      fireEvent.change(input, { target: { files: [file] } })
-      fireEvent.change(input, { target: { files: [file] } })
+      // One act(): both events land before React re-renders, so only the ref
+      // (not `uploading` state) can stop the second upload.
+      act(() => {
+        fireEvent.change(input, { target: { files: [file] } })
+        fireEvent.change(input, { target: { files: [file] } })
+      })
       expect(mockUp).toHaveBeenCalledTimes(1)
       d.resolve(uploaded)
       await waitFor(() => expect(screen.getByText('a.txt')).toBeInTheDocument())
