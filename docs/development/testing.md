@@ -283,12 +283,22 @@ def test_nothing_is_created_by_a_rejected_import(self):
     self.assertEqual(Board.objects.count(), 0)
 ```
 
-The same applies to movements (`CardMovement.objects.count()` unchanged) and to broadcast events (nothing was queued).
+The same applies to audit rows. This denied create asserts the exact 409 body, the unchanged count, and that no `CardMovement` row was written (a sibling suite, not a gap file):
+
+```python
+# test_limit_enforcement_paths.py
+self.assertEqual(r.status_code, 409, r.content)
+self.assertEqual(self._active(self.limited), 2)
+# The rollback covers the audit row too.
+self.assertFalse(CardMovement.objects.filter(notes="Card created").exists())
+```
+
+Do the same for broadcast events: assert nothing was queued.
 
 ### What not to do
 
 - **Do not write one test per mutant.** Write the smallest assertion that states the behavior; one test often kills several mutants. A suite shaped like the survivor list breaks on every refactor.
-- **Do not pin logger text.** Assert that a warning fires (or does not) and at what level, not its exact wording. Exception: the message is a documented contract.
+- **Do not pin the full wording of logger text.** Assert the level and a stable event-name prefix or key substring (`assertLogs(..., level="WARNING")` plus `assertIn("malformed payload", ...)`), not the whole sentence. Pin the full message only when it is a documented contract.
 - **Do not assert on `.get()` defaults that are always overridden.** If no caller can reach the default, the mutant is equivalent. Record it in the baseline page and leave it.
 - **Do not chase equivalent mutants** (dead branches, schema constants guarded by `migration-check`). See "How to read the results" in the mutation baseline.
 
