@@ -44,7 +44,13 @@ def _shift_datetime(value, delta):
 def _date_field_names(definitions):
     if not isinstance(definitions, list):
         return set()
-    return {d.get("name") for d in definitions if isinstance(d, dict) and d.get("field_type") == "date"}
+    # Only string names: an unhashable one (a list or object) would raise
+    # TypeError building the set, a 500 before validation could report it
+    # (#1507). The definitions validator rejects such a name afterwards.
+    return {
+        d["name"] for d in definitions
+        if isinstance(d, dict) and d.get("field_type") == "date" and isinstance(d.get("name"), str)
+    }
 
 
 def _shift_custom_values(values, date_names, delta):

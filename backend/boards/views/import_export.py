@@ -1,16 +1,22 @@
 """BoardViewSet mixin for CSV/JSON import and export actions."""
 
+import collections
+import contextlib
 import csv
 import datetime
+import functools
 import hashlib
 import io
 import json
 import logging
 import os
 import re
+import reprlib
+import traceback
 
 from django.conf import settings as django_settings
-from django.db import transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import DataError, IntegrityError, transaction
 from django.db.models import Prefetch
 from django.http import HttpResponse
 from rest_framework.generics import get_object_or_404
@@ -19,7 +25,7 @@ from django.utils.text import slugify
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ParseError, PermissionDenied
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -290,12 +296,14 @@ def _validate_import_field_definitions(raw, serializer_class, model, pin_attr, l
             return None, f"'{list_name}' entry at index {i} must be an object."
         ser = serializer_class(data=entry)
         if not ser.is_valid():
-            return None, f"'{list_name}' entry at index {i}: {_flatten_serializer_errors(ser.errors)}"
+            # DRF messages can quote the value ('"x" is not a valid choice'),
+            # so the message is bounded like every other echo (#1507).
+            message = _bounded_text(_flatten_serializer_errors(ser.errors), _IMPORT_SERIALIZER_ECHO_MAX)
+            return None, f"'{list_name}' entry at index {i}: {message}"
         validated.append(dict(ser.validated_data))
-    names = [v["name"] for v in validated]
-    dupes = sorted({n for n in names if names.count(n) > 1})
+    dupes = _duplicates_detail(f"{list_name} names", [v["name"] for v in validated])
     if dupes:
-        return None, f"Duplicate {list_name} names: {', '.join(dupes)}"
+        return None, dupes
     pinned = sum(1 for v in validated if v.get(pin_attr))
     if pinned > model.MAX_PINNED_PER_BOARD:
         return None, (
@@ -420,6 +428,286 @@ def _is_truthy_non_string(value):
     for backward compatibility (#1451).
     """
     return bool(value) and not isinstance(value, str)
+
+
+# ---------------------------------------------------------------------------
+# JSON import value validation (#1507)
+#
+# Why two layers: the per-field checks below give each malformed value a 400
+# that names where it is, which is what a user fixing a hand-edited file
+# needs. They cannot be proven exhaustive, so ``_import_json`` also wraps its
+# write block in a narrow catch for database- and value-shaped errors
+# (``_IMPORT_WRITE_ERRORS``) that turns a missed case into a generic 400
+# instead of a 500. That catch deliberately leaves TypeError / KeyError /
+# AttributeError alone: once these checks have run, those mean a bug in the
+# importer, and a quiet 400 would hide it.
+#
+# Limits are read from the model fields so a migration that widens a column
+# widens the import with it. Integers are bounded to PostgreSQL ``integer``
+# (production's backend) on every backend so SQLite tests see the same 400.
+# ---------------------------------------------------------------------------
+_IMPORT_INT_MAX = 2**31 - 1
+# Child-collection caps. Real exports sit far below these (the shipped sample
+# boards top out at 8 labels and, per card, 3 comments, 10 movements, 21
+# activities, 5 checklist items and 2 label refs); they exist so one 10 MB
+# file cannot force millions of rows into a single transaction.
+_IMPORT_MAX_LABELS = 200
+_IMPORT_MAX_LABEL_REFS_PER_CARD = _IMPORT_MAX_LABELS
+_IMPORT_MAX_CHILDREN_PER_CARD = {
+    "comments": 1000,
+    "checklist": 500,
+    "movements": 2000,
+    "activities": 5000,
+}
+# Bound on all comments + checklist items + movements + activities in one
+# file, so 500 cards each just under their per-card caps are still refused.
+_IMPORT_MAX_CHILD_ROWS = 200_000
+# How much of an attacker-supplied value an error message may echo back.
+_IMPORT_ECHO_MAX = 60
+_IMPORT_DUPES_SHOWN = 5
+# A serializer message embeds the value inside fixed text, so it gets more room.
+_IMPORT_SERIALIZER_ECHO_MAX = 200
+
+_import_reprlib = reprlib.Repr()
+_import_reprlib.maxstring = _IMPORT_ECHO_MAX
+_import_reprlib.maxother = _IMPORT_ECHO_MAX
+_import_reprlib.maxlist = _import_reprlib.maxdict = 3
+_import_reprlib.maxlevel = 2
+
+
+def _bounded_repr(value):
+    """``repr`` of an uploaded value, cut to a bounded slice for an error message.
+
+    ``reprlib`` stops walking a large list or string early, so building the
+    message costs no more than its output — plain ``repr`` of a 10 MB string
+    would echo all of it.
+    """
+    text = _import_reprlib.repr(value)
+    return text if len(text) <= _IMPORT_ECHO_MAX else text[: _IMPORT_ECHO_MAX - 3] + "..."
+
+
+def _field_max_length(model, field_name):
+    return model._meta.get_field(field_name).max_length
+
+
+def _text_error(value, max_length=None):
+    """Why *value* cannot be stored in a NOT NULL text column, or None.
+
+    Callers skip an absent key (the importer's default applies), so this only
+    sees values the file actually set; an explicit null is refused because
+    every such column is NOT NULL. NUL bytes are refused because PostgreSQL
+    text cannot hold them.
+    """
+    if not isinstance(value, str):
+        return "must be a string"
+    if "\x00" in value:
+        return "must not contain NUL characters"
+    if max_length is not None and len(value) > max_length:
+        return f"must be at most {max_length} characters"
+    return None
+
+
+def _optional_name_error(value, max_length):
+    # Falsy non-strings were always coerced to "" by ``or ""`` (#1451) and
+    # stay accepted; anything else is stored verbatim in a *_name column.
+    return None if not value else _text_error(value, max_length)
+
+
+def _bool_error(value):
+    return None if isinstance(value, bool) else "must be true or false"
+
+
+def _int_error(value, *, nullable=False):
+    """Why *value* is not a storable non-negative integer, or None."""
+    if value is None and nullable:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return "must be a non-negative integer"
+    if value > _IMPORT_INT_MAX:
+        return f"must be at most {_IMPORT_INT_MAX}"
+    return None
+
+
+def _bounded_text(value, limit=_IMPORT_ECHO_MAX):
+    """A value for an error message: strings unquoted, both bounded."""
+    if isinstance(value, str):
+        return value if len(value) <= limit else value[: limit - 3] + "..."
+    return _bounded_repr(value)
+
+
+def _duplicates_detail(kind, values):
+    """``Duplicate <kind>: a, b`` with a bounded, truncated list, or None.
+
+    One Counter pass rather than ``list.count`` per entry, which was O(n^2)
+    on a list of thousands of labels.
+    """
+    dupes = sorted(v for v, n in collections.Counter(values).items() if n > 1)
+    if not dupes:
+        return None
+    shown = ", ".join(_bounded_text(v) for v in dupes[:_IMPORT_DUPES_SHOWN])
+    if len(dupes) > _IMPORT_DUPES_SHOWN:
+        shown += f" (and {len(dupes) - _IMPORT_DUPES_SHOWN} more)"
+    return f"Duplicate {kind}: {shown}"
+
+
+def _check_keys(obj, specs, where):
+    """Run ``(key, checker)`` pairs over the keys present in *obj*.
+
+    String- and bool-valued keys are reported as ``'key' <problem>`` like the
+    #1451 messages; integer keys keep the older unquoted ``key must be a
+    non-negative integer`` form existing clients and tests match on.
+    """
+    for key, check in specs:
+        if key in obj:
+            problem = check(obj[key])
+            if problem:
+                shown = key if check in _UNQUOTED_CHECKS else f"'{key}'"
+                return f"{where}: {shown} {problem}"
+    return None
+
+
+_nullable_int_error = functools.partial(_int_error, nullable=True)
+_UNQUOTED_CHECKS = (_int_error, _nullable_int_error)
+
+
+def _text(max_length=None):
+    return functools.partial(_text_error, max_length=max_length)
+
+
+def _validate_json_import_values(data):
+    """Value-level checks for a JSON import, run before the transaction (#1507).
+
+    Assumes the shape checks in ``_import_json`` already passed (every list is
+    a list of objects, names are strings). Returns an error detail or None.
+    """
+    if "description" in data and (problem := _text_error(data["description"])):
+        return f"Board 'description' {problem}"
+
+    labels = data.get("labels", [])
+    if len(labels) > _IMPORT_MAX_LABELS:
+        return f"Import contains {len(labels)} labels, which exceeds the limit of {_IMPORT_MAX_LABELS}."
+
+    column_specs = (
+        ("name", _text(_field_max_length(Column, "name"))),
+        ("position", _int_error),
+        ("color", _text(_field_max_length(Column, "color"))),
+        ("wip_limit", _nullable_int_error),
+        ("weight_limit", _nullable_int_error),
+        ("allow_card_creation", _bool_error),
+        ("is_done", _bool_error),
+    )
+    swimlane_specs = (
+        ("name", _text(_field_max_length(Swimlane, "name"))),
+        ("position", _int_error),
+        ("color", _text(_field_max_length(Swimlane, "color"))),
+        ("contact_email", _text(_field_max_length(Swimlane, "contact_email"))),
+        ("notes", _text()),
+    )
+    label_specs = (
+        ("name", _text(_field_max_length(Label, "name"))),
+        ("color", _text(_field_max_length(Label, "color"))),
+    )
+    for list_name, label, specs in (
+        ("columns", "Column", column_specs),
+        ("swimlanes", "Swimlane", swimlane_specs),
+        ("labels", "Label", label_specs),
+    ):
+        items = data.get(list_name, [])
+        for i, item in enumerate(items):
+            if error := _check_keys(item, specs, f"{label} at index {i}"):
+                return error
+        # Names carry a (board, name) unique constraint.
+        if detail := _duplicates_detail(f"{label.lower()} names", [item["name"] for item in items]):
+            return detail
+
+    # Column carries unique_together (board, position); a missing position
+    # defaults to the entry's index, so an explicit value can also collide
+    # with another entry's default. Swimlane position has no such constraint.
+    positions = [col.get("position", i) for i, col in enumerate(data["columns"])]
+    if detail := _duplicates_detail("column positions", positions):
+        return detail
+
+    card_specs = (
+        ("title", _text(_field_max_length(Card, "title"))),
+        ("description", _text()),
+        ("weight", _int_error),
+        ("position", _int_error),
+    )
+    movement_name = functools.partial(
+        _optional_name_error, max_length=_field_max_length(CardMovement, "from_column_name"),
+    )
+    child_specs = {
+        "comments": ("comment", (("body", _text()),)),
+        "checklist": ("checklist item", (
+            ("text", _text(_field_max_length(CardChecklist, "text"))),
+            ("is_checked", _bool_error),
+        )),
+        "movements": ("movement", (
+            ("from_column", movement_name), ("to_column", movement_name),
+            ("from_swimlane", movement_name), ("to_swimlane", movement_name),
+            ("notes", _text(_field_max_length(CardMovement, "notes"))),
+        )),
+        "activities": ("activity", (("from_value", _text()), ("to_value", _text()))),
+    }
+    total_children = 0
+    for ci, card in enumerate(data.get("cards", [])):
+        where = f"Card at index {ci}"
+        if error := _check_keys(card, card_specs, where):
+            return error
+        if len(card.get("labels", [])) > _IMPORT_MAX_LABEL_REFS_PER_CARD:
+            return f"{where}: 'labels' has more than {_IMPORT_MAX_LABEL_REFS_PER_CARD} entries"
+        for child, (child_label, specs) in child_specs.items():
+            items = card.get(child, [])
+            cap = _IMPORT_MAX_CHILDREN_PER_CARD[child]
+            if len(items) > cap:
+                return f"{where}: '{child}' has {len(items)} entries; the limit is {cap}"
+            total_children += len(items)
+            for ji, entry in enumerate(items):
+                if error := _check_keys(entry, specs, f"{where}, {child_label} at index {ji}"):
+                    return error
+        if total_children > _IMPORT_MAX_CHILD_ROWS:
+            return (
+                f"Import contains more than {_IMPORT_MAX_CHILD_ROWS} comments, checklist items, "
+                "movements and activities in total."
+            )
+    return None
+
+
+# What the write block's guard converts to a 400. Database- and value-shaped
+# only; see the comment above the JSON import helpers for why TypeError,
+# KeyError and AttributeError are not here.
+_IMPORT_WRITE_ERRORS = (DataError, IntegrityError, DjangoValidationError, ValueError)
+
+
+@contextlib.contextmanager
+def _json_import_write_guard():
+    """Turn a value the per-field checks missed into a 400, not a 500 (#1507).
+
+    Must be entered *outside* ``transaction.atomic()`` so the atomic block has
+    already rolled back when this sees the exception. Neither the response
+    nor the log carries ``str(exc)``: database messages can quote the
+    uploaded value. The log names the importer line that failed, so the
+    missing per-field check can be found and added.
+    """
+    try:
+        yield
+    except _IMPORT_WRITE_ERRORS as exc:
+        frames = [f for f in traceback.extract_tb(exc.__traceback__) if f.filename == __file__]
+        where = f"line {frames[-1].lineno}" if frames else "unknown line"
+        logger.warning(
+            "Board JSON import rejected — %s while writing (%s); a per-field check is missing.",
+            type(exc).__name__, where,
+        )
+        raise ParseError("The import file contains a value that cannot be stored.") from None
+
+
+def _timestamp_error(value, parser):
+    """True when a truthy timestamp is not a string the parser accepts.
+
+    A number such as ``20200101`` used to pass ``parser(str(value))`` and then
+    reach a Date/DateTimeField as an int (#1507), so the type is checked first.
+    """
+    return bool(value) and (not isinstance(value, str) or parser(value) is None)
 
 
 def _resolve_import_users(usernames, importer, group=None):
@@ -713,79 +1001,41 @@ class BoardImportExportMixin:
         # here returns a clean 400 and avoids a partial rollback.
         from django.utils.dateparse import parse_datetime as _parse_dt, parse_date as _parse_date
         for _ci, _card in enumerate(data.get("cards", [])):
-            for _field in ("archived_at",):
-                _v = _card.get(_field)
-                if _v and _parse_dt(str(_v)) is None:
-                    return Response(
-                        {"detail": f"Card at index {_ci}: invalid timestamp for '{_field}': {_v!r}"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            # Echoed values go through _bounded_repr (#1507): a 10 MB string
+            # must not come back in the 400.
+            _v = _card.get("archived_at")
+            if _timestamp_error(_v, _parse_dt):
+                return Response(
+                    {"detail": f"Card at index {_ci}: invalid timestamp for 'archived_at': {_bounded_repr(_v)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             _due = _card.get("due_date")
-            if _due and _parse_date(str(_due)) is None:
+            if _timestamp_error(_due, _parse_date):
                 return Response(
-                    {"detail": f"Card at index {_ci}: invalid due_date: {_due!r}"},
+                    {"detail": f"Card at index {_ci}: invalid due_date: {_bounded_repr(_due)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            _weight = _card.get("weight")
-            if _weight is not None and (isinstance(_weight, bool) or not isinstance(_weight, int) or _weight < 0):
-                return Response(
-                    {"detail": f"Card at index {_ci}: weight must be a non-negative integer"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            _pos = _card.get("position")
-            if _pos is not None and (isinstance(_pos, bool) or not isinstance(_pos, int) or _pos < 0):
-                return Response(
-                    {"detail": f"Card at index {_ci}: position must be a non-negative integer"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            for _ji, _comment in enumerate(_card.get("comments", [])):
-                _v = _comment.get("created_at")
-                if _v and _parse_dt(str(_v)) is None:
-                    return Response(
-                        {"detail": f"Card at index {_ci}, comment at index {_ji}: invalid 'created_at': {_v!r}"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            for _ji, _mv in enumerate(_card.get("movements", [])):
-                _v = _mv.get("moved_at")
-                if _v and _parse_dt(str(_v)) is None:
-                    return Response(
-                        {"detail": f"Card at index {_ci}, movement at index {_ji}: invalid 'moved_at': {_v!r}"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            for _ji, _act in enumerate(_card.get("activities", [])):
-                _v = _act.get("created_at")
-                if _v and _parse_dt(str(_v)) is None:
-                    return Response(
-                        {"detail": f"Card at index {_ci}, activity at index {_ji}: invalid 'created_at': {_v!r}"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            for _child, _child_label, _key in (
+                ("comments", "comment", "created_at"),
+                ("movements", "movement", "moved_at"),
+                ("activities", "activity", "created_at"),
+            ):
+                for _ji, _entry in enumerate(_card.get(_child, [])):
+                    _v = _entry.get(_key)
+                    if _timestamp_error(_v, _parse_dt):
+                        return Response(
+                            {"detail": (
+                                f"Card at index {_ci}, {_child_label} at index {_ji}: "
+                                f"invalid '{_key}': {_bounded_repr(_v)}"
+                            )},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
-        # Column numeric fields: wip_limit and weight_limit must be non-negative
-        # integers when present; a non-integer would cause a DB type error inside
-        # bulk_create with no clean 400 path.
-        for _ci, _col in enumerate(data.get("columns", [])):
-            for _fname, _fval in (("wip_limit", _col.get("wip_limit")), ("weight_limit", _col.get("weight_limit"))):
-                if _fval is not None and (isinstance(_fval, bool) or not isinstance(_fval, int) or _fval < 0):
-                    return Response(
-                        {"detail": f"Column at index {_ci}: {_fname} must be a non-negative integer"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-        # Duplicate names in columns, swimlanes, and labels each carry a
-        # (board, name) unique constraint; a duplicate would raise an IntegrityError
-        # inside bulk_create with no clean 400 path.
-        for _list_name, _items in (
-            ("column", data.get("columns", [])),
-            ("swimlane", data.get("swimlanes", [])),
-            ("label", data.get("labels", [])),
-        ):
-            _names = [_i.get("name", "") for _i in _items]
-            if len(_names) != len(set(_names)):
-                _dupes = sorted({n for n in _names if _names.count(n) > 1})
-                return Response(
-                    {"detail": f"Duplicate {_list_name} names: {', '.join(_dupes)}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # Types, ranges, lengths, NULs, duplicate names/positions and
+        # child-collection caps (#1507) — see the comment above the helpers.
+        _err = _validate_json_import_values(data)
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
 
         # Cards reference columns and swimlanes by name.  A mismatch between a
         # card's column/swimlane and the top-level definitions is a structural error
@@ -801,13 +1051,13 @@ class BoardImportExportMixin:
             _col_ref = _card.get("column")
             if not isinstance(_col_ref, str) or _col_ref not in _valid_col_names:
                 return Response(
-                    {"detail": f"Card at index {_ci} references undefined column: {_col_ref!r}"},
+                    {"detail": f"Card at index {_ci} references undefined column: {_bounded_repr(_col_ref)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             _sw_ref = _card.get("swimlane")
             if not isinstance(_sw_ref, str) or _sw_ref not in _valid_sw_names:
                 return Response(
-                    {"detail": f"Card at index {_ci} references undefined swimlane: {_sw_ref!r}"},
+                    {"detail": f"Card at index {_ci} references undefined swimlane: {_bounded_repr(_sw_ref)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -828,13 +1078,17 @@ class BoardImportExportMixin:
         if _err:
             return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
 
+        explicit_name = request.data.get("name")
+        if explicit_name and (problem := _text_error(explicit_name, _field_max_length(Board, "name"))):
+            return Response({"detail": f"'name' {problem}"}, status=status.HTTP_400_BAD_REQUEST)
+
         group = self._resolve_import_group(request)
         # An explicit ``name`` is used exactly as given; only the default is
         # prefixed and de-duplicated (#1446).
-        board_name = request.data.get("name") or _imported_board_name(data["name"], request.user, group)
+        board_name = explicit_name or _imported_board_name(data["name"], request.user, group)
         skipped = _json_skip_counts(data, options)
 
-        with transaction.atomic():
+        with _json_import_write_guard(), transaction.atomic():
             board = Board.objects.create(
                 name=board_name,
                 description=data.get("description", ""),

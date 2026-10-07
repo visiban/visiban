@@ -629,6 +629,29 @@ Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-d
 
 **Import limits:** up to 500 cards, 50 columns, and 100 swimlanes per import. Payloads exceeding these limits return `400 Bad Request`.
 
+A JSON import also caps its child collections (#1507), well above what a real export carries:
+
+| Collection | Limit |
+|---|---|
+| `labels` (board label definitions) | 200 |
+| Label names on one card (`cards[].labels`) | 200 |
+| `comments` per card | 1,000 |
+| `checklist` items per card | 500 |
+| `movements` per card | 2,000 |
+| `activities` per card | 5,000 |
+| Comments, checklist items, movements, and activities across the whole file | 200,000 |
+
+**Malformed values in a JSON file** return `400 Bad Request` naming the item and key, and nothing is created. Since 1.2 (#1507) this covers:
+
+- Column and swimlane `position`, card `weight` and `position`, and column `wip_limit` and `weight_limit` must be integers from 0 to 2,147,483,647. Only `wip_limit` and `weight_limit` may be `null`.
+- Column positions must be unique. A column with no `position` takes its index in the list, so an explicit position can collide with another column's default. Swimlane positions may repeat.
+- Text values must be strings without NUL characters, and may not be `null`: column, swimlane, and label `color`; swimlane `contact_email` and `notes`; board and card `description`; comment `body`; checklist `text`; movement `notes`; activity `from_value` and `to_value`. A key left out takes its default.
+- Text values stored in a limited column must fit it: column and swimlane `name` (255), label `name` (50), `color` (7), `contact_email` (254), card `title` (500), checklist `text` (500), movement `notes` (500), the column and swimlane names in a movement (255), and the `name` form field (255).
+- Column `is_done` and `allow_card_creation`, and checklist `is_checked`, must be `true` or `false`.
+- Dates and timestamps (`due_date`, `archived_at`, and comment, movement, and activity timestamps) must be strings; a number such as `20200101` is rejected.
+
+Error messages quote at most a short, truncated part of any value from the file. A value that passes these checks but still cannot be stored returns `400` with `{"detail": "The import file contains a value that cannot be stored."}`. Every file the exporter produces imports unchanged.
+
 **Request** (`multipart/form-data`)
 
 | Field | Required | Description |
