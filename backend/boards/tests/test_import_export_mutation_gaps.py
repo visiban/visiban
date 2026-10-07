@@ -1373,13 +1373,19 @@ class ImportCsvTests(ImportBase):
         self.assertEqual((b.description, b.priority, b.weight), ("desc", "medium", 1))
         self.assertEqual(Label.objects.count(), 0)
 
-    def test_short_row_invalid_due_date_check_ignores_missing_cell(self):
+    def test_short_row_missing_trailing_due_date_cell(self):
+        # Due Date is the LAST column, so the short row's cell is None, which
+        # crashed on .strip() before #1496.
+        resp = self.post_csv("Title,Column,Swimlane,Due Date\nA,To Do,Lane\n")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertIsNone(Card.objects.get().due_date)
+
+    def test_short_row_then_invalid_due_date_still_400(self):
         self.assert_400(
-            self.post_csv(
-                "Title,Column,Swimlane,Due Date\nok,A,B\nt,A,B,soon\n"
-            ),
+            self.post_csv("Title,Column,Swimlane,Due Date\nok,A,B\nt,A,B,soon\n"),
             "Row 3: invalid Due Date: 'soon'",
         )
+        self.assertEqual(Board.objects.count(), 0)
 
     def test_long_row_surplus_cells_are_ignored(self):
         resp = self.post_csv("Title,Column,Swimlane\nA,To Do,Lane,extra,more\n")
