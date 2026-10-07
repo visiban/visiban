@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SampleGallery, { type SampleFocusRequest, type SampleListState } from "./SampleGallery";
 import { getSampleBoardFile, listSampleBoards } from "../../api/boards";
@@ -118,6 +118,9 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
   // it is re-checked so a deliberate uncheck (e.g. History) survives the round trip.
   const dependentsMemo = useRef<Pick<IncludeState, DependentKey> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const fileLabelId = useId();
+  const fileButtonId = useId();
+  const nameInputId = useId();
 
   const requestFocus = (id: string) => setFocusRequest((prev) => ({ id, n: (prev?.n ?? 0) + 1 }));
 
@@ -356,11 +359,16 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
 
           {/* File input */}
           {!source && <div>
-            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
+            {/* Dropzone-as-button (frontend/CLAUDE.md): the title is a <p id> named by the
+                button's aria-labelledby, not a <label htmlFor> aimed at the hidden input.
+                The button also names itself so the chosen file or hint stays in its name. */}
+            <p id={fileLabelId} className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
               File
-            </label>
+            </p>
             <button
               type="button"
+              id={fileButtonId}
+              aria-labelledby={`${fileLabelId} ${fileButtonId}`}
               className="block w-full border border-dashed border-line-strong rounded-lg p-4 text-center cursor-pointer hover:border-line-emphasis transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               onClick={() => fileRef.current?.click()}
             >
@@ -412,10 +420,11 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
 
           {/* Optional name override */}
           <div>
-            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
+            <label htmlFor={nameInputId} className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
               Board name <span className="text-fg-faint normal-case">(optional override)</span>
             </label>
             <input
+              id={nameInputId}
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
