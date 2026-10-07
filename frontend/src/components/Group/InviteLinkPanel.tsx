@@ -439,6 +439,12 @@ export default function InviteLinkPanel({
   ).length;
   const atLimit = activeCount >= MAX_LINKS;
 
+  // The spinner replaces the list only while nothing is shown yet. A
+  // background refetch — a reloadSignal bump, including the invite_link.created
+  // echo of this admin's own create — keeps the rows mounted, so a focused
+  // control (the reveal's Copy) and a one-time token are not torn down (#439).
+  const showSpinner = loading && links.length === 0;
+
   const sortedLinks = isBoard ? [...links].sort(newestFirst) : links;
   const pendingLinks = sortedLinks.filter((l) => effectiveStatus(l) === "pending");
   const pastLinks = sortedLinks.filter((l) => effectiveStatus(l) !== "pending");
@@ -760,7 +766,7 @@ export default function InviteLinkPanel({
           )}
           {capWarning}
           {allowShareableLinks && showForm && createForm}
-          {loading ? (
+          {showSpinner ? (
             <Spinner />
           ) : loadError ? (
             <div className="py-2">
@@ -810,7 +816,7 @@ export default function InviteLinkPanel({
 
       {emailForm}
 
-      {loading ? (
+      {showSpinner ? (
         <Spinner />
       ) : loadError ? (
         <div className="text-center py-2">

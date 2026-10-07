@@ -38,6 +38,7 @@ from .. import invites as _invites
 from ..models import Board, BoardInviteLink, BoardInviteRedemption, BoardMembership
 from ..permissions import SITE_ADMIN, get_board_role
 from ..serializers import (
+    BoardInviteLinkCreateBadRequestSerializer,
     BoardInviteLinkCreateResponseSerializer,
     BoardInviteLinkCreateSerializer,
     BoardInviteLinkEmailSerializer,
@@ -90,9 +91,8 @@ class BoardInviteLinksMixin:
         request=BoardInviteLinkCreateSerializer,
         responses={
             201: BoardInviteLinkCreateResponseSerializer,
-            400: inline_serializer(
-                name="BoardInviteLinkCreateRefused", fields={"detail": drf_serializers.CharField()},
-            ),
+            # Cap-reached {detail} or DRF field errors {field: [...]}.
+            400: BoardInviteLinkCreateBadRequestSerializer,
         },
     )
     # pagination_class=None: a bare array, like the group invite list (#1359).

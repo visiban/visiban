@@ -1425,9 +1425,9 @@ class AdminUserDeactivateView(APIView):
                 revoked_at=now, revoked_by=actor,
             )
             # One {id} event per invite keeps the board channel's contract
-            # unchanged. The loop is bounded: a sender has at most 50 pending
-            # emailed invites per board, and this runs only on the rare admin
-            # action of deactivating an account.
+            # unchanged. The loop is bounded: a board holds at most 50 pending
+            # emailed invites and 5 active shareable links (#439), and this
+            # runs only on the rare admin action of deactivating an account.
             for link_id, board_id in pending:
                 _board_broadcast.record_board_event(
                     board_id, _board_broadcast.EVT_INVITE_LINK_REVOKED, {"id": link_id},

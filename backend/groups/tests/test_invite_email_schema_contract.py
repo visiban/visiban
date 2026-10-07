@@ -58,3 +58,31 @@ class InviteEmailSchemaContractTests(TestCase):
                 responses = self.schema["paths"]["/api/v1/boards/join/{token}/"][method]["responses"]
                 self.assertIn("410", responses)
                 self.assertIn("404", responses)
+
+
+class BoardInviteLinkCreateSchemaContractTests(TestCase):
+    """``POST /boards/{id}/invite-links/`` (#439): the 400 admits both the
+    cap-reached ``{detail}`` and DRF's field-error shape, with no ``detail``."""
+
+    PATH = "/api/v1/boards/{id}/invite-links/"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.schema = SchemaGenerator().get_schema(request=None, public=True)
+
+    _assert_valid_400 = InviteEmailSchemaContractTests._assert_valid_400
+
+    def test_create_400_does_not_require_detail(self):
+        self._assert_valid_400(self.PATH, {"expiry_days": ["This field is required."]})
+        self._assert_valid_400(
+            self.PATH,
+            {"role": ['"admin" is not a valid choice.'], "single_use": ["Must be a valid boolean."]},
+        )
+
+    def test_create_400_admits_cap_reached(self):
+        self._assert_valid_400(
+            self.PATH,
+            {"detail": "Maximum of 5 active invite links reached. Revoke a link to create a new one."},
+        )
+

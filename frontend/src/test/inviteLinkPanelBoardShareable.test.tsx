@@ -305,5 +305,32 @@ describe('InviteLinkPanel — board shareable links (#439)', () => {
     renderBoard()
     expect(await screen.findByText('Existing accounts only')).toHaveClass('rounded', 'font-semibold', 'px-1.5')
   })
+
+  it('the create echo (reloadSignal bump) keeps Copy focused and the token shown', async () => {
+    const user = userEvent.setup()
+    mockCreate.mockResolvedValue(created())
+    const { rerender } = renderBoard()
+    await user.click(await screen.findByRole('button', { name: 'New link' }))
+    await user.click(screen.getByRole('button', { name: 'Create link' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Copy' })).toHaveFocus())
+    const copy = screen.getByRole('button', { name: 'Copy' })
+
+    // The invite_link.created echo: the refetch is slow, then returns the row
+    // without the token.
+    let resolveList: (rows: BoardInviteLink[]) => void = () => {}
+    mockList.mockReturnValueOnce(new Promise((r) => { resolveList = r }))
+    rerender(
+      <InviteLinkPanel scope={{ kind: 'board', id: 9 }} variant="embedded" allowShareableLinks escapePriority={49} reloadSignal={1} />,
+    )
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2))
+    // In flight: no spinner swap, the same Copy button still focused.
+    expect(document.querySelector('.animate-spin')).not.toBeInTheDocument()
+    expect(copy).toHaveFocus()
+    resolveList([link({ id: 77, prefix: 'vbnb_new' })])
+    await waitFor(() => expect(mockList.mock.results[1]?.value).toBeDefined())
+    expect(await screen.findByText(`${window.location.origin}/join/vbnb_newtoken123`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy' })).toBe(copy)
+    expect(copy).toHaveFocus()
+  })
 })
 

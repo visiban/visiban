@@ -276,6 +276,12 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/boards/{id}/export/": {"id": "board_pk"},
     "/api/v1/boards/{id}/export-history/": {"id": "board_pk"},
     "/api/v1/boards/{id}/full/": {"id": "board_pk"},
+    # Board invites (#1444, #439): a real board_pk so list, create and send
+    # reach their handlers rather than 404 in get_board_for_user. link_id is
+    # not seeded (no demo invite), so the revoke route keeps a fuzzed id.
+    "/api/v1/boards/{id}/invite-links/": {"id": "board_pk"},
+    "/api/v1/boards/{id}/invite-links/send/": {"id": "board_pk"},
+    "/api/v1/boards/{id}/invite-links/{link_id}/": {"id": "board_pk"},
     "/api/v1/boards/{id}/members/": {"id": "board_pk"},
     "/api/v1/boards/{id}/members/{user_id}/": {"id": "board_pk", "user_id": "member_user_id"},
     "/api/v1/boards/{id}/move-group/": {"id": "board_pk"},

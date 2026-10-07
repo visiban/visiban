@@ -3710,6 +3710,23 @@ class BoardInviteLinkCreateSerializer(serializers.Serializer):
     single_use = serializers.BooleanField(required=False, default=False)
 
 
+class BoardInviteLinkCreateBadRequestSerializer(serializers.Serializer):
+    """Schema-only: the two shapes the create endpoint's 400 can take (#439).
+
+    The cap-reached 400 is ``{detail}``; a field-validation 400 is DRF's
+    ``{field: [errors]}`` with no ``detail``. Every property is optional, the
+    same reasoning as ``visiban.invite_email.InviteEmailBadRequestSerializer``
+    (#731): otherwise schemathesis flags the validation shape as a schema
+    violation.
+    """
+
+    detail = serializers.CharField(required=False)
+    name = serializers.ListField(child=serializers.CharField(), required=False)
+    role = serializers.ListField(child=serializers.CharField(), required=False)
+    expiry_days = serializers.ListField(child=serializers.CharField(), required=False)
+    single_use = serializers.ListField(child=serializers.CharField(), required=False)
+
+
 class BoardInviteLinkCreateResponseSerializer(BoardInviteLinkSerializer):
     """The create response: the list row plus the raw ``token``, returned once.
 
