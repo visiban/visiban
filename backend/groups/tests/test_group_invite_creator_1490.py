@@ -166,3 +166,70 @@ class GroupInviteCreatorRecheckTests(TestCase):
         User.objects.filter(pk=self.creator.pk).update(is_active=False)
         self.assertEqual(self.client.get(join_url(raw)).status_code, 200)
         self.assertEqual(self.client.post(join_url(raw)).status_code, 200)
+
+
+class GroupInviteCreatorEdgeCaseTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pw")
+        self.group = Group.objects.create(name="G", owner=self.owner)
+        GroupMembership.objects.create(
+            group=self.group,
+            user=self.owner,
+            role=GroupMembership.Role.ADMIN,
+        )
+        self.joiner = User.objects.create_user(username="joiner", password="pw")
+        self.client = APIClient()
+        self.client.force_authenticate(self.joiner)
+
+    def test_site_admin_creator_not_a_member_is_admitted_until_deactivated(self):
+        site_admin = User.objects.create_user(
+            username="sa",
+            password="pw",
+            is_site_admin=True,
+        )
+        self.assertTrue(site_admin.can_access_all_content)
+        self.assertFalse(
+            GroupMembership.objects.filter(group=self.group, user=site_admin).exists()
+        )
+        _link, raw = GroupInviteLink.generate(self.group, site_admin)
+        self.assertEqual(self.client.get(join_url(raw)).status_code, 200)
+        User.objects.filter(pk=site_admin.pk).update(is_active=False)
+        self.assertEqual(self.client.get(join_url(raw)).status_code, 404)
+        self.assertEqual(self.client.post(join_url(raw)).status_code, 404)
+
+    def test_deactivation_leaves_consumed_single_use_link_alone(self):
+        creator = User.objects.create_user(username="creator", password="pw")
+        GroupMembership.objects.create(
+            group=self.group,
+            user=creator,
+            role=GroupMembership.Role.ADMIN,
+        )
+        link, raw = GroupInviteLink.generate(self.group, creator, single_use=True)
+        # Consume it: the joiner is now a member, as after register-then-join.
+        self.assertEqual(self.client.post(join_url(raw)).status_code, 201)
+        link.refresh_from_db()
+        self.assertIsNotNone(link.used_at)
+
+        admin_client = APIClient()
+        admin_client.force_authenticate(
+            User.objects.create_user(
+                username="sadmin", password="pw", is_site_admin=True
+            )
+        )
+        with (
+            patch("groups.broadcast.broadcast_group_event") as mock_bc,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            resp = admin_client.post(
+                f"/api/v1/admin/users/{creator.pk}/deactivate/",
+                {},
+                format="json",
+            )
+        self.assertEqual(resp.status_code, 200)
+        mock_bc.assert_not_called()
+        link.refresh_from_db()
+        self.assertTrue(link.is_active)
+        self.assertEqual(link.status, "used")
+        # The registrant's follow-up preview/join still resolves.
+        self.assertEqual(self.client.get(join_url(raw)).status_code, 200)
+        self.assertEqual(self.client.post(join_url(raw)).status_code, 200)

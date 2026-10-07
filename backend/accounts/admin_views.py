@@ -1273,14 +1273,17 @@ class AdminUserDeactivateView(APIView):
         with _transaction.atomic():
             active = list(
                 GroupInviteLink.objects.select_for_update().filter(
-                    created_by=target, is_active=True,
+                    created_by=target, is_active=True, used_at__isnull=True,
                 ).values_list("pk", "group_id")
             )
             if not active:
                 return
-            GroupInviteLink.objects.filter(pk__in=[pk for pk, _ in active]).update(
-                is_active=False,
-            )
+            # used_at__isnull=True: a consumed single-use link stays "used" —
+            # revoking it would erase that history, announce a revocation that
+            # changed nothing, and break the register-then-join follow-up (#1445).
+            GroupInviteLink.objects.filter(
+                pk__in=[pk for pk, _ in active], used_at__isnull=True,
+            ).update(is_active=False)
 
             # Deferred so a rolled-back deactivation never announces a
             # revocation that did not happen. Bounded: a creator holds a

@@ -114,14 +114,21 @@ def sender_is_group_admin(link) -> bool:
     """
     from rest_framework.exceptions import PermissionDenied
 
+    # Memoized on the instance: the public preview also asks this through
+    # ``link_can_register`` and the ancestor walk should run once per request.
+    cached = getattr(link, "_sender_is_group_admin", None)
+    if cached is not None:
+        return cached
     creator = link.created_by
-    if creator is None or not creator.is_active:
-        return False
-    try:
-        _require_group_admin(creator, link.group)
-    except PermissionDenied:
-        return False
-    return True
+    result = False
+    if creator is not None and creator.is_active:
+        try:
+            _require_group_admin(creator, link.group)
+            result = True
+        except PermissionDenied:
+            result = False
+    link._sender_is_group_admin = result
+    return result
 
 
 def _require_group_member(user, group):
@@ -1392,7 +1399,11 @@ class JoinGroupView(APIView):
         hashed = GroupInviteLink._hash_token(str(token))
         with transaction.atomic():
             try:
-                link = GroupInviteLink.objects.select_for_update().get(
+                # of=("self",): created_by is a nullable FK, and Postgres cannot
+                # lock the nullable side of the outer join select_related adds.
+                link = GroupInviteLink.objects.select_related(
+                    "created_by", "group",
+                ).select_for_update(of=("self",)).get(
                     token_hash=hashed, is_active=True
                 )
             except GroupInviteLink.DoesNotExist:

@@ -562,13 +562,13 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
 
         ``lookup_by_token`` joins the sender and group, so ``can_register``
         adds only the sender's group-admin check, not a lazy sender fetch:
-        1 = the link lookup (with sender and group joined), 1 = the #1490
-        creator-still-admin check at preview, 1 = ``can_register``'s own
-        group-admin check.
+        1 = the link lookup (with sender and group joined), 1 = the group-admin
+        ancestor walk, shared between the #1490 creator-still-admin check and
+        ``can_register`` (memoized on the link, so it runs once).
         """
         _link, raw = self.make_link()
         self._preview(raw)  # warm the cached registration mode
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(2):
             r = self._preview(raw)
         self.assertTrue(r.json()["can_register"])
 

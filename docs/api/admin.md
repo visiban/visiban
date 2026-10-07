@@ -410,7 +410,7 @@ Update a user's account flags. Site admin only.
 
 Deactivate a user account and transfer ownership of any boards they own to other members.
 
-Deactivation also revokes the user's unused site invite links and *(1.2+)* their pending [board invites](boards.md#board-invites) (`revoked_by` is the caller; each board gets an `invite_link.revoked` event).
+Deactivation also revokes the user's unused site invite links and *(1.2+)* their pending [board invites](boards.md#board-invites) (`revoked_by` is the caller; each board gets an `invite_link.revoked` event) and *(1.2+)* their active, unused [group invite links](groups.md) (each affected group receives an `invite_link.revoked` event). Consumed single-use links are left as they are.
 
 **Permission:** `IsSiteAdmin`. Cannot deactivate your own account.
 
