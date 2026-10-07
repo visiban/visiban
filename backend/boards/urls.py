@@ -7,7 +7,7 @@ from .views import (
     CardQueryViewSet, CustomFieldDefinitionViewSet,
     SwimlaneCustomFieldDefinitionViewSet,
     NotificationListView, NotificationMarkReadView, NotificationUnreadCountView,
-    VersionView,
+    VersionView, JoinBoardView,
 )
 
 # Use SimpleRouter (not DefaultRouter) for the parent router to avoid a
@@ -45,6 +45,9 @@ urlpatterns = [
     # Same reason as templates/: before the router, so "samples" is not a board PK.
     path("boards/samples/", SampleBoardListView.as_view()),
     re_path(r"^boards/samples/(?P<sample_id>[a-z0-9_]+)/$", SampleBoardDetailView.as_view()),
+    # Board invite join (#1444) — before the router for the same reason as
+    # templates/ above.
+    path("boards/join/<str:token>/", JoinBoardView.as_view(), name="board-join"),
     path("", include(router.urls)),
     path("", include(boards_router.urls)),
     path("notifications/", NotificationListView.as_view()),

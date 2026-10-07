@@ -14,6 +14,7 @@ from boards.tests.test_move_schema_contract import _openapi3_nullable_to_jsonsch
 SEND_PATHS = (
     "/api/v1/groups/{id}/invite-links/send/",
     "/api/v1/admin/invite-links/send/",
+    "/api/v1/boards/{id}/invite-links/send/",  # #1444
 )
 
 
@@ -44,3 +45,16 @@ class InviteEmailSchemaContractTests(TestCase):
                     path,
                     {"detail": "Too many pending.", "code": "invite_email_cap_reached"},
                 )
+
+    def test_board_400_admits_expiry_and_role_field_errors(self):
+        self._assert_valid_400(
+            "/api/v1/boards/{id}/invite-links/send/",
+            {"expiry_days": ['"14" is not a valid choice.'], "role": ['"admin" is not a valid choice.']},
+        )
+
+    def test_board_join_declares_410_with_code(self):
+        for method in ("get", "post"):
+            with self.subTest(method=method):
+                responses = self.schema["paths"]["/api/v1/boards/join/{token}/"][method]["responses"]
+                self.assertIn("410", responses)
+                self.assertIn("404", responses)

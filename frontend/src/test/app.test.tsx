@@ -81,7 +81,20 @@ vi.mock('../pages/AdminPage', () => ({
   default: () => <div data-testid="admin-page">Admin</div>,
 }))
 
+// #1444 — the OAuth return path redeems a pending board invite (vbnb_)
+// through joinBoard and anything else through joinGroup.
+vi.mock('../api/boards', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api/boards')>()),
+  joinBoard: vi.fn(),
+}))
+vi.mock('../api/groups', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api/groups')>()),
+  joinGroup: vi.fn(),
+}))
+
 import { useAuth } from '../hooks/useAuth'
+import { joinBoard } from '../api/boards'
+import { joinGroup } from '../api/groups'
 import { useBoardContext } from '../contexts/BoardContext'
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseBoardContext = useBoardContext as ReturnType<typeof vi.fn>
@@ -423,5 +436,51 @@ describe('App — hosted demo shell (#1179)', () => {
       window.dispatchEvent(new CustomEvent('auth:demoWriteBlocked', { detail: { message: 'x' } }))
     })
     expect(screen.queryByTestId('demo-write-blocked-toast')).not.toBeInTheDocument()
+  })
+})
+
+describe('App — pending invite after OAuth (#1444)', () => {
+  const mockJoinBoard = joinBoard as ReturnType<typeof vi.fn>
+  const mockJoinGroup = joinGroup as ReturnType<typeof vi.fn>
+
+  function Probe() {
+    const location = useLocation()
+    return <div data-testid="probe">{location.pathname}|{JSON.stringify(location.state)}</div>
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    mockUseBoardContext.mockReturnValue(defaultBoardHook)
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+  })
+
+  it('a vbnb_ token joins the board and lands on it with the joined state', async () => {
+    sessionStorage.setItem('pendingJoinToken', 'vbnb_tok')
+    mockJoinBoard.mockResolvedValue({ board_id: 7, board_name: 'Launch Plan', role: 'viewer', created: true })
+    render(<MemoryRouter initialEntries={['/']}><App /><Probe /></MemoryRouter>)
+    await waitFor(() =>
+      expect(screen.getByTestId('probe')).toHaveTextContent(
+        '/boards/7|{"joinedBoard":"Launch Plan","joinedRole":"viewer","created":true}',
+      ),
+    )
+    expect(mockJoinBoard).toHaveBeenCalledWith('vbnb_tok')
+    expect(mockJoinGroup).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('pendingJoinToken')).toBeNull()
+  })
+
+  it('a failed board join falls back to the join page for that token', async () => {
+    sessionStorage.setItem('pendingJoinToken', 'vbnb_tok')
+    mockJoinBoard.mockRejectedValue(new Error('gone'))
+    render(<MemoryRouter initialEntries={['/']}><App /><Probe /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('/join/vbnb_tok'))
+  })
+
+  it('any other token still joins a group', async () => {
+    sessionStorage.setItem('pendingJoinToken', 'vbng_tok')
+    mockJoinGroup.mockResolvedValue({ id: 4, name: 'Platform' })
+    render(<MemoryRouter initialEntries={['/']}><App /><Probe /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('/groups/4'))
+    expect(mockJoinBoard).not.toHaveBeenCalled()
   })
 })

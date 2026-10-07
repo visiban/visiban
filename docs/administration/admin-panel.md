@@ -111,7 +111,8 @@ dialog first — you cannot deactivate a board owner without reassigning ownersh
 Search for a new owner per board (any existing member — a direct board member or one who
 has access through group membership both count) and confirm; deactivation and the ownership
 transfers happen together, atomically. Deactivating the account also revokes any invite links
-the departing user created.
+the departing user created — site invite links and, *(1.2+)*, the pending board invites they
+emailed (each board's admins see those invites move to **Revoked**).
 
 #### Make admin / Remove admin
 

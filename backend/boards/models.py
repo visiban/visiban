@@ -202,6 +202,173 @@ class BoardMembership(models.Model):
         unique_together = ["board", "user"]
 
 
+class BoardInviteLink(models.Model):
+    """A board-scoped invite token that grants a board role on redemption (#1444).
+
+    The third invite kind beside the site ``InviteLink`` (``vbnl_``) and the
+    ``GroupInviteLink`` (``vbng_``); its tokens carry the ``vbnb_`` prefix.
+    Only the SHA-256 of the raw token is stored. The raw value travels once —
+    in the invite email — and is never returned by the API.
+
+    Roles are deliberately capped at member/collaborator/viewer: an invite is a
+    bearer credential, and a forwarded email must never be able to mint a
+    board admin.
+
+    ``delivery`` supports ``link`` for the shareable multi-use links of #439;
+    #1444 itself only mints ``email`` invites (single-use, one address).
+    """
+
+    BOARD_INVITE_PREFIX = "vbnb_"
+
+    class Delivery(models.TextChoices):
+        LINK = "link"
+        EMAIL = "email"
+
+    class Role(models.TextChoices):
+        MEMBER = "member"
+        COLLABORATOR = "collaborator"
+        VIEWER = "viewer"
+
+    #: The only roles an invite may ever grant. Enforced in ``generate()`` and
+    #: again at redemption, not just in the serializer, so no future caller
+    #: (shareable links, #439; a management command) can mint or honor an
+    #: admin-granting bearer token.
+    GRANTABLE_ROLES = frozenset(Role.values)
+
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="invite_links")
+    token_hash = models.CharField(max_length=64, unique=True)
+    # First 8 chars of the raw token ("vbnb_XXX") — safe for display.
+    prefix = models.CharField(max_length=8)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="created_board_invite_links",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    name = models.CharField(max_length=100, blank=True, default="")
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    # Nullable at the column level for #439's shareable links; the email send
+    # path always sets it.
+    expires_at = models.DateTimeField(null=True, blank=True)
+    single_use = models.BooleanField(default=False)
+    used_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="revoked_board_invite_links",
+    )
+    # Successful redemptions, for audit; a single-use invite stops at 1.
+    use_count = models.PositiveIntegerField(default=0)
+    delivery = models.CharField(max_length=8, choices=Delivery.choices, default=Delivery.LINK)
+
+    class Meta:
+        db_table = "board_invite_links"
+        constraints = [
+            # Same invariant as GroupInviteLink: only a single-use invite can be
+            # consumed, so a stamped used_at on a multi-use link (which would
+            # report it "used" and block every later join) cannot be written.
+            models.CheckConstraint(
+                condition=models.Q(single_use=True) | models.Q(used_at__isnull=True),
+                name="board_invite_link_used_at_requires_single_use",
+            ),
+        ]
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+
+        return self.expires_at is not None and self.expires_at < timezone.now()
+
+    @property
+    def status(self):
+        """pending / used / expired / revoked, with the precedence the site and
+        group invite models use: revoked > used > expired > pending."""
+        if self.revoked_at:
+            return "revoked"
+        if self.used_at:
+            return "used"
+        if self.is_expired:
+            return "expired"
+        return "pending"
+
+    @classmethod
+    def _hash_token(cls, raw_token):
+        import hashlib
+
+        return hashlib.sha256(raw_token.encode()).hexdigest()
+
+    @classmethod
+    def generate(
+        cls, board, created_by, *, role=None, expires_at=None, single_use=False,
+        delivery=None, name="",
+    ):
+        """Create an invite with a hashed token. Returns ``(instance, raw_token)``."""
+        import secrets
+
+        role = role or cls.Role.MEMBER
+        if role not in cls.GRANTABLE_ROLES:
+            raise ValueError(f"A board invite cannot grant the role {role!r}.")
+        raw = cls.BOARD_INVITE_PREFIX + secrets.token_hex(20)
+        instance = cls.objects.create(
+            board=board,
+            created_by=created_by,
+            token_hash=cls._hash_token(raw),
+            prefix=raw[:8],
+            name=name,
+            role=role,
+            expires_at=expires_at,
+            single_use=single_use,
+            delivery=delivery or cls.Delivery.LINK,
+        )
+        return instance, raw
+
+    @classmethod
+    def lookup_by_token(cls, raw_token):
+        """Return the invite for ``raw_token`` whatever its state, or None.
+
+        Unlike ``GroupInviteLink.lookup_by_token`` this also returns revoked
+        invites: the join endpoints answer a known-but-unusable token with
+        ``410 {code: "revoked"}`` rather than a 404 (#1444). Read-only — the
+        join path takes its own row lock.
+        """
+        try:
+            return cls.objects.select_related("created_by", "board").get(
+                token_hash=cls._hash_token(raw_token),
+            )
+        except cls.DoesNotExist:
+            return None
+
+
+class BoardInviteRedemption(models.Model):
+    """Durable record of who redeemed a board invite, and what it granted (#1444).
+
+    The ``member.added`` change-feed row also names the invite, but the board
+    event feed is pruned after 30 days; this table is the provenance that
+    survives. ``membership_created`` is False when the redeemer already had
+    equal or higher access and nothing was granted. No column is added to
+    ``board_memberships`` for this.
+    """
+
+    class Via(models.TextChoices):
+        JOIN = "join"
+        REGISTRATION = "registration"
+
+    invite = models.ForeignKey(BoardInviteLink, on_delete=models.CASCADE, related_name="redemptions")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="board_invite_redemptions",
+    )
+    role_granted = models.CharField(max_length=20)
+    membership_created = models.BooleanField(default=False)
+    via = models.CharField(max_length=16, choices=Via.choices)
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "board_invite_redemptions"
+        constraints = [
+            models.UniqueConstraint(fields=["invite", "user"], name="board_invite_redemption_unique_user"),
+        ]
+
+
 class BoardFavorite(models.Model):
     """Records that a user has starred a board; unique per user-board pair."""
 

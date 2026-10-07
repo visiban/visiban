@@ -15,6 +15,17 @@ DELETE /api/v1/boards/{board_id}/members/42/
 
 Valid board roles: `admin`, `member`, `collaborator`, `viewer`
 
+### Inviting someone by email
+
+*(New in 1.2)* To add someone who isn't on Visiban yet — or whose account you can't find — open **Board Settings → Members**. Under **Invite by email**, enter their address, pick a **Role** (Member, Collaborator or Viewer — never Admin) and when the invite **Expires** (1, 7 or 30 days), and select **Send invite**. If a search in **Add member** finds no one for an email address, **Invite by email** next to "No results" fills the form for you.
+
+Visiban emails a single-use link. Following it shows what the invite grants; the recipient signs in (or creates an account, where the site allows it) and lands on the board with a "You've joined" notice. **Pending invites** lists what you have sent, newest first, with who sent each and when — Visiban doesn't store the address an invite went to, so tell them apart by date. Revoke an invite you no longer want; used, expired and revoked invites sit under **Show past invites**. An **Existing accounts only** tag means a new person couldn't create an account from that invite on this site right now (see [Site admins](../../administration/site-admins.md)).
+
+!!! note "An explicit board role replaces a group role"
+    A direct board membership **overrides** the role someone inherits from the board's group — it does not add to it. That is why redeeming an invite never touches an existing board membership and never lowers anyone: a group admin who follows a viewer invite stays an admin. Invites only create a membership for someone with no access, or whose inherited role is lower than the invite's. The same trap applies when you set roles by hand: giving a group admin a direct **Viewer** role on a board makes them a viewer there.
+
+A board invite never adds the person to the board's group. The emailed invite needs working outbound email (`INVITE_EMAIL_ENABLED`); the API is documented in [Boards API — Board invites](../../api/boards.md#board-invites).
+
 ## Group membership
 
 Group admins can change or remove members from the group detail page or the API.

@@ -113,8 +113,9 @@ Keep calling with `after` set to the previous response's `next` until `next` is
 
 Every event type the WebSocket emits on the board channel is persisted:
 `board.*`, `column.*`, `swimlane.*`, `label.*`, `custom_field.*`,
-`swimlane_custom_field.*`, `card.*`, `member.*`, `saved_filter.*`, and
-`lens_connection.*`. The [WebSocket event
+`swimlane_custom_field.*`, `card.*`, `member.*`, `saved_filter.*`,
+`lens_connection.*`, and *(1.2+)* `invite_link.*` (payload `{ "id" }` only,
+readable by every board member like the socket frame). The [WebSocket event
 reference](websockets.md#event-reference) is the single list of payload shapes
 for both surfaces.
 

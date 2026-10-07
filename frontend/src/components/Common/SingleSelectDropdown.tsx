@@ -56,6 +56,13 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    * own DOM subtree, which is what modal focus traps and existing call sites assume.
    */
   portalMenu?: boolean;
+  /**
+   * #1444 — accessible name for the trigger when the visible text is only the
+   * selected value (e.g. "Member", "7 days"). Applied as
+   * `aria-label="<ariaLabel>: <selected label>"`. Optional: callers that omit
+   * it keep the trigger's text as its name, unchanged.
+   */
+  ariaLabel?: string;
 }
 
 const MIN_MENU_WIDTH = 140;
@@ -70,6 +77,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   escapePriority,
   onOpenChange,
   portalMenu = false,
+  ariaLabel,
 }: SingleSelectDropdownProps<T>) {
   const [open, setOpenState] = useState(false);
   // Menu anchor captured at open time (portal mode only), so the position survives a
@@ -264,6 +272,7 @@ export default function SingleSelectDropdown<T extends string | number>({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
+        aria-label={ariaLabel !== undefined ? `${ariaLabel}: ${displayLabel}` : undefined}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           selected !== null
             ? "border-info text-info"

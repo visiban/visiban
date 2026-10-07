@@ -45,6 +45,8 @@ vi.mock('@dnd-kit/sortable', () => ({
 }))
 
 vi.mock('react-router-dom', () => ({
+  // BoardView reads navigation state for the board-invite joined notice (#1444).
+  useLocation: () => ({ pathname: '/', search: '', hash: '', state: null, key: 'default' }),
   // Stateful mock: useSearchParams returns live params backed by React state so that
   // setSearchParams calls (from tab switches / Escape) trigger re-renders in tests.
   useSearchParams: () => {

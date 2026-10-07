@@ -1246,12 +1246,48 @@ class AdminUserDeactivateView(APIView):
             revoked_at__isnull=True,
         ).update(revoked_at=timezone.now())
 
+        # Same for the board invites they sent (#1444): a deactivated sender's
+        # pending invites must stop working, not merely fail the sender
+        # re-check at redemption. Each revocation is announced on its board so
+        # an admin with the invite list open sees it go.
+        self._revoke_pending_board_invites(target, request.user)
+
         logger.info(
             "user.deactivated pk=%d deactivated_by=%d transfers=%s",
             target.pk, request.user.pk,
             [(t["board_id"], t["transfer_to"]) for t in transfers],
         )
         return Response(AdminUserSerializer(target).data)
+
+
+    @staticmethod
+    def _revoke_pending_board_invites(target, actor):
+        from django.db import transaction as _transaction
+
+        from boards import broadcast as _board_broadcast
+        from boards.models import BoardInviteLink
+
+        now = timezone.now()
+        with _transaction.atomic():
+            pending = list(
+                BoardInviteLink.objects.select_for_update().filter(
+                    created_by=target, used_at__isnull=True, revoked_at__isnull=True,
+                ).values_list("pk", "board_id")
+            )
+            if not pending:
+                return
+            BoardInviteLink.objects.filter(pk__in=[pk for pk, _ in pending]).update(
+                revoked_at=now, revoked_by=actor,
+            )
+            # One {id} event per invite keeps the board channel's contract
+            # unchanged. The loop is bounded: a sender has at most 50 pending
+            # emailed invites per board, and this runs only on the rare admin
+            # action of deactivating an account.
+            for link_id, board_id in pending:
+                _board_broadcast.record_board_event(
+                    board_id, _board_broadcast.EVT_INVITE_LINK_REVOKED, {"id": link_id},
+                    actor_id=actor.pk,
+                )
 
 
 class AdminUserClearLockoutView(APIView):

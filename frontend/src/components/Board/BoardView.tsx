@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { computeAutoSwimlaneWidth } from "../../utils/swimlaneAutoWidth";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
+import JoinedNotice from "../Common/JoinedNotice";
 import AnalyticsView from "./AnalyticsView";
 import MovementHistoryView from "./MovementHistoryView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
@@ -301,6 +302,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Re-fetch board state when the user returns to a backgrounded tab.
   useBoardResync(silentReload);
 
+  // #1444 — bumped on invite socket events so the Members tab's pending
+  // invite list (Board Settings) refetches while it is open.
+  const [inviteReloadSignal, setInviteReloadSignal] = useState(0);
+
+  // #1444 — arriving from a board invite (JoinPage / the OAuth return in
+  // App.tsx) carries what happened in navigation state.
+  const location = useLocation();
+  const [joinNotice, setJoinNotice] = useState<{ board: string; role: string; created: boolean } | null>(() => {
+    const st = location.state as { joinedBoard?: string; joinedRole?: string; created?: boolean } | null;
+    return st?.joinedBoard ? { board: st.joinedBoard, role: st.joinedRole ?? "member", created: st.created !== false } : null;
+  });
+
   // Delete and archive both remove the card from local state, but archive also
   // moves it into archived_card_count, which the settings modal's delete gate
   // reads (#1289) — so they are distinct handlers.
@@ -487,6 +500,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       );
     } else if (event.event === "member.added") {
       onMemberAdded(d as unknown as BoardMembership);
+      // Joined through an invite (#1444): that invite is now used.
+      if ((d as { invite?: unknown }).invite) setInviteReloadSignal((n) => n + 1);
+    } else if (event.event === "invite_link.created" || event.event === "invite_link.revoked") {
+      // Refetch signal only ({id}); the admin-only list is re-read by the
+      // Members tab when it is open.
+      setInviteReloadSignal((n) => n + 1);
     } else if (event.event === "member.updated") {
       const updatedMembership = d as unknown as BoardMembership;
       onMemberUpdated(updatedMembership);
@@ -2222,6 +2241,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
 
+      {/* #1444 — joined from a board invite. Mode-banner placement: between the
+          filter row and the scroll container; stays until dismissed. */}
+      {joinNotice && (
+        <JoinedNotice onDismiss={() => setJoinNotice(null)}>
+          {joinNotice.created ? (
+            <>You've joined <strong className="text-success">{joinNotice.board}</strong> as a {joinNotice.role}. Welcome!</>
+          ) : (
+            <>You already have access to <strong className="text-success">{joinNotice.board}</strong>.</>
+          )}
+        </JoinedNotice>
+      )}
+
       {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
       {focusedSwimlaneId !== null && (
         <div className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info transition-opacity duration-150">
@@ -2566,6 +2597,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onSwimlaneFieldsUpdated={onSwimlaneFieldDefinitionsApplied}
           demoMode={currentUser?.demo_mode === true}
           currentUserIsSiteAdmin={currentUser?.is_site_admin === true}
+          inviteReloadSignal={inviteReloadSignal}
         />
       )}
 

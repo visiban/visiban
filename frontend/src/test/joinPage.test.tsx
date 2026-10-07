@@ -13,8 +13,14 @@ vi.mock('../api/auth', () => ({
   getAuthProviders: vi.fn(),
 }))
 
+vi.mock('../api/boards', () => ({
+  resolveBoardJoinToken: vi.fn(),
+  joinBoard: vi.fn(),
+}))
+
 import { resolveJoinToken, joinGroup } from '../api/groups'
 import { getAuthProviders } from '../api/auth'
+import { resolveBoardJoinToken, joinBoard } from '../api/boards'
 
 const mockResolveJoinToken = resolveJoinToken as ReturnType<typeof vi.fn>
 const mockJoinGroup = joinGroup as ReturnType<typeof vi.fn>
@@ -340,5 +346,143 @@ describe('JoinPage — can_register preview (#1481)', () => {
     renderJoinPage(null)
     expect(await screen.findByText('This link has already been used')).toBeInTheDocument()
     expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
+  })
+})
+
+describe('JoinPage — board invites (vbnb_, #1444)', () => {
+  const TOKEN = 'vbnb_abc123'
+  const mockResolveBoard = resolveBoardJoinToken as ReturnType<typeof vi.fn>
+  const mockJoinBoard = joinBoard as ReturnType<typeof vi.fn>
+  const preview = { board_id: 7, board_name: 'Launch Plan', role: 'collaborator', can_register: true }
+
+  function gone(code: string) {
+    return Object.assign(new Error('Gone'), { response: { status: 410, data: { code } } })
+  }
+
+  function BoardProbe() {
+    const location = useLocation()
+    return <div data-testid="board-page">{JSON.stringify(location.state)}</div>
+  }
+
+  function renderBoardJoin(user: User | null) {
+    return render(
+      <MemoryRouter initialEntries={[`/join/${TOKEN}`]}>
+        <Routes>
+          <Route path="/join/:token" element={<JoinPage user={user} onLogin={vi.fn()} />} />
+          <Route path="/boards/:id" element={<BoardProbe />} />
+        </Routes>
+      </MemoryRouter>
+    )
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
+  })
+
+  afterEach(() => { sessionStorage.clear() })
+
+  it('previews through the board API with the role and its capability line', async () => {
+    mockResolveBoard.mockResolvedValue(preview)
+    renderBoardJoin(null)
+    expect(await screen.findByText('Launch Plan')).toHaveClass('break-words')
+    expect(screen.getByText(/as a collaborator/)).toBeInTheDocument()
+    expect(screen.getByText("You'll be able to comment and upload files.")).toHaveClass('text-xs', 'text-fg-muted', 'mt-1')
+    expect(mockResolveBoard).toHaveBeenCalledWith(TOKEN)
+    expect(mockResolveJoinToken).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Create an account' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['member', "You'll be able to create, edit, and move cards."],
+    ['viewer', "You'll be able to view the board."],
+  ])('capability line for %s', async (role, line) => {
+    mockResolveBoard.mockResolvedValue({ ...preview, role })
+    renderBoardJoin(null)
+    expect(await screen.findByText(line)).toBeInTheDocument()
+  })
+
+  it('signed out and cannot register: the sign-in-only view names the board', async () => {
+    mockResolveBoard.mockResolvedValue({ ...preview, can_register: false })
+    renderBoardJoin(null)
+    expect(await screen.findByRole('button', { name: 'Sign in to join Launch Plan' })).toBeInTheDocument()
+    expect(screen.queryByText('Create an account')).not.toBeInTheDocument()
+  })
+
+  it('signed in: joins and navigates to the board with the joined state', async () => {
+    mockResolveBoard.mockResolvedValue(preview)
+    mockJoinBoard.mockResolvedValue({ board_id: 7, board_name: 'Launch Plan', role: 'collaborator', created: true })
+    renderBoardJoin(fakeUser)
+    const page = await screen.findByTestId('board-page')
+    expect(JSON.parse(page.textContent ?? 'null')).toEqual({ joinedBoard: 'Launch Plan', joinedRole: 'collaborator', created: true })
+    expect(mockJoinBoard).toHaveBeenCalledWith(TOKEN)
+    expect(mockJoinGroup).not.toHaveBeenCalled()
+  })
+
+  it('signed in: shows "Joining …" while the join is in flight', async () => {
+    mockResolveBoard.mockResolvedValue(preview)
+    mockJoinBoard.mockReturnValue(new Promise(() => {}))
+    renderBoardJoin(fakeUser)
+    expect(await screen.findByText('Joining Launch Plan…')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['used', 'This invite has already been used', 'Invites are single-use. Ask a board admin to send you a new one.', 'text-fg-tertiary'],
+    ['expired', 'This invite has expired', 'Ask a board admin for a new invite.', 'text-danger'],
+    ['revoked', 'This invite is no longer valid', 'It may have been revoked. Ask a board admin for a new one.', 'text-danger'],
+  ])('preview 410 %s shows its own message and focuses the title', async (code, title, body, tone) => {
+    mockResolveBoard.mockRejectedValue(gone(code))
+    renderBoardJoin(null)
+    const heading = await screen.findByText(title)
+    expect(heading).toHaveClass(tone)
+    expect(screen.getByText(body)).toBeInTheDocument()
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(screen.getByText(/Redirecting to dashboard in/)).toBeInTheDocument()
+  })
+
+  it('an unknown token (404) reads as no longer valid', async () => {
+    mockResolveBoard.mockRejectedValue(Object.assign(new Error('nf'), { response: { status: 404 } }))
+    renderBoardJoin(null)
+    expect(await screen.findByText('This invite is no longer valid')).toBeInTheDocument()
+  })
+
+  it('join failure shows the error with Try again; a 410 on retry switches to the invalid view', async () => {
+    mockResolveBoard.mockResolvedValue(preview)
+    mockJoinBoard.mockRejectedValueOnce(new Error('network'))
+    renderBoardJoin(fakeUser)
+    const failure = await screen.findByText("Couldn't join Launch Plan. The invite may have expired or been used.")
+    expect(failure).toHaveClass('text-danger', 'break-words')
+    expect(failure).toHaveAttribute('role', 'alert')
+    await waitFor(() => expect(screen.getByRole('heading', { name: "You're invited" })).toHaveFocus())
+    mockJoinBoard.mockRejectedValueOnce(gone('used'))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('This invite has already been used')).toBeInTheDocument()
+  })
+
+  it('Try again can succeed', async () => {
+    mockResolveBoard.mockResolvedValue(preview)
+    mockJoinBoard
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ board_id: 7, board_name: 'Launch Plan', role: 'collaborator', created: false })
+    renderBoardJoin(fakeUser)
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(await screen.findByTestId('board-page')).toHaveTextContent('"created":false')
+  })
+
+  it('a 410 on the first join goes straight to the invalid view', async () => {
+    mockResolveBoard.mockResolvedValue(preview)
+    mockJoinBoard.mockRejectedValue(gone('expired'))
+    renderBoardJoin(fakeUser)
+    expect(await screen.findByText('This invite has expired')).toBeInTheDocument()
+  })
+
+  it('register hands the board invite to the registration form', async () => {
+    mockResolveBoard.mockResolvedValue(preview)
+    renderBoardJoin(null)
+    fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
+    expect(sessionStorage.getItem('invite_token')).toBe(TOKEN)
+    expect(sessionStorage.getItem('pendingJoinToken')).toBe(TOKEN)
+    expect(sessionStorage.getItem('returnTo')).toBe(`/join/${TOKEN}`)
   })
 })

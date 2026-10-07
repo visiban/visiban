@@ -32,6 +32,7 @@ from django.test import SimpleTestCase
 from boards.serializers import (
     BoardExportLogSerializer,
     BoardFullSerializer,
+    BoardInviteLinkSerializer,
     BoardMembershipSerializer,
     BoardSerializer,
     CardActivitySerializer,
@@ -73,6 +74,7 @@ _FRONTEND_TYPES = (
 _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     (BoardSerializer, "Board", set()),
     (BoardFullSerializer, "BoardFull", set()),
+    (BoardInviteLinkSerializer, "BoardInviteLink", set()),
     (CardSerializer, "Card", set()),
     (ColumnSerializer, "Column", set()),
     # Swimlane TS interface unions the Public and Admin shapes; contact_email
