@@ -1738,6 +1738,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#sharing-an-invite-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sharing an invite link
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3769,6 +3780,9 @@
 <p class="admonition-title">An explicit board role replaces a group role</p>
 <p>A direct board membership <strong>overrides</strong> the role someone inherits from the board's group — it does not add to it. That is why redeeming an invite never touches an existing board membership and never lowers anyone: a group admin who follows a viewer invite stays an admin. Invites only create a membership for someone with no access, or whose inherited role is lower than the invite's. The same trap applies when you set roles by hand: giving a group admin a direct <strong>Viewer</strong> role on a board makes them a viewer there.</p>
 </div>
+<h3 id="sharing-an-invite-link">Sharing an invite link<a class="headerlink" href="#sharing-an-invite-link" title="Permanent link">&para;</a></h3>
+<p><em>(New in 1.2)</em> To invite several people at once — or anyone you can reach in a chat channel — select <strong>New link</strong> next to <strong>Pending invites</strong>. Pick a <strong>Role</strong> (Member, Collaborator or Viewer), when it <strong>Expires</strong> (1, 7 or 30 days; an invite link always expires), optionally a name and <strong>Single use</strong>, and select <strong>Create link</strong>. Copy the link straight away: it is shown <strong>once</strong>, and Visiban keeps only a fingerprint of it. Anyone holding it can join the board after signing in, until it expires or you revoke it; <strong>1-use</strong> links stop after the first person joins. A board can have up to 5 active invite links (emailed invites don't count).</p>
+<p>An invite link is not the board's <strong>Share link</strong> (Settings → Sharing), which lets anyone <em>view</em> the board without signing in. Whether a newcomer can create an account from an invite link depends on the site: on an open site they sign up and then join; on an invite-only or closed site only people who already have an account can use it, and the form tells you so.</p>
 <p>A board invite never adds the person to the board's group. The emailed invite needs working outbound email (<code>INVITE_EMAIL_ENABLED</code>); the API is documented in <a href="../../../api/boards/#board-invites">Boards API — Board invites</a>.</p>
 <h2 id="group-membership">Group membership<a class="headerlink" href="#group-membership" title="Permanent link">&para;</a></h2>
 <p>Group admins can change or remove members from the group detail page or the API.</p>

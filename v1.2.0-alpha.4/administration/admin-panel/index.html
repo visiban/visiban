@@ -3358,6 +3358,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#board-invites-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board Invites tab
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cli-alternatives" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4238,6 +4249,11 @@ emailed (each board's admins see those invites move to <strong>Revoked</strong>)
 <p>When emailing isn't possible, the section is replaced by a note that points to <strong>Settings → Email</strong> (select it to open the Settings tab) and reminds you that email invites must be enabled (<code>INVITE_EMAIL_ENABLED</code>, see <a href="../configuration/">Configuration</a>). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.</p>
 <h3 id="revoking-a-link">Revoking a link<a class="headerlink" href="#revoking-a-link" title="Permanent link">&para;</a></h3>
 <p>Click <strong>Revoke</strong> on any active link to invalidate it immediately. Revoked links cannot be re-activated. Users who attempt to use a revoked link receive a clear error message.</p>
+<h2 id="board-invites-tab">Board Invites tab<a class="headerlink" href="#board-invites-tab" title="Permanent link">&para;</a></h2>
+<p><em>(New in 1.2)</em> The <strong>Board Invites</strong> tab lists the invites of <strong>every board</strong> on the instance — invites board admins emailed and shareable invite links they created — so you can audit them or revoke a leaked link without being a member of the board. Board admins manage their own board's invites from <strong>Board Settings → Members</strong>.</p>
+<p>Pick a <strong>Status</strong> (Pending, the default; Used; Expired; Revoked; or All). Each row shows the board, the role the invite grants, how it was delivered (<strong>Email</strong> or <strong>Link</strong>), its status, when it expires, and who created it (<strong>—</strong> when that account was removed). An <strong>Existing accounts only</strong> tag means a new person couldn't create an account from the invite on this site right now — always the case for a shareable link on an invite-only site. The list shows 50 invites per page.</p>
+<p>The tab shows each invite's <strong>stored</strong> status. Unlike the board's own list, it does not check whether the invite's creator is still an admin of the board: an invite whose creator was demoted can show <strong>Pending</strong> here while the board's list shows it as revoked and nobody can join with it. Revoke it here to make that permanent. The <strong>Existing accounts only</strong> tag is likewise a best-effort hint; registration re-checks everything.</p>
+<p>Select <strong>Revoke</strong> on a pending invite and then <strong>Confirm</strong> to stop it working immediately. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in <a href="../../api/admin/#board-invites">Admin API — Board invites</a>.</p>
 <h2 id="cli-alternatives">CLI alternatives<a class="headerlink" href="#cli-alternatives" title="Permanent link">&para;</a></h2>
 <p>All admin-panel operations are also available via management commands for scripting and automation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Grant site admin</span>

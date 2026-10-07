@@ -2247,6 +2247,45 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#board-invites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board invites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Board invites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1adminboard-invite-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/admin/board-invite-links/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1adminboard-invite-linksid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/admin/board-invite-links/{id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3959,8 +3998,8 @@
 
 
 <h1 id="admin-api">Admin API<a class="headerlink" href="#admin-api" title="Permanent link">&para;</a></h1>
-<p>Site-wide settings, the action log, email configuration, maintenance mode, users, and invite
-links — administrative endpoints, restricted to site admins.</p>
+<p>Site-wide settings, the action log, email configuration, maintenance mode, users, invite
+links, and board invites — administrative endpoints, restricted to site admins.</p>
 <p>All endpoints below require <strong>site admin</strong> authentication; non-admin users receive <code>403 Forbidden</code>.</p>
 <p>See <a href="../../administration/admin-panel/">Admin Panel</a> for the equivalent UI and <a href="../../administration/site-admins/">Site Admins</a> for first-boot setup.</p>
 <p>The Issue Board Lens has its own admin-only usage endpoint, documented separately: see
@@ -5049,6 +5088,197 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </tr>
 </tbody>
 </table>
+<hr />
+<h2 id="board-invites">Board invites<a class="headerlink" href="#board-invites" title="Permanent link">&para;</a></h2>
+<p><em>(New in 1.2)</em> Every board's <a href="../boards/#board-invites">invites</a> — emailed invites and shareable invite links — across the whole instance, so a site admin can audit them and revoke a leaked link without being a member of its board. Board admins manage their own board's invites through the board endpoints; these endpoints are site-admin only, and a board admin who is not a site admin gets <code>403</code>.</p>
+<h3 id="get-apiv1adminboard-invite-links"><code>GET /api/v1/admin/board-invite-links/</code><a class="headerlink" href="#get-apiv1adminboard-invite-links" title="Permanent link">&para;</a></h3>
+<p><strong>Permission:</strong> <code>IsSiteAdmin</code>.</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td><code>pending</code> (default), <code>used</code>, <code>expired</code>, <code>revoked</code> or <code>all</code>. Any other value is <code>400 {"status": ["'&lt;value&gt;' is not a valid status."]}</code>. Filtering follows the same precedence as the <code>status</code> field — revoked &gt; used &gt; expired &gt; pending — so each invite is listed under exactly the status it reports.</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>Zero-based row offset (default <code>0</code>).</td>
+</tr>
+<tr>
+<td><code>page_size</code></td>
+<td>Rows per page (default <code>50</code>, max <code>200</code>).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> <code>200 OK</code> — the standard <code>{count, offset, page_size, results}</code> envelope, newest first.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nt">"page_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">51</span><span class="p">,</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">      </span><span class="nt">"board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">      </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Launch Plan"</span><span class="p">,</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">      </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"viewer"</span><span class="p">,</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">      </span><span class="nt">"delivery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"link"</span><span class="p">,</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">      </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pending"</span><span class="p">,</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">      </span><span class="nt">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vbnb_8a2"</span><span class="p">,</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">      </span><span class="nt">"expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-14T09:30:00.101Z"</span><span class="p">,</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">      </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-07T09:30:00.120Z"</span><span class="p">,</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">      </span><span class="nt">"created_by_username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">      </span><span class="nt">"single_use"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">      </span><span class="nt">"use_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">      </span><span class="nt">"can_register"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>The invite id — the <code>{id}</code> for <code>DELETE</code> below.</td>
+</tr>
+<tr>
+<td><code>prefix</code></td>
+<td>The token's first 8 characters (<code>vbnb_…</code>), safe to display. The full token is never returned.</td>
+</tr>
+<tr>
+<td><code>board_id</code>, <code>board_name</code></td>
+<td>The invite's board.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td><code>member</code>, <code>collaborator</code> or <code>viewer</code>.</td>
+</tr>
+<tr>
+<td><code>delivery</code></td>
+<td><code>email</code> or <code>link</code>.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>The <strong>stored</strong> status: <code>pending</code>, <code>used</code>, <code>expired</code> or <code>revoked</code>. It always matches the <code>?status=</code> filter (see the note below).</td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>When it expires. Always set for invites created through the API.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>When it was sent or created.</td>
+</tr>
+<tr>
+<td><code>created_by_username</code></td>
+<td><code>null</code> when the creator's account was deleted.</td>
+</tr>
+<tr>
+<td><code>single_use</code>, <code>use_count</code></td>
+<td><code>use_count</code> is the number of distinct people who redeemed the invite (each account counts once).</td>
+</tr>
+<tr>
+<td><code>can_register</code></td>
+<td>Advisory, computed when read: whether a new person could create an account from this invite under the current registration mode. <code>false</code> unless the invite is pending and its creator active; on an <code>invite_only</code> site, <code>true</code> only for an emailed single-use invite from a site admin (with email invites enabled); always <code>false</code> on a <code>closed</code> site. Registration re-checks everything, including the creator's board role.</td>
+</tr>
+</tbody>
+</table>
+<p>The token and the address an invite was emailed to are never returned.</p>
+<div class="admonition note">
+<p class="admonition-title">Stored status, not the creator check</p>
+<p>This list reports each invite's <strong>stored</strong> status and does <strong>not</strong> apply the check the board's own list and the join endpoints apply — that the creator is still active and still an admin of the board. An invite whose creator was demoted can therefore show <strong>pending</strong> here while the board's own list shows it as <code>revoked</code> and joins with it are refused (<code>410 revoked</code>). (Deactivating an account revokes that user's pending invites outright, so those do show <code>revoked</code>.) Revoke such an invite here to make it permanent. <code>can_register</code> is advisory for the same reason.</p>
+</div>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>{"status": ["'bogus' is not a valid status."]}</code></td>
+<td>Unknown <code>status</code> value.</td>
+</tr>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td><code>{"detail": "Authentication credentials were not provided."}</code></td>
+<td>No credentials.</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"detail": "You must be a site administrator to perform this action."}</code></td>
+<td>Not a site admin — including a board admin, or an account with all-content access but no site admin. A site admin with a pending forced password change gets <code>403</code> <code>"You must change your password before continuing."</code>, and one with a pending forced username change gets <code>403</code> <code>"You must choose a new username before continuing."</code>, until they complete it.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="delete-apiv1adminboard-invite-linksid"><code>DELETE /api/v1/admin/board-invite-links/{id}/</code><a class="headerlink" href="#delete-apiv1adminboard-invite-linksid" title="Permanent link">&para;</a></h3>
+<p>Revoke any board's invite, emailed or shareable. Sets <code>revoked_at</code> and <code>revoked_by</code> (the caller) and publishes <code>invite_link.revoked</code> <code>{ "id" }</code> on that board's <a href="../websockets/#invite-events-since-12">WebSocket channel</a>, exactly like the board-scoped revoke. Revoking an expired invite is allowed.</p>
+<p><strong>Permission:</strong> <code>IsSiteAdmin</code>.</p>
+<p><strong>Response</strong> <code>200 OK</code> — the updated row (a single object, same shape as a list row), with <code>status: "revoked"</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">51</span><span class="p">,</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">"board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Launch Plan"</span><span class="p">,</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"viewer"</span><span class="p">,</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">  </span><span class="nt">"delivery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"link"</span><span class="p">,</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"revoked"</span><span class="p">,</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">  </span><span class="nt">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vbnb_8a2"</span><span class="p">,</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">  </span><span class="nt">"expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-14T09:30:00.101Z"</span><span class="p">,</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-07T09:30:00.120Z"</span><span class="p">,</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">  </span><span class="nt">"created_by_username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">  </span><span class="nt">"single_use"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">  </span><span class="nt">"use_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="w">  </span><span class="nt">"can_register"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>{"detail": "This invite is already used or revoked and cannot be revoked."}</code></td>
+<td>The invite was consumed (its "used" record is kept) or is already revoked.</td>
+</tr>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td><code>{"detail": "Authentication credentials were not provided."}</code></td>
+<td>No credentials.</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"detail": "You must be a site administrator to perform this action."}</code></td>
+<td>Not a site admin. Checked before the lookup, so a non-admin gets <code>403</code> even for an id that does not exist.</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td><code>{"detail": "Invite not found."}</code></td>
+<td>No invite with that id.</td>
+</tr>
+</tbody>
+</table>
+<p>An already-revoked invite is <code>400</code> here, matching the site invite-link revoke; the <a href="../boards/#delete-apiv1boardsidinvite-linkslink_id">board-scoped revoke</a> answers it with <code>404</code>.</p>
 
 
 

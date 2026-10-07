@@ -4445,7 +4445,9 @@ needs no special handling for either case.</p>
 <p>Emitted by the <a href="../boards/#board-invites">board invite</a> endpoints. Refetch
 signals only: every board subscriber receives them, including non-admins, so
 they carry just the invite id. Admin clients refetch <code>GET /boards/{id}/invite-links/</code>
-(admin-only) for the details; other clients should ignore them. Same names as
+(board admin only) for the details — a site-admin client showing every board's
+invites may instead refetch <code>GET /api/v1/admin/board-invite-links/</code>; other clients
+should ignore them. Same names as
 the group channel's invite events.</p>
 <table>
 <thead>
@@ -4458,12 +4460,12 @@ the group channel's invite events.</p>
 <tbody>
 <tr>
 <td><code>invite_link.created</code></td>
-<td>A board admin emailed an invite to someone</td>
+<td>A board admin emailed an invite to someone, or created a shareable invite link</td>
 <td><code>{ "id": &lt;int&gt; }</code></td>
 </tr>
 <tr>
 <td><code>invite_link.revoked</code></td>
-<td>An invite was revoked — by an admin, automatically because its email could not be sent, or because its sender was deactivated</td>
+<td>An invite was revoked — by a board admin, by a site admin from the admin board invite list, automatically because its email could not be sent, or because its sender was deactivated</td>
 <td><code>{ "id": &lt;int&gt; }</code></td>
 </tr>
 </tbody>
