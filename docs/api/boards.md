@@ -1106,9 +1106,9 @@ The second invite was sent by an account that has since been deleted, so it list
 | `expiry_days` | ✓ | `1`, `7` or `30`. **Required** — a shareable board link always expires, so there is no "never" option (unlike group links). Missing, `null` or any other value is refused with `400`. |
 | `role` | | `member` (default), `collaborator` or `viewer`. `admin` is refused with `400`. |
 | `single_use` | | `false` (default): anyone holding the link can join until it expires or is revoked. `true`: the first redemption consumes it. |
-| `name` | | Up to 100 characters, to tell links apart. Default empty. |
+| `name` | | Up to 100 characters, to tell links apart. Leading and trailing whitespace is trimmed. Default empty. |
 
-**Response** `201 Created` — the list row above plus `token`, the raw `vbnb_` token. **This is the only time the token is returned**; only its SHA-256 hash is stored. The join URL is `<site>/join/<token>`.
+**Response** `201 Created` — the list row above plus `token`, the raw `vbnb_` token. (`can_register: true` in the example below is for an `open` site; on an `invite_only` or `closed` site it is `false` for every shareable link.) **This is the only time the token is returned**; only its SHA-256 hash is stored. The join URL is `<site>/join/<token>`.
 
 ```json
 {
@@ -1132,10 +1132,24 @@ The second invite was sent by an account that has since been deleted, so it list
 
 | Status | Body | When |
 |---|---|---|
-| `400 Bad Request` | field errors | Invalid `expiry_days`, `role` or `name`. |
+| `400 Bad Request` | field errors (example below) | Missing or invalid `expiry_days`, invalid `role`, a non-boolean `single_use`, or a `name` over 100 characters. |
 | `400 Bad Request` | `{"detail": "Maximum of 5 active invite links reached. Revoke a link to create a new one."}` | The board already has **5 active shareable links**. Active means pending: not revoked, not consumed, not expired, and its creator is still a board admin. Emailed invites have their own cap and never count. |
+| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | No credentials. |
+| `403 Forbidden` | `{"detail": "You must be a board admin to manage invites."}` | Not a board admin, or no access to the board. |
+| `404 Not Found` | `{"detail": "..."}` | No such board. |
+| `429 Too Many Requests` | `{"detail": "Request was throttled. ..."}`, `Retry-After` header | The caller's standard per-user API budget (DRF `user` scope, 5000 requests/hour, shared with every other authenticated endpoint) is spent. |
 
-The cap is checked under a lock on the board row, so concurrent requests cannot exceed it. Creation is throttled only by the standard per-user API rate, like group link creation; the cap bounds what a burst can mint. It publishes `invite_link.created` on the board channel, like a send.
+Example field-error body, for `{"role": "admin", "single_use": "maybe"}`:
+
+```json
+{
+  "role": ["\"admin\" is not a valid choice."],
+  "expiry_days": ["This field is required."],
+  "single_use": ["Must be a valid boolean."]
+}
+```
+
+The cap is checked under a lock on the board row, so concurrent requests cannot exceed it. Creation is throttled only by the standard per-user API rate (the DRF `user` scope, 5000 requests/hour per account), like group link creation; the cap bounds what a burst can mint. It publishes `invite_link.created` on the board channel, like a send.
 
 **Who can join with a shareable link** depends on the site's registration mode:
 
@@ -1169,7 +1183,17 @@ Email one invite. Requires board admin. Same contract as the [group send endpoin
 | `502 Bad Gateway` | `{"code": "<smtp code>", "detail": "..."}` | The mail server refused the message. The invite is revoked automatically and the budget refunded, so you can retry once mail works. |
 
 ### `DELETE /api/v1/boards/{id}/invite-links/{link_id}/`
-Revoke a pending invite. Requires board admin; any board admin may revoke any admin's invite. Returns `204`. A used invite cannot be revoked (`400`); an unknown or already-revoked invite is `404`.
+Revoke a pending invite, emailed or shareable. Requires board admin; any board admin may revoke any admin's invite. Sets `revoked_at` and `revoked_by`.
+
+| Status | Body | When |
+|---|---|---|
+| `204 No Content` | — | Revoked. Revoking an expired invite is allowed. |
+| `400 Bad Request` | `{"detail": "This invite has already been used and cannot be revoked."}` | The invite was consumed; its "used" record is kept. |
+| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | No credentials. |
+| `403 Forbidden` | `{"detail": "You must be a board admin to manage invites."}` | Not a board admin, or no access to the board. |
+| `404 Not Found` | `{"detail": "No BoardInviteLink matches the given query."}` | No such invite, an invite that belongs to another board, or one already revoked. |
+
+The [site-admin revoke](admin.md#delete-apiv1adminboard-invite-linksid) answers an already-revoked invite with `400` instead of `404`, like the site invite-link revoke.
 
 Creating, sending and revoking publish `invite_link.created` / `invite_link.revoked` on the board's [WebSocket channel](websockets.md#invite-events-since-12) with just `{ "id": <int> }`.
 

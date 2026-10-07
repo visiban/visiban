@@ -74,10 +74,33 @@ class AdminBoardInvitePermissionTests(_Fixture, TestCase):
         self.assertEqual(APIClient().delete(detail_url(link)).status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_all_content_access_without_site_admin_is_403(self):
+        link = self.make()
         viewer = User.objects.create_user(username="allcontent", password="p", can_access_all_content=True)
         client = APIClient()
         client.force_authenticate(viewer)
         self.assertEqual(client.get(LIST_URL).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(client.delete(detail_url(link)).status_code, status.HTTP_403_FORBIDDEN)
+        link.refresh_from_db()
+        self.assertIsNone(link.revoked_at)
+
+    def test_board_member_and_viewer_are_403(self):
+        link = self.make()
+        for role in ("member", "viewer"):
+            with self.subTest(role=role):
+                user = User.objects.create_user(username=f"plain_{role}", password="p")
+                BoardMembership.objects.create(board=self.board, user=user, role=role)
+                client = APIClient()
+                client.force_authenticate(user)
+                self.assertEqual(client.get(LIST_URL).status_code, status.HTTP_403_FORBIDDEN)
+                self.assertEqual(client.delete(detail_url(link)).status_code, status.HTTP_403_FORBIDDEN)
+        link.refresh_from_db()
+        self.assertIsNone(link.revoked_at)
+
+    def test_non_site_admin_delete_of_unknown_id_is_403_not_404(self):
+        # Permission is checked before the lookup, so a non-admin cannot probe ids.
+        client = APIClient()
+        client.force_authenticate(self.board_admin)
+        self.assertEqual(client.delete(f"{LIST_URL}999999/").status_code, status.HTTP_403_FORBIDDEN)
 
 
 class AdminBoardInviteListTests(_Fixture, TestCase):
@@ -248,6 +271,16 @@ class AdminBoardInviteRevokeTests(_Fixture, TestCase):
         used.refresh_from_db()
         self.assertEqual(used.status, "used")
         self.assertIsNone(used.revoked_at)
+
+    def test_revoke_query_count_is_bounded(self):
+        link = self.make(self.other_board)
+        cache.clear()
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.delete(detail_url(link))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        # 7 today: lock, update, event row, savepoint pair, reload, registration
+        # mode. A per-board role walk or an N+1 would break the bound.
+        self.assertLessEqual(len(ctx.captured_queries), 8, [q["sql"] for q in ctx.captured_queries])
 
     def test_unknown_invite_is_404(self):
         self.assertEqual(self.client.delete(f"{LIST_URL}999999/").status_code, status.HTTP_404_NOT_FOUND)

@@ -1017,6 +1017,23 @@ class BoardShareableLinkCreateTests(_BoardFixture, TestCase):
             )
         self.assertEqual(self._create().status_code, status.HTTP_201_CREATED)
 
+    def test_create_query_count_is_bounded(self):
+        """Pins the cost of the cap check (``live_invite_count``): one role
+        check per distinct sender, never per row."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        for _ in range(4):
+            self.make_invite(delivery="link", single_use=False)
+        for _ in range(10):
+            self.make_invite(delivery="email")
+        cache.clear()
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._create()
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        # 14 today with one sender and 14 live invites on the board.
+        self.assertLessEqual(len(ctx.captured_queries), 15, [q["sql"] for q in ctx.captured_queries])
+
     def test_created_event_broadcast_on_commit(self):
         with mock.patch("boards.broadcast.broadcast_board_event") as bcast:
             with self.captureOnCommitCallbacks(execute=True):

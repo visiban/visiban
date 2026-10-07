@@ -1460,5 +1460,18 @@ describe('AdminPage — Board Invites tab (#439)', () => {
     expect(await screen.findByText('No pending board invites.')).toBeInTheDocument()
     expect(mockGetAdminBoardInviteLinks).toHaveBeenCalledWith({ status: 'pending', offset: 0 })
   })
+
+  it('sidebar tabs carry a focus ring and mark the active tab with aria-current', async () => {
+    renderAdminPage()
+    const nav = await screen.findByRole('navigation')
+    const settings = within(nav).getByRole('button', { name: 'Settings' })
+    const boardInvites = within(nav).getByRole('button', { name: 'Board Invites' })
+    expect(settings).toHaveAttribute('aria-current', 'page')
+    expect(boardInvites).not.toHaveAttribute('aria-current')
+    expect(boardInvites).toHaveClass('focus:ring-2', 'focus:ring-primary-emphasis')
+    fireEvent.click(boardInvites)
+    expect(boardInvites).toHaveAttribute('aria-current', 'page')
+    expect(settings).not.toHaveAttribute('aria-current')
+  })
 })
 

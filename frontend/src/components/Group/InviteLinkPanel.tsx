@@ -16,6 +16,7 @@ import type { EmailInviteFormHandle, EmailInvitePayload } from "../Common/EmailI
 import SelectDropdown from "../Common/SelectDropdown";
 import { ToggleField } from "../Common/Toggle";
 import Spinner from "../Common/Spinner";
+import { INVITE_ROLE_LABELS } from "../../constants/invites";
 
 /** What the panel manages invites for (#1444): a group, or a board. */
 export interface InviteScope {
@@ -108,12 +109,6 @@ const BOARD_ROLE_OPTIONS: { value: "member" | "collaborator" | "viewer"; label: 
 const ALREADY_USED_REVOKE_ERROR = "This invite was already used, so it can't be revoked.";
 const GENERIC_REVOKE_ERROR = "Could not revoke invite.";
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  member: "Member",
-  collaborator: "Collaborator",
-  viewer: "Viewer",
-};
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-palette-purple text-palette-purple-pale",
@@ -176,6 +171,23 @@ function metaLine(link: PanelLink): string | null {
   const by = link.created_by_username ? ` by ${link.created_by_username}` : "";
   return `${verb} ${formatMetaDate(link.created_at)}${by}`;
 }
+
+/** The message for a failed create: the server's `detail` (e.g. the cap), else
+ *  the first field error of a 400 (e.g. `expiry_days`), else a generic line. */
+function createErrorMessage(err: unknown): string {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    if (typeof record.detail === "string") return record.detail;
+    const first = Object.values(record)[0];
+    const message = Array.isArray(first) ? first[0] : first;
+    if (typeof message === "string") return message;
+  }
+  return "Failed to create invite link.";
+}
+
+/** Where focus goes after an action removes or replaces the focused control. */
+type FocusTarget = "name" | "newLink" | "copy" | "heading";
 
 function newestFirst(a: PanelLink, b: PanelLink): number {
   if (a.created_at === b.created_at) return b.id - a.id;
@@ -247,6 +259,27 @@ export default function InviteLinkPanel({
   // Clear the "Copied!" feedback timer on unmount so setCopiedId(null) never
   // runs after teardown (#870).
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Focus management (#439): an action that unmounts the focused control —
+  // opening/closing the create form, a create that swaps the form for the
+  // reveal, a revoke that removes its own trigger — moves focus to a stable
+  // target after the re-render, never leaving it on <body>.
+  const [pendingFocus, setPendingFocus] = useState<FocusTarget | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const newLinkButtonRef = useRef<HTMLButtonElement>(null);
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (pendingFocus === null) return;
+    const target = {
+      name: nameInputRef,
+      newLink: newLinkButtonRef,
+      copy: copyButtonRef,
+      heading: headingRef,
+    }[pendingFocus].current;
+    (target ?? headingRef.current)?.focus();
+    setPendingFocus(null);
+  }, [pendingFocus]);
   useEffect(() => {
     return () => {
       if (copiedTimerRef.current !== null) {
@@ -348,6 +381,9 @@ export default function InviteLinkPanel({
         prev.map((l) => (l.id === linkId ? { ...l, is_active: false, status: "revoked" as const } : l))
       );
       if (revealId === linkId) setRevealId(null);
+      // The Revoke trigger is gone (the row is terminal now), so
+      // useConfirmFocusReturn has nothing to return to.
+      setPendingFocus("heading");
     } catch (err: unknown) {
       const httpStatus = (err as { response?: { status?: number } }).response?.status;
       if (httpStatus === 400) {
@@ -357,6 +393,7 @@ export default function InviteLinkPanel({
         // Refetch first (it clears revokeError), then report the outcome.
         await fetchLinks();
         setRevokeError({ id: linkId, message: ALREADY_USED_REVOKE_ERROR });
+        setPendingFocus("heading");
       } else {
         // Leave the prompt open with both buttons re-enabled so it can be retried.
         setRevokeError({ id: linkId, message: GENERIC_REVOKE_ERROR });
@@ -379,14 +416,13 @@ export default function InviteLinkPanel({
       setLinks((prev) => [...prev, newLink]);
       setRevealId(newLink.id);
       setShowForm(false);
+      setPendingFocus("copy");
       setFormName("");
       setFormRole("member");
       setFormExpiry(7);
       setFormSingleUse(false);
     } catch (err: unknown) {
-      const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setCreateError(detail ?? "Failed to create invite link.");
+      setCreateError(createErrorMessage(err));
     } finally {
       setCreating(false);
     }
@@ -474,6 +510,7 @@ export default function InviteLinkPanel({
       </div>
       <div className="flex gap-2">
         <button
+          ref={copyButtonRef}
           // void: handleCopy now catches its own rejection and surfaces it via copyErrorId.
           onClick={() => void handleCopy(link)}
           className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
@@ -522,6 +559,7 @@ export default function InviteLinkPanel({
       <div className="flex flex-col gap-1">
         <label htmlFor={`invite-link-name-${kind}-${scopeId}`} className="text-xs text-fg-tertiary">Name (optional)</label>
         <input
+          ref={nameInputRef}
           id={`invite-link-name-${kind}-${scopeId}`}
           type="text"
           value={formName}
@@ -538,6 +576,7 @@ export default function InviteLinkPanel({
           <SelectDropdown
             value={formRole}
             onChange={(v) => setFormRole(v as "admin" | "member" | "collaborator" | "viewer")}
+            ariaLabel="Role"
             options={isBoard ? BOARD_ROLE_OPTIONS : [
               { value: "admin", label: "Admin" },
               { value: "member", label: "Member" },
@@ -553,6 +592,7 @@ export default function InviteLinkPanel({
           <SelectDropdown
             value={formExpiry === null ? "null" : String(formExpiry)}
             onChange={(v) => setFormExpiry(v === "null" ? null : Number(v))}
+            ariaLabel="Expires"
             options={(isBoard ? BOARD_EXPIRY_OPTIONS : EXPIRY_OPTIONS).map((opt) => ({
               value: String(opt.value),
               label: opt.label,
@@ -592,6 +632,7 @@ export default function InviteLinkPanel({
             setShowForm(false);
             setCreateError(null);
             setFormSingleUse(false);
+            setPendingFocus("newLink");
           }}
           className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
@@ -610,7 +651,8 @@ export default function InviteLinkPanel({
 
   const newLinkButton = allowShareableLinks && !atLimit && !showForm && (
     <button
-      onClick={() => setShowForm(true)}
+      ref={newLinkButtonRef}
+      onClick={() => { setShowForm(true); setPendingFocus("name"); }}
       className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
     >
       New link
@@ -640,7 +682,7 @@ export default function InviteLinkPanel({
               {link.delivery === "email" ? "Emailed invite" : link.name || "Invite link"}
             </span>
             <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${ROLE_COLORS[link.role] ?? ROLE_COLORS.member}`}>
-              {ROLE_LABELS[link.role] ?? link.role}
+              {INVITE_ROLE_LABELS[link.role] ?? link.role}
             </span>
             {!pending && (
               <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${STATUS_COLORS[linkStatus]}`}>
@@ -649,7 +691,7 @@ export default function InviteLinkPanel({
             )}
             {pending && link.can_register === false && (
               <span
-                className="px-2 py-0.5 text-xs rounded-full border border-line text-fg-tertiary"
+                className="px-1.5 py-0.5 text-xs font-semibold rounded border border-line text-fg-tertiary"
                 title="New people can't create an account from this invite on this site."
               >
                 Existing accounts only
@@ -700,7 +742,7 @@ export default function InviteLinkPanel({
         {!sectionHidden && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Pending invites</h4>
+            <h4 ref={headingRef} tabIndex={-1} className="text-sm font-medium text-fg-tertiary uppercase tracking-wide focus:outline-none">Pending invites</h4>
             {newLinkButton}
           </div>
           {/* About emailed invites — irrelevant once sending is unavailable. */}
@@ -762,7 +804,7 @@ export default function InviteLinkPanel({
     <div className={`${variant === "card" ? "bg-surface border border-line rounded-lg p-4" : ""} flex flex-col gap-4 ${className}`.trim()}>
       {revokeAnnouncement}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-fg-secondary">Invite links</h3>
+        <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-fg-secondary focus:outline-none">Invite links</h3>
         {newLinkButton}
       </div>
 
@@ -812,7 +854,7 @@ export default function InviteLinkPanel({
                   <span
                     className={`text-xs font-semibold px-1.5 py-0.5 rounded ${ROLE_COLORS[link.role] ?? ROLE_COLORS.member}`}
                   >
-                    {ROLE_LABELS[link.role] ?? link.role}
+                    {INVITE_ROLE_LABELS[link.role] ?? link.role}
                   </span>
 
                   {/* Emailed links are single-use and never reveal a token (#731). */}

@@ -23,7 +23,7 @@ vi.mock('../api/boards', () => ({
 vi.mock('../api/auth', () => ({ getSiteConfig: vi.fn() }))
 
 import { createInviteLink } from '../api/groups'
-import { createBoardInviteLink, listBoardInviteLinks } from '../api/boards'
+import { createBoardInviteLink, listBoardInviteLinks, revokeBoardInviteLink } from '../api/boards'
 import { getSiteConfig } from '../api/auth'
 
 const mockList = listBoardInviteLinks as ReturnType<typeof vi.fn>
@@ -259,4 +259,51 @@ describe('InviteLinkPanel — board shareable links (#439)', () => {
     expect(await screen.findByText('No pending invites.')).toBeInTheDocument()
     expect(screen.queryByText('Invite by email')).not.toBeInTheDocument()
   })
+
+  it('names the form pickers "Role" and "Expires"', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(await screen.findByRole('button', { name: 'New link' }))
+    expect(screen.getByRole('combobox', { name: 'Role: Member' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Expires: 7 days' })).toBeInTheDocument()
+  })
+
+  it('moves focus: New link → Name, Cancel → New link, create → Copy', async () => {
+    const user = userEvent.setup()
+    mockCreate.mockResolvedValue(created())
+    renderBoard()
+    await user.click(await screen.findByRole('button', { name: 'New link' }))
+    await waitFor(() => expect(screen.getByLabelText('Name (optional)')).toHaveFocus())
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New link' })).toHaveFocus())
+    await user.click(screen.getByRole('button', { name: 'New link' }))
+    await user.click(screen.getByRole('button', { name: 'Create link' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Copy' })).toHaveFocus())
+  })
+
+  it('a revoke that removes its own trigger moves focus to the Pending invites heading', async () => {
+    const user = userEvent.setup()
+    mockList.mockResolvedValue([link()])
+    ;(revokeBoardInviteLink as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
+    renderBoard()
+    await user.click(await screen.findByRole('button', { name: 'Revoke invite vbnb_ab1' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Pending invites' })).toHaveFocus())
+  })
+
+  it('a 400 with field errors shows the first field message', async () => {
+    const user = userEvent.setup()
+    mockCreate.mockRejectedValue({ response: { status: 400, data: { expiry_days: ['"2" is not a valid choice.'] } } })
+    renderBoard()
+    await user.click(await screen.findByRole('button', { name: 'New link' }))
+    await user.click(screen.getByRole('button', { name: 'Create link' }))
+    expect(await screen.findByText('"2" is not a valid choice.')).toHaveClass('text-danger')
+  })
+
+  it('"Existing accounts only" matches its row neighbors (rounded, semibold)', async () => {
+    mockList.mockResolvedValue([link({ can_register: false })])
+    renderBoard()
+    expect(await screen.findByText('Existing accounts only')).toHaveClass('rounded', 'font-semibold', 'px-1.5')
+  })
 })
+

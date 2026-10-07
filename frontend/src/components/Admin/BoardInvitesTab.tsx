@@ -1,5 +1,6 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { getAdminBoardInviteLinks, revokeAdminBoardInviteLink } from "../../api/auth";
+import { INVITE_ROLE_LABELS, INVITE_STATUS_STYLES } from "../../constants/invites";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { AdminBoardInviteLink, AdminBoardInviteStatusFilter } from "../../types";
@@ -19,21 +20,11 @@ const STATUS_OPTIONS: { value: AdminBoardInviteStatusFilter; label: string }[] =
   { value: "all", label: "All" },
 ];
 
-// Same pill tones as the Invite Links tab's STATUS_STYLES.
-const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-success/20 text-success",
-  used: "bg-fg-muted/20 text-fg-tertiary",
-  expired: "bg-danger/20 text-danger",
-  revoked: "bg-fg-muted/20 text-fg-muted",
-};
+function statusStyle(status: string): string {
+  return INVITE_STATUS_STYLES[status as keyof typeof INVITE_STATUS_STYLES] ?? INVITE_STATUS_STYLES.revoked;
+}
 
-const ROLE_LABELS: Record<string, string> = {
-  member: "Member",
-  collaborator: "Collaborator",
-  viewer: "Viewer",
-};
-
-const ALREADY_USED_REVOKE_ERROR = "This invite was already used or revoked, so it can't be revoked.";
+const ALREADY_USED_REVOKE_ERROR = "This invite is no longer pending, so it can't be revoked.";
 const GENERIC_REVOKE_ERROR = "Could not revoke invite.";
 
 function formatDate(iso: string | null): string {
@@ -57,6 +48,15 @@ export default function BoardInvitesTab() {
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [revokeError, setRevokeError] = useState<{ id: number; message: string } | null>(null);
   const revokeTriggerRef = useConfirmFocusReturn(confirmId);
+  // A revoke that removes its own row (or its Revoke button) leaves nothing
+  // for useConfirmFocusReturn to return to: focus moves to the heading.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [focusHeading, setFocusHeading] = useState(false);
+  useEffect(() => {
+    if (!focusHeading) return;
+    headingRef.current?.focus();
+    setFocusHeading(false);
+  }, [focusHeading]);
 
   // Escape cancels an open revoke prompt before AdminPage's priority-0
   // Escape-to-navigate handler can leave the page (#1238).
@@ -85,6 +85,12 @@ export default function BoardInvitesTab() {
     void fetchRows(statusFilter, offset);
   }, [fetchRows, statusFilter, offset]);
 
+  const changeOffset = (next: number) => {
+    setRevokeError(null);
+    setConfirmId(null);
+    setOffset(next);
+  };
+
   const handleFilterChange = (value: AdminBoardInviteStatusFilter | null) => {
     if (!value || value === statusFilter) return;
     setConfirmId(null);
@@ -103,11 +109,19 @@ export default function BoardInvitesTab() {
       setConfirmId(null);
       if (statusFilter === "pending") {
         // No longer pending: it leaves this view.
-        setRows((prev) => prev.filter((r) => r.id !== row.id));
+        const remaining = rows.filter((r) => r.id !== row.id);
         setTotal((t) => Math.max(0, t - 1));
+        if (remaining.length === 0 && offset > 0) {
+          // The page emptied: step back a page rather than show "No pending
+          // board invites." while earlier pages still hold some.
+          setOffset(Math.max(0, offset - pageSize));
+        } else {
+          setRows(remaining);
+        }
       } else {
         setRows((prev) => prev.map((r) => (r.id === row.id ? updated : r)));
       }
+      setFocusHeading(true);
     } catch (err: unknown) {
       const httpStatus = (err as { response?: { status?: number } }).response?.status;
       if (httpStatus === 400) {
@@ -116,6 +130,7 @@ export default function BoardInvitesTab() {
         setConfirmId(null);
         await fetchRows(statusFilter, offset);
         setRevokeError({ id: row.id, message: ALREADY_USED_REVOKE_ERROR });
+        setFocusHeading(true);
       } else {
         // Leave the prompt open with both buttons re-enabled so it can be retried.
         setRevokeError({ id: row.id, message: GENERIC_REVOKE_ERROR });
@@ -131,7 +146,7 @@ export default function BoardInvitesTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-fg text-lg font-semibold">Board Invites</h2>
+      <h2 ref={headingRef} tabIndex={-1} className="text-fg text-lg font-semibold focus:outline-none">Board Invites</h2>
 
       <div className="flex items-center gap-2">
         <SingleSelectDropdown<AdminBoardInviteStatusFilter>
@@ -154,7 +169,16 @@ export default function BoardInvitesTab() {
       {loading ? (
         <div className="text-fg-tertiary text-sm">Loading…</div>
       ) : error ? (
-        <p className="text-sm text-danger">Failed to load board invites.</p>
+        <div>
+          <p role="alert" className="text-sm text-danger mb-2">Failed to load board invites.</p>
+          <button
+            type="button"
+            onClick={() => void fetchRows(statusFilter, offset)}
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Try again
+          </button>
+        </div>
       ) : rows.length === 0 ? (
         <p className="text-sm text-fg-muted">{emptyMessage}</p>
       ) : (
@@ -183,11 +207,11 @@ export default function BoardInvitesTab() {
                         <td className="px-4 py-2.5 text-fg">
                           <div className="max-w-[14rem] truncate" title={row.board_name}>{row.board_name}</div>
                         </td>
-                        <td className="px-4 py-2.5 text-fg-secondary">{ROLE_LABELS[row.role] ?? row.role}</td>
+                        <td className="px-4 py-2.5 text-fg-secondary">{INVITE_ROLE_LABELS[row.role] ?? row.role}</td>
                         <td className="px-4 py-2.5 text-fg-secondary">{row.delivery === "email" ? "Email" : "Link"}</td>
                         <td className="px-4 py-2.5">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_STYLES[row.status] ?? STATUS_STYLES.revoked}`}>
+                            <span className={`px-2 py-0.5 text-xs rounded-full ${statusStyle(row.status)}`}>
                               {capitalize(row.status)}
                             </span>
                             {pending && !row.can_register && (
@@ -203,7 +227,10 @@ export default function BoardInvitesTab() {
                         <td className="px-4 py-2.5 text-fg-muted">{formatDate(row.expires_at)}</td>
                         <td className="px-4 py-2.5 text-fg-secondary">
                           {row.created_by_username ?? (
-                            <span className="text-fg-muted" title="Account removed">—</span>
+                            <span className="text-fg-muted" title="Account removed">
+                              <span aria-hidden="true">—</span>
+                              <span className="sr-only">Account removed</span>
+                            </span>
                           )}
                         </td>
                         <td className="px-4 py-2.5">
@@ -264,7 +291,8 @@ export default function BoardInvitesTab() {
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setOffset((o) => Math.max(0, o - pageSize))}
+                  type="button"
+                  onClick={() => changeOffset(Math.max(0, offset - pageSize))}
                   disabled={offset === 0}
                   className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
@@ -274,7 +302,8 @@ export default function BoardInvitesTab() {
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
-                  onClick={() => setOffset((o) => Math.min((totalPages - 1) * pageSize, o + pageSize))}
+                  type="button"
+                  onClick={() => changeOffset(Math.min((totalPages - 1) * pageSize, offset + pageSize))}
                   disabled={currentPage === totalPages}
                   className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
