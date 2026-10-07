@@ -1124,3 +1124,7 @@ Established by the `url` custom field type. `components/Card/CustomFieldLink.tsx
 - **Unavailable list.** The grid is replaced by the neutral notice banner with **Retry**, the divider reads "Upload your own file" (no "or"), and an empty list counts as unavailable — the section never disappears silently.
 - **Upload notes follow the dropzone.** The size-limit notice and the Trello link moved below the dropzone to pay for the fold budget; both are hidden while a sample is the source.
 - **Next step.** A fetched sample replaces the dropzone with a "From sample: {Title} · ~{n} cards" row and **Change** (no footer Back); the import sends `shift_dates_from` so the board is not mostly overdue, and never a `name`, so "Imported: <title>" numbering still applies.
+
+## Unenforced settings (#1430)
+
+1. **Unenforced settings.** A setting that is stored and editable but not yet applied by the backend must carry a visible helper line directly beneath its control: `text-xs text-fg-muted mt-2`, starting with "Not yet enforced." followed by one sentence stating the actual current behavior. Wire it with `aria-describedby` where the control supports it (`SelectDropdown` does not yet pass it through, so the group default member role hint is not associated). Never hide or disable the control to signal this. Remove the hint in the same MR that wires enforcement. Section intro copy must not promise behavior that any control in the section does not deliver.
