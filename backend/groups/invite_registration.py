@@ -46,11 +46,6 @@ NOT_FOR_REGISTRATION_DETAIL = (
 )
 
 
-def is_group_invite_token(raw_token: str) -> bool:
-    """True when ``raw_token`` has the group-invite prefix (``vbng_``)."""
-    return (raw_token or "").strip().startswith(GroupInviteLink.GROUP_INVITE_PREFIX)
-
-
 # Detail text per refusal code, shared by the registration validator so the
 # pure predicate below and the raised errors cannot drift apart.
 _REFUSAL_DETAILS = {

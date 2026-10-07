@@ -102,7 +102,9 @@ Board
  ├── Label  (uid, name, color)
  ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required — max 30/board)
  ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 15/board)
- └── BoardExportLog  (actor, role_at_export, export_format, row_count)
+ ├── BoardExportLog  (actor, role_at_export, export_format, row_count)
+ └── BoardInviteLink  (token_hash, prefix, role — member | collaborator | viewer, expires_at, single_use, used_at, revoked_at/revoked_by, use_count, delivery — link | email; 1.2+)
+      └── BoardInviteRedemption → User  (role_granted, membership_created, via — join | registration; unique per invite+user)
 
 Card
  ├── uid  (16-char hex, unique, read-only)
@@ -307,7 +309,7 @@ Saved filters are private to the owning user — there is no sharing across boar
 
 Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite, due date approaching, comment added). The `verb` field stores a human-readable summary. The `actor` and `action_type` fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.
 
-The `board_invite` action type is created when a user is added to a board via invite link or directly by an admin. The notification links to the board rather than a card; the `card` FK is null for this action type.
+The `board_invite` action type is created only when a board admin adds a user directly through `POST /api/v1/boards/{id}/members/` (and only for a new membership, not a role change). Joining through an invite link creates no notification — neither a group invite nor *(1.2+)* a board invite redemption; the joiner is the one acting. The notification links to the board rather than a card; the `card` FK is null for this action type.
 
 Every notification is created through `boards.services.notifications.create_notifications`,
 which after the transaction commits delivers OSS email for the five events that support it
@@ -323,6 +325,14 @@ Site-level registration invite links live in the accounts app and are distinct f
 Single-use links are consumed atomically via `select_for_update()` at registration time to prevent race-condition double-use. A soft cap of 50 active shareable links (`delivery = link`) per instance prevents token flood from a compromised admin account. Emailed links (`delivery = email`, #731) are single-use, always expire, and have their own cap of 200 pending per instance; the group equivalent is 5 active shareable links plus 50 pending emailed links per group. The recipient address of an emailed link is never stored.
 
 A multi-use link needs its own guard against repeat redemption by the same person: `InviteLinkRedemption` (#925) stores a SHA-256 hash of the normalized email per `(invite_link, email_hash)`, enforced with a unique constraint. Single-use links don't need it — the existing `used_at` flag already blocks re-use. Storage is hash-only, so an operator investigating "who redeemed this link" sees hashes, not addresses.
+
+### BoardInviteLink *(1.2+)*
+
+Board-scoped invites (`vbnb_` tokens, #1444) live in the boards app beside `BoardMembership`. Like the other two invite kinds, only the SHA-256 of the token is stored, and the address an emailed invite went to is not stored at all. An invite can grant only `member`, `collaborator` or `viewer` (`BoardInviteLink.GRANTABLE_ROLES`, enforced by `generate()` and again at redemption), never `admin` or the moderator flag, and never group membership.
+
+Redemption is serialized by `select_for_update()` on the invite row — in the join view and in the registration validator — and it never edits an existing explicit `BoardMembership`, because an explicit membership overrides an inherited group role rather than adding to it (see [Permissions](../features/permissions.md)). A pending invite whose sender has been deleted or is no longer a board admin is unusable: the join endpoints answer `410 revoked` and the admin list reports it as `revoked`, without writing to the row. Because nothing is written, the state is reversible — if the sender regains board admin the invite is pending and redeemable again until it expires. An admin who wants it gone for good revokes it with `DELETE /boards/{id}/invite-links/{link_id}/`, which accepts it since `revoked_at` is still NULL.
+
+`BoardInviteRedemption` records who redeemed which invite, what it granted, and whether a membership was created. It is the durable provenance record — the `member.added` change-feed row also names the invite, but the change feed is pruned after 30 days.
 
 ### GroupLabel
 

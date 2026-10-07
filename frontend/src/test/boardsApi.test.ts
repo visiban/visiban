@@ -15,6 +15,11 @@ vi.mock('../api/client', () => {
 
 import client from '../api/client'
 import {
+  listBoardInviteLinks,
+  sendBoardInviteEmail,
+  revokeBoardInviteLink,
+  resolveBoardJoinToken,
+  joinBoard,
   listBoards,
   createBoard,
   getBoard,
@@ -534,5 +539,36 @@ describe('Card API wrappers', () => {
     const result = await createCard(1, cardData)
     expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/1/cards/', cardData)
     expect(result.title).toBe('New Card')
+  })
+})
+
+// #1444 — board invites.
+describe('board invite API (#1444)', () => {
+  const api = client as unknown as Record<'get' | 'post' | 'delete', ReturnType<typeof vi.fn>>
+
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('lists, sends and revokes against the board invite-links routes', async () => {
+    api.get.mockResolvedValue({ data: [{ id: 1 }] })
+    expect(await listBoardInviteLinks(3)).toEqual([{ id: 1 }])
+    expect(api.get).toHaveBeenCalledWith('/api/v1/boards/3/invite-links/')
+
+    api.post.mockResolvedValue({ data: { detail: 'Invite sent', sent_to: 'a@b.co' } })
+    const payload = { email: 'a@b.co', role: 'viewer' as const, expiry_days: 30 as const }
+    expect(await sendBoardInviteEmail(3, payload)).toEqual({ detail: 'Invite sent', sent_to: 'a@b.co' })
+    expect(api.post).toHaveBeenCalledWith('/api/v1/boards/3/invite-links/send/', payload)
+
+    await revokeBoardInviteLink(3, 8)
+    expect(api.delete).toHaveBeenCalledWith('/api/v1/boards/3/invite-links/8/')
+  })
+
+  it('previews and joins through /boards/join/<token>/', async () => {
+    api.get.mockResolvedValue({ data: { board_id: 3, board_name: 'B', role: 'member', can_register: true } })
+    expect((await resolveBoardJoinToken('vbnb_x')).board_name).toBe('B')
+    expect(api.get).toHaveBeenCalledWith('/api/v1/boards/join/vbnb_x/')
+
+    api.post.mockResolvedValue({ data: { board_id: 3, board_name: 'B', role: 'member', created: true } })
+    expect((await joinBoard('vbnb_x')).created).toBe(true)
+    expect(api.post).toHaveBeenCalledWith('/api/v1/boards/join/vbnb_x/')
   })
 })

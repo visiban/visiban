@@ -38,6 +38,7 @@ from ..utils import create_template_columns, resolve_board_template
 from ._helpers import get_board_for_user, get_accessible_boards_queryset
 from .analytics import BoardAnalyticsMixin
 from .import_export import BoardImportExportMixin
+from .invites import BoardInviteLinksMixin
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,7 @@ def _parse_events_limit(raw):
 class BoardViewSet(
     BoardAnalyticsMixin,
     BoardImportExportMixin,
+    BoardInviteLinksMixin,
     viewsets.ModelViewSet,
 ):
     """CRUD endpoints for boards, scoped to boards the requesting user has access to."""

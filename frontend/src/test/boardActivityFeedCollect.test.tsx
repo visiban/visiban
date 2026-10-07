@@ -82,6 +82,8 @@ vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({ setNodeRef: () => {}, attributes: {}, listeners: {}, transform: null, transition: undefined, isDragging: false }),
 }))
 vi.mock('react-router-dom', () => ({
+  // BoardView reads navigation state for the board-invite joined notice (#1444).
+  useLocation: () => ({ pathname: '/', search: '', hash: '', state: null, key: 'default' }),
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useNavigate: () => vi.fn(),
 }))

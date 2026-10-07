@@ -410,6 +410,8 @@ Update a user's account flags. Site admin only.
 
 Deactivate a user account and transfer ownership of any boards they own to other members.
 
+Deactivation also revokes the user's unused site invite links and *(1.2+)* their pending [board invites](boards.md#board-invites) (`revoked_by` is the caller; each board gets an `invite_link.revoked` event).
+
 **Permission:** `IsSiteAdmin`. Cannot deactivate your own account.
 
 If the target user owns one or more boards, you must supply a `transfers` list mapping each owned board to an eligible recipient. The recipient must have access to the board — either as a direct board member or through group membership. Group-inherited access is accepted. If any owned board has no eligible transfer targets (i.e. the user is the sole member with no group-inherited members either), the request returns `400 Bad Request` with details.

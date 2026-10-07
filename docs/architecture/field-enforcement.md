@@ -57,6 +57,9 @@ Classified from a review of the code on 2026-10-04; see the tracking issues for 
 | `User.notif_*`, `User.email_notif_*` | Notification dispatch (`boards/notifications_email.py`, `boards/signals.py`, the `notify_*` management commands) | — |
 | `InviteLink.expires_at`, `single_use`, `revoked_at` | `accounts/invite_utils.py`, consumed atomically at registration | — |
 | `GroupInviteLink.is_active`, `expires_at`, `single_use` | Group invite lookup and join in `groups/views.py` | — |
+| `BoardInviteLink.expires_at`, `revoked_at` *(1.2+)* | `unusable_code()` in `boards/invites.py`, called by the board join preview and join (`410` with `code`), and `board_link_registration_refusal()` for sign-up | A pending invite whose sender is deleted or no longer a board admin is treated as revoked, without writing `revoked_at` |
+| `BoardInviteLink.single_use` / `used_at` *(1.2+)* | Row lock plus `used_at` stamp in `JoinBoardView.post` and `redeem_board_registration_token()`; database `CheckConstraint` that `used_at` is only set on a single-use invite | — |
+| `BoardInviteLink.role` *(1.2+)* | `BoardInviteLink.generate()` refuses any role outside `GRANTABLE_ROLES` (member, collaborator, viewer); redemption refuses a stored role outside it | The serializer's choice field is a third, outer check |
 | `PersonalAccessToken.expires_at`, `scopes` | `accounts/authentication.py` (REST) and `mcp_server/auth.py` (`mcp:*` scopes) | — |
 
 ## Fields that do not exist

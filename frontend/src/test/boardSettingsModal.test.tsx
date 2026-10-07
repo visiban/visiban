@@ -14,10 +14,18 @@ vi.mock('../api/boards', () => ({
   enableBoardSharing: vi.fn(),
   disableBoardSharing: vi.fn(),
   getBoardExportHistory: vi.fn().mockResolvedValue({ results: [], count: 0, next: null, previous: null }),
+  // #1444 — the Members tab's invite section.
+  listBoardInviteLinks: vi.fn().mockResolvedValue([]),
+  revokeBoardInviteLink: vi.fn(),
+  sendBoardInviteEmail: vi.fn(),
 }))
 
 vi.mock('../api/auth', () => ({
   searchUsers: vi.fn(),
+  getSiteConfig: vi.fn().mockResolvedValue({
+    registration_open: true, registration_mode: 'open', demo_mode: false, demo_login: null,
+    invite_email_available: true,
+  }),
 }))
 
 import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from '../api/boards'
@@ -1665,5 +1673,113 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
     expect(screen.queryByText(/archived cards?, which will also be permanently deleted/)).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Sprint Board')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Delete board' })).toBeEnabled()
+  })
+})
+
+// ─── Invite by email (#1444) ────────────────────────────────────────────────
+
+describe('BoardSettingsModal — invite by email (#1444)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('admins get the invite section with the pending list; non-admins do not', async () => {
+    const { unmount } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(await screen.findByText('Invite by email')).toBeInTheDocument()
+    expect(screen.getByText('Pending invites')).toBeInTheDocument()
+    unmount()
+    render(<BoardSettingsModal board={{ ...fakeBoard, current_user_role: 'member' }} isAdmin={false} onClose={vi.fn()} />)
+    expect(screen.queryByText('Pending invites')).not.toBeInTheDocument()
+    expect(screen.queryByText('Invite by email')).not.toBeInTheDocument()
+  })
+
+  it('an email-shaped query with no addable match offers "Invite by email", which prefills the form', async () => {
+    mockSearchUsers.mockResolvedValue([])
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await screen.findByText('Invite by email')
+    await user.type(screen.getByPlaceholderText(/search by name or email/i), 'new.person@example.com')
+    const bridge = await screen.findByRole('button', { name: 'Invite by email' }, { timeout: 2000 })
+    expect(bridge.closest('p')).toHaveTextContent('No results for new.person@example.com.')
+    await user.click(bridge)
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toHaveValue('new.person@example.com')
+    expect(screen.getByPlaceholderText(/search by name or email/i)).toHaveValue('')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send invite' })).toHaveFocus())
+  })
+
+  it('no bridge for a non-email query, or when someone addable matched', async () => {
+    const user = userEvent.setup()
+    mockSearchUsers.mockResolvedValue([])
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await screen.findByText('Invite by email')
+    await user.type(screen.getByPlaceholderText(/search by name or email/i), 'nobody')
+    await waitFor(() => expect(mockSearchUsers).toHaveBeenCalledWith('nobody'))
+    expect(screen.queryByRole('button', { name: 'Invite by email' })).not.toBeInTheDocument()
+
+    mockSearchUsers.mockResolvedValue([{ ...fakeMember2, id: 99, email: 'carol@example.com', username: 'carol' }])
+    await user.clear(screen.getByPlaceholderText(/search by name or email/i))
+    await user.type(screen.getByPlaceholderText(/search by name or email/i), 'carol@example.com')
+    await waitFor(() => expect(mockSearchUsers).toHaveBeenCalledWith('carol@example.com'))
+    expect(screen.queryByRole('button', { name: 'Invite by email' })).not.toBeInTheDocument()
+  })
+
+  it('no bridge when the search matched only people already on the board or staged', async () => {
+    const user = userEvent.setup()
+    // The raw result is Bob, already a member: nothing addable, but an
+    // account does match — so no invite is offered.
+    mockSearchUsers.mockResolvedValue([{ ...fakeMember2, email: 'bob@example.com' }])
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await screen.findByText('Invite by email')
+    await user.type(screen.getByPlaceholderText(/search by name or email/i), 'bob@example.com')
+    await waitFor(() => expect(mockSearchUsers).toHaveBeenCalledWith('bob@example.com'))
+    await act(async () => { await new Promise((r) => setTimeout(r, 400)) })
+    expect(screen.queryByRole('button', { name: 'Invite by email' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('member-suggestions')).not.toBeInTheDocument()
+  })
+
+  it('no bridge when sending by email is unavailable', async () => {
+    const { getSiteConfig } = await import('../api/auth')
+    ;(getSiteConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      registration_open: true, registration_mode: 'open', demo_mode: false, demo_login: null,
+      invite_email_available: false,
+    })
+    mockSearchUsers.mockResolvedValue([])
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.type(screen.getByPlaceholderText(/search by name or email/i), 'x@example.com')
+    await waitFor(() => expect(mockSearchUsers).toHaveBeenCalledWith('x@example.com'))
+    expect(screen.queryByRole('button', { name: 'Invite by email' })).not.toBeInTheDocument()
+  })
+
+  it('a member who joins while open is appended without replacing in-progress rows', async () => {
+    const { rerender } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
+    const carol: User = { ...fakeMember2, id: 3, username: 'carol', display_name: 'Carol Jones', email: 'carol@example.com' }
+    rerender(
+      <BoardSettingsModal
+        board={{
+          ...fakeBoard,
+          // Bob's row arrives with a different role — the modal's own row wins.
+          members: [
+            { ...fakeBoard.members[0] },
+            { ...fakeBoard.members[1], role: 'viewer' },
+            { id: 12, user: carol, role: 'viewer', is_moderator: false, joined_at: '' },
+          ],
+        }}
+        isAdmin={true}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(await screen.findByText('Carol Jones')).toBeInTheDocument()
+    expect(screen.getAllByText('Bob Smith')).toHaveLength(1)
+  })
+
+  it('passes inviteReloadSignal through to the invite list', async () => {
+    const { listBoardInviteLinks } = await import('../api/boards')
+    const mockList = listBoardInviteLinks as ReturnType<typeof vi.fn>
+    const { rerender } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={0} />)
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1))
+    rerender(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={1} />)
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2))
   })
 })

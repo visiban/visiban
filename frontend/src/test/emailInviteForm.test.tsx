@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { createRef } from 'react'
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EmailInviteForm from '../components/Common/EmailInviteForm'
+import type { EmailInviteFormHandle } from '../components/Common/EmailInviteForm'
 import type { SiteConfig } from '../types'
 
 vi.mock('../api/auth', () => ({ getSiteConfig: vi.fn() }))
@@ -23,7 +25,7 @@ function httpError(status: number, data: object = {}, headers: Record<string, st
   return { response: { status, data, headers } }
 }
 
-async function renderForm(surface: 'group' | 'site' = 'group', extra: Partial<React.ComponentProps<typeof EmailInviteForm>> = {}) {
+async function renderForm(surface: 'group' | 'site' | 'board' = 'group', extra: Partial<React.ComponentProps<typeof EmailInviteForm>> = {}) {
   render(<EmailInviteForm surface={surface} send={send} {...extra} />)
   return screen.findByRole('textbox', { name: 'Email address' })
 }
@@ -273,5 +275,135 @@ describe('EmailInviteForm', () => {
     mockGetSiteConfig.mockResolvedValue({ ...baseConfig, registration_mode: 'closed' })
     await renderForm('site')
     expect(screen.queryByText(/New users can't sign up/)).not.toBeInTheDocument()
+  })
+})
+
+describe('EmailInviteForm — board surface (#1444)', () => {
+  const BOARD_ROLES = [
+    { value: 'member' as const, label: 'Member' },
+    { value: 'collaborator' as const, label: 'Collaborator' },
+    { value: 'viewer' as const, label: 'Viewer' },
+  ]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSiteConfig.mockResolvedValue(baseConfig)
+  })
+
+  it('offers Member/Collaborator/Viewer only, defaulting to Member', async () => {
+    const user = userEvent.setup()
+    await renderForm('board', { roleOptions: BOARD_ROLES, showLinkDivider: false })
+    await user.click(screen.getByText('Member'))
+    expect(await screen.findByText('Viewer')).toBeInTheDocument()
+    expect(screen.getByText('Collaborator')).toBeInTheDocument()
+    expect(screen.queryByText('Admin')).not.toBeInTheDocument()
+  })
+
+  it('pickers have accessible names that include their current value', async () => {
+    await renderForm('board', { roleOptions: BOARD_ROLES })
+    expect(screen.getByRole('button', { name: 'Role: Member' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expires: 7 days' })).toBeInTheDocument()
+  })
+
+  it('the group role picker is named too', async () => {
+    await renderForm('group')
+    expect(screen.getByRole('button', { name: 'Role: Member' })).toBeInTheDocument()
+  })
+
+  it('has an Expires picker defaulting to 7 days, reflected in the helper text', async () => {
+    const user = userEvent.setup()
+    await renderForm('board', { roleOptions: BOARD_ROLES, showLinkDivider: false })
+    expect(screen.getByRole('status')).toHaveTextContent('Sends a single-use invite that expires in 7 days.')
+    await user.click(screen.getByText('7 days'))
+    await user.click(await screen.findByText('1 day'))
+    expect(screen.getByRole('status')).toHaveTextContent('Sends a single-use invite that expires in 1 day.')
+  })
+
+  it('sends email, role and expiry_days', async () => {
+    send.mockResolvedValue({ detail: 'Invite sent', sent_to: 'sam@example.com' })
+    const user = userEvent.setup()
+    await renderForm('board', { roleOptions: BOARD_ROLES, showLinkDivider: false })
+    await user.click(screen.getByText('Member'))
+    await user.click(await screen.findByText('Collaborator'))
+    await user.click(screen.getByText('7 days'))
+    await user.click(await screen.findByText('30 days'))
+    await submit()
+    await waitFor(() =>
+      expect(send).toHaveBeenCalledWith({ email: 'sam@example.com', role: 'collaborator', expiry_days: 30 }),
+    )
+    expect(await screen.findByText('Invite sent to sam@example.com.')).toHaveClass('text-success')
+  })
+
+  it('hides the shareable-link divider when showLinkDivider is false', async () => {
+    await renderForm('board', { roleOptions: BOARD_ROLES, showLinkDivider: false })
+    expect(screen.queryByText('or create a shareable link')).not.toBeInTheDocument()
+  })
+
+  it('still shows the divider on the group surface by default', async () => {
+    await renderForm('group')
+    expect(screen.getByText('or create a shareable link')).toBeInTheDocument()
+  })
+
+  it('warns on a closed site and for a non-site-admin on an invite-only site', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...baseConfig, registration_mode: 'closed' })
+    await renderForm('board', { roleOptions: BOARD_ROLES })
+    expect(
+      screen.getByText("New users can't sign up on this site. Only people who already have an account can join from this invite."),
+    ).toHaveClass('text-warning')
+  })
+
+  it('site admin on an invite-only site sees the muted note', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...baseConfig, registration_mode: 'invite_only' })
+    await renderForm('board', { roleOptions: BOARD_ROLES, senderIsSiteAdmin: true })
+    expect(screen.getByText(/only from invites you email/)).toHaveClass('text-fg-muted')
+    expect(screen.queryByText(/New users can't sign up/)).not.toBeInTheDocument()
+  })
+
+  it('renders nothing and reports unavailable when email is unavailable', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...baseConfig, invite_email_available: false })
+    const onAvailabilityChange = vi.fn()
+    const { container } = render(
+      <EmailInviteForm surface="board" send={send} onAvailabilityChange={onAvailabilityChange} />,
+    )
+    await waitFor(() => expect(onAvailabilityChange).toHaveBeenCalledWith(false))
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('reports availability once site-config resolves', async () => {
+    const onAvailabilityChange = vi.fn()
+    render(<EmailInviteForm surface="board" send={send} onAvailabilityChange={onAvailabilityChange} />)
+    await waitFor(() => expect(onAvailabilityChange).toHaveBeenCalledWith(true))
+    expect(onAvailabilityChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports unavailable when site-config fails to load', async () => {
+    mockGetSiteConfig.mockRejectedValue(new Error('boom'))
+    const onAvailabilityChange = vi.fn()
+    render(<EmailInviteForm surface="board" send={send} onAvailabilityChange={onAvailabilityChange} />)
+    await waitFor(() => expect(onAvailabilityChange).toHaveBeenCalledWith(false))
+  })
+
+  it('prefill handle fills the address, scrolls into view and focuses Send invite', async () => {
+    const ref = createRef<EmailInviteFormHandle>()
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    render(<EmailInviteForm ref={ref} surface="board" send={send} roleOptions={BOARD_ROLES} />)
+    await screen.findByRole('textbox', { name: 'Email address' })
+    act(() => ref.current!.prefill('new@example.com'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send invite' })).toHaveFocus())
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toHaveValue('new@example.com')
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+  })
+
+  it('Escape in an open picker closes only the picker', async () => {
+    const user = userEvent.setup()
+    const outer = vi.fn()
+    await renderForm('board', { roleOptions: BOARD_ROLES })
+    document.addEventListener('keydown', outer)
+    await user.click(screen.getByText('7 days'))
+    expect(await screen.findByText('30 days')).toBeInTheDocument()
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByText('30 days')).not.toBeInTheDocument())
+    document.removeEventListener('keydown', outer)
   })
 })

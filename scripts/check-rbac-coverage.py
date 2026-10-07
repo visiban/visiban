@@ -270,6 +270,24 @@ AGENT_REVIEWED: dict[str, str] = {
         "then grants the membership the token names. Role-ladder reasoning does "
         "not apply to a capability grant."
     ),
+    "backend/boards/views/invites.py::JoinBoardView": (
+        "Board invite-link join (#1444). Same capability model as JoinGroupView: "
+        "authorization is the token itself, resolved from the URL rather than "
+        "from a board role, so there is no role gate to find (the DEFER names "
+        "get_client_ip, which only reads the caller's address). GET is "
+        "deliberately AllowAny (token preview, throttled); POST requires "
+        "IsAuthenticated, both #1110 forced-flow gates and TokenHasScope via "
+        "get_permissions(), then grants the role the stored link names -- never "
+        "caller input, limited to member/collaborator/viewer at mint and again "
+        "at redemption, and an existing membership or higher inherited role is "
+        "never changed. Revoked, used and expired links are refused (410) under "
+        "a row lock, and a sender who lost board admin voids the link. "
+        "test_board_invites.py: test_join_unknown_404_and_anonymous_refused, "
+        "test_join_410_codes, test_creator_demoted_or_deactivated_is_refused, "
+        "test_admin_role_written_directly_is_never_honored, "
+        "test_group_admin_redeeming_viewer_invite_is_not_downgraded, "
+        "test_existing_explicit_membership_is_never_changed."
+    ),
     "backend/git_lens/views.py::LensUsageAdminView": (
         "Site-admin lens usage telemetry (#1061). permission_classes is "
         "_ADMIN_PERMISSIONS imported from accounts.admin_views -- the same list "
