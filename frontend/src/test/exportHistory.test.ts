@@ -14,6 +14,9 @@ describe('exportHistory helpers (#1499)', () => {
     expect(formatExportFormatLabel('xlsx')).toBe('XLSX')
     expect(formatExportFormatLabel('movements_')).toBe('MOVEMENTS_')
   })
+  it('handles a long movement-format suffix', () => {
+    expect(formatExportFormatLabel('movements_abcdefghij')).toBe('Movements (ABCDEFGHIJ)')
+  })
   it('detects movement exports', () => {
     expect(isMovementsExport('movements_csv')).toBe(true)
     expect(isMovementsExport('csv')).toBe(false)
