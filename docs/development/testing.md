@@ -226,6 +226,72 @@ Before committing a new spec:
 - [ ] Assertions are keyed on role + name, not class names
 - [ ] Fixtures are imported from `fixtures/board.ts`, not inlined per-test
 
+## Writing tests that catch mutations
+
+A test that only checks `status_code == 200` or `assertTrue(result)` passes when the code under it is wrong. The [mutation baseline](mutation-testing.md) shows what kills mutants instead. Four patterns account for nearly all of it. The examples are real excerpts from `backend/boards/tests/`.
+
+### 1. Exact values over truthiness
+
+Assert the full value the caller sees: the whole message, every field, the wire value of an enum. A fragment check (`assertIn`, `startswith` alone) survives a mutant that wraps the message in extra text.
+
+```python
+# test_import_export_mutation_gaps.py
+resp = self.post(_upload(b"x" * (1024 * 1024 + 1)))
+self.assert_400(resp, "File too large. Maximum size is 1 MB.")
+```
+
+### 2. Boundary tests at N-1, N, and N+1
+
+A `>=` to `>` change on a limit survives unless a test sits exactly on the limit. Test the last accepted value and the first rejected value, and assert the exact rejection message.
+
+```python
+# test_import_export_mutation_gaps.py
+def test_cards_500_accepted(self):
+    resp = self.post(_minimal(cards=self._cards(500)))
+    self.assertEqual(resp.status_code, 201, resp.content[:300])
+    self.assertEqual(Card.objects.count(), 500)
+
+def test_cards_501_rejected(self):
+    self.assert_400(
+        self.post(_minimal(cards=self._cards(501))),
+        "Import contains 501 cards, which exceeds the limit of 500.",
+    )
+```
+
+### 3. Persisted state after a reload
+
+A response can be right while the row is wrong. Re-read from the database (`refresh_from_db()` or a fresh query) and assert on what was stored, including denormalized columns that must outlive the thing they point at.
+
+```python
+# test_movement_record_mutation_gaps.py
+other_lane.delete()
+row2.refresh_from_db()
+self.assertIsNone(row2.from_swimlane)
+self.assertEqual(row2.to_swimlane_name, "Other")
+```
+
+### 4. Denied paths assert that nothing happened
+
+A rejected request must leave no row, movement, or event behind. Asserting the 4xx alone lets a mutant that writes first and rejects afterward survive. Count the rows after the denial, and check the exception detail or response body, not just the type.
+
+```python
+# test_import_export_mutation_gaps.py
+def test_nothing_is_created_by_a_rejected_import(self):
+    self.post(
+        _minimal(cards=[{"title": "B", "column": "Nope", "swimlane": "General"}])
+    )
+    self.assertEqual(Board.objects.count(), 0)
+```
+
+The same applies to movements (`CardMovement.objects.count()` unchanged) and to broadcast events (nothing was queued).
+
+### What not to do
+
+- **Do not write one test per mutant.** Write the smallest assertion that states the behavior; one test often kills several mutants. A suite shaped like the survivor list breaks on every refactor.
+- **Do not pin logger text.** Assert that a warning fires (or does not) and at what level, not its exact wording. Exception: the message is a documented contract.
+- **Do not assert on `.get()` defaults that are always overridden.** If no caller can reach the default, the mutant is equivalent. Record it in the baseline page and leave it.
+- **Do not chase equivalent mutants** (dead branches, schema constants guarded by `migration-check`). See "How to read the results" in the mutation baseline.
+
 ## CI
 
 - Backend tests run in the `backend-test` job (3 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
