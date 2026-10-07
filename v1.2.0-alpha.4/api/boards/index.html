@@ -4964,6 +4964,11 @@
 <td>When <code>true</code>, a column's header stat row shows a calm <code>WIP n/n</code> indicator (in place of the card count) once the column's card count exactly equals its <code>wip_limit</code> (default: <code>false</code>). Purely ambient — does not affect move enforcement. Admin-only when writing. See the <a href="../../features/board/#at-limit-wip-indicator">At-limit WIP indicator</a> feature doc. Added in 1.2 (#973).</td>
 </tr>
 <tr>
+<td><code>show_row_chip_field_names</code></td>
+<td>boolean</td>
+<td>When <code>true</code> (the default), pinned swimlane field chips in a row's label panel show <code>Field name: value</code>. When <code>false</code>, they show the value alone; the name stays in the chip's tooltip, for screen readers, and in the row's <code>+N</code> field list. Checkbox fields always show their name, and card-face chips are unaffected. Display only. Admin-only when writing. See <a href="../../features/custom-fields/#hiding-field-names-on-row-chips">Hiding field names on row chips</a>. Added in 1.2 (#1418).</td>
+</tr>
+<tr>
 <td><code>stale_warning_pct</code></td>
 <td>integer</td>
 <td>Warning percentage (0--100) controlling the yellow/green boundary in the analytics heatmap</td>
@@ -4982,7 +4987,7 @@
 </table>
 <h3 id="put-apiv1boardsid-patch-apiv1boardsid"><code>PUT /api/v1/boards/{id}/</code> / <code>PATCH /api/v1/boards/{id}/</code><a class="headerlink" href="#put-apiv1boardsid-patch-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Update board fields. Both <code>PUT</code> and <code>PATCH</code> are accepted — all fields are optional in either case. Requires board admin.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>, <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, <code>card_density</code>, <code>show_wip_at_limit</code>. The entire request requires board admin (or site admin) — there is no tier of fields a non-admin member can edit; a non-admin PATCHing even a single field like <code>description</code> receives <code>403 Forbidden</code>.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>, <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, <code>card_density</code>, <code>show_wip_at_limit</code>, <code>show_row_chip_field_names</code>. The entire request requires board admin (or site admin) — there is no tier of fields a non-admin member can edit; a non-admin PATCHing even a single field like <code>description</code> receives <code>403 Forbidden</code>.</p>
 <h3 id="delete-apiv1boardsid"><code>DELETE /api/v1/boards/{id}/</code><a class="headerlink" href="#delete-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Delete board. Requires board owner or site admin. Deletes every card on the board, <strong>including archived cards</strong> — see <code>archived_card_count</code> above.</p>
 <h3 id="get-apiv1boardsidfull"><code>GET /api/v1/boards/{id}/full/</code><a class="headerlink" href="#get-apiv1boardsidfull" title="Permanent link">&para;</a></h3>

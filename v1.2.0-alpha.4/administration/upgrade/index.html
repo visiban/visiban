@@ -4399,6 +4399,13 @@ is enforced by Django/DRF only, so this is a state-only <code>AlterField</code> 
 all — <code>sqlmigrate boards 0062</code> prints <code>(no-op)</code>. No existing value changes meaning or
 disappears; see <a href="../../features/notifications/">Notifications</a> if you need to tell API clients
 that switch on <code>action_type</code> to fall through to a generic rendering for an unrecognized value.</p>
+<p>Migration <code>boards/0069_board_show_row_chip_field_names</code> adds one boolean column,
+<code>show_row_chip_field_names</code>, to <code>boards</code> (#1418). It defaults to <code>True</code> with a database-level
+default as well as the Django one, so existing boards keep showing field names on swimlane row
+chips, and a not-yet-upgraded pod that creates a board during a rolling deploy (its <code>INSERT</code>
+omits the column) still succeeds. It is a metadata-only <code>ADD COLUMN</code> on PostgreSQL 11+ with no
+index to build. Board admins can turn names off per board from <strong>Board Settings → Swimlane
+fields</strong>.</p>
 <p>Migrations <code>git_lens/0001_initial</code> and <code>git_lens/0002_alter_lensconnection_column_dim</code>
 create the entirely new <code>git_lens</code> app and its <code>LensConnection</code> table for
 <a href="../../features/issue-board-lens/">Issue Board Lens</a> (experimental, off by default —
