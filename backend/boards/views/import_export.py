@@ -25,7 +25,6 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiTypes
 
-from accounts.models import User
 from groups.models import Group, GroupMembership
 
 from ..models import (
@@ -403,17 +402,29 @@ def _csv_custom_field_cell(definition, value):
     return _sanitize_csv_field(value)
 
 
-def _resolve_import_users(usernames):
-    """Map imported usernames to existing users, keyed by lowered username.
+def _is_truthy_non_string(value):
+    """True for a value the importer would mishandle: truthy and not a ``str``.
+
+    Falsy values (null, ``""``, 0, ``False``, ``[]``, ``{}``) were always coerced
+    away by ``x or ""`` or ignored by a truthiness check, so they stay accepted
+    for backward compatibility (#1451).
+    """
+    return bool(value) and not isinstance(value, str)
+
+
+def _resolve_import_users(usernames, importer, group=None):
+    """Map imported usernames to users the importer can see, keyed by lowered username.
 
     Shared by the JSON and CSV importers so both apply one assignee rule:
     match case-insensitively (imported data may differ in casing from the
-    stored username) against users on this instance. A name with no match is
-    simply absent from the map, so the card imports unassigned instead of
-    failing the whole import. Board membership is deliberately not required:
-    the board is brand new and only the importer is a member of it, so a
-    membership filter would drop every assignee.  One query for the whole
-    import avoids a lookup per card (#420).
+    stored username), but only against the pool the Trello importer uses
+    (``trello_import.visible_users``): the importer, co-members of their
+    boards and groups, and the target group. The uploader controls the file,
+    so names are matched only against that pool. A name with no match is simply absent from the map, so the card
+    imports unassigned instead of failing the whole import. Board membership
+    of the *new* board is deliberately not the filter: the board is brand new
+    and only the importer is a member of it, so that filter would drop every
+    assignee.  One query for the whole import avoids a lookup per card (#420).
     """
     names = {n.lower() for n in usernames if n}
     if not names:
@@ -421,7 +432,8 @@ def _resolve_import_users(usernames):
     from django.db.models.functions import Lower
     return {
         u.username.lower(): u
-        for u in User.objects.annotate(lower_username=Lower("username"))
+        for u in _trello.visible_users(importer, group)
+        .annotate(lower_username=Lower("username"))
         .filter(lower_username__in=names)
     }
 
@@ -558,6 +570,8 @@ class BoardImportExportMixin:
         # v2 adds archived_at per card, movement_type, movement notes, and comment created_at.
         _SUPPORTED_SCHEMA_VERSION = 2
         schema_version = data.get("schema_version", 0)
+        if isinstance(schema_version, bool) or not isinstance(schema_version, int):
+            return Response({"detail": "'schema_version' must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
         if schema_version > _SUPPORTED_SCHEMA_VERSION:
             import logging as _logging
             _logging.getLogger(__name__).warning(
@@ -601,6 +615,79 @@ class BoardImportExportMixin:
             return Response({"detail": "Missing required field: columns"}, status=status.HTTP_400_BAD_REQUEST)
         if not data.get("swimlanes"):
             return Response({"detail": "Missing required field: swimlanes"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Per-item shape checks (#1451). The loops below call ``.get()`` on every
+        # entry, so a non-object entry (``"movements": ["x"]``) would raise
+        # AttributeError and surface as a 500. Reject it here with a 400 that
+        # names the index, the same way #921 / #1185 handle the top-level lists.
+        for _list_name, _label in (("columns", "Column"), ("swimlanes", "Swimlane"), ("labels", "Label")):
+            for _i, _item in enumerate(data.get(_list_name, [])):
+                if not isinstance(_item, dict):
+                    return Response(
+                        {"detail": f"{_label} at index {_i} must be an object"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                # A missing name used to reach ``item["name"]`` inside the
+                # transaction and raise KeyError (500). An empty string has
+                # always imported, so it stays accepted.
+                if not isinstance(_item.get("name"), str):
+                    return Response(
+                        {"detail": f"{_label} at index {_i}: name must be a string"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+        for _ci, _card in enumerate(data.get("cards", [])):
+            if not isinstance(_card, dict):
+                return Response(
+                    {"detail": f"Card at index {_ci} must be an object"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            for _child, _child_label in (
+                ("comments", "comment"), ("movements", "movement"),
+                ("activities", "activity"), ("checklist", "checklist item"),
+            ):
+                _items = _card.get(_child, [])
+                if not isinstance(_items, list):
+                    return Response(
+                        {"detail": f"Card at index {_ci}: '{_child}' must be a list"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                for _ji, _entry in enumerate(_items):
+                    if not isinstance(_entry, dict):
+                        return Response(
+                            {"detail": f"Card at index {_ci}, {_child_label} at index {_ji} must be an object"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    # Names/usernames feed dict lookups and ``.lower()``: only
+                    # str (or null/absent) is safe.
+                    _str_keys = {
+                        "movements": ("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"),
+                        "activities": ("actor",),
+                    }.get(_child, ())
+                    for _k in _str_keys:
+                        if _is_truthy_non_string(_entry.get(_k)):
+                            return Response(
+                                {"detail": f"Card at index {_ci}, {_child_label} at index {_ji}: '{_k}' must be a string"},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+            if _is_truthy_non_string(_card.get("title")):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'title' must be a string"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if _is_truthy_non_string(_card.get("assignee")):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'assignee' must be a string"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Label references are looked up in a dict; a list/dict entry is
+            # unhashable and would raise TypeError there. Other hashable
+            # entries (0, False, null) never matched a label and imported fine.
+            _refs = _card.get("labels", [])
+            if not isinstance(_refs, list) or any(isinstance(_r, (list, dict)) for _r in _refs):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'labels' must be a list of names"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Validate cards have required fields
         for i, card_data in enumerate(data.get("cards", [])):
@@ -832,7 +919,7 @@ class BoardImportExportMixin:
                 for act in card_data.get("activities", []):
                     if act.get("actor"):
                         all_usernames.add(act["actor"])
-            user_map = _resolve_import_users(all_usernames)
+            user_map = _resolve_import_users(all_usernames, request.user, group)
 
             # ---------- Phase 1: build Card instances (no DB writes yet) ----------
             # We defer all per-card related objects until after bulk_create returns
@@ -1513,7 +1600,8 @@ class BoardImportExportMixin:
             # The export writes the assignee's username; resolve with the same
             # rule as the JSON importer so a CSV round trip keeps assignees (#1442).
             csv_user_map = _resolve_import_users(
-                (row.get("Assignee") or "").strip() for row in rows
+                ((row.get("Assignee") or "").strip() for row in rows),
+                request.user, group,
             ) if options["cards"] else {}
             # ``cards`` off imports structure (and labels) only (#119).
             for row in (rows if options["cards"] else []):
