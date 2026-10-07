@@ -336,6 +336,7 @@ class BoardInviteListRevokeTests(_BoardFixture, TestCase):
         self.assertEqual(set(rows[0]), {
             "id", "prefix", "name", "role", "delivery", "created_at", "created_by_username",
             "expires_at", "is_expired", "single_use", "used_at", "status", "can_register",
+            "use_count",
         })
         self.assertEqual(rows[0]["created_by_username"], "badmin")
         self.assertEqual(rows[0]["status"], "pending")
@@ -668,6 +669,8 @@ class BoardInviteRbacMatrixTests(_BoardFixture, TestCase):
             return client.get(f"/api/v1/boards/{board_pk}/invite-links/")
         if endpoint == "send":
             return client.post(f"/api/v1/boards/{board_pk}/invite-links/send/", {"email": RECIPIENT}, format="json")
+        if endpoint == "create":
+            return client.post(f"/api/v1/boards/{board_pk}/invite-links/", {"expiry_days": 7}, format="json")
         link, _ = self.make_invite()
         return client.delete(f"/api/v1/boards/{board_pk}/invite-links/{link.pk}/")
 
@@ -678,14 +681,14 @@ class BoardInviteRbacMatrixTests(_BoardFixture, TestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_allowed_set(self):
-        expected = {"list": 200, "send": 202, "revoke": 204}
+        expected = {"list": 200, "send": 202, "revoke": 204, "create": 201}
         for endpoint, code in expected.items():
             for label, user in self.allowed.items():
                 with self.subTest(endpoint=endpoint, user=label):
                     self.assertEqual(self._call(self.client_for(user), endpoint).status_code, code)
 
     def test_denied_set(self):
-        for endpoint in ("list", "send", "revoke"):
+        for endpoint in ("list", "send", "revoke", "create"):
             for label, user in self.denied.items():
                 with self.subTest(endpoint=endpoint, user=label):
                     self.assertEqual(
@@ -695,9 +698,10 @@ class BoardInviteRbacMatrixTests(_BoardFixture, TestCase):
                 self.assertEqual(self._call(APIClient(), endpoint).status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(len(mail.outbox), 0)
         self.assertFalse(BoardInviteLink.objects.filter(revoked_at__isnull=False).exists())
+        self.assertFalse(BoardInviteLink.objects.filter(delivery="link").exists())
 
     def test_nonexistent_board_is_404(self):
-        for endpoint in ("list", "send", "revoke"):
+        for endpoint in ("list", "send", "revoke", "create"):
             with self.subTest(endpoint=endpoint):
                 r = self._call(self.client_for(self.admin), endpoint, board_pk=999999)
                 self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
@@ -903,3 +907,264 @@ class DeadSenderInviteTests(_BoardFixture, TestCase):
         used, _ = self.make_invite()
         BoardInviteLink.objects.filter(pk=used.pk).update(used_at=timezone.now())
         self.assertIs(self._row(used)["can_register"], False)
+
+
+# ---------------------------------------------------------------------------
+# Shareable links (#439)
+# ---------------------------------------------------------------------------
+
+class BoardShareableLinkCreateTests(_BoardFixture, TestCase):
+
+    def setUp(self):
+        cache.clear()
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        self.make_board()
+        self.client = self.client_for(self.admin)
+
+    def tearDown(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        cache.clear()
+
+    def _create(self, client=None, **body):
+        body.setdefault("expiry_days", 7)
+        return (client or self.client).post(list_url(self.board), body, format="json")
+
+    def test_create_returns_token_once_and_mints_link(self):
+        r = self._create(role="viewer", expiry_days=30, name="  Design crew  ", single_use=True)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        body = r.json()
+        self.assertTrue(body["token"].startswith("vbnb_"))
+        self.assertEqual(body["prefix"], body["token"][:8])
+        self.assertEqual(
+            (body["role"], body["delivery"], body["status"], body["single_use"], body["use_count"], body["name"]),
+            ("viewer", "link", "pending", True, 0, "Design crew"),
+        )
+        self.assertEqual(body["created_by_username"], "badmin")
+        self.assertIs(body["can_register"], True)
+        link = BoardInviteLink.objects.get(pk=body["id"])
+        self.assertEqual(link.delivery, "link")
+        self.assertEqual(link.created_by, self.admin)
+        self.assertEqual(link.token_hash, BoardInviteLink._hash_token(body["token"]))
+        self.assertAlmostEqual(
+            (link.expires_at - timezone.now()).total_seconds(), timedelta(days=30).total_seconds(), delta=60,
+        )
+        # Never again: the list carries no token.
+        rows = self.client.get(list_url(self.board)).json()
+        self.assertEqual([row["id"] for row in rows], [link.pk])
+        self.assertNotIn("token", rows[0])
+        self.assertNotIn(body["token"], self.client.get(list_url(self.board)).content.decode())
+
+    def test_defaults_member_multi_use_unnamed(self):
+        body = self._create().json()
+        self.assertEqual((body["role"], body["single_use"], body["name"]), ("member", False, ""))
+
+    def test_expiry_days_is_required_and_must_be_1_7_or_30(self):
+        r = self.client.post(list_url(self.board), {}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("expiry_days", r.json())
+        for bad in (None, 0, 2, 31, 365, "never"):
+            with self.subTest(expiry_days=bad):
+                r = self._create(expiry_days=bad)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+                self.assertIn("expiry_days", r.json())
+        for good in (1, 7, 30):
+            with self.subTest(expiry_days=good):
+                self.assertEqual(self._create(expiry_days=good).status_code, status.HTTP_201_CREATED)
+        self.assertFalse(BoardInviteLink.objects.filter(expires_at__isnull=True).exists())
+
+    def test_admin_and_moderator_roles_refused(self):
+        for role in ("admin", "moderator", "owner", "site_admin"):
+            with self.subTest(role=role):
+                r = self._create(role=role)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("role", r.json())
+        self.assertFalse(BoardInviteLink.objects.exists())
+
+    def test_name_too_long_refused(self):
+        self.assertEqual(self._create(name="x" * 101).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cap_of_five_active_links(self):
+        for _ in range(5):
+            self.assertEqual(self._create().status_code, status.HTTP_201_CREATED)
+        r = self._create()
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            r.json(), {"detail": "Maximum of 5 active invite links reached. Revoke a link to create a new one."},
+        )
+        self.assertEqual(BoardInviteLink.objects.filter(delivery="link").count(), 5)
+
+    def test_cap_ignores_emailed_consumed_revoked_expired_and_dead_sender_links(self):
+        for _ in range(3):
+            self.make_invite(delivery="email")  # emailed: their own cap
+        consumed, _ = self.make_invite(delivery="link", single_use=True)
+        BoardInviteLink.objects.filter(pk=consumed.pk).update(used_at=timezone.now())
+        revoked, _ = self.make_invite(delivery="link", single_use=False)
+        BoardInviteLink.objects.filter(pk=revoked.pk).update(revoked_at=timezone.now())
+        self.make_invite(delivery="link", single_use=False, expires_at=timezone.now() - timedelta(minutes=1))
+        demoted = User.objects.create_user(username="demoted", password="p")
+        BoardMembership.objects.create(board=self.board, user=demoted, role="member")
+        self.make_invite(created_by=demoted, delivery="link", single_use=False)
+        for _ in range(4):
+            self.make_invite(delivery="link", single_use=False)
+        self.assertEqual(self._create().status_code, status.HTTP_201_CREATED)
+        self.assertEqual(self._create().status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_other_boards_links_do_not_count(self):
+        other = Board.objects.create(name="Other", owner=self.admin)
+        for _ in range(5):
+            BoardInviteLink.generate(
+                board=other, created_by=self.admin, expires_at=timezone.now() + timedelta(days=1),
+            )
+        self.assertEqual(self._create().status_code, status.HTTP_201_CREATED)
+
+    def test_create_query_count_is_bounded(self):
+        """Pins the cost of the cap check (``live_invite_count``): one role
+        check per distinct sender, never per row."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        for _ in range(4):
+            self.make_invite(delivery="link", single_use=False)
+        for _ in range(10):
+            self.make_invite(delivery="email")
+        cache.clear()
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._create()
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        # 14 today with one sender and 14 live invites on the board.
+        self.assertLessEqual(len(ctx.captured_queries), 15, [q["sql"] for q in ctx.captured_queries])
+
+    def test_created_event_broadcast_on_commit(self):
+        with mock.patch("boards.broadcast.broadcast_board_event") as bcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                r = self._create()
+        bcast.assert_called_once()
+        self.assertEqual(
+            bcast.call_args.args[:3], (self.board.pk, board_broadcast.EVT_INVITE_LINK_CREATED, {"id": r.json()["id"]}),
+        )
+
+    def test_refused_create_broadcasts_nothing(self):
+        with mock.patch("boards.broadcast.broadcast_board_event") as bcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self._create(expiry_days=2)
+        bcast.assert_not_called()
+
+    def test_can_register_on_link_follows_mode(self):
+        link_id = self._create().json()["id"]
+
+        def row():
+            return next(r for r in self.client.get(list_url(self.board)).json() if r["id"] == link_id)
+
+        self.assertIs(row()["can_register"], True)
+        set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
+        # A shareable link never admits a new account on an invite-only site,
+        # even from a site admin.
+        self.admin.is_site_admin = True
+        self.admin.save(update_fields=["is_site_admin"])
+        self.assertIs(row()["can_register"], False)
+        set_mode(SiteSetting.RegistrationMode.CLOSED)
+        self.assertIs(row()["can_register"], False)
+
+    def test_shareable_link_revoke_uses_board_revoke(self):
+        link_id = self._create().json()["id"]
+        r = self.client.delete(f"/api/v1/boards/{self.board.pk}/invite-links/{link_id}/")
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(BoardInviteLink.objects.get(pk=link_id).status, "revoked")
+        self.assertEqual(self._create().status_code, status.HTTP_201_CREATED)
+
+
+class BoardShareableLinkJoinTests(_BoardFixture, TestCase):
+    """Redeeming a multi-use ``delivery=link`` invite through the join endpoint."""
+
+    def setUp(self):
+        cache.clear()
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        self.make_board()
+
+    def tearDown(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        cache.clear()
+
+    def test_multi_use_link_admits_many_and_counts_uses(self):
+        link, raw = self.make_invite(delivery="link", single_use=False, role="collaborator")
+        for name in ("u1", "u2", "u3"):
+            user = User.objects.create_user(username=name, password="p")
+            r = self.client_for(user).post(join_url(raw))
+            self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+            self.assertTrue(r.json()["created"])
+            self.assertEqual(BoardMembership.objects.get(board=self.board, user=user).role, "collaborator")
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 3)
+        self.assertIsNone(link.used_at)  # only single-use links are consumed
+        self.assertEqual(link.status, "pending")
+        self.assertEqual(BoardInviteRedemption.objects.filter(invite=link).count(), 3)
+
+    def test_use_count_counts_distinct_people_not_visits(self):
+        link, raw = self.make_invite(delivery="link", single_use=False)
+        first = User.objects.create_user(username="first_v", password="p")
+        self.assertEqual(self.client_for(first).post(join_url(raw)).status_code, status.HTTP_201_CREATED)
+        # Following the link again: already has access, already redeemed.
+        self.assertEqual(self.client_for(first).post(join_url(raw)).status_code, status.HTTP_200_OK)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 1)
+        second = User.objects.create_user(username="second_v", password="p")
+        self.client_for(second).post(join_url(raw))
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 2)
+        self.assertIsNone(link.used_at)
+
+    def test_single_use_link_is_consumed_by_first_redeemer(self):
+        link, raw = self.make_invite(delivery="link", single_use=True)
+        first = User.objects.create_user(username="first", password="p")
+        second = User.objects.create_user(username="second", password="p")
+        self.assertEqual(self.client_for(first).post(join_url(raw)).status_code, status.HTTP_201_CREATED)
+        r = self.client_for(second).post(join_url(raw))
+        self.assertEqual(r.status_code, status.HTTP_410_GONE)
+        self.assertEqual(r.json()["code"], "used")
+        link.refresh_from_db()
+        self.assertIsNotNone(link.used_at)
+        self.assertEqual(link.use_count, 1)
+
+    def test_link_never_changes_explicit_membership_or_grants_group(self):
+        group_owner = User.objects.create_user(username="gowner", password="p")
+        group = Group.objects.create(name="G", owner=group_owner)
+        self.board.group = group
+        self.board.save(update_fields=["group"])
+        _link, raw = self.make_invite(delivery="link", single_use=False, role="viewer")
+        member = User.objects.create_user(username="existing", password="p")
+        BoardMembership.objects.create(board=self.board, user=member, role="member")
+        r = self.client_for(member).post(join_url(raw))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertFalse(r.json()["created"])
+        self.assertEqual(BoardMembership.objects.get(board=self.board, user=member).role, "member")
+        newcomer = User.objects.create_user(username="newcomer", password="p")
+        self.client_for(newcomer).post(join_url(raw))
+        self.assertFalse(GroupMembership.objects.filter(group=group, user=newcomer).exists())
+
+    def test_expired_and_revoked_links_are_410(self):
+        user = User.objects.create_user(username="late", password="p")
+        _l, expired_raw = self.make_invite(
+            delivery="link", single_use=False, expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        self.assertEqual(self.client_for(user).post(join_url(expired_raw)).json()["code"], "expired")
+        revoked, revoked_raw = self.make_invite(delivery="link", single_use=False)
+        BoardInviteLink.objects.filter(pk=revoked.pk).update(revoked_at=timezone.now())
+        self.assertEqual(self.client_for(user).post(join_url(revoked_raw)).json()["code"], "revoked")
+        self.assertFalse(BoardMembership.objects.filter(user=user).exists())
+
+    def test_preview_can_register_for_link_by_mode(self):
+        _l, raw = self.make_invite(delivery="link", single_use=False)
+        self.admin.is_site_admin = True
+        self.admin.save(update_fields=["is_site_admin"])
+        expected = {
+            SiteSetting.RegistrationMode.OPEN: True,
+            SiteSetting.RegistrationMode.INVITE_ONLY: False,
+            SiteSetting.RegistrationMode.CLOSED: False,
+        }
+        for mode, can in expected.items():
+            with self.subTest(mode=mode):
+                set_mode(mode)
+                r = APIClient().get(join_url(raw))
+                self.assertEqual(r.status_code, status.HTTP_200_OK)
+                self.assertIs(r.json()["can_register"], can)
+

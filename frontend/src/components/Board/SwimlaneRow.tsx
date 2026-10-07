@@ -68,6 +68,12 @@ interface Props {
    * them would render card fields on a row or vice versa.
    */
   swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
+  /**
+   * #1418 — the board's `show_row_chip_field_names` is off: pinned row chips
+   * show values without their `{name}:` label. Board-level admin setting, not
+   * a per-viewer preference. The `+N` popover always lists names.
+   */
+  hideRowChipFieldNames?: boolean;
   /** Admin-only shortcut from the `+N` popover to Board settings → Swimlane
    *  fields (#1458). BoardView omits it when there is no order to edit. */
   onEditFieldOrder?: () => void;
@@ -83,7 +89,7 @@ interface Props {
   overlayLabel?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -241,6 +247,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                     value={value}
                     variant="row-chip"
                     adminOnly={def.is_admin_only}
+                    hideName={hideRowChipFieldNames}
                     userDateFormat={userDateFormat}
                   />
                 ))}

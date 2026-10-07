@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SettingsPage from '../pages/SettingsPage'
@@ -96,6 +96,20 @@ describe('SettingsPage', () => {
   it('renders the Settings heading', () => {
     renderSettings()
     expect(screen.getByText('Settings')).toBeInTheDocument()
+  })
+
+  it('sidebar tabs carry a focus ring and mark the active tab with aria-current (#439)', () => {
+    renderSettings()
+    const nav = screen.getByRole('navigation')
+    const profile = within(nav).getByRole('button', { name: 'Profile' })
+    const behavior = within(nav).getByRole('button', { name: 'Behavior' })
+    expect(profile).toHaveAttribute('aria-current', 'page')
+    expect(behavior).not.toHaveAttribute('aria-current')
+    expect(behavior).toHaveAttribute('type', 'button')
+    expect(behavior).toHaveClass('focus:ring-2', 'focus:ring-primary-emphasis')
+    fireEvent.click(behavior)
+    expect(behavior).toHaveAttribute('aria-current', 'page')
+    expect(profile).not.toHaveAttribute('aria-current')
   })
 
   it('renders the navbar', () => {

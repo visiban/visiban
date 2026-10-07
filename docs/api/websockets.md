@@ -239,13 +239,15 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 Emitted by the [board invite](boards.md#board-invites) endpoints. Refetch
 signals only: every board subscriber receives them, including non-admins, so
 they carry just the invite id. Admin clients refetch `GET /boards/{id}/invite-links/`
-(admin-only) for the details; other clients should ignore them. Same names as
+(board admin only) for the details — a site-admin client showing every board's
+invites may instead refetch `GET /api/v1/admin/board-invite-links/`; other clients
+should ignore them. Same names as
 the group channel's invite events.
 
 | Event | Trigger | `data` shape |
 |---|---|---|
-| `invite_link.created` | A board admin emailed an invite to someone | `{ "id": <int> }` |
-| `invite_link.revoked` | An invite was revoked — by an admin, automatically because its email could not be sent, or because its sender was deactivated | `{ "id": <int> }` |
+| `invite_link.created` | A board admin emailed an invite to someone, or created a shareable invite link | `{ "id": <int> }` |
+| `invite_link.revoked` | An invite was revoked — by a board admin, by a site admin from the admin board invite list, automatically because its email could not be sent, or because its sender was deactivated | `{ "id": <int> }` |
 
 A redeemed invite publishes no event of its own: the `member.added` frame it
 causes carries the invite id when a membership was created. When redeeming

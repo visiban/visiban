@@ -95,6 +95,7 @@ Board
  ├── export_min_role (str, default viewer — minimum BoardMembership.Role required to export)
  ├── card_density (str — comfortable | standard | dense; default comfortable for new boards)
  ├── show_wip_at_limit (bool, default false — ambient "WIP n/n" indicator at exactly the limit)
+ ├── show_row_chip_field_names (bool, default true — label pinned swimlane row chips with their field name)
  ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
  ├── BoardFavorite → User  (unique per user+board)
  ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done)
@@ -208,7 +209,7 @@ Append-only record of a fixed, enumerable set of instance-wide admin actions (#1
 
 `share_token` is a UUID generated when a board admin enables public sharing. When set, the board is accessible at `/share/:token` as a read-only view with no login required. Setting the token to null disables sharing immediately. `share_token_expires_at` (nullable) optionally bounds that link: past the timestamp the share endpoint returns `410 Gone` rather than auto-rotating the token.
 
-`export_min_role` (default `viewer`) sets the minimum `BoardMembership.Role` required to export the board; owners and site admins always bypass it. `card_density` (`comfortable` / `standard` / `dense`, default `comfortable` for new boards) controls how much metadata renders on the card face. `show_wip_at_limit` is purely ambient — it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement.
+`export_min_role` (default `viewer`) sets the minimum `BoardMembership.Role` required to export the board; owners and site admins always bypass it. `card_density` (`comfortable` / `standard` / `dense`, default `comfortable` for new boards) controls how much metadata renders on the card face. `show_wip_at_limit` is purely ambient — it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement. `show_row_chip_field_names` (default `true`, with a database default too) is display-only as well: when off, pinned swimlane row chips drop their visible `{name}:` label (checkbox fields excepted); card-face chips are unaffected.
 
 ### Column
 
@@ -331,6 +332,8 @@ A multi-use link needs its own guard against repeat redemption by the same perso
 Board-scoped invites (`vbnb_` tokens, #1444) live in the boards app beside `BoardMembership`. Like the other two invite kinds, only the SHA-256 of the token is stored, and the address an emailed invite went to is not stored at all. An invite can grant only `member`, `collaborator` or `viewer` (`BoardInviteLink.GRANTABLE_ROLES`, enforced by `generate()` and again at redemption), never `admin` or the moderator flag, and never group membership.
 
 Redemption is serialized by `select_for_update()` on the invite row — in the join view and in the registration validator — and it never edits an existing explicit `BoardMembership`, because an explicit membership overrides an inherited group role rather than adding to it (see [Permissions](../features/permissions.md)). A pending invite whose sender has been deleted or is no longer a board admin is unusable: the join endpoints answer `410 revoked` and the admin list reports it as `revoked`, without writing to the row. Because nothing is written, the state is reversible — if the sender regains board admin the invite is pending and redeemable again until it expires. An admin who wants it gone for good revokes it with `DELETE /boards/{id}/invite-links/{link_id}/`, which accepts it since `revoked_at` is still NULL.
+
+`delivery` is `email` for an emailed invite (always single-use, capped at 50 pending per board) or `link` for a shareable link (#439: optionally multi-use, capped at 5 active per board, and always given an `expires_at` by the API even though the column is nullable). Both caps are checked under a `select_for_update()` on the board row. A multi-use link increments `use_count` once per redeeming user — on the first `BoardInviteRedemption` row for that user — and never stamps `used_at` — the `board_invite_link_used_at_requires_single_use` check constraint forbids it. A shareable link never authorizes a new account on an invite-only site (`board_link_registration_refusal`).
 
 `BoardInviteRedemption` records who redeemed which invite, what it granted, and whether a membership was created. It is the durable provenance record — the `member.added` change-feed row also names the invite, but the change feed is pruned after 30 days.
 

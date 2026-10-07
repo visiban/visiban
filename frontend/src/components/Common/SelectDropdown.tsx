@@ -29,6 +29,14 @@ interface Props<T extends string> {
    * value only if a higher-priority overlay can sit over an open menu.
    */
   escapePriority?: number;
+  /**
+   * #439 — accessible name for the trigger when no `<label htmlFor>` targets
+   * it and its visible text is only the selected value. Applied as
+   * `aria-label="<ariaLabel>: <selected label>"`, the same shape as
+   * `SingleSelectDropdown`'s `ariaLabel`. A disabled trigger's
+   * `disabledReason` still wins.
+   */
+  ariaLabel?: string;
 }
 
 const MIN_MENU_WIDTH = 96;
@@ -44,6 +52,7 @@ export default function SelectDropdown<T extends string>({
   className = "",
   id,
   escapePriority = 50,
+  ariaLabel,
 }: Props<T>) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -180,7 +189,9 @@ export default function SelectDropdown<T extends string>({
         role="combobox"
         disabled={disabled}
         title={disabled && disabledReason ? disabledReason : undefined}
-        aria-label={disabled && disabledReason ? disabledReason : undefined}
+        aria-label={
+          disabled && disabledReason ? disabledReason : ariaLabel ? `${ariaLabel}: ${label}` : undefined
+        }
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}

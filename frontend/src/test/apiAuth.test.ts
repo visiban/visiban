@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, getAdminBoardInviteLinks, revokeAdminBoardInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -213,6 +213,19 @@ describe('admin invite link API', () => {
     const result = await createAdminInviteLink({ expires_in_days: 7, single_use: true })
     expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/invite-links/', { expires_in_days: 7, single_use: true })
     expect(result).toEqual(created)
+  })
+
+  it('getAdminBoardInviteLinks passes status and offset as query params (#439)', async () => {
+    const page = { count: 0, offset: 0, page_size: 50, results: [] }
+    mockGet.mockResolvedValue({ data: page })
+    expect(await getAdminBoardInviteLinks({ status: 'expired', offset: 50 })).toEqual(page)
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/admin/board-invite-links/', { params: { status: 'expired', offset: 50 } })
+  })
+
+  it('revokeAdminBoardInviteLink calls DELETE /api/v1/admin/board-invite-links/:id/ (#439)', async () => {
+    mockDelete.mockResolvedValue({ data: { id: 4, status: 'revoked' } })
+    expect(await revokeAdminBoardInviteLink(4)).toEqual({ id: 4, status: 'revoked' })
+    expect(mockDelete).toHaveBeenCalledWith('/api/v1/admin/board-invite-links/4/')
   })
 
   it('revokeAdminInviteLink calls DELETE /api/admin/invite-links/:id/', async () => {

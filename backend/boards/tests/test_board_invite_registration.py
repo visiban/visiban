@@ -341,3 +341,119 @@ class BoardJoinPreviewCanRegisterTests(_Fixture, TestCase):
         self.sender.is_site_admin = False
         self.sender.save(update_fields=["is_site_admin"])
         self.assertIs(self._can_register(raw), False)
+
+
+class ShareableBoardLinkRegistrationTests(_Fixture, TestCase):
+    """Shareable (``delivery=link``) board invites × registration mode (#439).
+
+    OPEN: anyone may register, and the SPA's follow-up join redeems the link.
+    INVITE_ONLY: a shareable link never creates an account — even one minted by
+    a site admin — but existing accounts join with it. CLOSED: no new accounts.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.make_board(sender_is_site_admin=True)
+        self.client = APIClient()
+
+    def tearDown(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        cache.clear()
+
+    def _register(self, email, token):
+        return self.client.post(REGISTER_URL, {
+            "email": email, "password1": PASSWORD, "password2": PASSWORD, "invite_token": token,
+        })
+
+    def _join(self, user, raw):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client.post(f"/api/v1/boards/join/{raw}/")
+
+    def test_open_new_user_registers_then_joins_with_link(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        link, raw = self.make_invite(delivery="link", single_use=False, role="member")
+        for email in ("first@example.com", "second@example.com"):
+            r = self._register(email, raw)
+            self.assertIn(r.status_code, (201, 204), r.content)
+            user = User.objects.get(email=email)
+            joined = self._join(user, raw)
+            self.assertEqual(joined.status_code, status.HTTP_201_CREATED, joined.content)
+            self.assertTrue(joined.json()["created"])
+            self.assertEqual(BoardMembership.objects.get(board=self.board, user=user).role, "member")
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 2)
+        self.assertIsNone(link.used_at)
+
+    def test_invite_only_link_never_creates_an_account(self):
+        set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
+        for single_use in (False, True):
+            with self.subTest(single_use=single_use):
+                link, raw = self.make_invite(delivery="link", single_use=single_use)
+                email = f"nope{single_use}@example.com"
+                r = self._register(email, raw)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+                self.assertEqual(r.json(), {"invite_token": [NOT_FOR_REGISTRATION_DETAIL]})
+                self.assertFalse(User.objects.filter(email=email).exists())
+                link.refresh_from_db()
+                self.assertEqual((link.use_count, link.used_at), (0, None))
+
+    def test_invite_only_existing_account_joins_with_link(self):
+        set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
+        link, raw = self.make_invite(delivery="link", single_use=False, role="viewer")
+        existing = User.objects.create_user(username="existing", password="p", email="existing@example.com")
+        r = self._join(existing, raw)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        self.assertEqual(BoardMembership.objects.get(board=self.board, user=existing).role, "viewer")
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 1)
+
+    def test_closed_link_never_creates_an_account_but_existing_users_join(self):
+        set_mode(SiteSetting.RegistrationMode.CLOSED)
+        link, raw = self.make_invite(delivery="link", single_use=False)
+        r = self._register("closed@example.com", raw)
+        self.assertNotIn(r.status_code, (201, 204))
+        self.assertFalse(User.objects.filter(email="closed@example.com").exists())
+        existing = User.objects.create_user(username="existing2", password="p")
+        self.assertEqual(self._join(existing, raw).status_code, status.HTTP_201_CREATED)
+
+
+@override_settings(LOGIN_REDIRECT_URL="http://localhost:5173")
+class ShareableBoardLinkOAuthTests(_Fixture, TestCase):
+    """The OAuth path refuses shareable links for sign-up exactly as REST does."""
+
+    def setUp(self):
+        self.make_board(sender_is_site_admin=True)
+        self.adapter = SocialRegistrationAdapter()
+        self.factory = RequestFactory()
+
+    def tearDown(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+
+    def _request(self, token):
+        request = self.factory.get("/accounts/google/login/callback/")
+        request.session = {PENDING_INVITE_SESSION_KEY: token}
+        return request
+
+    def test_invite_only_link_redirects_not_for_registration(self):
+        set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
+        link, raw = self.make_invite(delivery="link", single_use=False)
+        request = self._request(raw)
+        with self.assertRaises(ImmediateHttpResponse) as ctx:
+            self.adapter.is_open_for_signup(request, mock.MagicMock())
+        self.assertIn("auth_error=invite_not_for_registration", ctx.exception.response.url)
+        self.assertNotIn(PENDING_INVITE_SESSION_KEY, request.session)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 0)
+
+    def test_closed_link_redirects_signup_closed(self):
+        set_mode(SiteSetting.RegistrationMode.CLOSED)
+        _link, raw = self.make_invite(delivery="link", single_use=False)
+        with self.assertRaises(ImmediateHttpResponse) as ctx:
+            self.adapter.is_open_for_signup(self._request(raw), mock.MagicMock())
+        self.assertIn("auth_error=signup_closed", ctx.exception.response.url)
+
+    def test_open_link_allows_signup(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+        _link, raw = self.make_invite(delivery="link", single_use=False)
+        self.assertTrue(self.adapter.is_open_for_signup(self._request(raw), mock.MagicMock()))

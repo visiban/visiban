@@ -2604,7 +2604,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "is_starred", "template"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         extra_kwargs = _BOARD_ENFORCEMENT_EXTRA_KWARGS
 
@@ -2900,7 +2900,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
             "cards", "labels", "members", "custom_field_definitions",
             "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
             "archived_card_count",
         ]
         read_only_fields = ["uid"]
@@ -3643,6 +3643,9 @@ class BoardInviteLinkSerializer(serializers.ModelSerializer):
         fields = [
             "id", "prefix", "name", "role", "delivery", "created_at", "created_by_username",
             "expires_at", "is_expired", "single_use", "used_at", "status", "can_register",
+            # Additive (#439): redemptions so far — the only usage signal a
+            # multi-use shareable link has, since it never stamps used_at.
+            "use_count",
         ]
         read_only_fields = fields
 
@@ -3686,3 +3689,92 @@ class BoardInviteLinkEmailSerializer(serializers.Serializer):
     expiry_days = serializers.ChoiceField(
         choices=BOARD_INVITE_EXPIRY_DAYS, required=False, default=7,
     )
+
+
+class BoardInviteLinkCreateSerializer(serializers.Serializer):
+    """Input for ``POST /boards/<id>/invite-links/`` — a shareable link (#439).
+
+    ``expiry_days`` is required and has no "never" option, unlike group links:
+    a shareable board link is a bearer credential that may be pasted anywhere,
+    so it must age out on its own. Admin and the moderator flag are not
+    grantable by invite.
+    """
+
+    name = serializers.CharField(max_length=100, required=False, default="", allow_blank=True)
+    role = serializers.ChoiceField(
+        choices=[("member", "Member"), ("collaborator", "Collaborator"), ("viewer", "Viewer")],
+        required=False,
+        default="member",
+    )
+    expiry_days = serializers.ChoiceField(choices=BOARD_INVITE_EXPIRY_DAYS)
+    single_use = serializers.BooleanField(required=False, default=False)
+
+
+class BoardInviteLinkCreateBadRequestSerializer(serializers.Serializer):
+    """Schema-only: the two shapes the create endpoint's 400 can take (#439).
+
+    The cap-reached 400 is ``{detail}``; a field-validation 400 is DRF's
+    ``{field: [errors]}`` with no ``detail``. Every property is optional, the
+    same reasoning as ``visiban.invite_email.InviteEmailBadRequestSerializer``
+    (#731): otherwise schemathesis flags the validation shape as a schema
+    violation.
+    """
+
+    detail = serializers.CharField(required=False)
+    name = serializers.ListField(child=serializers.CharField(), required=False)
+    role = serializers.ListField(child=serializers.CharField(), required=False)
+    expiry_days = serializers.ListField(child=serializers.CharField(), required=False)
+    single_use = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+class BoardInviteLinkCreateResponseSerializer(BoardInviteLinkSerializer):
+    """The create response: the list row plus the raw ``token``, returned once.
+
+    Only the SHA-256 of the token is stored, so this is the single moment the
+    link can be copied. Same ``token`` name as the group create response.
+    """
+
+    token = serializers.CharField(read_only=True)
+
+    class Meta(BoardInviteLinkSerializer.Meta):
+        fields = BoardInviteLinkSerializer.Meta.fields + ["token"]
+        read_only_fields = fields
+
+
+class AdminBoardInviteLinkSerializer(serializers.ModelSerializer):
+    """One row of the site-admin ``GET /admin/board-invite-links/`` list (#439).
+
+    Covers every board, emailed and shareable alike. Never carries the token or
+    an address. ``status`` is the stored status (the model property), so it
+    always agrees with the ORM ``?status=`` filter the rows were paginated by.
+    """
+
+    board_id = serializers.IntegerField(read_only=True)
+    board_name = serializers.CharField(source="board.name", read_only=True)
+    status = serializers.CharField(read_only=True)
+    created_by_username = serializers.SerializerMethodField(allow_null=True)
+    can_register = serializers.SerializerMethodField(
+        help_text=(
+            "Advisory: whether a new person could create an account from this "
+            "invite under the site's current registration mode, computed at read "
+            "time. Always false for an invite that is not pending."
+        ),
+    )
+
+    class Meta:
+        model = BoardInviteLink
+        fields = [
+            "id", "board_id", "board_name", "role", "delivery", "status", "prefix",
+            "expires_at", "created_at", "created_by_username", "single_use", "use_count",
+            "can_register",
+        ]
+        read_only_fields = fields
+
+    def get_created_by_username(self, obj) -> str | None:
+        return obj.created_by.username if obj.created_by_id else None
+
+    def get_can_register(self, obj) -> bool:
+        from .invites import board_link_can_register_cheap
+
+        return board_link_can_register_cheap(obj, mode=self.context.get("registration_mode"))
+

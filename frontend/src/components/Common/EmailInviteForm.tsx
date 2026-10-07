@@ -84,8 +84,9 @@ interface Props {
   /** Role choices; defaults to all four. The board passes Member/Collaborator/
    *  Viewer — an invite can never grant Admin. */
   roleOptions?: { value: Role; label: string }[];
-  /** The "or create a shareable link" divider under the form. Off on the
-   *  board until shareable board links ship (#439). */
+  /** The "or create a shareable link" divider under the form. Hosts pass
+   *  their `allowShareableLinks`, so it shows only where links can be created
+   *  (group, site, and board since #439). */
   showLinkDivider?: boolean;
   /** Fired once site-config has loaded (or failed): whether the form renders
    *  a send control at all. */
