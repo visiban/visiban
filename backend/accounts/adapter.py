@@ -525,7 +525,12 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         with ``auth_error``) outside the atomic block, so the user sees a
         normal signup-refused page instead of a 500.
         """
-        if get_registration_mode() != SiteSetting.RegistrationMode.INVITE_ONLY:
+        mode = get_registration_mode()
+        if mode == SiteSetting.RegistrationMode.CLOSED:
+            # An admin may have closed signups between the gate and here;
+            # refuse with the code the gate uses. The pending token stays put.
+            self._redirect_with_error(request, "signup_closed")
+        if mode != SiteSetting.RegistrationMode.INVITE_ONLY:
             return super().save_user(request, sociallogin, form)
 
         # Popped even on failure: a refused token must not be retried.

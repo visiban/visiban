@@ -9,15 +9,45 @@ from datetime import timedelta
 from unittest import mock
 
 from allauth.core.exceptions import ImmediateHttpResponse
+from django.core import mail
 from django.db import connection
 from django.db import connections as _conns
-from django.test import RequestFactory, TestCase, TransactionTestCase, override_settings
+from django.http import HttpResponse
+from django.test import Client, RequestFactory, TestCase, TransactionTestCase, override_settings
+from django.urls import path
 from django.utils import timezone
+
+from allauth.account.models import EmailAddress
+from allauth.socialaccount.adapter import get_adapter
+from allauth.socialaccount.internal.flows.signup import process_signup
+from allauth.socialaccount.models import SocialAccount, SocialLogin
 
 from accounts.adapter import PENDING_INVITE_SESSION_KEY, SocialRegistrationAdapter
 from accounts.models import InviteLink, SiteSetting, User
 from boards.models import Board, BoardInviteLink, BoardMembership
 from groups.models import Group, GroupInviteLink, GroupMembership
+
+def _make_sociallogin(email):
+    """An unsaved GitHub SocialLogin as allauth builds it mid-callback."""
+    req = RequestFactory().get("/accounts/github/login/callback/")
+    provider = get_adapter().get_provider(req, "github")
+    account = SocialAccount(provider="github", uid="424242", extra_data={})
+    sociallogin = SocialLogin(
+        user=User(username="", email=email),
+        account=account,
+        email_addresses=[EmailAddress(email=email, verified=True, primary=True)],
+    )
+    sociallogin.provider = provider
+    return sociallogin
+
+
+def _signup_view(request):
+    """Stand-in for the provider callback: runs allauth's real process_signup
+    (is_open_for_signup -> save_user -> complete_social_signup)."""
+    return process_signup(request, _make_sociallogin("flow@x.test")) or HttpResponse("done")
+
+
+urlpatterns = [path("test-oauth-signup/", _signup_view)]
 
 KINDS = ("site", "group", "board")
 _BASE_SAVE = SocialRegistrationAdapter.__bases__[0]
@@ -89,6 +119,32 @@ class LosingSignupRollsBackTests(_Fixture, TestCase):
                 self.assertIn("auth_error=invite_invalid", ctx.exception.response.url)
                 self.assertFalse(User.objects.filter(username=f"loser_{kind}").exists())
 
+    def test_closed_mode_at_save_user_refuses_with_gate_code(self):
+        raw = self.make_invite("site")
+        set_mode(SiteSetting.RegistrationMode.CLOSED)
+        with self.assertRaises(ImmediateHttpResponse) as ctx:
+            self.signup(raw, "closed_late")
+        self.assertIn("auth_error=signup_closed", ctx.exception.response.url)
+        self.assertFalse(User.objects.filter(username="closed_late").exists())
+        self.link.refresh_from_db()
+        self.assertIsNone(self.link.used_at)
+
+    def test_loser_signup_has_no_observable_side_effects(self):
+        """Inside save_user allauth only writes rows (user, social account,
+        EmailAddress); verification mail is sent later by complete_signup, which
+        a refused signup never reaches. Run the real allauth save_user."""
+        raw = self.make_invite("site")
+        InviteLink.objects.filter(pk=self.link.pk).update(used_at=timezone.now())
+        mail.outbox.clear()
+        users_before = User.objects.count()
+        sociallogin = _make_sociallogin("loser@x.test")
+        with self.assertRaises(ImmediateHttpResponse):
+            SocialRegistrationAdapter().save_user(self.request(raw), sociallogin, form=None)
+        self.assertEqual(mail.outbox, [])
+        self.assertEqual(User.objects.count(), users_before)
+        self.assertFalse(SocialAccount.objects.exists())
+        self.assertFalse(EmailAddress.objects.filter(email="loser@x.test").exists())
+
     def test_missing_session_token_fails_closed(self):
         with mock.patch.object(_BASE_SAVE, "save_user", side_effect=lambda *a, **k: User.objects.create_user(
             username="notoken", password="p"
@@ -149,3 +205,49 @@ class ConcurrentOAuthSignupTests(_Fixture, TransactionTestCase):
                 self.assertEqual(User.objects.filter(username__startswith=f"{kind}_racer").count(), 1)
                 self.link.refresh_from_db()
                 self.assertIsNotNone(self.link.used_at)
+
+
+@override_settings(
+    LOGIN_REDIRECT_URL="http://localhost:5173",
+    ROOT_URLCONF="accounts.tests.test_oauth_invite_concurrency",
+)
+class RefusedSignupReachesClientTests(_Fixture, TestCase):
+    """allauth's real signup flow turns a save_user refusal into a redirect.
+
+    A full provider callback needs HTTP mocks for the token and profile
+    endpoints; instead a stub view calls allauth's own ``process_signup`` (the
+    code the callback view runs) through the full middleware stack, which is
+    where ``ImmediateHttpResponse`` is converted to a response.
+    """
+
+    def setUp(self):
+        set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
+
+    def tearDown(self):
+        set_mode(SiteSetting.RegistrationMode.OPEN)
+
+    def _client(self, raw):
+        client = Client()
+        session = client.session
+        session[PENDING_INVITE_SESSION_KEY] = raw
+        session.save()
+        client.cookies["sessionid"] = session.session_key
+        return client
+
+    def test_spent_token_is_a_redirect_not_a_500(self):
+        raw = self.make_invite("site")
+        # Valid at the gate, spent by the time save_user takes the lock.
+        real = SocialRegistrationAdapter.is_open_for_signup
+
+        def gate_then_spend(adapter, request, sociallogin):
+            result = real(adapter, request, sociallogin)
+            InviteLink.objects.filter(pk=self.link.pk).update(used_at=timezone.now())
+            return result
+
+        mail.outbox.clear()
+        with mock.patch.object(SocialRegistrationAdapter, "is_open_for_signup", gate_then_spend):
+            response = self._client(raw).get("/test-oauth-signup/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("auth_error=invite_invalid", response["Location"])
+        self.assertFalse(User.objects.filter(email="flow@x.test").exists())
+        self.assertEqual(mail.outbox, [])

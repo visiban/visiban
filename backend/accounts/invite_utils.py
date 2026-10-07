@@ -77,9 +77,13 @@ def consume_invite_token(link: InviteLink, email: str | None = None) -> None:
     leaked link was used before revocation. For single-use links, additionally
     stamps ``used_at`` so the link cannot be reused.
 
-    Uses ``F()`` expressions so the increment is atomic at the database level
-    even when the caller does not hold a row lock — the OAuth ``save_user``
-    path (RegistrationAdapter) is one such caller.
+    Callers run inside the same ``transaction.atomic()`` as ``validate_invite_token``
+    and so hold its row lock (REST registration and the OAuth ``save_user``,
+    #1489). The single-use stamp is nevertheless conditional on ``used_at IS
+    NULL`` as defense in depth, matching the group and board kinds: a lost
+    race raises ``InviteTokenError("invite_invalid")`` instead of silently
+    double-consuming, and the caller's rollback discards the new account.
+    ``F()`` keeps the ``use_count`` increment atomic at the database level.
 
     When ``email`` is provided AND the link is multi-use, a row is also written
     to ``InviteLinkRedemption`` so the same email cannot redeem the same link
@@ -103,7 +107,11 @@ def consume_invite_token(link: InviteLink, email: str | None = None) -> None:
                 "invite_already_redeemed",
                 "This invite link has already been redeemed with that email address.",
             )
-    InviteLink.objects.filter(pk=link.pk).update(use_count=F("use_count") + 1)
     if link.single_use:
-        InviteLink.objects.filter(pk=link.pk).update(used_at=timezone.now())
+        stamped = InviteLink.objects.filter(pk=link.pk, used_at__isnull=True).update(
+            used_at=timezone.now()
+        )
+        if not stamped:
+            raise InviteTokenError("invite_invalid", "Invalid or expired invite link.")
+    InviteLink.objects.filter(pk=link.pk).update(use_count=F("use_count") + 1)
     link.refresh_from_db(fields=["use_count", "used_at"])
