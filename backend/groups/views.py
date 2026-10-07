@@ -103,6 +103,27 @@ def _require_group_admin(user, group):
     raise PermissionDenied(_("You must be a group admin to perform this action."))
 
 
+def sender_is_group_admin(link) -> bool:
+    """True when the invite link's creator is active and still administers the group.
+
+    Re-checked at preview and join, not only at creation (#1490): a creator who
+    was deactivated or demoted since minting the link must not keep adding
+    people through it. Mirrors ``boards.invites.sender_is_board_admin``.
+    Deactivation also revokes the link outright (``AdminUserDeactivateView``);
+    this covers demotion and any path that leaves the link active.
+    """
+    from rest_framework.exceptions import PermissionDenied
+
+    creator = link.created_by
+    if creator is None or not creator.is_active:
+        return False
+    try:
+        _require_group_admin(creator, link.group)
+    except PermissionDenied:
+        return False
+    return True
+
+
 def _require_group_member(user, group):
     """Raise PermissionDenied if user is not a member of this group or any ancestor.
 
@@ -1317,6 +1338,15 @@ class JoinGroupView(APIView):
                 {"detail": "This invite link has already been used."},
                 status=status.HTTP_410_GONE,
             )
+        # A link whose creator is gone or no longer a group admin answers like
+        # a revoked one (404) so the response does not say why (#1490). A used
+        # single-use link stays visible to its own members, as above.
+        if (
+            not (link.used_at is not None and _is_member(request.user, link.group_id))
+            and not sender_is_group_admin(link)
+        ):
+            logger.info("Invite token lookup failed: creator not admin. token=%s ip=%s", token_hint, ip)
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         if link.is_expired:
             logger.info(
                 "Invite token lookup failed: expired. token=%s ip=%s",
@@ -1388,6 +1418,18 @@ class JoinGroupView(APIView):
                     {"detail": "This invite link has already been used."},
                     status=status.HTTP_410_GONE,
                 )
+
+            # Creator no longer active / group admin: same 404 as a revoked
+            # link (#1490). Already-consumed links for existing members skip
+            # the check — joining is then a no-op that changes nothing.
+            if not (link.used_at is not None and already_member) and not sender_is_group_admin(link):
+                logger.info(
+                    "Invite token redemption failed: creator not admin. token=%s user_id=%s ip=%s outcome=failure",
+                    token_hint,
+                    request.user.pk,
+                    ip,
+                )
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
             if link.is_expired:
                 logger.info(

@@ -1252,6 +1252,9 @@ class AdminUserDeactivateView(APIView):
         # an admin with the invite list open sees it go.
         self._revoke_pending_board_invites(target, request.user)
 
+        # And their group invite links (#1490), announced on each group channel.
+        self._revoke_group_invite_links(target)
+
         logger.info(
             "user.deactivated pk=%d deactivated_by=%d transfers=%s",
             target.pk, request.user.pk,
@@ -1259,6 +1262,36 @@ class AdminUserDeactivateView(APIView):
         )
         return Response(AdminUserSerializer(target).data)
 
+
+    @staticmethod
+    def _revoke_group_invite_links(target):
+        from django.db import transaction as _transaction
+
+        from groups import broadcast as _group_broadcast
+        from groups.models import GroupInviteLink
+
+        with _transaction.atomic():
+            active = list(
+                GroupInviteLink.objects.select_for_update().filter(
+                    created_by=target, is_active=True,
+                ).values_list("pk", "group_id")
+            )
+            if not active:
+                return
+            GroupInviteLink.objects.filter(pk__in=[pk for pk, _ in active]).update(
+                is_active=False,
+            )
+
+            # Deferred so a rolled-back deactivation never announces a
+            # revocation that did not happen. Bounded: a creator holds a
+            # capped number of active links per group.
+            def _announce():
+                for link_id, group_id in active:
+                    _group_broadcast.broadcast_group_event(
+                        group_id, _group_broadcast.EVT_INVITE_LINK_REVOKED, {"id": link_id},
+                    )
+
+            _transaction.on_commit(_announce)
 
     @staticmethod
     def _revoke_pending_board_invites(target, actor):
