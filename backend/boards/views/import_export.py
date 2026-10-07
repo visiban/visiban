@@ -402,6 +402,16 @@ def _csv_custom_field_cell(definition, value):
     return _sanitize_csv_field(value)
 
 
+def _is_truthy_non_string(value):
+    """True for a value the importer would mishandle: truthy and not a ``str``.
+
+    Falsy values (null, ``""``, 0, ``False``, ``[]``, ``{}``) were always coerced
+    away by ``x or ""`` or ignored by a truthiness check, so they stay accepted
+    for backward compatibility (#1451).
+    """
+    return bool(value) and not isinstance(value, str)
+
+
 def _resolve_import_users(usernames, importer, group=None):
     """Map imported usernames to users the importer can see, keyed by lowered username.
 
@@ -560,6 +570,8 @@ class BoardImportExportMixin:
         # v2 adds archived_at per card, movement_type, movement notes, and comment created_at.
         _SUPPORTED_SCHEMA_VERSION = 2
         schema_version = data.get("schema_version", 0)
+        if isinstance(schema_version, bool) or not isinstance(schema_version, int):
+            return Response({"detail": "'schema_version' must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
         if schema_version > _SUPPORTED_SCHEMA_VERSION:
             import logging as _logging
             _logging.getLogger(__name__).warning(
@@ -603,6 +615,79 @@ class BoardImportExportMixin:
             return Response({"detail": "Missing required field: columns"}, status=status.HTTP_400_BAD_REQUEST)
         if not data.get("swimlanes"):
             return Response({"detail": "Missing required field: swimlanes"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Per-item shape checks (#1451). The loops below call ``.get()`` on every
+        # entry, so a non-object entry (``"movements": ["x"]``) would raise
+        # AttributeError and surface as a 500. Reject it here with a 400 that
+        # names the index, the same way #921 / #1185 handle the top-level lists.
+        for _list_name, _label in (("columns", "Column"), ("swimlanes", "Swimlane"), ("labels", "Label")):
+            for _i, _item in enumerate(data.get(_list_name, [])):
+                if not isinstance(_item, dict):
+                    return Response(
+                        {"detail": f"{_label} at index {_i} must be an object"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                # A missing name used to reach ``item["name"]`` inside the
+                # transaction and raise KeyError (500). An empty string has
+                # always imported, so it stays accepted.
+                if not isinstance(_item.get("name"), str):
+                    return Response(
+                        {"detail": f"{_label} at index {_i}: name must be a string"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+        for _ci, _card in enumerate(data.get("cards", [])):
+            if not isinstance(_card, dict):
+                return Response(
+                    {"detail": f"Card at index {_ci} must be an object"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            for _child, _child_label in (
+                ("comments", "comment"), ("movements", "movement"),
+                ("activities", "activity"), ("checklist", "checklist item"),
+            ):
+                _items = _card.get(_child, [])
+                if not isinstance(_items, list):
+                    return Response(
+                        {"detail": f"Card at index {_ci}: '{_child}' must be a list"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                for _ji, _entry in enumerate(_items):
+                    if not isinstance(_entry, dict):
+                        return Response(
+                            {"detail": f"Card at index {_ci}, {_child_label} at index {_ji} must be an object"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    # Names/usernames feed dict lookups and ``.lower()``: only
+                    # str (or null/absent) is safe.
+                    _str_keys = {
+                        "movements": ("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"),
+                        "activities": ("actor",),
+                    }.get(_child, ())
+                    for _k in _str_keys:
+                        if _is_truthy_non_string(_entry.get(_k)):
+                            return Response(
+                                {"detail": f"Card at index {_ci}, {_child_label} at index {_ji}: '{_k}' must be a string"},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+            if _is_truthy_non_string(_card.get("title")):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'title' must be a string"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if _is_truthy_non_string(_card.get("assignee")):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'assignee' must be a string"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Label references are looked up in a dict; a list/dict entry is
+            # unhashable and would raise TypeError there. Other hashable
+            # entries (0, False, null) never matched a label and imported fine.
+            _refs = _card.get("labels", [])
+            if not isinstance(_refs, list) or any(isinstance(_r, (list, dict)) for _r in _refs):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'labels' must be a list of names"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Validate cards have required fields
         for i, card_data in enumerate(data.get("cards", [])):
