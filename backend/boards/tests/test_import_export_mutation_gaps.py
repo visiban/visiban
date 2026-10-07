@@ -61,9 +61,19 @@ from boards.views.import_export import (
 )
 from groups.models import Group, GroupMembership
 
+
 IMPORT_URL = "/api/v1/boards/import/"
 TRELLO_URL = "/api/v1/boards/import/trello/"
 Role = BoardMembership.Role
+
+
+def _make_visible(importer, *others):
+    """Put ``others`` on a board with ``importer`` so the importer can see them (#1434)."""
+    board = Board.objects.create(name="Shared", owner=importer)
+    for u in (importer, *others):
+        BoardMembership.objects.get_or_create(
+            board=board, user=u, defaults={"role": BoardMembership.Role.MEMBER}
+        )
 
 
 def _upload(data, name="board.json", content_type=None):
@@ -790,6 +800,7 @@ class ImportJsonDefaultsTests(ImportBase):
 
     def test_assignee_resolution_is_case_insensitive_and_unknown_is_none(self):
         other = User.objects.create_user(username="MixedCase", password="x")
+        _make_visible(self.user, other)
         self.post(
             _minimal(
                 cards=[_card("a", assignee="mixedcase"), _card("b", assignee="ghost")]
@@ -894,6 +905,7 @@ class ImportJsonDefaultsTests(ImportBase):
 
     def test_movement_import_resolution_and_defaults(self):
         mover = User.objects.create_user(username="Mover", password="x")
+        _make_visible(self.user, mover)
         self.post(
             _minimal(
                 cards=[
@@ -962,6 +974,7 @@ class ImportJsonDefaultsTests(ImportBase):
 
     def test_activity_import_skips_unknown_types_and_falls_back_to_importer(self):
         actor = User.objects.create_user(username="Actor", password="x")
+        _make_visible(self.user, actor)
         self.post(
             _minimal(
                 cards=[
