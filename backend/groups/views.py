@@ -21,7 +21,9 @@ from rest_framework.views import APIView
 from visiban.invite_email import InviteEmailBadRequestSerializer, InviteEmailErrorSerializer
 from . import broadcast as _group_broadcast
 from .invite_registration import link_can_register
-from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
+from .models import (
+    GROUP_PARENT_CHAIN, Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink,
+)
 from .serializers import (
     GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer,
     GroupInviteLinkSerializer, GroupInviteLinkCreateSerializer, GroupInviteLinkEmailSerializer,
@@ -156,6 +158,78 @@ def _require_group_member(user, group):
     ).exists():
         return
     raise PermissionDenied(_("You must be a group member to perform this action."))
+
+
+def _revoke_lapsed_admin_invite_links(user, group):
+    """Revoke ``user``'s unused invite links in ``group``'s subtree they can no longer admin (#1510).
+
+    Called after the user's membership in ``group`` was removed or demoted.
+    The join/preview recheck (``sender_is_group_admin``) already refuses such a
+    link, but it would otherwise stay ``is_active`` — shown as active to other
+    admins and counted toward the 5-active-link cap. Descendant groups are
+    included because admin rights are inherited down the tree; a link is kept
+    when the user still administers its group by another path (a direct admin
+    row there or on another ancestor).
+
+    Must run inside the caller's ``transaction.atomic()``; the
+    ``invite_link.revoked`` broadcasts are deferred to ``on_commit``.
+    """
+    from .models import _GROUP_TRAVERSAL_MAX_DEPTH
+
+    subtree_ids = {group.pk}
+    frontier = {group.pk}
+    for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+        if not frontier:
+            break
+        children = set(
+            Group.objects.filter(parent__in=frontier)
+            .exclude(id__in=subtree_ids)
+            .values_list("id", flat=True)
+        )
+        subtree_ids |= children
+        frontier = children
+
+    links = list(
+        GroupInviteLink.objects.select_for_update(of=("self",)).select_related(
+            GROUP_PARENT_CHAIN,
+        ).filter(
+            created_by=user, group_id__in=subtree_ids,
+            is_active=True, used_at__isnull=True,
+        )
+    )
+    if not links:
+        return
+    if user.is_active and getattr(user, "can_access_all_content", False):
+        return  # still passes _require_group_admin everywhere
+    admin_group_ids = set(
+        GroupMembership.objects.filter(
+            user=user, role=GroupMembership.Role.ADMIN,
+        ).values_list("group_id", flat=True)
+    )
+
+    def _still_admin(link_group):
+        node, depth = link_group, 0
+        while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
+            if node.pk in admin_group_ids:
+                return True
+            node = node.parent
+            depth += 1
+        return False
+
+    lapsed = [(lk.pk, lk.group_id) for lk in links if not (user.is_active and _still_admin(lk.group))]
+    if not lapsed:
+        return
+    # used_at__isnull=True: a consumed single-use link keeps its history (#1445).
+    GroupInviteLink.objects.filter(
+        pk__in=[pk for pk, _ in lapsed], used_at__isnull=True,
+    ).update(is_active=False)
+
+    def _announce():
+        from .broadcast import broadcast_group_event
+        for link_id, group_id in lapsed:
+            broadcast_group_event(group_id, _group_broadcast.EVT_INVITE_LINK_REVOKED, {"id": link_id})
+
+    transaction.on_commit(_announce)
 
 
 class GroupViewSet(viewsets.ModelViewSet):
@@ -444,6 +518,8 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             with transaction.atomic():
                 GroupMembership.objects.filter(group=group, user=target_user).delete()
+                # A removed admin's links must not linger as active (#1510).
+                _revoke_lapsed_admin_invite_links(target_user, group)
 
                 def _evict_stale_ws(
                     uid=removed_user_id,
@@ -517,6 +593,9 @@ class GroupViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             membership.role = role
             membership.save()
+            # A demoted admin's links must not linger as active (#1510).
+            if role != GroupMembership.Role.ADMIN:
+                _revoke_lapsed_admin_invite_links(target_user, group)
             # Pre-build the payload before registering the on_commit callback
             # so the closure carries plain data, not an ORM instance (#998).
             membership_data = GroupMembershipSerializer(membership).data
@@ -1335,7 +1414,15 @@ class JoinGroupView(APIView):
                 {"detail": "Not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if link.single_use and link.used_at is not None and not _is_member(request.user, link.group_id):
+        # Creator check first (#1510): a link whose creator is gone or no
+        # longer a group admin answers 404 whatever its used/expired state, so
+        # the status code does not leak the creator's state to a token holder.
+        # A used single-use link stays visible to its own members (#1445).
+        is_member_of_used = link.used_at is not None and _is_member(request.user, link.group_id)
+        if not is_member_of_used and not sender_is_group_admin(link):
+            logger.info("Invite token lookup failed: creator not admin. token=%s ip=%s", token_hint, ip)
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if link.single_use and link.used_at is not None and not is_member_of_used:
             logger.info(
                 "Invite token lookup failed: already used. token=%s ip=%s",
                 token_hint,
@@ -1345,15 +1432,6 @@ class JoinGroupView(APIView):
                 {"detail": "This invite link has already been used."},
                 status=status.HTTP_410_GONE,
             )
-        # A link whose creator is gone or no longer a group admin answers like
-        # a revoked one (404) so the response does not say why (#1490). A used
-        # single-use link stays visible to its own members, as above.
-        if (
-            not (link.used_at is not None and _is_member(request.user, link.group_id))
-            and not sender_is_group_admin(link)
-        ):
-            logger.info("Invite token lookup failed: creator not admin. token=%s ip=%s", token_hint, ip)
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         if link.is_expired:
             logger.info(
                 "Invite token lookup failed: expired. token=%s ip=%s",
@@ -1402,7 +1480,7 @@ class JoinGroupView(APIView):
                 # of=("self",): created_by is a nullable FK, and Postgres cannot
                 # lock the nullable side of the outer join select_related adds.
                 link = GroupInviteLink.objects.select_related(
-                    "created_by", "group",
+                    "created_by", GROUP_PARENT_CHAIN,
                 ).select_for_update(of=("self",)).get(
                     token_hash=hashed, is_active=True
                 )
@@ -1412,12 +1490,26 @@ class JoinGroupView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
+            # Creator no longer active / group admin: same 404 as a revoked
+            # link (#1490), checked before the used/expired answers so the
+            # status code does not leak the creator's state (#1510).
             # An already-used single-use invite still answers its own group's
             # members (#1445): an emailed invite that authorized registration
             # was redeemed by that registration, and the SPA's follow-up join
             # must land the new member in the group rather than on a "this
-            # link has already been used" dead end. Non-members still get 410.
+            # link has already been used" dead end. Non-members still get 410,
+            # and consumed links for existing members skip the creator check —
+            # joining is then a no-op that changes nothing.
             already_member = _is_member(request.user, link.group_id)
+            if not (link.used_at is not None and already_member) and not sender_is_group_admin(link):
+                logger.info(
+                    "Invite token redemption failed: creator not admin. token=%s user_id=%s ip=%s outcome=failure",
+                    token_hint,
+                    request.user.pk,
+                    ip,
+                )
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
             if link.single_use and link.used_at is not None and not already_member:
                 logger.info(
                     "Invite token redemption failed: already used. token=%s user_id=%s ip=%s outcome=failure",
@@ -1429,18 +1521,6 @@ class JoinGroupView(APIView):
                     {"detail": "This invite link has already been used."},
                     status=status.HTTP_410_GONE,
                 )
-
-            # Creator no longer active / group admin: same 404 as a revoked
-            # link (#1490). Already-consumed links for existing members skip
-            # the check — joining is then a no-op that changes nothing.
-            if not (link.used_at is not None and already_member) and not sender_is_group_admin(link):
-                logger.info(
-                    "Invite token redemption failed: creator not admin. token=%s user_id=%s ip=%s outcome=failure",
-                    token_hint,
-                    request.user.pk,
-                    ip,
-                )
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
             if link.is_expired:
                 logger.info(

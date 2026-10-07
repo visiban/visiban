@@ -393,6 +393,8 @@ Update a user's account flags. Site admin only.
 | `has_completed_tour` | boolean | Reset (`false`) to re-show the onboarding tour to this user on next login |
 | `must_change_password` | boolean | `true` forces a password reset on next login |
 
+*(1.2+)* Setting `is_active: false` revokes the user's pending invite links exactly like [`POST /api/v1/admin/users/{id}/deactivate/`](#post-apiv1adminusersiddeactivate): unused site invite links, pending board invites and active, unused group invite links (each affected board and group receives an `invite_link.revoked` event). Consumed single-use links are left as they are. Previously the links stayed active in the database and in the admin link lists, though they were already refused at preview and join.
+
 **Request**
 ```json
 { "is_active": false }

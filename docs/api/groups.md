@@ -80,8 +80,10 @@ Change a member's role. Requires group admin. Cannot modify a site admin.
 
 Valid roles: `admin`, `member`, `collaborator`, `viewer`
 
+*(1.2+)* Changing a member's role away from `admin` revokes their unused [invite links](#invite-links) in this group and its subgroups that they can no longer administer (for example through another admin membership on an ancestor), and each revoked link emits `invite_link.revoked` on its group's channel. This frees their slots under the 5-active-link cap.
+
 ### `DELETE /api/v1/groups/{id}/members/{user_id}/`
-Remove a member. Requires group admin. Cannot remove a site admin.
+Remove a member. Requires group admin. Cannot remove a site admin. *(1.2+)* The removed member's unused invite links in this group and its subgroups that they can no longer administer are revoked, with an `invite_link.revoked` event per link.
 
 ---
 
@@ -344,7 +346,7 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 
 `can_register` is present only on `200` responses, never on `404` / `410` bodies. A member previewing their own consumed single-use invite (below) gets `can_register: false` in `"invite_only"` mode. Site invite links (`vbnl_`) are out of scope: they are not group tokens, and the SPA routes them to the registration form without calling this endpoint.
 
-**Errors:** `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed)
+**Errors:** `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, and regardless of whether the link is also expired or consumed), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed)
 
 *(1.2+)* An authenticated caller who is already a member of the link's group gets `200` with the preview for a consumed single-use link instead of `410`. This is the path a newcomer takes after an emailed invite created their account (see [`POST /api/v1/auth/registration/`](authentication.md)); everyone else still gets `410`.
 
@@ -376,6 +378,6 @@ Join the group with the role configured on the invite link. Requires authenticat
 
 **Note:** Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.
 
-**Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed by someone who is not a member)
+**Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, and regardless of whether the link is also expired or consumed), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed by someone who is not a member)
 
 *(1.2+)* If the caller is already a member of the link's group, a consumed single-use link returns `200` with the group, the same as any repeat join; the link is not re-stamped and the caller's role is unchanged.
