@@ -2020,7 +2020,10 @@ class BoardImportExportMixin:
         s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
         for card in cards:
             movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
-            label_names = ", ".join(s(lb.name) for lb in card.labels.all())
+            # Sorted in Python, not .order_by(): labels are prefetched, and Label has no
+            # Meta.ordering, so the DB returns them in arbitrary order. A stable
+            # order keeps exports diffable and the CSV shape tests deterministic.
+            label_names = ", ".join(s(n) for n in sorted(lb.name for lb in card.labels.all()))
             last_moved = movements[-1].moved_at.isoformat() if movements else ""
             history_parts = []
             for mv in movements:
