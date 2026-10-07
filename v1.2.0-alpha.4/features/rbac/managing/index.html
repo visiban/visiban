@@ -1724,6 +1724,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Board membership">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inviting-someone-by-email" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inviting someone by email
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3745,6 +3762,14 @@
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="err">DELETE /api/v1/boards/{board_id}/members/42/</span>
 </code></pre></div>
 <p>Valid board roles: <code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code></p>
+<h3 id="inviting-someone-by-email">Inviting someone by email<a class="headerlink" href="#inviting-someone-by-email" title="Permanent link">&para;</a></h3>
+<p><em>(New in 1.2)</em> To add someone who isn't on Visiban yet — or whose account you can't find — open <strong>Board Settings → Members</strong>. Under <strong>Invite by email</strong>, enter their address, pick a <strong>Role</strong> (Member, Collaborator or Viewer — never Admin) and when the invite <strong>Expires</strong> (1, 7 or 30 days), and select <strong>Send invite</strong>. If a search in <strong>Add member</strong> finds no one for an email address, <strong>Invite by email</strong> next to "No results" fills the form for you.</p>
+<p>Visiban emails a single-use link. Following it shows what the invite grants; the recipient signs in (or creates an account, where the site allows it) and lands on the board with a "You've joined" notice. <strong>Pending invites</strong> lists what you have sent, newest first, with who sent each and when — Visiban doesn't store the address an invite went to, so tell them apart by date. Revoke an invite you no longer want; used, expired and revoked invites sit under <strong>Show past invites</strong>. An <strong>Existing accounts only</strong> tag means a new person couldn't create an account from that invite on this site right now (see <a href="../../../administration/site-admins/">Site admins</a>).</p>
+<div class="admonition note">
+<p class="admonition-title">An explicit board role replaces a group role</p>
+<p>A direct board membership <strong>overrides</strong> the role someone inherits from the board's group — it does not add to it. That is why redeeming an invite never touches an existing board membership and never lowers anyone: a group admin who follows a viewer invite stays an admin. Invites only create a membership for someone with no access, or whose inherited role is lower than the invite's. The same trap applies when you set roles by hand: giving a group admin a direct <strong>Viewer</strong> role on a board makes them a viewer there.</p>
+</div>
+<p>A board invite never adds the person to the board's group. The emailed invite needs working outbound email (<code>INVITE_EMAIL_ENABLED</code>); the API is documented in <a href="../../../api/boards/#board-invites">Boards API — Board invites</a>.</p>
 <h2 id="group-membership">Group membership<a class="headerlink" href="#group-membership" title="Permanent link">&para;</a></h2>
 <p>Group admins can change or remove members from the group detail page or the API.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="err">PATCH /api/v1/groups/{group_id}/members/42/</span>

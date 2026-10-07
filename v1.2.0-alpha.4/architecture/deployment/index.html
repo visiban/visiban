@@ -4425,9 +4425,9 @@ used the Bitnami Valkey subchart, also needs
 <td>Tighter limit to prevent username enumeration</td>
 </tr>
 <tr>
-<td>Invite link redemption (<code>/api/v1/groups/.../join/</code>)</td>
-<td>10 / hour</td>
-<td>Low ceiling to prevent invite token brute-force scanning</td>
+<td>Invite link redemption (<code>/api/v1/groups/join/.../</code> and, 1.2+, <code>/api/v1/boards/join/.../</code>)</td>
+<td>10 / hour per IP</td>
+<td>Low ceiling to prevent invite token brute-force scanning. One <code>join_group</code> bucket shared by group and board join requests, preview and redeem alike</td>
 </tr>
 </tbody>
 </table>

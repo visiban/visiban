@@ -4825,7 +4825,7 @@
 </tr>
 <tr>
 <td><code>invite_invalid</code></td>
-<td>The invite token is malformed or unknown.</td>
+<td>The invite token is malformed or unknown — or <em>(1.2+)</em> a group or board invite that is used, revoked, or whose sender can no longer admit new accounts.</td>
 </tr>
 <tr>
 <td><code>invite_expired</code></td>
@@ -4833,7 +4833,7 @@
 </tr>
 <tr>
 <td><code>invite_not_for_registration</code></td>
-<td><strong>Added in 1.2</strong> (#1445) — in invite-only mode, the invite token is a group invite that cannot create accounts: a shareable group link, or an emailed invite whose sender is not a site admin. Only site invites and emailed single-use group invites sent by a site admin can create an account.</td>
+<td><strong>Added in 1.2</strong> (#1445, #1444) — in invite-only mode, the invite token is a group or board invite that cannot create accounts: a shareable group link, or an emailed group or board invite whose sender is not a site admin. Only site invites and emailed single-use group or board invites sent by a site admin can create an account.</td>
 </tr>
 <tr>
 <td><code>signup_closed</code></td>
@@ -5532,6 +5532,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <h4 id="invite-only-mode">Invite-only mode<a class="headerlink" href="#invite-only-mode" title="Permanent link">&para;</a></h4>
 <p>When <code>registration_mode</code> is <code>"invite_only"</code>, an additional <code>invite_token</code> field is required. Invite tokens are created by site admins via <code>POST /api/v1/admin/invite-links/</code> and distributed out-of-band, or emailed by a site admin from a group's invite panel (see below).</p>
 <p><em>(1.2+)</em> <code>invite_token</code> may also be an <strong>emailed group invite</strong> (a <code>vbng_</code> token minted by <code>POST /api/v1/groups/{id}/invite-links/send/</code>, i.e. <code>single_use: true</code> and <code>delivery: "email"</code>) <strong>sent by a site admin</strong>. It is accepted only while its sender is still a site admin, still active and an admin of the group (or an ancestor), and while email invites are enabled (<code>INVITE_EMAIL_ENABLED</code>, and not a demo instance). A sender who is active but not (or no longer) a site admin gets <code>invite_not_for_registration</code>; a deactivated sender, one who lost group-admin rights, or email invites being off gets <code>invite_invalid</code>. The new account is then added to that group with the invite's role and the invite is consumed, in the same transaction as the account creation — a failed registration leaves the invite unused, and two registrations racing on one invite create one account. Any other group link (<code>delivery: "link"</code>, single-use or not), and an emailed invite from a sender who is not a site admin, is refused. In <code>"open"</code> mode the field is ignored, as before; in <code>"closed"</code> mode no token creates an account.</p>
+<p><em>(1.2+)</em> An <strong>emailed board invite</strong> (a <code>vbnb_</code> token from <code>POST /api/v1/boards/{id}/invite-links/send/</code>) follows exactly the same rule: accepted only when it is single-use, emailed, unused and unexpired, email invites are enabled, and its sender is still an active site admin and still an admin of the board. The new account becomes a board member with the invite's role, in the same transaction. A board admin who is not a site admin can invite only people who already have an account (<code>invite_not_for_registration</code>). OAuth sign-up accepts <code>vbnb_</code> the same way (<code>?invite_token=</code> on the provider login URL).</p>
 <p><strong>Request body</strong></p>
 <table>
 <thead>
@@ -5592,7 +5593,7 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td><code>invite_token</code> does not match any known link, has been revoked, or has already been used (single-use links) — all three return the identical <code>code: "invite_invalid"</code>, <code>"Invalid or expired invite link."</code>, by design, so a caller cannot use the error to distinguish a wrong token from a spent one</td>
+<td><code>invite_token</code> does not match any known site, group (<code>vbng_</code>) or board (<code>vbnb_</code>) invite, has been revoked, or has already been used (single-use links) — all three return the identical <code>code: "invite_invalid"</code>, <code>"Invalid or expired invite link."</code>, by design, so a caller cannot use the error to distinguish a wrong token from a spent one</td>
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>
@@ -5600,7 +5601,7 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 <tr>
 <td><code>400 Bad Request</code> (1.2+)</td>
-<td><code>invite_token</code> is a group invite that cannot create accounts (a shareable link, or emailed by someone who is not a site admin): <code>{"invite_token": ["This invite link can't be used to create an account on this site. Ask a site admin for an invite."]}</code>. The OAuth equivalent redirects with <code>auth_error=invite_not_for_registration</code></td>
+<td><code>invite_token</code> is a group or board invite that cannot create accounts — a shareable group link, or an emailed group or board invite whose sender is not a site admin. Only site invites and emailed single-use group or board invites sent by a site admin can create an account: <code>{"invite_token": ["This invite link can't be used to create an account on this site. Ask a site admin for an invite."]}</code>. The OAuth equivalent redirects with <code>auth_error=invite_not_for_registration</code></td>
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>

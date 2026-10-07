@@ -2358,6 +2358,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#board-invites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board invites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Board invites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidinvite-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/invite-links/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidinvite-linkssend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/invite-links/send/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidinvite-linkslink_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/invite-links/{link_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsjointoken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/join/{token}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsjointoken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/join/{token}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#board-sharing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6527,23 +6599,228 @@ Visiban are already in stored form and round-trip unchanged.</p>
 <h3 id="delete-apiv1boardsidmembersuser_id"><code>DELETE /api/v1/boards/{id}/members/{user_id}/</code><a class="headerlink" href="#delete-apiv1boardsidmembersuser_id" title="Permanent link">&para;</a></h3>
 <p>Remove a member. Requires board admin. Cannot remove a site admin.</p>
 <hr />
+<h2 id="board-invites">Board invites<a class="headerlink" href="#board-invites" title="Permanent link">&para;</a></h2>
+<p><em>(New in 1.2)</em> A board admin can email a <strong>single-use invite</strong> to someone who may not have an account yet. The invite token (<code>vbnb_</code> prefix) travels only in the email and is never returned by the API; only its first 8 characters (<code>prefix</code>) are shown. The address it was sent to is not stored. Invites grant <code>member</code>, <code>collaborator</code> or <code>viewer</code> — never <code>admin</code>, and never the moderator flag. A board invite never adds anyone to the board's group.</p>
+<h3 id="get-apiv1boardsidinvite-links"><code>GET /api/v1/boards/{id}/invite-links/</code><a class="headerlink" href="#get-apiv1boardsidinvite-links" title="Permanent link">&para;</a></h3>
+<p>List the board's invites, newest first, as a bare array (not paginated). Requires board admin (an admin of the board, the owner, an admin of the board's group, or a site admin with all-content access). Returns <strong>every pending invite plus at most the 50 most recent past ones</strong> (used, expired or revoked); older history is not returned. A caller with no access to the board gets <code>403</code>, a board that does not exist <code>404</code>, an unauthenticated request <code>401</code> — the same as the members endpoints.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code>, <code>prefix</code>, <code>name</code></td>
+<td>Identity. <code>name</code> is empty for emailed invites.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td><code>member</code>, <code>collaborator</code> or <code>viewer</code>.</td>
+</tr>
+<tr>
+<td><code>delivery</code></td>
+<td><code>email</code> for emailed invites (<code>link</code> is reserved for shareable links, not yet available).</td>
+</tr>
+<tr>
+<td><code>created_at</code>, <code>created_by_username</code></td>
+<td>When and by whom it was sent. <code>created_by_username</code> is <code>null</code> when the sender's account was deleted.</td>
+</tr>
+<tr>
+<td><code>expires_at</code>, <code>is_expired</code>, <code>single_use</code>, <code>used_at</code></td>
+<td>Lifetime.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>pending</code>, <code>used</code>, <code>expired</code> or <code>revoked</code> (precedence revoked &gt; used &gt; expired). A pending invite whose sender's account was deleted, or who is no longer an admin of the board, is reported as <code>revoked</code> — the join endpoints refuse it the same way — although nobody revoked it explicitly, and it stops counting toward the 50-pending cap. This is <strong>not written</strong> to the invite: if the sender regains board admin, the invite reads as <code>pending</code> and can be redeemed again (until it expires). To make it permanent, revoke it with <code>DELETE</code> below, which accepts it because it was never actually revoked.</td>
+</tr>
+<tr>
+<td><code>can_register</code></td>
+<td>Advisory: whether a new person could create an account from this invite under the site's <strong>current</strong> registration mode — computed when you read it, so it changes if the mode or the sender's site-admin status changes. Always <code>false</code> when <code>status</code> is not <code>pending</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example response</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">[</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vbnb_3f9"</span><span class="p">,</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"collaborator"</span><span class="p">,</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="nt">"delivery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"email"</span><span class="p">,</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-06T14:02:11.512Z"</span><span class="p">,</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="nt">"created_by_username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="nt">"expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-13T14:02:11.498Z"</span><span class="p">,</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="nt">"is_expired"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">    </span><span class="nt">"single_use"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">    </span><span class="nt">"used_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">    </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pending"</span><span class="p">,</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">    </span><span class="nt">"can_register"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">37</span><span class="p">,</span>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="w">    </span><span class="nt">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vbnb_c07"</span><span class="p">,</span>
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="w">    </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"viewer"</span><span class="p">,</span>
+<a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="w">    </span><span class="nt">"delivery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"email"</span><span class="p">,</span>
+<a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-02T09:15:40.003Z"</span><span class="p">,</span>
+<a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a><span class="w">    </span><span class="nt">"created_by_username"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a><span class="w">    </span><span class="nt">"expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-01T09:15:39.990Z"</span><span class="p">,</span>
+<a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a><span class="w">    </span><span class="nt">"is_expired"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a><span class="w">    </span><span class="nt">"single_use"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a><span class="w">    </span><span class="nt">"used_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a><span class="w">    </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"revoked"</span><span class="p">,</span>
+<a id="__codelineno-13-30" name="__codelineno-13-30" href="#__codelineno-13-30"></a><span class="w">    </span><span class="nt">"can_register"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-13-31" name="__codelineno-13-31" href="#__codelineno-13-31"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-13-32" name="__codelineno-13-32" href="#__codelineno-13-32"></a><span class="p">]</span>
+</code></pre></div>
+<p>The second invite was sent by an account that has since been deleted, so it lists as <code>revoked</code> even though <code>DELETE</code> was never called.</p>
+<h3 id="post-apiv1boardsidinvite-linkssend"><code>POST /api/v1/boards/{id}/invite-links/send/</code><a class="headerlink" href="#post-apiv1boardsidinvite-linkssend" title="Permanent link">&para;</a></h3>
+<p>Email one invite. Requires board admin. Same contract as the <a href="../groups/">group send endpoint</a>: the response is identical whether the address belongs to a member, another user, or nobody, and the email is always sent.</p>
+<p><strong>Request</strong> <code>{ "email": "sam@example.com", "role": "collaborator", "expiry_days": 30 }</code></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>email</code></td>
+<td>✓</td>
+<td>One address. Whitespace, display names and lists are refused.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td></td>
+<td><code>member</code> (default), <code>collaborator</code> or <code>viewer</code>. <code>admin</code> is refused with <code>400</code>.</td>
+</tr>
+<tr>
+<td><code>expiry_days</code></td>
+<td></td>
+<td><code>1</code>, <code>7</code> (default) or <code>30</code>. Any other value is refused with <code>400</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Responses</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>202 Accepted</code></td>
+<td><code>{"detail": "Invite sent", "sent_to": "...", "delivery": "console"?}</code></td>
+<td>Sent. <code>delivery: "console"</code> only in development, when mail is printed to the server console.</td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>field errors, or <code>{"code": "invite_email_cap_reached", "detail": "..."}</code></td>
+<td>Invalid input, or the board already has 50 pending emailed invites (invites from a deleted sender or one who is no longer a board admin do not count).</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"code": "invite_email_disabled", ...}</code> or <code>{"detail": "..."}</code></td>
+<td>Email invites are switched off (<code>INVITE_EMAIL_ENABLED=false</code>, or a demo instance), or the caller is not a board admin.</td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td><code>Retry-After</code> header</td>
+<td>A send budget is spent: per sender (<code>invite_email_user</code>, 10/hour), per board (<code>invite_email_board</code>, 30/day, shared by every admin of the board) and instance-wide (<code>invite_email_global</code>, 200/day, shared with group invites). Refused requests spend no budget.</td>
+</tr>
+<tr>
+<td><code>502 Bad Gateway</code></td>
+<td><code>{"code": "&lt;smtp code&gt;", "detail": "..."}</code></td>
+<td>The mail server refused the message. The invite is revoked automatically and the budget refunded, so you can retry once mail works.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="delete-apiv1boardsidinvite-linkslink_id"><code>DELETE /api/v1/boards/{id}/invite-links/{link_id}/</code><a class="headerlink" href="#delete-apiv1boardsidinvite-linkslink_id" title="Permanent link">&para;</a></h3>
+<p>Revoke a pending invite. Requires board admin; any board admin may revoke any admin's invite. Returns <code>204</code>. A used invite cannot be revoked (<code>400</code>); an unknown or already-revoked invite is <code>404</code>.</p>
+<p>Sending and revoking publish <code>invite_link.created</code> / <code>invite_link.revoked</code> on the board's <a href="../websockets/#invite-events-since-12">WebSocket channel</a> with just <code>{ "id": &lt;int&gt; }</code>.</p>
+<h3 id="get-apiv1boardsjointoken"><code>GET /api/v1/boards/join/{token}/</code><a class="headerlink" href="#get-apiv1boardsjointoken" title="Permanent link">&para;</a></h3>
+<p>Public preview of an invite — no authentication. Returns <code>{ "board_id", "board_name", "role", "can_register" }</code>.</p>
+<p>The <strong>board name is disclosed to anyone holding the token</strong>. That is deliberate and matches the group join preview (#801): the token is a 160-bit capability, so whoever holds it may see what it grants before signing in. <code>can_register</code> is the same advisory bit as on the list.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>404 Not Found</code></td>
+<td><code>{"detail": "Not found."}</code></td>
+<td>No such token.</td>
+</tr>
+<tr>
+<td><code>410 Gone</code></td>
+<td><code>{"code": "used" \| "expired" \| "revoked", "detail": "..."}</code></td>
+<td>A known invite that can no longer be used. <code>revoked</code> also covers an invite whose sender has since been deactivated or is no longer an admin of the board. A used invite still answers <code>200</code> to someone who already has access to the board.</td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td><code>{"detail": "Request was throttled. ..."}</code>, <code>Retry-After</code> header</td>
+<td>The per-IP <code>join_group</code> budget (10/hour) is spent — shared with the group join endpoints and with <code>POST</code> below.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="post-apiv1boardsjointoken"><code>POST /api/v1/boards/join/{token}/</code><a class="headerlink" href="#post-apiv1boardsjointoken" title="Permanent link">&para;</a></h3>
+<p>Redeem an invite as the signed-in user. Returns <code>{ "board_id", "board_name", "role", "created" }</code> — <code>201</code> when a membership was created, <code>200</code> otherwise. Same <code>404</code> / <code>410</code> / <code>429</code> responses as the preview, plus:</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>No credentials.</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>The account must change its password or username first (<code>must_change_password</code> / <code>must_change_username</code>), or a personal access token lacks the <code>write</code> scope.</td>
+</tr>
+</tbody>
+</table>
+<p>What redeeming does depends on the access you already have, because an explicit board membership <strong>replaces</strong> any role you inherit from the board's group rather than adding to it:</p>
+<ul>
+<li><strong>No access</strong> → you become a board member with the invite's role (<code>created: true</code>).</li>
+<li><strong>Only a group-inherited role ranked below the invite's</strong> (for example a group viewer redeeming a member invite) → an explicit membership with the invite's role is created (<code>created: true</code>).</li>
+<li><strong>An equal or higher inherited role, an explicit board membership of any role, board ownership or all-content access</strong> → nothing changes (<code>created: false</code>). A group admin who redeems a viewer invite is <strong>not</strong> downgraded to viewer.</li>
+</ul>
+<p>A redeemed single-use invite is consumed either way. Redeeming it again as the person who already has access returns <code>200</code> with nothing changed (<code>created</code> reports whether this invite created your membership — <code>true</code> after signing up from it); anyone else gets <code>410 {"code": "used"}</code>. When a membership is created, the board's <code>member.added</code> event carries an extra <code>invite: { "id", "created_by_id" }</code> key.</p>
+<p>Both join endpoints share the per-IP <code>join_group</code> throttle (10/hour) with the <a href="../groups/">group join endpoints</a> — board and group join attempts from one address draw from one budget.</p>
+<p>Signing up with a board invite on an invite-only site is covered in <a href="../authentication/#invite-only-mode">Authentication</a>.</p>
+<hr />
 <h2 id="board-sharing">Board sharing<a class="headerlink" href="#board-sharing" title="Permanent link">&para;</a></h2>
 <h3 id="post-apiv1boardsidshare"><code>POST /api/v1/boards/{id}/share/</code><a class="headerlink" href="#post-apiv1boardsidshare" title="Permanent link">&para;</a></h3>
 <p>Generate (or regenerate) a public share token for the board. Requires board admin.</p>
 <p>If a token already exists, calling this endpoint immediately invalidates the previous one and returns a new UUID. Any existing share links stop working as soon as the new token is issued.</p>
 <p><strong>Permissions:</strong> board <code>admin</code> or <code>site_admin</code> only.</p>
 <p><strong>Request (optional)</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">"expires_in_days"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">"expires_in_days"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="p">}</span>
 </code></pre></div></p>
 <p><code>expires_in_days</code> is optional. Allowed values: <code>7</code>, <code>30</code>, <code>90</code>, or <code>null</code> (the default — never expires). Any other integer returns <code>400 Bad Request</code>. New in 1.1 (#804).</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">"share_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3fa85f64-5717-4562-b3fc-2c963f66afa6"</span><span class="p">,</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">"share_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://your-instance.example.com/api/share/3fa85f64-5717-4562-b3fc-2c963f66afa6"</span><span class="p">,</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nt">"share_token_expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-28T17:30:00+00:00"</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">"share_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3fa85f64-5717-4562-b3fc-2c963f66afa6"</span><span class="p">,</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">"share_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://your-instance.example.com/api/share/3fa85f64-5717-4562-b3fc-2c963f66afa6"</span><span class="p">,</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">"share_token_expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-28T17:30:00+00:00"</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="p">}</span>
 </code></pre></div></p>
 <p><code>share_token_expires_at</code> is <code>null</code> when no TTL was requested.</p>
 <p><strong>Errors:</strong> <code>403 Forbidden</code> if the caller is not a board admin. <code>400 Bad Request</code> if <code>expires_in_days</code> is not one of the allowed values.</p>
@@ -6551,11 +6828,11 @@ Visiban are already in stored form and round-trip unchanged.</p>
 <p>Revoke the public share token for the board. Requires board admin. All existing share links immediately return <code>404 Not Found</code> after revocation. Both the token and any TTL are cleared.</p>
 <p><strong>Permissions:</strong> board <code>admin</code> or <code>site_admin</code> only.</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">"share_token"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">"share_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">"share_token_expires_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">"share_token"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">"share_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">"share_token_expires_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">}</span>
 </code></pre></div></p>
 <p><strong>Errors:</strong> <code>403 Forbidden</code> if the caller is not a board admin.</p>
 <hr />
@@ -6735,7 +7012,7 @@ See <a href="../websockets/#swimlane-field-events-since-12">WebSockets</a> for t
 <p>This sets the board-wide default for all users — it is a board structure preference, not a per-user setting.</p>
 <p><strong>Minimum role:</strong> admin or site admin</p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <p><strong>Response</strong> — updated swimlane object (same shape as <code>GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code>)</p>
 <p><strong>Errors</strong></p>
@@ -6930,7 +7207,7 @@ columns or structure.</p>
 applies to card and swimlane custom fields alike, and is text-backed like every other type:
 <strong>the <code>value</code> on the wire is still a string</strong> — a JSON array encoded as a string, never a
 JSON array.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"[\"web\",\"ios\"]"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"[\"web\",\"ios\"]"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <ul>
 <li><strong>Canonical form.</strong> The stored (and returned) string is compact JSON (<code>["web","ios"]</code>, no
@@ -6980,7 +7257,7 @@ JSON array.</p>
 and swimlane custom fields alike. They change how a client renders a value, never the
 value: the <code>value</code> on the wire, in exports, and in filters stays the plain number string
 the user entered.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Budget"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"number"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">" USD"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_decimals"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Budget"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"number"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">" USD"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_decimals"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -7048,7 +7325,7 @@ the user entered.</p>
 <code>"multi_select"</code> definition, on card and swimlane custom fields alike. <code>choices</code> is
 unchanged — still a plain list of strings — and the colors live beside it in a separate
 map keyed by the choice text. Values are never touched.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Severity"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Low"</span><span class="p">,</span><span class="w"> </span><span class="s2">"High"</span><span class="p">],</span><span class="w"> </span><span class="nt">"choice_colors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"High"</span><span class="p">:</span><span class="w"> </span><span class="s2">"red"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Severity"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Low"</span><span class="p">,</span><span class="w"> </span><span class="s2">"High"</span><span class="p">],</span><span class="w"> </span><span class="nt">"choice_colors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"High"</span><span class="p">:</span><span class="w"> </span><span class="s2">"red"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <ul>
 <li><strong>Shape.</strong> An object mapping a choice (its text, exactly as in <code>choices</code>) to a palette
@@ -7362,48 +7639,48 @@ belonging to another board are silently ignored rather than reordered or exposed
 - <code>404 Not Found</code> if the token is invalid, has been revoked, or does not exist.
 - <code>410 Gone</code> if the token's TTL has elapsed (admin set an expiry at enable time and that timestamp has passed). The token is <em>not</em> auto-rotated — an admin must disable and re-enable sharing to get a fresh link. Body: <code>{"detail": "This share link has expired."}</code>. Added in 1.1 (#804).</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60001"</span><span class="p">,</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c0l0abc123456701"</span><span class="p">,</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#64748B"</span><span class="p">,</span>
-<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="w">      </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="w">      </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="w">      </span><span class="nt">"allow_card_creation"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="w">      </span><span class="nt">"is_done"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
-<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a><span class="w">  </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sw1mabcdef123401"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#3B82F6"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"crd0abc123456701"</span><span class="p">,</span>
-<a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-20-24" name="__codelineno-20-24" href="#__codelineno-20-24"></a><span class="w">      </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-20-25" name="__codelineno-20-25" href="#__codelineno-20-25"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
-<a id="__codelineno-20-26" name="__codelineno-20-26" href="#__codelineno-20-26"></a><span class="w">      </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">,</span>
-<a id="__codelineno-20-27" name="__codelineno-20-27" href="#__codelineno-20-27"></a><span class="w">      </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-20-28" name="__codelineno-20-28" href="#__codelineno-20-28"></a><span class="w">      </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-20-29" name="__codelineno-20-29" href="#__codelineno-20-29"></a><span class="w">      </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-01"</span><span class="p">,</span>
-<a id="__codelineno-20-30" name="__codelineno-20-30" href="#__codelineno-20-30"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-20-31" name="__codelineno-20-31" href="#__codelineno-20-31"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-20-32" name="__codelineno-20-32" href="#__codelineno-20-32"></a><span class="w">      </span><span class="nt">"last_moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-25T14:30:00Z"</span><span class="p">,</span>
-<a id="__codelineno-20-33" name="__codelineno-20-33" href="#__codelineno-20-33"></a><span class="w">      </span><span class="nt">"checklist_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-20-34" name="__codelineno-20-34" href="#__codelineno-20-34"></a><span class="w">      </span><span class="nt">"checklist_done"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-20-35" name="__codelineno-20-35" href="#__codelineno-20-35"></a><span class="w">      </span><span class="nt">"is_stale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-20-36" name="__codelineno-20-36" href="#__codelineno-20-36"></a><span class="w">      </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<a id="__codelineno-20-37" name="__codelineno-20-37" href="#__codelineno-20-37"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-20-38" name="__codelineno-20-38" href="#__codelineno-20-38"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-20-39" name="__codelineno-20-39" href="#__codelineno-20-39"></a><span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-20-40" name="__codelineno-20-40" href="#__codelineno-20-40"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-20-41" name="__codelineno-20-41" href="#__codelineno-20-41"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-20-42" name="__codelineno-20-42" href="#__codelineno-20-42"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60001"</span><span class="p">,</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c0l0abc123456701"</span><span class="p">,</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#64748B"</span><span class="p">,</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a><span class="w">      </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="w">      </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="w">      </span><span class="nt">"allow_card_creation"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a><span class="w">      </span><span class="nt">"is_done"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a><span class="w">  </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sw1mabcdef123401"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#3B82F6"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-21-22" name="__codelineno-21-22" href="#__codelineno-21-22"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"crd0abc123456701"</span><span class="p">,</span>
+<a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a><span class="w">      </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-21-25" name="__codelineno-21-25" href="#__codelineno-21-25"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
+<a id="__codelineno-21-26" name="__codelineno-21-26" href="#__codelineno-21-26"></a><span class="w">      </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">,</span>
+<a id="__codelineno-21-27" name="__codelineno-21-27" href="#__codelineno-21-27"></a><span class="w">      </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-21-28" name="__codelineno-21-28" href="#__codelineno-21-28"></a><span class="w">      </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-21-29" name="__codelineno-21-29" href="#__codelineno-21-29"></a><span class="w">      </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-01"</span><span class="p">,</span>
+<a id="__codelineno-21-30" name="__codelineno-21-30" href="#__codelineno-21-30"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-21-31" name="__codelineno-21-31" href="#__codelineno-21-31"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-21-32" name="__codelineno-21-32" href="#__codelineno-21-32"></a><span class="w">      </span><span class="nt">"last_moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-25T14:30:00Z"</span><span class="p">,</span>
+<a id="__codelineno-21-33" name="__codelineno-21-33" href="#__codelineno-21-33"></a><span class="w">      </span><span class="nt">"checklist_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-21-34" name="__codelineno-21-34" href="#__codelineno-21-34"></a><span class="w">      </span><span class="nt">"checklist_done"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-21-35" name="__codelineno-21-35" href="#__codelineno-21-35"></a><span class="w">      </span><span class="nt">"is_stale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-21-36" name="__codelineno-21-36" href="#__codelineno-21-36"></a><span class="w">      </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<a id="__codelineno-21-37" name="__codelineno-21-37" href="#__codelineno-21-37"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-21-38" name="__codelineno-21-38" href="#__codelineno-21-38"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-21-39" name="__codelineno-21-39" href="#__codelineno-21-39"></a><span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-21-40" name="__codelineno-21-40" href="#__codelineno-21-40"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-21-41" name="__codelineno-21-41" href="#__codelineno-21-41"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-21-42" name="__codelineno-21-42" href="#__codelineno-21-42"></a><span class="p">}</span>
 </code></pre></div></p>
 <p>Response fields:</p>
 <table>

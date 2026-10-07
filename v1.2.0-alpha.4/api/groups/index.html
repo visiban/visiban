@@ -4705,7 +4705,7 @@
 <hr />
 <h2 id="join-public">Join (public)<a class="headerlink" href="#join-public" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsjointoken"><code>GET /api/v1/groups/join/{token}/</code><a class="headerlink" href="#get-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
-<p>Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP.</p>
+<p>Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP — <em>(1.2+)</em> one budget shared with the <a href="../boards/#board-invites">board join endpoints</a>.</p>
 <p><strong>Response</strong> <code>{ "group_id": 5, "group_name": "Engineering", "role": "member", "can_register": true }</code></p>
 <table>
 <thead>
@@ -4743,7 +4743,7 @@
 <p><strong>Errors:</strong> <code>404 Not Found</code> (invalid or revoked token), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed)</p>
 <p><em>(1.2+)</em> An authenticated caller who is already a member of the link's group gets <code>200</code> with the preview for a consumed single-use link instead of <code>410</code>. This is the path a newcomer takes after an emailed invite created their account (see <a href="../authentication/"><code>POST /api/v1/auth/registration/</code></a>); everyone else still gets <code>410</code>.</p>
 <h3 id="post-apiv1groupsjointoken"><code>POST /api/v1/groups/join/{token}/</code><a class="headerlink" href="#post-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
-<p>Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP.</p>
+<p>Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP, shared with the board join endpoints.</p>
 <p><strong>Response body</strong> — returns the full group object (same shape as <code>GET /api/v1/groups/{id}/</code> but using the list serializer, without <code>ancestors</code>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>

@@ -3969,6 +3969,21 @@
 <td>—</td>
 </tr>
 <tr>
+<td><code>BoardInviteLink.expires_at</code>, <code>revoked_at</code> <em>(1.2+)</em></td>
+<td><code>unusable_code()</code> in <code>boards/invites.py</code>, called by the board join preview and join (<code>410</code> with <code>code</code>), and <code>board_link_registration_refusal()</code> for sign-up</td>
+<td>A pending invite whose sender is deleted or no longer a board admin is treated as revoked, without writing <code>revoked_at</code></td>
+</tr>
+<tr>
+<td><code>BoardInviteLink.single_use</code> / <code>used_at</code> <em>(1.2+)</em></td>
+<td>Row lock plus <code>used_at</code> stamp in <code>JoinBoardView.post</code> and <code>redeem_board_registration_token()</code>; database <code>CheckConstraint</code> that <code>used_at</code> is only set on a single-use invite</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>BoardInviteLink.role</code> <em>(1.2+)</em></td>
+<td><code>BoardInviteLink.generate()</code> refuses any role outside <code>GRANTABLE_ROLES</code> (member, collaborator, viewer); redemption refuses a stored role outside it</td>
+<td>The serializer's choice field is a third, outer check</td>
+</tr>
+<tr>
 <td><code>PersonalAccessToken.expires_at</code>, <code>scopes</code></td>
 <td><code>accounts/authentication.py</code> (REST) and <code>mcp_server/auth.py</code> (<code>mcp:*</code> scopes)</td>
 <td>—</td>

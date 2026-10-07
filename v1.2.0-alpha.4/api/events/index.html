@@ -3969,8 +3969,9 @@ re-sync.</p>
 <h2 id="event-coverage">Event coverage<a class="headerlink" href="#event-coverage" title="Permanent link">&para;</a></h2>
 <p>Every event type the WebSocket emits on the board channel is persisted:
 <code>board.*</code>, <code>column.*</code>, <code>swimlane.*</code>, <code>label.*</code>, <code>custom_field.*</code>,
-<code>swimlane_custom_field.*</code>, <code>card.*</code>, <code>member.*</code>, <code>saved_filter.*</code>, and
-<code>lens_connection.*</code>. The <a href="../websockets/#event-reference">WebSocket event
+<code>swimlane_custom_field.*</code>, <code>card.*</code>, <code>member.*</code>, <code>saved_filter.*</code>,
+<code>lens_connection.*</code>, and <em>(1.2+)</em> <code>invite_link.*</code> (payload <code>{ "id" }</code> only,
+readable by every board member like the socket frame). The <a href="../websockets/#event-reference">WebSocket event
 reference</a> is the single list of payload shapes
 for both surfaces.</p>
 <p>Two consequences worth knowing:</p>

@@ -2260,6 +2260,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#invite-events-since-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invite events (since 1.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#git-lens-events-since-12" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4408,8 +4419,8 @@ needs no special handling for either case.</p>
 <tbody>
 <tr>
 <td><code>member.added</code></td>
-<td>User added to board</td>
-<td>Full <code>BoardMembershipSerializer</code> object</td>
+<td>User added to board — by an admin, or by redeeming a <a href="../boards/#board-invites">board invite</a> (since 1.2)</td>
+<td>Full <code>BoardMembershipSerializer</code> object. When the member joined through an invite it also carries <code>"invite": { "id": &lt;int&gt;, "created_by_id": &lt;int or null&gt; }</code> (additive, since 1.2)</td>
 </tr>
 <tr>
 <td><code>member.updated</code></td>
@@ -4430,6 +4441,42 @@ needs no special handling for either case.</p>
 <p>The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a <code>member.added</code> or <code>member.updated</code> frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving <code>is_moderator</code> and <code>is_site_admin</code> on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no <code>member.*</code> frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect at the server's periodic access re-check (see <a href="#access-re-check-and-eviction">Access re-check and eviction</a>). They apply to the first frame forwarded after the socket's re-check window lapses, at most about 7 seconds after its last successful check. Before #1477 they took effect only on the next reconnect. Until the re-check runs, a demoted admin can still receive the admin-only fields for up to that window.</p>
 <p>The <a href="../events/">change feed</a> applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.</p>
 </div>
+<h3 id="invite-events-since-12">Invite events (since 1.2)<a class="headerlink" href="#invite-events-since-12" title="Permanent link">&para;</a></h3>
+<p>Emitted by the <a href="../boards/#board-invites">board invite</a> endpoints. Refetch
+signals only: every board subscriber receives them, including non-admins, so
+they carry just the invite id. Admin clients refetch <code>GET /boards/{id}/invite-links/</code>
+(admin-only) for the details; other clients should ignore them. Same names as
+the group channel's invite events.</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Trigger</th>
+<th><code>data</code> shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invite_link.created</code></td>
+<td>A board admin emailed an invite to someone</td>
+<td><code>{ "id": &lt;int&gt; }</code></td>
+</tr>
+<tr>
+<td><code>invite_link.revoked</code></td>
+<td>An invite was revoked — by an admin, automatically because its email could not be sent, or because its sender was deactivated</td>
+<td><code>{ "id": &lt;int&gt; }</code></td>
+</tr>
+</tbody>
+</table>
+<p>A redeemed invite publishes no event of its own: the <code>member.added</code> frame it
+causes carries the invite id when a membership was created. When redeeming
+creates no membership — the person already had equal or higher access — the
+invite is still consumed but <strong>no frame is sent at all</strong>, so an admin's open
+invite list keeps showing it as pending until it is next fetched.
+<code>GET /boards/{id}/invite-links/</code> is authoritative; refetch it on open.</p>
+<p>These rows are also stored in the board's <a href="../events/">change feed</a>, where any
+board member can read them — with the same <code>{ "id": &lt;int&gt; }</code> payload and
+nothing more.</p>
 <h3 id="git-lens-events-since-12">Git Lens events (since 1.2)<a class="headerlink" href="#git-lens-events-since-12" title="Permanent link">&para;</a></h3>
 <p>Emitted by the <a href="../git-lens/">Git Lens</a> connection endpoints. They ride the
 <strong>board</strong> channel, not a channel of their own, so a board member with the Lens tab open
