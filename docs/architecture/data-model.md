@@ -95,6 +95,7 @@ Board
  ├── export_min_role (str, default viewer — minimum BoardMembership.Role required to export)
  ├── card_density (str — comfortable | standard | dense; default comfortable for new boards)
  ├── show_wip_at_limit (bool, default false — ambient "WIP n/n" indicator at exactly the limit)
+ ├── show_row_chip_field_names (bool, default true — label pinned swimlane row chips with their field name)
  ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
  ├── BoardFavorite → User  (unique per user+board)
  ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done)
@@ -208,7 +209,7 @@ Append-only record of a fixed, enumerable set of instance-wide admin actions (#1
 
 `share_token` is a UUID generated when a board admin enables public sharing. When set, the board is accessible at `/share/:token` as a read-only view with no login required. Setting the token to null disables sharing immediately. `share_token_expires_at` (nullable) optionally bounds that link: past the timestamp the share endpoint returns `410 Gone` rather than auto-rotating the token.
 
-`export_min_role` (default `viewer`) sets the minimum `BoardMembership.Role` required to export the board; owners and site admins always bypass it. `card_density` (`comfortable` / `standard` / `dense`, default `comfortable` for new boards) controls how much metadata renders on the card face. `show_wip_at_limit` is purely ambient — it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement.
+`export_min_role` (default `viewer`) sets the minimum `BoardMembership.Role` required to export the board; owners and site admins always bypass it. `card_density` (`comfortable` / `standard` / `dense`, default `comfortable` for new boards) controls how much metadata renders on the card face. `show_wip_at_limit` is purely ambient — it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement. `show_row_chip_field_names` (default `true`, with a database default too) is display-only as well: when off, pinned swimlane row chips drop their visible `{name}:` label (checkbox fields excepted); card-face chips are unaffected.
 
 ### Column
 

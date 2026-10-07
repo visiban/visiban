@@ -129,7 +129,7 @@ Pure reorders (same cell, different position) do not create movement records.
 ## Custom fields
 
 - **Cards** — up to 30 custom field definitions per board; up to 2 can be pinned to the card face
-- **Swimlane rows** — up to 15 custom field definitions per board; up to 3 can be pinned
+- **Swimlane rows** — up to 15 custom field definitions per board; up to 8 can be pinned. A board admin can hide the field-name label on row chips to show values only (`show_row_chip_field_names` board setting, default on); checkbox fields keep their name, and the name stays in the tooltip and the `+N` field list
 - Definitions are board-scoped; values attach per-card or per-swimlane respectively
 
 ---

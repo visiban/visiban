@@ -21,7 +21,7 @@ const fakeBoard: Board = {
   id: 42, uid: 'boarduid0001', name: 'Sprint Board', description: '', owner: fakeUser,
   archived_card_count: 0,
   group: 10, group_name: 'Alpha', member_count: 1, card_count: 0,
-  staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, export_min_role: 'viewer',
+  staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, show_row_chip_field_names: true, export_min_role: 'viewer',
   card_density: 'comfortable',
   is_starred: false, created_at: '', updated_at: '',
 }
@@ -30,7 +30,7 @@ const personalBoard: Board = {
   id: 99, uid: 'boarduid0002', name: 'My Board', description: '', owner: fakeUser,
   archived_card_count: 0,
   group: null, group_name: null, member_count: 1, card_count: 0,
-  staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, export_min_role: 'viewer',
+  staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, show_row_chip_field_names: true, export_min_role: 'viewer',
   card_density: 'comfortable',
   is_starred: false, created_at: '', updated_at: '',
 }

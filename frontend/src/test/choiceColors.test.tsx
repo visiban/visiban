@@ -256,6 +256,34 @@ describe("CustomFieldValueDisplay — colored choices (#1391)", () => {
   });
 });
 
+describe("CustomFieldValueDisplay — hideName (#1418)", () => {
+  it("row-chip: a colored choice keeps its tinted badge with the name hidden", () => {
+    const { container } = render(<CustomFieldValueDisplay definition={shape()} value="High" variant="row-chip" hideName />);
+    expect(badgeIn(container)).toHaveTextContent("High");
+    expect(screen.getByText("Severity:")).toHaveClass("sr-only");
+    expect(screen.getByTitle("Severity: High")).toBeInTheDocument();
+  });
+
+  it("row-chip: an uncolored choice keeps its hash dot with the name hidden", () => {
+    const { container } = render(<CustomFieldValueDisplay definition={shape()} value="Low" variant="row-chip" hideName />);
+    expect(container.querySelector(".rounded-full")).not.toBeNull();
+    expect(screen.getByText("Severity:")).toHaveClass("sr-only");
+  });
+
+  it("row-chip: multi-select sub-chips are unchanged with the name hidden", () => {
+    const def = shape({ field_type: "multi_select", choices: ["web", "ios"], choice_colors: {} });
+    render(<CustomFieldValueDisplay definition={def} value='["web","ios"]' variant="row-chip" hideName />);
+    expect(screen.getByTitle("web")).toHaveClass("bg-surface-hover");
+    expect(screen.getByTitle("ios")).toHaveClass("bg-surface-hover");
+    expect(screen.getByText("Severity:")).toHaveClass("sr-only");
+  });
+
+  it("chip: the card face ignores hideName and always shows the name", () => {
+    render(<CustomFieldValueDisplay definition={shape()} value="Low" variant="chip" hideName />);
+    expect(screen.getByText("Severity:")).not.toHaveClass("sr-only");
+  });
+});
+
 describe("MultiSelectChips — colored choices (#1391)", () => {
   it("without a definition every chip is neutral (pre-#1391 rendering)", () => {
     const { container } = render(<MultiSelectChips entries={["web", "ios"]} />);
@@ -487,7 +515,7 @@ function makeBoard(fields: CustomFieldDefinition[]): BoardFull {
     members: [{ id: 10, user: fakeUser, role: "admin", is_moderator: false, joined_at: "" }],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
-    show_wip_at_limit: false, export_min_role: "viewer", card_density: "comfortable",
+    show_wip_at_limit: false, show_row_chip_field_names: true, export_min_role: "viewer", card_density: "comfortable",
     is_starred: false, created_at: "", updated_at: "", current_user_role: "admin",
     custom_field_definitions: fields, swimlane_custom_field_definitions: [],
     owner: fakeUser, capabilities: { movement_export: false },

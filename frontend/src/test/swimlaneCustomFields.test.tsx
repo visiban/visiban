@@ -89,7 +89,7 @@ function renderRow(
   swimlane: Swimlane,
   defs: SwimlaneCustomFieldDefinition[],
   collapsed = false,
-  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void } = {},
+  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean } = {},
 ) {
   return render(
     <SwimlaneRow
@@ -115,6 +115,7 @@ function renderRow(
       isFocused={false}
       swimlaneFieldDefinitions={defs}
       onEditFieldOrder={extra.onEditFieldOrder}
+      hideRowChipFieldNames={extra.hideRowChipFieldNames}
     />
   )
 }
@@ -354,6 +355,68 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
   })
 })
 
+describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
+  const owner = makeDef({ id: 1, name: 'Owner' })
+  const laneWith = (value: string, field_definition = 1) =>
+    makeSwimlane({ custom_field_values: [{ field_definition, value }] })
+
+  it('shows the visible "{name}:" label by default', () => {
+    renderRow(laneWith('J. Rivera'), [owner])
+    const label = screen.getByText('Owner:')
+    expect(label).not.toHaveClass('sr-only')
+    expect(label).toHaveClass('text-fg-muted')
+  })
+
+  it('drops the visible name but keeps it for screen readers and in the title when hidden', () => {
+    renderRow(laneWith('J. Rivera'), [owner], false, { hideRowChipFieldNames: true })
+    const label = screen.getByText('Owner:')
+    expect(label).toHaveClass('sr-only')
+    expect(label).not.toHaveClass('text-fg-muted')
+    expect(screen.getByText('J. Rivera')).toBeInTheDocument()
+    expect(screen.getByTitle('Owner: J. Rivera')).toBeInTheDocument()
+  })
+
+  it('keeps the admin-only padlock and title suffix when the name is hidden', () => {
+    const arr = makeDef({ id: 1, name: 'ARR', is_admin_only: true })
+    renderRow(laneWith('480000'), [arr], false, { hideRowChipFieldNames: true })
+    expect(screen.getByLabelText('Admin-only field')).toBeInTheDocument()
+    expect(screen.getByTitle('ARR: 480000 · Only board admins can see this')).toBeInTheDocument()
+    expect(screen.getByText('ARR:')).toHaveClass('sr-only')
+  })
+
+  it('always shows the name on a checkbox field — a bare Yes/No says nothing', () => {
+    const signed = makeDef({ id: 1, name: 'Signed', field_type: 'checkbox' })
+    renderRow(laneWith('true'), [signed], false, { hideRowChipFieldNames: true })
+    expect(screen.getByText('Signed:')).not.toHaveClass('sr-only')
+  })
+
+  it('still omits a chip for an empty value when names are hidden', () => {
+    renderRow(laneWith(''), [owner], false, { hideRowChipFieldNames: true })
+    expect(screen.queryByText('Owner:')).not.toBeInTheDocument()
+  })
+
+  it('leaves the +N field list popover listing names and values', async () => {
+    const user = userEvent.setup()
+    const defs = [
+      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
+    ]
+    renderRow(
+      makeSwimlane({ custom_field_values: [
+        { field_definition: 1, value: 'J. Rivera' },
+        { field_definition: 2, value: 'EMEA' },
+      ] }),
+      defs, false, { hideRowChipFieldNames: true },
+    )
+    await user.click(screen.getByRole('button', { name: /Show all 2 field values/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Field values for Acme Corp' })
+    const text = dialog.textContent ?? ''
+    for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)
+    const names = Array.from(dialog.querySelectorAll('.sr-only')).map((n) => n.textContent)
+    expect(names).not.toContain('Owner: ')
+  })
+})
+
 describe('"Edit field order…" popover shortcut (#1458)', () => {
   const defs = [
     makeDef({ id: 1, name: 'Owner', show_on_row: false, position: 0 }),
@@ -483,7 +546,7 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[], swimlanes: Swimlane[] 
     members: [], custom_field_definitions: [], swimlane_custom_field_definitions: defs,
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
-    export_min_role: 'viewer', card_density: 'standard', show_wip_at_limit: false,
+    export_min_role: 'viewer', card_density: 'standard', show_wip_at_limit: false, show_row_chip_field_names: true,
     created_at: '', updated_at: '', current_user_role: 'admin', is_starred: false,
     share_token: null, share_token_expires_at: null,
     // Fully typed, no `as unknown as` escape hatch: the double cast would
@@ -609,6 +672,71 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     )
     await user.click(screen.getByTitle('Delete Owner'))
     expect(screen.getByText(/any values stored on swimlanes for it/)).toBeInTheDocument()
+  })
+})
+
+describe('BoardSettingsSwimlaneFieldsTab — row-chip field names setting (#1418)', () => {
+  const NAME = 'Show field names on row chips'
+
+  it('renders the switch on by default with its helper text, above the field list', () => {
+    render(
+      <BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />
+    )
+    const toggle = screen.getByRole('switch', { name: NAME })
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(toggle).toHaveAccessibleDescription(/Turn off to show values only\. Names stay available on hover and in the row's field list\. Checkbox fields always show their name\./)
+    const header = screen.getByText('Swimlane fields')
+    expect(toggle.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('reflects a board that has names hidden', () => {
+    render(
+      <BoardSettingsSwimlaneFieldsTab
+        board={{ ...makeBoard([]), show_row_chip_field_names: false }}
+        isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('switch', { name: NAME })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('turning it off calls onUpdateBoardSettings with the board PATCH payload', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    render(
+      <BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={onUpdate} />
+    )
+    await user.click(screen.getByRole('switch', { name: NAME }))
+    expect(onUpdate).toHaveBeenCalledWith({ show_row_chip_field_names: false })
+  })
+
+  it('clicking the label text also toggles it, turning names back on', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    render(
+      <BoardSettingsSwimlaneFieldsTab
+        board={{ ...makeBoard([]), show_row_chip_field_names: false }}
+        isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={onUpdate}
+      />
+    )
+    await user.click(screen.getByText(NAME))
+    expect(onUpdate).toHaveBeenCalledWith({ show_row_chip_field_names: true })
+  })
+
+  it('a non-admin sees a read-only line and no control', () => {
+    render(
+      <BoardSettingsSwimlaneFieldsTab
+        board={{ ...makeBoard([makeDef()]), show_row_chip_field_names: false }}
+        isAdmin={false} onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Field names on row chips: hidden')).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: NAME })).not.toBeInTheDocument()
+  })
+
+  it('an admin without a write callback gets the read-only line', () => {
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([])} isAdmin onFieldsUpdated={vi.fn()} />)
+    expect(screen.getByText('Field names on row chips: shown')).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: NAME })).not.toBeInTheDocument()
   })
 })
 

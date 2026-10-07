@@ -550,6 +550,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               board={board}
               isAdmin={isAdmin}
               onFieldsUpdated={(definitions) => onSwimlaneFieldsUpdated?.(definitions)}
+              onUpdateBoardSettings={onUpdateBoardSettings}
             />
             </DemoInert>
           )}

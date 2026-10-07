@@ -2604,7 +2604,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "is_starred", "template"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         extra_kwargs = _BOARD_ENFORCEMENT_EXTRA_KWARGS
 
@@ -2900,7 +2900,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
             "cards", "labels", "members", "custom_field_definitions",
             "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
             "archived_card_count",
         ]
         read_only_fields = ["uid"]

@@ -110,9 +110,9 @@ vi.mock('../components/Board/ColumnHeader', () => ({
 // existing per-board write gate) so tests can assert on it without rendering the
 // real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void }) => {
+  default: ({ swimlane, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)}>
+      <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
@@ -236,7 +236,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     staleness_threshold_days: 7,
     stale_warning_pct: 50,
     allowed_priorities: ['low', 'medium', 'high', 'urgent'] as BoardFull['allowed_priorities'],
-    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, export_min_role: 'viewer', card_density: 'comfortable',
+    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, show_row_chip_field_names: true, export_min_role: 'viewer', card_density: 'comfortable',
     is_starred: false,
     created_at: '', updated_at: '',
     current_user_role: 'admin',
@@ -466,6 +466,17 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByLabelText('Board settings'))
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+  })
+
+  it('passes show_row_chip_field_names down to every SwimlaneRow and follows a merged board.updated (#1418)', () => {
+    mockBoardContextValue = defaultContext({ board: makeBoard() })
+    const { rerender } = render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-hide-row-chip-names', 'false')
+    // A board.updated broadcast is merged into the context board (mergeBoardState);
+    // the next render must hide the names without a reload.
+    mockBoardContextValue = defaultContext({ board: makeBoard({ show_row_chip_field_names: false }) })
+    rerender(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-hide-row-chip-names', 'true')
   })
 
   describe('swimlane field order shortcut (#1458)', () => {

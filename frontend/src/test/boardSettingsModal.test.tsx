@@ -86,7 +86,7 @@ const fakeBoard: BoardFull = {
   staleness_threshold_days: 7,
   stale_warning_pct: 50,
   allowed_priorities: [],
-  enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, export_min_role: 'viewer',
+  enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, show_row_chip_field_names: true, export_min_role: 'viewer',
   card_density: 'comfortable',
   is_starred: false,
   created_at: '',
@@ -1187,6 +1187,22 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
     const toggle = screen.getByRole('switch', { name: 'Show at-limit WIP indicator' })
     expect(toggle).toBeInTheDocument()
     expect(toggle).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('wires the Swimlane fields tab row-chip names switch to onUpdateBoardSettings (#1418)', async () => {
+    const onUpdate = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={fakeBoard}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="swimlane-fields"
+        onUpdateBoardSettings={onUpdate}
+      />,
+    )
+    await user.click(screen.getByRole('switch', { name: 'Show field names on row chips' }))
+    expect(onUpdate).toHaveBeenCalledWith({ show_row_chip_field_names: false })
   })
 
   it('clicking the toggle fires onUpdateBoardSettings({ show_wip_at_limit: true })', async () => {

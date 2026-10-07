@@ -718,6 +718,8 @@ export interface Board {
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
   show_wip_at_limit: boolean;
+  /** #1418 — when false, swimlane row chips show field values without the `{name}:` label. */
+  show_row_chip_field_names: boolean;
   export_min_role: BoardExportMinRole;
   card_density: CardDensity;
   is_starred: boolean;
@@ -794,6 +796,8 @@ export interface BoardFull {
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
   show_wip_at_limit: boolean;
+  /** #1418 — when false, swimlane row chips show field values without the `{name}:` label. */
+  show_row_chip_field_names: boolean;
   export_min_role: BoardExportMinRole;
   card_density: CardDensity;
   is_starred: boolean;

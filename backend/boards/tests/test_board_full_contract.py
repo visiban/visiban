@@ -328,6 +328,7 @@ _BOARD_FULL_SPEC = {
     "enforce_wip_hard": _FieldSpec((bool,)),
     "enforce_weight_limits": _FieldSpec((bool,)),
     "show_wip_at_limit": _FieldSpec((bool,)),
+    "show_row_chip_field_names": _FieldSpec((bool,)),
     "export_min_role": _FieldSpec((str,), enum=_EXPORT_MIN_ROLE_ENUM),
     "card_density": _FieldSpec((str,), enum=_CARD_DENSITY_ENUM),
     "created_at": _FieldSpec((str,)),
