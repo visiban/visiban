@@ -602,6 +602,53 @@ class BoardImportExportMixin:
         if not data.get("swimlanes"):
             return Response({"detail": "Missing required field: swimlanes"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Per-item shape checks (#1451). The loops below call ``.get()`` on every
+        # entry, so a non-object entry (``"movements": ["x"]``) would raise
+        # AttributeError and surface as a 500. Reject it here with a 400 that
+        # names the index, the same way #921 / #1185 handle the top-level lists.
+        for _list_name, _label in (("columns", "Column"), ("swimlanes", "Swimlane"), ("labels", "Label")):
+            for _i, _item in enumerate(data.get(_list_name, [])):
+                if not isinstance(_item, dict):
+                    return Response(
+                        {"detail": f"{_label} at index {_i} must be an object"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if not isinstance(_item.get("name", ""), str):
+                    return Response(
+                        {"detail": f"{_label} at index {_i}: name must be a string"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+        for _ci, _card in enumerate(data.get("cards", [])):
+            if not isinstance(_card, dict):
+                return Response(
+                    {"detail": f"Card at index {_ci} must be an object"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            for _child, _child_label in (
+                ("comments", "comment"), ("movements", "movement"),
+                ("activities", "activity"), ("checklist", "checklist item"),
+            ):
+                _items = _card.get(_child, [])
+                if not isinstance(_items, list):
+                    return Response(
+                        {"detail": f"Card at index {_ci}: '{_child}' must be a list"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                for _ji, _entry in enumerate(_items):
+                    if not isinstance(_entry, dict):
+                        return Response(
+                            {"detail": f"Card at index {_ci}, {_child_label} at index {_ji} must be an object"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+            # Label references are looked up in a dict; an unhashable entry
+            # would raise TypeError there.
+            _refs = _card.get("labels", [])
+            if not isinstance(_refs, list) or not all(isinstance(_r, str) for _r in _refs):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'labels' must be a list of strings"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         # Validate cards have required fields
         for i, card_data in enumerate(data.get("cards", [])):
             for field in ("title", "column", "swimlane"):

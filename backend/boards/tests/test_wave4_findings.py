@@ -176,3 +176,69 @@ class StarChangedCrossChannelBroadcastTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         # The board belongs to no group, so no group-channel event must fire.
         self.assertFalse(any(c.args[1] == "board.star_changed" for c in mock_group.call_args_list))
+
+
+class JsonImportPerItemTypeValidationTests(TestCase):
+    """#1451 — a non-object entry in a per-item list must return 400, not 500."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="imp1451", password="x")
+        self.user.is_site_admin = True
+        self.user.save(update_fields=["is_site_admin"])
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def _import(self, payload_dict):
+        import io
+        import json
+        f = io.BytesIO(json.dumps(payload_dict).encode("utf-8"))
+        f.name = "board.json"
+        return self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
+
+    def _payload(self, **card_extra):
+        card = {"title": "t", "column": "c", "swimlane": "s", **card_extra}
+        return {"name": "B", "columns": [{"name": "c"}], "swimlanes": [{"name": "s"}], "cards": [card]}
+
+    def _assert_400(self, payload, expected):
+        r = self._import(payload)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(expected, str(r.data))
+
+    def test_card_entry_not_object(self):
+        payload = self._payload()
+        payload["cards"] = ["x"]
+        self._assert_400(payload, "Card at index 0 must be an object")
+
+    def test_comment_entry_not_object(self):
+        self._assert_400(self._payload(comments=["x"]), "Card at index 0, comment at index 0 must be an object")
+
+    def test_movement_entry_not_object(self):
+        self._assert_400(self._payload(movements=["x"]), "Card at index 0, movement at index 0 must be an object")
+
+    def test_activity_entry_not_object(self):
+        self._assert_400(self._payload(activities=[5]), "Card at index 0, activity at index 0 must be an object")
+
+    def test_checklist_entry_not_object(self):
+        self._assert_400(self._payload(checklist=[None]), "checklist item at index 0 must be an object")
+
+    def test_nested_lists_must_be_lists(self):
+        for key in ("comments", "movements", "activities", "checklist"):
+            with self.subTest(key=key):
+                self._assert_400(self._payload(**{key: "x"}), f"'{key}' must be a list")
+
+    def test_card_labels_must_be_list_of_strings(self):
+        self._assert_400(self._payload(labels=[["a"]]), "'labels' must be a list of strings")
+        self._assert_400(self._payload(labels="x"), "'labels' must be a list of strings")
+
+    def test_column_swimlane_label_entry_not_object(self):
+        for key, label in (("columns", "Column"), ("swimlanes", "Swimlane"), ("labels", "Label")):
+            with self.subTest(key=key):
+                payload = self._payload()
+                payload["cards"] = []
+                payload[key] = payload.get(key, []) + ["x"]
+                self._assert_400(payload, f"{label} at index {len(payload[key]) - 1} must be an object")
+
+    def test_non_string_name_rejected(self):
+        payload = self._payload()
+        payload["columns"] = [{"name": ["c"]}]
+        self._assert_400(payload, "name must be a string")
