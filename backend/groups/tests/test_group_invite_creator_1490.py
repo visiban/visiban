@@ -148,8 +148,30 @@ class GroupInviteCreatorRecheckTests(TestCase):
         self.assertEqual(self.client.post(join_url(self.raw)).status_code, 404)
 
     def test_deleted_creator_refused(self):
-        self.creator.delete()
-        self.assertEqual(self.client.post(join_url(self.raw)).status_code, 404)
+        # The creator must not own the group: Group.owner cascades, which would
+        # delete the group and link and make this a missing-row 404, not the
+        # guard. created_by is SET_NULL, so the link survives with no creator.
+        other = User.objects.create_user(username="other_admin", password="pw")
+        GroupMembership.objects.create(
+            group=self.group,
+            user=other,
+            role=GroupMembership.Role.ADMIN,
+        )
+        link, raw = GroupInviteLink.generate(self.group, other)
+        other.delete()
+        link.refresh_from_db()
+        self.assertIsNone(link.created_by_id)
+        self.assertTrue(link.is_active)
+        base_post, base_get = self._revoked_baseline()
+        post = self.client.post(join_url(raw))
+        get = self.client.get(join_url(raw))
+        self.assertEqual(post.status_code, 404)
+        self.assertEqual(post.json(), base_post.json())
+        self.assertEqual(get.status_code, 404)
+        self.assertEqual(get.json(), base_get.json())
+        self.assertFalse(
+            GroupMembership.objects.filter(group=self.group, user=self.joiner).exists()
+        )
 
     def test_parent_group_admin_creator_still_admits(self):
         child = Group.objects.create(
