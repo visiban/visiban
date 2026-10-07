@@ -200,9 +200,11 @@ class JsonImportPerItemTypeValidationTests(TestCase):
         return {"name": "B", "columns": [{"name": "c"}], "swimlanes": [{"name": "s"}], "cards": [card]}
 
     def _assert_400(self, payload, expected):
+        before = Board.objects.count()
         r = self._import(payload)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn(expected, str(r.data))
+        self.assertEqual(Board.objects.count(), before)
 
     def test_card_entry_not_object(self):
         payload = self._payload()
@@ -241,4 +243,64 @@ class JsonImportPerItemTypeValidationTests(TestCase):
     def test_non_string_name_rejected(self):
         payload = self._payload()
         payload["columns"] = [{"name": ["c"]}]
-        self._assert_400(payload, "name must be a string")
+        self._assert_400(payload, "name must be a non-empty string")
+
+    def test_null_nested_lists_rejected(self):
+        for key in ("comments", "movements", "activities", "checklist"):
+            with self.subTest(key=key):
+                self._assert_400(self._payload(**{key: None}), f"'{key}' must be a list")
+
+    def test_non_string_swimlane_and_label_name_rejected(self):
+        payload = self._payload()
+        payload["swimlanes"] = [{"name": 5}]
+        payload["cards"] = []
+        self._assert_400(payload, "Swimlane at index 0: name must be a non-empty string")
+        payload = self._payload()
+        payload["labels"] = [{"name": ["x"]}]
+        self._assert_400(payload, "Label at index 0: name must be a non-empty string")
+
+    def test_missing_or_empty_name_rejected(self):
+        for key, label in (("columns", "Column"), ("swimlanes", "Swimlane"), ("labels", "Label")):
+            for entry in ({}, {"name": ""}):
+                with self.subTest(key=key, entry=entry):
+                    payload = self._payload()
+                    payload["cards"] = []
+                    payload[key] = [entry]
+                    self._assert_400(payload, f"{label} at index 0: name must be a non-empty string")
+
+    def test_card_labels_bool_or_int_rejected(self):
+        self._assert_400(self._payload(labels=[True]), "'labels' must be a list of strings")
+        self._assert_400(self._payload(labels=[1]), "'labels' must be a list of strings")
+
+    def test_schema_version_must_be_int(self):
+        for bad in ("2", [1], {"a": 1}, None, True):
+            with self.subTest(bad=bad):
+                payload = self._payload()
+                payload["schema_version"] = bad
+                self._assert_400(payload, "'schema_version' must be an integer")
+
+    def test_schema_version_absent_or_int_still_imports(self):
+        self.assertEqual(self._import(self._payload()).status_code, status.HTTP_201_CREATED)
+        payload = self._payload()
+        payload["schema_version"] = 2
+        self.assertEqual(self._import(payload).status_code, status.HTTP_201_CREATED)
+
+    def test_movement_refs_must_be_strings(self):
+        for key in ("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"):
+            for bad in (["x"], {"a": 1}, 5):
+                with self.subTest(key=key, bad=bad):
+                    self._assert_400(self._payload(movements=[{key: bad}]), f"'{key}' must be a string")
+
+    def test_movement_null_refs_still_import(self):
+        r = self._import(self._payload(movements=[{"from_column": None, "moved_by": None}]))
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+    def test_activity_actor_must_be_string(self):
+        for bad in (["x"], {"a": 1}, 5, True):
+            with self.subTest(bad=bad):
+                self._assert_400(self._payload(activities=[{"actor": bad}]), "'actor' must be a string")
+
+    def test_assignee_must_be_string(self):
+        for bad in (["x"], {"a": 1}, 5, True):
+            with self.subTest(bad=bad):
+                self._assert_400(self._payload(assignee=bad), "'assignee' must be a string")

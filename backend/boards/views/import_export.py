@@ -558,6 +558,8 @@ class BoardImportExportMixin:
         # v2 adds archived_at per card, movement_type, movement notes, and comment created_at.
         _SUPPORTED_SCHEMA_VERSION = 2
         schema_version = data.get("schema_version", 0)
+        if isinstance(schema_version, bool) or not isinstance(schema_version, int):
+            return Response({"detail": "'schema_version' must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
         if schema_version > _SUPPORTED_SCHEMA_VERSION:
             import logging as _logging
             _logging.getLogger(__name__).warning(
@@ -613,9 +615,11 @@ class BoardImportExportMixin:
                         {"detail": f"{_label} at index {_i} must be an object"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                if not isinstance(_item.get("name", ""), str):
+                # A missing or empty name used to reach ``item["name"]`` inside
+                # the transaction and raise KeyError (500).
+                if not isinstance(_item.get("name"), str) or not _item["name"]:
                     return Response(
-                        {"detail": f"{_label} at index {_i}: name must be a string"},
+                        {"detail": f"{_label} at index {_i}: name must be a non-empty string"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
         for _ci, _card in enumerate(data.get("cards", [])):
@@ -640,6 +644,23 @@ class BoardImportExportMixin:
                             {"detail": f"Card at index {_ci}, {_child_label} at index {_ji} must be an object"},
                             status=status.HTTP_400_BAD_REQUEST,
                         )
+                    # Names/usernames feed dict lookups and ``.lower()``: only
+                    # str (or null/absent) is safe.
+                    _str_keys = {
+                        "movements": ("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"),
+                        "activities": ("actor",),
+                    }.get(_child, ())
+                    for _k in _str_keys:
+                        if _entry.get(_k) is not None and not isinstance(_entry[_k], str):
+                            return Response(
+                                {"detail": f"Card at index {_ci}, {_child_label} at index {_ji}: '{_k}' must be a string"},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+            if _card.get("assignee") is not None and not isinstance(_card["assignee"], str):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'assignee' must be a string"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             # Label references are looked up in a dict; an unhashable entry
             # would raise TypeError there.
             _refs = _card.get("labels", [])
