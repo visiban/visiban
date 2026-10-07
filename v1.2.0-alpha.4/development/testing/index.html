@@ -2741,6 +2741,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#writing-tests-that-catch-mutations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing tests that catch mutations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Writing tests that catch mutations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-exact-values-over-truthiness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Exact values over truthiness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-boundary-tests-at-n-1-n-and-n1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Boundary tests at N-1, N, and N+1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-persisted-state-after-a-reload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Persisted state after a reload
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-denied-paths-assert-that-nothing-happened" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Denied paths assert that nothing happened
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-not-to-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What not to do
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ci" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4150,6 +4222,60 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <li>[ ] Assertions are keyed on role + name, not class names</li>
 <li>[ ] Fixtures are imported from <code>fixtures/board.ts</code>, not inlined per-test</li>
 </ul>
+<h2 id="writing-tests-that-catch-mutations">Writing tests that catch mutations<a class="headerlink" href="#writing-tests-that-catch-mutations" title="Permanent link">&para;</a></h2>
+<p>A test that only checks <code>status_code == 200</code> or <code>assertTrue(result)</code> passes when the code under it is wrong. The <a href="../mutation-testing/">mutation baseline</a> shows what kills mutants instead. Four patterns account for nearly all of it. The examples are real excerpts from <code>backend/boards/tests/</code>.</p>
+<h3 id="1-exact-values-over-truthiness">1. Exact values over truthiness<a class="headerlink" href="#1-exact-values-over-truthiness" title="Permanent link">&para;</a></h3>
+<p>Assert the full value the caller sees: the whole message, every field, the wire value of an enum. A fragment check (<code>assertIn</code>, <code>startswith</code> alone) survives a mutant that wraps the message in extra text.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># test_import_export_mutation_gaps.py</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">_upload</span><span class="p">(</span><span class="sa">b</span><span class="s2">"x"</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)))</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="bp">self</span><span class="o">.</span><span class="n">assert_400</span><span class="p">(</span><span class="n">resp</span><span class="p">,</span> <span class="s2">"File too large. Maximum size is 1 MB."</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="2-boundary-tests-at-n-1-n-and-n1">2. Boundary tests at N-1, N, and N+1<a class="headerlink" href="#2-boundary-tests-at-n-1-n-and-n1" title="Permanent link">&para;</a></h3>
+<p>A <code>&gt;=</code> to <code>&gt;</code> change on a limit survives unless a test sits exactly on the limit. Test the last accepted value and the first rejected value, and assert the exact rejection message.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># test_import_export_mutation_gaps.py</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_cards_500_accepted</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">_minimal</span><span class="p">(</span><span class="n">cards</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_cards</span><span class="p">(</span><span class="mi">500</span><span class="p">)))</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="mi">201</span><span class="p">,</span> <span class="n">resp</span><span class="o">.</span><span class="n">content</span><span class="p">[:</span><span class="mi">300</span><span class="p">])</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">Card</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="mi">500</span><span class="p">)</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_cards_501_rejected</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">assert_400</span><span class="p">(</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">_minimal</span><span class="p">(</span><span class="n">cards</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_cards</span><span class="p">(</span><span class="mi">501</span><span class="p">))),</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>        <span class="s2">"Import contains 501 cards, which exceeds the limit of 500."</span><span class="p">,</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="p">)</span>
+</code></pre></div>
+<h3 id="3-persisted-state-after-a-reload">3. Persisted state after a reload<a class="headerlink" href="#3-persisted-state-after-a-reload" title="Permanent link">&para;</a></h3>
+<p>A response can be right while the row is wrong. Re-read from the database (<code>refresh_from_db()</code> or a fresh query) and assert on what was stored, including denormalized columns that must outlive the thing they point at.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># test_movement_record_mutation_gaps.py</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">other_lane</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">row2</span><span class="o">.</span><span class="n">refresh_from_db</span><span class="p">()</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">row2</span><span class="o">.</span><span class="n">from_swimlane</span><span class="p">)</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">row2</span><span class="o">.</span><span class="n">to_swimlane_name</span><span class="p">,</span> <span class="s2">"Other"</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="4-denied-paths-assert-that-nothing-happened">4. Denied paths assert that nothing happened<a class="headerlink" href="#4-denied-paths-assert-that-nothing-happened" title="Permanent link">&para;</a></h3>
+<p>A rejected request must leave no row, movement, or event behind. Asserting the 4xx alone lets a mutant that writes first and rejects afterward survive. Count the rows after the denial, and check the exception detail or response body, not just the type.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># test_import_export_mutation_gaps.py</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_nothing_is_created_by_a_rejected_import</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>        <span class="n">_minimal</span><span class="p">(</span><span class="n">cards</span><span class="o">=</span><span class="p">[{</span><span class="s2">"title"</span><span class="p">:</span> <span class="s2">"B"</span><span class="p">,</span> <span class="s2">"column"</span><span class="p">:</span> <span class="s2">"Nope"</span><span class="p">,</span> <span class="s2">"swimlane"</span><span class="p">:</span> <span class="s2">"General"</span><span class="p">}])</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="p">)</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+<p>The same applies to audit rows. This denied create asserts the exact 409 body, the unchanged count, and that no <code>CardMovement</code> row was written (a sibling suite, not a gap file):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># test_limit_enforcement_paths.py</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="mi">409</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">limited</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># The rollback covers the audit row too.</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">CardMovement</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">notes</span><span class="o">=</span><span class="s2">"Card created"</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">())</span>
+</code></pre></div>
+<p>Do the same for broadcast events: assert nothing was queued.</p>
+<h3 id="what-not-to-do">What not to do<a class="headerlink" href="#what-not-to-do" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Do not write one test per mutant.</strong> Write the smallest assertion that states the behavior; one test often kills several mutants. A suite shaped like the survivor list breaks on every refactor.</li>
+<li><strong>Do not pin the full wording of logger text.</strong> Assert the level and a stable event-name prefix or key substring (<code>assertLogs(..., level="WARNING")</code> plus <code>assertIn("malformed payload", ...)</code>), not the whole sentence. Pin the full message only when it is a documented contract.</li>
+<li><strong>Do not assert on <code>.get()</code> defaults that are always overridden.</strong> If no caller can reach the default, the mutant is equivalent. Record it in the baseline page and leave it.</li>
+<li><strong>Do not chase equivalent mutants</strong> (dead branches, schema constants guarded by <code>migration-check</code>). See "How to read the results" in the mutation baseline.</li>
+</ul>
 <h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Backend tests run in the <code>backend-test</code> job (3 parallel shards) on every MR that touches <code>backend/**/*</code> or <code>requirements*.txt</code></li>
@@ -4298,7 +4424,7 @@ issue — but that lock only covers work that goes through <code>wt</code>. A pl
 collision is two merge requests solving the same issue.</p>
 <p><code>scripts/check-issue-collision.sh</code> closes that gap at push time, regardless of how the
 branch was created. Install it once per clone:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>scripts/setup-hooks.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>scripts/setup-hooks.sh
 </code></pre></div>
 <p>This installs a <code>pre-push</code> hook and a <code>pre-commit</code> hook (shared by every <code>scripts/wt</code>
 worktree of this clone, since hooks live in the git common dir — no need to re-run per
@@ -4316,7 +4442,7 @@ hook:</p>
 </ul>
 <p>For the legitimate stacked-MR case (two branches against the same issue on purpose),
 override a detected collision with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">ALLOW_ISSUE_COLLISION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>...
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nv">ALLOW_ISSUE_COLLISION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>...
 </code></pre></div>
 <p>The <code>pre-commit</code> hook runs <code>scripts/gitleaks-precommit.sh</code>, blocking a commit that stages
 a hardcoded secret. It no-ops with a warning if <code>gitleaks</code> isn't installed locally — the
