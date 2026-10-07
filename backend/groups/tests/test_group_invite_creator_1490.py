@@ -186,6 +186,7 @@ class GroupInviteCreatorEdgeCaseTests(TestCase):
             username="sa",
             password="pw",
             is_site_admin=True,
+            can_access_all_content=True,
         )
         self.assertTrue(site_admin.can_access_all_content)
         self.assertFalse(
