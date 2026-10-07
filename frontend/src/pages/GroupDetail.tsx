@@ -1027,6 +1027,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   {defaultsSaved && <span className="text-success text-xs">Saved</span>}
                   {defaultsError && <span className="text-danger text-xs">{defaultsError}</span>}
                 </div>
+                {/* #1430: stored but never read; access comes from GroupMembership.role via get_board_role() */}
+                <p className="text-fg-muted text-xs mt-2">
+                  Not yet enforced. Group members currently get their group role on every group board.
+                </p>
               </div>
 
               {/* Allowed priorities */}
