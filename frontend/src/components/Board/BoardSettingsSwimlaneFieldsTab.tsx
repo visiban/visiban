@@ -349,7 +349,9 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   if (!isAdmin) {
     // Currently unreachable — every entry point to Board Settings is
     // admin-gated. Kept for parity with the card tab, since that gate is a
-    // call-site decision that could change.
+    // call-site decision that could change. The read-only "Field names on row
+    // chips" line (#1418) sits in this same branch, and in RowChipNamesSetting's
+    // `!onUpdateBoardSettings` fallback.
     return (
       <div>
         <RowChipNamesSetting board={board} isAdmin={false} />

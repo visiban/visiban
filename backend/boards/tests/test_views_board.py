@@ -715,15 +715,37 @@ class ShowRowChipFieldNamesTests(TestCase):
         self.assertTrue(self.board.show_row_chip_field_names)
 
     def test_non_admin_cannot_write_show_row_chip_field_names(self):
-        """A board member (non-admin) PATCHing the setting gets a 403 and the
+        """Every non-admin board role PATCHing the setting gets a 403 and the
         value is left unchanged — perform_update's admin gate covers it."""
-        self.client.force_authenticate(self.member)
+        users = {BoardMembership.Role.MEMBER: self.member}
+        for role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
+            user = User.objects.create_user(username=f"chip_names_{role}", password="pass")
+            BoardMembership.objects.create(board=self.board, user=user, role=role)
+            users[role] = user
+        for role, user in users.items():
+            with self.subTest(role=role):
+                c = APIClient()
+                c.force_authenticate(user)
+                r = c.patch(
+                    f"/api/v1/boards/{self.board.id}/",
+                    {"show_row_chip_field_names": False},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+                self.board.refresh_from_db()
+                self.assertTrue(self.board.show_row_chip_field_names)
+
+    def test_non_member_gets_404_and_value_unchanged(self):
+        """A user with no membership cannot see the board at all (404, not
+        403, so its existence is not disclosed) and cannot change the value."""
+        outsider = User.objects.create_user(username="chip_names_outsider", password="pass")
+        self.client.force_authenticate(outsider)
         r = self.client.patch(
             f"/api/v1/boards/{self.board.id}/",
             {"show_row_chip_field_names": False},
             format="json",
         )
-        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
         self.board.refresh_from_db()
         self.assertTrue(self.board.show_row_chip_field_names)
 
