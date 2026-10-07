@@ -3,8 +3,14 @@ import type { Ref } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { listInviteLinks, createInviteLink, revokeInviteLink, sendInviteLinkEmail } from "../../api/groups";
-import { listBoardInviteLinks, revokeBoardInviteLink, sendBoardInviteEmail } from "../../api/boards";
-import type { BoardInviteLink, GroupInviteLink } from "../../types";
+import {
+  createBoardInviteLink,
+  listBoardInviteLinks,
+  revokeBoardInviteLink,
+  sendBoardInviteEmail,
+} from "../../api/boards";
+import { getSiteConfig } from "../../api/auth";
+import type { BoardInviteLink, GroupInviteLink, RegistrationMode } from "../../types";
 import EmailInviteForm from "../Common/EmailInviteForm";
 import type { EmailInviteFormHandle, EmailInvitePayload } from "../Common/EmailInviteForm";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -23,7 +29,7 @@ interface Props {
    *  heading. "embedded": no chrome, for a host that supplies its own section
    *  (Board Settings → Members). */
   variant?: "card" | "embedded";
-  /** Shareable-link creation ("New link"). Off for boards until #439. */
+  /** Shareable-link creation ("New link"). Boards turn it on with #439. */
   allowShareableLinks?: boolean;
   /** Escape priority for the revoke prompt. 40 on the group page (above its
    *  priority-0 Escape-to-navigate); inside Board Settings it must sit above
@@ -50,8 +56,17 @@ type PanelLink = (GroupInviteLink | (BoardInviteLink & { is_active?: boolean; to
   can_register?: boolean;
 };
 
+/** What the create form submits; each kind maps it onto its own endpoint. */
+interface CreatePayload {
+  name?: string;
+  role: "admin" | "member" | "collaborator" | "viewer";
+  expiry_days: number | null;
+  single_use: boolean;
+}
+
 interface InviteApi {
   list: (id: number) => Promise<PanelLink[]>;
+  create: (id: number, payload: CreatePayload) => Promise<PanelLink>;
   revoke: (id: number, linkId: number) => Promise<unknown>;
   send: (id: number, payload: EmailInvitePayload) => ReturnType<typeof sendInviteLinkEmail>;
 }
@@ -61,11 +76,20 @@ interface InviteApi {
 const INVITE_API: Record<InviteScope["kind"], InviteApi> = {
   group: {
     list: (id) => listInviteLinks(id),
+    create: (id, payload) => createInviteLink(id, payload),
     revoke: (id, linkId) => revokeInviteLink(id, linkId),
     send: (id, payload) => sendInviteLinkEmail(id, { email: payload.email, role: payload.role }),
   },
   board: {
     list: (id) => listBoardInviteLinks(id),
+    // The board form offers only grantable roles and 1/7/30 days (#439); the
+    // server refuses anything else, so the narrowing here is a formality.
+    create: (id, payload) => createBoardInviteLink(id, {
+      name: payload.name,
+      role: payload.role === "admin" ? undefined : payload.role,
+      expiry_days: (payload.expiry_days ?? 7) as 1 | 7 | 30,
+      single_use: payload.single_use,
+    }),
     revoke: (id, linkId) => revokeBoardInviteLink(id, linkId),
     send: (id, payload) => sendBoardInviteEmail(id, {
       email: payload.email,
@@ -117,7 +141,12 @@ const EXPIRY_OPTIONS = [
   { label: "Never", value: null },
 ];
 
+// A shareable board link always expires (#439): no "Never".
+const BOARD_EXPIRY_OPTIONS = EXPIRY_OPTIONS.filter((opt) => opt.value !== null);
+
 const MAX_LINKS = 5;
+
+const CAP_MESSAGE = `Maximum of ${MAX_LINKS} active invite links reached. Revoke a link to create a new one.`;
 
 function formatExpiry(link: PanelLink): string {
   if (link.is_expired) return "Expired";
@@ -193,6 +222,19 @@ export default function InviteLinkPanel({
   const [showPast, setShowPast] = useState(false);
   // Whether the email form can send (null until site-config loads).
   const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
+  // Board shareable links (#439): the create form says whether a new person
+  // can sign up from a link, which depends on the site's registration mode.
+  const [registrationMode, setRegistrationMode] = useState<RegistrationMode | null>(null);
+  const wantsRegistrationMode = isBoard && allowShareableLinks;
+  useEffect(() => {
+    if (!wantsRegistrationMode) return;
+    let cancelled = false;
+    getSiteConfig()
+      .then((c) => { if (!cancelled) setRegistrationMode(c.registration_mode); })
+      // Unknown mode: show no notice rather than a possibly wrong one.
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [wantsRegistrationMode]);
 
   // Escape cancels the open revoke prompt before the host's own Escape
   // handler — GroupDetail's priority-0 navigate (#1238), or Board Settings'
@@ -328,7 +370,7 @@ export default function InviteLinkPanel({
     setCreateError(null);
     setCreating(true);
     try {
-      const newLink = await createInviteLink(scopeId, {
+      const newLink = await api.create(scopeId, {
         name: formName.trim() || undefined,
         role: formRole,
         expiry_days: formExpiry,
@@ -351,9 +393,13 @@ export default function InviteLinkPanel({
   };
 
   // Active links exclude consumed single-use links (they're dead weight against the cap)
-  // and emailed links (#731), which the backend caps separately.
-  const activeCount = links.filter(
-    (l) => l.is_active && !l.used_at && l.delivery !== "email"
+  // and emailed links (#731), which the backend caps separately. Board rows
+  // carry no is_active: the server's effective status already folds in
+  // revoked, used, expired and a sender who lost admin (#439).
+  const activeCount = links.filter((l) =>
+    isBoard
+      ? effectiveStatus(l) === "pending" && l.delivery === "link"
+      : l.is_active && !l.used_at && l.delivery !== "email"
   ).length;
   const atLimit = activeCount >= MAX_LINKS;
 
@@ -414,6 +460,36 @@ export default function InviteLinkPanel({
     );
   };
 
+  /** One-time token reveal: the raw token exists only in this session. */
+  const tokenReveal = (link: PanelLink) => (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs text-warning">
+        Copy this link now — it won't be shown again.
+      </p>
+      <div
+        className="font-mono text-xs bg-sunken border border-warning/50 rounded px-2 py-1.5 text-fg truncate"
+        title={`${window.location.origin}/join/${link.token}`}
+      >
+        {`${window.location.origin}/join/${link.token}`}
+      </div>
+      <div className="flex gap-2">
+        <button
+          // void: handleCopy now catches its own rejection and surfaces it via copyErrorId.
+          onClick={() => void handleCopy(link)}
+          className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+        >
+          {copyErrorId === link.id ? "Failed — try again" : copiedId === link.id ? "Copied!" : "Copy"}
+        </button>
+        <button
+          onClick={() => handleDismissReveal(link.id)}
+          className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+
   // Always mounted, so the outcome of a revoke that lost to a redemption is
   // announced even though the prompt that started it has closed and (on the
   // board) the row has moved to the past list (#1421).
@@ -439,13 +515,121 @@ export default function InviteLinkPanel({
     />
   );
 
+  const createForm = (
+    <div className="flex flex-col gap-3 border border-line rounded-lg p-3 bg-sunken">
+      <p className="text-xs font-semibold text-fg-secondary">New invite link</p>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={`invite-link-name-${kind}-${scopeId}`} className="text-xs text-fg-tertiary">Name (optional)</label>
+        <input
+          id={`invite-link-name-${kind}-${scopeId}`}
+          type="text"
+          value={formName}
+          onChange={(e) => setFormName(e.target.value)}
+          placeholder="e.g. Engineering onboarding"
+          maxLength={100}
+          className="text-xs bg-surface border border-line rounded px-2 py-1.5 text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder:text-fg-muted"
+        />
+      </div>
+
+      <div className="flex gap-3">
+        <div className="flex flex-col gap-1 flex-1">
+          <label className="text-xs text-fg-tertiary">Role</label>
+          <SelectDropdown
+            value={formRole}
+            onChange={(v) => setFormRole(v as "admin" | "member" | "collaborator" | "viewer")}
+            options={isBoard ? BOARD_ROLE_OPTIONS : [
+              { value: "admin", label: "Admin" },
+              { value: "member", label: "Member" },
+              { value: "collaborator", label: "Collaborator" },
+              { value: "viewer", label: "Viewer" },
+            ]}
+            size="xs"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1 flex-1">
+          <label className="text-xs text-fg-tertiary">Expires</label>
+          <SelectDropdown
+            value={formExpiry === null ? "null" : String(formExpiry)}
+            onChange={(v) => setFormExpiry(v === "null" ? null : Number(v))}
+            options={(isBoard ? BOARD_EXPIRY_OPTIONS : EXPIRY_OPTIONS).map((opt) => ({
+              value: String(opt.value),
+              label: opt.label,
+            }))}
+            size="xs"
+          />
+        </div>
+      </div>
+
+      {/* Single-use toggle */}
+      <ToggleField
+        label="Single use"
+        description="Link expires after one person joins."
+        labelSize="xs"
+        checked={formSingleUse}
+        onChange={setFormSingleUse}
+      />
+
+      {/* Board (#439): whether a new person can sign up from a link depends on
+          the site's registration mode — shareable links never admit a new
+          account on an invite-only or closed site. */}
+      {isBoard && registrationMode !== null && registrationMode !== "open" && (
+        <p className="text-xs text-fg-muted">
+          New users can't sign up from an invite link on this site. Only people who already have an account can join with it.
+        </p>
+      )}
+
+      {/* Reserved error slot — always rendered to prevent layout shift.
+          h-4 matches text-xs's 1rem line-height so the slot doesn't clip. */}
+      <p className="text-xs h-4">
+        {createError && <span className="text-danger">{createError}</span>}
+      </p>
+
+      <div className="flex gap-3 items-center justify-end">
+        <button
+          onClick={() => {
+            setShowForm(false);
+            setCreateError(null);
+            setFormSingleUse(false);
+          }}
+          className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => void handleCreate()}
+          disabled={creating}
+          className="text-xs bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+        >
+          {creating ? "Creating…" : "Create link"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const newLinkButton = allowShareableLinks && !atLimit && !showForm && (
+    <button
+      onClick={() => setShowForm(true)}
+      className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+    >
+      New link
+    </button>
+  );
+
+  const capWarning = allowShareableLinks && atLimit && !showForm && (
+    <p className="text-xs text-warning">{CAP_MESSAGE}</p>
+  );
+
   if (isBoard) {
     const boardRow = (link: PanelLink) => {
       const linkStatus = effectiveStatus(link);
       const pending = linkStatus === "pending";
       const meta = metaLine(link);
+      const isRevealing = revealId === link.id && !!link.token;
       const rowClasses =
-        linkStatus === "revoked" ? "border-line bg-sunken/50 opacity-60"
+        isRevealing ? "border-warning/50 bg-sunken"
+        : linkStatus === "revoked" ? "border-line bg-sunken/50 opacity-60"
         : linkStatus === "used" ? "border-line bg-sunken/50 opacity-75"
         : linkStatus === "expired" ? "border-danger/40 bg-sunken/50 opacity-70"
         : "border-line bg-sunken";
@@ -478,13 +662,18 @@ export default function InviteLinkPanel({
                 {formatExpiry(link)}
               </span>
             )}
+            {pending && link.delivery === "link" && link.single_use && (
+              <span className="text-xs text-warning">1-use</span>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <div className="flex-1 text-xs bg-surface border border-line rounded px-2 py-1 text-fg-tertiary truncate font-mono">
-              {link.prefix}…
+          {isRevealing ? tokenReveal(link) : (
+            <div className="flex flex-wrap gap-2">
+              <div className="flex-1 text-xs bg-surface border border-line rounded px-2 py-1 text-fg-tertiary truncate font-mono">
+                {link.prefix}…
+              </div>
+              {pending && revokeControls(link)}
             </div>
-            {pending && revokeControls(link)}
-          </div>
+          )}
           {revokeError?.id === link.id && revokeError.message === ALREADY_USED_REVOKE_ERROR && (
             <p className="text-xs text-danger mt-1">{revokeError.message}</p>
           )}
@@ -510,13 +699,25 @@ export default function InviteLinkPanel({
         {!sectionHidden && revokeAnnouncement}
         {!sectionHidden && (
         <div className="flex flex-col gap-2">
-          <h4 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Pending invites</h4>
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Pending invites</h4>
+            {newLinkButton}
+          </div>
           {/* About emailed invites — irrelevant once sending is unavailable. */}
           {emailAvailable !== false && (
             <p className="text-xs text-fg-muted">
               Visiban doesn't keep the email address an invite was sent to. Tell invites apart by when they were sent.
             </p>
           )}
+          {/* "Invite link", never "share link": the board's public Share link
+              (Sharing tab) is a different, sign-in-free feature (#439). */}
+          {allowShareableLinks && (
+            <p className="text-xs text-fg-muted">
+              Anyone with an invite link can join this board after signing in. To let people view without signing in, use the Sharing tab.
+            </p>
+          )}
+          {capWarning}
+          {allowShareableLinks && showForm && createForm}
           {loading ? (
             <Spinner />
           ) : loadError ? (
@@ -562,14 +763,7 @@ export default function InviteLinkPanel({
       {revokeAnnouncement}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-fg-secondary">Invite links</h3>
-        {allowShareableLinks && !atLimit && !showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
-          >
-            New link
-          </button>
-        )}
+        {newLinkButton}
       </div>
 
       {emailForm}
@@ -661,33 +855,7 @@ export default function InviteLinkPanel({
 
                 {/* Row 2 — token reveal or prefix + revoke (hidden for terminal states) */}
                 {isRevealing ? (
-                  /* One-time token reveal */
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs text-warning">
-                      Copy this link now — it won't be shown again.
-                    </p>
-                    <div
-                      className="font-mono text-xs bg-sunken border border-warning/50 rounded px-2 py-1.5 text-fg truncate"
-                      title={`${window.location.origin}/join/${link.token}`}
-                    >
-                      {`${window.location.origin}/join/${link.token}`}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        // void: handleCopy now catches its own rejection and surfaces it via copyErrorId.
-                        onClick={() => void handleCopy(link)}
-                        className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
-                      >
-                        {copyErrorId === link.id ? "Failed — try again" : copiedId === link.id ? "Copied!" : "Copy"}
-                      </button>
-                      <button
-                        onClick={() => handleDismissReveal(link.id)}
-                        className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                      >
-                        Done
-                      </button>
-                    </div>
-                  </div>
+                  tokenReveal(link)
                 ) : !isTerminal ? (
                   /* Normal display — prefix only + revoke */
                   <div className="flex flex-wrap gap-2">
@@ -706,94 +874,9 @@ export default function InviteLinkPanel({
         </ul>
       )}
 
-      {allowShareableLinks && atLimit && !showForm && (
-        <p className="text-xs text-warning">
-          Maximum of {MAX_LINKS} active invite links reached. Revoke a link to create a new one.
-        </p>
-      )}
+      {capWarning}
 
-      {allowShareableLinks && showForm && (
-        <div className="flex flex-col gap-3 border border-line rounded-lg p-3 bg-sunken">
-          <p className="text-xs font-semibold text-fg-secondary">New invite link</p>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-fg-tertiary">Name (optional)</label>
-            <input
-              type="text"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="e.g. Engineering onboarding"
-              maxLength={100}
-              className="text-xs bg-surface border border-line rounded px-2 py-1.5 text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder:text-fg-muted"
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex flex-col gap-1 flex-1">
-              <label className="text-xs text-fg-tertiary">Role</label>
-              <SelectDropdown
-                value={formRole}
-                onChange={(v) => setFormRole(v as "admin" | "member" | "collaborator" | "viewer")}
-                options={[
-                  { value: "admin", label: "Admin" },
-                  { value: "member", label: "Member" },
-                  { value: "collaborator", label: "Collaborator" },
-                  { value: "viewer", label: "Viewer" },
-                ]}
-                size="xs"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1 flex-1">
-              <label className="text-xs text-fg-tertiary">Expires</label>
-              <SelectDropdown
-                value={formExpiry === null ? "null" : String(formExpiry)}
-                onChange={(v) => setFormExpiry(v === "null" ? null : Number(v))}
-                options={EXPIRY_OPTIONS.map((opt) => ({
-                  value: String(opt.value),
-                  label: opt.label,
-                }))}
-                size="xs"
-              />
-            </div>
-          </div>
-
-          {/* Single-use toggle */}
-          <ToggleField
-            label="Single use"
-            description="Link expires after one person joins."
-            labelSize="xs"
-            checked={formSingleUse}
-            onChange={setFormSingleUse}
-          />
-
-          {/* Reserved error slot — always rendered to prevent layout shift.
-              h-4 matches text-xs's 1rem line-height so the slot doesn't clip. */}
-          <p className="text-xs h-4">
-            {createError && <span className="text-danger">{createError}</span>}
-          </p>
-
-          <div className="flex gap-3 items-center justify-end">
-            <button
-              onClick={() => {
-                setShowForm(false);
-                setCreateError(null);
-                setFormSingleUse(false);
-              }}
-              className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCreate}
-              disabled={creating}
-              className="text-xs bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
-            >
-              {creating ? "Creating…" : "Create link"}
-            </button>
-          </div>
-        </div>
-      )}
+      {allowShareableLinks && showForm && createForm}
     </div>
   );
 }

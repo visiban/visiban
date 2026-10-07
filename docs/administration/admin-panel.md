@@ -200,6 +200,14 @@ When emailing isn't possible, the section is replaced by a note that points to *
 
 Click **Revoke** on any active link to invalidate it immediately. Revoked links cannot be re-activated. Users who attempt to use a revoked link receive a clear error message.
 
+## Board Invites tab
+
+*(New in 1.2)* The **Board Invites** tab lists the invites of **every board** on the instance — invites board admins emailed and shareable invite links they created — so you can audit them or revoke a leaked link without being a member of the board. Board admins manage their own board's invites from **Board Settings → Members**.
+
+Pick a **Status** (Pending, the default; Used; Expired; Revoked; or All). Each row shows the board, the role the invite grants, how it was delivered (**Email** or **Link**), its status, when it expires, and who created it (**—** when that account was removed). An **Existing accounts only** tag means a new person couldn't create an account from the invite on this site right now — always the case for a shareable link on an invite-only site. The list shows 50 invites per page.
+
+Select **Revoke** on a pending invite and then **Confirm** to stop it working immediately. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in [Admin API — Board invites](../api/admin.md#board-invites).
+
 ## CLI alternatives
 
 All admin-panel operations are also available via management commands for scripting and automation:

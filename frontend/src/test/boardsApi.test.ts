@@ -16,6 +16,7 @@ vi.mock('../api/client', () => {
 import client from '../api/client'
 import {
   listBoardInviteLinks,
+  createBoardInviteLink,
   sendBoardInviteEmail,
   revokeBoardInviteLink,
   resolveBoardJoinToken,
@@ -560,6 +561,13 @@ describe('board invite API (#1444)', () => {
 
     await revokeBoardInviteLink(3, 8)
     expect(api.delete).toHaveBeenCalledWith('/api/v1/boards/3/invite-links/8/')
+  })
+
+  it('creates a shareable link with POST /boards/<id>/invite-links/ (#439)', async () => {
+    api.post.mockResolvedValue({ data: { id: 5, token: 'vbnb_raw' } })
+    const payload = { role: 'collaborator' as const, expiry_days: 7 as const, single_use: true }
+    expect(await createBoardInviteLink(3, payload)).toEqual({ id: 5, token: 'vbnb_raw' })
+    expect(api.post).toHaveBeenCalledWith('/api/v1/boards/3/invite-links/', payload)
   })
 
   it('previews and joins through /boards/join/<token>/', async () => {

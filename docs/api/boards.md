@@ -1039,20 +1039,21 @@ Remove a member. Requires board admin. Cannot remove a site admin.
 
 ## Board invites
 
-*(New in 1.2)* A board admin can email a **single-use invite** to someone who may not have an account yet. The invite token (`vbnb_` prefix) travels only in the email and is never returned by the API; only its first 8 characters (`prefix`) are shown. The address it was sent to is not stored. Invites grant `member`, `collaborator` or `viewer` — never `admin`, and never the moderator flag. A board invite never adds anyone to the board's group.
+*(New in 1.2)* A board admin can email a **single-use invite** to someone who may not have an account yet, or create a **shareable invite link** to paste anywhere. The invite token (`vbnb_` prefix) travels only in the email, or — for a shareable link — in the create response, once; it is never returned again. Only its first 8 characters (`prefix`) are shown. The address it was sent to is not stored. Invites grant `member`, `collaborator` or `viewer` — never `admin`, and never the moderator flag. A board invite never adds anyone to the board's group.
 
 ### `GET /api/v1/boards/{id}/invite-links/`
 List the board's invites, newest first, as a bare array (not paginated). Requires board admin (an admin of the board, the owner, an admin of the board's group, or a site admin with all-content access). Returns **every pending invite plus at most the 50 most recent past ones** (used, expired or revoked); older history is not returned. A caller with no access to the board gets `403`, a board that does not exist `404`, an unauthenticated request `401` — the same as the members endpoints.
 
 | Field | Description |
 |---|---|
-| `id`, `prefix`, `name` | Identity. `name` is empty for emailed invites. |
+| `id`, `prefix`, `name` | Identity. `name` is empty for emailed invites, and optional for shareable links. |
 | `role` | `member`, `collaborator` or `viewer`. |
-| `delivery` | `email` for emailed invites (`link` is reserved for shareable links, not yet available). |
+| `delivery` | `email` for emailed invites, `link` for shareable links. |
 | `created_at`, `created_by_username` | When and by whom it was sent. `created_by_username` is `null` when the sender's account was deleted. |
 | `expires_at`, `is_expired`, `single_use`, `used_at` | Lifetime. |
 | `status` | `pending`, `used`, `expired` or `revoked` (precedence revoked > used > expired). A pending invite whose sender's account was deleted, or who is no longer an admin of the board, is reported as `revoked` — the join endpoints refuse it the same way — although nobody revoked it explicitly, and it stops counting toward the 50-pending cap. This is **not written** to the invite: if the sender regains board admin, the invite reads as `pending` and can be redeemed again (until it expires). To make it permanent, revoke it with `DELETE` below, which accepts it because it was never actually revoked. |
-| `can_register` | Advisory: whether a new person could create an account from this invite under the site's **current** registration mode — computed when you read it, so it changes if the mode or the sender's site-admin status changes. Always `false` when `status` is not `pending`. |
+| `can_register` | Advisory: whether a new person could create an account from this invite under the site's **current** registration mode — computed when you read it, so it changes if the mode or the sender's site-admin status changes. Always `false` when `status` is not `pending`, and always `false` for a shareable link unless the site is `open`. |
+| `use_count` | *(1.2)* How many times the invite has been redeemed. A multi-use shareable link never sets `used_at`, so this is its only usage signal. |
 
 **Example response**
 
@@ -1071,7 +1072,8 @@ List the board's invites, newest first, as a bare array (not paginated). Require
     "single_use": true,
     "used_at": null,
     "status": "pending",
-    "can_register": true
+    "can_register": true,
+    "use_count": 0
   },
   {
     "id": 37,
@@ -1086,12 +1088,64 @@ List the board's invites, newest first, as a bare array (not paginated). Require
     "single_use": true,
     "used_at": null,
     "status": "revoked",
-    "can_register": false
+    "can_register": false,
+    "use_count": 0
   }
 ]
 ```
 
 The second invite was sent by an account that has since been deleted, so it lists as `revoked` even though `DELETE` was never called.
+
+### `POST /api/v1/boards/{id}/invite-links/`
+*(New in 1.2)* Create a **shareable invite link** (`delivery: "link"`). Requires board admin — the same permission matrix as the list (`403` for a caller who is not a board admin or has no access, `404` for a missing board, `401` unauthenticated).
+
+**Request** `{ "role": "viewer", "expiry_days": 7, "single_use": false, "name": "Contractors" }`
+
+| Field | Required | Description |
+|---|---|---|
+| `expiry_days` | ✓ | `1`, `7` or `30`. **Required** — a shareable board link always expires, so there is no "never" option (unlike group links). Missing, `null` or any other value is refused with `400`. |
+| `role` | | `member` (default), `collaborator` or `viewer`. `admin` is refused with `400`. |
+| `single_use` | | `false` (default): anyone holding the link can join until it expires or is revoked. `true`: the first redemption consumes it. |
+| `name` | | Up to 100 characters, to tell links apart. Default empty. |
+
+**Response** `201 Created` — the list row above plus `token`, the raw `vbnb_` token. **This is the only time the token is returned**; only its SHA-256 hash is stored. The join URL is `<site>/join/<token>`.
+
+```json
+{
+  "id": 51,
+  "prefix": "vbnb_8a2",
+  "name": "Contractors",
+  "role": "viewer",
+  "delivery": "link",
+  "created_at": "2026-10-07T09:30:00.120Z",
+  "created_by_username": "alice",
+  "expires_at": "2026-10-14T09:30:00.101Z",
+  "is_expired": false,
+  "single_use": false,
+  "used_at": null,
+  "status": "pending",
+  "can_register": true,
+  "use_count": 0,
+  "token": "vbnb_8a2c0f…"
+}
+```
+
+| Status | Body | When |
+|---|---|---|
+| `400 Bad Request` | field errors | Invalid `expiry_days`, `role` or `name`. |
+| `400 Bad Request` | `{"detail": "Maximum of 5 active invite links reached. Revoke a link to create a new one."}` | The board already has **5 active shareable links**. Active means pending: not revoked, not consumed, not expired, and its creator is still a board admin. Emailed invites have their own cap and never count. |
+
+The cap is checked under a lock on the board row, so concurrent requests cannot exceed it. Creation is throttled only by the standard per-user API rate, like group link creation; the cap bounds what a burst can mint. It publishes `invite_link.created` on the board channel, like a send.
+
+**Who can join with a shareable link** depends on the site's registration mode:
+
+| Mode | New account from the link | Existing account |
+|---|---|---|
+| `open` | Yes — the person signs up, then the SPA's follow-up join redeems the link. | Joins. |
+| `invite_only` | **Never**, whoever created the link. Only an emailed single-use invite sent by a site admin admits a new account (see [Authentication](authentication.md#invite-only-mode)). | Joins. |
+| `closed` | Never. | Joins. |
+
+A multi-use link increments `use_count` on every redemption and never sets `used_at`; a single-use link is consumed by its first redemption. Redemption follows the access rules under `POST /api/v1/boards/join/{token}/` below — it never changes an existing membership and never grants the board's group.
 
 ### `POST /api/v1/boards/{id}/invite-links/send/`
 Email one invite. Requires board admin. Same contract as the [group send endpoint](groups.md): the response is identical whether the address belongs to a member, another user, or nobody, and the email is always sent.
@@ -1117,7 +1171,7 @@ Email one invite. Requires board admin. Same contract as the [group send endpoin
 ### `DELETE /api/v1/boards/{id}/invite-links/{link_id}/`
 Revoke a pending invite. Requires board admin; any board admin may revoke any admin's invite. Returns `204`. A used invite cannot be revoked (`400`); an unknown or already-revoked invite is `404`.
 
-Sending and revoking publish `invite_link.created` / `invite_link.revoked` on the board's [WebSocket channel](websockets.md#invite-events-since-12) with just `{ "id": <int> }`.
+Creating, sending and revoking publish `invite_link.created` / `invite_link.revoked` on the board's [WebSocket channel](websockets.md#invite-events-since-12) with just `{ "id": <int> }`.
 
 ### `GET /api/v1/boards/join/{token}/`
 Public preview of an invite — no authentication. Returns `{ "board_id", "board_name", "role", "can_register" }`.
@@ -1149,6 +1203,8 @@ A redeemed single-use invite is consumed either way. Redeeming it again as the p
 Both join endpoints share the per-IP `join_group` throttle (10/hour) with the [group join endpoints](groups.md) — board and group join attempts from one address draw from one budget.
 
 Signing up with a board invite on an invite-only site is covered in [Authentication](authentication.md#invite-only-mode).
+
+Site admins can list and revoke every board's invites with the [admin board invite endpoints](admin.md#board-invites).
 
 ---
 

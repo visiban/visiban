@@ -32,6 +32,7 @@ from django.test import SimpleTestCase
 from boards.serializers import (
     BoardExportLogSerializer,
     BoardFullSerializer,
+    AdminBoardInviteLinkSerializer,
     BoardInviteLinkSerializer,
     BoardMembershipSerializer,
     BoardSerializer,
@@ -75,6 +76,10 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     (BoardSerializer, "Board", set()),
     (BoardFullSerializer, "BoardFull", set()),
     (BoardInviteLinkSerializer, "BoardInviteLink", set()),
+    # Site-admin cross-board list (#439). The create response
+    # (CreatedBoardInviteLink extends BoardInviteLink) is checked by
+    # scripts/check-serializer-ts-parity.py, which resolves `extends`.
+    (AdminBoardInviteLinkSerializer, "AdminBoardInviteLink", set()),
     (CardSerializer, "Card", set()),
     (ColumnSerializer, "Column", set()),
     # Swimlane TS interface unions the Public and Admin shapes; contact_email

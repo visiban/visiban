@@ -1,7 +1,7 @@
 # Admin API
 
-Site-wide settings, the action log, email configuration, maintenance mode, users, and invite
-links — administrative endpoints, restricted to site admins.
+Site-wide settings, the action log, email configuration, maintenance mode, users, invite
+links, and board invites — administrative endpoints, restricted to site admins.
 
 All endpoints below require **site admin** authentication; non-admin users receive `403 Forbidden`.
 
@@ -661,3 +661,74 @@ Revoke an invite link immediately. The link can no longer be used for registrati
 | `400 Bad Request` | Link is already revoked |
 | `400 Bad Request` | Link has already been used (single-use links cannot be revoked after use) |
 | `404 Not Found` | Link does not exist |
+
+---
+
+## Board invites
+
+*(New in 1.2)* Every board's [invites](boards.md#board-invites) — emailed invites and shareable invite links — across the whole instance, so a site admin can audit them and revoke a leaked link without being a member of its board. Board admins manage their own board's invites through the board endpoints; these endpoints are site-admin only, and a board admin who is not a site admin gets `403`.
+
+### `GET /api/v1/admin/board-invite-links/`
+
+**Permission:** `IsSiteAdmin`.
+
+**Query parameters**
+
+| Param | Description |
+|---|---|
+| `status` | `pending` (default), `used`, `expired`, `revoked` or `all`. Any other value is `400 {"status": ["'<value>' is not a valid status."]}`. Filtering follows the same precedence as the `status` field — revoked > used > expired > pending — so each invite is listed under exactly the status it reports. |
+| `offset` | Zero-based row offset (default `0`). |
+| `page_size` | Rows per page (default `50`, max `200`). |
+
+**Response** `200 OK` — the standard `{count, offset, page_size, results}` envelope, newest first.
+
+```json
+{
+  "count": 1,
+  "offset": 0,
+  "page_size": 50,
+  "results": [
+    {
+      "id": 51,
+      "board_id": 12,
+      "board_name": "Launch Plan",
+      "role": "viewer",
+      "delivery": "link",
+      "status": "pending",
+      "prefix": "vbnb_8a2",
+      "expires_at": "2026-10-14T09:30:00.101Z",
+      "created_at": "2026-10-07T09:30:00.120Z",
+      "created_by_username": "alice",
+      "single_use": false,
+      "use_count": 3,
+      "can_register": true
+    }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `board_id`, `board_name` | The invite's board. |
+| `role` | `member`, `collaborator` or `viewer`. |
+| `delivery` | `email` or `link`. |
+| `status` | The **stored** status: `pending`, `used`, `expired` or `revoked`. Unlike the board-scoped list, it does not re-check whether the creator is still an admin of the board, so it always matches the `?status=` filter; the join endpoints still refuse an invite whose creator lost board admin. |
+| `created_by_username` | `null` when the creator's account was deleted. |
+| `single_use`, `use_count` | A multi-use link counts every redemption in `use_count`. |
+| `can_register` | Advisory, computed when read: whether a new person could create an account from this invite under the current registration mode. `false` unless the invite is pending and its creator active; on an `invite_only` site, `true` only for an emailed single-use invite from a site admin (with email invites enabled); always `false` on a `closed` site. Registration re-checks everything, including the creator's board role. |
+
+The token and the address an invite was emailed to are never returned.
+
+### `DELETE /api/v1/admin/board-invite-links/{id}/`
+
+Revoke any board's invite, emailed or shareable. Sets `revoked_at` and `revoked_by` (the caller) and publishes `invite_link.revoked` `{ "id" }` on that board's [WebSocket channel](websockets.md#invite-events-since-12), exactly like the board-scoped revoke. Revoking an expired invite is allowed.
+
+**Permission:** `IsSiteAdmin`.
+
+**Response** `200 OK` — the updated row (same shape as the list), with `status: "revoked"`.
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | `{"detail": "..."}` — the invite was already used (its "used" record is kept) or already revoked |
+| `404 Not Found` | No invite with that id |
+

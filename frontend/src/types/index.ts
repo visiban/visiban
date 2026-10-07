@@ -1004,7 +1004,7 @@ export interface BoardInviteLink {
   prefix: string;
   name: string;
   role: "member" | "collaborator" | "viewer";
-  /** "email" = sent to one address; "link" = shareable link (#439, not yet minted). */
+  /** "email" = sent to one address; "link" = shareable link (#439). */
   delivery: "link" | "email";
   created_at: string;
   /** Null when the sender's account was deleted. */
@@ -1017,7 +1017,38 @@ export interface BoardInviteLink {
   /** Advisory: whether a new person could create an account from this invite
    * under the site's current registration mode. */
   can_register: boolean;
+  /** Redemptions so far (#439) — a multi-use link never stamps used_at. */
+  use_count: number;
 }
+
+/** POST /boards/<id>/invite-links/ response (#439): the list row plus the raw
+ * token, returned once and never again. */
+export interface CreatedBoardInviteLink extends BoardInviteLink {
+  token: string;
+}
+
+/** One row of the site-admin GET /admin/board-invite-links/ list (#439):
+ * every board's invites, emailed and shareable. Never carries a token. */
+export interface AdminBoardInviteLink {
+  id: number;
+  board_id: number;
+  board_name: string;
+  role: "member" | "collaborator" | "viewer";
+  delivery: "link" | "email";
+  /** Stored status — always agrees with the ?status= filter. */
+  status: string;
+  prefix: string;
+  expires_at: string | null;
+  created_at: string;
+  /** Null when the sender's account was deleted. */
+  created_by_username: string | null;
+  single_use: boolean;
+  use_count: number;
+  /** Advisory, computed at read time against the current registration mode. */
+  can_register: boolean;
+}
+
+export type AdminBoardInviteStatusFilter = "pending" | "used" | "expired" | "revoked" | "all";
 
 /** Returned by POST and DELETE on /boards/<id>/share/.
  *

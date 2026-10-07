@@ -43,6 +43,8 @@ const mockPatchAdminEmailSettings = vi.fn()
 const mockSendAdminTestEmail = vi.fn()
 const mockSendAdminInviteEmail = vi.fn()
 const mockGetSiteConfig = vi.fn()
+const mockGetAdminBoardInviteLinks = vi.fn()
+const mockRevokeAdminBoardInviteLink = vi.fn()
 
 vi.mock('../api/auth', () => ({
   getAdminSettings: (...args: unknown[]) => mockGetAdminSettings(...args),
@@ -68,6 +70,8 @@ vi.mock('../api/auth', () => ({
   getAuthProviders: vi.fn(),
   getSiteConfig: (...args: unknown[]) => mockGetSiteConfig(...args),
   sendAdminInviteEmail: (...args: unknown[]) => mockSendAdminInviteEmail(...args),
+  getAdminBoardInviteLinks: (...args: unknown[]) => mockGetAdminBoardInviteLinks(...args),
+  revokeAdminBoardInviteLink: (...args: unknown[]) => mockRevokeAdminBoardInviteLink(...args),
   changePassword: vi.fn(),
   searchUsers: vi.fn(),
 }))
@@ -1433,3 +1437,28 @@ describe('AdminPage — Invite by email', () => {
     expect(screen.queryByText(/Email invites aren't available/)).not.toBeInTheDocument()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Tests: Board Invites tab (#439)
+// ---------------------------------------------------------------------------
+
+describe('AdminPage — Board Invites tab (#439)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetAdminSettings.mockResolvedValue(fakeSettings)
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+    mockGetAdminBoardInviteLinks.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
+  })
+
+  it('sits after Invite Links and loads pending board invites', async () => {
+    renderAdminPage()
+    const nav = await screen.findByRole('navigation')
+    const labels = within(nav).getAllByRole('button').map((b) => b.textContent)
+    expect(labels.indexOf('Board Invites')).toBe(labels.indexOf('Invite Links') + 1)
+    fireEvent.click(within(nav).getByText('Board Invites'))
+    expect(await screen.findByRole('heading', { name: 'Board Invites' })).toBeInTheDocument()
+    expect(await screen.findByText('No pending board invites.')).toBeInTheDocument()
+    expect(mockGetAdminBoardInviteLinks).toHaveBeenCalledWith({ status: 'pending', offset: 0 })
+  })
+})
+

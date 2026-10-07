@@ -17,6 +17,7 @@ import {
 } from "../api/auth";
 import Avatar from "../components/Common/Avatar";
 import EmailInviteForm from "../components/Common/EmailInviteForm";
+import BoardInvitesTab from "../components/Admin/BoardInvitesTab";
 import EmailSettingsSection from "../components/Admin/EmailSettingsSection";
 import Navbar from "../components/Layout/Navbar";
 import OverflowMenu, { type OverflowItem } from "../components/Layout/OverflowMenu";
@@ -25,7 +26,7 @@ import { Toggle } from "../components/Common/Toggle";
 import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 
-type Tab = "settings" | "users" | "invite_links";
+type Tab = "settings" | "users" | "invite_links" | "board_invites";
 
 interface Props {
   user: User;
@@ -1460,6 +1461,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "settings", label: "Settings" },
   { id: "users", label: "Users" },
   { id: "invite_links", label: "Invite Links" },
+  { id: "board_invites", label: "Board Invites" },
 ];
 
 export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
@@ -1518,6 +1520,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
             {activeTab === "settings" && <SettingsTab currentUser={user} />}
             {activeTab === "users" && <UsersTab currentUser={user} />}
             {activeTab === "invite_links" && <InviteLinksTab onOpenEmailSettings={() => setActiveTab("settings")} />}
+            {activeTab === "board_invites" && <BoardInvitesTab />}
           </div>
         </div>
       </main>

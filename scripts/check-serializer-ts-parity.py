@@ -314,10 +314,13 @@ EXIT_USAGE = 2
 # declares `PublicSwimlane` matching `PublicSwimlaneSerializer` exactly, and
 # `BoardPublic.swimlanes` is `PublicSwimlane[]`.
 COMPONENT_MAP = {
+    "AdminBoardInviteLink": "AdminBoardInviteLink",
     "AdminUser": "AdminUser",
     "Board": "Board",
     "BoardExportLog": "BoardExportLogEntry",
     "BoardFull": "BoardFull",
+    "BoardInviteLink": "BoardInviteLink",
+    "BoardInviteLinkCreateResponse": "CreatedBoardInviteLink",
     "BoardMembership": "BoardMembership",
     "BoardTemplate": "BoardTemplate",
     "BoardUser": "BoardUser",
