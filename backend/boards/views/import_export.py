@@ -25,7 +25,6 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiTypes
 
-from accounts.models import User
 from groups.models import Group, GroupMembership
 
 from ..models import (
@@ -403,17 +402,19 @@ def _csv_custom_field_cell(definition, value):
     return _sanitize_csv_field(value)
 
 
-def _resolve_import_users(usernames):
-    """Map imported usernames to existing users, keyed by lowered username.
+def _resolve_import_users(usernames, importer, group=None):
+    """Map imported usernames to users the importer can see, keyed by lowered username.
 
     Shared by the JSON and CSV importers so both apply one assignee rule:
     match case-insensitively (imported data may differ in casing from the
-    stored username) against users on this instance. A name with no match is
-    simply absent from the map, so the card imports unassigned instead of
-    failing the whole import. Board membership is deliberately not required:
-    the board is brand new and only the importer is a member of it, so a
-    membership filter would drop every assignee.  One query for the whole
-    import avoids a lookup per card (#420).
+    stored username), but only against the pool the Trello importer uses
+    (``trello_import.visible_users``): the importer, co-members of their
+    boards and groups, and the target group. The uploader controls the file,
+    so names are matched only against that pool. A name with no match is simply absent from the map, so the card
+    imports unassigned instead of failing the whole import. Board membership
+    of the *new* board is deliberately not the filter: the board is brand new
+    and only the importer is a member of it, so that filter would drop every
+    assignee.  One query for the whole import avoids a lookup per card (#420).
     """
     names = {n.lower() for n in usernames if n}
     if not names:
@@ -421,7 +422,8 @@ def _resolve_import_users(usernames):
     from django.db.models.functions import Lower
     return {
         u.username.lower(): u
-        for u in User.objects.annotate(lower_username=Lower("username"))
+        for u in _trello.visible_users(importer, group)
+        .annotate(lower_username=Lower("username"))
         .filter(lower_username__in=names)
     }
 
@@ -832,7 +834,7 @@ class BoardImportExportMixin:
                 for act in card_data.get("activities", []):
                     if act.get("actor"):
                         all_usernames.add(act["actor"])
-            user_map = _resolve_import_users(all_usernames)
+            user_map = _resolve_import_users(all_usernames, request.user, group)
 
             # ---------- Phase 1: build Card instances (no DB writes yet) ----------
             # We defer all per-card related objects until after bulk_create returns
@@ -1513,7 +1515,8 @@ class BoardImportExportMixin:
             # The export writes the assignee's username; resolve with the same
             # rule as the JSON importer so a CSV round trip keeps assignees (#1442).
             csv_user_map = _resolve_import_users(
-                (row.get("Assignee") or "").strip() for row in rows
+                ((row.get("Assignee") or "").strip() for row in rows),
+                request.user, group,
             ) if options["cards"] else {}
             # ``cards`` off imports structure (and labels) only (#119).
             for row in (rows if options["cards"] else []):

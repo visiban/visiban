@@ -15,6 +15,15 @@ from boards.models import (
 from django.utils import timezone
 
 
+def _make_visible(importer, *others):
+    """Put ``others`` on a board with ``importer`` so the importer can see them (#1434)."""
+    board = Board.objects.create(name="Shared", owner=importer)
+    for u in (importer, *others):
+        BoardMembership.objects.get_or_create(
+            board=board, user=u, defaults={"role": BoardMembership.Role.MEMBER}
+        )
+
+
 class BoardImportJSONTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -787,6 +796,7 @@ class BoardImportCSVAssigneeTests(TestCase):
         self.user = User.objects.create_user(username="csv_assign_importer", password="pass")
         self.member = User.objects.create_user(username="MemberUser", password="pass")
         self.outsider = User.objects.create_user(username="outsider_user", password="pass")
+        _make_visible(self.user, self.member)
         self.client.force_authenticate(self.user)
 
     def _import(self, assignee_cells):
@@ -812,8 +822,10 @@ class BoardImportCSVAssigneeTests(TestCase):
         self.assertIsNone(self._import([""])["Card 0"])
 
     def test_user_not_on_source_board_is_still_assigned(self):
-        # Same as the JSON importer: any user on the instance matches; board
-        # membership is not required (the new board has only the importer).
+        # Same rule as the JSON importer: the user need not be on the source
+        # board, only visible to the importer (here via another shared board).
+        self.assertIsNone(self._import(["outsider_user"])["Card 0"])
+        _make_visible(self.user, self.outsider)
         self.assertEqual(self._import(["outsider_user"])["Card 0"], self.outsider)
 
     def test_lowercase_assignee_header_resolves(self):
@@ -876,6 +888,7 @@ class BoardImportBulkUserLookupTests(TestCase):
         self.user = User.objects.create_user(username="importer", password="pass")
         self.alice = User.objects.create_user(username="alice", password="pass")
         self.bob = User.objects.create_user(username="bob", password="pass")
+        _make_visible(self.user, self.alice, self.bob)
         self.client.force_authenticate(self.user)
 
     def _make_json_file(self, data, filename="board.json"):
