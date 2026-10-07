@@ -251,7 +251,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                     userDateFormat={userDateFormat}
                   />
                 ))}
-                {unpinnedRowFields.length > 0 && (
+                {/* With names hidden, the popover is the only touch/keyboard path to a
+                    value's field name, so an all-pinned row keeps a trigger too (#1509). */}
+                {(unpinnedRowFields.length > 0 || (hideRowChipFieldNames && pinnedRowFields.length > 0)) && (
                   <button
                     ref={overflowRef}
                     onClick={(e) => {
@@ -266,7 +268,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                     title="Show all field values"
                     className="inline-flex items-center text-xs px-1.5 py-0.5 rounded border border-line text-fg-muted hover:text-fg-secondary hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
-                    {pinnedRowFields.length > 0 ? `+${unpinnedRowFields.length}` : `+${unpinnedRowFields.length} more`}
+                    {unpinnedRowFields.length === 0
+                      ? 'All fields'
+                      : pinnedRowFields.length > 0 ? `+${unpinnedRowFields.length}` : `+${unpinnedRowFields.length} more`}
                   </button>
                 )}
               </div>
