@@ -4700,7 +4700,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </table>
 <h3 id="post-apiv1adminusersiddeactivate"><code>POST /api/v1/admin/users/{id}/deactivate/</code><a class="headerlink" href="#post-apiv1adminusersiddeactivate" title="Permanent link">&para;</a></h3>
 <p>Deactivate a user account and transfer ownership of any boards they own to other members.</p>
-<p>Deactivation also revokes the user's unused site invite links and <em>(1.2+)</em> their pending <a href="../boards/#board-invites">board invites</a> (<code>revoked_by</code> is the caller; each board gets an <code>invite_link.revoked</code> event).</p>
+<p>Deactivation also revokes the user's unused site invite links and <em>(1.2+)</em> their pending <a href="../boards/#board-invites">board invites</a> (<code>revoked_by</code> is the caller; each board gets an <code>invite_link.revoked</code> event) and <em>(1.2+)</em> their active, unused <a href="../groups/">group invite links</a> (each affected group receives an <code>invite_link.revoked</code> event). Consumed single-use links are left as they are.</p>
 <p><strong>Permission:</strong> <code>IsSiteAdmin</code>. Cannot deactivate your own account.</p>
 <p>If the target user owns one or more boards, you must supply a <code>transfers</code> list mapping each owned board to an eligible recipient. The recipient must have access to the board — either as a direct board member or through group membership. Group-inherited access is accepted. If any owned board has no eligible transfer targets (i.e. the user is the sole member with no group-inherited members either), the request returns <code>400 Bad Request</code> with details.</p>
 <p><strong>Request body</strong></p>
