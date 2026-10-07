@@ -110,6 +110,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [weightLimitReason, setWeightLimitReason] = useState<string | null>(null);
   const [weightLimitRefused, setWeightLimitRefused] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"delete" | "archive" | null>(null);
+  // In-flight + error state for the card delete/archive confirm modal (#1437).
+  const [cardActionBusy, setCardActionBusy] = useState(false);
+  const [cardActionError, setCardActionError] = useState<string | null>(null);
+  // Synchronous re-entry guards (#1437): refs flip immediately, so a double-fire
+  // before React re-renders still sends only one request.
+  const cardActionInFlight = useRef(false);
+  const attachDeleteInFlight = useRef(false);
+  const checklistDeleteInFlight = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dueDateRef = useRef<HTMLInputElement>(null);
   const dueDateEmptyRef = useRef<HTMLInputElement>(null);
@@ -214,7 +222,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       return;
     }
     if (!confirmAction) return false;
+    // Swallow Escape while the request is in flight: dismissing would hide its outcome.
+    if (cardActionInFlight.current) return;
     setConfirmAction(null);
+    setCardActionError(null);
   }, 35);
   // Close move popover before panel — priority 36 sits above confirmAction (35) so
   // it fires first when both are open, and above panel close (30) in the normal case.
@@ -364,6 +375,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [attachError, setAttachError] = useState<string | null>(null);
 
   const handleDeleteAttachment = async (id: number) => {
+    if (attachDeleteInFlight.current) return;
+    attachDeleteInFlight.current = true;
     try {
       setAttachError(null);
       await deleteCardAttachment(board.id, localCard.id, id);
@@ -372,6 +385,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       onUpdated({ ...localCard, attachment_count: Math.max(0, localCard.attachment_count - 1) });
     } catch {
       setAttachError("Could not delete attachment.");
+    } finally {
+      attachDeleteInFlight.current = false;
     }
   };
 
@@ -439,28 +454,64 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   };
 
   const handleDeleteChecklistItem = async (itemId: number) => {
-    await deleteChecklistItem(board.id, card.id, itemId);
-    const newChecklist = checklist.filter((i) => i.id !== itemId);
-    setChecklist(newChecklist);
-    const done = newChecklist.filter((i) => i.is_checked).length;
-    onUpdated({ ...localCard, checklist_total: newChecklist.length, checklist_done: done });
+    if (checklistDeleteInFlight.current) return;
+    checklistDeleteInFlight.current = true;
+    setChecklistError(null);
+    try {
+      await deleteChecklistItem(board.id, card.id, itemId);
+      const newChecklist = checklist.filter((i) => i.id !== itemId);
+      setChecklist(newChecklist);
+      const done = newChecklist.filter((i) => i.is_checked).length;
+      onUpdated({ ...localCard, checklist_total: newChecklist.length, checklist_done: done });
+    } catch {
+      setChecklistError("Could not delete item.");
+    } finally {
+      checklistDeleteInFlight.current = false;
+    }
   };
 
-  const handleDelete = () => setConfirmAction("delete");
-  const handleArchive = () => setConfirmAction("archive");
+  const openCardAction = (action: "delete" | "archive") => {
+    setCardActionError(null);
+    setConfirmAction(action);
+  };
+  const handleDelete = () => openCardAction("delete");
+  const handleArchive = () => openCardAction("archive");
 
-  const executeDelete = async () => {
+  const closeCardAction = () => {
+    // Ignore dismissal while the request is in flight so the outcome is never hidden.
+    if (cardActionInFlight.current) return;
     setConfirmAction(null);
-    await deleteCard(board.id, card.id);
-    onDeleted(card.id);
+    setCardActionError(null);
   };
 
-  const executeArchive = async () => {
-    setConfirmAction(null);
-    await archiveCard(board.id, card.id);
-    onArchived(card.id);
-    onClose();
+  // Delete/archive share one flow: keep the modal open until the request succeeds so a
+  // failure can be shown (and retried) in place, matching the comment-delete prompt (#1421).
+  const runCardAction = async (request: () => Promise<unknown>, onSuccess: () => void, errorMessage: string) => {
+    if (cardActionInFlight.current) return;
+    cardActionInFlight.current = true;
+    setCardActionBusy(true);
+    setCardActionError(null);
+    try {
+      await request();
+      setConfirmAction(null);
+      onSuccess();
+    } catch {
+      setCardActionError(errorMessage);
+    } finally {
+      cardActionInFlight.current = false;
+      setCardActionBusy(false);
+    }
   };
+
+  const executeDelete = () =>
+    runCardAction(() => deleteCard(board.id, card.id), () => onDeleted(card.id), "Could not delete card.");
+
+  const executeArchive = () =>
+    runCardAction(
+      () => archiveCard(board.id, card.id),
+      () => { onArchived(card.id); onClose(); },
+      "Could not archive card.",
+    );
 
   const column = board.columns.find((c) => c.id === localCard.column);
   const swimlane = board.swimlanes.find((s) => s.id === localCard.swimlane);
@@ -1065,7 +1116,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   </div>
                 )}
                 {canComment && !showBulkAdd && (
-                  <p className="text-xs h-4 mt-1">
+                  <p role="status" aria-live="polite" aria-atomic="true" className="text-xs h-4 mt-1">
                     {checklistError && <span className="text-danger">{checklistError}</span>}
                   </p>
                 )}
@@ -1192,7 +1243,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs h-4">{attachError && <span className="text-danger">{attachError}</span>}</p>
+                  <p role="status" aria-live="polite" aria-atomic="true" className="text-xs h-4">{attachError && <span className="text-danger">{attachError}</span>}</p>
                 </>))}
               </div>
 
@@ -1386,24 +1437,30 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       {/* Delete / Archive confirmation overlay */}
       <ModalWrapper
         open={confirmAction !== null}
-        onClose={() => setConfirmAction(null)}
+        onClose={closeCardAction}
         title={confirmAction === "delete" ? "Delete this card?" : "Archive this card?"}
         maxWidth="max-w-sm"
       >
         {confirmAction === "delete" ? (
           <>
             <p className="text-fg-tertiary text-sm mb-5">This cannot be undone.</p>
+            <div role="status" aria-live="polite" aria-atomic="true">
+              {cardActionError && <p className="text-xs text-danger mb-3">{cardActionError}</p>}
+            </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
-              <button onClick={executeDelete} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete</button>
+              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-50">Cancel</button>
+              <button onClick={executeDelete} aria-disabled={cardActionBusy} className="aria-disabled:opacity-50 aria-disabled:cursor-not-allowed bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">{cardActionBusy ? "Deleting…" : "Delete"}</button>
             </div>
           </>
         ) : confirmAction === "archive" ? (
           <>
             <p className="text-fg-tertiary text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
+            <div role="status" aria-live="polite" aria-atomic="true">
+              {cardActionError && <p className="text-xs text-danger mb-3">{cardActionError}</p>}
+            </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
-              <button onClick={executeArchive} className="bg-warning-bg hover:bg-warning-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">Archive</button>
+              <button onClick={closeCardAction} disabled={cardActionBusy} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-50">Cancel</button>
+              <button onClick={executeArchive} aria-disabled={cardActionBusy} className="aria-disabled:opacity-50 aria-disabled:cursor-not-allowed bg-warning-bg hover:bg-warning-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">{cardActionBusy ? "Archiving…" : "Archive"}</button>
             </div>
           </>
         ) : null}
