@@ -1,8 +1,9 @@
-"""Board invites (#1444): emailed single-use invites and the public join flow.
+"""Board invites (#1444, #439): emailed invites, shareable links, and the join flow.
 
 Admin endpoints are mixed into ``BoardViewSet``:
 
 - ``GET    /boards/<id>/invite-links/``            — list (board admin)
+- ``POST   /boards/<id>/invite-links/``            — create a shareable link (board admin, #439)
 - ``POST   /boards/<id>/invite-links/send/``       — email one invite (board admin)
 - ``DELETE /boards/<id>/invite-links/<link_id>/``  — revoke (board admin)
 
@@ -36,13 +37,23 @@ from .. import broadcast as _broadcast
 from .. import invites as _invites
 from ..models import Board, BoardInviteLink, BoardInviteRedemption, BoardMembership
 from ..permissions import SITE_ADMIN, get_board_role
-from ..serializers import BoardInviteLinkEmailSerializer, BoardInviteLinkSerializer
+from ..serializers import (
+    BoardInviteLinkCreateBadRequestSerializer,
+    BoardInviteLinkCreateResponseSerializer,
+    BoardInviteLinkCreateSerializer,
+    BoardInviteLinkEmailSerializer,
+    BoardInviteLinkSerializer,
+)
 from ._helpers import get_board_for_user
 
 logger = logging.getLogger(__name__)
 
 # Pending emailed invites per board — the same ceiling as a group's (#731).
 BOARD_MAX_PENDING_EMAILED_INVITES = 50
+
+# Active shareable links per board (#439) — the same ceiling as a group's.
+# Emailed invites have their own cap above and never count against this one.
+BOARD_MAX_ACTIVE_SHAREABLE_LINKS = 5
 
 # Used/expired/revoked invites returned by the list, most recent first.
 BOARD_INVITE_LIST_MAX_PAST = 50
@@ -71,12 +82,25 @@ class BoardInviteLinksMixin:
 
     @extend_schema(
         summary="List a board's invites",
+        methods=["GET"],
         responses=BoardInviteLinkSerializer(many=True),
     )
+    @extend_schema(
+        summary="Create a shareable invite link for a board",
+        methods=["POST"],
+        request=BoardInviteLinkCreateSerializer,
+        responses={
+            201: BoardInviteLinkCreateResponseSerializer,
+            # Cap-reached {detail} or DRF field errors {field: [...]}.
+            400: BoardInviteLinkCreateBadRequestSerializer,
+        },
+    )
     # pagination_class=None: a bare array, like the group invite list (#1359).
-    @action(detail=True, methods=["get"], url_path="invite-links", pagination_class=None)
+    @action(detail=True, methods=["get", "post"], url_path="invite-links", pagination_class=None)
     def invite_links(self, request, pk=None):
         board = _require_board_admin(pk, request.user)
+        if request.method == "POST":
+            return self._create_shareable_invite_link(request, board)
         now = timezone.now()
         base = BoardInviteLink.objects.filter(board=board).select_related("created_by")
         pending_q = Q(revoked_at__isnull=True, used_at__isnull=True) & (
@@ -89,6 +113,60 @@ class BoardInviteLinksMixin:
         links = sorted(pending + past, key=lambda link: (link.created_at, link.pk), reverse=True)
         context = {"board": board, "sender_admits_memo": {}, "sender_admin_memo": {}}
         return Response(BoardInviteLinkSerializer(links, many=True, context=context).data)
+
+    def _create_shareable_invite_link(self, request, board):
+        """Mint a shareable ``delivery=link`` invite (#439).
+
+        Order: permission (the caller already passed ``_require_board_admin``),
+        validation, then the cap under a board row lock so two concurrent
+        creates cannot both read 4. Throttled by the viewset's default user
+        rate, like the group link create; the cap bounds what a burst can mint.
+        The raw token is returned once, in this response, and never again.
+        """
+        serializer = BoardInviteLinkCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        validated = serializer.validated_data
+
+        with transaction.atomic():
+            Board.objects.select_for_update().filter(pk=board.pk).first()
+            active = _invites.live_invite_count(board, delivery=BoardInviteLink.Delivery.LINK)
+            if active >= BOARD_MAX_ACTIVE_SHAREABLE_LINKS:
+                return Response(
+                    {
+                        "detail": (
+                            f"Maximum of {BOARD_MAX_ACTIVE_SHAREABLE_LINKS} active invite links "
+                            "reached. Revoke a link to create a new one."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            link, raw_token = BoardInviteLink.generate(
+                board=board,
+                created_by=request.user,
+                name=validated["name"].strip(),
+                role=validated["role"],
+                expires_at=timezone.now() + datetime.timedelta(days=int(validated["expiry_days"])),
+                single_use=validated["single_use"],
+                delivery=BoardInviteLink.Delivery.LINK,
+            )
+            # Minimal {id}: non-admin subscribers receive it too, so
+            # clients refetch the admin-only list.
+            _broadcast.record_board_event(
+                board.pk, _broadcast.EVT_INVITE_LINK_CREATED, {"id": link.pk}, actor_id=request.user.pk,
+            )
+
+        logger.info(
+            "Board invite link created. token=%s board_id=%s user_id=%s single_use=%s",
+            link.prefix, board.pk, request.user.pk, link.single_use,
+        )
+        # Never persisted: the row stores only the hash.
+        link.token = raw_token
+        context = {"board": board, "sender_admits_memo": {}, "sender_admin_memo": {}}
+        return Response(
+            BoardInviteLinkCreateResponseSerializer(link, context=context).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         summary="Email a single-use board invite to one address",
@@ -140,25 +218,9 @@ class BoardInviteLinksMixin:
         with transaction.atomic():
             # Lock the board row so two concurrent sends cannot both read 49.
             Board.objects.select_for_update().filter(pk=board.pk).first()
-            pending_qs = BoardInviteLink.objects.filter(
-                board=board,
-                delivery=BoardInviteLink.Delivery.EMAIL,
-                revoked_at__isnull=True,
-                used_at__isnull=True,
-                expires_at__gt=timezone.now(),
-            )
             # Invites whose sender was deleted or is no longer a board admin
             # are dead (they list as revoked) and must not hold cap slots.
-            # One role check per distinct sender — a handful per board.
-            admitting = [
-                sender_id
-                for sender_id in pending_qs.exclude(created_by__isnull=True)
-                .values_list("created_by_id", flat=True).distinct()
-                if _invites.sender_is_board_admin(
-                    BoardInviteLink(board=board, created_by_id=sender_id), board,
-                )
-            ]
-            pending = pending_qs.filter(created_by_id__in=admitting).count()
+            pending = _invites.live_invite_count(board, delivery=BoardInviteLink.Delivery.EMAIL)
             if pending >= BOARD_MAX_PENDING_EMAILED_INVITES:
                 return Response(
                     {

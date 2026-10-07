@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary } from "../types";
+import type { Board, BoardFull, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -25,6 +25,17 @@ export const sendBoardInviteEmail = (
 ) =>
   client
     .post<InviteEmailSent>(`/api/v1/boards/${boardId}/invite-links/send/`, data)
+    .then((r) => r.data);
+
+/** Create a shareable invite link (#439). The response carries the raw
+ * `token` once; the list never returns it. `expiry_days` is required — a
+ * shareable board link never "never expires". */
+export const createBoardInviteLink = (
+  boardId: number,
+  data: { name?: string; role?: BoardInviteRole; expiry_days: 1 | 7 | 30; single_use?: boolean },
+) =>
+  client
+    .post<CreatedBoardInviteLink>(`/api/v1/boards/${boardId}/invite-links/`, data)
     .then((r) => r.data);
 
 export const revokeBoardInviteLink = (boardId: number, linkId: number) =>

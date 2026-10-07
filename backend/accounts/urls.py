@@ -12,6 +12,8 @@ from .admin_views import (
     AdminInviteLinkListCreateView,
     AdminInviteLinkSendView,
     AdminInviteLinkRevokeView,
+    AdminBoardInviteLinkListView,
+    AdminBoardInviteLinkRevokeView,
     AdminUserClearLockoutView, AdminUserDeactivateView,
 )
 
@@ -47,4 +49,7 @@ urlpatterns = [
     path("admin/invite-links/", AdminInviteLinkListCreateView.as_view()),
     path("admin/invite-links/send/", AdminInviteLinkSendView.as_view()),
     path("admin/invite-links/<int:pk>/", AdminInviteLinkRevokeView.as_view()),
+    # Board invites across every board (#439).
+    path("admin/board-invite-links/", AdminBoardInviteLinkListView.as_view()),
+    path("admin/board-invite-links/<int:pk>/", AdminBoardInviteLinkRevokeView.as_view()),
 ]

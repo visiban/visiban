@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, InviteEmailSent, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount } from "../types";
+import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, AdminBoardInviteLink, AdminBoardInviteStatusFilter, InviteEmailSent, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/v1/auth/user/").then((r) => r.data);
@@ -173,3 +173,14 @@ export const sendAdminInviteEmail = (data: { email: string }) =>
 
 export const revokeAdminInviteLink = (id: number) =>
   client.delete<AdminInviteLink>(`/api/v1/admin/invite-links/${id}/`).then((r) => r.data);
+
+// Site-admin view of every board's invites, emailed and shareable (#439).
+export const getAdminBoardInviteLinks = (params: { status: AdminBoardInviteStatusFilter; offset?: number }) =>
+  client.get<{ count: number; offset: number; page_size: number; results: AdminBoardInviteLink[] }>(
+    "/api/v1/admin/board-invite-links/",
+    { params }
+  ).then((r) => r.data);
+
+export const revokeAdminBoardInviteLink = (id: number) =>
+  client.delete<AdminBoardInviteLink>(`/api/v1/admin/board-invite-links/${id}/`).then((r) => r.data);
+

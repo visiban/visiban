@@ -1401,8 +1401,10 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
               {TABS.map((tab) => (
                 <li key={tab.id}>
                   <button
+                    type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full text-left px-3 py-2 rounded text-sm transition ${
+                    aria-current={activeTab === tab.id ? "page" : undefined}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                       activeTab === tab.id
                         ? "bg-primary text-on-primary font-medium"
                         : "text-fg-tertiary hover:text-fg hover:bg-surface"

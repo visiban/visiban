@@ -837,7 +837,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     className="border-t border-line pt-4 mt-6"
                     scope={{ kind: "board", id: board.id }}
                     variant="embedded"
-                    allowShareableLinks={false}
+                    allowShareableLinks
                     escapePriority={49}
                     reloadSignal={inviteReloadSignal}
                     isSiteAdmin={currentUserIsSiteAdmin}

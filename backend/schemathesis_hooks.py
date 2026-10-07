@@ -276,6 +276,16 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/boards/{id}/export/": {"id": "board_pk"},
     "/api/v1/boards/{id}/export-history/": {"id": "board_pk"},
     "/api/v1/boards/{id}/full/": {"id": "board_pk"},
+    # Board invites (#1444, #439): a real board_pk so these routes get past the
+    # board lookup instead of 404ing on a fuzzed id. The fuzz account is a
+    # plain board MEMBER, so list/create/send/revoke answer 403 at the
+    # board-admin check — the fuzzer exercises the permission path and the
+    # declared 403, not the create/send success paths (those bodies are pinned
+    # by groups/tests/test_invite_email_schema_contract.py). link_id is not
+    # seeded (no demo invite). The /api/v1/admin/ routes stay excluded (#1080).
+    "/api/v1/boards/{id}/invite-links/": {"id": "board_pk"},
+    "/api/v1/boards/{id}/invite-links/send/": {"id": "board_pk"},
+    "/api/v1/boards/{id}/invite-links/{link_id}/": {"id": "board_pk"},
     "/api/v1/boards/{id}/members/": {"id": "board_pk"},
     "/api/v1/boards/{id}/members/{user_id}/": {"id": "board_pk", "user_id": "member_user_id"},
     "/api/v1/boards/{id}/move-group/": {"id": "board_pk"},
