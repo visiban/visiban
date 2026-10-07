@@ -408,6 +408,8 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     renderRow(lane, defs, false, { hideRowChipFieldNames: true })
     const trigger = screen.getByRole('button', { name: /Show all 2 field values/ })
     expect(trigger).toHaveTextContent('All fields')
+    expect(trigger).toHaveAccessibleName(/^All fields: Show all 2 field values for Acme Corp$/)
+    expect(trigger).toHaveClass('min-h-6')
     await user.click(trigger)
     const text = screen.getByRole('dialog', { name: 'Field values for Acme Corp' }).textContent ?? ''
     for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)
@@ -429,6 +431,7 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
       { field_definition: 2, value: 'EMEA' },
     ] }), defs, false, { hideRowChipFieldNames: true })
     expect(screen.getByRole('button', { name: /Show all 2 field values/ })).toHaveTextContent('+1')
+    expect(screen.getByRole('button', { name: /^\+1: Show all 2 field values/ })).toBeInTheDocument()
   })
 
   it('leaves the +N field list popover listing names and values', async () => {

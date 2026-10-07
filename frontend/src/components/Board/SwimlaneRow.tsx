@@ -114,6 +114,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     .sort((a, b) => a.def.position - b.def.position);
   const pinnedRowFields = rowFieldEntries.filter((x) => x.def.show_on_row).slice(0, 8);
   const unpinnedRowFields = rowFieldEntries.filter((x) => !x.def.show_on_row);
+  const triggerLabel = unpinnedRowFields.length === 0
+    ? 'All fields'
+    : pinnedRowFields.length > 0 ? `+${unpinnedRowFields.length}` : `+${unpinnedRowFields.length} more`;
 
   const startRenaming = () => {
     setDraft(swimlane.name);
@@ -264,13 +267,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                     }}
                     aria-haspopup="dialog"
                     aria-expanded={fieldsPopoverRect !== null}
-                    aria-label={`Show all ${rowFieldEntries.length} field values for ${swimlane.name}`}
-                    title="Show all field values"
-                    className="inline-flex items-center text-xs px-1.5 py-0.5 rounded border border-line text-fg-muted hover:text-fg-secondary hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
+                    aria-label={`${triggerLabel}: Show all ${rowFieldEntries.length} field values for ${swimlane.name}`}
+                    className="inline-flex items-center min-h-6 text-xs px-1.5 py-0.5 rounded border border-line text-fg-muted hover:text-fg-secondary hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
-                    {unpinnedRowFields.length === 0
-                      ? 'All fields'
-                      : pinnedRowFields.length > 0 ? `+${unpinnedRowFields.length}` : `+${unpinnedRowFields.length} more`}
+                    {triggerLabel}
                   </button>
                 )}
               </div>
