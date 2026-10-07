@@ -178,7 +178,8 @@ class AdminIPRestrictionMiddleware:
 # served over POST (search is `GET /api/v1/users/?search=` and
 # `GET .../cards/?q=`, never a POST body), so the method rule never blocks a
 # read. It does let one write-ish GET through — `export()` in
-# boards/views/import_export.py appends a BoardExportLog row — and that is
+# boards/views/import_export.py appends a BoardExportLog row, and so do movement
+# exports (the `?export=` branch in boards/views/analytics.py) — and that is
 # accepted deliberately: it is an append-only audit row rather than domain
 # data, blocking exports mid-maintenance would be user-hostile, and the
 # alternative (classifying every endpoint as read or write by hand) is a

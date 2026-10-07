@@ -11,7 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import serializers, status
 
-from ..models import CardMovement
+from ..models import BoardExportLog, CardMovement
 from ..serializers import CardMovementSerializer
 from .. import hooks
 from ._helpers import get_board_for_user
@@ -523,7 +523,7 @@ class BoardAnalyticsMixin:
 
         Returns all history when no date params are provided. Page size is fixed at 50.
         """
-        board, _ = get_board_for_user(pk, request.user)
+        board, role = get_board_for_user(pk, request.user)
         PAGE_SIZE = 50
 
         qs = (
@@ -579,8 +579,45 @@ class BoardAnalyticsMixin:
         # backend handles the request.
         export_format = request.query_params.get("export", "").strip()
         if export_format and hooks.MOVEMENT_EXPORT_BACKENDS:
+            # Imported here, not at module level, to keep the two view modules
+            # decoupled at import time.
+            from .import_export import (
+                BoardExportThrottle, _can_export_at_min_role, _role_at_export,
+            )
+
+            # Same 20/hour export budget as the board export endpoint. Applied
+            # only in this branch so ordinary JSON reads are not throttled.
+            throttle = BoardExportThrottle()
+            if not throttle.allow_request(request, self):
+                self.throttled(request, throttle.wait())
+
+            # Apply the same per-board export threshold and audit trail as the
+            # board export endpoint (#843, #842) before handing off, so every
+            # registered backend inherits them rather than re-implementing them.
+            if not _can_export_at_min_role(board, request.user, role):
+                return Response(
+                    {
+                        "detail": "Export is restricted on this board.",
+                        "code": "export_restricted",
+                        "min_role": board.export_min_role or "viewer",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             backend = hooks.MOVEMENT_EXPORT_BACKENDS[0]
-            return backend(board, qs, request)
+            response = backend(board, qs, request)
+            # Audit only exports that actually produced data (like the board
+            # export, which logs after the body is assembled); a failed or
+            # rejected backend call is not an export.
+            if getattr(response, "status_code", 500) < 400:
+                BoardExportLog.objects.create(
+                    board=board,
+                    actor=request.user,
+                    role_at_export=_role_at_export(board, request.user, role),
+                    # export_format is capped at 20 chars; the value is user input.
+                    export_format=f"movements_{export_format.lower()}"[:20],
+                    row_count=qs.count(),
+                )
+            return response
 
         # Annotate `_total` via window function so the page fetch returns the
         # full count alongside each row — saves a second `COUNT(*)` round-trip
