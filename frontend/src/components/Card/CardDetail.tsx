@@ -121,6 +121,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const commentInFlight = useRef(false);
   const uploadInFlight = useRef(false);
   const checklistToggleInFlight = useRef(false);
+  const checklistAddInFlight = useRef(false);
+  const labelCreateInFlight = useRef(false);
   const [commentError, setCommentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dueDateRef = useRef<HTMLInputElement>(null);
@@ -334,6 +336,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const handleCreateLabel = async (colorOverride?: string) => {
     if (!newLabelName.trim()) return;
+    // Ref guard (#1498): Enter+click or a double click on a color swatch would
+    // otherwise create the label twice.
+    if (labelCreateInFlight.current) return;
+    labelCreateInFlight.current = true;
     setLabelError(null);
     const color = colorOverride ?? newLabelColor;
     try {
@@ -349,6 +355,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setAddingLabel(false);
     } catch {
       setLabelError("Failed to create label. Only board admins can create labels.");
+    } finally {
+      labelCreateInFlight.current = false;
     }
   };
 
@@ -414,6 +422,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const handleAddChecklistItem = async () => {
     if (!newItemText.trim()) return;
+    // Ref guard (#1498), shared with handleBulkAdd so the two cannot overlap.
+    if (checklistAddInFlight.current) return;
+    checklistAddInFlight.current = true;
     setChecklistError(null);
     try {
       // Previously unhandled (#1375): a rejected add left the typed text in
@@ -425,12 +436,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       onUpdated({ ...localCard, checklist_total: localCard.checklist_total + 1 });
     } catch {
       setChecklistError("Could not add item.");
+    } finally {
+      checklistAddInFlight.current = false;
     }
   };
 
   const handleBulkAdd = async () => {
     const items = bulkText.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!items.length) return;
+    if (checklistAddInFlight.current) return;
+    checklistAddInFlight.current = true;
     setChecklistError(null);
     const added: CardChecklistItem[] = [];
     try {
@@ -457,6 +472,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           : "Could not add items."
       );
     } finally {
+      checklistAddInFlight.current = false;
       if (added.length > 0) {
         setChecklist((prev) => [...prev, ...added]);
         onUpdated({ ...localCard, checklist_total: localCard.checklist_total + added.length });
@@ -931,9 +947,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         )}
                         <button onClick={() => { setAddingLabel(false); setLabelError(null); }} className="text-xs text-fg-muted hover:text-fg-secondary transition">✕</button>
                       </div>
-                      {labelError && (
-                        <p className="text-xs text-danger mt-0.5">{labelError}</p>
-                      )}
+                      <p role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4 mt-0.5">
+                        {labelError && <span className="text-danger">{labelError}</span>}
+                      </p>
                     </div>
                   ) : canManageLabels ? (
                     <button

@@ -1902,4 +1902,74 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       expect(mockUp).toHaveBeenCalledTimes(2)
     })
   })
+
+  describe('checklist add, bulk add and label create: re-entry guard (#1498)', () => {
+    it('checklist add: Enter twice in one tick posts once', async () => {
+      let resolve!: (v: unknown) => void
+      mockAddChecklistItem.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+      render(<CardDetail {...defaultProps()} />)
+      const input = screen.getByPlaceholderText('Add item (Enter)…')
+      fireEvent.change(input, { target: { value: 'New task' } })
+      act(() => {
+        fireEvent.keyDown(input, { key: 'Enter' })
+        fireEvent.keyDown(input, { key: 'Enter' })
+      })
+      expect(mockAddChecklistItem).toHaveBeenCalledTimes(1)
+      resolve({ id: 5, text: 'New task', is_checked: false, position: 0 })
+      await waitFor(() => expect(screen.getByText('New task')).toBeInTheDocument())
+    })
+
+    it('bulk add: double click on Add items posts each line once', async () => {
+      let resolve!: (v: unknown) => void
+      mockAddChecklistItem.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+      mockAddChecklistItem.mockResolvedValueOnce({ id: 6, text: 'Two', is_checked: false, position: 1 })
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByText('Bulk'))
+      fireEvent.change(screen.getByPlaceholderText(/Buy milk/), { target: { value: 'One\nTwo' } })
+      const btn = screen.getByRole('button', { name: 'Add items' })
+      act(() => {
+        fireEvent.click(btn)
+        fireEvent.click(btn)
+      })
+      expect(mockAddChecklistItem).toHaveBeenCalledTimes(1)
+      resolve({ id: 5, text: 'One', is_checked: false, position: 0 })
+      await waitFor(() => expect(mockAddChecklistItem).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument())
+    })
+
+    it('label create: Enter twice in one tick creates one label', async () => {
+      const { createLabel } = await import('../api/boards')
+      const mockCreate = createLabel as ReturnType<typeof vi.fn>
+      let resolve!: (v: unknown) => void
+      mockCreate.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+      mockUpdateCard.mockResolvedValue({ ...defaultProps().card })
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByText('+ New label'))
+      const input = screen.getByPlaceholderText('Label name')
+      fireEvent.change(input, { target: { value: 'Urgent' } })
+      act(() => {
+        fireEvent.keyDown(input, { key: 'Enter' })
+        fireEvent.keyDown(input, { key: 'Enter' })
+      })
+      expect(mockCreate).toHaveBeenCalledTimes(1)
+      resolve({ id: 99, name: 'Urgent', color: '#ff0000' })
+      await waitFor(() => expect(screen.queryByPlaceholderText('Label name')).not.toBeInTheDocument())
+    })
+
+    it('label create: a rejection shows the error in a live region and allows retry', async () => {
+      const { createLabel } = await import('../api/boards')
+      const mockCreate = createLabel as ReturnType<typeof vi.fn>
+      mockCreate.mockRejectedValueOnce(new Error('403'))
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByText('+ New label'))
+      const input = screen.getByPlaceholderText('Label name')
+      fireEvent.change(input, { target: { value: 'Urgent' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      const err = await screen.findByText(/Failed to create label/)
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      mockCreate.mockRejectedValueOnce(new Error('403'))
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(2))
+    })
+  })
 })
