@@ -679,3 +679,100 @@ class ShowWipAtLimitTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("show_wip_at_limit", r.data)
         self.assertFalse(r.data["show_wip_at_limit"])
+
+
+class ShowRowChipFieldNamesTests(TestCase):
+    """#1418: board-level `show_row_chip_field_names` setting — default, admin
+    round-trip, the admin-only write gate, presence in both board serializers,
+    and the `board.updated` broadcast payload that lets open viewers re-render
+    their swimlane row chips live."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="chip_names_owner", password="pass")
+        self.member = User.objects.create_user(username="chip_names_member", password="pass")
+        self.board, _, _ = _make_board(self.owner, name="ChipNamesBoard")
+        BoardMembership.objects.create(
+            board=self.board, user=self.member, role=BoardMembership.Role.MEMBER
+        )
+        self.client = APIClient()
+
+    def test_new_board_defaults_to_true(self):
+        self.assertTrue(self.board.show_row_chip_field_names)
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_disable_and_reenable(self, _):
+        self.client.force_authenticate(self.owner)
+        url = f"/api/v1/boards/{self.board.id}/"
+        r = self.client.patch(url, {"show_row_chip_field_names": False}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertFalse(r.data["show_row_chip_field_names"])
+        self.board.refresh_from_db()
+        self.assertFalse(self.board.show_row_chip_field_names)
+
+        r = self.client.patch(url, {"show_row_chip_field_names": True}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertTrue(self.board.show_row_chip_field_names)
+
+    def test_non_admin_cannot_write_show_row_chip_field_names(self):
+        """Every non-admin board role PATCHing the setting gets a 403 and the
+        value is left unchanged — perform_update's admin gate covers it."""
+        users = {BoardMembership.Role.MEMBER: self.member}
+        for role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
+            user = User.objects.create_user(username=f"chip_names_{role}", password="pass")
+            BoardMembership.objects.create(board=self.board, user=user, role=role)
+            users[role] = user
+        for role, user in users.items():
+            with self.subTest(role=role):
+                c = APIClient()
+                c.force_authenticate(user)
+                r = c.patch(
+                    f"/api/v1/boards/{self.board.id}/",
+                    {"show_row_chip_field_names": False},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+                self.board.refresh_from_db()
+                self.assertTrue(self.board.show_row_chip_field_names)
+
+    def test_non_member_gets_404_and_value_unchanged(self):
+        """A user with no membership cannot see the board at all (404, not
+        403, so its existence is not disclosed) and cannot change the value."""
+        outsider = User.objects.create_user(username="chip_names_outsider", password="pass")
+        self.client.force_authenticate(outsider)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"show_row_chip_field_names": False},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        self.board.refresh_from_db()
+        self.assertTrue(self.board.show_row_chip_field_names)
+
+    def test_in_serializer_output(self):
+        self.client.force_authenticate(self.member)
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIs(r.data["show_row_chip_field_names"], True)
+
+    def test_in_full_endpoint(self):
+        self.client.force_authenticate(self.member)
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIs(r.data["show_row_chip_field_names"], True)
+
+    def test_board_updated_broadcast_carries_field(self):
+        """Open viewers merge the `board.updated` payload into their board
+        state, so the new value must be in the broadcast snapshot."""
+        self.client.force_authenticate(self.owner)
+        with patch(PATCH_BROADCAST) as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                r = self.client.patch(
+                    f"/api/v1/boards/{self.board.id}/",
+                    {"show_row_chip_field_names": False},
+                    format="json",
+                )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        payloads = [c[0][2] for c in mock_broadcast.call_args_list if c[0][1] == "board.updated"]
+        self.assertEqual(len(payloads), 1)
+        self.assertIs(payloads[0]["show_row_chip_field_names"], False)

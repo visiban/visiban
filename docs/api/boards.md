@@ -57,6 +57,7 @@ Get board summary. Response includes:
 | `export_min_role` | string | Minimum role required to export this board. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"` (default: `"viewer"`). Owners and site admins always bypass. Admin-only when writing; sending any other value (including `"site_admin"` or `"owner"`) returns `400 Bad Request`. Added in 1.1 (#843). |
 | `card_density` | string | Per-board card layout density. One of `"comfortable"`, `"standard"`, `"dense"` (default: `"comfortable"` for new boards; existing boards on upgrade are migrated to `"dense"` to preserve their pre-1.1 visual). Drives how much metadata renders on the card face — see the [Card density](../features/board.md#card-density) feature doc. Admin-only when writing; sending any other value returns `400 Bad Request`. Added in 1.1 (#961). |
 | `show_wip_at_limit` | boolean | When `true`, a column's header stat row shows a calm `WIP n/n` indicator (in place of the card count) once the column's card count exactly equals its `wip_limit` (default: `false`). Purely ambient — does not affect move enforcement. Admin-only when writing. See the [At-limit WIP indicator](../features/board.md#at-limit-wip-indicator) feature doc. Added in 1.2 (#973). |
+| `show_row_chip_field_names` | boolean | When `true` (the default), pinned swimlane field chips in a row's label panel show `Field name: value`. When `false`, they show the value alone; the name stays in the chip's tooltip, for screen readers, and in the row's `+N` field list. Checkbox fields always show their name, and card-face chips are unaffected. Display only. Admin-only when writing. See [Hiding field names on row chips](../features/custom-fields.md#hiding-field-names-on-row-chips). Added in 1.2 (#1418). |
 | `stale_warning_pct` | integer | Warning percentage (0--100) controlling the yellow/green boundary in the analytics heatmap |
 | `is_starred` | boolean | Whether the requesting user has starred this board |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
@@ -64,7 +65,7 @@ Get board summary. Response includes:
 ### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
 Update board fields. Both `PUT` and `PATCH` are accepted — all fields are optional in either case. Requires board admin.
 
-**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, `show_wip_at_limit`. The entire request requires board admin (or site admin) — there is no tier of fields a non-admin member can edit; a non-admin PATCHing even a single field like `description` receives `403 Forbidden`.
+**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, `show_wip_at_limit`, `show_row_chip_field_names`. The entire request requires board admin (or site admin) — there is no tier of fields a non-admin member can edit; a non-admin PATCHing even a single field like `description` receives `403 Forbidden`.
 
 ### `DELETE /api/v1/boards/{id}/`
 Delete board. Requires board owner or site admin. Deletes every card on the board, **including archived cards** — see `archived_card_count` above.

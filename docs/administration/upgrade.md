@@ -450,6 +450,14 @@ all — `sqlmigrate boards 0062` prints `(no-op)`. No existing value changes mea
 disappears; see [Notifications](../features/notifications.md) if you need to tell API clients
 that switch on `action_type` to fall through to a generic rendering for an unrecognized value.
 
+Migration `boards/0069_board_show_row_chip_field_names` adds one boolean column,
+`show_row_chip_field_names`, to `boards` (#1418). It defaults to `True` with a database-level
+default as well as the Django one, so existing boards keep showing field names on swimlane row
+chips, and a not-yet-upgraded pod that creates a board during a rolling deploy (its `INSERT`
+omits the column) still succeeds. It is a metadata-only `ADD COLUMN` on PostgreSQL 11+ with no
+index to build. Board admins can turn names off per board from **Board Settings → Swimlane
+fields**.
+
 Migrations `git_lens/0001_initial` and `git_lens/0002_alter_lensconnection_column_dim`
 create the entirely new `git_lens` app and its `LensConnection` table for
 [Issue Board Lens](../features/issue-board-lens.md) (experimental, off by default —

@@ -23,6 +23,15 @@ interface Props {
    * "your team cannot see this", not "you cannot see this".
    */
   adminOnly?: boolean;
+  /**
+   * #1418 — `row-chip` only: drop the visible `{name}:` label and show the
+   * value alone (the board's `show_row_chip_field_names` admin setting is
+   * off). The name is kept in the `title` tooltip and in an sr-only span so
+   * assistive tech still announces "{name}: {value}". Checkbox fields ignore
+   * it — a bare "Yes"/"No" says nothing without its name. Ignored by the
+   * other variants; card-face chips always show the name.
+   */
+  hideName?: boolean;
   userDateFormat?: string;
   className?: string;
 }
@@ -43,7 +52,7 @@ interface Props {
  *      decides what "nothing" means for its context (omit vs. a ghost
  *      placeholder chip); this component never invents a placeholder.
  */
-export default function CustomFieldValueDisplay({ definition, value, variant, adminOnly, userDateFormat = "MM/DD/YYYY", className }: Props) {
+export default function CustomFieldValueDisplay({ definition, value, variant, adminOnly, hideName, userDateFormat = "MM/DD/YYYY", className }: Props) {
   if (value === undefined) return null;
 
   const valid = isValidForType(definition, value);
@@ -102,7 +111,12 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
       >
         {adminOnly && <AdminOnlyFieldGlyph />}
         {dot}
-        <span className="text-fg-muted truncate">{definition.name}:</span>
+        {hideName && definition.field_type !== "checkbox" ? (
+          // Not aria-label: ARIA 1.2 prohibits naming a generic <span>.
+          <span className="sr-only">{definition.name}: </span>
+        ) : (
+          <span className="text-fg-muted truncate">{definition.name}:</span>
+        )}
         {isUrl ? (
           // stopPropagation: the row label panel is a double-click-to-edit
           // surface for admins, and the link must not select or edit the row.

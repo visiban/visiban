@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -22,6 +22,52 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onFieldsUpdated: (definitions: SwimlaneCustomFieldDefinition[]) => void;
+  /**
+   * #1418 — the same optimistic board PATCH the Rules-tab toggles use
+   * (`useBoard.updateBoardSettings`). Omitted → the row-chip names setting
+   * renders as a read-only line.
+   */
+  onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
+}
+
+const ROW_CHIP_NAMES_HELP =
+  "Turn off to show values only. Names stay available on hover and in the row's field list. Checkbox fields always show their name.";
+
+/**
+ * #1418 — board-level admin setting for the `{name}:` label on pinned
+ * swimlane row chips. One switch for the whole board, deliberately not a
+ * per-viewer preference and not per-field. Non-admins (or a caller with no
+ * write callback) get a read-only line instead of a control.
+ */
+function RowChipNamesSetting({ board, isAdmin, onUpdateBoardSettings }: {
+  board: BoardFull;
+  isAdmin: boolean;
+  onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
+}) {
+  const id = useId();
+  const shown = board.show_row_chip_field_names !== false;
+  if (!isAdmin || !onUpdateBoardSettings) {
+    return (
+      <p className="text-sm text-fg-secondary mb-3">
+        Field names on row chips: {shown ? "shown" : "hidden"}
+      </p>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between py-2 mb-3 border-b border-line/60">
+      <label htmlFor={id} className="min-w-0 flex-1 pr-4 cursor-pointer">
+        <span className="text-sm text-fg">Show field names on row chips</span>
+        <span id={`${id}-help`} className="block text-xs text-fg-muted mt-0.5">{ROW_CHIP_NAMES_HELP}</span>
+      </label>
+      <Toggle
+        id={id}
+        checked={shown}
+        onChange={(v) => onUpdateBoardSettings({ show_row_chip_field_names: v })}
+        aria-label="Show field names on row chips"
+        aria-describedby={`${id}-help`}
+      />
+    </div>
+  );
 }
 
 const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; glyph: string }[] = [
@@ -91,7 +137,7 @@ function formFromDefinition(d: SwimlaneCustomFieldDefinition): FormState {
  * control, a *hard* type lock instead of a soft warning, and different caps.
  * A shared component would carry every one of those as a conditional.
  */
-export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onFieldsUpdated }: Props) {
+export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onFieldsUpdated, onUpdateBoardSettings }: Props) {
   const [fields, setFields] = useState<SwimlaneCustomFieldDefinition[]>(
     () => [...board.swimlane_custom_field_definitions].sort((a, b) => a.position - b.position)
   );
@@ -303,9 +349,12 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   if (!isAdmin) {
     // Currently unreachable — every entry point to Board Settings is
     // admin-gated. Kept for parity with the card tab, since that gate is a
-    // call-site decision that could change.
+    // call-site decision that could change. The read-only "Field names on row
+    // chips" line (#1418) sits in this same branch, and in RowChipNamesSetting's
+    // `!onUpdateBoardSettings` fallback.
     return (
       <div>
+        <RowChipNamesSetting board={board} isAdmin={false} />
         <p className="text-sm text-fg-secondary mb-3">Only board admins can add or edit swimlane fields.</p>
         {fields.some((f) => f.is_admin_only) && (
           <p className="text-xs text-fg-muted mb-3">Locked fields store values only board admins can see.</p>
@@ -333,6 +382,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
 
   return (
     <div>
+      <RowChipNamesSetting board={board} isAdmin onUpdateBoardSettings={onUpdateBoardSettings} />
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Swimlane fields</p>
         <span className={`text-xs ${fields.length >= FIELD_CAP - 2 ? "text-warning" : "text-fg-muted"}`}>

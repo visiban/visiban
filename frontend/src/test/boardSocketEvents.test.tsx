@@ -151,7 +151,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     staleness_threshold_days: 7,
     stale_warning_pct: 50,
     allowed_priorities: ['low', 'medium', 'high', 'urgent'],
-    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, export_min_role: 'viewer', card_density: 'comfortable',
+    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, show_row_chip_field_names: true, export_min_role: 'viewer', card_density: 'comfortable',
     is_starred: false,
     created_at: '', updated_at: '',
     current_user_role: 'admin',
@@ -480,6 +480,18 @@ describe('BoardView socket event routing — new event types', () => {
     const patch = { export_min_role: 'admin' as const }
     act(() => { getOnEvent.dispatch({ event: 'board.updated', data: patch }) })
     expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
+  })
+
+  it('board.updated carrying show_row_chip_field_names forwards the field to mergeBoardState (#1418)', async () => {
+    // An admin hiding row-chip field names must update every open viewer live.
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const patch = { show_row_chip_field_names: false }
+    act(() => { getOnEvent.dispatch({ event: 'board.updated', data: patch }) })
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
+    expect(ctx.updateBoardSettings).not.toHaveBeenCalled()
   })
 
   it('board.updated does not throw when mergeBoardState is provided', async () => {

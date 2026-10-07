@@ -19,10 +19,15 @@ const MAX_PINNED = 8; // mirrors SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BO
  * (one per line) read without truncation, within the column's resize bounds.
  * An estimate from character counts, not a DOM measurement — it only picks the
  * starting width, and the user can drag the separator from there.
+ *
+ * `showFieldNames` mirrors the board's `show_row_chip_field_names` (#1418): when
+ * names are hidden, a non-checkbox chip renders only its value, so the name's
+ * characters must not widen the column (checkbox chips always keep the name).
  */
 export function computeAutoSwimlaneWidth(
   swimlanes: Pick<Swimlane, "name" | "custom_field_values">[],
   definitions: SwimlaneCustomFieldDefinition[] | undefined,
+  showFieldNames = true,
 ): number {
   const defsById = new Map((definitions ?? []).map((d) => [d.id, d]));
   let width = DEFAULT_SWIMLANE_WIDTH;
@@ -35,7 +40,8 @@ export function computeAutoSwimlaneWidth(
       .sort((a, b) => a.def.position - b.def.position)
       .slice(0, MAX_PINNED);
     for (const { def, value } of pinned) {
-      const chars = def.name.length + 2 + Math.min(value.length, CHIP_VALUE_MAX_CHARS);
+      const nameChars = showFieldNames || def.field_type === "checkbox" ? def.name.length + 2 : 0;
+      const chars = nameChars + Math.min(value.length, CHIP_VALUE_MAX_CHARS);
       width = Math.max(width, chars * CHIP_CHAR_PX + CHIP_CHROME_PX);
     }
   }

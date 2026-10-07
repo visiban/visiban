@@ -368,7 +368,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "columns", "swimlanes", "cards", "labels", "members", "custom_field_definitions",
             "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits",
-            "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at",
+            "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names",
+            "created_at", "updated_at",
             "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
             # Additive (#1289): archived cards cascade on board delete.
             "archived_card_count",
