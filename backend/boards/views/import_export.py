@@ -403,6 +403,16 @@ def _csv_custom_field_cell(definition, value):
     return _sanitize_csv_field(value)
 
 
+def _is_truthy_non_string(value):
+    """True for a value the importer would mishandle: truthy and not a ``str``.
+
+    Falsy values (null, ``""``, 0, ``False``, ``[]``, ``{}``) were always coerced
+    away by ``x or ""`` or ignored by a truthiness check, so they stay accepted
+    for backward compatibility (#1451).
+    """
+    return bool(value) and not isinstance(value, str)
+
+
 def _resolve_import_users(usernames):
     """Map imported usernames to existing users, keyed by lowered username.
 
@@ -615,11 +625,12 @@ class BoardImportExportMixin:
                         {"detail": f"{_label} at index {_i} must be an object"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                # A missing or empty name used to reach ``item["name"]`` inside
-                # the transaction and raise KeyError (500).
-                if not isinstance(_item.get("name"), str) or not _item["name"]:
+                # A missing name used to reach ``item["name"]`` inside the
+                # transaction and raise KeyError (500). An empty string has
+                # always imported, so it stays accepted.
+                if not isinstance(_item.get("name"), str):
                     return Response(
-                        {"detail": f"{_label} at index {_i}: name must be a non-empty string"},
+                        {"detail": f"{_label} at index {_i}: name must be a string"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
         for _ci, _card in enumerate(data.get("cards", [])):
@@ -651,22 +662,28 @@ class BoardImportExportMixin:
                         "activities": ("actor",),
                     }.get(_child, ())
                     for _k in _str_keys:
-                        if _entry.get(_k) is not None and not isinstance(_entry[_k], str):
+                        if _is_truthy_non_string(_entry.get(_k)):
                             return Response(
                                 {"detail": f"Card at index {_ci}, {_child_label} at index {_ji}: '{_k}' must be a string"},
                                 status=status.HTTP_400_BAD_REQUEST,
                             )
-            if _card.get("assignee") is not None and not isinstance(_card["assignee"], str):
+            if _is_truthy_non_string(_card.get("title")):
+                return Response(
+                    {"detail": f"Card at index {_ci}: 'title' must be a string"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if _is_truthy_non_string(_card.get("assignee")):
                 return Response(
                     {"detail": f"Card at index {_ci}: 'assignee' must be a string"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            # Label references are looked up in a dict; an unhashable entry
-            # would raise TypeError there.
+            # Label references are looked up in a dict; a list/dict entry is
+            # unhashable and would raise TypeError there. Other hashable
+            # entries (0, False, null) never matched a label and imported fine.
             _refs = _card.get("labels", [])
-            if not isinstance(_refs, list) or not all(isinstance(_r, str) for _r in _refs):
+            if not isinstance(_refs, list) or any(isinstance(_r, (list, dict)) for _r in _refs):
                 return Response(
-                    {"detail": f"Card at index {_ci}: 'labels' must be a list of strings"},
+                    {"detail": f"Card at index {_ci}: 'labels' must be a list of names"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
