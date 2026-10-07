@@ -2671,10 +2671,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#movement-service-cardspy-58-survivors-left-of-77" class="md-nav__link">
+  <a href="#movement-service-cardspy-15-survivors-left-of-77" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Movement service (cards.py): 58 survivors left of 77
+        Movement service (cards.py): 15 survivors left of 77
       
     </span>
   </a>
@@ -2769,6 +2769,17 @@
     <span class="md-ellipsis">
       
         Parallel runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reproducing-the-update_card-re-measure-1454" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducing the update_card re-measure (#1454)
       
     </span>
   </a>
@@ -3966,7 +3977,7 @@
 <tr>
 <td>Movement service</td>
 <td><code>boards/services/cards.py</code></td>
-<td><code>test_card_services</code>, <code>test_card_move</code>, <code>test_card_archiving</code>, <code>test_card_mutation_hooks</code>, <code>test_card_edge_cases</code></td>
+<td><code>test_card_services</code>, <code>test_card_move</code>, <code>test_card_archiving</code>, <code>test_card_mutation_hooks</code>, <code>test_card_edge_cases</code>; the #1454 re-measure of <code>update_card</code> adds <code>test_card_service_mutation_gaps</code> and, to find what view suites already kill, <code>test_views_cards</code>, <code>test_notifications</code>, <code>test_card_timeline</code>, <code>test_views_extra</code>, <code>test_board_events</code>, <code>test_security_fixes</code>, <code>test_movement_record_mutation_gaps</code></td>
 </tr>
 <tr>
 <td>Movement model</td>
@@ -4002,12 +4013,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>boards/services/cards.py</code></td>
+<td><code>boards/services/cards.py</code> (2026-10-07 re-measure after #1454: 228 of 243)</td>
 <td style="text-align: right;">243</td>
 <td style="text-align: right;">166</td>
 <td style="text-align: right;">68.3%</td>
-<td style="text-align: right;">185</td>
-<td style="text-align: right;">76.1%</td>
+<td style="text-align: right;">228</td>
+<td style="text-align: right;">93.8%</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
@@ -4168,7 +4179,8 @@
 <li><strong>Equivalent mutant:</strong> the change cannot alter observable behavior in this setup, so no test can kill it. Leave it alone.</li>
 <li><strong>Untested code:</strong> no test in the scoped files reaches the line, or reaches it without checking the result. Needs new tests or a decision that it is covered elsewhere.</li>
 </ul>
-<h3 id="movement-service-cardspy-58-survivors-left-of-77">Movement service (<code>cards.py</code>): 58 survivors left of 77<a class="headerlink" href="#movement-service-cardspy-58-survivors-left-of-77" title="Permanent link">&para;</a></h3>
+<h3 id="movement-service-cardspy-15-survivors-left-of-77">Movement service (<code>cards.py</code>): 15 survivors left of 77<a class="headerlink" href="#movement-service-cardspy-15-survivors-left-of-77" title="Permanent link">&para;</a></h3>
+<p>Measured 2026-10-07 (#1454) with the line range of <code>update_card</code> only, run in 8 shards against the scoped files, then against the scoped files plus the view suites listed in the table above, then with <code>test_card_service_mutation_gaps.py</code> added to each. The 14 survivors outside <code>update_card</code> are unchanged from the #1443 baseline.</p>
 <table>
 <thead>
 <tr>
@@ -4179,27 +4191,34 @@
 </thead>
 <tbody>
 <tr>
-<td>Untested code</td>
-<td style="text-align: right;">44</td>
-<td><code>update_card</code>: the per-field <code>CardActivity</code> rows (title, weight, assignee, description, labels, due date) and the assignment notification text. Not movement-record code, and some of it is probably covered by view-level suites outside the scoped file list. Not verified.</td>
+<td>Missing assertion, <strong>fixed</strong> (#1454)</td>
+<td style="text-align: right;">43</td>
+<td>The 44 <code>update_card</code> survivors of the #1443 baseline: per-field <code>CardActivity</code> rows (title, priority, weight, assignee, description, labels, due date), the assignment and mention notification contents, the weight-increase limit check, and the <code>force</code> default. The view suites (<code>test_views_cards</code>, <code>test_notifications</code>, <code>test_card_timeline</code> and the others in the table above) already killed 25 of them; <code>test_card_service_mutation_gaps.py</code> kills the other 18, and on its own with the scoped files kills 40 of the 44.</td>
+</tr>
+<tr>
+<td>Latent bug (#1511)</td>
+<td style="text-align: right;">1</td>
+<td><code>parts.append(f"-{', '.join(names)}")</code> in the label diff (<code>'XX, XX'.join(names)</code>). The list of removed label names is built from the labels on the card <em>after</em> the write, so it is always empty and the join separator is never used. The activity row for a removal therefore reads <code>-</code> with no name. That is a real bug in the code, filed as #1511, not a truly equivalent mutant: <code>test_removed_labels_are_listed_with_minus</code> and <code>test_add_and_remove_in_one_update</code> pin the current output, and the mutant dies once #1511 resolves removed names from the pre-write label set and those expectations are updated.</td>
 </tr>
 <tr>
 <td>Equivalent</td>
 <td style="text-align: right;">8</td>
-<td><code>_archive_movement</code> falls back to <code>""</code> when <code>card.column</code> or <code>card.swimlane</code> is <code>None</code>. Both foreign keys are non-null on <code>Card</code>, so the branch is unreachable.</td>
+<td><code>_archive_movement</code> falls back to <code>""</code> when <code>card.column</code> or <code>card.swimlane</code> is <code>None</code>. Both foreign keys are non-null on <code>Card</code>, so the branch is unreachable. Left alone here; tracked in #1505.</td>
 </tr>
 <tr>
 <td>Equivalent here</td>
 <td style="text-align: right;">6</td>
-<td><code>select_for_update</code> guard conditions (lines 614-616). The lock is not observable on SQLite. Only a PostgreSQL concurrency test can kill these (<code>test_concurrent_moves.py</code> is the place).</td>
+<td><code>select_for_update</code> guard conditions in <code>move_card</code> and <code>enforce_column_limits</code> (the <code>select_for_update</code> calls on the card, column and sibling rows). The lock is not observable on SQLite. Only a PostgreSQL concurrency test can kill these (<code>test_concurrent_moves.py</code> is the place). Tracked in #1504 and #1503.</td>
 </tr>
 <tr>
-<td>Missing assertion, <strong>fixed</strong></td>
+<td>Missing assertion, fixed (#1443)</td>
 <td style="text-align: right;">19</td>
 <td>Creation-movement origin fields, the <code>position</code> bypass guard in <code>update_card</code>, the <code>or 0</code> weight fallback on an empty column, the role-hint rejection warning, the restore ownership message, the delete broadcast payload, and the create-time mention notification.</td>
 </tr>
 </tbody>
 </table>
+<p>With every <code>update_card</code> survivor except the one above killed, <code>cards.py</code> goes from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed, above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).</p>
+<p>The activity and notification paths in <code>boards/views/cards.py</code> (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the <code>cards.py</code> score above and are unmeasured; a mutation run on <code>boards/views/cards.py</code> would be needed to know their kill rate.</p>
 <h3 id="movement-model-cardmovement-28-survivors-left-of-45">Movement model (<code>CardMovement</code>): 28 survivors left of 45<a class="headerlink" href="#movement-model-cardmovement-28-survivors-left-of-45" title="Permanent link">&para;</a></h3>
 <p>All remaining survivors change a field argument (<code>max_length</code>, <code>blank</code>, <code>db_index</code>, <code>related_name</code>, <code>Meta.indexes</code>). These are schema constants. They have no behavior to assert at the test level, and a drift against the migrations is already caught by the CI <code>migration-check</code> job, so they are treated as equivalent. The behavioral parts (default type, wire values, ordering, <code>SET_NULL</code> history retention) are now asserted.</p>
 <h3 id="rbac-permissionspy-4-survivors-left-of-74">RBAC (<code>permissions.py</code>): 4 survivors left of 74<a class="headerlink" href="#rbac-permissionspy-4-survivors-left-of-74" title="Permanent link">&para;</a></h3>
@@ -4421,6 +4440,15 @@
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">context</span><span class="o">.</span><span class="n">skip</span> <span class="o">=</span> <span class="kc">True</span>
 </code></pre></div>
 <p>Run shard <code>k</code> of <code>N</code> in copy <code>k</code> with <code>MM_SHARD=k MM_N=N</code>, then add up the per-copy counts. Do not copy a result cache over a copy that is still running; aggregate in a separate directory. The baseline used <code>N=16</code>.</p>
+<h3 id="reproducing-the-update_card-re-measure-1454">Reproducing the <code>update_card</code> re-measure (#1454)<a class="headerlink" href="#reproducing-the-update_card-re-measure-1454" title="Permanent link">&para;</a></h3>
+<p>Measured against <code>main</code> at <code>ab38c4688</code>. The line range moves whenever <code>cards.py</code> changes, so re-derive it (<code>grep -n "^def update_card\|^def move_card" backend/boards/services/cards.py</code>) before reusing it: <code>update_card</code> was 0-based lines 492 to 696 (<code>MM_LO=492 MM_HI=696</code>) at that commit.</p>
+<ol>
+<li>Make 8 throwaway copies as in <a href="#parallel-runs">Parallel runs</a>, each with the sharded variant of <code>mutmut_config.py</code> (<code>MM_N=8</code>, <code>MM_SHARD=0..7</code>, <code>MM_LO=492</code>, <code>MM_HI=696</code> fixed in the file or exported).</li>
+<li>Baseline run, same runner as above with these test files: <code>test_card_services.py test_card_move.py test_card_archiving.py test_card_mutation_hooks.py test_card_edge_cases.py</code>. Result: 44 survivors.</li>
+<li>Second run (delete <code>.mutmut-cache</code> first): the same files plus <code>test_views_cards.py test_notifications.py test_card_timeline.py test_views_extra.py test_board_events.py test_security_fixes.py test_movement_record_mutation_gaps.py</code>. Result: 19 survivors, so the view suites kill 25.</li>
+<li>Third run: the second run's files plus <code>test_card_service_mutation_gaps.py</code>. Result: 1 survivor (#1511). With only the baseline files plus the new file, 4 survive, which is 40 of the 44 killed.</li>
+</ol>
+<p>Sum the survivors over the 8 copies (<code>select count(*) from Mutant where status='bad_survived'</code> in each <code>.mutmut-cache</code>). Run <code>mutmut show</code> with <code>MM_SHARD</code> and <code>MM_N</code> exported, or the config import fails.</p>
 <h2 id="how-to-read-the-results">How to read the results<a class="headerlink" href="#how-to-read-the-results" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>/tmp/mutmut-tools<span class="w"> </span>.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>mutmut<span class="w"> </span>results<span class="w">      </span><span class="c1"># lists survivors by id</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>/tmp/mutmut-tools<span class="w"> </span>.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>mutmut<span class="w"> </span>show<span class="w"> </span><span class="m">42</span><span class="w">      </span><span class="c1"># prints the diff for mutant 42</span>
@@ -4462,7 +4490,7 @@
 </tr>
 </tbody>
 </table>
-<p>Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. <code>boards/services/cards.py</code> (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and the remaining survivors there are mostly untested <code>update_card</code> paths already tracked in #1454.</p>
+<p>Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. <code>boards/services/cards.py</code> (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 the remaining survivors there are 8 dead <code>else ""</code> branches in <code>_archive_movement</code>, 6 <code>select_for_update</code> guards that need PostgreSQL, and 1 latent-bug mutant in the <code>update_card</code> label diff (#1511).</p>
 <p>Runtime evidence, measured 2026-10-04 on a loaded laptop (another mutmut run was using the CPUs), SQLite, mutmut 2.5.1, one process, <code>-x</code> per mutant:</p>
 <table>
 <thead>
