@@ -415,6 +415,21 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)
   })
 
+  it('still renders the "All fields" trigger when every pinned value is a checkbox and names are hidden (#1509)', () => {
+    // Checkbox chips always show their name, but the trigger condition counts
+    // all pinned fields, so the trigger stays; this pins that behavior.
+    const defs = [
+      makeDef({ id: 1, name: 'Signed', field_type: 'checkbox', show_on_row: true }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Approved', field_type: 'checkbox', show_on_row: true, position: 1 }),
+    ]
+    renderRow(makeSwimlane({ custom_field_values: [
+      { field_definition: 1, value: 'true' },
+      { field_definition: 2, value: 'true' },
+    ] }), defs, false, { hideRowChipFieldNames: true })
+    expect(screen.getByText('Signed:')).not.toHaveClass('sr-only')
+    expect(screen.getByRole('button', { name: /^All fields: Show all 2 field values/ })).toBeInTheDocument()
+  })
+
   it('shows no trigger on an all-pinned row when names are visible', () => {
     const defs = [makeDef({ id: 1, name: 'Owner', show_on_row: true })]
     renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }), defs, false, { hideRowChipFieldNames: false })
