@@ -27,7 +27,7 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 
 | Module | Mutants | Killed before | Kill rate before | Killed after | Kill rate after | Timeouts |
 |---|---:|---:|---:|---:|---:|---:|
-| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243) | 243 | 166 | 68.3% | 228 | 93.8% | 0 |
+| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since) | 243 | 166 | 68.3% | 228 | 93.8% | 0 |
 | `CardMovement` (`boards/models.py`) | 73 | 28 | 38.4% | 45 | 61.6% | 0 |
 | `boards/permissions.py` | 118 | 44 | 37.3% | 114 | 96.6% | 0 |
 | `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | 2 (see below) |
@@ -83,7 +83,7 @@ Every survivor was put in one of three buckets:
 - **Equivalent mutant:** the change cannot alter observable behavior in this setup, so no test can kill it. Leave it alone.
 - **Untested code:** no test in the scoped files reaches the line, or reaches it without checking the result. Needs new tests or a decision that it is covered elsewhere.
 
-### Movement service (`cards.py`): 15 survivors left of 77
+### Movement service (`cards.py`): 15 survivors left of 77 (measured before #1511)
 
 Measured 2026-10-07 (#1454) with the line range of `update_card` only, run in 8 shards against the scoped files, then against the scoped files plus the view suites listed in the table above, then with `test_card_service_mutation_gaps.py` added to each. The 14 survivors outside `update_card` are unchanged from the #1443 baseline.
 
@@ -95,7 +95,7 @@ Measured 2026-10-07 (#1454) with the line range of `update_card` only, run in 8 
 | Equivalent here | 6 | `select_for_update` guard conditions in `move_card` and `enforce_column_limits` (the `select_for_update` calls on the card, column and sibling rows). The lock is not observable on SQLite. Only a PostgreSQL concurrency test can kill these (`test_concurrent_moves.py` is the place). Tracked in #1504 and #1503. |
 | Missing assertion, fixed (#1443) | 19 | Creation-movement origin fields, the `position` bypass guard in `update_card`, the `or 0` weight fallback on an empty column, the role-hint rejection warning, the restore ownership message, the delete broadcast payload, and the create-time mention notification. |
 
-With every `update_card` survivor killed, `cards.py` goes from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed, above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).
+With every `update_card` survivor except the #1511 label mutant killed, `cards.py` went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last `update_card` mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).
 
 The activity and notification paths in `boards/views/cards.py` (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the `cards.py` score above and are unmeasured; a mutation run on `boards/views/cards.py` would be needed to know their kill rate.
 
