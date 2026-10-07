@@ -233,14 +233,16 @@ class LabelActivityTests(UpdateCardGapBase):
     def test_removed_labels_are_listed_with_minus(self):
         self.card.labels.set([self.bug])
         self._set_labels([])
-        # Current behavior: removed names are looked up in the post-write label
-        # set, so none can be named and only the "-" marker is recorded. Pinned
-        # as-is; if removed names are ever fixed to appear, update this expectation.
+        # Pins the current behavior: removed names are looked up in the
+        # post-write label set, so none can be named and only the "-" marker is
+        # recorded. Fixed by #1511; update the expectation then.
         self.assertEqual(
             self._activities(), [(ET.LABEL_CHANGE, "", "-", self.owner.pk)]
         )
 
     def test_add_and_remove_in_one_update(self):
+        # Pins the current behavior ("-" with no name); fixed by #1511, update
+        # the expectation then.
         self.card.labels.set([self.bug])
         self._set_labels([self.ux])
         rows = self._activities()
@@ -437,7 +439,12 @@ class WeightIncreaseLimitTests(UpdateCardGapBase):
 
     def test_increase_that_fits_is_allowed(self):
         self._update(weight=2)
-        self.assertEqual(Card.objects.get(pk=self.card.pk).weight, 2)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.weight, 2)
+        self.assertEqual(self.card.column_id, self.col.pk)
+        self.assertEqual(
+            self._activities(), [(ET.WEIGHT_CHANGE, "1", "2", self.owner.pk)]
+        )
 
     def test_unchanged_weight_in_an_over_limit_column_is_allowed(self):
         """An edit that does not grow the card must not be trapped by the limit."""
@@ -457,5 +464,12 @@ class WeightIncreaseLimitTests(UpdateCardGapBase):
         self.board.save(update_fields=["enforce_wip_hard"])
         self.col.wip_limit = 1
         self.col.save(update_fields=["wip_limit"])
+        # Another card already fills the single WIP slot, so a WIP re-check
+        # (check_wip=True) would refuse this edit.
         self._update(weight=2)
-        self.assertEqual(Card.objects.get(pk=self.card.pk).weight, 2)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.weight, 2)
+        self.assertEqual(self.card.column_id, self.col.pk)
+        self.assertEqual(
+            self._activities(), [(ET.WEIGHT_CHANGE, "1", "2", self.owner.pk)]
+        )
