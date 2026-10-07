@@ -520,7 +520,11 @@ class JoinGroupThrottleWiredTests(TestCase):
 class JoinGroupLoggingTests(TestCase):
     def _make_invite(self, group_owner):
         from groups.models import Group, GroupInviteLink
+        from groups.models import GroupMembership
         group = Group.objects.create(name="LogGroup", owner=group_owner)
+        GroupMembership.objects.create(
+            group=group, user=group_owner, role=GroupMembership.Role.ADMIN,
+        )
         link, raw_token = GroupInviteLink.generate(
             group=group, created_by=group_owner, role="member",
         )
@@ -544,7 +548,11 @@ class JoinGroupLoggingTests(TestCase):
         from groups.models import Group, GroupInviteLink
 
         owner = User.objects.create_user(username="logowner2", password="pass")
+        from groups.models import GroupMembership
         group = Group.objects.create(name="ExpGroup", owner=owner)
+        GroupMembership.objects.create(
+            group=group, user=owner, role=GroupMembership.Role.ADMIN,
+        )
         past = timezone.now() - datetime.timedelta(days=1)
         link, raw_token = GroupInviteLink.generate(
             group=group, created_by=owner, role="member",

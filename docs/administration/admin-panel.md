@@ -112,7 +112,7 @@ Search for a new owner per board (any existing member — a direct board member 
 has access through group membership both count) and confirm; deactivation and the ownership
 transfers happen together, atomically. Deactivating the account also revokes any invite links
 the departing user created — site invite links and, *(1.2+)*, the pending board invites they
-emailed (each board's admins see those invites move to **Revoked**).
+emailed (each board's admins see those invites move to **Revoked**) and their active, unused group invite links (each affected group's admins see them move to **Revoked**). Consumed single-use links are left as they are.
 
 #### Make admin / Remove admin
 

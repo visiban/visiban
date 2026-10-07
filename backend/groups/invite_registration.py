@@ -169,18 +169,14 @@ def _sender_still_admits(link: GroupInviteLink) -> bool:
     already in flight — the same reason site invites are revoked when their
     creator is deactivated. The plain join path is unchanged.
     """
-    from rest_framework.exceptions import PermissionDenied
-
-    from .views import _require_group_admin
+    from .views import sender_is_group_admin
 
     sender = link.created_by
     if sender is None or not sender.is_active or not sender.is_site_admin:
         return False
-    try:
-        _require_group_admin(sender, link.group)
-    except PermissionDenied:
-        return False
-    return True
+    # Memoized on the link, so the preview's own creator check (#1490) and this
+    # one share a single ancestor walk.
+    return sender_is_group_admin(link)
 
 
 def redeem_group_registration_token(link: GroupInviteLink, user) -> None:
