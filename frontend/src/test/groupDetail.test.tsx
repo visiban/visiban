@@ -885,6 +885,13 @@ describe('GroupDetail', () => {
       expect(await screen.findByText('Default member role for new boards')).toBeInTheDocument()
     })
 
+    it('flags the default member role as not yet enforced (#1430)', async () => {
+      await loadAndSwitchToSettings()
+      expect(
+        await screen.findByText('Not yet enforced. Group members currently get their group role on every group board.'),
+      ).toBeInTheDocument()
+    })
+
     it('board defaults section shows the allowed priorities label', async () => {
       await loadAndSwitchToSettings()
       expect(await screen.findByText('Allowed priorities on new boards')).toBeInTheDocument()

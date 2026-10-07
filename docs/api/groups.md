@@ -1,6 +1,6 @@
 # Groups API
 
-Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults that new boards in the group inherit.
+Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and `allowed_priorities` are copied onto boards created in the group; the default member role is saved but not yet enforced.
 
 ## Groups
 
@@ -308,7 +308,7 @@ Delete a group shared label. Requires group admin. Does **not** remove the label
 ## Board defaults
 
 ### `PATCH /api/v1/groups/{id}/board-defaults/`
-Update the default settings applied to new boards created in this group. Requires group admin.
+Update the board defaults for this group. `allowed_priorities` is copied onto boards created in the group; `default_board_member_role` is saved but not yet enforced. Requires group admin.
 
 **Patchable fields**
 

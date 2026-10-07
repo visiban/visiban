@@ -84,9 +84,12 @@ Imports are limited to 10 per user per hour.
 
 !!! tip "Who did what"
     The samples name the users `demo1` through `demo5` as assignees and as the people
-    behind each move and history entry. If accounts with those usernames exist on your
-    instance, the import links them. If they don't, cards are imported unassigned and the
-    moves and history entries are attributed to you, the importing user. Comments are
+    behind each move and history entry. The import links an account with one of those
+    usernames only if it is visible to you: you, people who share a board or group with
+    you, or members of the group you import into. Site administrators and users with
+    all-content access see all active accounts, and inactive accounts are never linked.
+    Otherwise cards are imported unassigned and the moves and history entries are
+    attributed to you, the importing user. Comments are
     always imported as written by you.
 
 The `.csv` file for each template uses the same layout as **Export → CSV**

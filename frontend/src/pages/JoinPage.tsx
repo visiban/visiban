@@ -222,7 +222,7 @@ export default function JoinPage({ user }: Props) {
             boardGone === "used" ? (
               <>
                 <p ref={titleRef} tabIndex={-1} className="text-fg-tertiary text-lg font-medium mb-2 focus:outline-none">This invite has already been used</p>
-                <p className="text-fg-muted text-sm">Invites are single-use. Ask a board admin to send you a new one.</p>
+                <p className="text-fg-muted text-sm">This invite could only be used once. Ask a board admin to send you a new one.</p>
               </>
             ) : boardGone === "expired" ? (
               <>

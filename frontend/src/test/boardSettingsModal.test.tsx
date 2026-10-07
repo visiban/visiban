@@ -18,6 +18,8 @@ vi.mock('../api/boards', () => ({
   listBoardInviteLinks: vi.fn().mockResolvedValue([]),
   revokeBoardInviteLink: vi.fn(),
   sendBoardInviteEmail: vi.fn(),
+  // #439 — shareable invite links.
+  createBoardInviteLink: vi.fn(),
 }))
 
 vi.mock('../api/auth', () => ({
@@ -1707,6 +1709,15 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
     render(<BoardSettingsModal board={{ ...fakeBoard, current_user_role: 'member' }} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByText('Pending invites')).not.toBeInTheDocument()
     expect(screen.queryByText('Invite by email')).not.toBeInTheDocument()
+  })
+
+  it('admins can create shareable invite links from the Members tab (#439)', async () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(await screen.findByRole('button', { name: 'New link' })).toBeInTheDocument()
+    expect(await screen.findByText('or create a shareable link')).toBeInTheDocument()
+    expect(
+      screen.getByText('Anyone with an invite link can join this board after signing in. To let people view without signing in, use the Sharing tab.'),
+    ).toBeInTheDocument()
   })
 
   it('an email-shaped query with no addable match offers "Invite by email", which prefills the form', async () => {

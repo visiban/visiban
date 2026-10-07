@@ -17,6 +17,8 @@ import {
 } from "../api/auth";
 import Avatar from "../components/Common/Avatar";
 import EmailInviteForm from "../components/Common/EmailInviteForm";
+import BoardInvitesTab from "../components/Admin/BoardInvitesTab";
+import { INVITE_STATUS_STYLES } from "../constants/invites";
 import EmailSettingsSection from "../components/Admin/EmailSettingsSection";
 import Navbar from "../components/Layout/Navbar";
 import OverflowMenu, { type OverflowItem } from "../components/Layout/OverflowMenu";
@@ -25,7 +27,7 @@ import { Toggle } from "../components/Common/Toggle";
 import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 
-type Tab = "settings" | "users" | "invite_links";
+type Tab = "settings" | "users" | "invite_links" | "board_invites";
 
 interface Props {
   user: User;
@@ -244,13 +246,6 @@ const TTL_OPTIONS: { label: string; value: number | null }[] = [
   { label: "Never", value: null },
 ];
 
-const STATUS_STYLES: Record<AdminInviteLink["status"], string> = {
-  pending: "bg-success/20 text-success",
-  used: "bg-fg-muted/20 text-fg-tertiary",
-  expired: "bg-danger/20 text-danger",
-  revoked: "bg-fg-muted/20 text-fg-muted",
-};
-
 function formatExpiry(link: AdminInviteLink): string {
   if (!link.expires_at) return "Never";
   return new Date(link.expires_at).toLocaleDateString("en-US", {
@@ -440,7 +435,7 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-xs text-fg-tertiary">{link.prefix}…</span>
-                  <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_STYLES[link.status]}`}>
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${INVITE_STATUS_STYLES[link.status]}`}>
                     {link.status}
                   </span>
                   {link.delivery === "email" && (
@@ -1397,6 +1392,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setOffset((o) => Math.max(0, o - pageSize))}
                   disabled={offset === 0}
                   className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition"
@@ -1407,6 +1403,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
+                  type="button"
                   onClick={() => setOffset((o) => Math.min((totalPages - 1) * pageSize, o + pageSize))}
                   disabled={currentPage === totalPages}
                   className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition"
@@ -1460,6 +1457,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "settings", label: "Settings" },
   { id: "users", label: "Users" },
   { id: "invite_links", label: "Invite Links" },
+  { id: "board_invites", label: "Board Invites" },
 ];
 
 export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
@@ -1499,8 +1497,10 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
               {TABS.map((tab) => (
                 <li key={tab.id}>
                   <button
+                    type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full text-left px-3 py-2 rounded text-sm transition ${
+                    aria-current={activeTab === tab.id ? "page" : undefined}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                       activeTab === tab.id
                         ? "bg-primary text-on-primary font-medium"
                         : "text-fg-tertiary hover:text-fg hover:bg-surface"
@@ -1518,6 +1518,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
             {activeTab === "settings" && <SettingsTab currentUser={user} />}
             {activeTab === "users" && <UsersTab currentUser={user} />}
             {activeTab === "invite_links" && <InviteLinksTab onOpenEmailSettings={() => setActiveTab("settings")} />}
+            {activeTab === "board_invites" && <BoardInvitesTab />}
           </div>
         </div>
       </main>

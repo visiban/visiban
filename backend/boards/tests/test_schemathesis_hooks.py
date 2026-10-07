@@ -285,6 +285,21 @@ class MapPathParametersTests(TestCase):
 
         self.assertEqual(result, {"id": 9, "label_id": 19})
 
+    def test_board_invite_paths_get_a_real_board_pk(self):
+        """#439: list/create/send must reach the handler, not 404."""
+        for path in (
+            "/api/v1/boards/{id}/invite-links/",
+            "/api/v1/boards/{id}/invite-links/send/",
+        ):
+            with self.subTest(path=path):
+                result = _hooks().map_path_parameters(_fake_context(path), {"id": "generated"})
+                self.assertEqual(result, {"id": 7})
+        result = _hooks().map_path_parameters(
+            _fake_context("/api/v1/boards/{id}/invite-links/{link_id}/"),
+            {"id": "generated", "link_id": "generated-link"},
+        )
+        self.assertEqual(result, {"id": 7, "link_id": "generated-link"})
+
     def test_overrides_custom_field_id(self):
         context = _fake_context("/api/v1/boards/{board_pk}/custom-fields/{id}/")
         params = {"board_pk": "generated-board", "id": "generated-field"}

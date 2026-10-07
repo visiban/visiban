@@ -8,7 +8,7 @@ from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_field, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field, inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.throttling import UserRateThrottle
@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from boards.permissions import get_board_role
+from boards.serializers import AdminBoardInviteLinkSerializer
 from visiban.invite_email import (
     InviteEmailBadRequestSerializer,
     InviteEmailErrorSerializer,
@@ -40,6 +41,7 @@ from .models import (
     MAX_PENDING_EMAILED_INVITE_LINKS,
     SiteEmailSetting,
     SiteSetting,
+    get_registration_mode,
     record_email_settings_changes,
     record_email_test,
     record_site_setting_changes,
@@ -639,6 +641,13 @@ class AdminUserPagination(OffsetCountPagination):
     max_limit = 200
 
 
+class AdminBoardInvitePagination(OffsetCountPagination):
+    # Same envelope and bounds as the Users list: emailed invites alone can
+    # reach 50 per board, so the cross-board list is unbounded without it.
+    default_limit = 50
+    max_limit = 200
+
+
 class AdminActionLogPagination(OffsetCountPagination):
     # Offset pagination on a log that grows at the head can shift rows between
     # pages while a caller walks it (the reason CardQueryCursorPagination exists
@@ -1119,6 +1128,153 @@ class AdminInviteLinkRevokeView(APIView):
         return Response(InviteLinkSerializer(link).data)
 
 
+#: ``?status=`` values for the board-invite list (#439). Each is the ORM form of
+#: ``BoardInviteLink.status`` — revoked > used > expired > pending — so a row is
+#: listed under exactly the status its serialized ``status`` reports, and
+#: offset pagination counts the same rows it returns.
+BOARD_INVITE_STATUS_FILTERS = ("pending", "used", "expired", "revoked", "all")
+
+
+def _board_invite_status_q(value, now):
+    not_revoked = Q(revoked_at__isnull=True)
+    unused = Q(used_at__isnull=True)
+    if value == "revoked":
+        return Q(revoked_at__isnull=False)
+    if value == "used":
+        return not_revoked & Q(used_at__isnull=False)
+    if value == "expired":
+        return not_revoked & unused & Q(expires_at__isnull=False, expires_at__lt=now)
+    if value == "pending":
+        return not_revoked & unused & (Q(expires_at__isnull=True) | Q(expires_at__gte=now))
+    return Q()
+
+
+class AdminBoardInviteLinkListView(APIView):
+    """GET /api/v1/admin/board-invite-links/ — every board's invites (#439).
+
+    Site-admin oversight across all boards, emailed invites and shareable
+    links alike. ``?status=pending|used|expired|revoked|all`` (default
+    ``pending``) filters in the ORM with the model's status precedence, then
+    ``offset``/``page_size`` paginate with ``count`` like the Users list.
+    """
+
+    permission_classes = _ADMIN_PERMISSIONS
+    pagination_class = AdminBoardInvitePagination
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "status", str, enum=list(BOARD_INVITE_STATUS_FILTERS), required=False,
+                description="Filter by status (default pending).",
+            ),
+            OpenApiParameter(
+                "offset", int, required=False,
+                description="Zero-based row offset (default 0).",
+            ),
+            OpenApiParameter(
+                "page_size", int, required=False,
+                description=(
+                    f"Rows per page (default {AdminBoardInvitePagination.default_limit}, "
+                    f"max {AdminBoardInvitePagination.max_limit})."
+                ),
+            ),
+        ],
+        responses={
+            200: inline_serializer(
+                name="AdminBoardInviteLinkList",
+                fields={
+                    "count": drf_serializers.IntegerField(),
+                    "offset": drf_serializers.IntegerField(),
+                    "page_size": drf_serializers.IntegerField(),
+                    "results": AdminBoardInviteLinkSerializer(many=True),
+                },
+            ),
+            400: inline_serializer(
+                name="AdminBoardInviteLinkListBadStatus",
+                fields={"status": drf_serializers.ListField(child=drf_serializers.CharField())},
+            ),
+        },
+    )
+    def get(self, request):
+        from boards.models import BoardInviteLink
+
+        value = request.query_params.get("status", "").strip() or "pending"
+        # An unknown value is a caller error, not a silently empty page.
+        if value not in BOARD_INVITE_STATUS_FILTERS:
+            return Response(
+                {"status": [f"'{value}' is not a valid status."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        qs = (
+            BoardInviteLink.objects.filter(_board_invite_status_q(value, timezone.now()))
+            .select_related("board", "created_by")
+            .order_by("-created_at", "-pk")
+        )
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request)
+        context = {"registration_mode": get_registration_mode()}
+        return paginator.get_paginated_response(
+            AdminBoardInviteLinkSerializer(page, many=True, context=context).data
+        )
+
+
+class AdminBoardInviteLinkRevokeView(APIView):
+    """DELETE /api/v1/admin/board-invite-links/{pk}/ — revoke any board's invite (#439).
+
+    A site admin may revoke an invite on any board, whether or not they belong
+    to it: this is the instance-wide kill switch for a leaked link. Same
+    refusals as the board-scoped revoke and the site-invite revoke — a consumed
+    invite keeps its "used" record (400), and revoking twice is a 400 — and the
+    same ``invite_link.revoked`` ``{id}`` event on the board's channel, so a
+    board admin with the invite list open sees it go.
+    """
+
+    permission_classes = _ADMIN_PERMISSIONS
+
+    @extend_schema(
+        responses={
+            200: AdminBoardInviteLinkSerializer,
+            400: inline_serializer(
+                name="AdminBoardInviteRevokeRefused", fields={"detail": drf_serializers.CharField()},
+            ),
+            404: inline_serializer(
+                name="AdminBoardInviteNotFound", fields={"detail": drf_serializers.CharField()},
+            ),
+        },
+    )
+    def delete(self, request, pk):
+        from boards import broadcast as _board_broadcast
+        from boards.models import BoardInviteLink
+
+        with transaction.atomic():
+            # Lock the bare row: PostgreSQL refuses FOR UPDATE on the nullable
+            # side of the outer join select_related("created_by") would add.
+            link = BoardInviteLink.objects.select_for_update().filter(pk=pk).first()
+            if link is None:
+                return Response({"detail": "Invite not found."}, status=status.HTTP_404_NOT_FOUND)
+            if link.revoked_at is not None or link.used_at is not None:
+                return Response(
+                    {"detail": "This invite is already used or revoked and cannot be revoked."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            link.revoked_at = timezone.now()
+            link.revoked_by = request.user
+            link.save(update_fields=["revoked_at", "revoked_by"])
+            # Minimal {id}, like the board-scoped revoke: non-admin
+            # subscribers receive it too, so clients refetch the list.
+            _board_broadcast.record_board_event(
+                link.board_id, _board_broadcast.EVT_INVITE_LINK_REVOKED, {"id": link.pk},
+                actor_id=request.user.pk,
+            )
+        logger.info(
+            "board_invite.revoked pk=%d prefix=%s board_id=%d revoked_by=%d via=admin",
+            link.pk, link.prefix, link.board_id, request.user.pk,
+        )
+        link = BoardInviteLink.objects.select_related("board", "created_by").get(pk=link.pk)
+        context = {"registration_mode": get_registration_mode()}
+        return Response(AdminBoardInviteLinkSerializer(link, context=context).data)
+
+
 class AdminUserDeactivateView(APIView):
     """POST /api/admin/users/{pk}/deactivate/
 
@@ -1280,9 +1436,9 @@ class AdminUserDeactivateView(APIView):
                 revoked_at=now, revoked_by=actor,
             )
             # One {id} event per invite keeps the board channel's contract
-            # unchanged. The loop is bounded: a sender has at most 50 pending
-            # emailed invites per board, and this runs only on the rare admin
-            # action of deactivating an account.
+            # unchanged. The loop is bounded: a board holds at most 50 pending
+            # emailed invites and 5 active shareable links (#439), and this
+            # runs only on the rare admin action of deactivating an account.
             for link_id, board_id in pending:
                 _board_broadcast.record_board_event(
                     board_id, _board_broadcast.EVT_INVITE_LINK_REVOKED, {"id": link_id},
