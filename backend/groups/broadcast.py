@@ -10,6 +10,8 @@ from boards.broadcast import (
     EVT_BOARD_DELETED,
     EVT_BOARD_STAR_CHANGED,
     EVT_BOARD_UPDATED,
+    EVT_INVITE_LINK_CREATED,
+    EVT_INVITE_LINK_REVOKED,
     EVT_MEMBER_ADDED,
     EVT_MEMBER_REMOVED,
     EVT_MEMBER_UPDATED,
@@ -36,8 +38,8 @@ EVT_GROUP_LABEL_CREATED = "group.label.created"
 EVT_GROUP_LABEL_UPDATED = "group.label.updated"
 EVT_GROUP_LABEL_DELETED = "group.label.deleted"
 
-EVT_INVITE_LINK_CREATED = "invite_link.created"
-EVT_INVITE_LINK_REVOKED = "invite_link.revoked"
+# invite_link.created / invite_link.revoked are imported from the board
+# registry above: the board channel carries them too since #1444.
 
 GROUP_CHANNEL_EVENTS: frozenset[str] = frozenset({
     EVT_BOARD_CREATED,

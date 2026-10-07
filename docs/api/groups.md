@@ -329,7 +329,7 @@ Returns the updated group object.
 ## Join (public)
 
 ### `GET /api/v1/groups/join/{token}/`
-Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP.
+Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP — *(1.2+)* one budget shared with the [board join endpoints](boards.md#board-invites).
 
 **Response** `{ "group_id": 5, "group_name": "Engineering", "role": "member", "can_register": true }`
 
@@ -349,7 +349,7 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 *(1.2+)* An authenticated caller who is already a member of the link's group gets `200` with the preview for a consumed single-use link instead of `410`. This is the path a newcomer takes after an emailed invite created their account (see [`POST /api/v1/auth/registration/`](authentication.md)); everyone else still gets `410`.
 
 ### `POST /api/v1/groups/join/{token}/`
-Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP.
+Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP, shared with the board join endpoints.
 
 **Response body** — returns the full group object (same shape as `GET /api/v1/groups/{id}/` but using the list serializer, without `ancestors`):
 

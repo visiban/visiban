@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary } from "../types";
+import type { Board, BoardFull, BoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -9,6 +9,51 @@ export const setBoardMember = (boardId: number, userId: number, role: BoardRole,
 
 export const removeBoardMember = (boardId: number, userId: number) =>
   client.delete(`/api/v1/boards/${boardId}/members/${userId}/`);
+
+// ------------------------------------------------------------------
+// Board invites (#1444)
+// ------------------------------------------------------------------
+
+export type BoardInviteRole = "member" | "collaborator" | "viewer";
+
+export const listBoardInviteLinks = (boardId: number) =>
+  client.get<BoardInviteLink[]>(`/api/v1/boards/${boardId}/invite-links/`).then((r) => r.data);
+
+export const sendBoardInviteEmail = (
+  boardId: number,
+  data: { email: string; role?: BoardInviteRole; expiry_days?: 1 | 7 | 30 },
+) =>
+  client
+    .post<InviteEmailSent>(`/api/v1/boards/${boardId}/invite-links/send/`, data)
+    .then((r) => r.data);
+
+export const revokeBoardInviteLink = (boardId: number, linkId: number) =>
+  client.delete(`/api/v1/boards/${boardId}/invite-links/${linkId}/`);
+
+/** Public preview of a board invite (GET /boards/join/<token>/). 410 bodies
+ * carry `code`: "used" | "expired" | "revoked"; an unknown token is a 404. */
+export interface BoardJoinPreview {
+  board_id: number;
+  board_name: string;
+  role: BoardInviteRole;
+  /** Advisory: whether sign-up would accept this invite right now. */
+  can_register: boolean;
+}
+
+export interface BoardJoinResult {
+  board_id: number;
+  board_name: string;
+  role: BoardInviteRole;
+  /** Whether this invite created the caller's board membership. False when
+   * they already had equal or higher access. */
+  created: boolean;
+}
+
+export const resolveBoardJoinToken = (token: string) =>
+  client.get<BoardJoinPreview>(`/api/v1/boards/join/${token}/`).then((r) => r.data);
+
+export const joinBoard = (token: string) =>
+  client.post<BoardJoinResult>(`/api/v1/boards/join/${token}/`).then((r) => r.data);
 
 export const listBoards = () =>
   client.get<{ results: Board[] }>("/api/v1/boards/").then((r) => r.data.results);

@@ -1,0 +1,12 @@
+{% autoescape off %}Hello,
+
+{{ inviter_name }} invited you to join the board "{{ board_name }}" on {{ site_name }}.
+
+Open this link to accept the invite:
+
+{{ join_url }}
+
+The link works once and expires on {{ expires_on }}.
+
+If you don't have an account yet, open the link and it will show you how to join. If you weren't expecting this invite, you can ignore this email.
+{% endautoescape %}

@@ -997,6 +997,28 @@ export interface GroupInviteLink {
   delivery: "link" | "email";
 }
 
+/** One row of the admin-only GET /boards/<id>/invite-links/ list (#1444).
+ * Never carries the token or the address the invite was emailed to. */
+export interface BoardInviteLink {
+  id: number;
+  prefix: string;
+  name: string;
+  role: "member" | "collaborator" | "viewer";
+  /** "email" = sent to one address; "link" = shareable link (#439, not yet minted). */
+  delivery: "link" | "email";
+  created_at: string;
+  /** Null when the sender's account was deleted. */
+  created_by_username: string | null;
+  expires_at: string | null;
+  is_expired: boolean;
+  single_use: boolean;
+  used_at: string | null;
+  status: "pending" | "used" | "expired" | "revoked";
+  /** Advisory: whether a new person could create an account from this invite
+   * under the site's current registration mode. */
+  can_register: boolean;
+}
+
 /** Returned by POST and DELETE on /boards/<id>/share/.
  *
  * On enable (POST), all three fields carry values. On disable (DELETE),

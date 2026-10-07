@@ -119,6 +119,7 @@ Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a
 |---|---|
 | `401 Unauthorized` | The `Authorization` header is missing, is not the `Bearer` scheme, or the token is unknown, expired, revoked, or belongs to a deactivated account. |
 | `401 Unauthorized` | The token is valid but lacks the `mcp:read` scope, or predates scopes entirely. The message names the scope required. |
+| `403 Forbidden` | The token's account has a pending forced change (`must_change_password` or `must_change_username`). Same message and code as the REST API (`error.data.code` is `must_change_username` for the username case); change the password or choose a username in the web app, then retry. |
 | `404 Not Found` | `MCP_SERVER_ENABLED` is not set. |
 | `421 Misdirected Request` | The `Host` header is not in `ALLOWED_HOSTS`. |
 

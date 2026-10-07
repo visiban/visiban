@@ -40,6 +40,8 @@ vi.mock('@dnd-kit/sortable', () => ({
 }))
 
 vi.mock('react-router-dom', () => ({
+  // BoardView reads navigation state for the board-invite joined notice (#1444).
+  useLocation: () => ({ pathname: '/', search: '', hash: '', state: null, key: 'default' }),
   useSearchParams: () => {
     const [params, setParams] = React.useState<URLSearchParams>(() => new URLSearchParams(mockSearchParams))
     const setter = (next: URLSearchParams | Record<string, string> | ((prev: URLSearchParams) => URLSearchParams), _opts?: unknown) => {

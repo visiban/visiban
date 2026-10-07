@@ -659,3 +659,143 @@ class TestMovementsDeletedFk(AnalyticsHistorySetup):
         self.assertEqual(result["from_swimlane_uid"], swimlane_uid)
         self.assertEqual(result["to_swimlane_name"], "Customer A")
         self.assertEqual(result["to_swimlane_uid"], swimlane_uid)
+
+
+class TestMovementExportGate(AnalyticsHistorySetup):
+    """``?export=`` honors ``export_min_role`` and writes an audit row (#1432)."""
+
+    def _export(self, user, fmt="csv", response=None):
+        from unittest.mock import MagicMock, patch
+        from django.http import HttpResponse
+
+        backend = MagicMock(return_value=response or HttpResponse("ok"))
+        with patch("boards.hooks.MOVEMENT_EXPORT_BACKENDS", [backend]):
+            resp = self._client_for(user).get(f"{self._movements_url()}?export={fmt}")
+        return resp, backend
+
+    def test_below_min_role_refused_without_dispatch_or_log(self):
+        from boards.models import BoardExportLog
+
+        self.board.export_min_role = "admin"
+        self.board.save()
+        resp, backend = self._export(self.viewer)
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.data["code"], "export_restricted")
+        self.assertEqual(resp.data["min_role"], "admin")
+        backend.assert_not_called()
+        self.assertEqual(BoardExportLog.objects.count(), 0)
+
+    def test_allowed_role_dispatches_and_logs_once(self):
+        from boards.models import BoardExportLog
+
+        self.board.export_min_role = "member"
+        self.board.save()
+        resp, backend = self._export(self.member, "xlsx")
+        self.assertEqual(resp.status_code, 200)
+        backend.assert_called_once()
+        log = BoardExportLog.objects.get()
+        self.assertEqual(log.board_id, self.board.pk)
+        self.assertEqual(log.actor_id, self.member.pk)
+        self.assertEqual(log.role_at_export, "member")
+        self.assertEqual(log.export_format, "movements_xlsx")
+
+    def test_default_threshold_lets_viewer_export(self):
+        from boards.models import BoardExportLog
+
+        resp, backend = self._export(self.viewer)
+        self.assertEqual(resp.status_code, 200)
+        backend.assert_called_once()
+        self.assertEqual(BoardExportLog.objects.count(), 1)
+
+    def test_owner_bypasses_threshold(self):
+        self.board.export_min_role = "admin"
+        self.board.save()
+        resp, _ = self._export(self.admin)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_long_format_is_truncated_for_log(self):
+        from boards.models import BoardExportLog
+
+        self._export(self.member, "x" * 60)
+        self.assertEqual(len(BoardExportLog.objects.get().export_format), 20)
+
+    def test_no_backend_registered_is_unchanged(self):
+        """OSS path: ?export= falls through to the JSON page, no audit row."""
+        from boards.models import BoardExportLog
+
+        self.board.export_min_role = "admin"
+        self.board.save()
+        resp = self._client_for(self.viewer).get(f"{self._movements_url()}?export=csv")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("results", resp.data)
+        self.assertEqual(BoardExportLog.objects.count(), 0)
+
+    def test_format_is_normalized_for_log(self):
+        from boards.models import BoardExportLog
+
+        self._export(self.member, " XLSX ")
+        self.assertEqual(BoardExportLog.objects.get().export_format, "movements_xlsx")
+
+    def test_failed_backend_response_writes_no_log(self):
+        from django.http import HttpResponse
+        from boards.models import BoardExportLog
+
+        resp, backend = self._export(self.member, response=HttpResponse("no", status=500))
+        self.assertEqual(resp.status_code, 500)
+        backend.assert_called_once()
+        self.assertEqual(BoardExportLog.objects.count(), 0)
+
+    def test_site_admin_bypasses_threshold_and_is_logged(self):
+        from boards.models import BoardExportLog
+
+        self.board.export_min_role = "admin"
+        self.board.save()
+        site = User.objects.create_user(username="site", password="pw", can_access_all_content=True)
+        resp, _ = self._export(site)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(BoardExportLog.objects.get().role_at_export, "site_admin")
+
+    def test_group_inherited_admin_meets_threshold(self):
+        from boards.models import BoardExportLog
+        from groups.models import Group, GroupMembership
+
+        group = Group.objects.create(name="G", owner=self.admin)
+        self.board.group = group
+        self.board.export_min_role = "admin"
+        self.board.save()
+        gadmin = User.objects.create_user(username="gadmin", password="pw")
+        GroupMembership.objects.create(group=group, user=gadmin, role=GroupMembership.Role.ADMIN)
+        resp, backend = self._export(gadmin)
+        self.assertEqual(resp.status_code, 200)
+        backend.assert_called_once()
+        self.assertEqual(BoardExportLog.objects.count(), 1)
+
+    def test_group_inherited_non_admin_refused(self):
+        from groups.models import Group, GroupMembership
+
+        group = Group.objects.create(name="G", owner=self.admin)
+        self.board.group = group
+        self.board.export_min_role = "admin"
+        self.board.save()
+        gmember = User.objects.create_user(username="gmember", password="pw")
+        GroupMembership.objects.create(group=group, user=gmember, role=GroupMembership.Role.MEMBER)
+        resp, backend = self._export(gmember)
+        self.assertEqual(resp.status_code, 403)
+        backend.assert_not_called()
+
+    def test_export_is_throttled_but_plain_reads_are_not(self):
+        from unittest.mock import patch
+        from django.core.cache import cache
+        from boards.models import BoardExportLog
+
+        cache.clear()
+        with patch("boards.views.import_export.BoardExportThrottle.get_rate", return_value="1/hour"):
+            first, _ = self._export(self.member)
+            second, backend = self._export(self.member)
+            plain = [self._client_for(self.member).get(self._movements_url()) for _ in range(3)]
+        cache.clear()
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        backend.assert_not_called()
+        self.assertTrue(all(r.status_code == 200 for r in plain))
+        self.assertEqual(BoardExportLog.objects.count(), 1)

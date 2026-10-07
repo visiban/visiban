@@ -1,16 +1,19 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import type { Ref } from "react";
 import { getSiteConfig } from "../../api/auth";
 import type { InviteEmailSent, SiteConfig } from "../../types";
 import SingleSelectDropdown from "./SingleSelectDropdown";
+import { EMAIL_RE } from "../../constants/inviteEmail";
 
 /**
- * "Invite by email" section shared by the group invite panel and the site-admin
- * Invite Links tab (#731). Copy and feedback are identical on both surfaces
- * (frontend/CLAUDE.md, feature-parity rule); only the role picker and the two
- * surface-specific notices differ.
+ * "Invite by email" section shared by the group invite panel, the board
+ * Members tab (#1444) and the site-admin Invite Links tab (#731). Copy and
+ * feedback are identical on every surface (frontend/CLAUDE.md, feature-parity
+ * rule); only the pickers and the surface-specific notices differ.
  */
 
 type Role = "admin" | "member" | "collaborator" | "viewer";
+type ExpiryDays = 1 | 7 | 30;
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "admin", label: "Admin" },
@@ -27,10 +30,18 @@ const SENT_CLEAR_MS = 5000;
 const MAIL_SERVER_CODES = new Set(["auth_failed", "config_unusable", "connection_refused"]);
 
 const HELPER_TEXT = "Sends a single-use link that expires in 7 days.";
+
+const EXPIRY_OPTIONS: { value: ExpiryDays; label: string }[] = [
+  { value: 1, label: "1 day" },
+  { value: 7, label: "7 days" },
+  { value: 30, label: "30 days" },
+];
+
+// Above ModalWrapper's 40: the board form lives inside Board Settings, so an
+// open picker must take Escape before the modal does (frontend/CLAUDE.md).
+const BOARD_PICKER_ESCAPE_PRIORITY = 51;
 const GENERIC_SEND_ERROR = "Could not send — check the address and try again.";
 
-// Mirrors the backend's refusal of whitespace and list/display-name characters.
-const EMAIL_RE = /^[^\s@",;<>]+@[^\s@",;<>]+\.[^\s@",;<>]+$/;
 
 interface Line {
   tone: "success" | "warning" | "danger" | "muted";
@@ -44,11 +55,24 @@ const TONE_CLASS: Record<Line["tone"], string> = {
   muted: "text-fg-muted",
 };
 
+/** Imperative handle for hosts that steer someone into the form (#1444). */
+export interface EmailInviteFormHandle {
+  /** Fill the address, scroll the form into view and focus Send invite. */
+  prefill: (email: string) => void;
+}
+
+export interface EmailInvitePayload {
+  email: string;
+  role?: Role;
+  expiry_days?: ExpiryDays;
+}
+
 interface Props {
-  /** "group" shows the role picker and the sign-up notice; "site" the
-   *  Settings → Email pointer when mail is not set up. */
-  surface: "group" | "site";
-  send: (payload: { email: string; role?: Role }) => Promise<InviteEmailSent>;
+  /** "group" and "board" show the role picker and the sign-up notice; "board"
+   *  also an Expires picker; "site" the Settings → Email pointer when mail is
+   *  not set up. */
+  surface: "group" | "site" | "board";
+  send: (payload: EmailInvitePayload) => Promise<InviteEmailSent>;
   /** Called after a successful send so the host can refetch its link list. */
   onSent?: () => void;
   /** Site surface only: switches the Admin page to its Settings tab. */
@@ -57,6 +81,16 @@ interface Props {
    *  On an invite-only site only a site admin's emailed invite lets a new
    *  person create an account (#1445). */
   senderIsSiteAdmin?: boolean;
+  /** Role choices; defaults to all four. The board passes Member/Collaborator/
+   *  Viewer — an invite can never grant Admin. */
+  roleOptions?: { value: Role; label: string }[];
+  /** The "or create a shareable link" divider under the form. Off on the
+   *  board until shareable board links ship (#439). */
+  showLinkDivider?: boolean;
+  /** Fired once site-config has loaded (or failed): whether the form renders
+   *  a send control at all. */
+  onAvailabilityChange?: (available: boolean) => void;
+  ref?: Ref<EmailInviteFormHandle>;
 }
 
 interface ErrorShape {
@@ -94,26 +128,68 @@ function errorLines(err: unknown): Line[] {
   return [{ tone: "danger", text: GENERIC_SEND_ERROR }];
 }
 
-export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSettings, senderIsSiteAdmin = false }: Props) {
+function expiryLabel(days: ExpiryDays): string {
+  return days === 1 ? "1 day" : `${days} days`;
+}
+
+export default function EmailInviteForm({
+  surface,
+  send,
+  onSent,
+  onOpenEmailSettings,
+  senderIsSiteAdmin = false,
+  roleOptions = ROLE_OPTIONS,
+  showLinkDivider = true,
+  onAvailabilityChange,
+  ref,
+}: Props) {
   const [config, setConfig] = useState<SiteConfig | null>(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("member");
+  const [expiryDays, setExpiryDays] = useState<ExpiryDays>(7);
   const [sending, setSending] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [focusTick, setFocusTick] = useState(0);
+  const [prefillTick, setPrefillTick] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusId = useId();
+  // Read through a ref so a host passing an inline callback does not refetch
+  // site-config on every render.
+  const availabilityRef = useRef(onAvailabilityChange);
+  useEffect(() => { availabilityRef.current = onAvailabilityChange; });
 
   useEffect(() => {
     let cancelled = false;
     getSiteConfig()
-      .then((c) => { if (!cancelled) setConfig(c); })
+      .then((c) => {
+        if (cancelled) return;
+        setConfig(c);
+        availabilityRef.current?.(c.invite_email_available);
+      })
       // Unknown availability: render nothing rather than offering a send that
       // may not work. The create-link form below is unaffected.
-      .catch(() => { /* stay hidden */ });
+      .catch(() => { if (!cancelled) availabilityRef.current?.(false); });
     return () => { cancelled = true; };
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    prefill: (address: string) => {
+      setEmail(address);
+      setLines([]);
+      setPrefillTick((t) => t + 1);
+    },
+  }), []);
+
+  // After a prefill re-renders the (now enabled) Send button, bring the form
+  // into view and put focus on Send so Enter sends the invite.
+  useEffect(() => {
+    if (prefillTick === 0) return;
+    rootRef.current?.scrollIntoView?.({ block: "nearest" });
+    submitRef.current?.focus();
+  }, [prefillTick]);
 
   useEffect(() => {
     return () => { if (clearTimerRef.current !== null) clearTimeout(clearTimerRef.current); };
@@ -127,7 +203,7 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
 
   if (!config) return null;
 
-  const divider = (
+  const divider = !showLinkDivider ? null : (
     <div className="flex items-center gap-3" aria-hidden="true">
       <div className="flex-1 border-t border-line" />
       <span className="text-xs text-fg-muted">or create a shareable link</span>
@@ -136,7 +212,7 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
   );
 
   if (!config.invite_email_available) {
-    if (surface === "group") return null;
+    if (surface !== "site") return null;
     // Demo sites switch emailing off on purpose; pointing at Settings would
     // send the admin to a fix that cannot work.
     if (config.demo_mode) {
@@ -176,9 +252,14 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
   // and only when a site admin sent it (#1445). Everyone else sending on a
   // closed or invite-only site gets the "can't sign up" warning.
   const inviteOnly = config.registration_mode === "invite_only";
+  // Board invites follow the same rule as group invites (#1444).
+  const membershipSurface = surface === "group" || surface === "board";
   const closedSite =
-    surface === "group" && (config.registration_mode === "closed" || (inviteOnly && !senderIsSiteAdmin));
-  const inviteOnlySite = surface === "group" && inviteOnly && senderIsSiteAdmin;
+    membershipSurface && (config.registration_mode === "closed" || (inviteOnly && !senderIsSiteAdmin));
+  const inviteOnlySite = membershipSurface && inviteOnly && senderIsSiteAdmin;
+  const helperText = surface === "board"
+    ? `Sends a single-use invite that expires in ${expiryLabel(expiryDays)}.`
+    : HELPER_TEXT;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,7 +272,11 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
     setLines([]);
     setSending(true);
     try {
-      const res = await send(surface === "group" ? { email: address, role } : { email: address });
+      const payload: EmailInvitePayload =
+        surface === "board" ? { email: address, role, expiry_days: expiryDays }
+        : surface === "group" ? { email: address, role }
+        : { email: address };
+      const res = await send(payload);
       const next: Line[] = [{ tone: "success", text: `Invite sent to ${address}.` }];
       if (res.delivery === "console") {
         next.push({ tone: "warning", text: "Email is printed to the server console in development." });
@@ -212,7 +297,7 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={rootRef} className="flex flex-col gap-3">
       <h4 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Invite by email</h4>
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col sm:flex-row gap-2 items-start">
         <input
@@ -230,12 +315,36 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
         {surface === "group" && (
           <SingleSelectDropdown<Role>
             label="Role"
-            options={ROLE_OPTIONS}
+            ariaLabel="Role"
+            options={roleOptions}
             selected={role}
             onChange={(v) => { if (v) setRole(v); }}
           />
         )}
+        {surface === "board" && (
+          <>
+            <SingleSelectDropdown<Role>
+              label="Role"
+              ariaLabel="Role"
+              options={roleOptions}
+              selected={role}
+              onChange={(v) => { if (v) setRole(v); }}
+              portalMenu
+              escapePriority={BOARD_PICKER_ESCAPE_PRIORITY}
+            />
+            <SingleSelectDropdown<ExpiryDays>
+              label="Expires"
+              ariaLabel="Expires"
+              options={EXPIRY_OPTIONS}
+              selected={expiryDays}
+              onChange={(v) => { if (v) setExpiryDays(v); }}
+              portalMenu
+              escapePriority={BOARD_PICKER_ESCAPE_PRIORITY}
+            />
+          </>
+        )}
         <button
+          ref={submitRef}
           type="submit"
           disabled={!valid || sending}
           className="px-3 py-1.5 text-sm rounded font-medium bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -247,7 +356,7 @@ export default function EmailInviteForm({ surface, send, onSent, onOpenEmailSett
       {/* One reserved status slot for every state — never a toast. */}
       <div id={statusId} role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4 flex flex-col gap-0.5">
         {lines.length === 0 && !sending ? (
-          <p className="text-fg-muted">{HELPER_TEXT}</p>
+          <p className="text-fg-muted">{helperText}</p>
         ) : (
           lines.map((l) => (
             <p key={l.text} className={TONE_CLASS[l.tone]}>{l.text}</p>

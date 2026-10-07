@@ -56,7 +56,10 @@ vi.mock('@dnd-kit/sortable', () => ({
   arrayMove: vi.fn(),
   useSortable: () => ({ setNodeRef: () => {}, attributes: {}, listeners: {}, transform: null, transition: undefined, isDragging: false }),
 }))
+const { mockLocationState } = vi.hoisted(() => ({ mockLocationState: { current: null as unknown } }))
 vi.mock('react-router-dom', () => ({
+  // BoardView reads navigation state for the board-invite joined notice (#1444).
+  useLocation: () => ({ pathname: '/', search: '', hash: '', state: mockLocationState.current, key: 'default' }),
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useNavigate: () => vi.fn(),
 }))
@@ -80,7 +83,11 @@ vi.mock('../components/Card/CardDetail', () => ({
 }))
 vi.mock('../components/Board/AddColumnModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({ default: () => <div /> }))
-vi.mock('../components/Board/BoardSettingsModal', () => ({ default: () => <div /> }))
+vi.mock('../components/Board/BoardSettingsModal', () => ({
+  default: ({ inviteReloadSignal }: { inviteReloadSignal?: number }) => (
+    <div data-testid="settings-modal" data-invite-signal={inviteReloadSignal ?? 0} />
+  ),
+}))
 vi.mock('../components/Board/FilterBar', () => ({
   default: () => <div />,
   EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [] },
@@ -560,5 +567,65 @@ describe('BoardView — CardDetail live refresh on card.updated (#1310)', () => 
     expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
     // Should not throw with no card open.
     act(() => { getOnEvent.dispatch({ event: 'card.updated', data: { ...card, checklist_total: 1 } as unknown as Record<string, unknown> }) })
+  })
+})
+
+describe('BoardView — board invites (#1444)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLocationState.current = null
+    mockBoardContextValue = makeContext()
+  })
+
+  async function openSettings() {
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { window.dispatchEvent(new Event('visiban:open-settings')) })
+    return screen.getByTestId('settings-modal')
+  }
+
+  it('invite_link.created / invite_link.revoked bump the settings invite signal', async () => {
+    const modal = await openSettings()
+    expect(modal).toHaveAttribute('data-invite-signal', '0')
+    act(() => { getOnEvent.dispatch({ event: 'invite_link.created', data: { id: 1 } }) })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-invite-signal', '1')
+    act(() => { getOnEvent.dispatch({ event: 'invite_link.revoked', data: { id: 1 } }) })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-invite-signal', '2')
+  })
+
+  it('member.added carrying an invite bumps the signal; a plain member.added does not', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    await openSettings()
+    const member = { id: 50, user: { ...fakeUser, id: 9 }, role: 'member', is_moderator: false, joined_at: '' }
+    act(() => { getOnEvent.dispatch({ event: 'member.added', data: member as unknown as Record<string, unknown> }) })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-invite-signal', '0')
+    act(() => {
+      getOnEvent.dispatch({ event: 'member.added', data: { ...member, invite: { id: 3, created_by_id: 1 } } as unknown as Record<string, unknown> })
+    })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-invite-signal', '1')
+    expect(ctx.addMember).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows the joined notice from navigation state, and dismisses it', async () => {
+    mockLocationState.current = { joinedBoard: 'Launch Plan', joinedRole: 'collaborator', created: true }
+    render(<BoardView />)
+    await act(async () => {})
+    expect(screen.getByText(/You've joined/)).toHaveTextContent("You've joined Launch Plan as a collaborator. Welcome!")
+    act(() => { screen.getByRole('button', { name: 'Dismiss notification' }).click() })
+    expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
+  })
+
+  it('says "already have access" when the invite created nothing', async () => {
+    mockLocationState.current = { joinedBoard: 'Launch Plan', joinedRole: 'viewer', created: false }
+    render(<BoardView />)
+    await act(async () => {})
+    expect(screen.getByText(/You already have access to/)).toHaveTextContent('You already have access to Launch Plan.')
+  })
+
+  it('no notice without navigation state', async () => {
+    render(<BoardView />)
+    await act(async () => {})
+    expect(screen.queryByRole('button', { name: 'Dismiss notification' })).not.toBeInTheDocument()
   })
 })
