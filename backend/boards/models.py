@@ -884,7 +884,10 @@ class BoardExportLog(models.Model):
         help_text="Export format string as requested (e.g. ``json`` / ``csv``).",
     )
     row_count = models.PositiveIntegerField(
-        help_text="Number of cards included in the export payload."
+        help_text=(
+            "Number of rows exported: cards for a board export, "
+            "movements for a movement-history export."
+        ),
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

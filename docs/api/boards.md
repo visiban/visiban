@@ -617,7 +617,7 @@ Return recent successful board exports for audit purposes (#842). Requires board
 | `actor` | The user who performed the export, or `null` if the user has since been deleted. |
 | `actor_role_label` | Role the actor held at the moment of export. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"`, `"owner"`, `"site_admin"` — captured at write time, not recomputed on read. Distinct from `Board.export_min_role`, which only accepts the lower four values. |
 | `export_format` | `"csv"` or `"json"` for board exports; `"movements_<format>"` (lowercased, at most 20 characters) for movement history exports. |
-| `row_count` | Number of cards included in the export. |
+| `row_count` | Number of rows exported: cards for a board export, movements for a movement-history export (`movements_<format>`). |
 | `created_at` | ISO 8601 timestamp. |
 
 ### `POST /api/v1/boards/import/`

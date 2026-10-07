@@ -1560,6 +1560,27 @@ describe('BoardSettingsModal — Export history (#842)', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument()
   })
 
+  it('renders movement exports as "Movements (CSV)" with a movement count (#1499)', async () => {
+    mockGetBoardExportHistory.mockResolvedValue({
+      results: [
+        {
+          id: 9,
+          actor: { id: 9, username: 'alice', display_name: 'Alice', avatar_url: '' },
+          actor_role_label: 'admin',
+          export_format: 'movements_csv',
+          row_count: 5,
+          created_at: '2026-04-22T14:31:02Z',
+        },
+      ],
+      count: 1, next: null, previous: null,
+    })
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    await waitFor(() =>
+      expect(screen.getByText(/admin — Movements \(CSV\) · 5 movements/)).toBeInTheDocument()
+    )
+    expect(screen.queryByText(/MOVEMENTS_CSV/)).toBeNull()
+  })
+
   it('renders "(deactivated user)" when actor is null (#1014)', async () => {
     mockGetBoardExportHistory.mockResolvedValue({
       results: [
