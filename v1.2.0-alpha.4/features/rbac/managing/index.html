@@ -3778,7 +3778,7 @@
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="err">DELETE /api/v1/groups/{group_id}/members/42/</span>
 </code></pre></div>
 <p>Valid group roles: <code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code></p>
-<p>Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership, and set the default role new members get on boards created in the group. See <a href="../../groups/#invite-links">Groups</a>, <a href="../../groups/#transferring-group-ownership">Groups — Transferring group ownership</a>, and <a href="../../groups/#group-board-defaults">Groups — Group board defaults</a>.</p>
+<p>Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership, and save a default member role for boards in the group (not yet enforced: group members keep their group role on every group board). See <a href="../../groups/#invite-links">Groups</a>, <a href="../../groups/#transferring-group-ownership">Groups — Transferring group ownership</a>, and <a href="../../groups/#group-board-defaults">Groups — Group board defaults</a>.</p>
 <h2 id="granting-site-admin">Granting site admin<a class="headerlink" href="#granting-site-admin" title="Permanent link">&para;</a></h2>
 <p>Site admin status is a field on the <code>User</code> model (<code>is_site_admin</code>). It can be set via:</p>
 <p><strong>Management command (recommended)</strong></p>

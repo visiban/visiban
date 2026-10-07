@@ -4165,7 +4165,7 @@
 
 
 <h1 id="groups-api">Groups API<a class="headerlink" href="#groups-api" title="Permanent link">&para;</a></h1>
-<p>Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults that new boards in the group inherit.</p>
+<p>Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and <code>allowed_priorities</code> are copied onto boards created in the group; the default member role is saved but not yet enforced.</p>
 <h2 id="groups">Groups<a class="headerlink" href="#groups" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groups"><code>GET /api/v1/groups/</code><a class="headerlink" href="#get-apiv1groups" title="Permanent link">&para;</a></h3>
 <p>List all groups accessible to the current user.</p>
@@ -4675,7 +4675,7 @@
 <hr />
 <h2 id="board-defaults">Board defaults<a class="headerlink" href="#board-defaults" title="Permanent link">&para;</a></h2>
 <h3 id="patch-apiv1groupsidboard-defaults"><code>PATCH /api/v1/groups/{id}/board-defaults/</code><a class="headerlink" href="#patch-apiv1groupsidboard-defaults" title="Permanent link">&para;</a></h3>
-<p>Update the default settings applied to new boards created in this group. Requires group admin.</p>
+<p>Update the board defaults for this group. <code>allowed_priorities</code> is copied onto boards created in the group; <code>default_board_member_role</code> is saved but not yet enforced. Requires group admin.</p>
 <p><strong>Patchable fields</strong></p>
 <table>
 <thead>
