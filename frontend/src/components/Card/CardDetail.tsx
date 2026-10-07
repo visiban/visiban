@@ -118,6 +118,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const cardActionInFlight = useRef(false);
   const attachDeleteInFlight = useRef(false);
   const checklistDeleteInFlight = useRef(false);
+  const commentInFlight = useRef(false);
+  const uploadInFlight = useRef(false);
+  const checklistToggleInFlight = useRef(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dueDateRef = useRef<HTMLInputElement>(null);
   const dueDateEmptyRef = useRef<HTMLInputElement>(null);
@@ -352,21 +356,39 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // Demo (#1179): never attempted, so the typed text is simply kept.
     if (demoMode) return;
     if (!commentBody.trim()) return;
-    const c = await addCardComment(board.id, card.id, commentBody.trim());
-    setComments((prev) => [...prev, c]);
-    setCommentBody("");
+    // Ref guard (#1498): a double click or Enter+click before React re-renders
+    // would otherwise post the same comment twice.
+    if (commentInFlight.current) return;
+    commentInFlight.current = true;
+    setCommentError(null);
+    try {
+      const c = await addCardComment(board.id, card.id, commentBody.trim());
+      setComments((prev) => [...prev, c]);
+      setCommentBody("");
+    } catch {
+      // Typed text is kept so the user can retry without retyping.
+      setCommentError("Could not post comment.");
+    } finally {
+      commentInFlight.current = false;
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (uploadInFlight.current) return;
+    uploadInFlight.current = true;
     setUploading(true);
+    setAttachError(null);
     try {
       const attachment = await uploadCardAttachment(board.id, localCard.id, file);
       setAttachments((prev) => [attachment, ...prev]);
       setLocalCard((c) => ({ ...c, attachment_count: c.attachment_count + 1 }));
       onUpdated({ ...localCard, attachment_count: localCard.attachment_count + 1 });
+    } catch {
+      setAttachError("Could not upload attachment.");
     } finally {
+      uploadInFlight.current = false;
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -443,14 +465,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   };
 
   const handleToggleChecklistItem = async (item: CardChecklistItem) => {
-    const updated = await updateChecklistItem(board.id, card.id, item.id, { is_checked: !item.is_checked });
-    // Derive the new list from the current closure snapshot of `checklist` rather
-    // than using a stale ±1 delta against localCard.checklist_done. Delta math
-    // accumulates errors when two items are toggled before a re-render occurs.
-    const newChecklist = checklist.map((i) => (i.id === item.id ? updated : i));
-    setChecklist(newChecklist);
-    const done = newChecklist.filter((i) => i.is_checked).length;
-    onUpdated({ ...localCard, checklist_done: done, checklist_total: newChecklist.length });
+    if (checklistToggleInFlight.current) return;
+    checklistToggleInFlight.current = true;
+    setChecklistError(null);
+    try {
+      const updated = await updateChecklistItem(board.id, card.id, item.id, { is_checked: !item.is_checked });
+      // Derive the new list from the current closure snapshot of `checklist` rather
+      // than using a stale ±1 delta against localCard.checklist_done. Delta math
+      // accumulates errors when two items are toggled before a re-render occurs.
+      const newChecklist = checklist.map((i) => (i.id === item.id ? updated : i));
+      setChecklist(newChecklist);
+      const done = newChecklist.filter((i) => i.is_checked).length;
+      onUpdated({ ...localCard, checklist_done: done, checklist_total: newChecklist.length });
+    } catch {
+      setChecklistError("Could not update item.");
+    } finally {
+      checklistToggleInFlight.current = false;
+    }
   };
 
   const handleDeleteChecklistItem = async (itemId: number) => {
@@ -1346,6 +1377,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         {DEMO_COMMENT_REASON}
                       </p>
                     )}
+                    <p role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4">
+                      {commentError && <span className="text-danger">{commentError}</span>}
+                    </p>
                     <div className="flex justify-end">
                       <button
                         onClick={handleComment}
