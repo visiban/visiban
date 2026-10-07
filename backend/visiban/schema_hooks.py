@@ -154,6 +154,12 @@ _PINNED_ENUMS = {
     ("BoardInviteLink", "role"): "BoardInviteRoleEnum",
     ("BoardInviteLinkEmailRequest", "role"): "BoardInviteRoleEnum",
     ("BoardInviteLinkEmailRequest", "expiry_days"): "BoardInviteExpiryDaysEnum",
+    # Shareable board links and the site-admin board invite list (#439): the
+    # same choice sets, pinned to the same components.
+    ("BoardInviteLinkCreateRequest", "role"): "BoardInviteRoleEnum",
+    ("BoardInviteLinkCreateRequest", "expiry_days"): "BoardInviteExpiryDaysEnum",
+    ("BoardInviteLinkCreateResponse", "role"): "BoardInviteRoleEnum",
+    ("AdminBoardInviteLink", "role"): "BoardInviteRoleEnum",
 }
 
 

@@ -34,7 +34,7 @@ anyone, so the invite is redeemed by the SPA's follow-up join instead.
 import logging
 
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
 from accounts.invite_utils import InviteTokenError
@@ -124,6 +124,29 @@ def effective_status(link: BoardInviteLink, board, memo) -> str:
     return current
 
 
+def live_invite_count(board, *, delivery: str) -> int:
+    """Pending invites of one ``delivery`` kind on ``board`` that hold a cap slot.
+
+    Pending = not revoked, not consumed, not expired. An invite whose sender
+    was deleted or is no longer a board admin is dead (it lists as revoked and
+    the join path refuses it), so it frees its slot. One role check per
+    distinct sender — a handful per board. Callers hold the board row lock.
+    """
+    pending_qs = BoardInviteLink.objects.filter(
+        board=board,
+        delivery=delivery,
+        revoked_at__isnull=True,
+        used_at__isnull=True,
+    ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+    admitting = [
+        sender_id
+        for sender_id in pending_qs.exclude(created_by__isnull=True)
+        .values_list("created_by_id", flat=True).distinct()
+        if sender_is_board_admin(BoardInviteLink(board=board, created_by_id=sender_id), board)
+    ]
+    return pending_qs.filter(created_by_id__in=admitting).count()
+
+
 def unusable_code(link: BoardInviteLink, *, caller_has_access: bool) -> str | None:
     """Why ``link`` cannot be redeemed (``revoked`` / ``used`` / ``expired``), or None.
 
@@ -171,14 +194,19 @@ def redeem(link: BoardInviteLink, user, board, *, via: str) -> bool:
     if created:
         membership = BoardMembership.objects.create(board=board, user=user, role=link.role)
 
-    updates = {"use_count": F("use_count") + 1}
-    if link.single_use and link.used_at is None:
-        updates["used_at"] = timezone.now()
-    BoardInviteLink.objects.filter(pk=link.pk).update(**updates)
-    BoardInviteRedemption.objects.get_or_create(
+    _redemption, first_for_user = BoardInviteRedemption.objects.get_or_create(
         invite=link, user=user,
         defaults={"role_granted": link.role, "membership_created": created, "via": via},
     )
+    updates = {}
+    # use_count = distinct people who redeemed (#439): someone who already
+    # redeemed this link and follows it again is not counted twice.
+    if first_for_user:
+        updates["use_count"] = F("use_count") + 1
+    if link.single_use and link.used_at is None:
+        updates["used_at"] = timezone.now()
+    if updates:
+        BoardInviteLink.objects.filter(pk=link.pk).update(**updates)
 
     if membership is not None:
         from .serializers import BoardMembershipSerializer
@@ -239,6 +267,35 @@ def board_link_can_register(link: BoardInviteLink, *, board=None, admits_memo=No
         return True
     if mode == SiteSetting.RegistrationMode.INVITE_ONLY:
         return board_link_registration_refusal(link, board=board, admits_memo=admits_memo) is None
+    return False
+
+
+def board_link_can_register_cheap(link: BoardInviteLink, *, mode=None) -> bool:
+    """``board_link_can_register`` without the per-board role re-check (#439).
+
+    For the site-admin list, which spans every board: resolving each sender's
+    role on each row's board would cost queries per (board, sender) pair. This
+    answers from the loaded row and its ``created_by`` alone — stored status,
+    grantable role, an active sender, and (INVITE_ONLY) an emailed single-use
+    invite from a site admin with email invites enabled. It is advisory either
+    way: registration re-checks everything, including the board role, under a
+    row lock. ``mode`` lets a list read the registration mode once.
+    """
+    if link.status != "pending" or not role_is_grantable(link):
+        return False
+    sender = link.created_by
+    if sender is None or not sender.is_active:
+        return False
+    mode = mode or get_registration_mode()
+    if mode == SiteSetting.RegistrationMode.OPEN:
+        return True
+    if mode == SiteSetting.RegistrationMode.INVITE_ONLY:
+        return (
+            link.single_use
+            and link.delivery == BoardInviteLink.Delivery.EMAIL
+            and sender.is_site_admin
+            and _email_invites_enabled()
+        )
     return False
 
 

@@ -239,13 +239,15 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 Emitted by the [board invite](boards.md#board-invites) endpoints. Refetch
 signals only: every board subscriber receives them, including non-admins, so
 they carry just the invite id. Admin clients refetch `GET /boards/{id}/invite-links/`
-(admin-only) for the details; other clients should ignore them. Same names as
+(board admin only) for the details — a site-admin client showing every board's
+invites may instead refetch `GET /api/v1/admin/board-invite-links/`; other clients
+should ignore them. Same names as
 the group channel's invite events.
 
 | Event | Trigger | `data` shape |
 |---|---|---|
-| `invite_link.created` | A board admin emailed an invite to someone | `{ "id": <int> }` |
-| `invite_link.revoked` | An invite was revoked — by an admin, automatically because its email could not be sent, or because its sender was deactivated | `{ "id": <int> }` |
+| `invite_link.created` | A board admin emailed an invite to someone, or created a shareable invite link | `{ "id": <int> }` |
+| `invite_link.revoked` | An invite was revoked — by a board admin, by a site admin from the admin board invite list, automatically because its email could not be sent, or because its sender was deactivated | `{ "id": <int> }` |
 
 A redeemed invite publishes no event of its own: the `member.added` frame it
 causes carries the invite id when a membership was created. When redeeming
@@ -310,7 +312,7 @@ Authentication uses the same two mechanisms as the board channel — session coo
 | `member.updated` | Group membership role changed. Mirrors the board channel's `member.updated` | Full `GroupMembershipSerializer` object |
 | `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it. Also closes the removed user's own group-channel socket, mirroring the board channel's self-eviction (#1329). If this frame is lost, the [access re-check](#access-re-check-and-eviction) still closes that socket | `{ "user_id": <int> }` |
 | `invite_link.created` | An invite link for this group was emailed to someone (new in 1.2). A refetch signal only: every group member receives it, including non-admins, so it carries just the link id — admins refetch `GET /invite-links/` (admin-only) for the details, and non-admin clients should ignore it | `{ "id": <int> }` |
-| `invite_link.revoked` | An invite link for this group was revoked (also delivered to non-admin members; a refetch signal, like `invite_link.created`) — including an emailed link revoked automatically because its email could not be sent | `{ "id": <int> }` |
+| `invite_link.revoked` | An invite link for this group was revoked (also delivered to non-admin members; a refetch signal, like `invite_link.created`) — including an emailed link revoked automatically because its email could not be sent, or because its sender was deactivated (unused links only; a consumed single-use link is left alone) | `{ "id": <int> }` |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
 A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel.

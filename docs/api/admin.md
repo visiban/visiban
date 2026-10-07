@@ -1,7 +1,7 @@
 # Admin API
 
-Site-wide settings, the action log, email configuration, maintenance mode, users, and invite
-links — administrative endpoints, restricted to site admins.
+Site-wide settings, the action log, email configuration, maintenance mode, users, invite
+links, and board invites — administrative endpoints, restricted to site admins.
 
 All endpoints below require **site admin** authentication; non-admin users receive `403 Forbidden`.
 
@@ -410,7 +410,7 @@ Update a user's account flags. Site admin only.
 
 Deactivate a user account and transfer ownership of any boards they own to other members.
 
-Deactivation also revokes the user's unused site invite links and *(1.2+)* their pending [board invites](boards.md#board-invites) (`revoked_by` is the caller; each board gets an `invite_link.revoked` event).
+Deactivation also revokes the user's unused site invite links and *(1.2+)* their pending [board invites](boards.md#board-invites) (`revoked_by` is the caller; each board gets an `invite_link.revoked` event) and *(1.2+)* their active, unused [group invite links](groups.md) (each affected group receives an `invite_link.revoked` event). Consumed single-use links are left as they are.
 
 **Permission:** `IsSiteAdmin`. Cannot deactivate your own account.
 
@@ -661,3 +661,113 @@ Revoke an invite link immediately. The link can no longer be used for registrati
 | `400 Bad Request` | Link is already revoked |
 | `400 Bad Request` | Link has already been used (single-use links cannot be revoked after use) |
 | `404 Not Found` | Link does not exist |
+
+---
+
+## Board invites
+
+*(New in 1.2)* Every board's [invites](boards.md#board-invites) — emailed invites and shareable invite links — across the whole instance, so a site admin can audit them and revoke a leaked link without being a member of its board. Board admins manage their own board's invites through the board endpoints; these endpoints are site-admin only, and a board admin who is not a site admin gets `403`.
+
+### `GET /api/v1/admin/board-invite-links/`
+
+**Permission:** `IsSiteAdmin`.
+
+**Query parameters**
+
+| Param | Description |
+|---|---|
+| `status` | `pending` (default), `used`, `expired`, `revoked` or `all`. Any other value is `400 {"status": ["'<value>' is not a valid status."]}`. Filtering follows the same precedence as the `status` field — revoked > used > expired > pending — so each invite is listed under exactly the status it reports. |
+| `offset` | Zero-based row offset (default `0`). |
+| `page_size` | Rows per page (default `50`, max `200`). |
+
+**Response** `200 OK` — the standard `{count, offset, page_size, results}` envelope, newest first.
+
+```json
+{
+  "count": 1,
+  "offset": 0,
+  "page_size": 50,
+  "results": [
+    {
+      "id": 51,
+      "board_id": 12,
+      "board_name": "Launch Plan",
+      "role": "viewer",
+      "delivery": "link",
+      "status": "pending",
+      "prefix": "vbnb_8a2",
+      "expires_at": "2026-10-14T09:30:00.101Z",
+      "created_at": "2026-10-07T09:30:00.120Z",
+      "created_by_username": "alice",
+      "single_use": false,
+      "use_count": 3,
+      "can_register": true
+    }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `id` | The invite id — the `{id}` for `DELETE` below. |
+| `prefix` | The token's first 8 characters (`vbnb_…`), safe to display. The full token is never returned. |
+| `board_id`, `board_name` | The invite's board. |
+| `role` | `member`, `collaborator` or `viewer`. |
+| `delivery` | `email` or `link`. |
+| `status` | The **stored** status: `pending`, `used`, `expired` or `revoked`. It always matches the `?status=` filter (see the note below). |
+| `expires_at` | When it expires. Always set for invites created through the API. |
+| `created_at` | When it was sent or created. |
+| `created_by_username` | `null` when the creator's account was deleted. |
+| `single_use`, `use_count` | `use_count` is the number of distinct people who redeemed the invite (each account counts once). |
+| `can_register` | Advisory, computed when read: whether a new person could create an account from this invite under the current registration mode. `false` unless the invite is pending and its creator active; on an `invite_only` site, `true` only for an emailed single-use invite from a site admin (with email invites enabled); always `false` on a `closed` site. Registration re-checks everything, including the creator's board role. |
+
+The token and the address an invite was emailed to are never returned.
+
+!!! note "Stored status, not the creator check"
+    This list reports each invite's **stored** status and does **not** apply the check the board's own list and the join endpoints apply — that the creator is still active and still an admin of the board. An invite whose creator was demoted can therefore show **pending** here while the board's own list shows it as `revoked` and joins with it are refused (`410 revoked`). (Deactivating an account revokes that user's pending invites outright, so those do show `revoked`.) Revoke such an invite here to make it permanent. `can_register` is advisory for the same reason.
+
+**Errors**
+
+| Status | Body | When |
+|---|---|---|
+| `400 Bad Request` | `{"status": ["'bogus' is not a valid status."]}` | Unknown `status` value. |
+| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | No credentials. |
+| `403 Forbidden` | `{"detail": "You must be a site administrator to perform this action."}` | Not a site admin — including a board admin, or an account with all-content access but no site admin. A site admin with a pending forced password change gets `403` `"You must change your password before continuing."`, and one with a pending forced username change gets `403` `"You must choose a new username before continuing."`, until they complete it. |
+
+### `DELETE /api/v1/admin/board-invite-links/{id}/`
+
+Revoke any board's invite, emailed or shareable. Sets `revoked_at` and `revoked_by` (the caller) and publishes `invite_link.revoked` `{ "id" }` on that board's [WebSocket channel](websockets.md#invite-events-since-12), exactly like the board-scoped revoke. Revoking an expired invite is allowed.
+
+**Permission:** `IsSiteAdmin`.
+
+**Response** `200 OK` — the updated row (a single object, same shape as a list row), with `status: "revoked"`.
+
+```json
+{
+  "id": 51,
+  "board_id": 12,
+  "board_name": "Launch Plan",
+  "role": "viewer",
+  "delivery": "link",
+  "status": "revoked",
+  "prefix": "vbnb_8a2",
+  "expires_at": "2026-10-14T09:30:00.101Z",
+  "created_at": "2026-10-07T09:30:00.120Z",
+  "created_by_username": "alice",
+  "single_use": false,
+  "use_count": 3,
+  "can_register": false
+}
+```
+
+**Errors**
+
+| Status | Body | When |
+|---|---|---|
+| `400 Bad Request` | `{"detail": "This invite is already used or revoked and cannot be revoked."}` | The invite was consumed (its "used" record is kept) or is already revoked. |
+| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | No credentials. |
+| `403 Forbidden` | `{"detail": "You must be a site administrator to perform this action."}` | Not a site admin. Checked before the lookup, so a non-admin gets `403` even for an id that does not exist. |
+| `404 Not Found` | `{"detail": "Invite not found."}` | No invite with that id. |
+
+An already-revoked invite is `400` here, matching the site invite-link revoke; the [board-scoped revoke](boards.md#delete-apiv1boardsidinvite-linkslink_id) answers it with `404`.
+

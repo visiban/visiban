@@ -54,6 +54,7 @@ function invite(overrides: Partial<BoardInviteLink> = {}): BoardInviteLink {
     used_at: null,
     status: 'pending',
     can_register: true,
+    use_count: 0,
     ...overrides,
   }
 }

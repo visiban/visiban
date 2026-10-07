@@ -24,6 +24,12 @@ Visiban emails a single-use link. Following it shows what the invite grants; the
 !!! note "An explicit board role replaces a group role"
     A direct board membership **overrides** the role someone inherits from the board's group — it does not add to it. That is why redeeming an invite never touches an existing board membership and never lowers anyone: a group admin who follows a viewer invite stays an admin. Invites only create a membership for someone with no access, or whose inherited role is lower than the invite's. The same trap applies when you set roles by hand: giving a group admin a direct **Viewer** role on a board makes them a viewer there.
 
+### Sharing an invite link
+
+*(New in 1.2)* To invite several people at once — or anyone you can reach in a chat channel — select **New link** next to **Pending invites**. Pick a **Role** (Member, Collaborator or Viewer), when it **Expires** (1, 7 or 30 days; an invite link always expires), optionally a name and **Single use**, and select **Create link**. Copy the link straight away: it is shown **once**, and Visiban keeps only a fingerprint of it. Anyone holding it can join the board after signing in, until it expires or you revoke it; **1-use** links stop after the first person joins. A board can have up to 5 active invite links (emailed invites don't count).
+
+An invite link is not the board's **Share link** (Settings → Sharing), which lets anyone *view* the board without signing in. Whether a newcomer can create an account from an invite link depends on the site: on an open site they sign up and then join; on an invite-only or closed site only people who already have an account can use it, and the form tells you so.
+
 A board invite never adds the person to the board's group. The emailed invite needs working outbound email (`INVITE_EMAIL_ENABLED`); the API is documented in [Boards API — Board invites](../../api/boards.md#board-invites).
 
 ## Group membership
@@ -39,7 +45,7 @@ DELETE /api/v1/groups/{group_id}/members/42/
 
 Valid group roles: `admin`, `member`, `collaborator`, `viewer`
 
-Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership, and set the default role new members get on boards created in the group. See [Groups](../groups.md#invite-links), [Groups — Transferring group ownership](../groups.md#transferring-group-ownership), and [Groups — Group board defaults](../groups.md#group-board-defaults).
+Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership, and save a default member role for boards in the group (not yet enforced: group members keep their group role on every group board). See [Groups](../groups.md#invite-links), [Groups — Transferring group ownership](../groups.md#transferring-group-ownership), and [Groups — Group board defaults](../groups.md#group-board-defaults).
 
 ## Granting site admin
 

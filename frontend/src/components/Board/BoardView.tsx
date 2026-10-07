@@ -1441,8 +1441,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   // Resizable swimlane name column
   const autoSwimlaneWidth = useMemo(
-    () => computeAutoSwimlaneWidth(board.swimlanes, board.swimlane_custom_field_definitions),
-    [board.swimlanes, board.swimlane_custom_field_definitions],
+    () => computeAutoSwimlaneWidth(
+      board.swimlanes,
+      board.swimlane_custom_field_definitions,
+      board.show_row_chip_field_names !== false,
+    ),
+    [board.swimlanes, board.swimlane_custom_field_definitions, board.show_row_chip_field_names],
   );
   const swimlaneColWidth = viewPrefs.swimlaneColumnWidth ?? autoSwimlaneWidth;
 
@@ -2435,6 +2439,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       stale_warning_pct={board.stale_warning_pct ?? 50}
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+                      hideRowChipFieldNames={board.show_row_chip_field_names === false}
                       onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
                       onCardUpdated={onCardUpdated}
                       overlayCells={gridOverlayState?.cells}

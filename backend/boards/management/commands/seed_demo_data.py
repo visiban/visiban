@@ -118,7 +118,7 @@ from boards.models import (
     SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
-from groups.models import Group, GroupInviteLink, GroupLabel
+from groups.models import Group, GroupInviteLink, GroupLabel, GroupMembership
 
 from ._demo_site_data import (
     BOARDS as DEMO_SITE_BOARDS,
@@ -1642,6 +1642,12 @@ class Command(BaseCommand):
         )
         board.group = group
         board.save(update_fields=["group"])
+        # Real group creation always makes the owner an ADMIN member; the
+        # invite link below is only honored while its creator administers the
+        # group (#1490).
+        GroupMembership.objects.get_or_create(
+            group=group, user=owner, defaults={"role": GroupMembership.Role.ADMIN},
+        )
         GroupLabel.objects.create(group=group, name="Demo", color="#6366F1")
         GroupInviteLink.generate(
             group=group,

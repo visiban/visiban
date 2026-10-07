@@ -129,7 +129,7 @@ Pure reorders (same cell, different position) do not create movement records.
 ## Custom fields
 
 - **Cards** — up to 30 custom field definitions per board; up to 2 can be pinned to the card face
-- **Swimlane rows** — up to 15 custom field definitions per board; up to 3 can be pinned
+- **Swimlane rows** — up to 15 custom field definitions per board; up to 8 can be pinned. A board admin can hide the field-name label on row chips to show values only (`show_row_chip_field_names` board setting, default on); checkbox fields keep their name, and the name stays in the tooltip (always) and in the `+N` field list (when the row has one; all-pinned rows tracked in #1509)
 - Definitions are board-scoped; values attach per-card or per-swimlane respectively
 
 ---
@@ -241,7 +241,7 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 - Inline group rename by clicking the group name heading (admin only)
 - Invite links (shareable URL granting a specified role on redemption)
 - Transfer group ownership
-- Default board member role setting (controls what role new board members get)
+- Default board member role setting (not yet enforced: saved, but group members' board access comes from their group role)
 - Allowed card priorities setting
 - Sidebar shows groups and boards as a recursive tree in expanded mode; collapsed rail shows a Groups flyout with subgroups nested at correct depth
 

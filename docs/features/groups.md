@@ -70,6 +70,8 @@ Group admins can generate up to **5 active invite links** per group from the gro
 
 Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and can't be used to join. Used single-use links display a status badge and consumed-at timestamp in the invite links list. Each link can be revoked independently — existing members are not affected.
 
+*(New in 1.2)* A link only works while the person who created it is an active user and still an admin of the group (or of a parent group). If the creator is deactivated, a site admin deactivating their account revokes all of their active, unused group invite links at once (consumed single-use links are left alone, so they keep showing as used), and they disappear from the group's invite panel in real time. If the creator is instead demoted or removed from the group, the link stops working at the next preview or join. In both cases the link answers like any revoked link (`404 Not found`); the response does not say why.
+
 **How it works:**
 
 - **Unauthenticated visitors** see a full authentication interface: a **Create an account** button (primary), a **Sign in** option, and social login buttons (Google / GitHub / GitLab) where configured. *(1.2+)* When the link can't create an account on this instance, they see a sign-in-only view instead, with no **Create an account** option — see [New users on invite-only instances](#new-users-on-invite-only-instances). After authenticating, the invite is accepted automatically and they land on the group page with a confirmation banner.

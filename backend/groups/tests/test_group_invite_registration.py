@@ -501,7 +501,9 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
     def test_invite_only_deactivated_sender_is_false(self):
         _link, raw = self.make_link()
         self._deactivate_sender()
-        self.assertFalse(self._can_register(raw))
+        # #1490: the preview itself now refuses a link whose creator is
+        # inactive (404, like a revoked link) rather than advertising false.
+        self.assertEqual(self._preview(raw).status_code, status.HTTP_404_NOT_FOUND)
 
     def _link_from_deleted_sender(self):
         """A qualifying emailed invite whose sender's account was then deleted.
@@ -526,7 +528,8 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
 
     def test_invite_only_deleted_sender_is_false(self):
         _link, raw = self._link_from_deleted_sender()
-        self.assertFalse(self._can_register(raw))
+        # #1490: a creator-less link is refused outright at preview.
+        self.assertEqual(self._preview(raw).status_code, status.HTTP_404_NOT_FOUND)
         with self.assertRaises(InviteTokenError) as ctx, transaction.atomic():
             validate_group_registration_token(raw)
         self.assertEqual(ctx.exception.code, "invite_invalid")
@@ -559,7 +562,9 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
 
         ``lookup_by_token`` joins the sender and group, so ``can_register``
         adds only the sender's group-admin check, not a lazy sender fetch:
-        1 = the link lookup (with sender and group joined), 1 = group-admin check.
+        1 = the link lookup (with sender and group joined), 1 = the group-admin
+        ancestor walk, shared between the #1490 creator-still-admin check and
+        ``can_register`` (memoized on the link, so it runs once).
         """
         _link, raw = self.make_link()
         self._preview(raw)  # warm the cached registration mode
@@ -646,7 +651,16 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
                 )
                 self.admin.refresh_from_db()
                 _link, raw = build()
-                preview = self._preview(raw).json()["can_register"]
+                resp = self._preview(raw)
+                if resp.status_code == status.HTTP_404_NOT_FOUND:
+                    # #1490: a creator who is inactive, gone, or no longer a
+                    # group admin gets the revoked-link 404 at preview; the
+                    # registration validator must refuse the same link.
+                    self.assertIn(name, {"deactivated", "no_longer_group_admin", "deleted_sender"})
+                    with self.assertRaises(InviteTokenError), transaction.atomic():
+                        validate_group_registration_token(raw)
+                    continue
+                preview = resp.json()["can_register"]
                 try:
                     with transaction.atomic():
                         validate_group_registration_token(raw)

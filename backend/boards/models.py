@@ -148,6 +148,22 @@ class Board(models.Model):
             "boards are unchanged."
         ),
     )
+    # ``db_default`` as well as ``default``: AddField with only ``default`` drops
+    # the column default after backfilling, so an older pod creating a board
+    # mid-rolling-deploy (its INSERT omits this column) would hit NOT NULL.
+    show_row_chip_field_names = models.BooleanField(
+        default=True,
+        db_default=True,
+        help_text=(
+            "When enabled (the default), pinned custom-field chips on a "
+            "swimlane row label each value with its field name, e.g. "
+            "'AD: Diane Foster' (#1418). When disabled, row chips show the "
+            "value alone; the name stays in the chip tooltip, for screen "
+            "readers, and in the row's field list. Checkbox fields always "
+            "show their name. Board-level admin setting, not a per-viewer "
+            "preference; card-face chips are unaffected."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

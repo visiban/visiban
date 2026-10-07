@@ -223,6 +223,21 @@ The field editor is the same shape as the card field editor — name, type, help
 
 Up to 8 pinned swimlane fields render as chips in the swimlane's label panel — the sticky left column, alongside the swimlane's name — stacked below the row name. They're hidden while the swimlane is collapsed, the same way the rest of the label panel's detail is. If the swimlane has further, unpinned field values set, a trailing `+N` chip opens a read-only popover listing every value the current viewer may see. The N unpinned values come first, followed by the pinned ones under an **On row** heading. The popover grows to fit its values up to the height of the window; when it still has to scroll, a fade at its bottom edge shows there is more below. When the list has to scroll, keyboard focus lands in it on open, so the arrow keys, Page Down and Space scroll it straight away.
 
+#### Hiding field names on row chips
+
+*Since 1.2.* By default each row chip shows its field's name before the value, for example `AD: Diane Foster`. With several pinned fields, that name repeats on every row and takes up width. A board admin can turn this off in **Board Settings → Swimlane fields** with the **Show field names on row chips** switch at the top of the tab. The setting applies to the whole board, for everyone viewing it, and other people with the board open see the change straight away.
+
+With names hidden, a row chip shows only its value (`Diane Foster`), and, unless you have resized it yourself, the swimlane label column starts narrower to match. The name is still available:
+
+- **On hover** — the chip's tooltip reads `Field name: value`, as before.
+- **For screen readers** — the chip is still announced as `Field name: value`.
+- **In the row's field list** — when the row has a `+N` popover (it appears when the row also has unpinned values), it lists every field with its name. A row whose values are all pinned has no `+N` popover, so there the tooltip is the only place the name shows; this is a known gap, tracked in #1509.
+
+**Checkbox fields always show their name**, because a bare **Yes** or **No** means nothing without it. Colored choice badges, multi-select chips, the admin-only padlock, and the dropdown color dot are unchanged. Chips on the card face always show the field name; this setting only affects swimlane rows.
+
+!!! tip
+    Hidden names work best when each pinned field's values are recognizable on their own, like a person's name or a region. If two pinned fields can hold similar values (two dates, two numbers, or two fields with the same choices), consider leaving names on, since viewers on a touch screen or reading a screenshot can't hover to tell them apart.
+
 ### Editing values (Edit Swimlane modal)
 
 Swimlane field values are set in the **Edit Swimlane modal**, which gains a **Fields** section listing every field defined on the board (the section doesn't appear if the board has none). Editing a swimlane is already admin-only, so **only board admins can set swimlane field values at all**, regardless of a field's Admin only toggle — the toggle controls who can *read* a value, not who can *write* it. Edits are held in the modal and saved together with the rest of the swimlane when you click **Save**; they do not autosave field-by-field the way card fields do in the card detail panel.

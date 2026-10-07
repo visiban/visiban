@@ -18,6 +18,8 @@ vi.mock('../api/boards', () => ({
   listBoardInviteLinks: vi.fn().mockResolvedValue([]),
   revokeBoardInviteLink: vi.fn(),
   sendBoardInviteEmail: vi.fn(),
+  // #439 — shareable invite links.
+  createBoardInviteLink: vi.fn(),
 }))
 
 vi.mock('../api/auth', () => ({
@@ -86,7 +88,7 @@ const fakeBoard: BoardFull = {
   staleness_threshold_days: 7,
   stale_warning_pct: 50,
   allowed_priorities: [],
-  enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, export_min_role: 'viewer',
+  enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, show_row_chip_field_names: true, export_min_role: 'viewer',
   card_density: 'comfortable',
   is_starred: false,
   created_at: '',
@@ -1189,6 +1191,22 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
     expect(toggle).toHaveAttribute('aria-checked', 'false')
   })
 
+  it('wires the Swimlane fields tab row-chip names switch to onUpdateBoardSettings (#1418)', async () => {
+    const onUpdate = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={fakeBoard}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="swimlane-fields"
+        onUpdateBoardSettings={onUpdate}
+      />,
+    )
+    await user.click(screen.getByRole('switch', { name: 'Show field names on row chips' }))
+    expect(onUpdate).toHaveBeenCalledWith({ show_row_chip_field_names: false })
+  })
+
   it('clicking the toggle fires onUpdateBoardSettings({ show_wip_at_limit: true })', async () => {
     const onUpdate = vi.fn()
     const user = userEvent.setup()
@@ -1691,6 +1709,15 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
     render(<BoardSettingsModal board={{ ...fakeBoard, current_user_role: 'member' }} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByText('Pending invites')).not.toBeInTheDocument()
     expect(screen.queryByText('Invite by email')).not.toBeInTheDocument()
+  })
+
+  it('admins can create shareable invite links from the Members tab (#439)', async () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(await screen.findByRole('button', { name: 'New link' })).toBeInTheDocument()
+    expect(await screen.findByText('or create a shareable link')).toBeInTheDocument()
+    expect(
+      screen.getByText('Anyone with an invite link can join this board after signing in. To let people view without signing in, use the Sharing tab.'),
+    ).toBeInTheDocument()
   })
 
   it('an email-shaped query with no addable match offers "Invite by email", which prefills the form', async () => {
