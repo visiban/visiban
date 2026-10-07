@@ -3844,6 +3844,7 @@
 <p>The full token value is shown <strong>only once</strong>, immediately after creation. Copy it to a password manager or secret store before navigating away.</p>
 </div>
 <p><strong>Watch out:</strong> scopes are <strong>not</strong> hierarchical. A token's default <code>read</code>/<code>write</code> REST scopes don't grant MCP access, and <code>mcp:read</code> doesn't grant <code>mcp:write</code>. A token created before 1.2 has no scopes recorded and is refused at <code>/mcp</code> even though it still works over REST — create a new token instead of reusing an old one. See <a href="../personal-access-tokens/#scopes">Personal Access Tokens — Scopes</a> for the full non-hierarchical-scopes rule.</p>
+<p>The <code>must_change_password</code> and <code>must_change_username</code> account flags apply to MCP as well as the REST API: while either is set on the token's account, <code>/mcp</code> returns <code>403</code> until the user resolves it in the web app.</p>
 <h2 id="connecting-claude-desktop">Connecting Claude Desktop<a class="headerlink" href="#connecting-claude-desktop" title="Permanent link">&para;</a></h2>
 <p>Add a <code>visiban</code> entry to Claude Desktop's <code>claude_desktop_config.json</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
