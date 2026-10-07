@@ -194,14 +194,19 @@ def redeem(link: BoardInviteLink, user, board, *, via: str) -> bool:
     if created:
         membership = BoardMembership.objects.create(board=board, user=user, role=link.role)
 
-    updates = {"use_count": F("use_count") + 1}
-    if link.single_use and link.used_at is None:
-        updates["used_at"] = timezone.now()
-    BoardInviteLink.objects.filter(pk=link.pk).update(**updates)
-    BoardInviteRedemption.objects.get_or_create(
+    _redemption, first_for_user = BoardInviteRedemption.objects.get_or_create(
         invite=link, user=user,
         defaults={"role_granted": link.role, "membership_created": created, "via": via},
     )
+    updates = {}
+    # use_count = distinct people who redeemed (#439): someone who already
+    # redeemed this link and follows it again is not counted twice.
+    if first_for_user:
+        updates["use_count"] = F("use_count") + 1
+    if link.single_use and link.used_at is None:
+        updates["used_at"] = timezone.now()
+    if updates:
+        BoardInviteLink.objects.filter(pk=link.pk).update(**updates)
 
     if membership is not None:
         from .serializers import BoardMembershipSerializer

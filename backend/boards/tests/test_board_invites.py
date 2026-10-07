@@ -1099,6 +1099,20 @@ class BoardShareableLinkJoinTests(_BoardFixture, TestCase):
         self.assertEqual(link.status, "pending")
         self.assertEqual(BoardInviteRedemption.objects.filter(invite=link).count(), 3)
 
+    def test_use_count_counts_distinct_people_not_visits(self):
+        link, raw = self.make_invite(delivery="link", single_use=False)
+        first = User.objects.create_user(username="first_v", password="p")
+        self.assertEqual(self.client_for(first).post(join_url(raw)).status_code, status.HTTP_201_CREATED)
+        # Following the link again: already has access, already redeemed.
+        self.assertEqual(self.client_for(first).post(join_url(raw)).status_code, status.HTTP_200_OK)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 1)
+        second = User.objects.create_user(username="second_v", password="p")
+        self.client_for(second).post(join_url(raw))
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 2)
+        self.assertIsNone(link.used_at)
+
     def test_single_use_link_is_consumed_by_first_redeemer(self):
         link, raw = self.make_invite(delivery="link", single_use=True)
         first = User.objects.create_user(username="first", password="p")

@@ -1167,6 +1167,17 @@ class AdminBoardInviteLinkListView(APIView):
                 "status", str, enum=list(BOARD_INVITE_STATUS_FILTERS), required=False,
                 description="Filter by status (default pending).",
             ),
+            OpenApiParameter(
+                "offset", int, required=False,
+                description="Zero-based row offset (default 0).",
+            ),
+            OpenApiParameter(
+                "page_size", int, required=False,
+                description=(
+                    f"Rows per page (default {AdminBoardInvitePagination.default_limit}, "
+                    f"max {AdminBoardInvitePagination.max_limit})."
+                ),
+            ),
         ],
         responses={
             200: inline_serializer(

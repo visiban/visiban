@@ -240,12 +240,12 @@ export default function InviteLinkPanel({
   const wantsRegistrationMode = isBoard && allowShareableLinks;
   useEffect(() => {
     if (!wantsRegistrationMode) return;
-    let cancelled = false;
+    let canceled = false;
     getSiteConfig()
-      .then((c) => { if (!cancelled) setRegistrationMode(c.registration_mode); })
+      .then((c) => { if (!canceled) setRegistrationMode(c.registration_mode); })
       // Unknown mode: show no notice rather than a possibly wrong one.
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => { canceled = true; };
   }, [wantsRegistrationMode]);
 
   // Escape cancels the open revoke prompt before the host's own Escape

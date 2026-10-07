@@ -718,7 +718,7 @@ Revoke an invite link immediately. The link can no longer be used for registrati
 | `expires_at` | When it expires. Always set for invites created through the API. |
 | `created_at` | When it was sent or created. |
 | `created_by_username` | `null` when the creator's account was deleted. |
-| `single_use`, `use_count` | A multi-use link counts every redemption in `use_count`. |
+| `single_use`, `use_count` | `use_count` is the number of distinct people who redeemed the invite (each account counts once). |
 | `can_register` | Advisory, computed when read: whether a new person could create an account from this invite under the current registration mode. `false` unless the invite is pending and its creator active; on an `invite_only` site, `true` only for an emailed single-use invite from a site admin (with email invites enabled); always `false` on a `closed` site. Registration re-checks everything, including the creator's board role. |
 
 The token and the address an invite was emailed to are never returned.
@@ -732,7 +732,7 @@ The token and the address an invite was emailed to are never returned.
 |---|---|---|
 | `400 Bad Request` | `{"status": ["'bogus' is not a valid status."]}` | Unknown `status` value. |
 | `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | No credentials. |
-| `403 Forbidden` | `{"detail": "You must be a site administrator to perform this action."}` | Not a site admin — including a board admin, or an account with all-content access but no site admin. A site admin with a pending forced password or username change also gets `403` (`"You must change your password before continuing."`) until they complete it. |
+| `403 Forbidden` | `{"detail": "You must be a site administrator to perform this action."}` | Not a site admin — including a board admin, or an account with all-content access but no site admin. A site admin with a pending forced password change gets `403` `"You must change your password before continuing."`, and one with a pending forced username change gets `403` `"You must choose a new username before continuing."`, until they complete it. |
 
 ### `DELETE /api/v1/admin/board-invite-links/{id}/`
 

@@ -1051,9 +1051,9 @@ List the board's invites, newest first, as a bare array (not paginated). Require
 | `delivery` | `email` for emailed invites, `link` for shareable links. |
 | `created_at`, `created_by_username` | When and by whom it was sent. `created_by_username` is `null` when the sender's account was deleted. |
 | `expires_at`, `is_expired`, `single_use`, `used_at` | Lifetime. |
-| `status` | `pending`, `used`, `expired` or `revoked` (precedence revoked > used > expired). A pending invite whose sender's account was deleted, or who is no longer an admin of the board, is reported as `revoked` — the join endpoints refuse it the same way — although nobody revoked it explicitly, and it stops counting toward the 50-pending cap. This is **not written** to the invite: if the sender regains board admin, the invite reads as `pending` and can be redeemed again (until it expires). To make it permanent, revoke it with `DELETE` below, which accepts it because it was never actually revoked. |
+| `status` | `pending`, `used`, `expired` or `revoked` (precedence revoked > used > expired). A pending invite whose sender's account was deleted, or who is no longer an admin of the board, is reported as `revoked` — the join endpoints refuse it the same way — although nobody revoked it explicitly, and it frees its slot in the cap for its kind — the 50 pending emailed invites, or the 5 active shareable links. This is **not written** to the invite: if the sender regains board admin, the invite reads as `pending` and can be redeemed again (until it expires). To make it permanent, revoke it with `DELETE` below, which accepts it because it was never actually revoked. |
 | `can_register` | Advisory: whether a new person could create an account from this invite under the site's **current** registration mode — computed when you read it, so it changes if the mode or the sender's site-admin status changes. Always `false` when `status` is not `pending`, and always `false` for a shareable link unless the site is `open`. |
-| `use_count` | *(1.2)* How many times the invite has been redeemed. A multi-use shareable link never sets `used_at`, so this is its only usage signal. |
+| `use_count` | *(1.2)* How many **distinct people** have redeemed the invite: the first redemption by each account counts once, and following the link again later does not add to it. A multi-use shareable link never sets `used_at`, so this is its only usage signal. |
 
 **Example response**
 
@@ -1159,7 +1159,7 @@ The cap is checked under a lock on the board row, so concurrent requests cannot 
 | `invite_only` | **Never**, whoever created the link. Only an emailed single-use invite sent by a site admin admits a new account (see [Authentication](authentication.md#invite-only-mode)). | Joins. |
 | `closed` | Never. | Joins. |
 
-A multi-use link increments `use_count` on every redemption and never sets `used_at`; a single-use link is consumed by its first redemption. Redemption follows the access rules under `POST /api/v1/boards/join/{token}/` below — it never changes an existing membership and never grants the board's group.
+A multi-use link increments `use_count` once per person who redeems it and never sets `used_at`; a single-use link is consumed by its first redemption. Redemption follows the access rules under `POST /api/v1/boards/join/{token}/` below — it never changes an existing membership and never grants the board's group.
 
 ### `POST /api/v1/boards/{id}/invite-links/send/`
 Email one invite. Requires board admin. Same contract as the [group send endpoint](groups.md): the response is identical whether the address belongs to a member, another user, or nobody, and the email is always sent.

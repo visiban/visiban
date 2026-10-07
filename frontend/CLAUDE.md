@@ -55,7 +55,8 @@ When an admin table row (e.g. Admin → Users) accumulates enough conditional pe
 
 ## Sidebar and tab navigation
 
-- **Every sidebar or tab-nav button carries the focus ring and marks the active item (#439).** Add `focus:outline-none focus:ring-2 focus:ring-primary-emphasis` and `aria-current={active ? "page" : undefined}` (`type="button"`). The active fill (`bg-primary`) is a visual-only cue; `aria-current` is what tells a screen reader which section is showing. Adopters: the `AdminPage` and `SettingsPage` sidebars.
+- **A page-level sidebar's section buttons carry the focus ring and mark the active item (#439).** Add `focus:outline-none focus:ring-2 focus:ring-primary-emphasis` and `aria-current={active ? "page" : undefined}` (`type="button"`). The active fill (`bg-primary`) is a visual-only cue; `aria-current` is what tells a screen reader which section is showing. Applies to page-level sidebars only — adopters: the `AdminPage` and `SettingsPage` sidebars.
+- **Tab strips inside a modal, panel or drawer follow their own ARIA pattern, not this one.** A strip that switches panels in place is a tab list (`role="tab"` + `aria-selected`, as in `CardDetail`); a strip of independent toggles uses `aria-pressed` (as in `BoardActivityDrawer`). `BoardSettingsModal`'s tab buttons predate this note and use `aria-current="true"`; leave them until that modal's tabs are reworked rather than mixing patterns piecemeal.
 
 ## Feature parity between self-service and admin-initiated equivalents
 

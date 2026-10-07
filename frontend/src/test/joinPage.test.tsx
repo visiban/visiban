@@ -428,7 +428,7 @@ describe('JoinPage — board invites (vbnb_, #1444)', () => {
   })
 
   it.each([
-    ['used', 'This invite has already been used', 'Invites are single-use. Ask a board admin to send you a new one.', 'text-fg-tertiary'],
+    ['used', 'This invite has already been used', 'This invite could only be used once. Ask a board admin to send you a new one.', 'text-fg-tertiary'],
     ['expired', 'This invite has expired', 'Ask a board admin for a new invite.', 'text-danger'],
     ['revoked', 'This invite is no longer valid', 'It may have been revoked. Ask a board admin for a new one.', 'text-danger'],
   ])('preview 410 %s shows its own message and focuses the title', async (code, title, body, tone) => {

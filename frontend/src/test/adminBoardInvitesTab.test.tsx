@@ -256,7 +256,7 @@ describe('BoardInvitesTab — gate fixes (#439)', () => {
     await user.click(await screen.findByRole('button', { name: /Revoke invite vbnb_ab1/ }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(await screen.findByText(conflict)).toBeInTheDocument()
-    // Opening the next revoke prompt, then cancelling it, clears it.
+    // Opening the next revoke prompt, then canceling it, clears it.
     await user.click(screen.getByRole('button', { name: /Revoke invite vbnb_rm2/ }))
     expect(screen.queryByText(conflict)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
