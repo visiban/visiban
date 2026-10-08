@@ -49,6 +49,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -66,12 +67,28 @@ STATUS_KEYS = {
 }
 
 
+def _contained(path: Path) -> Path:
+    """Return ``path`` resolved, or raise ValueError if it escapes the working directory.
+
+    Every CLI path is data the job controls, but it is still untrusted input to a
+    file read or write. Resolving first collapses ``..`` and symlinks, so the
+    containment test is made on the real target. The script itself may live
+    outside the cwd (``python ../scripts/...``); only data paths are checked.
+    """
+    resolved = Path(path).resolve()
+    if not resolved.is_relative_to(Path.cwd().resolve()):
+        raise ValueError(f"{path} resolves outside the working directory; stats and cache paths must stay under it")
+    return resolved
+
+
 def export_cache(cache: Path) -> dict[str, int]:
     """Count mutants per verdict from a mutmut 2.x ``.mutmut-cache`` file."""
+    cache = _contained(cache)
     if not cache.exists():
         raise FileNotFoundError(cache)
-    # Read-only URI: never create an empty cache by accident.
-    con = sqlite3.connect(f"file:{cache}?mode=ro", uri=True)
+    # Read-only URI: never create an empty cache by accident. as_uri() percent-quotes
+    # the path, so `?`, `#`, `%` and spaces in it cannot corrupt or extend the URI.
+    con = sqlite3.connect(cache.as_uri() + "?mode=ro", uri=True)
     try:
         rows = con.execute('SELECT status, COUNT(*) FROM "Mutant" GROUP BY status').fetchall()
     finally:
@@ -110,15 +127,19 @@ def _format_summary(stats: dict[str, int], score: float | None) -> str:
 def _load(paths: list[Path]) -> tuple[list[dict[str, int]], str | None]:
     """Load every readable stats file; return them and the first reason one could not be read."""
     shards: list[dict[str, int]] = []
-    for path in paths:
+    for raw in paths:
+        try:
+            path = _contained(raw)
+        except ValueError as exc:
+            return shards, str(exc)
         if not path.exists():
-            return shards, f"stats file not found: {path}"
+            return shards, f"stats file not found: {raw}"
         try:
             data = json.loads(path.read_text("utf-8"))
         except json.JSONDecodeError as exc:
-            return shards, f"{path} is not valid JSON: {exc}"
+            return shards, f"{raw} is not valid JSON: {exc}"
         if not isinstance(data, dict):
-            return shards, f"{path} holds {type(data).__name__}, expected an object."
+            return shards, f"{raw} holds {type(data).__name__}, expected an object."
         shards.append({k: v for k, v in data.items() if isinstance(v, int) and not isinstance(v, bool)})
     return shards, None
 
@@ -271,7 +292,8 @@ def _self_test() -> int:
         "consistent shards": (
             [shard(killed=4, skipped=6, total=10), shard(killed=6, skipped=4, total=10)], None, 0),
     }
-    with tempfile.TemporaryDirectory() as tmp:
+    # Under the cwd: the script rejects data paths outside it, and the child inherits our cwd.
+    with tempfile.TemporaryDirectory(dir=Path.cwd()) as tmp:
         root = Path(tmp)
 
         def write(name: str, body: str) -> Path:
@@ -352,6 +374,42 @@ def _self_test() -> int:
                 "untested": 1, "total": 8}
         check("export_cache", all(got.get(k) == v for k, v in want.items()), f"returned {got}, expected {want}")
 
+        # URI building: a path with `?`, `#`, `%` and spaces must open the same file.
+        odd_dir = root / "we?ird #dir 100%"
+        odd_dir.mkdir()
+        odd = odd_dir / "cache db"
+        shutil.copy(cache, odd)
+        got_odd = export_cache(odd)
+        check("export_cache with ?, #, % and spaces in the path",
+              all(got_odd.get(k) == v for k, v in want.items()), f"returned {got_odd}")
+
+        # Containment: data paths outside the cwd are a config error (exit 2), never read or written.
+        outside = Path(tempfile.gettempdir()).resolve() / "mutscore-outside.json"
+        outside.unlink(missing_ok=True)
+        check("_contained accepts a path under the cwd", _contained(ok_stats) == ok_stats.resolve())
+        for label, bad in (("an absolute path outside the cwd", outside),
+                           ("a .. traversal", Path("..") / ".." / "etc" / "passwd")):
+            try:
+                _contained(bad)
+                rejected = False
+            except ValueError:
+                rejected = True
+            check(f"_contained rejects {label}", rejected)
+        code, err = _run_real_script_full([outside], None)
+        check("a stats file outside the cwd is rejected", code == 2 and "outside the working directory" in err,
+              f"exit {code}, stderr {err!r}")
+        code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(outside)])
+        check("--write-merged outside the cwd is rejected and not written",
+              code == 2 and "outside the working directory" in err and not outside.exists(),
+              f"exit {code}, stderr {err!r}")
+        code, err = _run_real_script_full([outside], None, extra=["--export-cache", str(cache)])
+        check("--export-cache output outside the cwd is rejected and not written",
+              code == 2 and "outside the working directory" in err and not outside.exists(),
+              f"exit {code}, stderr {err!r}")
+        code, err = _run_real_script_full([root / "o.json"], None, extra=["--export-cache", str(outside)])
+        check("--export-cache input outside the cwd is rejected",
+              code == 2 and "outside the working directory" in err, f"exit {code}, stderr {err!r}")
+
     for failure in failures:
         print(f"SELF-TEST FAILED: {failure}", file=sys.stderr)
     if failures:
@@ -390,10 +448,18 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         try:
             stats = export_cache(args.export_cache)
+        except ValueError as exc:
+            print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
         except (FileNotFoundError, sqlite3.Error) as exc:
             print(f"NOT MEASURED: cannot read mutmut cache {args.export_cache}: {exc}", file=sys.stderr)
             return 2
-        args.stats_paths[0].write_text(json.dumps(stats, indent=2) + "\n", "utf-8")
+        try:
+            out_path = _contained(args.stats_paths[0])
+        except ValueError as exc:
+            print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
+        out_path.write_text(json.dumps(stats, indent=2) + "\n", "utf-8")
         print(f"wrote {args.stats_paths[0]}: {stats}")
         return 0
 
@@ -427,10 +493,15 @@ def main(argv: list[str] | None = None) -> int:
         reason = ("no mutant was scoreable.\n"
                   "  Check the job log for a dead pytest run or an unreadable .mutmut-cache.")
     if args.write_merged:
+        try:
+            merged_path = _contained(args.write_merged)
+        except ValueError as exc:
+            print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
         out = dict(stats)
         if reason is not None:
             out["not_measured"] = reason
-        args.write_merged.write_text(json.dumps(out, indent=2) + "\n", "utf-8")
+        merged_path.write_text(json.dumps(out, indent=2) + "\n", "utf-8")
     if reason is not None:
         print(f"NOT MEASURED: {reason}", file=sys.stderr)
         return 2
