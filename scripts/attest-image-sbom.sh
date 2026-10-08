@@ -58,7 +58,9 @@
 # Env (attest mode): registry auth in ~/.docker/config.json (read by crane,
 # syft and cosign alike), SIGSTORE_ID_TOKEN (id_tokens aud: sigstore),
 # CI_SERVER_URL, CI_PROJECT_PATH, CI_COMMIT_TAG / CI_COMMIT_REF_NAME.
-# Optional VERIFY_IDENTITY overrides the exact identity step 5 checks.
+# The exact identity checked after signing is always derived from the CI job
+# itself; no environment variable can override it (a CI variable that could
+# would silently neuter the post-sign check).
 #
 # Tools: bash, jq, crane, base64 (+ syft, cosign outside --dry-run). Portable
 # to macOS bash 3.2 and BusyBox (no associative arrays, no GNU-only flags).
@@ -150,6 +152,18 @@ assert_attestations() {
   echo "  verified ${count} CycloneDX attestation(s) on ${repo}@${digest} (linux/${arch})"
 }
 
+# validate_tag <tag> — the WHOLE string must be a release tag. A `grep` match
+# is line-by-line, so "v1.2.0<newline>anything" would pass it; the character
+# class guard rejects newlines and every other byte outside [0-9A-Za-z.-].
+validate_tag() {
+  local t="$1"
+  case "$t" in
+    ""|*[!0-9A-Za-z.-]*) die "--tag must be a release tag like v1.2.0 or v1.2.0-rc.1 (got '${t}')" ;;
+  esac
+  [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]] \
+    || die "--tag must be a release tag like v1.2.0 or v1.2.0-rc.1 (got '${t}')"
+}
+
 # require_ci — keyless identity must come from a CI job, never a workstation.
 require_ci() {
   [ "${GITLAB_CI:-}" = "true" ] || die "refusing to sign/attest outside GitLab CI (GITLAB_CI != true). Keyless identity must be the CI job, not a workstation. Use --dry-run locally."
@@ -157,11 +171,23 @@ require_ci() {
   [ -n "${SIGSTORE_ID_TOKEN:-}" ] || die "refusing to sign/attest: SIGSTORE_ID_TOKEN is not set (the job needs id_tokens: SIGSTORE_ID_TOKEN: aud: sigstore)"
 }
 
+# signer_identities <cosign stdout> [<cosign stderr>] — the certificate
+# identities (SANs) that verified, comma-joined, so a skip says WHICH identity
+# it trusted. `cosign verify` puts them in its JSON (optional.Subject);
+# `verify-attestation`'s JSON is the bare DSSE envelope, so for it the
+# "Certificate subject:" lines cosign prints to stderr are read instead.
+signer_identities() {
+  local ids
+  ids="$( {
+      jq -r -s '.[] | if type=="array" then .[] else . end | .optional.Subject? // empty' "$1" 2>/dev/null || true
+      [ -n "${2:-}" ] && sed -n 's/^Certificate subject: *//p' "$2" 2>/dev/null || true
+    } | sort -u | paste -sd, - )"
+  if [ -n "$ids" ]; then echo "$ids"; else echo "(identity not reported; matched $(project_identity_regexp))"; fi
+}
+
 # this_identity — the exact certificate SAN this job's keyless cert carries.
 this_identity() {
-  if [ -n "${VERIFY_IDENTITY:-}" ]; then
-    echo "$VERIFY_IDENTITY"
-  elif [ -n "${CI_COMMIT_TAG:-}" ]; then
+  if [ -n "${CI_COMMIT_TAG:-}" ]; then
     echo "${CI_SERVER_URL}/${CI_PROJECT_PATH}//.gitlab-ci.yml@refs/tags/${CI_COMMIT_TAG}"
   else
     echo "${CI_SERVER_URL}/${CI_PROJECT_PATH}//.gitlab-ci.yml@refs/heads/${CI_COMMIT_REF_NAME}"
@@ -205,10 +231,13 @@ attest_repo() {
 
   # Signature: index + each platform manifest (--recursive).
   if [ "$force" -eq 0 ] \
-    && cosign verify --certificate-identity-regexp "$regexp" --certificate-oidc-issuer "$issuer" "${repo}@${index_digest}" >/dev/null 2>&1 \
-    && cosign verify --certificate-identity-regexp "$regexp" --certificate-oidc-issuer "$issuer" "${repo}@${DIGEST_amd64}" >/dev/null 2>&1 \
-    && cosign verify --certificate-identity-regexp "$regexp" --certificate-oidc-issuer "$issuer" "${repo}@${DIGEST_arm64}" >/dev/null 2>&1; then
-    echo "  already signed by this project; not re-signing (use --force)"
+    && cosign verify --certificate-identity-regexp "$regexp" --certificate-oidc-issuer "$issuer" "${repo}@${index_digest}" > "${work}/sig-idx.json" 2>"${work}/sig-idx.err" \
+    && cosign verify --certificate-identity-regexp "$regexp" --certificate-oidc-issuer "$issuer" "${repo}@${DIGEST_amd64}" > "${work}/sig-amd64.json" 2>"${work}/sig-amd64.err" \
+    && cosign verify --certificate-identity-regexp "$regexp" --certificate-oidc-issuer "$issuer" "${repo}@${DIGEST_arm64}" > "${work}/sig-arm64.json" 2>"${work}/sig-arm64.err"; then
+    echo "  already signed by this project; not re-signing (use --force). Matching identities:"
+    echo "    index: $(signer_identities "${work}/sig-idx.json" "${work}/sig-idx.err")"
+    echo "    linux/amd64: $(signer_identities "${work}/sig-amd64.json" "${work}/sig-amd64.err")"
+    echo "    linux/arm64: $(signer_identities "${work}/sig-arm64.json" "${work}/sig-arm64.err")"
   else
     cosign sign --yes --recursive "${repo}@${index_digest}"
     for d in "$index_digest" "$DIGEST_amd64" "$DIGEST_arm64"; do
@@ -225,9 +254,9 @@ attest_repo() {
     ver="${tag}-${arch}"
     if [ "$force" -eq 0 ] \
       && cosign verify-attestation --type cyclonedx --certificate-identity-regexp "$regexp" \
-           --certificate-oidc-issuer "$issuer" "${repo}@${d}" > "${work}/existing.json" 2>/dev/null \
+           --certificate-oidc-issuer "$issuer" "${repo}@${d}" > "${work}/existing.json" 2>"${work}/existing.err" \
       && ( assert_attestations "${work}/existing.json" "$repo" "$ver" "$arch" "$d" ) >/dev/null 2>&1; then
-      echo "  linux/${arch} already carries a verifying SBOM attestation for ${ver}; skipping (use --force)"
+      echo "  linux/${arch} already carries a verifying SBOM attestation for ${ver}; skipping (use --force). Matching identities: $(signer_identities "${work}/existing.json" "${work}/existing.err")"
       continue
     fi
     sbom="${work}/sbom-${arch}.cdx.json"
@@ -256,8 +285,7 @@ main() {
     esac
   done
   case "$image" in backend|frontend) ;; *) die "--image must be backend or frontend (got '${image}')" ;; esac
-  printf '%s' "$tag" | grep -E -q '^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$' \
-    || die "--tag must be a release tag like v1.2.0 or v1.2.0-rc.1 (got '${tag}')"
+  validate_tag "$tag"
   if [ -z "$registries" ]; then
     [ -n "${CI_REGISTRY_IMAGE:-}" ] || die "CI_REGISTRY_IMAGE is not set; pass --registry explicitly"
     registries="${CI_REGISTRY_IMAGE} ghcr.io/visiban/visiban"
@@ -359,9 +387,9 @@ _self_test() {
   expect_err "ci: refuses without SIGSTORE_ID_TOKEN"   "SIGSTORE_ID_TOKEN" env -u SIGSTORE_ID_TOKEN GITLAB_CI=true CI_JOB_ID=1 bash "$SELF" _t require_ci
   expect_err "ci: refuses an empty SIGSTORE_ID_TOKEN"  "SIGSTORE_ID_TOKEN" env GITLAB_CI=true CI_JOB_ID=1 SIGSTORE_ID_TOKEN= bash "$SELF" _t require_ci
   expect_eq  "id: tag pipeline identity" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0" \
-    env -u VERIFY_IDENTITY CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_TAG=v1.2.0 bash "$SELF" _t this_identity
+    env CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_TAG=v1.2.0 bash "$SELF" _t this_identity
   expect_eq  "id: main-branch (backfill) identity" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/heads/main" \
-    env -u VERIFY_IDENTITY -u CI_COMMIT_TAG CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_REF_NAME=main bash "$SELF" _t this_identity
+    env -u CI_COMMIT_TAG CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_REF_NAME=main bash "$SELF" _t this_identity
   local re
   re="$(env CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_DEFAULT_BRANCH=main bash "$SELF" _t project_identity_regexp)"
   if matches "$re" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0" \
@@ -371,6 +399,31 @@ _self_test() {
     && ! matches "$re" "https://gitlabXcom/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0"; then
     pass "id: project regexp accepts tag/main, rejects sibling repo, branch, unescaped dot"
   else fail "id: project regexp '${re}'"; fi
+  expect_eq  "id: a VERIFY_IDENTITY variable cannot override the checked identity" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0" \
+    env VERIFY_IDENTITY=https://evil.example/anything CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_TAG=v1.2.0 bash "$SELF" _t this_identity
+  # The regexps docs/administration/image-verification.md tells operators to use.
+  local doc_tag doc_backfill
+  doc_tag='^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$'
+  doc_backfill='^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/(tags/v[0-9][^/]*|heads/main)$'
+  if grep -F -q -- "$doc_tag" "$(dirname "$SELF")/../docs/administration/image-verification.md" 2>/dev/null \
+    && grep -F -q -- "$doc_backfill" "$(dirname "$SELF")/../docs/administration/image-verification.md" 2>/dev/null; then
+    pass "docs: both documented regexps are the ones tested here"
+  else fail "docs: image-verification.md no longer contains the regexps this self-test checks"; fi
+  if matches "$doc_tag" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0" \
+    && ! matches "$doc_tag" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/heads/main" \
+    && ! matches "$doc_tag" "https://gitlab.com/visiban/visiban-enterprise//.gitlab-ci.yml@refs/tags/v1.2.0" \
+    && matches "$doc_backfill" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0" \
+    && matches "$doc_backfill" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/heads/main" \
+    && ! matches "$doc_backfill" "https://gitlab.com/visiban/visiban-enterprise//.gitlab-ci.yml@refs/tags/v1.2.0" \
+    && ! matches "$doc_backfill" "https://gitlab.com/visiban/visiban-enterprise//.gitlab-ci.yml@refs/heads/main"; then
+    pass "docs: tag-only regexp rejects main; backfill regexp accepts tag+main; both reject visiban-enterprise"
+  else fail "docs: documented identity regexps accept/reject the wrong identities"; fi
+  expect_eq  "skip log: names the identity that verified" "https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/heads/main" \
+    sh -c "printf '%s' '[{\"optional\":{\"Subject\":\"https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/heads/main\"}}]' > '${T}/sigout.json' && bash '$SELF' _t signer_identities '${T}/sigout.json'"
+  expect_ok  "tag: v1.2.0-rc.1 accepted"               validate_tag v1.2.0-rc.1
+  expect_err "tag: multi-line tag refused"             "--tag must be" validate_tag "$(printf 'v1.2.0\nmalicious')"
+  expect_err "tag: empty tag refused"                  "--tag must be" validate_tag ""
+  expect_err "tag: shell metacharacters refused"       "--tag must be" validate_tag 'v1.2.0;id'
   expect_err "_t: refuses a non-helper"                "not a self-test helper" bash "$SELF" _t attest_repo reg.a/backend v1.2.0 1 0 /tmp
 
   # Layer 2: whole flow against stubs.
@@ -416,12 +469,13 @@ case "$cmd" in
     repo="$(printf '%s' "${ref%@*}" | tr '/' '_')"
     case "$ref" in *sha256:aaaa*) d=aaaa ;; *sha256:bbbb*) d=bbbb ;; *) d=1111 ;; esac
     [ -f "${STUB}/state/sig-${repo}-${d}" ] || exit 1
-    echo '[{"critical":{}}]' ;;
+    echo '[{"critical":{},"optional":{"Subject":"https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0"}}]' ;;
   attest) cp "$pred" "${STUB}/state/att-${key}" ;;
   verify-attestation)
     [ "${STUB_VERIFY_EMPTY:-0}" = 1 ] && exit 0
     [ -f "${STUB}/state/att-${key}" ] || exit 1
     hex="${ref##*sha256:}"
+    echo "Certificate subject: https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0" >&2
     jq -c -n --slurpfile p "${STUB}/state/att-${key}" --arg d "$hex" \
       '{predicateType:"https://cyclonedx.org/bom",subject:[{digest:{sha256:$d}}],predicate:$p[0]}' \
       | base64 | tr -d '\n' | jq -R -c '{payload:.}' ;;
@@ -467,6 +521,14 @@ STUB
   expect_ok  "flow: --dry-run works outside CI"        run_flow GITLAB_CI= SIGSTORE_ID_TOKEN= -- --image frontend --tag v1.2.0 --registry reg.a --dry-run
   expect_err "args: bad image refused"                 "--image must be" run_flow -- --image web --tag v1.2.0 --registry reg.a
   expect_err "args: bare version tag refused"          "--tag must be" run_flow -- --image backend --tag 1.2.0 --registry reg.a
+  expect_err "args: multi-line tag refused end to end" "--tag must be" run_flow -- --image backend --tag "$(printf 'v1.2.0\nx')" --registry reg.a
+  expect_err "args: empty tag refused end to end"      "--tag must be" run_flow -- --image backend --tag "" --registry reg.a
+  reset_stub
+  expect_ok  "flow: skip path logs the matching identity" sh -c "
+    PATH='${S}/bin':\"\$PATH\" STUB='$S' GITLAB_CI=true CI_JOB_ID=1 SIGSTORE_ID_TOKEN=x CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_TAG=v1.2.0 bash '$SELF' --image backend --tag v1.2.0 --registry reg.a >/dev/null &&
+    PATH='${S}/bin':\"\$PATH\" STUB='$S' GITLAB_CI=true CI_JOB_ID=1 SIGSTORE_ID_TOKEN=x CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_TAG=v1.2.0 bash '$SELF' --image backend --tag v1.2.0 --registry reg.a > '${T}/skip.log' &&
+    [ \"\$(grep -c 'Matching identities: https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0' '${T}/skip.log')\" = 2 ] &&
+    [ \"\$(grep -c ': https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0\$' '${T}/skip.log')\" -ge 3 ]"
 
   if [ "$fails" -gt 0 ]; then
     echo "SELF-TEST FAILED: ${fails} case(s)"
@@ -482,7 +544,7 @@ STUB
 if [ "${1:-}" = "_t" ]; then
   shift
   case "${1:-}" in
-    index_platform_digest|assert_sbom|assert_attestations|require_ci|this_identity|project_identity_regexp|arch_aliases) ;;
+    index_platform_digest|assert_sbom|assert_attestations|require_ci|this_identity|project_identity_regexp|arch_aliases|validate_tag|signer_identities) ;;
     *) die "'${1:-}' is not a self-test helper" ;;
   esac
   "$@"

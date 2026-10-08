@@ -20,9 +20,14 @@ issued to Visiban's GitLab CI pipeline. Every command below pins that identity:
 
 ```bash
 ISSUER=https://gitlab.com
-# A release tag pipeline, or the manual backfill job on main (see "Older releases" below).
-IDENTITY='^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/(tags/v[0-9][^/]*|heads/main)$'
+# Recommended: a release tag pipeline only.
+IDENTITY='^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$'
 ```
+
+Use this tag-only identity for every release cut after image signing shipped. It accepts
+only a certificate issued to the tag pipeline that built and pushed the release. A release
+that was signed later by the backfill job needs a wider identity, described in
+[Older releases](#older-releases). Use that wider identity only for those versions.
 
 Keep the regexp anchored (`^...$`) as shown. A loose pattern such as `gitlab\.com/visiban/visiban`
 also matches other projects whose path starts the same way, such as `visiban/visiban-enterprise`.
@@ -100,8 +105,21 @@ it: the manual `image-attest-backfill` CI job on `main` signs and attests a give
 images on both registries, and skips any digest that already verifies.
 
 A backfilled release's certificate identity ends in `@refs/heads/main` rather than
-`@refs/tags/v…`, because a released tag cannot be re-run without moving it. The `IDENTITY`
-regexp above accepts both.
+`@refs/tags/v…`, because a released tag cannot be re-run without moving it. The tag-only
+`IDENTITY` above rejects it. For a backfilled version **only**, verify with:
+
+```bash
+# Backfilled versions only: a release tag pipeline, or the manual backfill job on main.
+IDENTITY='^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/(tags/v[0-9][^/]*|heads/main)$'
+```
+
+Backfill is **trust-on-first-use**. The job signs whatever the tag points at when it runs,
+not what the original release pipeline pushed. A backfilled signature therefore proves only
+that Visiban's pipeline vouched for those bytes at backfill time. Only Maintainers should run
+the job, and only after comparing the tag's current digests with the original release
+pipeline's log. `scripts/attest-image-sbom.sh --dry-run` prints the digests read-only. The
+wider regexp also accepts any later run of the backfill job on `main`. Accepting it for every
+release would widen what you trust for no benefit, which is why it is not the default.
 
 Charts published at or before `v1.2.0-alpha.2` are unsigned (#1284). See
 [Known CI failures](../maintainers/known-ci-failures.md) if verification fails for a version

@@ -3752,8 +3752,17 @@ image-attest-selftest:
 #
 # Certificate identity differs from a tag pipeline's: this job runs on main, so
 # its SAN ends `@refs/heads/main`, not `@refs/tags/v…` — an already-released
-# tag cannot be re-run without moving it. The documented verification regexp
-# accepts both; see docs/administration/image-verification.md.
+# tag cannot be re-run without moving it. Only backfilled versions need the
+# main-or-tag verification regexp; releases cut after #1153 verify with the
+# tag-only one. See docs/administration/image-verification.md.
+#
+# Trust model: backfill is trust-on-first-use — it signs whatever the tag
+# points at when the job runs, so only Maintainers should run it, and only
+# after checking the tag's current digests (`attest-image-sbom.sh --dry-run`
+# prints them, read-only, from anywhere) against the original release
+# pipeline's manifest-job log. Not gated by a protected environment:
+# protected environments are a GitLab Premium feature and this project is on
+# Free; who can run it is bounded by who can run manual jobs on `main`.
 image-attest-backfill:
   extends: .image-attest-common
   needs: []
@@ -3771,6 +3780,10 @@ image-attest-backfill:
         echo "ERROR: set BACKFILL_TAG (e.g. v1.2.0-alpha.4) when running this job."
         exit 1
       fi
+      # Whole-string validation (rejects a multi-line or metacharacter value
+      # typed into the Run-job dialog) before anything is signed — the same
+      # validate_tag the script applies to --tag.
+      bash scripts/attest-image-sbom.sh _t validate_tag "${BACKFILL_TAG}"
       for IMG in backend frontend; do
         bash scripts/attest-image-sbom.sh --image "${IMG}" --tag "${BACKFILL_TAG}"
       done
