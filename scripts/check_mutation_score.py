@@ -99,16 +99,17 @@ def find_pragma_problems(source: str) -> list[tuple[int, str]]:
     exclusion nobody explained is indistinguishable from a survivor someone
     wanted to hide. A reason that blames SQLite must also say a PostgreSQL test
     could kill the mutant, because "SQLite cannot observe it" is a gap in the
-    test setup, not a property of the code.
+    test setup, not a property of the code. (A mutant a PostgreSQL test is
+    already planned or filed for is not excluded at all; that is a review
+    rule the linter cannot see.)
     """
     problems: list[tuple[int, str]] = []
-    for number, line in enumerate(source.splitlines(), start=1):
-        # mutmut 2.5.1's own rule, verbatim: the exact text `# pragma:` and then `no mutate`
-        # anywhere after it. So `# pragma: no cover, no mutate` excludes mutants too and must
-        # not slip past the reason check.
-        tail = line.partition("# pragma:")[-1] if "# pragma:" in line else ""
-        if "no mutate" not in tail:
-            continue
+    lines = source.splitlines()
+    # find_pragma_lines is mutmut 2.5.1's own rule, verbatim: `# pragma:` and then `no mutate`
+    # anywhere after it. So `# pragma: no cover, no mutate` excludes mutants too and must
+    # not slip past the reason check.
+    for number in find_pragma_lines(source):
+        tail = lines[number - 1].partition("# pragma:")[-1]
         rest = tail.partition("no mutate")[-1].strip()
         reason = rest[2:].strip() if rest.startswith("--") else ""
         if len(reason) < MIN_REASON_CHARS:
@@ -146,6 +147,16 @@ def check_pragmas(paths: list[Path]) -> list[str]:
     return messages
 
 
+class PragmaCountError(RuntimeError):
+    """The pragma-excluded mutant count cannot be trusted."""
+
+
+def find_pragma_lines(source: str) -> list[int]:
+    """Line numbers mutmut 2.5.1 treats as ``no mutate`` (its own rule, verbatim)."""
+    return [n for n, line in enumerate(source.splitlines(), start=1)
+            if "# pragma:" in line and "no mutate" in line.partition("# pragma:")[-1]]
+
+
 def count_mutants(source: str, filename: str, ignore_pragmas: bool) -> int:
     """Count the mutants mutmut 2.x generates for ``source``, with or without honoring pragmas.
 
@@ -177,7 +188,13 @@ def count_excluded(cache: Path, counter=count_mutants) -> int:
         source = path.read_text("utf-8")
         if "no mutate" not in source:
             continue
-        excluded += counter(source, str(path), True) - counter(source, str(path), False)
+        diff = counter(source, str(path), True) - counter(source, str(path), False)
+        if diff == 0 and any(find_pragma_lines(source)):
+            # The pragma-honoring switch is mutmut 2.5.1 internals; if it silently stopped working
+            # (or every pragma sits on a line with no mutants) `excluded: 0` would be a false number.
+            raise PragmaCountError(f"{path} has `# pragma: no mutate` lines but mutmut generates the same "
+                                   "number of mutants with and without them; refusing to report excluded=0.")
+        excluded += diff
     return excluded
 
 
@@ -545,6 +562,13 @@ def _self_test() -> int:
         code, err = _run_real_script_full([], None, extra=["--check-pragmas", str(pdir)])
         check("--check-pragmas fails on a bare pragma and names file:line",
               code == 1 and "bad.py:2" in err, f"exit {code}, stderr {err!r}")
+        code, err = _run_real_script_full([], None, extra=["--check-pragmas", str(root / "no-such-dir")])
+        check("--check-pragmas on a missing path is exit 2, not a pass", code == 2 and "NOT MEASURED" in err,
+              f"exit {code}, stderr {err!r}")
+        empty = root / "emptydir"
+        empty.mkdir()
+        check("--check-pragmas on a tree with no .py files is exit 2",
+              _run_real_script([], None, extra=["--check-pragmas", str(empty)]) == 2)
         skipped_dir = pdir / ".venv"
         skipped_dir.mkdir()
         (skipped_dir / "vendored.py").write_text("b = 2  # pragma: no mutate\n", "utf-8")
@@ -575,6 +599,12 @@ def _self_test() -> int:
         check("export_cache counts excluded as the with/without-pragma difference",
               got_stats.get("excluded") == 2 and got_stats.get("killed") == 1
               and got_stats.get("total") == 1, f"returned {got_stats}")
+        try:
+            export_cache(ccache, lambda source, filename, ignore_pragmas: 5)  # same count either way
+            noop_caught = False
+        except PragmaCountError:
+            noop_caught = True
+        check("export_cache refuses excluded=0 when a pragma file yields equal mutant counts", noop_caught)
         check("export_cache never scans a source file with no pragma",
               ("plain.py", True) not in calls, f"calls {calls}")
         bare = root / "bare-cache"
@@ -727,6 +757,11 @@ def main(argv: list[str] | None = None) -> int:
         except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
+        missing = [str(r) for r in roots if not r.exists()]
+        if missing or not _py_files(roots):
+            print(f"NOT MEASURED: --check-pragmas found {'no such path: ' + ', '.join(missing) if missing else 'no .py files'} "
+                  "to scan; an empty scan must not read as a pass.", file=sys.stderr)
+            return 2
         problems = check_pragmas(roots)
         for problem in problems:
             print(f"PRAGMA: {problem}", file=sys.stderr)
@@ -745,6 +780,9 @@ def main(argv: list[str] | None = None) -> int:
             stats = export_cache(args.export_cache)
         except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
+        except PragmaCountError as exc:
+            print(f"NOT MEASURED: {exc}", file=sys.stderr)
             return 2
         except ImportError as exc:
             print(f"NOT MEASURED: cannot count pragma-excluded mutants, mutmut is not importable: {exc}",

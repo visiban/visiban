@@ -1127,6 +1127,9 @@ backend-mutation:
     - export MUTATION_SHARDS="$CI_NODE_TOTAL" MUTATION_SHARD="$((CI_NODE_INDEX - 1))"
     # `|| true`: a non-zero exit only means survivors exist. A run that died is
     # caught by the report job (untested mutants or no scoreable ones, exit 2).
+    # --self-test here (mutmut is installed) also runs the real-mutmut pragma cases that the
+    # lint-stage self-test skips (#1503); a mutmut bump that changes pragma behavior fails loudly.
+    - python ../scripts/check_mutation_score.py --self-test
     - mutmut run || true
     - mutmut results || true
     - python ../scripts/check_mutation_score.py --export-cache .mutmut-cache "mutmut-stats-${CI_NODE_INDEX}.json"
