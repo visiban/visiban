@@ -44,9 +44,9 @@ from the environment, and prints `ACCEPTED note-by=... accepted-by=... expires=.
 (exit 0) or `BLOCKER` / `BLOCKER (expiry too far out; max 1 year)` (exit 1). It is POSIX
 `sh`/`awk`, so it runs on macOS (BSD awk) and Linux.
 
-`sh scripts/security-deferred-verdict.sh --self-test` covers valid, expired, blank
+`sh scripts/security-deferred-verdict.sh --self-test` (44 cases) covers valid, expired, blank
 `accepted-by` / `reason`, impossible dates (`2099-13-45`, `2099-02-30`, non-leap Feb 29),
-two `expires` fields, `;` in `reason`, no note, and multiple lines. CI runs it in the
+two `expires` fields, `;` in `reason`, no note, multiple lines, month/day ranges, leap-year rules (2000, 2028, 2100), and handle/author shape. CI runs it in the
 `security-deferred-verdict-selftest` job.
 
 ## Confidential issues

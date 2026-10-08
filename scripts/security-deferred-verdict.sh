@@ -53,7 +53,7 @@ self_test() {
   expect valid          'ACCEPTED note-by=alice accepted-by=@bob expires=2027-01-01' "${P}fixed next sprint; expires: 2027-01-01"
   expect expired        'BLOCKER' "${P}ok; expires: 2026-10-07"
   expect expires-today  'ACCEPTED note-by=alice accepted-by=@bob expires=2026-10-08' "${P}ok; expires: 2026-10-08"
-  expect leap-day       'ACCEPTED note-by=alice accepted-by=@bob expires=2027-02-28' "${P}ok; expires: 2027-02-28"
+  expect feb-28-nonleap 'ACCEPTED note-by=alice accepted-by=@bob expires=2027-02-28' "${P}ok; expires: 2027-02-28"
   expect blank-reason   'BLOCKER' "alice|Accepted risk: accepted-by: @bob; reason:  ; expires: 2027-01-01"
   expect empty-reason   'BLOCKER' "alice|Accepted risk: accepted-by: @bob; reason: ; expires: 2027-01-01"
   expect blank-accepted 'BLOCKER' "alice|Accepted risk: accepted-by: ; reason: ok; expires: 2027-01-01"
@@ -71,6 +71,34 @@ self_test() {
   expect multi-bad-then-ok 'ACCEPTED note-by=carol accepted-by=@dan expires=2027-03-03' "${P}ok; expires: 2026-01-01${NL}carol|Accepted risk: accepted-by: @dan; reason: ok; expires: 2027-03-03"
   expect multi-far-then-ok 'ACCEPTED note-by=alice accepted-by=@bob expires=2027-01-01' "${P}ok; expires: 2099-01-01${NL}${P}ok; expires: 2027-01-01"
   expect multi-all-bad  'BLOCKER' "${P}ok; expires: 2026-01-01${NL}${P}ok; expires: 2099-13-45"
+  # Month/day range and leap rules. Each case pins one clause of the awk calendar check so
+  # dropping it (m<1, m>12, d<1, a 30-day month, Feb length, the %4/%100/%400 rules) is caught.
+  expect month-00       'BLOCKER' "${P}ok; expires: 2027-00-15"
+  expect day-00         'BLOCKER' "${P}ok; expires: 2027-01-00"
+  expect apr-31         'BLOCKER' "${P}ok; expires: 2027-04-31"
+  expect jun-31         'BLOCKER' "${P}ok; expires: 2027-06-31"
+  expect sep-31         'BLOCKER' "${P}ok; expires: 2027-09-31"
+  expect nov-31         'BLOCKER' "${P}ok; expires: 2027-11-31"
+  expect apr-30-ok      'ACCEPTED note-by=alice accepted-by=@bob expires=2027-04-30' "${P}ok; expires: 2027-04-30"
+  expect month-13-plain 'BLOCKER' "${P}ok; expires: 2027-13-01"
+  expect jan-31-ok      'ACCEPTED note-by=alice accepted-by=@bob expires=2027-01-31' "${P}ok; expires: 2027-01-31"
+  expect jan-32         'BLOCKER' "${P}ok; expires: 2027-01-32"
+  # leap years need a wider window, so these set TODAY/CAP themselves
+  expectc() { # name want today cap input
+    n=$((n+1))
+    got=$(printf '%s\n' "$5" | TODAY=$3 CAP=$4 verdict)
+    if [ "$got" != "$2" ]; then
+      echo "FAIL [$1]: expected '$2', got '$got'" >&2; fails=$((fails+1))
+    fi
+  }
+  expectc leap-2028     'ACCEPTED note-by=alice accepted-by=@bob expires=2028-02-29' 2027-10-08 2028-10-08 "${P}ok; expires: 2028-02-29"
+  expectc leap-2028-30  'BLOCKER' 2027-10-08 2028-10-08 "${P}ok; expires: 2028-02-30"
+  expectc leap-2000     'ACCEPTED note-by=alice accepted-by=@bob expires=2000-02-29' 1999-10-08 2000-10-08 "${P}ok; expires: 2000-02-29"
+  expectc nonleap-2100  'BLOCKER' 2099-10-08 2100-10-08 "${P}ok; expires: 2100-02-29"
+  # handle and author shape
+  expect handle-empty   'BLOCKER' "alice|Accepted risk: accepted-by: @; reason: ok; expires: 2027-01-01"
+  expect handle-badchar 'BLOCKER' "alice|Accepted risk: accepted-by: @b*b; reason: ok; expires: 2027-01-01"
+  expect author-empty   'BLOCKER' "|Accepted risk: accepted-by: @bob; reason: ok; expires: 2027-01-01"
   # CAP boundary is inclusive: exactly cap is accepted, cap+1 day is too far out
   got=$(printf '%s\n' "${P}ok; expires: 2027-10-08" | TODAY=2026-10-08 CAP=2027-10-08 verdict)
   n=$((n+1)); [ "$got" = 'ACCEPTED note-by=alice accepted-by=@bob expires=2027-10-08' ] || { echo "FAIL [cap-inclusive]: got '$got'" >&2; fails=$((fails+1)); }
