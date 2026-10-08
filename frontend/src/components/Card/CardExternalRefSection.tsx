@@ -45,6 +45,8 @@ export default function CardExternalRefSection({ externalRef, canEdit, onSave }:
   const [removeError, setRemoveError] = useState<string | null>(null);
 
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const saveInFlight = useRef(false);
+  const removeInFlight = useRef(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   // Where focus returns when the editor closes: the control that opened it.
@@ -124,7 +126,9 @@ export default function CardExternalRefSection({ externalRef, canEdit, onSave }:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitAttempted(true);
-    if (!urlValid || refError !== null || saving) return;
+    if (!urlValid || refError !== null || saving || saveInFlight.current) return;
+    // Ref guard (#1498): flips synchronously, unlike the `saving` state.
+    saveInFlight.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -134,11 +138,14 @@ export default function CardExternalRefSection({ externalRef, canEdit, onSave }:
     } catch (err) {
       setError(externalRefErrorMessage(err));
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   };
 
   const handleRemove = async () => {
+    if (removeInFlight.current) return;
+    removeInFlight.current = true;
     setRemoving(true);
     setRemoveError(null);
     try {
@@ -147,6 +154,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, onSave }:
     } catch (err) {
       setRemoveError(externalRefErrorMessage(err));
     } finally {
+      removeInFlight.current = false;
       setRemoving(false);
     }
   };
