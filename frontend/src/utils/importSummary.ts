@@ -56,7 +56,7 @@ export function countImportWarnings(warnings: string[]): number {
 }
 
 /** Lead-in for a notice that carries warnings but nothing was skipped. */
-export const IMPORT_WARNINGS_HEADLINE = "Board imported, but some values could not be imported:";
+export const IMPORT_WARNINGS_HEADLINE = "Board imported, with import warnings:";
 
 /** True when the import left anything out or raised warnings, i.e. the notice should be shown. */
 export function hasImportSkips(summary: ImportSummary | null | undefined): boolean {

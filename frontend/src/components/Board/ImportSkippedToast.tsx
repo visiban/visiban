@@ -36,7 +36,7 @@ export default function ImportSkippedToast({ summary, onDismiss }: Props) {
   const warningCount = countImportWarnings(warnings);
   const announcement = message
     ? warnings.length > 0
-      ? `${skippedMessage ? `${skippedMessage} ` : "Board imported. "}${warningCount} ${warningCount === 1 ? "value was" : "values were"} not imported.`
+      ? `${skippedMessage ? `${skippedMessage} ` : "Board imported. "}${warningCount} import ${warningCount === 1 ? "warning" : "warnings"}.`
       : message
     : null;
   const [shown, setShown] = useState(false);

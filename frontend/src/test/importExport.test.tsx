@@ -603,7 +603,7 @@ describe('CSV import warnings (#1526)', () => {
       const onDismiss = vi.fn()
       render(<ImportSkippedToast summary={warned} onDismiss={onDismiss} />)
       act(() => { vi.advanceTimersByTime(0) })
-      expect(screen.getByText('Board imported, but some values could not be imported:')).toBeInTheDocument()
+      expect(screen.getByText('Board imported, with import warnings:')).toBeInTheDocument()
       const list = screen.getByLabelText('Import warnings')
       expect(list).toHaveAttribute('tabindex', '0')
       expect(list.className).toContain('focus:ring-2')
@@ -627,7 +627,7 @@ describe('CSV import warnings (#1526)', () => {
       expect(status).toHaveTextContent('')
       act(() => { vi.advanceTimersByTime(0) })
       // 1 listed warning plus "...and 3 more" = 4 values.
-      expect(status).toHaveTextContent('Board imported. 4 values were not imported.')
+      expect(status).toHaveTextContent('Board imported. 4 import warnings.')
       expect(status).not.toHaveTextContent('Skipped column')
       expect(status.className).toContain('sr-only')
     } finally {
@@ -668,7 +668,7 @@ describe('countImportWarnings (#1526)', () => {
         onDismiss={vi.fn()}
       />,
     )
-    return screen.findByText('Board imported. 1 value was not imported.')
+    return screen.findByText('Board imported. 1 import warning.')
   })
 
   it('counts the capped shape (20 listed + "...and N more") as 20 + N', () => {
