@@ -4007,8 +4007,10 @@ always imported as written by you.</p>
 <p>The <code>.csv</code> file for each template uses the same layout as <strong>Export → CSV</strong>
 Use it to look at
 the data in a spreadsheet or to try the CSV importer. CSV import creates cards with their
-title, description, column, swimlane, priority, labels, due date and weight. It does not
-restore movement history, comments, checklists or custom field values.</p>
+title, description, column, swimlane, priority, labels, due date and weight. It also reads
+the <code>Custom:</code> and <code>Swimlane Custom:</code> columns, restoring card and swimlane custom field values
+as <strong>text</strong> fields (a CSV carries no field type; import the JSON file to keep field types and
+choices). It does not restore movement history, comments or checklists.</p>
 <h2 id="what-each-template-includes">What each template includes<a class="headerlink" href="#what-each-template-includes" title="Permanent link">&para;</a></h2>
 <p>The templates include everything below.</p>
 <ul>
