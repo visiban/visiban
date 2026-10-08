@@ -59,6 +59,32 @@ refuse_if_published() {
   fi
 }
 
+# ─── security::deferred pre-tag gate (#1520) ─────────────────────────────────
+#
+# check_security_deferred_clear — returns 1 when ANY open `security::deferred`
+# issue, in ANY milestone, lacks a valid unexpired accepted-risk note.
+#
+# /pre-release full runs about a sprint before the tag, so a deferral filed since
+# then was never checked; this re-runs the same query immediately before tagging.
+# All milestones, not just this release's: the unfixed gap is in `main` and ships
+# whichever milestone the issue sits on (see docs/maintainers/security-deferred-label.md).
+#
+# Unlike check_latest_not_drifted this FAILS CLOSED: an API/auth/network error blocks,
+# because no later job backstops it and "could not check" must never read as "clean".
+# RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 bypasses it deliberately (note it inline).
+check_security_deferred_clear() {
+  local script="${SECURITY_DEFERRED_SCRIPT:-$(dirname "$0")/check-security-deferred.sh}"
+  if [[ "${RELEASE_SKIP_SECURITY_DEFERRED_CHECK:-}" == "1" ]]; then
+    echo "WARN: RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 — skipping the security::deferred gate." >&2
+    return 0
+  fi
+  if ! bash "$script"; then
+    echo "Error: open security::deferred issue(s) without a valid accepted-risk note, or the check could not run." >&2
+    echo "       Fix or close them, or add an accepted-risk note (docs/maintainers/security-deferred-label.md)." >&2
+    return 1
+  fi
+}
+
 # ─── :latest drift guard ─────────────────────────────────────────────────────
 #
 # check_latest_not_drifted — returns 1 (with the repair commands) when :latest
@@ -438,6 +464,30 @@ dependencies:
   fi
   unset DIGEST_PROBE
 
+  # check_security_deferred_clear: fails closed on a nonzero child, passes on zero, skip env bypasses.
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$tmp/sd-ok.sh"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "#7 milestone=1.1 BLOCKER"' 'exit 1' > "$tmp/sd-block.sh"
+  if SECURITY_DEFERRED_SCRIPT="$tmp/sd-ok.sh" check_security_deferred_clear >/dev/null 2>&1; then
+    echo "SELF-TEST OK: check_security_deferred_clear passes when the check is clean"
+  else
+    echo "SELF-TEST FAILED: check_security_deferred_clear passes when the check is clean" >&2; rc=1
+  fi
+  if SECURITY_DEFERRED_SCRIPT="$tmp/sd-block.sh" check_security_deferred_clear >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: check_security_deferred_clear must block on a blocker or a failed check" >&2; rc=1
+  else
+    echo "SELF-TEST OK: check_security_deferred_clear blocks on a blocker or a failed check"
+  fi
+  if SECURITY_DEFERRED_SCRIPT="$tmp/missing.sh" check_security_deferred_clear >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: check_security_deferred_clear must fail closed when the script is missing" >&2; rc=1
+  else
+    echo "SELF-TEST OK: check_security_deferred_clear fails closed when the script is missing"
+  fi
+  if RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 SECURITY_DEFERRED_SCRIPT="$tmp/sd-block.sh" check_security_deferred_clear >/dev/null 2>&1; then
+    echo "SELF-TEST OK: check_security_deferred_clear honors RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1"
+  else
+    echo "SELF-TEST FAILED: check_security_deferred_clear honors RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1" >&2; rc=1
+  fi
+
   [[ $rc -eq 0 ]] && echo "release: self-test passed."
   exit $rc
 fi
@@ -509,6 +559,7 @@ if grep -qxF "$TAG" <<<"$(git tag)"; then
 fi
 refuse_if_published "${RELEASE_REMOTE:-origin}" "$TAG" || exit 1
 check_latest_not_drifted || exit 1
+check_security_deferred_clear || exit 1
 
 # Create release branch from latest main
 git checkout main
