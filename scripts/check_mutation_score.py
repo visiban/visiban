@@ -88,7 +88,6 @@ STATUS_KEYS = {
 }
 
 
-PRAGMA_RE = re.compile(r"#\s*pragma:\s*no mutate\b(?P<rest>.*)$")
 # The reason follows `--`. Long enough that "x" or "n/a" cannot pass as one.
 MIN_REASON_CHARS = 10
 
@@ -104,10 +103,13 @@ def find_pragma_problems(source: str) -> list[tuple[int, str]]:
     """
     problems: list[tuple[int, str]] = []
     for number, line in enumerate(source.splitlines(), start=1):
-        match = PRAGMA_RE.search(line)
-        if not match:
+        # mutmut 2.5.1's own rule, verbatim: the exact text `# pragma:` and then `no mutate`
+        # anywhere after it. So `# pragma: no cover, no mutate` excludes mutants too and must
+        # not slip past the reason check.
+        tail = line.partition("# pragma:")[-1] if "# pragma:" in line else ""
+        if "no mutate" not in tail:
             continue
-        rest = match.group("rest").strip()
+        rest = tail.partition("no mutate")[-1].strip()
         reason = rest[2:].strip() if rest.startswith("--") else ""
         if len(reason) < MIN_REASON_CHARS:
             problems.append((number, "needs a reason: `# pragma: no mutate -- <why no test can kill this>`"))
@@ -528,6 +530,10 @@ def _self_test() -> int:
              "x = 1  # pragma: no mutate -- lock not observable on SQLite; a PostgreSQL test could kill it\n", 0),
             ("no pragma at all", "x = 1\n", 0),
             ("an unrelated pragma", "x = 1  # pragma: no cover\n", 0),
+            ("combined pragma without a reason", "x = 1  # pragma: no cover, no mutate\n", 1),
+            ("combined pragma with a reason",
+             "x = 1  # pragma: no cover, no mutate -- schema constant (migration-check)\n", 0),
+            ("no mutate before the pragma marker", "x = 1  # no mutate # pragma: other\n", 0),
         ):
             found = find_pragma_problems(text)
             check(f"find_pragma_problems: {name}", bool(found) == bool(want), f"returned {found}")
@@ -592,6 +598,14 @@ def _self_test() -> int:
             ignored = count_mutants(sample, "sample.py", True)
             check("mutmut: a pragma removes the mutants on its own line", ignored - honored == 2,
                   f"honored {honored}, ignored {ignored}")
+            # The linter must flag exactly what mutmut honors, including the combined form.
+            for form in ("# pragma: no mutate", "# pragma: no cover, no mutate", "# pragma: no mutate -- why not here",
+                         "# pragma:no mutate", "#pragma: no mutate", "# no mutate"):
+                line = f"def a(x):\n    return x + 1  {form}\n"
+                mutmut_honors = count_mutants(line, "t.py", True) > count_mutants(line, "t.py", False)
+                seen = "no mutate" in (form.partition("# pragma:")[-1] if "# pragma:" in form else "")
+                check(f"linter and mutmut agree on `{form}`", mutmut_honors == seen,
+                      f"mutmut honors {mutmut_honors}, linter sees {seen}")
             multiline = sample.replace("    max_length=10,\n", "    max_length=10,  # pragma: no mutate -- test\n")
             check("mutmut: a pragma does not cover the other lines of a call",
                   count_mutants(multiline, "sample.py", False) < honored

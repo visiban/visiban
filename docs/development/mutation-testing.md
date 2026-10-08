@@ -25,13 +25,13 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 
 "Before" is the state of `main`. "After" includes the tests added with this page (`test_movement_record_mutation_gaps.py`, `test_permissions_unit_mutation_gaps.py`).
 
-| Module | Mutants | Killed before | Kill rate before | Killed after | Kill rate after | Timeouts |
-|---|---:|---:|---:|---:|---:|---:|
-| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since) | 243 | 166 | 68.3% | 228 | 93.8% | 0 |
-| `CardMovement` (`boards/models.py`) | 73 | 28 | 38.4% | 45 | 61.6% | 0 |
-| `boards/permissions.py` | 118 | 44 | 37.3% | 114 | 96.6% | 0 |
-| `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | 2 (see below) |
-| `boards/views/import_export.py`, `_import_csv` + `export` + `export_history` (2026-10-06, #1484) | 492 | 290 of 492 | 58.9% | 465 of 492 (447 with the #1453 tests only) | 94.5% (90.9%) | 0 |
+| Module | Mutants | Killed before | Kill rate before | Killed after | Kill rate after (raw) | Excluded (#1503) | Adjusted after | Timeouts |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since) | 243 | 166 | 68.3% | 228 | 93.8% | 8 | 228 of 235 = 97.0% (expected, not re-measured) | 0 |
+| `CardMovement` (`boards/models.py`; re-measured 2026-10-08, was 28 survivors / 45 killed / 61.6%) | 73 | 28 | 38.4% | 46 | 63.0% | 27 | 46 of 46 = 100% | 0 |
+| `boards/permissions.py` (116 of 120 expected after #1503's two new killed mutants; 114 of 118 = 96.6% measured) | 118 | 44 | 37.3% | 114 | 96.6% | 4 | 114 of 114 = 100% (expected, not re-measured whole-module) | 0 |
+| `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | n/a (unmarked, pending #1502) | n/a | 2 (see below) |
+| `boards/views/import_export.py`, `_import_csv` + `export` + `export_history` (2026-10-06, #1484) | 492 | 290 of 492 | 58.9% | 465 of 492 (447 with the #1453 tests only) | 94.5% (90.9%) | n/a (unmarked, pending #1502) | n/a | 0 |
 
 **The 2 timeouts** in the 2026-10-05 row: both are in `_imported_board_name`, in the first run's range. Mutating the `if candidate not in taken` check or the `n += 1` step makes its uniqueness loop spin forever, so pytest hangs and mutmut kills the run. Timeouts are counted as killed. The 2026-10-06 run (`_import_csv`, `export`, `export_history`) had none.
 
@@ -80,7 +80,7 @@ Plan on the whole-module `import_export.py` run being the expensive one. A seria
 Every survivor was put in one of three buckets:
 
 - **Missing assertion:** the code is exercised but no test checks the value. Fix by adding an assertion. These were fixed for the movement-record and RBAC paths.
-- **Equivalent mutant:** the change cannot alter observable behavior in this setup, so no test can kill it. Leave it alone.
+- **Equivalent mutant:** the change cannot alter observable behavior in this setup, for any production input, so no test can kill it. Mark it with `# pragma: no mutate -- <reason>` under the [policy](#equivalent-mutants-and-the-score-1503) rather than leaving it as a survivor.
 - **Untested code:** no test in the scoped files reaches the line, or reaches it without checking the result. Needs new tests or a decision that it is covered elsewhere.
 
 ### Movement service (`cards.py`): 15 survivors left of 77 (measured before #1511)
@@ -253,7 +253,11 @@ Some modules cannot reach the target by tests alone. A survivor that no test can
 - **The floor gates the adjusted number.** `MUTATION_MIN` ([CI pilot](#ci-pilot-backend-mutation)) is compared with the adjusted score. A low raw score is reported, never failed.
 - **An exclusion is a comment in the source, with a reason.** Put `# pragma: no mutate -- <reason>` on the line. A pragma with no `-- <reason>` (at least 10 characters) is rejected by `python3 scripts/check_mutation_score.py --check-pragmas backend`, which the `mutation-score-selftest` CI job runs on every MR that touches backend Python.
 - **A claim that SQLite cannot observe the mutant is not enough by itself.** That is a gap in the test setup, not a property of the code. The reason must also say that a PostgreSQL test could kill it (the checker rejects a reason that names SQLite but not PostgreSQL), and a mutant that a planned PostgreSQL test is meant to kill (the `select_for_update` guards, #1504) is **not** excluded.
+- **"Unobservable" means for any production input.** A reason claims the mutant cannot change behavior for any input the running system can produce (a non-null FK, a setting that is always defined, a user that always has a username). It does not claim no test could reach the line: a stub user, an `override_settings` deletion or an in-memory card with `column=None` could execute it. Say which production invariant makes it equivalent, not that it is dead.
+- **Hand-flipped guards are recorded, not pragma'd.** A guard that is not a mutmut mutant (for example the sibling-row lock added by hand in `cards.py`, #1504) cannot carry a pragma. If it survives a hand-flip on PostgreSQL and is equivalent by argument, list it by name in the module's survivor table as "proven equivalent by argument, not mutmut-excludable", cite the issue, and leave it out of both the raw and the adjusted numbers: it is not in either denominator because mutmut never counted it.
 - **Triage first.** An equivalence claim is only made after the three questions in [How to read the results](#how-to-read-the-results); the reason states the answer to the first one.
+
+The import/export survivor tables below keep their "Equivalent" rows unmarked: #1502 owns that module and will decide there which to exclude.
 
 ### How mutmut 2.5.1 treats `# pragma: no mutate`
 
@@ -261,7 +265,7 @@ Checked on mutmut 2.5.1 (the CI pin) with a small module, and re-checked by the 
 
 | Placement | Effect |
 |---|---|
-| Comment on a statement's line | No mutant is generated for that line. |
+| Any line containing `# pragma:` followed, anywhere after it, by `no mutate` (so `# pragma: no cover, no mutate` counts) | No mutant is generated for that line. |
 | Comment on `def f():` | **Only** the `def` line. The body is still mutated. |
 | Comment on the last line of a multi-line call, `)  # pragma: no mutate` | Only that closing line. The argument lines above it (`max_length=10,`) are still mutated, and are the survivors you were trying to exclude. |
 | Comment on the first line of a multi-line call, list or dict | Only that first line. |

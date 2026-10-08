@@ -232,7 +232,7 @@ def get_board_role(user, board):
         for m in prefetched:
             if m.user_id == user.id:
                 explicit = m
-                break  # pragma: no mutate -- a user has at most one membership per board, so scanning on finds nothing
+                break  # pragma: no mutate -- equivalent for any production input: a user has at most one membership per board
         # Not found in the prefetched list — no explicit per-board membership.
     elif not user.can_access_all_content and board.owner_id != user.id:
         # Only worth a query when the first two rungs cannot already decide it.
@@ -346,7 +346,7 @@ def _is_demo_visitor(role, user):
     demo_mode = getattr(
         settings,
         "DEMO_MODE",
-        False,  # pragma: no mutate -- DEMO_MODE is always defined in settings, so the default is never read
+        False,  # pragma: no mutate -- equivalent for any production input: DEMO_MODE is always defined in settings, so the default is never read
     )
     if demo_mode is not True:
         return False
@@ -358,9 +358,9 @@ def _is_demo_visitor(role, user):
     username = getattr(
         user,
         "username",
-        "",  # pragma: no mutate -- a real user always has a username, so the default is never read
+        "",  # pragma: no mutate -- equivalent for any production input: a real user always has a username, so the default is never read
     ) or (
-        ""  # pragma: no mutate -- a real user always has a non-empty username, so this fallback is never read
+        ""  # pragma: no mutate -- equivalent for any production input: a real user always has a non-empty username
     )
     return username.lower() == published
 
