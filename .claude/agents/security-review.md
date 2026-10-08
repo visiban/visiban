@@ -82,6 +82,10 @@ Work through each category. For categories with no findings from the scans, stat
 - **Post-revocation data retention** — when a write removes a user's access to a resource (e.g. `BoardMembership.delete`, group membership delete, role demotion), audit every endpoint that surfaces the resource's *historical* content to that user (notifications, activity feeds, mention digests, search results, recent-views lists). If access is revoked but historical board/card/group names are still served, that is an information-retention leak and should be flagged. The fix is either to filter at read time or purge on the revocation event.
 - **Frontend** — `dangerouslySetInnerHTML`, raw `fetch()`, content sanitization
 
+#### Security invariants registry
+
+Read `docs/development/security-invariants.md`. If the diff touches a rule listed there (account-state gates, access revocation, grants and their revocation paths, consume-once tokens, import user scoping), check every surface in that rule's table, not only the surface in the diff, and report any sibling surface that does not enforce the rule as a finding.
+
 #### Output
 
 **✅ No findings** — list the categories checked with no issues.
