@@ -303,7 +303,11 @@ class ImportOptionsCSVTests(_ImportOptionsBase):
         resp = self._post(file=_csv_file(self.CSV))
         c = self._counts(self._board(resp))
         self.assertEqual((c["cards"], c["labels"], c["card_labels"], c["label_change"]), (3, 2, 3, 2))
-        self.assertEqual(resp.data["import_summary"], {"options_applied": _ALL_ON, "skipped": _NO_SKIPS})
+        # ``warnings`` is always present on a CSV import (#1449), empty when clean.
+        self.assertEqual(
+            resp.data["import_summary"],
+            {"options_applied": _ALL_ON, "skipped": _NO_SKIPS, "warnings": []},
+        )
 
 
 class ImportOptionsAccessTests(_ImportOptionsBase):

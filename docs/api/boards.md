@@ -743,7 +743,47 @@ type refuses, is dropped and the rest of the import proceeds. Card values follow
 `cards` option; swimlane values are structure and always import. Values exported by
 Visiban are already in stored form and round-trip unchanged.
 
-CSV import does not read the `Custom: ` or `Swimlane Custom: ` columns.
+#### Custom fields in a CSV import
+
+> **Added in 1.2**
+
+A CSV import reads the `Custom: <name>` and `Swimlane Custom: <name>` columns the CSV
+export writes, so card and swimlane field values survive a CSV round trip.
+
+- **Every field becomes a `text` field.** A CSV carries no field type, so nothing is
+  inferred: a number, date, dropdown or checkbox column imports as text, and dropdown
+  choices, number formatting and pin settings are not restored. **JSON is the lossless
+  format** for field definitions; use it when types matter. A multi-select cell such as
+  `UI; DB` is stored as that plain text, not parsed into entries.
+- **Cells are stored exactly as exported.** The export removes leading formula characters
+  (`=`, `+`, `-`, `@`, tab, carriage return) from text values so a spreadsheet cannot run
+  them, and that removal is irreversible: a text value `=1+1` is exported, and re-imported,
+  as `1+1`. The importer does not un-escape and does not sanitize. (Number and checkbox
+  values are written as stored, so a number such as `-5` keeps its sign.)
+- **Definitions** are created in header order, subject to the same limits as a JSON file:
+  at most 30 card fields and 15 swimlane fields, unique names, validated as the field APIs
+  validate them. A violation returns `400 Bad Request` and creates nothing, as does the
+  same custom header appearing twice (`Duplicate custom field CSV headers: Custom: Region`).
+  A card field and a swimlane field may share a name. A header with an empty name
+  (`Custom: `) is skipped with a warning.
+- **Swimlane values** are repeated on every card row of the lane in the export, so the
+  importer takes the first non-empty cell per lane and field; a later, different value is
+  ignored and reported once as a warning. Swimlane values import whatever the `cards`
+  option says; card values follow it.
+- **Blank cells** create no value. A value longer than 500 characters, or one an extension
+  validator refuses, is dropped with a warning and the import proceeds.
+
+The response gains `import_summary.warnings`, a list of strings (always present on a CSV
+import, `[]` when nothing was dropped). It holds at most 20 entries followed by one
+`…and N more` entry. A JSON import does not return the key.
+
+```json
+"import_summary": {
+  "options_applied": { "...": "..." },
+  "skipped": { "...": "..." },
+  "warnings": ["Swimlane 'East' field 'Owner' has conflicting values; kept 'Avery'."]
+}
+```
 
 **Response** `201 Created`
 
