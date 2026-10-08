@@ -11,6 +11,13 @@ read this page. For any diff that touches a listed rule, they verify every
 surface in that rule's table and report a surface that does not enforce the rule
 as a finding.
 
+The `threat-model` skill (`.claude/skills/threat-model/SKILL.md`) is the
+architecture-stage counterpart: it runs before `architect` on a feature that adds
+an auth path, an authorization boundary change, external data ingress, an
+OSS-to-enterprise extension point or an anonymous read surface, and walks this
+registry's rows as part of its method. It reasons about design; the agents above
+audit code.
+
 ## How to read a rule
 
 Each rule has a statement, the reason it exists, and a table:
