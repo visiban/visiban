@@ -102,6 +102,7 @@ describe('<ComponentName>', () => {
 - Do not test Tailwind classes or DOM structure that is likely to change
 - Do not test framework behaviour (React rendering, Django ORM internals)
 - One test per distinct scenario; avoid mega-tests that assert 10 things in sequence
+- Assert exact values and persisted state, not status codes alone: exact values, N-1/N/N+1 boundaries, a reload after writes, and no row/movement/event on denied paths. See `docs/development/testing.md` section "Writing tests that catch mutations"
 
 ### 5. Output
 Generate the complete test file(s) ready to write into the correct location:
