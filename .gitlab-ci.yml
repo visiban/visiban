@@ -2650,30 +2650,34 @@ frontend-license-check:
     - npx license-checker --failOn "GPL-2.0;GPL-3.0" --summary
   allow_failure: true
 
-# trivy: filesystem scan for OS-level CVEs in the Docker base images and
-# IaC misconfigurations in Dockerfiles and Helm charts.
+# trivy: filesystem scan of the repository for known-vulnerable declared
+# dependencies, IaC misconfigurations in Dockerfiles, and committed secrets.
 #
 # Why trivy in addition to pip-audit / npm audit:
-#   - pip-audit and npm audit only see application-layer dependencies.
-#     trivy also scans the OS packages installed in the Docker image
-#     (e.g. Alpine apk packages in python:3.12-slim or node:20-alpine)
-#     for CVEs that the app-layer scanners never see.
-#   - --scanners vuln,config catches both CVEs and IaC issues (Dockerfile
-#     USER root, ADD instead of COPY, missing HEALTHCHECK, etc.) in one pass.
+#   - --scanners vuln,config,secret covers CVEs in the lockfiles, IaC issues
+#     (Dockerfile without USER, ADD instead of COPY, ...) and secrets in one
+#     pass. It scans the repo filesystem only: it does NOT inspect the OS
+#     packages inside built base images (that needs an image scan).
+#   - The Helm chart is currently skipped by trivy's config scanner because of
+#     placeholder values in the templates; see #1536.
 #
-# Runs on any change to a Dockerfile, requirements.txt, package-lock.json,
-# or Helm chart, plus always on main.
+# Runs on an MR that changes a Dockerfile, a dependency lockfile, the Helm
+# chart, or the scan's own inputs (this job, .trivyignore.yaml and the expiry
+# script), plus always on main.
 #
 # BLOCKING (#1072): HIGH/CRITICAL vuln, config and secret findings fail the
-# job (--exit-code 1, no allow_failure). The scanner image is pinned by
-# digest so the scanner (and its rule set) only changes in a reviewed commit;
-# bump the version and digest together. (The tag was already pinned to a
-# version before #1072; the digest closes the mutable-tag gap.) Accepted risks
-# live in .trivyignore.yaml with an expiry date and an open issue link;
-# scripts/check-trivyignore-expiry.sh fails the job once an entry expires
-# (trivy alone just stops honoring it). The vulnerability DB is still fetched
-# at scan time, so a newly published CVE can turn the job red on an unchanged
-# tree — that is the point of the gate.
+# job (--exit-code 1, no allow_failure). The scanner BINARY is pinned by
+# digest, so it only changes in a reviewed commit; bump the version and digest
+# together. (The tag was already pinned to a version before #1072; the digest
+# closes the mutable-tag gap.) The data it scans against is NOT pinned: the
+# vulnerability DB and the misconfiguration checks bundle (a floating
+# mirror.gcr.io/aquasec/trivy-checks tag) are downloaded at scan time, so a
+# newly published CVE or check can turn the job red on an unchanged tree —
+# that is the point of the gate. --skip-check-update with a vendored bundle
+# would be a possible later hardening; it is deliberately not used here.
+# Accepted risks live in .trivyignore.yaml with an expiry date and an issue
+# link; scripts/check-trivyignore-expiry.sh fails the job once an entry
+# expires (trivy alone just stops honoring it).
 trivy-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
@@ -2688,11 +2692,15 @@ trivy-scan:
         - backend/Dockerfile
         - backend/Dockerfile.prod
         - frontend/Dockerfile
+        - frontend/Dockerfile.prod
         - backend/requirements.txt
         - backend/requirements.lock
         - backend/requirements-build.lock
         - frontend/package-lock.json
         - helm/**/*
+        - .gitlab-ci.yml
+        - .trivyignore.yaml
+        - scripts/check-trivyignore-expiry.sh
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     # Prove the expiry gate still fires, then enforce it on the real file.
