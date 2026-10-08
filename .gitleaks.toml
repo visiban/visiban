@@ -52,4 +52,14 @@ paths = [
   # `--set=valkey.image.repository=<value>` strings match the generic-api-key
   # rule on shape alone — an image repository name, never a credential.
   '''(^|/)scripts/helm-structure-check\.sh$''',
+  # History-scan triage (#1071): the full-history scan (secret_detection_history)
+  # flagged 30 generic-api-key hits in three account test files, all committed
+  # 2026-09-27..2026-10-08 (the working-tree scan was already clean). Each hit is
+  # a literal fixture password the tests use to exercise login, social-connect,
+  # password-reset, and credential-revocation flows against a throwaway test
+  # database. Never real credentials. Listed by exact file, not by directory,
+  # so a real secret added elsewhere under backend/*/tests/ is still caught.
+  '''(^|/)backend/accounts/tests/test_social_connect\.py$''',
+  '''(^|/)backend/accounts/tests/test_password_reset\.py$''',
+  '''(^|/)backend/accounts/tests/test_ws_credential_revocation_e2e\.py$''',
 ]

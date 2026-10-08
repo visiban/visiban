@@ -16,6 +16,7 @@ belong here, committed and versioned, not in a private notes file.
 | [Hosted Demo](demo-deploy.md) | try.visiban.com: where it runs, the out-of-band preconditions CI cannot check, install, tunnel, and the deployment record |
 | [SonarCloud Runbook](sonarcloud.md) | The nightly `sonar:scan`: `SONAR_TOKEN`, the pipeline schedule, what to do when it is yellow, and the hotspot-review rule |
 | [Deferred Security Follow-ups](security-deferred-label.md) | The `security::deferred` label, the accepted-risk note format, and how `/pre-release` blocks on open ones |
+| [Security Scanners](security-scanners.md) | Which CI security scanner blocks a merge, the semgrep severity gate, and how to accept a finding with an expiring suppression |
 
 ## Release checklist
 

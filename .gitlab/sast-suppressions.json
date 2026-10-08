@@ -1,0 +1,4 @@
+{
+  "_comment": "Accepted High/Critical semgrep findings (#1071). Each entry needs: rule (semgrep id or report 'id'/'name' substring), file (path prefix), reason, and expires (YYYY-MM-DD, max 90 days out). An expired entry fails sast-severity-gate. Low/Medium/Info findings are not gated and need no entry. Empty on creation: main had no High/Critical findings.",
+  "suppressions": []
+}

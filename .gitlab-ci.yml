@@ -3,10 +3,22 @@
 # SAST: Semgrep-based static analysis via the official GitLab catalog component.
 # Covers Python and TypeScript/JavaScript with broader rules than Bandit.
 # enable_mr_pipelines: true — runs on MR pipelines in addition to branch
-# pipelines, so findings gate merges. excluded_paths skips generated code.
+# pipelines. excluded_paths skips generated code.
+#
+# Both components are pinned to an exact released version (#1071) instead of
+# `@~latest`: a floating component can change rules, defaults, or job shape
+# under us between two pipelines, so a scanner could silently stop blocking (or
+# start blocking everything). Bump deliberately, in its own MR, after reading
+# the component's release notes. Verify a candidate version exists with:
+#   glab api "projects/components%2Fsast/releases"
+#   glab api "projects/components%2Fsecret-detection/releases"
+#
+# These components generate the `semgrep-sast` and `secret_detection` jobs —
+# they are NOT literal job keys in a plain read of this file. The overrides
+# further down (search "Scanner blocking policy") are what make them blocking.
 
 include:
-  - component: gitlab.com/components/sast/sast@~latest
+  - component: gitlab.com/components/sast/sast@3.5.0
     inputs:
       stage: security
       enable_mr_pipelines: true
@@ -14,10 +26,72 @@ include:
         backend/boards/migrations,
         backend/groups/migrations,
         backend/accounts/migrations
-  - component: gitlab.com/components/secret-detection/secret-detection@~latest
+  - component: gitlab.com/components/secret-detection/secret-detection@2.4.0
     inputs:
       stage: security
       enable_mr_pipelines: true
+
+# ─── Scanner blocking policy (#1071) ──────────────────────────────────────────
+#
+# Every security scanner blocks the merge. Previously only bandit did, so a
+# committed credential did not fail the pipeline — and OSS push-mirrors to the
+# enterprise repo and public GitHub within a minute of a merge.
+#
+#   secret_detection   blocking (any finding)            — override below
+#   gitleaks-scan      blocking (any finding)            — full working tree
+#   secret_detection_history  blocking, main only        — full git history
+#   semgrep-sast       blocking at High/Critical only    — override + sast-severity-gate
+#   backend-sast       blocking (bandit, medium+)
+#   frontend-sast      blocking (eslint 'error' rules)
+#   trivy-scan         tracked separately in #1072
+#
+# Semgrep's Low/Medium/Info findings stay visible in the MR security widget but
+# do not fail the pipeline; the SAST component has no native severity threshold,
+# so sast-severity-gate reads gl-sast-report.json. Accepting a High/Critical
+# finding requires an entry (reason + expiry date) in
+# .gitlab/sast-suppressions.json — see docs/maintainers/security-scanners.md.
+
+# Component-generated job: override only what we change; the rest of the job
+# definition (image, script, rules, artifacts) still comes from the component.
+secret_detection:
+  allow_failure: false
+
+# The component's job only inspects the MR diff (GIT_DEPTH 50) on MR pipelines.
+# This sibling job walks the entire git history of the default branch so a
+# secret that was committed and later "removed" (and is therefore still
+# retrievable from the public mirrors) is still found. Main only: a full-history
+# scan on every MR would be slow and re-report the same findings forever.
+# extends: secret_detection inherits image/script/artifacts from the component.
+secret_detection_history:
+  extends: secret_detection
+  stage: security
+  needs: []
+  variables:
+    SECRET_DETECTION_HISTORIC_SCAN: "true"
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "merge_request_event"'
+  allow_failure: false
+
+semgrep-sast:
+  allow_failure: false
+
+# Fails the pipeline on a High/Critical semgrep finding that is not covered by an
+# unexpired entry in .gitlab/sast-suppressions.json. Expired suppressions also
+# fail, so a temporary acceptance cannot rot into a permanent one.
+sast-severity-gate:
+  stage: security
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  needs:
+    - job: semgrep-sast
+      artifacts: true
+      optional: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - python3 scripts/sast-severity-gate.py gl-sast-report.json .gitlab/sast-suppressions.json
+  allow_failure: false
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 #
@@ -2509,7 +2583,12 @@ backend-sast:
 # eslint-plugin-security: JS/TS SAST for injection, prototype pollution,
 # non-literal regexp/require, and other common frontend security issues.
 # Runs as a dedicated security job (separate from style linting) so failures
-# are clearly security-attributed and block merges independently.
+# are clearly security-attributed. Blocking (#1071): ESLint exits non-zero only
+# for rules set to 'error' below (the high-confidence ones); the noisy
+# detect-object-injection / timing-attack rules are 'warn' and never fail the
+# job. A finding that is a genuine false positive is suppressed inline with
+# `// eslint-disable-next-line security/<rule> -- <reason>` (see the
+# suppression-marker convention in CLAUDE.md).
 frontend-sast:
   extends: .npm-cache
   stage: security
@@ -2553,7 +2632,7 @@ frontend-sast:
       ];
       ESLINTEOF
       npx eslint --no-config-lookup --config eslint-security.config.mjs src/
-  allow_failure: true
+  allow_failure: false
 
 # pip-audit: checks Python packages against the OSV vulnerability database.
 # On MRs: only when requirements.txt changes; allow_failure so a new CVE in an
