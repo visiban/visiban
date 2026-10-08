@@ -22,7 +22,7 @@ note. A blocker stops `/release` for a `full` audit.
 never be checked. `scripts/release.sh` therefore re-runs the same check
 (`check_security_deferred_clear`, after the `:latest` drift guard and before it branches) and
 refuses to cut the tag while any blocker remains. `RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1`
-bypasses it deliberately.
+bypasses it deliberately; it still prints the open-issue list to stderr as a trace and never changes the outcome.
 
 ### Milestone scope: all open issues, any milestone
 

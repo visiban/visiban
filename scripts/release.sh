@@ -76,6 +76,9 @@ check_security_deferred_clear() {
   local script="${SECURITY_DEFERRED_SCRIPT:-$(dirname "$0")/check-security-deferred.sh}"
   if [[ "${RELEASE_SKIP_SECURITY_DEFERRED_CHECK:-}" == "1" ]]; then
     echo "WARN: RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 — skipping the security::deferred gate." >&2
+    # Leave a trace of what is being shipped past: list open issues to stderr, ignoring the
+    # result. Never changes the outcome of the bypass.
+    bash "$script" >&2 2>&1 || true
     return 0
   fi
   if ! bash "$script"; then
@@ -482,8 +485,9 @@ dependencies:
   else
     echo "SELF-TEST OK: check_security_deferred_clear fails closed when the script is missing"
   fi
-  if RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 SECURITY_DEFERRED_SCRIPT="$tmp/sd-block.sh" check_security_deferred_clear >/dev/null 2>&1; then
-    echo "SELF-TEST OK: check_security_deferred_clear honors RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1"
+  sd_err=$(RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 SECURITY_DEFERRED_SCRIPT="$tmp/sd-block.sh" check_security_deferred_clear 2>&1 >/dev/null); sd_rc=$?
+  if [[ $sd_rc -eq 0 ]] && grep -q '#7 milestone=1.1 BLOCKER' <<<"$sd_err"; then
+    echo "SELF-TEST OK: check_security_deferred_clear honors RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 and traces open issues to stderr"
   else
     echo "SELF-TEST FAILED: check_security_deferred_clear honors RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1" >&2; rc=1
   fi
