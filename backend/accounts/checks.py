@@ -67,3 +67,35 @@ def check_password_reset_token_generator(app_configs, **kwargs):
             )
         )
     return errors
+
+
+_SIGNED_COOKIES_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+
+
+@checks.register(checks.Tags.security)
+def check_session_engine_supports_ws_revocation(app_configs, **kwargs):
+    """Warn when SESSION_ENGINE cannot support WebSocket credential revocation (#1483).
+
+    An open board or group socket is closed at its access re-check once the
+    session it connected with no longer exists (``accounts.ws_auth``). The
+    ``signed_cookies`` engine keeps no server-side session, so a logout is not
+    observable there and an open socket stays bound to a session that still
+    decodes. A Warning, not an Error: it is a supported Django engine and the
+    rest of the app works with it, but the operator should know.
+    """
+    from django.conf import settings
+
+    if getattr(settings, "SESSION_ENGINE", "") != _SIGNED_COOKIES_ENGINE:
+        return []
+    return [
+        checks.Warning(
+            "SESSION_ENGINE is signed_cookies: a logout cannot be observed for "
+            "WebSocket connections that are already open.",
+            hint=(
+                "Use the default database session engine (or a cache engine). "
+                "To accept this deliberately, add \"accounts.W001\" to "
+                "SILENCED_SYSTEM_CHECKS. See docs/api/websockets.md."
+            ),
+            id="accounts.W001",
+        )
+    ]

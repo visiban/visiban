@@ -27,7 +27,7 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from accounts.ws_auth import issue_ws_ticket
+from accounts.tests.ws_helpers import bound_scope, session_ticket
 from boards.consumers import BoardConsumer, _lookup_role, _now
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
@@ -69,6 +69,7 @@ class ConsumerRoleRefreshUnitTests(TransactionTestCase):
             "url_route": {"kwargs": {"board_id": self.board.id}},
             # The handshake-time User instance — deliberately the stale one.
             "user": User.objects.get(pk=self.subscriber.pk),
+            **bound_scope(self.subscriber),
         }
         consumer._role = role
         # A just-connected socket: connect() stamps this after its access
@@ -263,7 +264,7 @@ class ConsumerRoleRefreshEndToEndTests(TransactionTestCase):
     def test_demoted_admin_socket_stops_receiving_admin_only_columns(self):
         from visiban import asgi
 
-        ticket, _ = issue_ws_ticket(self.admin_a)
+        ticket, _ = session_ticket(self.admin_a)
 
         async def run():
             comm = WebsocketCommunicator(

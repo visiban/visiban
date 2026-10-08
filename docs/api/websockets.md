@@ -32,7 +32,7 @@ The server checks board membership before completing the handshake, regardless o
 | Close code | Meaning |
 |---|---|
 | `4001` | Unauthenticated — no valid session cookie, and no valid ticket. The client must log in (or obtain a fresh ticket) before reconnecting. |
-| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. Since 1.2, `4003` can also arrive **mid-stream** on an open connection, when the user loses access or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See [Access re-check and eviction](#access-re-check-and-eviction). |
+| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. Since 1.2, `4003` can also arrive **mid-stream** on an open connection, when the user loses access, when the credential it connected with is revoked (logout, password change, revoked session or token), or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See [Access re-check and eviction](#access-re-check-and-eviction). |
 
 Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnormal) may also be observed for transport-level disconnects.
 
@@ -79,7 +79,7 @@ The ticket is consumed by the upgrade. **Obtain a new ticket for every connectio
 | Not board-scoped | One ticket authenticates the bearer for either `ws/boards/<id>/` or `ws/groups/<id>/`. Authorization is still enforced per connection. |
 | Fails closed | A ticket that is expired, already spent, or tampered with is closed with `4001` — even if the request also carries a valid session cookie. |
 | Rate limited | The issuing endpoint is throttled per user. Back off on `429` rather than retrying in a tight loop. |
-| Not revocable | A ticket cannot be revoked once issued. Logging out or deleting the PAT it was obtained with does not invalidate an outstanding ticket — it stays valid until spent or until its 30 seconds elapse. This is an accepted trade-off, bounded by the TTL. |
+| Bound to its credential | A ticket is bound to the credential it was obtained with (since 1.2, #1483). If that credential is revoked before the ticket is spent (logout, PAT deleted or expired, session token deleted), the handshake is closed with `4001`. After the handshake, the socket stays bound to it. See [Credential revocation](#credential-revocation-since-12). |
 
 !!! warning "Do not put a Personal Access Token in the WebSocket URL"
     Query strings are recorded in reverse-proxy access logs and proxy history. A PAT placed there is a long-lived credential leak with no time limit. A ticket is single-use and expires in 30 seconds, which bounds the exposure — but it does not remove it: anything able to read the access log and redeem the ticket before your client's own upgrade arrives would win the race and connect as you, once. Single use at least makes that visible rather than silent, since your own connection is then rejected with `4001`.
@@ -277,7 +277,7 @@ sees it appear or disappear without a reload.
 |---|---|---|
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
-Clients must silently ignore `ping` events. The keepalive prevents NATs and reverse proxies from dropping idle connections. Do not treat unknown event types as errors.
+Clients must silently ignore `ping` events. The keepalive prevents NATs and reverse proxies from dropping idle connections. Since 1.2, the server runs the [access re-check](#access-re-check-and-eviction) before each ping, so a socket can close with `4003` where a ping would otherwise have been sent. Do not treat unknown event types as errors.
 
 ---
 
@@ -337,12 +337,40 @@ A user who loses access to a board or group stops receiving its frames even if t
 
 - When the socket's own user is the subject of a `member.removed` frame, the server closes the socket at once. This is the fast path.
 - Before it forwards **any** frame, the server re-checks that the socket's user still has access. It uses the same rule as the handshake: `get_board_role` for a board channel, `get_accessible_group_ids` for a group channel. A deactivated account has no access. The result is cached per socket for a window of 5 seconds plus a random 0 to 2 seconds, redrawn after every check. The random part keeps the sockets on one board from all re-checking at the same moment. So a busy board costs at most one access query per socket per window. A `member.added` or `member.updated` frame about the socket's own user skips the cache.
+- The re-check also confirms that the credential the socket connected with has not been revoked and that the password has not changed since the handshake. See [Credential revocation](#credential-revocation-since-12).
+- Each keepalive ping (every 30 seconds) runs the same check first, so a socket on a quiet channel is re-checked even when no frames are published.
 - If the re-check finds no access, the server closes the socket with close code `4003` and does not forward the frame that triggered the check. The client treats `4003` as final and does not reconnect.
-- If the re-check itself fails, for example because the database is unreachable, the server handles it the same way. It drops the frame, logs a `WARNING` (`board access re-check failed` or `group access re-check failed`), and closes with `4003`. Reload the page to reconnect once the database is back.
+- If the re-check itself fails while a frame is being forwarded, for example because the database is unreachable, the server handles it the same way. It drops the frame, logs a `WARNING` (`board access re-check failed` or `group access re-check failed`), and closes with `4003`. Reload the page to reconnect once the database is back.
+- If the re-check fails during a keepalive ping, the socket stays open. The server logs a `WARNING` (`… re-check failed during keepalive`), sends the ping, and retries at the next ping. Nothing is forwarded on that path, and only a definitive denial closes the socket.
 
 The same window applies to the other changes the re-check picks up. A role change that sends no `member.*` frame on the board channel (a group role change, a board moved to another group, a change to all-content access) and the deactivation of a user's account both take effect within it.
 
-The window is a bound, not a guarantee of zero exposure. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket is closed before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user and no query runs. Its socket closes when the next frame arrives, or when the client disconnects.
+The window is a bound, not a guarantee of zero exposure. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket is closed before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user. Its keepalive ping runs the re-check, so it closes within about 30–40 seconds (one keepalive interval plus the re-check window) even if no frame arrives.
+
+#### Credential revocation (since 1.2)
+
+The re-check also verifies that the credential the socket connected with is still valid (#1483). The server closes the socket with `4003` within the access re-check window after logout, password change, or credential revocation:
+
+| Change | Cookie connection | Ticket connection |
+|---|---|---|
+| Logout | Closes if this session logged out. A logout in another browser or session does not affect it. | Closes if the credential that minted the ticket logged out (the session, or the session token, which logout deletes). |
+| Password change, from any endpoint or session | Closes. This includes the session that made the change: it is issued a new session key, and the open connection is tied to the old one. | Closes, whatever minted the ticket. |
+| Session revoked or expired (session row deleted) | Closes. | Closes if a session minted the ticket. |
+| PAT deleted or expired | Not affected. | Closes if that PAT minted the ticket. |
+| Session token deleted or reissued | Not affected. | Closes if that token minted the ticket. |
+
+When the close happens:
+
+- On a channel with traffic, the close happens on the first frame after the re-check window.
+- On a quiet channel, the keepalive ping (every 30 seconds, see [Keepalive](#keepalive)) runs the same check. The close then happens at the first ping after the window. A revoked socket on a quiet channel therefore closes within about 30–40 seconds (one keepalive interval plus the re-check window) even when no events are published.
+- The check costs one extra indexed lookup per socket per window.
+
+Related behavior and limits:
+
+- **The tab that changed the password.** The Visiban web app treats `4003` as final. A browser tab that changes its own password keeps its new session, but its open board or group socket closes. The connection indicator shows the failed state until the page is reloaded. Other API clients should obtain a fresh credential (log in again, or mint a new ticket) and reconnect.
+- **`SECRET_KEY` rotation.** Rotating `DJANGO_SECRET_KEY` without listing the old key in `SECRET_KEY_FALLBACKS` invalidates every session hash. Each open socket then closes once with `4003` at its next re-check, the same way Django logs every session out. If the old key is kept as a fallback, open sockets stay open.
+- **Signed-cookie sessions.** With `SESSION_ENGINE` set to `django.contrib.sessions.backends.signed_cookies`, there is no server-side session record, so a logout cannot be detected for a connection that is already open. Password change, deactivation, and token revocation are still detected. The default database session engine and the cache engines detect logout. Startup emits system-check warning `accounts.W001` when the signed-cookie engine is configured.
+- **Cache-only sessions.** With `SESSION_ENGINE` set to `django.contrib.sessions.backends.cache`, a cache outage makes every session look revoked, so open sockets close with `4003` at their next re-check, the same way a revoked session does. The `cached_db` and `db` engines are not affected.
 
 ### Missed frames
 

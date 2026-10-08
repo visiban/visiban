@@ -30,7 +30,7 @@ from django.test import TransactionTestCase
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from accounts.ws_auth import issue_ws_ticket
+from accounts.tests.ws_helpers import bound_scope, session_ticket
 from boards.broadcast import broadcast_board_event
 from boards import consumers as consumers_module
 from boards.consumers import ACCESS_RECHECK_JITTER_SECONDS, ACCESS_RECHECK_SECONDS, BoardConsumer
@@ -81,6 +81,7 @@ class BoardConsumerAccessRecheckUnitTests(TransactionTestCase):
         consumer.scope = {
             "url_route": {"kwargs": {"board_id": self.board.id}},
             "user": User.objects.get(pk=self.subscriber.pk),
+            **bound_scope(self.subscriber),
         }
         consumer._role = "member"
         if verified:
@@ -242,7 +243,7 @@ class LostMemberRemovedFrameE2ETests(TransactionTestCase):
         lossy = _LossyMemberRemovedLayer(get_channel_layer())
 
         async def run():
-            ticket, _ = await sync_to_async(issue_ws_ticket)(self.member)
+            ticket, _ = await sync_to_async(session_ticket)(self.member)
             comm = WebsocketCommunicator(asgi.application, f"/ws/boards/{self.board.id}/?ticket={ticket}")
             connected, _ = await comm.connect()
             self.assertTrue(connected)
@@ -312,6 +313,7 @@ class NoFrameAccessChangeTests(TransactionTestCase):
         consumer.scope = {
             "url_route": {"kwargs": {"board_id": self.board.id}},
             "user": User.objects.get(pk=self.subscriber.pk),
+            **bound_scope(self.subscriber),
         }
         consumer._role = role
         consumer._access_verified_at = self.clock()

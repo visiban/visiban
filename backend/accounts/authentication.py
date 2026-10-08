@@ -80,6 +80,17 @@ class InvalidPersonalAccessToken(Exception):
         super().__init__(detail)
 
 
+def pat_is_expired(pat) -> bool:
+    """True if *pat* has passed its expiry (no expiry means never).
+
+    The one expiry predicate for a ``PersonalAccessToken``: used by
+    :func:`resolve_personal_access_token` on every REST and MCP request and by
+    the WebSocket credential re-check (``accounts.ws_auth``, #1483), so the
+    paths cannot drift apart on the boundary instant.
+    """
+    return bool(pat.expires_at and pat.expires_at < timezone.now())
+
+
 def resolve_personal_access_token(raw_token):
     """Resolve a raw ``vbn_`` token to its ``PersonalAccessToken``.
 
@@ -112,7 +123,7 @@ def resolve_personal_access_token(raw_token):
     except PersonalAccessToken.DoesNotExist:
         raise InvalidPersonalAccessToken("Invalid or revoked token.")
 
-    if pat.expires_at and pat.expires_at < timezone.now():
+    if pat_is_expired(pat):
         raise InvalidPersonalAccessToken("Token has expired.")
 
     if not pat.user.is_active:
