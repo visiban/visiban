@@ -512,11 +512,15 @@ def _self_test() -> int:
               f"exit {code}, wrote {merged}")
 
         # Raw vs adjusted (#1503): excluded mutants are in the raw denominator only.
-        check("adjusted score ignores excluded", compute_score({"killed": 80, "survived": 20, "excluded": 10}) == 0.8)
+        adjusted = compute_score({"killed": 80, "survived": 20, "excluded": 10})
+        check("adjusted score ignores excluded", adjusted is not None and abs(adjusted - 0.8) < 1e-9, f"{adjusted}")
         raw = compute_raw_score({"killed": 80, "survived": 20, "excluded": 10})
         check("raw score counts excluded as not detected", raw is not None and abs(raw - 80 / 110) < 1e-9, f"{raw}")
+        raw_clean = compute_raw_score({"killed": 3, "survived": 1})
+        adj_clean = compute_score({"killed": 3, "survived": 1})
         check("raw equals adjusted with nothing excluded",
-              compute_raw_score({"killed": 3, "survived": 1}) == compute_score({"killed": 3, "survived": 1}))
+              raw_clean is not None and adj_clean is not None and abs(raw_clean - adj_clean) < 1e-9,
+              f"{raw_clean} vs {adj_clean}")
         check("raw of an empty run is None", compute_raw_score({"skipped": 4}) is None)
         summary = _format_summary({"killed": 80, "survived": 20, "excluded": 10}, 0.8)
         check("summary prints both numbers",
@@ -526,7 +530,7 @@ def _self_test() -> int:
                                 extra=["--write-merged", str(out)])
         both = json.loads(out.read_text("utf-8"))
         check("--write-merged carries both scores and the excluded count",
-              code == 0 and both.get("excluded") == 10 and both.get("score_adjusted") == 0.8
+              code == 0 and both.get("excluded") == 10 and abs(both.get("score_adjusted", 0) - 0.8) < 1e-9
               and abs(both.get("score_raw", 0) - 80 / 110) < 1e-9, f"exit {code}, wrote {both}")
         code, merged = merged_run([write("e0.json", shard(killed=2, skipped=4, total=6, excluded=3)),
                                    write("e1.json", shard(killed=4, skipped=2, total=6, excluded=3))])
