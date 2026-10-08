@@ -177,6 +177,10 @@ def _revoke_lapsed_admin_invite_links(user, group=None):
     the user still administers its group by another path (a direct admin row
     there or on another ancestor).
 
+    Inherited admin rights are only honored within ``_GROUP_TRAVERSAL_MAX_DEPTH``
+    (6) ancestor levels, the same cap as ``_require_group_admin``; an admin
+    row further up the tree does not keep a link alive.
+
     Must run inside the caller's ``transaction.atomic()``; the
     ``invite_link.revoked`` broadcasts are deferred to ``on_commit``.
     """

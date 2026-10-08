@@ -101,6 +101,48 @@ class PatchDeactivationTokenTests(TestCase):
         self.assertEqual(APIClient().get("/api/v1/auth/me/", **header).status_code, 401)
 
 
+class PatchDeactivationRollbackTests(TestCase):
+    def test_failure_inside_atomic_block_rolls_everything_back(self):
+        from accounts.admin_views import AdminUserDeactivateView
+
+        admin = User.objects.create_user(username="sa", password="pw", is_site_admin=True)
+        creator = User.objects.create_user(username="creator", password="pw")
+        group = Group.objects.create(name="G", owner=creator)
+        GroupMembership.objects.create(group=group, user=creator, role="admin")
+        glink, _ = GroupInviteLink.generate(group, creator)
+        slink, _ = InviteLink.generate(creator)
+        PersonalAccessToken.generate(creator, "ci")
+
+        real = AdminUserDeactivateView._revoke_group_invite_links
+
+        def revoke_then_fail(target):
+            real(target)  # registers the on_commit broadcast, then blows up
+            raise RuntimeError("boom")
+
+        c = APIClient(raise_request_exception=False)
+        c.force_authenticate(admin)
+        with (
+            patch.object(
+                AdminUserDeactivateView, "_revoke_group_invite_links",
+                staticmethod(revoke_then_fail),
+            ),
+            patch("groups.broadcast.broadcast_group_event") as mock_bc,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            r = c.patch(
+                f"/api/v1/admin/users/{creator.pk}/", {"is_active": False}, format="json",
+            )
+        self.assertEqual(r.status_code, 500)
+        creator.refresh_from_db()
+        glink.refresh_from_db()
+        slink.refresh_from_db()
+        self.assertTrue(creator.is_active)
+        self.assertTrue(glink.is_active)
+        self.assertIsNone(slink.revoked_at)
+        self.assertTrue(creator.personal_access_tokens.exists())
+        mock_bc.assert_not_called()
+
+
 class FlagClearRevokesLinksTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(username="sa", password="pw", is_site_admin=True)

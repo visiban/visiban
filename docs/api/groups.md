@@ -126,6 +126,10 @@ List all boards in this group and all of its descendant subgroups that the reque
 
 A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (`delivery: "email"`, below) are capped separately — up to 50 pending per group — and never count against the 5.
 
+A link can stay listed as active, and keep holding one of the 5 slots, after its creator is deleted or the group is re-parented so the creator no longer administers it. Join and preview still refuse such a link, so nobody is admitted through it; cleaning up the listing and the slot is tracked in #1513.
+
+Inherited group-admin rights (which decide whether a link's creator still counts as an admin, and which links are revoked on demotion) are considered only up to 6 ancestor levels; nesting deeper than that is not honored for these checks.
+
 ### `GET /api/v1/groups/{id}/invite-links/`
 List all invite links for this group. Requires group admin.
 
