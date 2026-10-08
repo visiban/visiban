@@ -2357,6 +2357,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Access re-check and eviction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#credential-revocation-since-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credential revocation (since 1.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -4051,7 +4068,7 @@
 </tr>
 <tr>
 <td><code>4003</code></td>
-<td>Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. Since 1.2, <code>4003</code> can also arrive <strong>mid-stream</strong> on an open connection, when the user loses access or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See <a href="#access-re-check-and-eviction">Access re-check and eviction</a>.</td>
+<td>Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. Since 1.2, <code>4003</code> can also arrive <strong>mid-stream</strong> on an open connection, when the user loses access, when the credential it connected with is revoked (logout, password change, revoked session or token), or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See <a href="#access-re-check-and-eviction">Access re-check and eviction</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -4105,8 +4122,8 @@
 <td>The issuing endpoint is throttled per user. Back off on <code>429</code> rather than retrying in a tight loop.</td>
 </tr>
 <tr>
-<td>Not revocable</td>
-<td>A ticket cannot be revoked once issued. Logging out or deleting the PAT it was obtained with does not invalidate an outstanding ticket — it stays valid until spent or until its 30 seconds elapse. This is an accepted trade-off, bounded by the TTL.</td>
+<td>Bound to its credential</td>
+<td>A ticket is bound to the credential it was obtained with (since 1.2, #1483). If that credential is revoked before the ticket is spent (logout, PAT deleted or expired, session token deleted), the handshake is closed with <code>4001</code>. After the handshake, the socket stays bound to it. See <a href="#credential-revocation-since-12">Credential revocation</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -4521,7 +4538,7 @@ sees it appear or disappear without a reload.</p>
 </tr>
 </tbody>
 </table>
-<p>Clients must silently ignore <code>ping</code> events. The keepalive prevents NATs and reverse proxies from dropping idle connections. Do not treat unknown event types as errors.</p>
+<p>Clients must silently ignore <code>ping</code> events. The keepalive prevents NATs and reverse proxies from dropping idle connections. Since 1.2, the server runs the <a href="#access-re-check-and-eviction">access re-check</a> before each ping, so a socket can close with <code>4003</code> where a ping would otherwise have been sent. Do not treat unknown event types as errors.</p>
 <hr />
 <h2 id="group-channel-since-11">Group channel (since 1.1)<a class="headerlink" href="#group-channel-since-11" title="Permanent link">&para;</a></h2>
 <p>Pushes board create/update/delete events for boards that currently live in the group, letting the group page keep its board list live without polling.</p>
@@ -4642,11 +4659,65 @@ sees it appear or disappear without a reload.</p>
 <ul>
 <li>When the socket's own user is the subject of a <code>member.removed</code> frame, the server closes the socket at once. This is the fast path.</li>
 <li>Before it forwards <strong>any</strong> frame, the server re-checks that the socket's user still has access. It uses the same rule as the handshake: <code>get_board_role</code> for a board channel, <code>get_accessible_group_ids</code> for a group channel. A deactivated account has no access. The result is cached per socket for a window of 5 seconds plus a random 0 to 2 seconds, redrawn after every check. The random part keeps the sockets on one board from all re-checking at the same moment. So a busy board costs at most one access query per socket per window. A <code>member.added</code> or <code>member.updated</code> frame about the socket's own user skips the cache.</li>
+<li>The re-check also confirms that the credential the socket connected with has not been revoked and that the password has not changed since the handshake. See <a href="#credential-revocation-since-12">Credential revocation</a>.</li>
+<li>Each keepalive ping (every 30 seconds) runs the same check first, so a socket on a quiet channel is re-checked even when no frames are published.</li>
 <li>If the re-check finds no access, the server closes the socket with close code <code>4003</code> and does not forward the frame that triggered the check. The client treats <code>4003</code> as final and does not reconnect.</li>
-<li>If the re-check itself fails, for example because the database is unreachable, the server handles it the same way. It drops the frame, logs a <code>WARNING</code> (<code>board access re-check failed</code> or <code>group access re-check failed</code>), and closes with <code>4003</code>. Reload the page to reconnect once the database is back.</li>
+<li>If the re-check itself fails while a frame is being forwarded, for example because the database is unreachable, the server handles it the same way. It drops the frame, logs a <code>WARNING</code> (<code>board access re-check failed</code> or <code>group access re-check failed</code>), and closes with <code>4003</code>. Reload the page to reconnect once the database is back.</li>
+<li>If the re-check fails during a keepalive ping, the socket stays open. The server logs a <code>WARNING</code> (<code>… re-check failed during keepalive</code>), sends the ping, and retries at the next ping. Nothing is forwarded on that path, and only a definitive denial closes the socket.</li>
 </ul>
 <p>The same window applies to the other changes the re-check picks up. A role change that sends no <code>member.*</code> frame on the board channel (a group role change, a board moved to another group, a change to all-content access) and the deactivation of a user's account both take effect within it.</p>
-<p>The window is a bound, not a guarantee of zero exposure. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket is closed before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user and no query runs. Its socket closes when the next frame arrives, or when the client disconnects.</p>
+<p>The window is a bound, not a guarantee of zero exposure. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket is closed before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user. Its keepalive ping runs the re-check, so it closes within about 30–40 seconds (one keepalive interval plus the re-check window) even if no frame arrives.</p>
+<h4 id="credential-revocation-since-12">Credential revocation (since 1.2)<a class="headerlink" href="#credential-revocation-since-12" title="Permanent link">&para;</a></h4>
+<p>The re-check also verifies that the credential the socket connected with is still valid (#1483). The server closes the socket with <code>4003</code> within the access re-check window after logout, password change, or credential revocation:</p>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Cookie connection</th>
+<th>Ticket connection</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Logout</td>
+<td>Closes if this session logged out. A logout in another browser or session does not affect it.</td>
+<td>Closes if the credential that minted the ticket logged out (the session, or the session token, which logout deletes).</td>
+</tr>
+<tr>
+<td>Password change, from any endpoint or session</td>
+<td>Closes. This includes the session that made the change: it is issued a new session key, and the open connection is tied to the old one.</td>
+<td>Closes, whatever minted the ticket.</td>
+</tr>
+<tr>
+<td>Session revoked or expired (session row deleted)</td>
+<td>Closes.</td>
+<td>Closes if a session minted the ticket.</td>
+</tr>
+<tr>
+<td>PAT deleted or expired</td>
+<td>Not affected.</td>
+<td>Closes if that PAT minted the ticket.</td>
+</tr>
+<tr>
+<td>Session token deleted or reissued</td>
+<td>Not affected.</td>
+<td>Closes if that token minted the ticket.</td>
+</tr>
+</tbody>
+</table>
+<p>When the close happens:</p>
+<ul>
+<li>On a channel with traffic, the close happens on the first frame after the re-check window.</li>
+<li>On a quiet channel, the keepalive ping (every 30 seconds, see <a href="#keepalive">Keepalive</a>) runs the same check. The close then happens at the first ping after the window. A revoked socket on a quiet channel therefore closes within about 30–40 seconds (one keepalive interval plus the re-check window) even when no events are published.</li>
+<li>The check costs one extra indexed lookup per socket per window.</li>
+</ul>
+<p>Related behavior and limits:</p>
+<ul>
+<li><strong>The tab that changed the password.</strong> The Visiban web app treats <code>4003</code> as final. A browser tab that changes its own password keeps its new session, but its open board or group socket closes. The connection indicator shows the failed state until the page is reloaded. Other API clients should obtain a fresh credential (log in again, or mint a new ticket) and reconnect.</li>
+<li><strong><code>SECRET_KEY</code> rotation.</strong> Rotating <code>DJANGO_SECRET_KEY</code> without listing the old key in <code>SECRET_KEY_FALLBACKS</code> invalidates every session hash. Each open socket then closes once with <code>4003</code> at its next re-check, the same way Django logs every session out. If the old key is kept as a fallback, open sockets stay open.</li>
+<li><strong>Signed-cookie sessions.</strong> With <code>SESSION_ENGINE</code> set to <code>django.contrib.sessions.backends.signed_cookies</code>, there is no server-side session record, so a logout cannot be detected for a connection that is already open. Password change, deactivation, and token revocation are still detected. The default database session engine and the cache engines detect logout. Startup emits system-check warning <code>accounts.W001</code> when the signed-cookie engine is configured.</li>
+<li><strong>Cache-only sessions.</strong> With <code>SESSION_ENGINE</code> set to <code>django.contrib.sessions.backends.cache</code>, a cache outage makes every session look revoked, so open sockets close with <code>4003</code> at their next re-check, the same way a revoked session does. The <code>cached_db</code> and <code>db</code> engines are not affected.</li>
+</ul>
 <h3 id="missed-frames">Missed frames<a class="headerlink" href="#missed-frames" title="Permanent link">&para;</a></h3>
 <p>A transient publish failure does <strong>not</strong> close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or <strong>Refresh board</strong> in the connection popover. On the group page, it is the next socket reconnect.</p>
 <p>How to resync:</p>

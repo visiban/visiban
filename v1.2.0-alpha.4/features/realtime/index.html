@@ -3886,11 +3886,12 @@
 <li>🔴 <strong>Offline</strong> — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect</li>
 </ul>
 <p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Offline</strong>.</p>
+<p>After you log out or change your password, open board and group tabs show the connection indicator as <strong>Offline</strong> within about 30–40 seconds. Reload the page to reconnect. This includes the tab you changed your password in. Logging out in one browser does not affect tabs signed in through another session. See <a href="../../api/websockets/#credential-revocation-since-12">Credential revocation</a>.</p>
 <h2 id="event-types">Event types<a class="headerlink" href="#event-types" title="Permanent link">&para;</a></h2>
 <p>Board-channel events fall into a few categories:</p>
 <ul>
 <li><strong>Board</strong> — settings changes, deletion, and per-user star toggles</li>
-<li><strong>Members</strong> — added, role changed, or removed (removing the current user also closes their connection; if that event is lost, the server's access re-check still closes the connection, with code <code>4003</code>, at the first board change more than about 7 seconds after the server last confirmed their access — see <a href="../../api/websockets/#access-re-check-and-eviction">Access re-check and eviction</a>)</li>
+<li><strong>Members</strong> — added, role changed, or removed (removing the current user also closes their connection; if that event is lost, the server's access re-check still closes the connection, with code <code>4003</code>, at the first board change, or the first keepalive ping (sent every 30 seconds), more than about 7 seconds after the server last confirmed their access — see <a href="../../api/websockets/#access-re-check-and-eviction">Access re-check and eviction</a>)</li>
 <li><strong>Cards</strong> — created, field changes, moves between columns/swimlanes, deletion, archive, and restore</li>
 <li><strong>Columns, swimlanes, and labels</strong> — created, updated, deleted, and (for columns and swimlanes) reordered</li>
 <li><strong>Feature-specific families</strong> riding the same board channel: saved-filter events (see <a href="../saved-filters/">Saved Filters</a>), custom field and swimlane field events (see <a href="../custom-fields/#api-and-real-time-events">Custom Fields</a>), and — when <a href="../issue-board-lens/">Issue Board Lens</a> is enabled — Git Lens connection events</li>

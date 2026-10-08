@@ -4619,7 +4619,7 @@
 </tbody>
 </table>
 <p>The ticket authenticates only — board and group membership is still enforced on every connection, so a ticket belonging to a non-member is closed with <code>4003</code>.</p>
-<p>A ticket cannot be revoked once issued: logging out, or deleting the PAT it was obtained with, does not invalidate an outstanding ticket. It remains valid until it is spent or its 30 seconds elapse. The short TTL is what bounds this, and it is a deliberate trade-off for keeping the handshake a single cache lookup.</p>
+<p>The ticket is bound to the credential that minted it (since 1.2, #1483). If that credential is revoked before the ticket is spent (the session logs out, the PAT is deleted or expires, or the session token is deleted), the handshake is closed with <code>4001</code>. Once the socket is open, the server closes it with <code>4003</code> within the access re-check window after logout, password change, or credential revocation. See <a href="../websockets/#credential-revocation-since-12">WebSocket API → Credential revocation</a>.</p>
 <p><strong>Errors</strong></p>
 <table>
 <thead>
@@ -4636,6 +4636,10 @@
 <tr>
 <td><code>403 Forbidden</code></td>
 <td>The request was authenticated with a scoped PAT that does not hold <code>write</code></td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>The request was authenticated by a credential the server cannot re-validate later, so it cannot be bound to a ticket (<code>"This credential cannot be used to open a WebSocket."</code>). Session cookies, PATs, and session tokens are always accepted.</td>
 </tr>
 <tr>
 <td><code>405 Method Not Allowed</code></td>
