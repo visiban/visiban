@@ -4668,6 +4668,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </tr>
 </tbody>
 </table>
+<p><em>(1.2+)</em> Setting <code>is_active: false</code> also deletes the user's personal access tokens (so they do not come back on reactivation) and revokes the user's pending invite links exactly like <a href="#post-apiv1adminusersiddeactivate"><code>POST /api/v1/admin/users/{id}/deactivate/</code></a>: unused site invite links, pending board invites and active, unused group invite links (each affected board and group receives an <code>invite_link.revoked</code> event). Consumed single-use links are left as they are. Clearing <code>can_access_all_content</code> (the only flag that confers group-admin rights; <code>is_site_admin</code> does not) revokes the user's unused group invite links that they can no longer administer (links where they are still a group admin by membership are kept). Previously the links stayed active in the database and in the admin link lists, though they were already refused at preview and join.</p>
 <p><strong>Request</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"is_active"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
