@@ -71,7 +71,7 @@ glab issue list --repo visiban/visiban --state closed --label "$WORKING_RELEASE"
    - **continue** — re-run anyway (e.g. significant code has changed since the last run)
    - **targeted** — run only a specific sub-audit (e.g. `/pre-release security`) on the area you just fixed"
 3. Wait for the user's choice before proceeding.
-   - If "resolve" → stop here. Do not launch any agents.
+   - If "resolve" → run Step 1.5 and show its result, then stop here. Do not launch any agents.
    - If "targeted" → jump to Step 0.1 to let the user pick a specific audit type.
    - If "continue" → proceed to Step 1.
 
@@ -142,7 +142,7 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 2. If any 🔴 findings exist:
    - Present them to the user in the consolidated report format (summary + blocking section only).
    - Ask: "Wave 1 found N blocking issue(s) against $WORKING_RELEASE. Fix these first, or continue the audit? (fix first / continue)"
-   - If "fix first" → stop here. Run Step 3 (GitLab issue check) for the Wave 1 findings only, then run Step 4 gate check. Do not launch Wave 2.
+   - If "fix first" → stop here. Run Step 3 (GitLab issue check) for the Wave 1 findings only, then run Step 1.5 (if not yet run) and the Step 4 gate check. Do not launch Wave 2.
    - If "continue" → proceed to Wave 2.
 3. If no 🔴 findings → proceed to Wave 2 immediately (no prompt needed).
 
@@ -154,12 +154,93 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 2. If any 🔴 findings exist:
    - Present them (along with any Wave 1 blockers) in the consolidated format.
    - Ask: "Wave 2 found N additional blocking issue(s) against $WORKING_RELEASE. Fix these first, or continue the audit? (fix first / continue)"
-   - If "fix first" → stop here. Run Step 3 for all findings so far, then Step 4. Do not launch Wave 3.
+   - If "fix first" → stop here. Run Step 3 for all findings so far, then Step 1.5 (if not yet run) and Step 4. Do not launch Wave 3.
    - If "continue" → proceed to Wave 3.
 3. If no 🔴 findings → proceed to Wave 3 immediately.
 
 **Wave 3** (docs + ecosystem):
 - api-docs, docs, dependency, enterprise-check, regression-check, test-scaffold (coverage audit mode — report only, no scaffold generation)
+
+---
+
+## Step 1.5 — Deferred security follow-ups (every audit type)
+
+A security finding deferred during review is filed as an issue labeled `security::deferred`
+**and assigned the target milestone** (see `docs/maintainers/security-deferred-label.md`).
+Open ones in the target milestone, **or with no milestone at all**, are 🔴 blockers
+**unless** they carry a valid, unexpired accepted-risk note. This is deliberately narrow:
+plain `security` issues (tracking, hardening) are not checked here.
+
+Step 1.5 runs for every audit type (in Step 1; on the early exits it is run from Step 4 or the
+"resolve" stop, so it is never skipped). Only a `full` audit gates `/release` on it (Step 4). Its blockers feed the Step 2 "Blocking" count and are tagged
+`(tracked in #N)`, so Step 3 does not re-file them. For targeted audits it is report-only
+and does not start the one-time-gate flow.
+
+```bash
+M="$WORKING_RELEASE"; TODAY=$(date +%F); N=0; FAIL=0
+CAP=$(date -v+1y +%F 2>/dev/null || date -d '+1 year' +%F)   # BSD (macOS) or GNU date
+D=$(mktemp)   # unique per run: parallel sessions must not share a path
+# fetch <api-path>: fail closed. glab must exit 0 and EVERY page must be a JSON array
+# (an auth/404 error is an object, or a nonzero exit); prints the merged array.
+fetch() {
+  local out; out=$(glab api --paginate "$1") || return 1
+  printf '%s' "$out" | jq -s -e 'length>0 and all(.[]; type=="array")' >/dev/null 2>&1 || return 1
+  printf '%s' "$out" | jq -s 'add'
+}
+# milestone=None catches issues filed with no milestone, which a milestone filter would miss
+{ fetch "projects/visiban%2Fvisiban/issues?milestone=$M&labels=security::deferred&state=opened&per_page=100" \
+  && fetch "projects/visiban%2Fvisiban/issues?milestone=None&labels=security::deferred&state=opened&per_page=100"; } \
+  | jq -s -e 'add' > "$D" || { FAIL=1; echo "🔴 deferred-security check could not run: issue query failed (auth/network/API error) — treat as a blocker"; }
+if [ "$FAIL" = 0 ]; then
+for iid in $(jq -r '.[].iid' "$D"); do
+  N=$((N+1))
+  conf=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.confidential' "$D")
+  ms=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.milestone.title // "none"' "$D")
+  notes=$(fetch "projects/visiban%2Fvisiban/issues/$iid/notes?per_page=100") || { FAIL=1; echo "🔴 #$iid deferred-security check could not run: notes query failed — treat as a blocker"; continue; }
+  # candidate lines as "author|line" from the description and every non-system comment
+  cand=$( { jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.author.username as $a|(.description // "")|gsub("\r";"")|split("\n")[]|select(startswith("Accepted risk:"))|"\($a)|\(.)"' "$D"
+            printf '%s' "$notes" | jq -r '.[]|select(.system|not)|.author.username as $a|.body|gsub("\r";"")|split("\n")[]|select(startswith("Accepted risk:"))|"\($a)|\(.)"'; } )
+  verdict=$(printf '%s\n' "$cand" \
+    | grep -E '^[^|]+\|Accepted risk: accepted-by: @[A-Za-z0-9_.-]+; reason: [^;]*[^; ]; expires: [0-9]{4}-[0-9]{2}-[0-9]{2} *$' \
+    | sed -E 's/^([^|]+)\|.*accepted-by: (@[A-Za-z0-9_.-]+);.*expires: ([0-9-]{10}) *$/\1 \2 \3/' \
+    | awk -v t="$TODAY" -v cap="$CAP" '{ split($3,a,"-"); y=a[1]+0; m=a[2]+0; d=a[3]+0
+        dim=(m==2)?(((y%4==0&&y%100!=0)||y%400==0)?29:28):((m==4||m==6||m==9||m==11)?30:31)
+        if (m<1||m>12||d<1||d>dim||$3<t) next
+        if ($3>cap) { far=1; next }
+        if (!ok) { ok=1; line="ACCEPTED note-by=" $1 " accepted-by=" $2 " expires=" $3 } }
+        END{ print ok ? line : (far ? "BLOCKER (expiry too far out; max 1 year)" : "BLOCKER") }')
+  echo "#$iid confidential=$conf milestone=$ms $verdict"
+done
+fi
+rm -f "$D"
+echo "checked $N issue(s)$([ "$FAIL" = 0 ] || echo '; CHECK DID NOT COMPLETE — a blocker')"
+```
+
+**Accepted-risk note format** — one line, in the issue description or any non-system comment:
+
+```
+Accepted risk: accepted-by: @<maintainer>; reason: <why shipping is acceptable>; expires: YYYY-MM-DD
+```
+
+Fields appear in exactly this order, separated by `; `:
+- `accepted-by` is `@` plus `[A-Za-z0-9_.-]+`.
+- `reason` is non-blank and contains no `;`.
+- `expires` is a real calendar date (month 1-12, valid day) and the last field on the line,
+  so two `expires` fields never match.
+- An `expires` date before today does not count (the issue is a 🔴 blocker again), and one more than 1 year out is rejected too (`expiry too far out`).
+
+Any ONE valid line in the description or comments accepts the issue. The note is
+**honor-system**: nothing verifies that `accepted-by` is a maintainer or that the commenter
+is not the issue's filer, so the release owner must read each accepted note before
+tagging; the output prints the note author, the `accepted-by` handle and the expiry for that purpose. Do not treat `ACCEPTED` as an enforced approval.
+
+**Fails closed:** if any `glab` call exits nonzero or returns something other than a JSON array (401, 404, malformed output), the block prints a `🔴 ... could not run` line; report that as a 🔴 blocker, never as "0 issues". The final `checked N issue(s)` line distinguishes a clean zero from a check that did not run.
+
+Report each `BLOCKER` as a 🔴 finding ("open deferred security follow-up #N without a valid
+accepted-risk note", or "... with no milestone") and each `ACCEPTED` as 🟢 with its expiry
+date. **Confidentiality:** the maintainer token sees confidential issues. For
+`confidential=true` issues, report only the issue number in anything that leaves the
+session (MR text, public issue, docs); never quote the title or body.
 
 ---
 
@@ -242,7 +323,7 @@ After the report:
 
 ## Step 4 — Gate check (full audit only)
 
-If the audit type was `full`:
+If the audit type was `full`. (Step 1.5 runs for every audit type; only here, on a `full` audit, do its blockers gate `/release`. They count as 🔴 blocking findings below.)
 
 - If any 🔴 blocking findings remain unresolved against $WORKING_RELEASE → **do not proceed to `/release`**. Tell the user: "Pre-release audit found N blocking issue(s) against $WORKING_RELEASE. Resolve these before running `/release`."
 - If only 🟡 findings remain → advise the user to triage them, then they may proceed to `/release`

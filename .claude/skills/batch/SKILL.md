@@ -195,6 +195,8 @@ Every agent finishes by, in order:
    deferred to an **open** issue. The orchestrator re-briefs the implementer (via
    `SendMessage`) to fix them, in a **new commit** (never an amend), so the fix diff
    stays separable from the audited branch.
+   A deferred *security* finding goes to an open issue labeled `security::deferred` with the target milestone set
+   (`docs/maintainers/security-deferred-label.md`), so `/pre-release` can block on it.
 
    **Then decide which second pass runs — at most one, per the "After round 1"
    table in `.claude/agents/completeness-check.md`.** If round 1 reported a

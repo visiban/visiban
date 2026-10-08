@@ -97,3 +97,5 @@ Work through each category. For categories with no findings from the scans, stat
 - Give the concrete fix
 
 If there are no 🔴 findings, state that explicitly so the output is unambiguous.
+
+**Deferring a finding:** if a security finding is deferred rather than fixed on the branch, it must be filed as an issue labeled `security::deferred` (in addition to `security`), assigned the target milestone, and named in the MR. `/pre-release` treats every open `security::deferred` issue as a 🔴 blocker unless it carries an `Accepted risk: accepted-by: @x; reason: y; expires: YYYY-MM-DD` note. See `docs/maintainers/security-deferred-label.md`.

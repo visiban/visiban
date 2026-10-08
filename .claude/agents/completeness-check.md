@@ -143,6 +143,10 @@ deferred to an **open** issue that is named in the MR description — verify it 
 this gate exists to catch. Paste the `## Requirements` table into the MR description. Push
 only after this.
 
+A GAP that is a **security finding** deferred to an issue must be deferred to one labeled
+`security::deferred` with the target milestone set (verify with `glab issue view N`); otherwise `/pre-release` will not see it.
+See `docs/maintainers/security-deferred-label.md`.
+
 ## Cause tags
 
 Every BLOCKER and GAP opens with exactly one **cause tag** — why the gap exists, not
