@@ -91,25 +91,36 @@ Measured 2026-10-07 (#1454) with the line range of `update_card` only, run in 8 
 |---|---:|---|
 | Missing assertion, **fixed** (#1454) | 43 | The 44 `update_card` survivors of the #1443 baseline: per-field `CardActivity` rows (title, priority, weight, assignee, description, labels, due date), the assignment and mention notification contents, the weight-increase limit check, and the `force` default. The view suites (`test_views_cards`, `test_notifications`, `test_card_timeline` and the others in the table above) already killed 25 of them; `test_card_service_mutation_gaps.py` kills the other 18, and on its own with the scoped files kills 40 of the 44. |
 | Latent bug, **fixed** (#1511) | 1 | `parts.append(f"-{', '.join(names)}")` in the label diff (`'XX, XX'.join(names)`). The removed label names were looked up in the labels on the card *after* the write, so the list was always empty and the activity row for a removal read `-` with no name. That was a real bug, not an equivalent mutant. #1511 resolves removed names from the pre-write label snapshot, and `test_removed_labels_are_listed_with_minus`, `test_several_removed_labels_join_with_comma_space` and `test_add_and_remove_in_one_update` now pin the corrected output, so the mutant dies. |
-| Equivalent | 8 | `_archive_movement` falls back to `""` when `card.column` or `card.swimlane` is `None`. Both foreign keys are non-null on `Card`, so the branch is unreachable. Left alone here; tracked in #1505. |
-| Equivalent here | 6 | `select_for_update` guard conditions in `move_card` and `enforce_column_limits` (the `select_for_update` calls on the card, column and sibling rows). The lock is not observable on SQLite. Only a PostgreSQL concurrency test can kill these (`test_concurrent_moves.py` is the place). Tracked in #1504 and #1503. |
+| Equivalent, **excluded** (#1503) | 8 | `_archive_movement` falls back to `""` when `card.column` or `card.swimlane` is `None`. Both foreign keys are non-null on `Card`, so the branch is unreachable. Each of the 8 lines carries `# pragma: no mutate -- ...`, and each holds this one mutant only, so nothing killed is excluded with it. #1505 may delete the dead branches instead, at which point the pragmas go with them. |
+| Equivalent on SQLite, **not excluded** | 6 | `select_for_update` guard conditions in `move_card` and `enforce_column_limits` (the `select_for_update` calls on the card, column and sibling rows). The lock is not observable on SQLite. Only a PostgreSQL concurrency test can kill these (`test_concurrent_moves.py` is the place), so they carry **no** pragma: per the [policy](#equivalent-mutants-and-the-score-1503), a mutant a PostgreSQL test can kill is not excluded. They stay in both scores until #1504 lands that test. |
 | Missing assertion, fixed (#1443) | 19 | Creation-movement origin fields, the `position` bypass guard in `update_card`, the `or 0` weight fallback on an empty column, the role-hint rejection warning, the restore ownership message, the delete broadcast payload, and the create-time mention notification. |
 
 With every `update_card` survivor except the #1511 label mutant killed, `cards.py` went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last `update_card` mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).
 
+With the 8 `_archive_movement` exclusions from #1503 the two numbers are, **expected and not re-measured**: raw 229 of 243 (94.2%) and adjusted 229 of 235 (97.4%), the remaining six survivors being the `select_for_update` guards. The pragmas only remove mutants, and the 8 excluded were survivors, so the killed count does not change.
+
 The activity and notification paths in `boards/views/cards.py` (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the `cards.py` score above and are unmeasured; a mutation run on `boards/views/cards.py` would be needed to know their kill rate.
 
-### Movement model (`CardMovement`): 28 survivors left of 45
+### Movement model (`CardMovement`): 27 survivors left of 73 (all excluded, #1503)
 
-All remaining survivors change a field argument (`max_length`, `blank`, `db_index`, `related_name`, `Meta.indexes`). These are schema constants. They have no behavior to assert at the test level, and a drift against the migrations is already caught by the CI `migration-check` job, so they are treated as equivalent. The behavioral parts (default type, wire values, ordering, `SET_NULL` history retention) are now asserted.
+Re-measured 2026-10-08 on `main` at `f6d570d55` (4 shards, lines of the class only, the six scoped test files from the table above including `test_movement_record_mutation_gaps`): 46 killed, 27 survived, none untested. The earlier baseline in this page counted 28 survivors; the difference of one is a field the tests now cover, not a different set of mutants.
 
-### RBAC (`permissions.py`): 4 survivors left of 74
+All 27 survivors change a field argument that is a **schema constant**: `max_length` (+1) and `blank` (`True` to `False`) on the eight `*_name` / `*_uid` fields and on `notes`, `max_length` on `movement_type`, `db_index` on `moved_at`, `related_name="+"` on the four FKs, and the two strings and the field list of the `movement_card_moved_idx` index. They have no behavior to assert at the test level, and a drift against the migrations is caught by the CI `migration-check` job, so each is a proven-equivalent mutant (first question in [How to read the results](#how-to-read-the-results): nothing a caller can observe). The behavioral arguments (`default`, `on_delete`, `null`, `choices`, `ordering`, `db_table`) are killed and stay mutated.
+
+#1503 marks the 27 with `# pragma: no mutate -- schema constant (migration-check)`. mutmut's pragma is per physical line, so the fields in this class are written one argument per line: that keeps the constants on their own lines and the behavioral arguments (which were killed) outside any pragma. This was checked by generating the class's mutants with pragmas ignored and with them honored: the same 73 mutants exist in both, and the 27 that disappear are exactly the 27 survivors above (nothing that was killed is excluded). Expected result: raw 46 of 73 (63.0%), adjusted 46 of 46 (100%).
+
+### RBAC (`permissions.py`): 4 survivors left of 118 (all excluded, #1503)
+
+Re-measured 2026-10-08 on the lines of `get_board_role` and `_is_demo_visitor` that hold them: the same four survivors, all equivalent. (The page used to say "of 74"; the module has 118 mutants, 114 of them killed.)
 
 | Mutant | Bucket | Why |
 |---|---|---|
-| `break` to `continue` in the prefetched-membership scan (line 235) | Equivalent | A user has at most one membership per board, so scanning on finds nothing new. |
-| `getattr(settings, "DEMO_MODE", False)` default flipped to `True` (line 346) | Equivalent | `DEMO_MODE` is always defined in settings. |
-| `or ""` / `"XXXX"` defaults on `user.username` (line 351, two mutants) | Equivalent | A real user always has a non-empty username. |
+| `break` to `continue` in the prefetched-membership scan | Equivalent, excluded | A user has at most one membership per board, so scanning on finds nothing new. |
+| `getattr(settings, "DEMO_MODE", False)` default flipped to `True` | Equivalent, excluded | `DEMO_MODE` is always defined in settings. |
+| `""` default flipped to `"XXXX"` in `getattr(user, "username", "")` | Equivalent, excluded | A real user always has a username. |
+| `or ""` fallback flipped to `or "XXXX"` on `user.username` | Equivalent, excluded | A real user always has a non-empty username. |
+
+The last three shared a line with mutants that tests *do* kill (the setting name, `is not`, the `or` operator, `==`), so a line-level pragma would have hidden killed mutants too. `_is_demo_visitor` is therefore written with the defaults on their own lines, and the `or` on the closing line outside any pragma. The split adds two mutants (`demo_mode = None` and `username = None`, so the module now has 120). Both are killed: a re-run over the changed lines (116 mutants honoring the pragmas, 26 killed, 0 survived; the rest belong to other lines) leaves no survivor. As with `CardMovement`, the 4 mutants that disappear under the pragmas were checked to be exactly the 4 survivors. Expected for the module (114 killed before, plus the 2 new): raw 116 of 120 (96.7%), adjusted 116 of 116 (100%); not a whole-module re-run.
 
 ### Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)
 
@@ -234,6 +245,35 @@ Measured against `main` at `ab38c4688`. The line range moves whenever `cards.py`
 
 Sum the survivors over the 8 copies (`select count(*) from Mutant where status='bad_survived'` in each `.mutmut-cache`). Run `mutmut show` with `MM_SHARD` and `MM_N` exported, or the config import fails.
 
+## Equivalent mutants and the score (#1503)
+
+Some modules cannot reach the target by tests alone. A survivor that no test can kill is an **equivalent mutant** (bucket two in [Survivor classification](#survivor-classification)). Without a rule, a floor either demands brittle tests of Django `_meta` internals or sits permanently below target. The rule:
+
+- **Two numbers per module.** The **adjusted** score leaves out the mutants proven equivalent. The **raw** score keeps them in the denominator, as not detected. Both are printed by `scripts/check_mutation_score.py` and both are in the `mutmut-cicd-stats.json` artifact (`score_adjusted`, `score_raw`, `excluded`), so an exclusion is always visible.
+- **The floor gates the adjusted number.** `MUTATION_MIN` ([CI pilot](#ci-pilot-backend-mutation)) is compared with the adjusted score. A low raw score is reported, never failed.
+- **An exclusion is a comment in the source, with a reason.** Put `# pragma: no mutate -- <reason>` on the line. A pragma with no `-- <reason>` (at least 10 characters) is rejected by `python3 scripts/check_mutation_score.py --check-pragmas backend`, which the `mutation-score-selftest` CI job runs on every MR that touches backend Python.
+- **A claim that SQLite cannot observe the mutant is not enough by itself.** That is a gap in the test setup, not a property of the code. The reason must also say that a PostgreSQL test could kill it (the checker rejects a reason that names SQLite but not PostgreSQL), and a mutant that a planned PostgreSQL test is meant to kill (the `select_for_update` guards, #1504) is **not** excluded.
+- **Triage first.** An equivalence claim is only made after the three questions in [How to read the results](#how-to-read-the-results); the reason states the answer to the first one.
+
+### How mutmut 2.5.1 treats `# pragma: no mutate`
+
+Checked on mutmut 2.5.1 (the CI pin) with a small module, and re-checked by the real-mutmut cases in `check_mutation_score.py --self-test` whenever mutmut is importable:
+
+| Placement | Effect |
+|---|---|
+| Comment on a statement's line | No mutant is generated for that line. |
+| Comment on `def f():` | **Only** the `def` line. The body is still mutated. |
+| Comment on the last line of a multi-line call, `)  # pragma: no mutate` | Only that closing line. The argument lines above it (`max_length=10,`) are still mutated, and are the survivors you were trying to exclude. |
+| Comment on the first line of a multi-line call, list or dict | Only that first line. |
+
+So the scope is **one physical line, and the line the mutant is on**. A multi-line field definition needs the pragma on every line that carries a constant, including the closing `)` or `]` when mutmut mutates it. Check by comparing the survivor list with and without the pragma, not by eye. There is no block form in 2.5.1.
+
+Because mutmut's cache is built from the mutants it generates, a pragma'd line has **no row at all** in `.mutmut-cache`: it is not killed, not survived, not skipped. A score computed from the cache alone would therefore silently shrink its own denominator and the raw number could not be recovered. `check_mutation_score.py --export-cache` solves this by reading the mutated source files named in the cache's `SourceFile` table and asking mutmut to enumerate their mutants twice, once as written and once with its pragma set emptied. The difference is `excluded`. Consequences:
+
+- `excluded` is module-wide, like `total`. Every shard reports the same value, the shards must agree (exit 2 otherwise), and the merged file carries it once, not N times.
+- The export step needs mutmut importable (it is, in the `backend-mutation` job). If it is not, the export exits 2 (not measured) rather than reporting a raw score equal to the adjusted one.
+- The count assumes the run was not restricted to a line range by a `pre_mutation` hook that changes which lines are *generated*. The sharding hook only skips mutants after generation, so it is fine. A hand-restricted run (such as the `CardMovement` line range) can still be read from `.mutmut-cache` directly.
+
 ## How to read the results
 
 ```bash
@@ -241,11 +281,13 @@ PYTHONPATH=/tmp/mutmut-tools .venv/bin/python -m mutmut results      # lists sur
 PYTHONPATH=/tmp/mutmut-tools .venv/bin/python -m mutmut show 42      # prints the diff for mutant 42
 ```
 
+The score a run reports is the **adjusted** one (excluded mutants left out), with the **raw** one beside it; see [Equivalent mutants and the score](#equivalent-mutants-and-the-score-1503). `mutmut results` and the `Mutant` table do not list pragma'd lines at all, so a survivor count read from them is already adjusted.
+
 Status meanings: killed (a test failed, good), survived (all tests passed, look at it), timeout (the mutant made the tests hang, counted as killed by most conventions), suspicious (slow but not a timeout). Statuses are also in the `mutant` table of `.mutmut-cache` (SQLite) if you want counts: `sqlite3 .mutmut-cache "select status, count(*) from mutant group by status"`.
 
 For each survivor, read the diff and ask in order:
 
-1. **Can this change alter anything a caller or user could observe?** If not (dead branch, default that is always overridden, lock call on SQLite, schema constant guarded by `migration-check`), it is an equivalent mutant. Do not write a test for it.
+1. **Can this change alter anything a caller or user could observe?** If not (dead branch, default that is always overridden, lock call on SQLite, schema constant guarded by `migration-check`), it is an equivalent mutant. Do not write a test for it; mark it with `# pragma: no mutate -- <reason>` following the [policy](#equivalent-mutants-and-the-score-1503), unless it is only unobservable on SQLite and a PostgreSQL test could kill it (then it stays a survivor until that test exists).
 2. **Is the changed code reached by any test in scope?** If not, it is untested code. Either add a test or note which other suite covers it.
 3. **Otherwise it is a missing assertion.** Add the smallest assertion that fails on the mutant: the exact message or key, the boundary value (`limit` and `limit + 1`), the empty-collection case, or the ordering.
 
@@ -290,7 +332,7 @@ Each mutant costs about 25 s, nearly all of it pytest and Django start-up, not t
 
 1. After the pilot MR merges, add `MUTATION_TEST=true` to the Nightly schedule (4176726). Until then the jobs never run. `MUTATION_TEST` is in `SCHEDULE_AUDIT_ACCEPTED_GAPS` so `schedule-config-check` does not report it MISSING.
 2. Remove `MUTATION_TEST` from `SCHEDULE_AUDIT_ACCEPTED_GAPS` in `.gitlab-ci.yml` once the schedule carries it (not machine-checked).
-3. After about a week of nightly artifacts, set `MUTATION_MIN` one point under the lowest observed score, written as a fraction: a 96% low gives `MUTATION_MIN=0.95`, not `95`. The checker rejects `0` and anything outside (0, 1] (exit 2). Record the decision on #1384. #1384 stays open until then.
+3. After about a week of nightly artifacts, set `MUTATION_MIN` one point under the lowest observed **adjusted** score (the raw one is reported, not gated, #1503), written as a fraction: a 96% low gives `MUTATION_MIN=0.95`, not `95`. The checker rejects `0` and anything outside (0, 1] (exit 2). Record the decision on #1384. #1384 stays open until then.
 4. Triage survivors as described in [How to read the results](#how-to-read-the-results).
 
 ## Limits of this baseline
@@ -298,5 +340,6 @@ Each mutant costs about 25 s, nearly all of it pytest and Django start-up, not t
 - Mutation operators in mutmut 2.x are shallow (operators, constants, `None` replacements). A high kill rate here does not prove the tests are strong, and a low one on string literals is partly noise.
 - Kill rate depends on which tests were allowed to run. The 44 `update_card` survivors would likely drop with the view-level suites included. They are tracked in #1454.
 - SQLite hides locking and concurrency behavior. The `select_for_update` survivors need a PostgreSQL run.
-- The `CardMovement` figure (61.6%) is capped by schema-constant mutants (`max_length`, `db_index`, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and `SET_NULL` retention; the rest is guarded by CI `migration-check`, not by tests.
+- The `CardMovement` figure (61.6% in the baseline table) is capped by schema-constant mutants (`max_length`, `db_index`, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and `SET_NULL` retention; the rest is guarded by CI `migration-check`, not by tests. Since #1503 those mutants are excluded with a reason in the source, so the module's *adjusted* score is 100% and its *raw* score stays at about 63%; the raw number is what shows how much of the module rests on `migration-check` rather than on tests.
+- A line-level pragma also removes any *killed* mutants that share its line. Keep a pragma'd line to the equivalent argument only (split a call across lines); the `excluded` count in the artifact includes everything on those lines.
 - It is a point-in-time number on one commit. Re-run it before the 1.2 movement-record and permission changes merge to see how the rate moved.

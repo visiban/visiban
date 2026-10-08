@@ -880,17 +880,17 @@ def _archive_movement(card, actor, movement_type):
     return CardMovement.objects.create(
         card=card,
         from_column=card.column,
-        from_column_name=card.column.name if card.column else "",
-        from_column_uid=card.column.uid if card.column else "",
+        from_column_name=card.column.name if card.column else "",  # pragma: no mutate -- Card.column/swimlane are non-null FKs, so this fallback is unreachable (#1505)
+        from_column_uid=card.column.uid if card.column else "",  # pragma: no mutate -- Card.column/swimlane are non-null FKs, so this fallback is unreachable (#1505)
         to_column=card.column,
-        to_column_name=card.column.name if card.column else "",
-        to_column_uid=card.column.uid if card.column else "",
+        to_column_name=card.column.name if card.column else "",  # pragma: no mutate -- Card.column/swimlane are non-null FKs, so this fallback is unreachable (#1505)
+        to_column_uid=card.column.uid if card.column else "",  # pragma: no mutate -- Card.column/swimlane are non-null FKs, so this fallback is unreachable (#1505)
         from_swimlane=card.swimlane,
-        from_swimlane_name=card.swimlane.name if card.swimlane else "",
-        from_swimlane_uid=card.swimlane.uid if card.swimlane else "",
+        from_swimlane_name=card.swimlane.name if card.swimlane else "",  # pragma: no mutate -- Card.column/swimlane are non-null FKs, so this fallback is unreachable (#1505)
+        from_swimlane_uid=card.swimlane.uid if card.swimlane else "",  # pragma: no mutate -- Card.column/swimlane are non-null FKs, so this fallback is unreachable (#1505)
         to_swimlane=card.swimlane,
-        to_swimlane_name=card.swimlane.name if card.swimlane else "",
-        to_swimlane_uid=card.swimlane.uid if card.swimlane else "",
+        to_swimlane_name=card.swimlane.name if card.swimlane else "",  # pragma: no mutate -- Card.column/swimlane are non-null FKs, so this fallback is unreachable (#1505)
+        to_swimlane_uid=card.swimlane.uid if card.swimlane else "",  # pragma: no mutate -- Card.column/swimlane are non-null FKs, so this fallback is unreachable (#1505)
         moved_by=actor,
         movement_type=movement_type,
     )
