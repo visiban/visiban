@@ -355,13 +355,19 @@ security-deferred-verdict-selftest:
     - changes: &security-deferred-verdict-selftest-paths
         - scripts/security-deferred-verdict.sh
         - scripts/check-security-deferred.sh
+        - scripts/release.sh
+        - scripts/tests/release.test.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *security-deferred-verdict-selftest-paths
   script:
     - sh scripts/security-deferred-verdict.sh --self-test
-    - apk add --no-cache bash jq
+    - apk add --no-cache bash jq git coreutils
+    - git config --global --add safe.directory '*'
     - bash scripts/check-security-deferred.sh --self-test
+    # release.sh gates the tag on the check above (#1520); its self-test and CLI test had no CI job.
+    - bash scripts/release.sh --self-test
+    - bash scripts/tests/release.test.sh
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #

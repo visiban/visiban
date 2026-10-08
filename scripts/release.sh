@@ -59,6 +59,8 @@ refuse_if_published() {
   fi
 }
 
+_RELEASE_SELFTEST=0   # assigned, not inherited; the --self-test block sets it to 1
+
 # ─── security::deferred pre-tag gate (#1520) ─────────────────────────────────
 #
 # check_security_deferred_clear — returns 1 when ANY open `security::deferred`
@@ -72,8 +74,13 @@ refuse_if_published() {
 # Unlike check_latest_not_drifted this FAILS CLOSED: an API/auth/network error blocks,
 # because no later job backstops it and "could not check" must never read as "clean".
 # RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 bypasses it deliberately (note it inline).
+# Scope (maintainer decision): GA tags only. The caller invokes this only when the tag is
+# stable; pre-releases (alpha/beta/rc) are not gated, and `/pre-release full` still runs it.
 check_security_deferred_clear() {
-  local script="${SECURITY_DEFERRED_SCRIPT:-$(dirname "$0")/check-security-deferred.sh}"
+  local script; script="$(dirname "$0")/check-security-deferred.sh"
+  # Test-only override: honored solely under --self-test (_RELEASE_SELFTEST is assigned below,
+  # never inherited), so a stray exported SECURITY_DEFERRED_SCRIPT cannot neuter the gate.
+  [[ "$_RELEASE_SELFTEST" == 1 ]] && script="${SECURITY_DEFERRED_SCRIPT:-$script}"
   if [[ "${RELEASE_SKIP_SECURITY_DEFERRED_CHECK:-}" == "1" ]]; then
     echo "WARN: RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 — skipping the security::deferred gate." >&2
     # Leave a trace of what is being shipped past: list open issues to stderr, ignoring the
@@ -85,6 +92,15 @@ check_security_deferred_clear() {
     echo "Error: open security::deferred issue(s) without a valid accepted-risk note, or the check could not run." >&2
     echo "       Fix or close them, or add an accepted-risk note (docs/maintainers/security-deferred-label.md)." >&2
     return 1
+  fi
+}
+
+# security_deferred_gate_for_tag <stable:true|false> <tag> — applies the gate to GA tags only.
+security_deferred_gate_for_tag() {
+  if [[ "$1" == "true" ]]; then
+    check_security_deferred_clear
+  else
+    echo "Note: $2 is a pre-release; skipping the security::deferred gate (GA tags only; /pre-release full still runs it)." >&2
   fi
 }
 
@@ -235,7 +251,7 @@ confirm_release_notes() {
 }
 
 if [[ "${1:-}" == "--self-test" ]]; then
-  rc=0; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+  rc=0; _RELEASE_SELFTEST=1; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
   _rot_case() { # <label> <input> <expected>
     printf '%s\n' "$2" > "$tmp/in.md"
     local got; got="$(rotate_changelog "$tmp/in.md" 0.3.0 2026-09-05)"
@@ -485,6 +501,28 @@ dependencies:
   else
     echo "SELF-TEST OK: check_security_deferred_clear fails closed when the script is missing"
   fi
+  # Scope: stable tag with a blocker blocks; alpha/rc with the same blocker passes with a note.
+  if SECURITY_DEFERRED_SCRIPT="$tmp/sd-block.sh" security_deferred_gate_for_tag true v1.2.0 >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: stable tag with a security::deferred blocker must block" >&2; rc=1
+  else
+    echo "SELF-TEST OK: stable tag with a security::deferred blocker blocks"
+  fi
+  for pre_tag in v1.2.0-rc.1 v1.2.0-alpha.3; do
+    sd_note=$(SECURITY_DEFERRED_SCRIPT="$tmp/sd-block.sh" security_deferred_gate_for_tag false "$pre_tag" 2>&1 >/dev/null); sd_rc=$?
+    if [[ $sd_rc -eq 0 ]] && grep -q 'pre-release' <<<"$sd_note"; then
+      echo "SELF-TEST OK: pre-release tag $pre_tag is not gated by security::deferred (note printed)"
+    else
+      echo "SELF-TEST FAILED: pre-release tag $pre_tag must pass with a note" >&2; rc=1
+    fi
+  done
+  # An exported override must be ignored outside the self-test.
+  mkdir -p "$tmp/nobin"; printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$tmp/nobin/glab"; chmod +x "$tmp/nobin/glab"
+  # (a failing glab on PATH makes the real script fail closed, so rc!=0 proves sd-ok.sh was not used)
+  if _RELEASE_SELFTEST=0 SECURITY_DEFERRED_SCRIPT="$tmp/sd-ok.sh" PATH="$tmp/nobin:$PATH" check_security_deferred_clear >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: SECURITY_DEFERRED_SCRIPT must be ignored outside --self-test" >&2; rc=1
+  else
+    echo "SELF-TEST OK: SECURITY_DEFERRED_SCRIPT is ignored outside --self-test"
+  fi
   sd_err=$(RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 SECURITY_DEFERRED_SCRIPT="$tmp/sd-block.sh" check_security_deferred_clear 2>&1 >/dev/null); sd_rc=$?
   if [[ $sd_rc -eq 0 ]] && grep -q '#7 milestone=1.1 BLOCKER' <<<"$sd_err"; then
     echo "SELF-TEST OK: check_security_deferred_clear honors RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1 and traces open issues to stderr"
@@ -563,7 +601,7 @@ if grep -qxF "$TAG" <<<"$(git tag)"; then
 fi
 refuse_if_published "${RELEASE_REMOTE:-origin}" "$TAG" || exit 1
 check_latest_not_drifted || exit 1
-check_security_deferred_clear || exit 1
+security_deferred_gate_for_tag "$STABLE" "$TAG" || exit 1
 
 # Create release branch from latest main
 git checkout main

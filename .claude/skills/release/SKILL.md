@@ -41,7 +41,7 @@ meeting the gate:
 | `alpha` | (none — this is where active development lives) | Active development. The milestone's `release::committed` issue tracker is still open and/or its named GA-blocker features are still being built. Breaking changes are possible between alphas. "Expect bugs." |
 | `beta` | All `release::committed` issues for the milestone are closed **and** every feature named as a GA blocker in the milestone description is merged to `main` | Feature-complete for the milestone's committed scope. No new scope lands in a beta — only bugfixes against what's already there. Safe-ish for self-hosters to trial on non-production instances. |
 | `rc` | The beta build has been run through `/pre-release full` with every 🔴 blocking finding resolved | Release candidate. Only regression fixes from here; the next green build ships as GA. |
-| GA (stable) | `rc` pipeline green, no new 🔴 finding since the last `/pre-release full`, and no open `security::deferred` issue (any milestone) without a valid accepted-risk note — re-checked by `release.sh` right before the tag | Stable release. |
+| GA (stable) | `rc` pipeline green, no new 🔴 finding since the last `/pre-release full`, and (GA tags only) no open `security::deferred` issue in any milestone without a valid accepted-risk note — re-checked by `release.sh` right before the tag | Stable release. |
 
 A milestone can skip `alpha` and/or `beta` and cut straight to `rc` if the
 committed tracker and GA-blocker list are already clean when cutting the first
@@ -75,7 +75,8 @@ Before running the script:
       `RELEASE_SKIP_LATEST_CHECK=1` bypasses the guard; note it inline if used.
 - [ ] **No open `security::deferred` issue, in any milestone, lacks an accepted-risk note.**
       `scripts/release.sh` runs `scripts/check-security-deferred.sh` before it branches
-      (`check_security_deferred_clear`) — the same query as `/pre-release` Step 1.5, so a deferral
+      (`check_security_deferred_clear`) **for GA tags only — pre-releases (alpha/beta/rc) are not gated
+      (a one-line note is printed) and `/pre-release full` still runs it** — the same query as `/pre-release` Step 1.5, so a deferral
       filed after the last `/pre-release full` is still caught. It scans all milestones (the gap
       ships from `main` whatever milestone the issue sits on) and fails closed: an API error is a
       blocker, not "0 issues". Fix or close the issue, or have a maintainer add an accepted-risk

@@ -19,7 +19,7 @@ note. A blocker stops `/release` for a `full` audit.
 ## What `/release` does with it (pre-tag gate)
 
 `/pre-release full` runs about a sprint before the tag, so a deferral filed since then would
-never be checked. `scripts/release.sh` therefore re-runs the same check
+never be checked. `scripts/release.sh` therefore re-runs the same check **for GA tags only** (pre-releases — alpha, beta, rc — are not gated and print a one-line note; `/pre-release full` still runs it)
 (`check_security_deferred_clear`, after the `:latest` drift guard and before it branches) and
 refuses to cut the tag while any blocker remains. `RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1`
 bypasses it deliberately; it still prints the open-issue list to stderr as a trace and never changes the outcome.

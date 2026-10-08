@@ -18,17 +18,23 @@
 # This is the single implementation: /pre-release Step 1.5 and scripts/release.sh both call
 # it, so the query cannot diverge. The accepted-risk verdict is scripts/security-deferred-verdict.sh.
 #
-# Env: GLAB (glab command, default glab), PROJECT (url-encoded path, default visiban%2Fvisiban),
-#      TODAY / CAP (passed to the verdict script), VERDICT_SCRIPT (override, for tests).
+# Test-only overrides (GLAB, PROJECT, TODAY, CAP, VERDICT_SCRIPT) are honored ONLY under
+# --self-test. On the live path the env is ignored: glab comes from PATH, the project is fixed
+# and TODAY/CAP come from the clock, so a stale exported TODAY can never make an expired
+# accepted-risk note pass (same convention as docker-push-retry.sh's _DPR_PUSH_CMD).
 set -uo pipefail
+_SD_SELFTEST=0   # assigned (not inherited): an exported _SD_SELFTEST=1 cannot enable overrides
 
 check() {
-  local glab="${GLAB:-glab}" project="${PROJECT:-visiban%2Fvisiban}"
   local here; here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-  local verdict_script="${VERDICT_SCRIPT:-$here/security-deferred-verdict.sh}"
+  local glab=glab project='visiban%2Fvisiban' verdict_script="$here/security-deferred-verdict.sh"
   local today cap D N=0 FAIL=0 BLOCK=0
-  today=${TODAY:-$(date +%F)}
-  cap=${CAP:-$(date -v+1y +%F 2>/dev/null || date -d '+1 year' +%F 2>/dev/null)}   # BSD or GNU date
+  today=$(date +%F)
+  cap=$(date -v+1y +%F 2>/dev/null || date -d '+1 year' +%F 2>/dev/null)   # BSD or GNU date
+  if [ "$_SD_SELFTEST" = 1 ]; then
+    glab=${GLAB:-$glab}; project=${PROJECT:-$project}; verdict_script=${VERDICT_SCRIPT:-$verdict_script}
+    today=${TODAY:-$today}; cap=${CAP:-$cap}
+  fi
   if ! command -v "$glab" >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
     echo "🔴 deferred-security check could not run: glab and jq are required — treat as a blocker"
     return 1
@@ -65,6 +71,7 @@ check() {
 }
 
 self_test() {
+  _SD_SELFTEST=1
   local tmp rc=0 here; tmp=$(mktemp -d); here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   # Stub glab: logs each path, serves $STUB_ISSUES / $STUB_NOTES, or fails when STUB_FAIL=1.
   cat > "$tmp/glab" <<'STUB'
@@ -117,6 +124,15 @@ STUB
   GLAB=/nonexistent/glab t missing-glab-fails-closed 1 'glab and jq are required'
   echo '[{"system":false,"author":{"username":"c"},"body":"x"}]' > "$STUB_NOTES"
   VERDICT_SCRIPT=/nonexistent t missing-verdict-fails-closed 1 'BLOCKER'
+  # Live path ignores test overrides: stale TODAY=2020 must not rescue an expired note, and a
+  # bogus GLAB must not redirect the query. glab is found on PATH (a stub dir stands in).
+  mkdir "$tmp/bin"; cp "$tmp/glab" "$tmp/bin/glab"
+  echo '[{"iid":7,"confidential":false,"milestone":null,"author":{"username":"a"},"description":"Accepted risk: accepted-by: @bob; reason: ok; expires: 2026-01-01"}]' > "$STUB_ISSUES"
+  echo '[]' > "$STUB_NOTES"
+  local out rc2
+  out=$(_SD_SELFTEST=0 PATH="$tmp/bin:$PATH" TODAY=2020-01-01 CAP=2099-01-01 GLAB=/nonexistent/glab check 2>&1); rc2=$?
+  if [ "$rc2" -ne 1 ] || ! grep -q 'BLOCKER' <<<"$out"; then
+    echo "FAIL [live-ignores-stale-today]: rc=$rc2 $out" >&2; rc=1; else echo "ok [live-ignores-stale-today]"; fi
   rm -rf "$tmp"
   [ "$rc" -eq 0 ] && echo "check-security-deferred self-test: all cases passed"
   return $rc
