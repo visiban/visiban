@@ -340,6 +340,26 @@ sonar-scan-selftest:
   script:
     - sh scripts/sonar-scan.sh --self-test
 
+# ─── security::deferred verdict self-test (#1521) ────────────────────────────
+#
+# scripts/security-deferred-verdict.sh holds the accepted-risk verdict logic that
+# /pre-release Step 1.5 (and later /release, #1520) shells out to. It only ever
+# runs from a maintainer's session, so nothing else would notice it break; this
+# runs its --self-test on MRs touching it (#1093 house rule). Alpine's busybox
+# awk/sed/grep exercise a third implementation beside macOS BSD awk and GNU awk.
+security-deferred-verdict-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - changes: &security-deferred-verdict-selftest-paths
+        - scripts/security-deferred-verdict.sh
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *security-deferred-verdict-selftest-paths
+  script:
+    - sh scripts/security-deferred-verdict.sh --self-test
+
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #
 # scripts/check_mutation_score.py judges the nightly backend-mutation pilot, and
