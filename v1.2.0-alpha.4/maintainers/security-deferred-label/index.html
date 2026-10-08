@@ -3698,6 +3698,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#verdict-script-and-its-self-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verdict script and its self-test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#confidential-issues" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3799,6 +3810,17 @@ unexpired accepted-risk note. A blocker stops <code>/release</code> for a <code>
 <li>Add the note only on a maintainer's explicit decision. Resolving the issue (closing it) is
   the normal way out; the note is for knowingly shipping with the gap.</li>
 </ul>
+<h2 id="verdict-script-and-its-self-test">Verdict script and its self-test<a class="headerlink" href="#verdict-script-and-its-self-test" title="Permanent link">&para;</a></h2>
+<p>The accepted-risk verdict (the note regex plus the calendar and expiry check) is
+<code>scripts/security-deferred-verdict.sh</code>, not inline shell. It reads candidate lines
+(<code>&lt;author&gt;|Accepted risk: ...</code>) on stdin, with <code>TODAY</code> and <code>CAP</code> (latest allowed expiry)
+from the environment, and prints <code>ACCEPTED note-by=... accepted-by=... expires=...</code>
+(exit 0) or <code>BLOCKER</code> / <code>BLOCKER (expiry too far out; max 1 year)</code> (exit 1). It is POSIX
+<code>sh</code>/<code>awk</code>, so it runs on macOS (BSD awk) and Linux.</p>
+<p><code>sh scripts/security-deferred-verdict.sh --self-test</code> (44 cases) covers valid, expired, blank
+<code>accepted-by</code> / <code>reason</code>, impossible dates (<code>2099-13-45</code>, <code>2099-02-30</code>, non-leap Feb 29),
+two <code>expires</code> fields, <code>;</code> in <code>reason</code>, no note, multiple lines, month/day ranges, leap-year rules (2000, 2028, 2100), and handle/author shape. CI runs it in the
+<code>security-deferred-verdict-selftest</code> job.</p>
 <h2 id="confidential-issues">Confidential issues<a class="headerlink" href="#confidential-issues" title="Permanent link">&para;</a></h2>
 <p>Many deferred security issues are confidential. The audit token sees them; reports that
 leave the session (MR text, public issues, docs) cite the issue number only, never the

@@ -4023,6 +4023,11 @@ own header — is never mistaken for a real exemption.</p>
 <td>12-case self-test over a synthetic view tree: a dropped auth gate, a missing role gate, a write that never resolves a role, an unscoped board-child lookup, a raw membership lookup, and a stale entry in each recorded-exception table. See <a href="../rbac-and-broadcast-gates/">RBAC and broadcast gates</a>.</td>
 </tr>
 <tr>
+<td><code>scripts/security-deferred-verdict.sh</code></td>
+<td><code>security-deferred-verdict-selftest</code></td>
+<td>Accepted-risk verdict for <code>security::deferred</code> issues, used by <code>/pre-release</code> Step 1.5. 44-case self-test: valid, expired, blank fields, impossible dates, duplicate <code>expires</code>, <code>;</code> in reason, no note, multiple lines, and the 1-year cap boundary, month/day ranges, leap-year rules (2000, 2028, 2100), handle/author shape, plus process-level checks of stdout and exit codes (0 accepted, 1 blocker, 2 bad argument). Runs on alpine busybox in CI and on BSD/GNU awk locally. See <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a> (<a href="https://gitlab.com/visiban/visiban/-/issues/1521">#1521</a>).</td>
+</tr>
+<tr>
 <td><code>scripts/check-broadcast-deferral.py</code></td>
 <td><code>broadcast-deferral</code></td>
 <td>9-case self-test: a write that broadcasts nothing, a broadcast outside <code>on_commit</code>, a commit hook holding an ORM instance, an emit in a loop, and a stale entry in each recorded-exception table.</td>
