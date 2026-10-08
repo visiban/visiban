@@ -44,7 +44,13 @@ def _shift_datetime(value, delta):
 def _date_field_names(definitions):
     if not isinstance(definitions, list):
         return set()
-    return {d.get("name") for d in definitions if isinstance(d, dict) and d.get("field_type") == "date"}
+    # Only string names: an unhashable one (a list or object) would raise
+    # TypeError building the set, a 500 before validation could report it
+    # (#1507). The definitions validator rejects such a name afterwards.
+    return {
+        d["name"] for d in definitions
+        if isinstance(d, dict) and d.get("field_type") == "date" and isinstance(d.get("name"), str)
+    }
 
 
 def _shift_custom_values(values, date_names, delta):
@@ -84,6 +90,9 @@ def shift_board_dates(data, days):
                 if isinstance(item, dict) and item.get(key):
                     item[key] = _shift_datetime(item[key], delta)
                 if child == "activities" and isinstance(item, dict) and item.get("event_type") == "due_date_change":
+                    # Only keys the file set: writing None for an absent one
+                    # would turn an importable file into a 400 (#1507).
                     for value_key in ("from_value", "to_value"):
-                        item[value_key] = _shift_date(item.get(value_key), delta)
+                        if value_key in item:
+                            item[value_key] = _shift_date(item[value_key], delta)
     return data
