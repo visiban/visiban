@@ -143,6 +143,17 @@ class ConsumeInviteTokenTests(TestCase):
         self.assertEqual(link.use_count, 3)
         self.assertIsNone(link.used_at)
 
+    def test_single_use_already_stamped_raises_and_does_not_count(self):
+        # Defense in depth (#1489): a stale in-memory link whose row was
+        # already consumed must not be consumed twice.
+        link, raw = create_invite(self.creator, single_use=True)
+        InviteLink.objects.filter(pk=link.pk).update(used_at=timezone.now())
+        with self.assertRaises(InviteTokenError) as ctx:
+            consume_invite_token(link)
+        self.assertEqual(ctx.exception.code, "invite_invalid")
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 0)
+
     def test_consume_refreshes_in_memory_instance(self):
         # The caller's `link` reference must reflect the new values so subsequent
         # reads (e.g. in the same request lifecycle) see the incremented counter

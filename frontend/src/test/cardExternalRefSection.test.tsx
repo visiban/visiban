@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardExternalRefSection from '../components/Card/CardExternalRefSection'
 import { externalRefErrorMessage } from '../utils/externalRef'
@@ -124,6 +124,35 @@ describe('CardExternalRefSection (#352)', () => {
     render(<CardExternalRefSection externalRef={GH} canEdit onSave={onSave} />)
     await userEvent.click(screen.getByRole('button', { name: 'Remove pull or merge request link' }))
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save the link. Try again.")
+  })
+
+  it('remove: a second click while the save is pending calls onSave once (#1498)', async () => {
+    let resolve!: () => void
+    const onSave = vi.fn().mockImplementation(() => new Promise<void>((r) => { resolve = r }))
+    render(<CardExternalRefSection externalRef={GH} canEdit onSave={onSave} />)
+    const btn = screen.getByRole('button', { name: 'Remove pull or merge request link' })
+    // One act(): both clicks land before the button re-renders disabled, so
+    // only the ref guard can stop the second call.
+    act(() => {
+      fireEvent.click(btn)
+      fireEvent.click(btn)
+    })
+    expect(onSave).toHaveBeenCalledTimes(1)
+    resolve()
+    await waitFor(() => expect(btn).toBeEnabled())
+  })
+
+  it('save: submitting twice while the save is pending calls onSave once (#1498)', async () => {
+    let resolve!: () => void
+    const onSave = vi.fn().mockImplementation(() => new Promise<void>((r) => { resolve = r }))
+    render(<CardExternalRefSection externalRef={GH} canEdit onSave={onSave} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Edit pull or merge request link' }))
+    const form = screen.getByRole('button', { name: 'Save link' }).closest('form')!
+    fireEvent.submit(form)
+    fireEvent.submit(form)
+    expect(onSave).toHaveBeenCalledTimes(1)
+    resolve()
+    await waitFor(() => expect(screen.queryByLabelText('URL')).not.toBeInTheDocument())
   })
 
   it('first Escape cancels the edit without closing the panel (priority 38 > 30)', async () => {

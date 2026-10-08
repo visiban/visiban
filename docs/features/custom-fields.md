@@ -231,7 +231,7 @@ With names hidden, a row chip shows only its value (`Diane Foster`), and, unless
 
 - **On hover** — the chip's tooltip reads `Field name: value`, as before.
 - **For screen readers** — the chip is still announced as `Field name: value`.
-- **In the row's field list** — when the row has a `+N` popover (it appears when the row also has unpinned values), it lists every field with its name. A row whose values are all pinned has no `+N` popover, so there the tooltip is the only place the name shows; this is a known gap, tracked in #1509.
+- **In the row's field list** — the row's field popover lists every field with its name. It opens from the `+N` button when the row has unpinned values, or from an **All fields** button when every value is pinned, so touch and keyboard users can always reach the names.
 
 **Checkbox fields always show their name**, because a bare **Yes** or **No** means nothing without it. Colored choice badges, multi-select chips, the admin-only padlock, and the dropdown color dot are unchanged. Chips on the card face always show the field name; this setting only affects swimlane rows.
 

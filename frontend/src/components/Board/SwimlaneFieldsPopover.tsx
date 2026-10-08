@@ -166,11 +166,11 @@ export default function SwimlaneFieldsPopover({
           // Viewport minus the margins and the header/footer chrome.
           style={{ maxHeight: `calc(100vh - ${2 * MARGIN}px - 5.5rem)` }}
         >
-          {offRow.map(renderEntry)}
+          {offRow.map((entry, i) => renderEntry(entry, i))}
           {offRow.length > 0 && onRow.length > 0 && (
             <p className="px-3 pt-2.5 pb-1 border-t border-line text-xs font-semibold uppercase tracking-wide text-fg-muted">On row</p>
           )}
-          {onRow.map(renderEntry)}
+          {onRow.map((entry, i) => renderEntry(entry, i))}
         </div>
         {moreBelow && (
           <div

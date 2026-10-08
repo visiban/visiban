@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardRelationsSection from '../components/Card/CardRelationsSection'
 import type { BoardFull, Card, CardRelation } from '../types'
@@ -218,6 +218,40 @@ describe('CardRelationsSection — removing', () => {
     renderSection()
     await userEvent.click(await screen.findByRole('button', { name: 'Remove relation to Blocker card' }))
     expect(await screen.findByText('Could not remove the relation. Try again.')).toBeInTheDocument()
+  })
+})
+
+describe('CardRelationsSection — in-flight guards (#1498)', () => {
+  it('remove: a second click while the DELETE is pending sends one request', async () => {
+    mockGet.mockResolvedValue([makeRelation()])
+    let resolve!: () => void
+    mockDelete.mockImplementationOnce(() => new Promise<void>((r) => { resolve = r }) as never)
+    renderSection()
+    const btn = await screen.findByRole('button', { name: 'Remove relation to Blocker card' })
+    fireEvent.click(btn)
+    fireEvent.click(btn)
+    expect(mockDelete).toHaveBeenCalledTimes(1)
+    resolve()
+    await waitFor(() => expect(screen.queryByText('Blocker card')).not.toBeInTheDocument())
+  })
+
+  it('add: committing twice while the POST is pending sends one request', async () => {
+    mockSearch.mockResolvedValue([makeCard({ id: 42, title: 'Provision cluster', column: 11 })])
+    let resolve!: (r: CardRelation) => void
+    mockAdd.mockImplementationOnce(() => new Promise<CardRelation>((r) => { resolve = r }))
+    renderSection()
+    await userEvent.click(await screen.findByRole('button', { name: '+ Add relation' }))
+    await userEvent.type(screen.getByRole('combobox'), 'prov')
+    const option = await screen.findByRole('option', { name: /Provision cluster/ })
+    // One act(): both events land before `submitting` re-renders, so only the
+    // ref guard can stop the second POST.
+    act(() => {
+      fireEvent.mouseDown(option)
+      fireEvent.mouseDown(option)
+    })
+    expect(mockAdd).toHaveBeenCalledTimes(1)
+    resolve(makeRelation({ id: 900, card: { id: 42, uid: 'u42', title: 'Provision cluster', column: 11, archived: false } }))
+    await waitFor(() => expect(mockAdd).toHaveBeenCalledTimes(1))
   })
 })
 
