@@ -163,6 +163,45 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 
 ---
 
+## Step 1.5 — Deferred security follow-ups (every audit type)
+
+A security finding deferred during review is filed as an issue labeled `security::deferred`
+(see `docs/maintainers/security-deferred-label.md`). Open ones in the target milestone are
+🔴 blockers **unless** they carry a valid, unexpired accepted-risk note. This is deliberately
+narrow: plain `security` issues (tracking, hardening) are not checked here.
+
+```bash
+M="$WORKING_RELEASE"; TODAY=$(date +%F)
+# --paginate emits one JSON array per page; `jq -s 'add // []'` merges them (and handles zero results)
+glab api --paginate "projects/visiban%2Fvisiban/issues?milestone=$M&labels=security::deferred&state=opened&per_page=100" | jq -s 'add // []' > "$TMPDIR/deferred.json"
+for iid in $(jq -r '.[].iid' "$TMPDIR/deferred.json"); do
+  body=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.description // ""' "$TMPDIR/deferred.json")
+  notes=$(glab api --paginate "projects/visiban%2Fvisiban/issues/$iid/notes?per_page=100" | jq -s -r 'add // [] | map(select(.system|not)) | .[].body')
+  verdict=$(printf '%s\n%s\n' "$body" "$notes" | tr -d '\r' \
+    | grep -E '^Accepted risk:.*accepted-by:[^;]+;.*reason:[^;]+;.*expires: *[0-9]{4}-[0-9]{2}-[0-9]{2}' \
+    | sed -E 's/.*expires: *([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/' | awk -v t="$TODAY" '$0>=t{ok=1} END{print ok?"ACCEPTED":"BLOCKER"}')
+  echo "#$iid confidential=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.confidential' "$TMPDIR/deferred.json") $verdict"
+done
+```
+
+**Accepted-risk note format** — one line, in the issue description or any non-system comment:
+
+```
+Accepted risk: accepted-by: @<maintainer>; reason: <why shipping is acceptable>; expires: YYYY-MM-DD
+```
+
+All three fields are required; `;` separates them, so `reason` must not contain `;`. A note
+whose `expires` date is before today does not count (the issue is a 🔴 blocker again). Mixed
+or malformed notes count as no note.
+
+Report each `BLOCKER` as a 🔴 finding ("open deferred security follow-up #N without a valid
+accepted-risk note") and each `ACCEPTED` as 🟢 with its expiry date. **Confidentiality:** the
+maintainer token sees confidential issues. For `confidential=true` issues, report only the
+issue number in anything that leaves the session (MR text, public issue, docs); never quote
+the title or body.
+
+---
+
 ## Step 2 — Consolidate findings
 
 After all agents complete, before writing the report, **cross-reference every finding against GitLab issues in both `opened` and `closed` states**. A finding that matches a closed issue is not automatically new — it may be a regression, an already-decided design trade-off, or a won't-fix. Re-reporting it without that context wastes the user's time and erases the prior reasoning.
@@ -242,8 +281,9 @@ After the report:
 
 ## Step 4 — Gate check (full audit only)
 
-If the audit type was `full`:
+If the audit type was `full` (the Step 1.5 bullet applies to all types):
 
+- Open `security::deferred` issues without a valid accepted-risk note (Step 1.5) count as 🔴 blocking findings, for every audit type.
 - If any 🔴 blocking findings remain unresolved against $WORKING_RELEASE → **do not proceed to `/release`**. Tell the user: "Pre-release audit found N blocking issue(s) against $WORKING_RELEASE. Resolve these before running `/release`."
 - If only 🟡 findings remain → advise the user to triage them, then they may proceed to `/release`
 - If all findings are 🟢 → "Pre-release audit passed. You may proceed to `/release` for $WORKING_RELEASE."
