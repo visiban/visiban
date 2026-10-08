@@ -2671,10 +2671,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#movement-service-cardspy-15-survivors-left-of-77" class="md-nav__link">
+  <a href="#movement-service-cardspy-15-survivors-left-of-77-measured-before-1511" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Movement service (cards.py): 15 survivors left of 77
+        Movement service (cards.py): 15 survivors left of 77 (measured before #1511)
       
     </span>
   </a>
@@ -4013,7 +4013,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>boards/services/cards.py</code> (2026-10-07 re-measure after #1454: 228 of 243)</td>
+<td><code>boards/services/cards.py</code> (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since)</td>
 <td style="text-align: right;">243</td>
 <td style="text-align: right;">166</td>
 <td style="text-align: right;">68.3%</td>
@@ -4179,7 +4179,7 @@
 <li><strong>Equivalent mutant:</strong> the change cannot alter observable behavior in this setup, so no test can kill it. Leave it alone.</li>
 <li><strong>Untested code:</strong> no test in the scoped files reaches the line, or reaches it without checking the result. Needs new tests or a decision that it is covered elsewhere.</li>
 </ul>
-<h3 id="movement-service-cardspy-15-survivors-left-of-77">Movement service (<code>cards.py</code>): 15 survivors left of 77<a class="headerlink" href="#movement-service-cardspy-15-survivors-left-of-77" title="Permanent link">&para;</a></h3>
+<h3 id="movement-service-cardspy-15-survivors-left-of-77-measured-before-1511">Movement service (<code>cards.py</code>): 15 survivors left of 77 (measured before #1511)<a class="headerlink" href="#movement-service-cardspy-15-survivors-left-of-77-measured-before-1511" title="Permanent link">&para;</a></h3>
 <p>Measured 2026-10-07 (#1454) with the line range of <code>update_card</code> only, run in 8 shards against the scoped files, then against the scoped files plus the view suites listed in the table above, then with <code>test_card_service_mutation_gaps.py</code> added to each. The 14 survivors outside <code>update_card</code> are unchanged from the #1443 baseline.</p>
 <table>
 <thead>
@@ -4196,9 +4196,9 @@
 <td>The 44 <code>update_card</code> survivors of the #1443 baseline: per-field <code>CardActivity</code> rows (title, priority, weight, assignee, description, labels, due date), the assignment and mention notification contents, the weight-increase limit check, and the <code>force</code> default. The view suites (<code>test_views_cards</code>, <code>test_notifications</code>, <code>test_card_timeline</code> and the others in the table above) already killed 25 of them; <code>test_card_service_mutation_gaps.py</code> kills the other 18, and on its own with the scoped files kills 40 of the 44.</td>
 </tr>
 <tr>
-<td>Latent bug (#1511)</td>
+<td>Latent bug, <strong>fixed</strong> (#1511)</td>
 <td style="text-align: right;">1</td>
-<td><code>parts.append(f"-{', '.join(names)}")</code> in the label diff (<code>'XX, XX'.join(names)</code>). The list of removed label names is built from the labels on the card <em>after</em> the write, so it is always empty and the join separator is never used. The activity row for a removal therefore reads <code>-</code> with no name. That is a real bug in the code, filed as #1511, not a truly equivalent mutant: <code>test_removed_labels_are_listed_with_minus</code> and <code>test_add_and_remove_in_one_update</code> pin the current output, and the mutant dies once #1511 resolves removed names from the pre-write label set and those expectations are updated.</td>
+<td><code>parts.append(f"-{', '.join(names)}")</code> in the label diff (<code>'XX, XX'.join(names)</code>). The removed label names were looked up in the labels on the card <em>after</em> the write, so the list was always empty and the activity row for a removal read <code>-</code> with no name. That was a real bug, not an equivalent mutant. #1511 resolves removed names from the pre-write label snapshot, and <code>test_removed_labels_are_listed_with_minus</code>, <code>test_several_removed_labels_join_with_comma_space</code> and <code>test_add_and_remove_in_one_update</code> now pin the corrected output, so the mutant dies.</td>
 </tr>
 <tr>
 <td>Equivalent</td>
@@ -4217,7 +4217,7 @@
 </tr>
 </tbody>
 </table>
-<p>With every <code>update_card</code> survivor except the one above killed, <code>cards.py</code> goes from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed, above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).</p>
+<p>With every <code>update_card</code> survivor except the #1511 label mutant killed, <code>cards.py</code> went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last <code>update_card</code> mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).</p>
 <p>The activity and notification paths in <code>boards/views/cards.py</code> (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the <code>cards.py</code> score above and are unmeasured; a mutation run on <code>boards/views/cards.py</code> would be needed to know their kill rate.</p>
 <h3 id="movement-model-cardmovement-28-survivors-left-of-45">Movement model (<code>CardMovement</code>): 28 survivors left of 45<a class="headerlink" href="#movement-model-cardmovement-28-survivors-left-of-45" title="Permanent link">&para;</a></h3>
 <p>All remaining survivors change a field argument (<code>max_length</code>, <code>blank</code>, <code>db_index</code>, <code>related_name</code>, <code>Meta.indexes</code>). These are schema constants. They have no behavior to assert at the test level, and a drift against the migrations is already caught by the CI <code>migration-check</code> job, so they are treated as equivalent. The behavioral parts (default type, wire values, ordering, <code>SET_NULL</code> history retention) are now asserted.</p>
@@ -4491,7 +4491,7 @@
 </tr>
 </tbody>
 </table>
-<p>Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. <code>boards/services/cards.py</code> (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 the remaining survivors there are 8 dead <code>else ""</code> branches in <code>_archive_movement</code>, 6 <code>select_for_update</code> guards that need PostgreSQL, and 1 latent-bug mutant in the <code>update_card</code> label diff (#1511).</p>
+<p>Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. <code>boards/services/cards.py</code> (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 the remaining survivors there are 8 dead <code>else ""</code> branches in <code>_archive_movement</code>, 6 <code>select_for_update</code> guards that need PostgreSQL, and no <code>update_card</code> survivors (the label-diff latent bug was fixed in #1511).</p>
 <p>Runtime evidence, measured 2026-10-04 on a loaded laptop (another mutmut run was using the CPUs), SQLite, mutmut 2.5.1, one process, <code>-x</code> per mutant:</p>
 <table>
 <thead>
