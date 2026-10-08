@@ -125,7 +125,7 @@ In addition to the per-board channel, Visiban exposes a per-group WebSocket chan
 
 **Connection URL:** `ws://{host}/ws/groups/{group_id}/`
 
-**Authentication:** same as the board channel — session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership are closed with code `4003`. No retry is attempted for either code.
+**Authentication:** same as the board channel — session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code.
 
 **What it streams:** board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations. Each payload follows the standard `{"event": "...", "data": {...}}` envelope. The group channel does not emit card-level events — those remain on the per-board channel.
 

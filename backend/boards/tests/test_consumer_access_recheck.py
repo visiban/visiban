@@ -460,3 +460,54 @@ class BoardConsumerAccountStateTests(TransactionTestCase):
                 with patch("boards.consumers._now", clock):
                     asyncio.run(run())
                 User.objects.filter(pk=self.member.pk).update(**{flag: False})
+
+    def test_flagged_user_is_refused_on_cookie_handshake(self):
+        from django.conf import settings
+
+        from accounts.tests.ws_helpers import login_session
+        from visiban import asgi
+
+        for flag in self.FLAGS:
+            with self.subTest(flag=flag):
+                User.objects.filter(pk=self.member.pk).update(**{flag: True})
+                key = login_session(User.objects.get(pk=self.member.pk))
+                cookie = f"{settings.SESSION_COOKIE_NAME}={key}".encode()
+
+                async def run():
+                    comm = WebsocketCommunicator(
+                        asgi.application, f"/ws/boards/{self.board.id}/", headers=[(b"cookie", cookie)]
+                    )
+                    return await comm.connect()
+
+                connected, code = asyncio.run(run())
+                self.assertFalse(connected)
+                self.assertEqual(code, 4003)
+                User.objects.filter(pk=self.member.pk).update(**{flag: False})
+
+    def test_idle_socket_is_closed_by_keepalive_recheck_after_flag_is_set(self):
+        from visiban import asgi
+
+        for flag in self.FLAGS:
+            with self.subTest(flag=flag):
+                clock = _Clock()
+
+                async def run():
+                    ticket, _ = await sync_to_async(session_ticket)(self.member)
+                    comm = WebsocketCommunicator(asgi.application, f"/ws/boards/{self.board.id}/?ticket={ticket}")
+                    connected, _ = await comm.connect()
+                    self.assertTrue(connected)
+
+                    await sync_to_async(User.objects.filter(pk=self.member.pk).update)(**{flag: True})
+                    clock.advance(ACCESS_RECHECK_SECONDS + ACCESS_RECHECK_JITTER_SECONDS)
+                    # No broadcast: only the keepalive ping can run the re-check.
+                    for _ in range(50):
+                        out = await comm.receive_output(timeout=2)
+                        if out.get("type") == "websocket.send" and '"ping"' in out.get("text", ""):
+                            continue
+                        self.assertEqual(out, {"type": "websocket.close", "code": 4003})
+                        return
+                    self.fail("socket was never closed")
+
+                with patch("boards.consumers._now", clock), patch("boards.consumers.PING_INTERVAL", 0.05):
+                    asyncio.run(run())
+                User.objects.filter(pk=self.member.pk).update(**{flag: False})

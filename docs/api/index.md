@@ -35,7 +35,7 @@ Visiban provides a WebSocket endpoint for real-time board updates. Clients conne
 | Code | Meaning |
 |------|---------|
 | `4001` | Not authenticated — no valid session, and no valid ticket |
-| `4003` | Not a board member — the authenticated user does not have access to this board. Since 1.2, it can also arrive mid-stream on an open connection, when access is lost or the server's access re-check fails. A later reconnect can succeed in the second case. See [Access re-check and eviction](websockets.md#access-re-check-and-eviction) |
+| `4003` | Not a board member — the authenticated user does not have access to this board. Since 1.2, it can also arrive mid-stream on an open connection, when access is lost, when the account has a pending password or username change, or when the server's access re-check fails. A later reconnect can succeed in the second case. See [Access re-check and eviction](websockets.md#access-re-check-and-eviction) |
 
 ### Message envelope
 
