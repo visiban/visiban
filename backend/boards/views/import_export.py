@@ -4,6 +4,7 @@ import collections
 import contextlib
 import csv
 import datetime
+import decimal
 import functools
 import hashlib
 import io
@@ -347,6 +348,118 @@ def _import_field_values(raw, definitions_by_name, hook_name):
     return out
 
 
+_CSV_CARD_FIELD_PREFIX = "Custom: "
+_CSV_LANE_FIELD_PREFIX = "Swimlane Custom: "
+_CSV_WARNINGS_SHOWN = 20
+
+
+def _csv_custom_columns(fieldnames):
+    """Find the ``Custom: `` / ``Swimlane Custom: `` columns of a CSV header (#1449).
+
+    Returns ``(card_cols, lane_cols, error, warnings)``; each column is a
+    ``(header, field name)`` pair in header order. The export writes these
+    columns, so the importer reads them back. ``Swimlane Custom: `` is tested
+    first only for clarity: neither prefix is a prefix of the other. A header
+    with an empty name after the prefix is skipped with a warning. Two
+    identical custom headers are an error: ``csv.DictReader`` keys a row by
+    header, so the later column would silently overwrite the earlier one.
+    """
+    card_cols, lane_cols, warnings = [], [], []
+    for header in fieldnames:
+        # The importer strips every header, so an export of a field with an
+        # empty name arrives as the bare ``Custom:`` (prefix minus its space).
+        if header in (_CSV_CARD_FIELD_PREFIX.strip(), _CSV_LANE_FIELD_PREFIX.strip()):
+            warnings.append(f"Skipped column {header!r}: the field name is empty.")
+            continue
+        if header.startswith(_CSV_LANE_FIELD_PREFIX):
+            prefix, target = _CSV_LANE_FIELD_PREFIX, lane_cols
+        elif header.startswith(_CSV_CARD_FIELD_PREFIX):
+            prefix, target = _CSV_CARD_FIELD_PREFIX, card_cols
+        else:
+            continue
+        name = header[len(prefix) :].strip()
+        if not name:
+            warnings.append(
+                f"Skipped column {_bounded_text(header)!r}: the field name is empty."
+            )
+            continue
+        target.append((header, name))
+    custom_headers = [h for h, _ in card_cols + lane_cols]
+    error = _duplicates_detail("custom field CSV headers", custom_headers)
+    return card_cols, lane_cols, error, warnings
+
+
+def _swimlane_values_from_rows(rows, lane_cols):
+    """Collapse the repeated row-field cells of a CSV into one value per swimlane.
+
+    The export denormalizes a swimlane field's value onto every card row of
+    that lane (#1140), so on import each (lane, field) is seen once per card.
+    The first non-empty cell wins; a later, different non-empty cell is a
+    conflict (a hand-edited file) and is reported once per (lane, field)
+    rather than silently overwriting. Returns ``({lane: {field: value}},
+    warnings)``.
+    """
+    values, warnings, conflicted = {}, [], set()
+    for row in rows:
+        lane = _cell(row, "Swimlane")
+        if not lane:
+            continue
+        for header, name in lane_cols:
+            cell = _cell(row, header)
+            if not cell:
+                continue
+            kept = values.setdefault(lane, {}).setdefault(name, cell)
+            if kept != cell and (lane, name) not in conflicted:
+                conflicted.add((lane, name))
+                warnings.append(
+                    f"Swimlane {_bounded_text(lane)!r} field {_bounded_text(name)!r} has "
+                    f"conflicting values; kept {_bounded_text(kept)!r}."
+                )
+    return values, warnings
+
+
+def _csv_cell_value(definition, cell, hook_name, where, warnings):
+    """Normalize one custom-field CSV cell; ``None`` when it is empty or dropped.
+
+    A dropped (NUL-bearing, over-length or refused) value adds a warning naming
+    *where*. A NUL byte is dropped because PostgreSQL text columns reject it,
+    which would otherwise 500 the whole import (and roll it back).
+    Cells are stored exactly as exported (#1449): no un-escaping, since the
+    export's formula sanitizing is irreversible.
+    """
+    if not cell:
+        return None
+    if "\x00" in cell:
+        warnings.append(
+            f"{where} field {_bounded_text(definition.name)!r}: value dropped "
+            "(contains a NUL byte)."
+        )
+        return None
+    if len(cell) > CustomFieldDefinition.MAX_VALUE_LENGTH:
+        warnings.append(
+            f"{where} field {_bounded_text(definition.name)!r}: value dropped "
+            f"(over {CustomFieldDefinition.MAX_VALUE_LENGTH} characters)."
+        )
+        return None
+    pairs = _import_field_values(
+        {definition.name: cell}, {definition.name: definition}, hook_name
+    )
+    if not pairs:
+        warnings.append(
+            f"{where} field {_bounded_text(definition.name)!r}: value dropped (not accepted)."
+        )
+        return None
+    return pairs[0][1]
+
+
+def _cap_warnings(warnings):
+    """Bound the warning list: the first few, then one ``...and N more`` entry."""
+    if len(warnings) <= _CSV_WARNINGS_SHOWN:
+        return list(warnings)
+    rest = len(warnings) - _CSV_WARNINGS_SHOWN
+    return [*warnings[:_CSV_WARNINGS_SHOWN], f"\u2026and {rest} more"]
+
+
 def _list_len(value):
     return len(value) if isinstance(value, list) else 0
 
@@ -406,6 +519,16 @@ def _sanitize_csv_field(value: str) -> str:
     return value.lstrip("=+-@\t\r")
 
 
+def _is_canonical_number(value):
+    """True for a string the number normalizer would store: a finite Decimal."""
+    if not isinstance(value, str) or value != value.strip():
+        return False
+    try:
+        return decimal.Decimal(value).is_finite()
+    except (decimal.InvalidOperation, ValueError):
+        return False
+
+
 def _csv_custom_field_cell(definition, value):
     """One CSV cell for a custom field value, formula-sanitized.
 
@@ -416,8 +539,21 @@ def _csv_custom_field_cell(definition, value):
     formula prefix to the start of the cell. Every other type is the stored
     string, sanitized as before. The JSON export keeps the stored string
     unchanged: that format is read by tools, and its values are strings.
+
+    ``number`` and ``checkbox`` values are written as stored when they have
+    their canonical shape (#1449). A stored number like ``-5`` begins with a
+    formula character, and stripping it exported ``5`` — a different number.
+    The normalizer only stores a finite ``Decimal`` string (never one starting
+    with ``=``, ``@``, a tab or a CR) and a checkbox only ``true``/``false``, so
+    neither can carry a formula; a value that is not of that shape (written
+    around the normalizer) still falls through to the sanitizer.
     """
-    if definition.field_type == CustomFieldDefinition.FieldType.MULTI_SELECT:
+    T = CustomFieldDefinition.FieldType
+    if definition.field_type == T.NUMBER and _is_canonical_number(value):
+        return value
+    if definition.field_type == T.CHECKBOX and value in ("true", "false"):
+        return value
+    if definition.field_type == T.MULTI_SELECT:
         value = "; ".join(
             _sanitize_csv_field(entry) for entry in parse_multi_select(value)
         )
@@ -1814,6 +1950,12 @@ class BoardImportExportMixin:
         the file. Their order matches their first appearance in the CSV so that
         column/swimlane ordering reflects the original export. All objects are
         created inside a single atomic transaction.
+
+        ``Custom: <name>`` and ``Swimlane Custom: <name>`` columns (written by
+        the CSV export) restore card and swimlane custom field values (#1449).
+        A CSV carries no field type, so each becomes a ``text`` definition and
+        each cell is stored exactly as written; JSON is the lossless format for
+        field types and choices.
         """
         try:
             raw = file.read().decode("utf-8")
@@ -1874,6 +2016,35 @@ class BoardImportExportMixin:
                 {"detail": f"CSV is missing required headers: {', '.join(sorted(missing))}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Custom field columns (#1449). Validated before the transaction, like
+        # the JSON path's definitions, with the same per-board rules: every
+        # derived definition is a ``text`` field, since a CSV has no type.
+        card_cols, lane_cols, _err, csv_warnings = _csv_custom_columns(
+            reader.fieldnames
+        )
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+        card_field_defs, _err = _validate_import_field_definitions(
+            [{"name": n, "field_type": "text"} for _, n in card_cols],
+            CustomFieldDefinitionSerializer,
+            CustomFieldDefinition,
+            "show_on_card",
+            "Custom columns",
+        )
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+        lane_field_defs, _err = _validate_import_field_definitions(
+            [{"name": n, "field_type": "text"} for _, n in lane_cols],
+            SwimlaneCustomFieldDefinitionSerializer,
+            SwimlaneCustomFieldDefinition,
+            "show_on_row",
+            "Swimlane Custom columns",
+        )
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+        lane_values, lane_warnings = _swimlane_values_from_rows(rows, lane_cols)
+        csv_warnings.extend(lane_warnings)
 
         # Validate each row has required fields and a parseable Due Date when present.
         # The date check mirrors the JSON path's pre-transaction due_date guard: a
@@ -1980,6 +2151,48 @@ class BoardImportExportMixin:
             for name, obj in zip(sw_names, sw_objs):
                 swimlane_map[name] = obj
 
+            # Custom field definitions and swimlane values (#1449). Row values
+            # are structure, so they import whatever ``options["cards"]`` says
+            # (as on the JSON path); card values follow it, further below.
+            card_field_map = {
+                obj.name: obj
+                for obj in CustomFieldDefinition.objects.bulk_create(
+                    [
+                        CustomFieldDefinition(board=board, position=i, **attrs)
+                        for i, attrs in enumerate(card_field_defs)
+                    ]
+                )
+            }
+            lane_field_map = {
+                obj.name: obj
+                for obj in SwimlaneCustomFieldDefinition.objects.bulk_create(
+                    [
+                        SwimlaneCustomFieldDefinition(board=board, position=i, **attrs)
+                        for i, attrs in enumerate(lane_field_defs)
+                    ]
+                )
+            }
+            lane_value_objs = []
+            for lane_name, by_field in lane_values.items():
+                for field_name, cell in by_field.items():
+                    stored = _csv_cell_value(
+                        lane_field_map[field_name],
+                        cell,
+                        "SWIMLANE_CUSTOM_FIELD_VALIDATORS",
+                        f"Swimlane {_bounded_text(lane_name)!r}",
+                        csv_warnings,
+                    )
+                    if stored is not None:
+                        lane_value_objs.append(
+                            SwimlaneCustomFieldValue(
+                                swimlane=swimlane_map[lane_name],
+                                field_definition=lane_field_map[field_name],
+                                value=stored,
+                            )
+                        )
+            if lane_value_objs:
+                SwimlaneCustomFieldValue.objects.bulk_create(lane_value_objs)
+
             # Create labels — bulk_create avoids one INSERT per label.
             label_names = list(label_map)
             lbl_objs = Label.objects.bulk_create([
@@ -2039,6 +2252,29 @@ class BoardImportExportMixin:
                 valid_rows.append(row)
 
             created_cards = Card.objects.bulk_create(cards_to_create)
+
+            # Card custom field values, stored as written (#1449). Bulk-created,
+            # so the value-changed signal does not fire — an import is not an edit.
+            card_value_objs = []
+            for card, row in zip(created_cards, valid_rows):
+                for header, field_name in card_cols:
+                    stored = _csv_cell_value(
+                        card_field_map[field_name],
+                        _cell(row, header),
+                        "CUSTOM_FIELD_VALIDATORS",
+                        f"Card {_bounded_text(card.title)!r}",
+                        csv_warnings,
+                    )
+                    if stored is not None:
+                        card_value_objs.append(
+                            CustomFieldValue(
+                                card_id=card.pk,
+                                field_definition=card_field_map[field_name],
+                                value=stored,
+                            )
+                        )
+            if card_value_objs:
+                CustomFieldValue.objects.bulk_create(card_value_objs)
 
             # Build activity records and label M2M associations in memory, then
             # flush both with a single bulk INSERT each.
@@ -2115,7 +2351,14 @@ class BoardImportExportMixin:
         # The board body stays at the top level (unwrapped) so existing
         # clients keep working; ``import_summary`` is additive (#119).
         return Response(
-            {**board_data, "import_summary": {"options_applied": options, "skipped": skipped}},
+            {
+                **board_data,
+                "import_summary": {
+                    "options_applied": options,
+                    "skipped": skipped,
+                    "warnings": _cap_warnings(csv_warnings),
+                },
+            },
             status=status.HTTP_201_CREATED,
         )
 
@@ -2312,7 +2555,7 @@ class BoardImportExportMixin:
                     "archived_at": card.archived_at.isoformat() if card.archived_at else None,
                     # #371. Additive, so schema_version stays at 2. Restored on
                     # JSON import against the "custom_fields" definitions below
-                    # (#1447); CSV import still ignores its `Custom: ` columns.
+                    # (#1447), and by CSV import from its `Custom: ` columns (#1449).
                     "custom_field_values": _custom_values_by_name(card),
                     # #352. Additive like custom_field_values above; unlike
                     # them it *is* restored on import (validated through

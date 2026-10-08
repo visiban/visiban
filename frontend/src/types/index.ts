@@ -1377,6 +1377,8 @@ export interface ImportSummary {
   /** The five include flags are always echoed; shift_dates_from only when it was sent. */
   options_applied: Required<Omit<ImportOptions, 'shift_dates_from'>> & Pick<ImportOptions, 'shift_dates_from'>;
   skipped: ImportSkippedCounts;
+  /** CSV import only: values or columns dropped (bounded, at most 21 entries). Absent on JSON and Trello. */
+  warnings?: string[];
 }
 
 /** `POST /api/v1/boards/import/` response: the board plus an additive summary. */

@@ -95,8 +95,10 @@ Imports are limited to 10 per user per hour.
 The `.csv` file for each template uses the same layout as **Export → CSV**
 Use it to look at
 the data in a spreadsheet or to try the CSV importer. CSV import creates cards with their
-title, description, column, swimlane, priority, labels, due date and weight. It does not
-restore movement history, comments, checklists or custom field values.
+title, description, column, swimlane, priority, labels, due date and weight. It also reads
+the `Custom:` and `Swimlane Custom:` columns, restoring card and swimlane custom field values
+as **text** fields (a CSV carries no field type; import the JSON file to keep field types and
+choices). It does not restore movement history, comments or checklists.
 
 ## What each template includes
 
