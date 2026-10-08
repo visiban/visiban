@@ -38,16 +38,19 @@ write the same data over MCP, a socket, an invite link or an import.
 
 | Surface | Entry point | Enforced via |
 |---|---|---|
-| REST | `visiban/settings.py` `REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"]` | `visiban.permissions.MustNotHavePendingPasswordChange`, `MustNotHavePendingUsernameChange`; views that set their own `permission_classes` repeat them (for example `boards/views/boards.py` `BoardViewSet`, `boards/views/invites.py` `JoinBoardView`) |
-| REST authentication | `accounts/authentication.py` `PATAuthentication` | `resolve_personal_access_token` rejects a PAT whose user is inactive; Django's `ModelBackend` rejects inactive session users |
+| REST | `visiban/settings.py` `REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"]` | `visiban.permissions.MustNotHavePendingPasswordChange` and `MustNotHavePendingUsernameChange` come from the defaults. Documented exceptions that declare their own `permission_classes` so a forced-change user can reach them: `CurrentUserView`, `ChangePasswordView`, `ChooseUsernameView`, `/auth/user/` and `/auth/password/change/` (`visiban/urls.py`). The OpenAPI schema views (`visiban/urls.py`) declare `IsAuthenticated, TokenHasScope`. `boards/views/boards.py` `BoardViewSet` and `accounts/views.py` `WSTicketView` declare an explicit list that includes both gates |
+| REST authentication | `accounts/authentication.py` `PATAuthentication`; DRF `SessionAuthentication` and `TokenAuthentication` (`DEFAULT_AUTHENTICATION_CLASSES`) | `resolve_personal_access_token` rejects a PAT whose user is inactive; `SessionAuthentication` and DRF's `TokenAuthentication` check `user.is_active` |
+| Login and session issuance | `accounts/views.py` `ThrottledLoginView`; `accounts/backends.py` `EmailBackend`; `accounts/adapter.py` `SocialRegistrationAdapter` | `ModelBackend` and `EmailBackend.authenticate` call `user_can_authenticate` (inactive users are refused); `ThrottledLoginView` mints the DRF `Token` only after authentication succeeds; for existing social accounts allauth's `respond_user_inactive` handles an inactive user |
 | MCP | `mcp_server/auth.py` `BearerAuthMiddleware` | `_authenticate_and_authorize` calls `_enforce_account_state`, which reuses the REST permission classes |
-| WebSocket ticket | `accounts/views.py` `WSTicketView` | REST default permission classes on the ticket endpoint; `accounts/ws_auth.py` `_resolve_ticket_user` rejects inactive users |
-| WebSocket (board) | `boards/consumers.py` `BoardConsumer.connect` | `accounts/ws_auth.py` `load_live_ws_user` |
-| WebSocket (group) | `groups/consumers.py` `GroupConsumer.connect` | `accounts/ws_auth.py` `load_live_ws_user` |
-| Invite link redemption | `boards/views/invites.py` `JoinBoardView`; `groups/views.py` `JoinGroupView` | Permission classes on the POST (same gates as REST) |
-| JSON, CSV and Trello import | `boards/views/import_export.py` `BoardImportExportMixin.import_board`, `import_trello` | Served by `BoardViewSet`, so the REST default permission classes |
-| OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter.pre_social_login`, `save_user` | Login-time flow; no pending-change state exists before the account does |
-| Admin actions | `accounts/admin_views.py` `AdminUserDetailView`, `AdminUserDeactivateView` | `_ADMIN_PERMISSIONS` |
+| WebSocket ticket mint | `accounts/views.py` `WSTicketView` | Explicit `permission_classes`: `IsAuthenticated`, both pending-change gates, `TokenHasScope` |
+| WebSocket handshake | `accounts/ws_auth.py` `TicketAuthMiddleware`, `_resolve_ticket_user`; Channels `AuthMiddlewareStack` | `_resolve_ticket_user` refuses an inactive user at redemption; `AuthMiddlewareStack` resolves the session user through Django's auth backends |
+| WebSocket (board) | `boards/consumers.py` `BoardConsumer.connect`, `_check_access` | `connect` refuses an unauthenticated scope user or one with no recorded credential; the periodic re-check runs `accounts/ws_auth.py` `load_live_ws_user`, which requires an active user |
+| WebSocket (group) | `groups/consumers.py` `GroupConsumer.connect`, `_check_access` | Same as the board consumer: same `connect` refusal; periodic re-check runs `load_live_ws_user` |
+| Invite link redemption | `boards/views/invites.py` `JoinBoardView`; `groups/views.py` `JoinGroupView` | POST declares `IsAuthenticated`, both pending-change gates and `TokenHasScope`; GET is `AllowAny` |
+| JSON, CSV and Trello import | `boards/views/import_export.py` `BoardImportExportMixin.import_board`, `import_trello` | Served by `BoardViewSet`, so its explicit permission list |
+| OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter.pre_social_login`, `save_user` | Signup creates the account in the same flow; existing-account matching in `_handle_email_collision` considers active users only |
+| Django admin | `accounts/admin.py` `UserAdmin` registration; `boards/admin.py` `BoardMembershipAdmin` | Django's `AdminSite` requires an active staff user for `/admin/` |
+| Admin API | `accounts/admin_views.py` `AdminUserDetailView`, `AdminUserDeactivateView` | `_ADMIN_PERMISSIONS` |
 
 ## Rule 2: A deactivated, removed or demoted principal loses access
 
@@ -63,15 +66,20 @@ re-checks.
 | Surface | Entry point | Enforced via |
 |---|---|---|
 | REST | `boards/permissions.py` `get_board_role`; `groups/models.py` `get_accessible_group_ids` | Role resolved from current membership on every request |
-| Personal access tokens | `accounts/admin_views.py` `AdminUserDeactivateView._revoke_invite_links` | Deletes the user's PATs on deactivation (shared by the deactivate endpoint and `PATCH is_active=false`) |
-| MCP | `mcp_server/auth.py` `BearerAuthMiddleware`; `mcp_server/tools.py` | `resolve_personal_access_token` rejects inactive users; tools resolve the role with `get_board_role` |
-| WebSocket (board) | `boards/consumers.py` `BoardConsumer` | Periodic and per-frame re-check through `_refresh_role`, `_lookup_role` and `accounts/ws_auth.py` `load_live_ws_user` |
-| WebSocket (group) | `groups/consumers.py` `GroupConsumer` | Periodic re-check through `_refresh_access`, `_has_access` and `load_live_ws_user` |
-| Invite links | `boards/invites.py` `sender_is_board_admin`; `groups/invite_registration.py` `_sender_still_admits`; `groups/views.py` `sender_is_group_admin` | Sender's current standing re-checked at preview and redemption |
-| Invite links (revocation) | `groups/views.py` `_revoke_lapsed_admin_invite_links`; `accounts/admin_views.py` `AdminUserDeactivateView._revoke_invite_links` | Pending links revoked when the creator is deactivated or loses admin rights |
+| REST authentication | `PATAuthentication`; DRF `SessionAuthentication`, `TokenAuthentication` | Each checks `user.is_active` on every request |
+| Login and session issuance | `accounts/views.py` `ThrottledLoginView`; `accounts/backends.py` `EmailBackend` | `user_can_authenticate` refuses inactive users at login; allauth `respond_user_inactive` handles existing social accounts |
+| Personal access tokens | `accounts/admin_views.py` `AdminUserDeactivateView._revoke_invite_links` | Deletes the user's PATs; invoked by `AdminUserDeactivateView.post` and by `AdminUserDetailView.patch` when `is_active` becomes false |
+| MCP | `mcp_server/auth.py` `BearerAuthMiddleware`; `mcp_server/tools.py` | `resolve_personal_access_token` rejects inactive users; tools import `get_board_role` and `get_board_roles` |
+| WebSocket handshake | `accounts/ws_auth.py` `_resolve_ticket_user`; Channels `AuthMiddlewareStack` | Ticket redemption refuses an inactive user; the session handshake uses Django's auth backends |
+| WebSocket (board) | `boards/consumers.py` `BoardConsumer` | Periodic and per-frame re-check: `_refresh_role` calls `load_live_ws_user` (active user, live credential) and `_lookup_role` resolves the current role with `get_board_role`; a failed check closes with 4003 |
+| WebSocket (group) | `groups/consumers.py` `GroupConsumer` | Periodic re-check: `_refresh_access` calls `load_live_ws_user`; `_has_access` uses `get_accessible_group_ids` |
+| Site invite links | `accounts/admin_views.py` `AdminUserDeactivateView._revoke_invite_links` | Sets `revoked_at` on the user's unused site links; invoked by `AdminUserDeactivateView.post` and by `AdminUserDetailView.patch` when `is_active` becomes false |
+| Board invite links | `boards/views/invites.py` `JoinBoardView.get`, `JoinBoardView.post`; `boards/invites.py` `sender_is_board_admin` | `sender_is_board_admin` is evaluated at preview and at join; `_revoke_pending_board_invites` revokes on deactivation |
+| Group invite links | `groups/invite_registration.py` `_sender_still_admits`; `groups/views.py` `sender_is_group_admin`, `_revoke_lapsed_admin_invite_links`; `accounts/admin_views.py` `AdminUserDeactivateView._revoke_group_invite_links` | Sender standing is evaluated at preview and redemption; links are revoked when the sender is deactivated or their admin rights lapse |
 | JSON, CSV and Trello import | `boards/views/import_export.py` `BoardImportExportMixin` | Runs as an authenticated REST request, so role is read from current state |
-| OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter` | Existing-account matching in `_handle_email_collision` considers active users only |
-| Admin actions | `accounts/admin_views.py` `AdminUserDetailView.patch`, `AdminUserDeactivateView.post` | Deactivation revokes tokens and invites in the same operation |
+| OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter` | `_handle_email_collision` considers active users only |
+| Django admin | `boards/admin.py` `BoardMembershipAdmin` | Membership changes made in the admin emit the `EVT_MEMBER_ADDED`, `EVT_MEMBER_UPDATED` and `EVT_MEMBER_REMOVED` board events through `_BoardEventAdminMixin` |
+| Admin API | `accounts/admin_views.py` `AdminUserDetailView.patch`, `AdminUserDeactivateView.post` | Deactivation revokes PATs and pending invites in the same operation |
 
 ## Rule 3: Anything that grants access declares what revokes it
 
@@ -86,13 +94,17 @@ access described in Rule 2.
 
 | Grant | Entry point | Revoked by |
 |---|---|---|
-| Session | Django session (`SessionAuthentication`) | Logout, password change (session auth hash), deactivation (`ModelBackend` rejects inactive users) |
-| Personal access token | `accounts/models.py` `PersonalAccessToken`; `accounts/authentication.py` `resolve_personal_access_token` | Explicit delete (`PersonalAccessTokenDeleteView`), expiry (`pat_is_expired`), deactivation (`_revoke_invite_links`), password change (`accounts/views.py` `TokenRevokingPasswordChangeView`) |
-| WebSocket ticket | `accounts/ws_auth.py` `issue_ws_ticket`, `consume_ws_ticket` | Single use and `WS_TICKET_TTL` expiry; refused if the minting credential is already revoked |
-| Open WebSocket | `accounts/ws_auth.py` `ws_credential_is_live`, `load_live_ws_user` | Recorded credential no longer live, password changed since handshake, account inactive, access lost (4003 at the next re-check) |
-| Site invite link | `accounts/invite_utils.py` `validate_invite_token`, `consume_invite_token` | `revoked_at`, expiry, `used_at`, creator deactivation |
-| Board invite link | `boards/views/invites.py` `JoinBoardView`; `boards/invites.py` `sender_is_board_admin` | `revoked_at`, `used_at`, sender no longer a board admin or deactivated |
-| Group invite link | `groups/views.py` `JoinGroupView`; `groups/invite_registration.py` `_sender_still_admits` | `is_active`, `used_at`, sender no longer a group admin, site admin or active |
+| Session | Django session (`SessionAuthentication`) | Logout, a password change (the session auth hash is an HMAC of the password hash), deactivation (`ModelBackend` refuses inactive users) |
+| DRF auth `Token` | dj-rest-auth login via `accounts/views.py` `ThrottledLoginView`; `TokenAuthentication` | Logout (dj-rest-auth `LogoutView` deletes `request.user.auth_token`); `TokenAuthentication` checks `user.is_active` on each request; an open socket minted from it re-checks the key digest in `accounts/ws_auth.py` `_credential_ref_is_live` |
+| Personal access token | `accounts/models.py` `PersonalAccessToken`; `accounts/authentication.py` `resolve_personal_access_token` | Explicit delete (`PersonalAccessTokenDeleteView`), expiry (`pat_is_expired`), deactivation (`_revoke_invite_links`), and `finalize_password_change`, which deletes all of the user's PATs |
+| Password change sources | `accounts/views.py` `finalize_password_change`, called by `ChangePasswordView` and `TokenRevokingPasswordChangeView` | Clears `must_change_password` and deletes the user's PATs |
+| Password reset | `accounts/views.py` `ThrottledPasswordResetConfirmView`; `accounts/serializers.py` `VisibanPasswordResetConfirmSerializer` | `validate` refuses a link when the account no longer has a verified address (`password_reset_still_allowed`); `save` clears the login lockout; the new password hash changes the session auth hash that sessions and open sockets compare |
+| WebSocket ticket | `accounts/ws_auth.py` `issue_ws_ticket`, `consume_ws_ticket`, `_resolve_ticket_user` | Single use, `WS_TICKET_TTL` expiry, refused for an inactive user or a minting credential that is no longer live |
+| Open WebSocket | `accounts/ws_auth.py` `ws_credential_is_live`, `load_live_ws_user` | Recorded credential no longer live, password changed since handshake (`auth_hash`), account inactive (4003 at the next re-check) |
+| Public board share link | `boards/views/share.py` `ShareBoardView`; `boards/models.py` `Board.share_token`, `share_token_expires_at` | Clearing `share_token` on the board (`boards/views/boards.py`), `share_token_expires_at` (the view returns 410 once it has passed) |
+| Site invite link | `accounts/invite_utils.py` `validate_invite_token`, `consume_invite_token` | `revoked_at`, `expires_at`, `used_at`, and `AdminUserDeactivateView._revoke_invite_links` for links the deactivated user created |
+| Board invite link | `boards/views/invites.py` `JoinBoardView`; `boards/models.py` `BoardInviteLink` | `revoked_at`, `expires_at`, `used_at`; `sender_is_board_admin` re-evaluated at preview and join |
+| Group invite link | `groups/views.py` `JoinGroupView`; `groups/models.py` `GroupInviteLink` | `is_active`, `expires_at`, `used_at`; sender standing re-evaluated by `_sender_still_admits` and `sender_is_group_admin` |
 | OAuth pending invite | `accounts/adapter.py` `SocialRegistrationAdapter.is_open_for_signup` | Invalid or expired token clears `PENDING_INVITE_SESSION_KEY` |
 
 ## Rule 4: Consume-once tokens are consumed at the gate, under a lock
@@ -113,6 +125,7 @@ canonical wording.
 | Group invite (registration) | `groups/invite_registration.py` `validate_group_registration_token`, `redeem_group_registration_token` | `select_for_update()` on validation; conditional `used_at` update checked by row count |
 | Board invite (join) | `boards/views/invites.py` `JoinBoardView.post` | `select_for_update()` on the link row inside the request transaction |
 | Group invite (join) | `groups/views.py` `JoinGroupView.post` | `select_for_update()` on the link row inside the request transaction |
+| Board invite (registration) | `boards/invites.py` `validate_board_registration_token`, `redeem_board_registration_token` | `select_for_update()` on validation; conditional update on `used_at IS NULL, revoked_at IS NULL` checked by row count |
 | Registration dispatch | `accounts/registration_tokens.py` `registration_token_kind` | Routes to the site, group or board validate and redeem functions above |
 | Email and password signup | `accounts/views.py` `InviteRegisterView.post` | Runs in `transaction.atomic`; validates and redeems through `registration_token_kind` |
 | OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter.save_user`, `_redeem_invite` | Validate and redeem in one transaction |

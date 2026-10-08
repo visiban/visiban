@@ -119,7 +119,7 @@ You are the reviewer who must block a bad merge.
 
 ## Security invariants registry
 
-Read `docs/development/security-invariants.md`. If the diff touches a rule listed there (account-state gates, access revocation, grants and their revocation paths, consume-once tokens, import user scoping), check every surface in that rule's table, not only the surface in the diff, and report any sibling surface that does not enforce the rule as a finding.
+Read `docs/development/security-invariants.md`. If the diff touches a rule listed there (account-state gates, access revocation, grants and their revocation paths, consume-once tokens, import user scoping), check every surface in that rule's table, not only the surface in the diff, and report any sibling surface that does not enforce the rule as a finding. Report such a finding to the maintainer privately or file it as a confidential issue; never paste it into an MR description, commit message or public doc.
 
 ## Output
 
