@@ -359,6 +359,7 @@ class ConcurrentMoveLockTests(TransactionTestCase):
         # column row, so the card can drop out of the result. Either way it ran
         # strictly after the first move; what must never happen is two 200s
         # both written from column A.
+        # Tighten to == 200 once #1523 (spurious 404 for the queued move) is fixed.
         self.assertIn(results["second"], (200, 404))
 
         movements = list(CardMovement.objects.filter(card=card).order_by("moved_at", "pk"))
@@ -391,7 +392,7 @@ class ConcurrentMoveLockTests(TransactionTestCase):
         self.col_b.save(update_fields=["wip_limit"])
         self._card("Resident", self.col_b, 0)
         # Different source cells: two cards leaving the *same* cell deadlock on
-        # the sibling-row locks (see the note on the class), which is a
+        # the sibling-row locks (see #1522), which is a
         # separate problem from the target-column lock exercised here.
         one = self._card("One", self.col_a, 0)
         two = self._card("Two", self.col_c, 0, swimlane=self.swim2)
