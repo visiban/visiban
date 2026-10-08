@@ -3915,7 +3915,7 @@
 <ol>
 <li>Frontend opens <code>ws://{host}/ws/boards/{board_id}/</code> on page load</li>
 <li><code>AuthMiddlewareStack</code> authenticates the connection via the session cookie; unauthenticated connections are closed with code 4001. A caller with no session cookie — a PAT/DRF-token client, a different origin, or a native/CLI client — instead requests a short-lived, single-use <strong>ticket</strong> over REST first and passes it as <code>?ticket=</code> on the upgrade (<code>accounts.ws_auth.TicketAuthMiddleware</code>, #1109); the ticket only authenticates the connection, it grants no extra authorization</li>
-<li>On connect, the consumer joins the <code>board_{id}</code> channel group and separately checks board membership, closing with code 4003 for a non-member regardless of how the connection was authenticated</li>
+<li>On connect, the consumer joins the <code>board_{id}</code> channel group and separately checks board membership, closing with code 4003 for a non-member (or an account with a pending password or username change) regardless of how the connection was authenticated</li>
 <li>Any mutation (card move, update, delete) calls <code>broadcast_board_event()</code> which publishes to Valkey</li>
 <li>Valkey fans the event out to all consumers in the group</li>
 <li>Each consumer forwards the event to its WebSocket client</li>
