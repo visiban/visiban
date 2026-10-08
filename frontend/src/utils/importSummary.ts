@@ -3,9 +3,6 @@ import type { ImportSummary } from "../types";
 /** How long the post-import notice stays before dismissing itself. */
 export const IMPORT_SKIPPED_TOAST_MS = 8000;
 
-/** Warnings need reading, not glancing: the notice stays longer when it carries any (#1526). */
-export const IMPORT_WARNINGS_TOAST_MS = 20000;
-
 /** At most this many counts are spelled out; the rest collapse to "and N more". */
 const MAX_LISTED = 3;
 
@@ -46,8 +43,20 @@ export function importWarnings(summary: ImportSummary | null | undefined): strin
   return (summary?.warnings ?? []).filter((w) => typeof w === "string" && w.trim() !== "");
 }
 
+/**
+ * How many values the warnings cover, for the screen-reader announcement. The
+ * server caps the list and appends "\u2026and N more"; that entry stands for N
+ * further warnings, not one (#1449).
+ */
+export function countImportWarnings(warnings: string[]): number {
+  return warnings.reduce((total, w) => {
+    const more = /^\u2026and (\d+) more$/.exec(w);
+    return total + (more ? Number(more[1]) : 1);
+  }, 0);
+}
+
 /** Lead-in for a notice that carries warnings but nothing was skipped. */
-export const IMPORT_WARNINGS_HEADLINE = "Board imported. Some values were not imported:";
+export const IMPORT_WARNINGS_HEADLINE = "Board imported, but some values could not be imported:";
 
 /** True when the import left anything out or raised warnings, i.e. the notice should be shown. */
 export function hasImportSkips(summary: ImportSummary | null | undefined): boolean {

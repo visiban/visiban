@@ -334,7 +334,7 @@ describe('App', () => {
       mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
       mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
       render(<MemoryRouter initialEntries={[entry]}><App /></MemoryRouter>)
-      expect(await screen.findByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+      expect((await screen.findAllByText('Board imported. Skipped: 3 card labels.')).length).toBeGreaterThan(0)
     })
 
     it('clears the navigation state so a reload or Back does not show it again', async () => {
@@ -345,10 +345,10 @@ describe('App', () => {
         return <span data-testid="location-probe">{`${loc.pathname}|${JSON.stringify(loc.state)}`}</span>
       }
       render(<MemoryRouter initialEntries={[entry]}><App /><LocationProbe /></MemoryRouter>)
-      expect(await screen.findByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+      expect((await screen.findAllByText('Board imported. Skipped: 3 card labels.')).length).toBeGreaterThan(0)
       await waitFor(() => expect(screen.getByTestId('location-probe')).toHaveTextContent('/boards/1|null'))
       // Captured on mount, so the notice survives its own state being cleared.
-      expect(screen.getByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+      expect(screen.getAllByText('Board imported. Skipped: 3 card labels.').length).toBeGreaterThan(0)
     })
 
     it('does not show the notice while a move error is showing', async () => {

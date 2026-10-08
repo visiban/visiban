@@ -532,9 +532,10 @@ describe('ImportSkippedToast (#119)', () => {
       const onDismiss = vi.fn()
       render(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
       const region = screen.getByRole('status')
+      const wrapper = screen.getByTestId('import-notice')
       expect(region).toHaveTextContent('')
-      expect(region.className).toContain('w-max')
-      expect(region.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
+      expect(wrapper.className).toContain('w-max')
+      expect(wrapper.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
       act(() => { vi.advanceTimersByTime(0) })
       expect(region).toHaveTextContent('Board imported. Skipped: 1 card label.')
       act(() => { vi.advanceTimersByTime(7999) })
@@ -552,7 +553,7 @@ describe('ImportSkippedToast (#119)', () => {
       const onDismiss = vi.fn()
       render(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
       act(() => { vi.advanceTimersByTime(0) })
-      const region = screen.getByRole('status')
+      const region = screen.getByTestId('import-notice')
       fireEvent.mouseEnter(region)
       act(() => { vi.advanceTimersByTime(20000) })
       expect(onDismiss).not.toHaveBeenCalled()
@@ -596,20 +597,39 @@ describe('CSV import warnings (#1526)', () => {
     expect(hasImportSkips(warned)).toBe(true)
   })
 
-  it('lists the warnings and stays open for 20 seconds', () => {
+  it('lists the warnings in a focusable labelled list and persists until dismissed', () => {
     vi.useFakeTimers()
     try {
       const onDismiss = vi.fn()
       render(<ImportSkippedToast summary={warned} onDismiss={onDismiss} />)
       act(() => { vi.advanceTimersByTime(0) })
-      const region = screen.getByRole('status')
-      expect(region).toHaveTextContent('Board imported. Some values were not imported:')
+      expect(screen.getByText('Board imported, but some values could not be imported:')).toBeInTheDocument()
+      const list = screen.getByLabelText('Import warnings')
+      expect(list).toHaveAttribute('tabindex', '0')
+      expect(list.className).toContain('focus:ring-2')
       expect(screen.getAllByRole('listitem')).toHaveLength(2)
       expect(screen.getByText("Skipped column 'X': the field name is empty.")).toBeInTheDocument()
-      act(() => { vi.advanceTimersByTime(19999) })
+      act(() => { vi.advanceTimersByTime(10 * 60 * 1000) })
       expect(onDismiss).not.toHaveBeenCalled()
-      act(() => { vi.advanceTimersByTime(1) })
+      expect(screen.getByLabelText('Import warnings')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }))
       expect(onDismiss).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('announces the headline and a count, never the list', () => {
+    vi.useFakeTimers()
+    try {
+      render(<ImportSkippedToast summary={warned} onDismiss={vi.fn()} />)
+      const status = screen.getByRole('status')
+      expect(status).toHaveTextContent('')
+      act(() => { vi.advanceTimersByTime(0) })
+      // 1 listed warning plus "...and 3 more" = 4 values.
+      expect(status).toHaveTextContent('Board imported. 4 values were not imported.')
+      expect(status).not.toHaveTextContent('Skipped column')
+      expect(status.className).toContain('sr-only')
     } finally {
       vi.useRealTimers()
     }
@@ -622,14 +642,14 @@ describe('CSV import warnings (#1526)', () => {
         onDismiss={vi.fn()}
       />,
     )
-    return screen.findByText('Board imported. Skipped: 1 card label.').then(() => {
+    return screen.findAllByText('Board imported. Skipped: 1 card label.').then(() => {
       expect(screen.getAllByRole('listitem')).toHaveLength(2)
     })
   })
 
   it('looks unchanged when there are no warnings', () => {
     render(<ImportSkippedToast summary={{ ...base, skipped: { ...base.skipped, label_refs: 1 }, warnings: [] }} onDismiss={vi.fn()} />)
-    return screen.findByText('Board imported. Skipped: 1 card label.').then(() => {
+    return screen.findAllByText('Board imported. Skipped: 1 card label.').then(() => {
       expect(screen.queryByRole('list')).toBeNull()
     })
   })

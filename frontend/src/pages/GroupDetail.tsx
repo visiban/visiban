@@ -462,7 +462,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // the board was already imported and there is nothing to roll back.
     // A selective import that left something out hands its summary to the
-    // board page, which shows the skipped counts (#119).
+    // board page, which shows the skipped counts (#119) and any CSV import
+    // warnings (#1526).
     if (hasImportSkips(board.import_summary)) {
       void navigate(`/boards/${board.id}`, { state: { importSummary: board.import_summary } });
     } else {
