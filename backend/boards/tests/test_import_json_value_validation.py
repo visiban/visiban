@@ -156,7 +156,7 @@ class JsonImportValueValidationTests(TestCase):
     # -- null / wrong-typed text and bool values -------------------------------
 
     def test_column_color_null_or_wrong_type(self):
-        for bad in (None, 5, ["#fff"]):
+        for bad in (None, ["#fff"], {"a": 1}, float("nan"), float("inf")):
             with self.subTest(bad=bad):
                 self.assert_400(
                     _payload(columns=[{"name": "c", "color": bad}]),
@@ -343,6 +343,105 @@ class JsonImportValueValidationTests(TestCase):
                     _payload(cards=[_card(archived_at=value)]),
                     f"Card at index 0: invalid timestamp for 'archived_at': '{value}'",
                 )
+
+    def test_timestamps_outside_utc_year_range(self):
+        # Stored by PostgreSQL but unreadable as a Python datetime, so every
+        # later export of the board would fail.
+        for value in ("9999-12-31T23:59:59-12:00", "0001-01-01T00:00:00+14:00"):
+            with self.subTest(field="archived_at", value=value):
+                self.assert_400(
+                    _payload(cards=[_card(archived_at=value)]),
+                    f"Card at index 0: invalid timestamp for 'archived_at': '{value}'",
+                )
+            with self.subTest(field="comment created_at", value=value):
+                self.assert_400(
+                    _payload(cards=[_card(comments=[{"body": "x", "created_at": value}])]),
+                    f"Card at index 0, comment at index 0: invalid 'created_at': '{value}'",
+                )
+
+    def test_timestamps_at_utc_range_edges_import_and_export(self):
+        board = self.assert_201(_payload(cards=[_card(
+            archived_at="9999-12-31T23:59:59+00:00",
+            comments=[{"body": "x", "created_at": "0001-01-01T00:00:00+00:00"}],
+        )]))
+        cache.clear()
+        resp = self.client.get(f"/api/v1/boards/{board.id}/export/", {"format": "json"})
+        self.assertEqual(resp.status_code, 200)
+
+    # -- plain numbers in text fields are text (pre-#1507 coercion) -------------
+
+    def test_numbers_and_bools_in_text_fields_are_stored_as_text(self):
+        data = _payload(
+            columns=[{"name": "c", "color": 5}],
+            description=12,
+            cards=[_card(
+                description=5,
+                comments=[{"body": 0}],
+                checklist=[{"text": True}],
+                movements=[{"notes": 1.5}],
+                activities=[{"event_type": "title_change", "from_value": 5, "to_value": False}],
+            )],
+        )
+        board = self.assert_201(data)
+        self.assertEqual(board.description, "12")
+        self.assertEqual(board.columns.get().color, "5")
+        card = board.cards.get()
+        self.assertEqual(card.description, "5")
+        self.assertEqual(CardComment.objects.get(card=card).body, "0")
+        self.assertEqual(CardChecklist.objects.get(card=card).text, "True")
+        self.assertEqual(CardMovement.objects.get(card=card).notes, "1.5")
+        act = CardActivity.objects.get(card=card, event_type="title_change")
+        self.assertEqual((act.from_value, act.to_value), ("5", "False"))
+
+    def test_coerced_number_still_length_checked(self):
+        self.assert_400(
+            _payload(columns=[{"name": "c", "color": 123456789}]),
+            "Column at index 0: 'color' must be at most 7 characters",
+        )
+
+    def test_nan_and_infinity_in_text_fields_rejected(self):
+        for raw in (b"NaN", b"Infinity"):
+            with self.subTest(raw=raw):
+                cache.clear()
+                body = (
+                    b'{"name": "B", "columns": [{"name": "c"}], "swimlanes": [{"name": "s"}], '
+                    b'"cards": [{"title": "t", "column": "c", "swimlane": "s", "description": ' + raw + b"}]}"
+                )
+                resp = self._post_raw(body)
+                self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(resp.json(), {"detail": "Card at index 0: 'description' must be a string"})
+
+    # -- lone surrogates in echoed values -----------------------------------------
+
+    def _assert_clean_400(self, resp, prefix):
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        resp.content.decode("utf-8")  # must encode/decode cleanly
+        self.assertTrue(resp.json()["detail"].startswith(prefix), resp.json())
+        self.assertIn("\\ud800", resp.json()["detail"])
+
+    # json.dumps writes "\ud800" as the six-character escape, so the raw
+    # bytes the server parses carry it and json.loads yields a lone surrogate.
+    def test_surrogate_in_duplicate_column_names(self):
+        raw = json.dumps(_payload(columns=[{"name": "\ud800"}, {"name": "\ud800"}], cards=[])).encode()
+        self.assertIn(b"\\ud800", raw)
+        self._assert_clean_400(self._post_raw(raw), "Duplicate column names: ")
+
+    def test_surrogate_in_duplicate_label_names(self):
+        raw = json.dumps(_payload(labels=[{"name": "\ud800"}, {"name": "\ud800"}])).encode()
+        self._assert_clean_400(self._post_raw(raw), "Duplicate label names: ")
+
+    def test_surrogate_in_options_key(self):
+        cache.clear()
+        f = io.BytesIO(json.dumps(_payload()).encode())
+        f.name = "board.json"
+        options = json.dumps({"\ud800": True})
+        self.assertIn("\\ud800", options)
+        resp = self.client.post(IMPORT_URL, {"file": f, "options": options}, format="multipart")
+        self._assert_clean_400(resp, "Invalid 'options': ")
+
+    def test_surrogate_in_custom_field_type(self):
+        raw = json.dumps(_payload(custom_fields=[{"name": "f", "field_type": "\ud800"}])).encode()
+        self._assert_clean_400(self._post_raw(raw), "'custom_fields' entry at index 0: ")
 
     def test_impossible_child_timestamps(self):
         for child, label, key in (

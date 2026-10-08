@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import logging
+import math
 import os
 import re
 import reprlib
@@ -495,11 +496,35 @@ def _bounded_repr(value):
     would echo all of it.
     """
     text = _import_reprlib.repr(value)
-    return text if len(text) <= _IMPORT_ECHO_MAX else text[: _IMPORT_ECHO_MAX - 3] + "..."
+    return _encodable(text if len(text) <= _IMPORT_ECHO_MAX else text[: _IMPORT_ECHO_MAX - 3] + "...")
+
+
+def _encodable(text):
+    """*text* with anything UTF-8 cannot encode (a lone surrogate) escaped.
+
+    JSON allows ``"\\ud800"``; echoed raw, it makes the response renderer
+    fail to encode and the 400 becomes a 500.
+    """
+    return text.encode("utf-8", "backslashreplace").decode("utf-8")
 
 
 def _field_max_length(model, field_name):
     return model._meta.get_field(field_name).max_length
+
+
+def _coerce_text(obj, key):
+    """Store a scalar number or bool at ``obj[key]`` as its text, in place.
+
+    Before #1507 the database layer coerced these with ``str()`` (True ->
+    "True", 5 -> "5"), so a file that relied on it keeps importing, and the
+    coerced string is what the write block stores. NaN and infinity are not
+    coerced: they are not valid JSON (Python's parser accepts them as an
+    extension) and no exporter writes them, so they fall through to the
+    "must be a string" 400. Null, lists and objects are left for the same 400.
+    """
+    value = obj[key]
+    if isinstance(value, (bool, int)) or (isinstance(value, float) and math.isfinite(value)):
+        obj[key] = str(value)
 
 
 def _text_error(value, max_length=None):
@@ -543,7 +568,7 @@ def _int_error(value, *, nullable=False):
 def _bounded_text(value, limit=_IMPORT_ECHO_MAX):
     """A value for an error message: strings unquoted, both bounded."""
     if isinstance(value, str):
-        return value if len(value) <= limit else value[: limit - 3] + "..."
+        return _encodable(value if len(value) <= limit else value[: limit - 3] + "...")
     return _bounded_repr(value)
 
 
@@ -571,6 +596,8 @@ def _check_keys(obj, specs, where):
     """
     for key, check in specs:
         if key in obj:
+            if getattr(check, "func", None) in _TEXT_CHECKS:
+                _coerce_text(obj, key)
             problem = check(obj[key])
             if problem:
                 shown = key if check in _UNQUOTED_CHECKS else f"'{key}'"
@@ -579,6 +606,9 @@ def _check_keys(obj, specs, where):
 
 
 _nullable_int_error = functools.partial(_int_error, nullable=True)
+# Checkers whose keys get _coerce_text first. _optional_name_error is not one:
+# movement column/swimlane names must already be strings (#1451).
+_TEXT_CHECKS = (_text_error,)
 _UNQUOTED_CHECKS = (_int_error, _nullable_int_error)
 
 
@@ -592,8 +622,10 @@ def _validate_json_import_values(data):
     Assumes the shape checks in ``_import_json`` already passed (every list is
     a list of objects, names are strings). Returns an error detail or None.
     """
-    if "description" in data and (problem := _text_error(data["description"])):
-        return f"Board 'description' {problem}"
+    if "description" in data:
+        _coerce_text(data, "description")
+        if problem := _text_error(data["description"]):
+            return f"Board 'description' {problem}"
 
     labels = data.get("labels", [])
     if len(labels) > _IMPORT_MAX_LABELS:
@@ -793,9 +825,20 @@ def _timestamp_error(value, parser):
     if not isinstance(value, str):
         return True
     try:
-        return parser(value) is None
+        parsed = parser(value)
+        if parsed is None:
+            return True
+        # An aware value whose UTC instant falls outside years 1-9999
+        # ("9999-12-31T23:59:59-12:00") is stored by PostgreSQL but cannot
+        # be read back into a Python datetime, so every later export of the
+        # board would fail (#1507).
+        if isinstance(parsed, datetime.datetime):
+            if django_timezone.is_naive(parsed):
+                parsed = django_timezone.make_aware(parsed)
+            parsed.astimezone(datetime.timezone.utc)
     except (ValueError, OverflowError):
         return True
+    return False
 
 
 def _resolve_import_users(usernames, importer, group=None):
