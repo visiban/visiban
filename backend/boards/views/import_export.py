@@ -114,6 +114,16 @@ _IMPORTED_NAME_MAX_SUFFIX = 12
 _CONTROL_CHARS_RE = re.compile(r"[\x01-\x1f\x7f]+")
 
 
+def _cell(row, name):
+    """Return a stripped CSV cell, treating a missing cell as empty.
+
+    ``csv.DictReader`` fills the trailing cells of a row shorter than the
+    header with ``None`` (not an absent key), so ``row.get(name, "")`` returns
+    ``None`` and ``.strip()`` raises (#1496).
+    """
+    return (row.get(name) or "").strip()
+
+
 def _imported_board_name(source_name, user, group):
     """Return the default name for a board created by the JSON or CSV importer.
 
@@ -1483,12 +1493,12 @@ class BoardImportExportMixin:
         from django.utils.dateparse import parse_date as _parse_date_csv
         for i, row in enumerate(rows):
             for field in ("Title", "Column", "Swimlane"):
-                if not row.get(field, "").strip():
+                if not _cell(row, field):
                     return Response(
                         {"detail": f"Row {i + 2} is missing required field: {field}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-            _due = row.get("Due Date", "").strip()
+            _due = _cell(row, "Due Date")
             if _due and _parse_date_csv(_due) is None:
                 return Response(
                     {"detail": f"Row {i + 2}: invalid Due Date: {_due!r}"},
@@ -1499,8 +1509,8 @@ class BoardImportExportMixin:
         # the same per-import ceilings as the JSON import path.
         _IMPORT_MAX_COLUMNS = 50
         _IMPORT_MAX_SWIMLANES = 100
-        unique_columns = {row["Column"].strip() for row in rows if row.get("Column", "").strip()}
-        unique_swimlanes = {row["Swimlane"].strip() for row in rows if row.get("Swimlane", "").strip()}
+        unique_columns = {_cell(row, "Column") for row in rows if _cell(row, "Column")}
+        unique_swimlanes = {_cell(row, "Swimlane") for row in rows if _cell(row, "Swimlane")}
         if len(unique_columns) > _IMPORT_MAX_COLUMNS:
             return Response(
                 {"detail": f"Import contains {len(unique_columns)} columns, which exceeds the limit of {_IMPORT_MAX_COLUMNS}."},
@@ -1527,7 +1537,7 @@ class BoardImportExportMixin:
             skipped["cards"] = len(rows)
         if not options["cards"] or not options["labels"]:
             skipped["label_refs"] = sum(
-                len({n.strip() for n in (row.get("Labels") or "").split(",") if n.strip()})
+                len({n.strip() for n in _cell(row, "Labels").split(",") if n.strip()})
                 for row in rows
             )
 
@@ -1548,15 +1558,15 @@ class BoardImportExportMixin:
             label_map = {}
 
             for row in rows:
-                col_name = row["Column"].strip()
+                col_name = _cell(row, "Column")
                 if col_name and col_name not in column_map:
                     column_map[col_name] = None
 
-                sw_name = row["Swimlane"].strip()
+                sw_name = _cell(row, "Swimlane")
                 if sw_name and sw_name not in swimlane_map:
                     swimlane_map[sw_name] = None
 
-                labels_str = row.get("Labels", "").strip() if options["labels"] else ""
+                labels_str = _cell(row, "Labels") if options["labels"] else ""
                 if labels_str:
                     for label_name in labels_str.split(","):
                         label_name = label_name.strip()
@@ -1600,25 +1610,25 @@ class BoardImportExportMixin:
             # The export writes the assignee's username; resolve with the same
             # rule as the JSON importer so a CSV round trip keeps assignees (#1442).
             csv_user_map = _resolve_import_users(
-                ((row.get("Assignee") or "").strip() for row in rows),
+                (_cell(row, "Assignee") for row in rows),
                 request.user, group,
             ) if options["cards"] else {}
             # ``cards`` off imports structure (and labels) only (#119).
             for row in (rows if options["cards"] else []):
-                column = column_map.get(row["Column"].strip())
-                swimlane = swimlane_map.get(row["Swimlane"].strip())
+                column = column_map.get(_cell(row, "Column"))
+                swimlane = swimlane_map.get(_cell(row, "Swimlane"))
                 if not column or not swimlane:
                     continue
 
-                priority = row.get("Priority", "medium").strip().lower()
+                priority = _cell(row, "Priority").lower() or "medium"
                 if priority not in [c[0] for c in Card.Priority.choices]:
                     priority = "medium"
 
-                due_date = row.get("Due Date", "").strip() or None
-                assignee_name = (row.get("Assignee") or "").strip()
+                due_date = _cell(row, "Due Date") or None
+                assignee_name = _cell(row, "Assignee")
                 assignee = csv_user_map.get(assignee_name.lower()) if assignee_name else None
 
-                weight_str = row.get("Weight", "1").strip()
+                weight_str = _cell(row, "Weight") or "1"
                 try:
                     weight = int(weight_str)
                 except (ValueError, TypeError):
@@ -1628,8 +1638,8 @@ class BoardImportExportMixin:
                     board=board,
                     column=column,
                     swimlane=swimlane,
-                    title=row["Title"].strip(),
-                    description=row.get("Description", "").strip(),
+                    title=_cell(row, "Title"),
+                    description=_cell(row, "Description"),
                     priority=priority,
                     assignee=assignee,
                     due_date=due_date,
@@ -1659,7 +1669,7 @@ class BoardImportExportMixin:
                     ))
 
                 # Assign labels — label_map is empty with ``labels`` off (#119).
-                labels_str = row.get("Labels", "").strip()
+                labels_str = _cell(row, "Labels")
                 if labels_str:
                     card_labels = []
                     for label_name in labels_str.split(","):

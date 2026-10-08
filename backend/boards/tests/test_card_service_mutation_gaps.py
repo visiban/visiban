@@ -233,23 +233,24 @@ class LabelActivityTests(UpdateCardGapBase):
     def test_removed_labels_are_listed_with_minus(self):
         self.card.labels.set([self.bug])
         self._set_labels([])
-        # Pins the current behavior: removed names are looked up in the
-        # post-write label set, so none can be named and only the "-" marker is
-        # recorded. Fixed by #1511; update the expectation then.
         self.assertEqual(
-            self._activities(), [(ET.LABEL_CHANGE, "", "-", self.owner.pk)]
+            self._activities(), [(ET.LABEL_CHANGE, "", "-bug", self.owner.pk)]
         )
 
+    def test_several_removed_labels_join_with_comma_space(self):
+        self.card.labels.set([self.bug, self.ux])
+        self._set_labels([])
+        (row,) = self._activities()
+        self.assertIn(row[2], ("-bug, ux", "-ux, bug"))
+
     def test_add_and_remove_in_one_update(self):
-        # Pins the current behavior ("-" with no name); fixed by #1511, update
-        # the expectation then.
         self.card.labels.set([self.bug])
         self._set_labels([self.ux])
         rows = self._activities()
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0][0], ET.LABEL_CHANGE)
         self.assertEqual(rows[0][1], "")
-        self.assertEqual(rows[0][2], "+ux, -")
+        self.assertEqual(rows[0][2], "+ux, -bug")
 
     def test_several_added_labels_join_with_comma_space(self):
         self._set_labels([self.bug, self.ux])

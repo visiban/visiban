@@ -576,7 +576,12 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None, forc
         # prefetch is now parked with to_attr — .all() on the M2M manager
         # would miss that parked list and issue a live query here, on every
         # card update, regardless of whether labels actually changed.
-        old_label_ids = {label.id for label in _card_labels(card)}
+        old_labels = _card_labels(card)
+        old_label_ids = {label.id for label in old_labels}
+        # Captured before the write: a removed label is gone from the card
+        # afterwards, so its name can only be resolved from this pre-write
+        # snapshot (#1511). Costs no extra query.
+        label_name_by_id = {label.id: label.name for label in old_labels}
         old_due_date = card.due_date.isoformat() if card.due_date else ""
 
         apply()
@@ -657,9 +662,9 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None, forc
             added = new_label_ids - old_label_ids
             removed = old_label_ids - new_label_ids
             parts = []
-            # Build the name map from the labels already prefetched above rather
-            # than issuing two live queries.
-            label_name_by_id = {lbl.id: lbl.name for lbl in card.labels.all()}
+            # Merge in the post-write labels (already prefetched) so added
+            # names resolve; removed names come from the pre-write snapshot.
+            label_name_by_id.update({lbl.id: lbl.name for lbl in card.labels.all()})
             if added:
                 names = [label_name_by_id[lid] for lid in added if lid in label_name_by_id]
                 parts.append(f"+{', '.join(names)}")

@@ -1796,4 +1796,180 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       expect(screen.queryByText('Could not archive card.')).not.toBeInTheDocument()
     })
   })
+
+  describe('comment submit, checklist toggle and file upload: in-flight guard + failure path (#1498)', () => {
+    const deferred = <T,>() => {
+      let resolve!: (v: T) => void
+      let reject!: (e: unknown) => void
+      const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+      return { promise, resolve, reject }
+    }
+    const item = { id: 1, text: 'Item 1', is_checked: false, position: 0 }
+
+    it('comment submit: double-click posts once', async () => {
+      const d = deferred<unknown>()
+      ;(addCardComment as ReturnType<typeof vi.fn>).mockImplementationOnce(() => d.promise)
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.change(screen.getByTestId('mention-textarea'), { target: { value: 'hello' } })
+      const btn = screen.getByRole('button', { name: 'Comment' })
+      fireEvent.click(btn)
+      fireEvent.click(btn)
+      expect(addCardComment).toHaveBeenCalledTimes(1)
+      d.resolve({ id: 9, body: 'hello', author: fakeUser, created_at: '2026-01-01', updated_at: '2026-01-01' })
+      await waitFor(() => expect(screen.getByTestId('mention-textarea')).toHaveValue(''))
+    })
+
+    it('comment submit: a rejection shows an error in a live region, keeps the text, and allows retry', async () => {
+      ;(addCardComment as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'))
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.change(screen.getByTestId('mention-textarea'), { target: { value: 'hello' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Comment' }))
+      const err = await screen.findByText('Could not post comment.')
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      expect(screen.getByTestId('mention-textarea')).toHaveValue('hello')
+      ;(addCardComment as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 9, body: 'hello', author: fakeUser, created_at: '2026-01-01', updated_at: '2026-01-01' })
+      fireEvent.click(screen.getByRole('button', { name: 'Comment' }))
+      await waitFor(() => expect(screen.queryByText('Could not post comment.')).not.toBeInTheDocument())
+      expect(addCardComment).toHaveBeenCalledTimes(2)
+    })
+
+    it('checklist toggle: double-click sends one PATCH', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([item])
+      const d = deferred<unknown>()
+      mockUpdateChecklistItem.mockImplementationOnce(() => d.promise)
+      render(<CardDetail {...defaultProps()} />)
+      await waitFor(() => expect(screen.getByText('Item 1')).toBeInTheDocument())
+      const box = screen.getAllByRole('checkbox')[0]
+      fireEvent.click(box)
+      fireEvent.click(box)
+      expect(mockUpdateChecklistItem).toHaveBeenCalledTimes(1)
+      d.resolve({ ...item, is_checked: true })
+      await waitFor(() => expect(screen.getAllByRole('checkbox')[0]).toBeChecked())
+    })
+
+    it('checklist toggle: a rejection shows an error and leaves the item unchecked', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([item])
+      mockUpdateChecklistItem.mockRejectedValueOnce(new Error('boom'))
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      await waitFor(() => expect(screen.getByText('Item 1')).toBeInTheDocument())
+      fireEvent.click(screen.getAllByRole('checkbox')[0])
+      const err = await screen.findByText('Could not update item.')
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      expect(screen.getAllByRole('checkbox')[0]).not.toBeChecked()
+      expect(props.onUpdated).not.toHaveBeenCalled()
+    })
+
+    const pick = (container: HTMLElement) => {
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement
+      const file = new File(['x'], 'a.txt', { type: 'text/plain' })
+      return { input, file }
+    }
+    const uploaded = { id: 7, filename: 'a.txt', size: 1, url: '/f/7', uploaded_by: fakeUser, uploaded_at: '2026-01-01' }
+
+    it('file upload: a second change event while the first is pending uploads once', async () => {
+      const { uploadCardAttachment } = await import('../api/cards')
+      const mockUp = uploadCardAttachment as ReturnType<typeof vi.fn>
+      const d = deferred<unknown>()
+      mockUp.mockImplementationOnce(() => d.promise)
+      const { container } = render(<CardDetail {...defaultProps()} />)
+      const { input, file } = pick(container)
+      // One act(): both events land before React re-renders, so only the ref
+      // (not `uploading` state) can stop the second upload.
+      act(() => {
+        fireEvent.change(input, { target: { files: [file] } })
+        fireEvent.change(input, { target: { files: [file] } })
+      })
+      expect(mockUp).toHaveBeenCalledTimes(1)
+      d.resolve(uploaded)
+      await waitFor(() => expect(screen.getByText('a.txt')).toBeInTheDocument())
+    })
+
+    it('file upload: a rejection shows an error in the attachment live region and allows retry', async () => {
+      const { uploadCardAttachment } = await import('../api/cards')
+      const mockUp = uploadCardAttachment as ReturnType<typeof vi.fn>
+      mockUp.mockRejectedValueOnce(new Error('boom'))
+      const props = defaultProps()
+      const { container } = render(<CardDetail {...props} />)
+      const { input, file } = pick(container)
+      fireEvent.change(input, { target: { files: [file] } })
+      const err = await screen.findByText('Could not upload attachment.')
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      expect(props.onUpdated).not.toHaveBeenCalled()
+      mockUp.mockResolvedValueOnce(uploaded)
+      fireEvent.change(input, { target: { files: [file] } })
+      await waitFor(() => expect(screen.queryByText('Could not upload attachment.')).not.toBeInTheDocument())
+      expect(mockUp).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('checklist add, bulk add and label create: re-entry guard (#1498)', () => {
+    it('checklist add: Enter twice in one tick posts once', async () => {
+      let resolve!: (v: unknown) => void
+      mockAddChecklistItem.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+      render(<CardDetail {...defaultProps()} />)
+      const input = screen.getByPlaceholderText('Add item (Enter)…')
+      fireEvent.change(input, { target: { value: 'New task' } })
+      act(() => {
+        fireEvent.keyDown(input, { key: 'Enter' })
+        fireEvent.keyDown(input, { key: 'Enter' })
+      })
+      expect(mockAddChecklistItem).toHaveBeenCalledTimes(1)
+      resolve({ id: 5, text: 'New task', is_checked: false, position: 0 })
+      await waitFor(() => expect(screen.getByText('New task')).toBeInTheDocument())
+    })
+
+    it('bulk add: double click on Add items posts each line once', async () => {
+      let resolve!: (v: unknown) => void
+      mockAddChecklistItem.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+      mockAddChecklistItem.mockResolvedValueOnce({ id: 6, text: 'Two', is_checked: false, position: 1 })
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByText('Bulk'))
+      fireEvent.change(screen.getByPlaceholderText(/Buy milk/), { target: { value: 'One\nTwo' } })
+      const btn = screen.getByRole('button', { name: 'Add items' })
+      act(() => {
+        fireEvent.click(btn)
+        fireEvent.click(btn)
+      })
+      expect(mockAddChecklistItem).toHaveBeenCalledTimes(1)
+      resolve({ id: 5, text: 'One', is_checked: false, position: 0 })
+      await waitFor(() => expect(mockAddChecklistItem).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument())
+    })
+
+    it('label create: Enter twice in one tick creates one label', async () => {
+      const { createLabel } = await import('../api/boards')
+      const mockCreate = createLabel as ReturnType<typeof vi.fn>
+      let resolve!: (v: unknown) => void
+      mockCreate.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+      mockUpdateCard.mockResolvedValue({ ...defaultProps().card })
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByText('+ New label'))
+      const input = screen.getByPlaceholderText('Label name')
+      fireEvent.change(input, { target: { value: 'Urgent' } })
+      act(() => {
+        fireEvent.keyDown(input, { key: 'Enter' })
+        fireEvent.keyDown(input, { key: 'Enter' })
+      })
+      expect(mockCreate).toHaveBeenCalledTimes(1)
+      resolve({ id: 99, name: 'Urgent', color: '#ff0000' })
+      await waitFor(() => expect(screen.queryByPlaceholderText('Label name')).not.toBeInTheDocument())
+    })
+
+    it('label create: a rejection shows the error in a live region and allows retry', async () => {
+      const { createLabel } = await import('../api/boards')
+      const mockCreate = createLabel as ReturnType<typeof vi.fn>
+      mockCreate.mockRejectedValueOnce(new Error('403'))
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByText('+ New label'))
+      const input = screen.getByPlaceholderText('Label name')
+      fireEvent.change(input, { target: { value: 'Urgent' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      const err = await screen.findByText(/Failed to create label/)
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      mockCreate.mockRejectedValueOnce(new Error('403'))
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(2))
+    })
+  })
 })
