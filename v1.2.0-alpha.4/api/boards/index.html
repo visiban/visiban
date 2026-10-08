@@ -5877,6 +5877,61 @@ caller below <code>admin</code> — the same role gate this export already appli
 <p><strong>Permission:</strong> authenticated user. When <code>group_id</code> is set, the caller must be a member of that group (any role — viewer and above); a non-member receives <code>403 Forbidden</code>.</p>
 <p><strong>Rate limit:</strong> 10 imports/hour per authenticated user (scope: <code>board_import</code>). Exceeding the limit returns <code>429 Too Many Requests</code>.</p>
 <p><strong>Import limits:</strong> up to 500 cards, 50 columns, and 100 swimlanes per import. Payloads exceeding these limits return <code>400 Bad Request</code>.</p>
+<p>A JSON import also caps its child collections (#1507). The caps sit well above what a real board carries, but they are hard limits: a file over any of them, including a board's own export, is refused with <code>400 Bad Request</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Collection</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>labels</code> (board label definitions)</td>
+<td>1,000</td>
+</tr>
+<tr>
+<td>Label names on one card (<code>cards[].labels</code>)</td>
+<td>1,000</td>
+</tr>
+<tr>
+<td><code>comments</code> per card</td>
+<td>1,000</td>
+</tr>
+<tr>
+<td><code>checklist</code> items per card</td>
+<td>500</td>
+</tr>
+<tr>
+<td><code>movements</code> per card</td>
+<td>2,000</td>
+</tr>
+<tr>
+<td><code>activities</code> per card</td>
+<td>5,000</td>
+</tr>
+<tr>
+<td>Distinct usernames referenced (<code>assignee</code>, movement <code>moved_by</code>, activity <code>actor</code>)</td>
+<td>1,000</td>
+</tr>
+<tr>
+<td>Rows written by the whole import (see below)</td>
+<td>50,000</td>
+</tr>
+</tbody>
+</table>
+<p>The whole-import limit is an upper bound on every row the import inserts, counted from the file before anything is written and regardless of the import options, so no import writes more than 50,000 rows. It counts 3 for the board itself (the board, your membership, and its <code>board.created</code> event); one per column, swimlane, label, and custom field definition; one per swimlane custom field value; and, for each card, 1 for the card, 1 for its MR/PR link, one per custom field value, one per comment, movement, activity, and label name, two per checklist item (the item and its "checklist item added" entry), and 2 for the "label added" and "weight changed" entries the importer may add.</p>
+<p><strong>Malformed values in a JSON file</strong> return <code>400 Bad Request</code> naming the item and key, and nothing is created. Since 1.2 (#1507) this covers:</p>
+<ul>
+<li>Column and swimlane <code>position</code>, card <code>weight</code> and <code>position</code>, and column <code>wip_limit</code> and <code>weight_limit</code> must be integers from 0 to 2,147,483,647. Only <code>wip_limit</code> and <code>weight_limit</code> may be <code>null</code>.</li>
+<li>Column positions must be unique. A column with no <code>position</code> takes its index in the list, so an explicit position can collide with another column's default. Swimlane positions may repeat.</li>
+<li>Text values must not be <code>null</code>, a list, or an object, and must not contain NUL characters: column, swimlane, and label <code>color</code>; swimlane <code>contact_email</code> and <code>notes</code>; board and card <code>description</code>; comment <code>body</code>; checklist <code>text</code>; movement <code>notes</code>; activity <code>from_value</code> and <code>to_value</code>. A plain number or <code>true</code>/<code>false</code> is stored as its text (<code>5</code> → <code>"5"</code>, <code>true</code> → <code>"True"</code>), as in earlier releases; <code>NaN</code> and <code>Infinity</code> are refused. A key left out takes its default.</li>
+<li>Text values stored in a limited column must fit it: column and swimlane <code>name</code> (255), label <code>name</code> (50), <code>color</code> (7), <code>contact_email</code> (254), card <code>title</code> (500), checklist <code>text</code> (500), movement <code>notes</code> (500), the column and swimlane names in a movement (255), the <code>name</code> form field (255), and usernames in <code>assignee</code>, <code>moved_by</code>, and <code>actor</code> (150).</li>
+<li>Column <code>is_done</code> and <code>allow_card_creation</code>, and checklist <code>is_checked</code>, must be <code>true</code> or <code>false</code>.</li>
+<li>Dates and timestamps (<code>due_date</code>, <code>archived_at</code>, and comment, movement, and activity timestamps) must be strings that name a real date or time; a number such as <code>20200101</code>, an impossible value such as <code>2024-02-30</code> or <code>T25:00:00</code>, or a time whose UTC equivalent falls outside years 1–9999 (such as <code>9999-12-31T23:59:59-12:00</code>) is rejected.</li>
+<li>A file that cannot be parsed, including one with an integer literal of more than 4,300 digits or nesting too deep to parse, returns <code>{"detail": "The uploaded file is not valid JSON."}</code>.</li>
+</ul>
+<p>Error messages quote at most a short, truncated part of any value from the file. A value that passes these checks but still cannot be stored returns <code>400</code> with <code>{"detail": "The import file contains a value that cannot be stored."}</code>. Every file the exporter produces imports unchanged as long as it is within the caps above; a board too large for them must be split before it can be re-imported.</p>
 <p><strong>Request</strong> (<code>multipart/form-data</code>)</p>
 <table>
 <thead>

@@ -5146,7 +5146,8 @@ parked out of sight cannot wash out every tint on the board.</p>
 </tr>
 </tbody>
 </table>
-<p>Boards exported from Visiban stay well within these limits in normal use. If you are migrating from an external tool and your board exceeds a limit, split it into smaller boards before importing.</p>
+<p>A JSON import also limits labels, comments, checklist items, movements, and activity entries per card, the number of distinct usernames, and the total number of rows the import writes (50,000). See the <a href="../../api/boards/#post-apiv1boardsimport">import limits in the API reference</a> for every cap.</p>
+<p>Most boards exported from Visiban fit within these limits, but a very large or long-lived board can exceed one, and its export is then refused like any other file. If your board exceeds a limit, whether it comes from Visiban or an external tool, split it into smaller boards before importing.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">JSON vs CSV import fidelity</p>
