@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.4/features/notifications/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.4/development/security-invariants/">
       
       
-        <link rel="prev" href="../analytics/">
+        <link rel="prev" href="../suppressions/">
       
       
-        <link rel="next" href="../realtime/">
+        <link rel="next" href="../sonarcloud/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Notifications - Visiban</title>
+        <title>Security Invariants - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#notifications" class="md-skip">
+        <a href="#security-invariants-registry" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Notifications
+              Security Invariants
             
           </span>
         </div>
@@ -266,13 +266,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
           
   
   
@@ -312,10 +310,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../architecture/" class="md-tabs__link">
           
   
@@ -785,8 +785,6 @@
       
   
   
-    
-  
   
   
     
@@ -846,23 +844,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../features/" class="md-nav__link ">
               
   
   
@@ -880,13 +875,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -906,7 +901,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../board/" class="md-nav__link">
+      <a href="../../features/board/" class="md-nav__link">
         
   
   
@@ -934,7 +929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../trello-import/" class="md-nav__link">
+      <a href="../../features/trello-import/" class="md-nav__link">
         
   
   
@@ -962,7 +957,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-archiving/" class="md-nav__link">
+      <a href="../../features/card-archiving/" class="md-nav__link">
         
   
   
@@ -990,7 +985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-descriptions/" class="md-nav__link">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
         
   
   
@@ -1018,7 +1013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../saved-filters/" class="md-nav__link">
+      <a href="../../features/saved-filters/" class="md-nav__link">
         
   
   
@@ -1046,7 +1041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../custom-fields/" class="md-nav__link">
+      <a href="../../features/custom-fields/" class="md-nav__link">
         
   
   
@@ -1074,7 +1069,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-relations/" class="md-nav__link">
+      <a href="../../features/card-relations/" class="md-nav__link">
         
   
   
@@ -1102,7 +1097,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-links/" class="md-nav__link">
+      <a href="../../features/card-links/" class="md-nav__link">
         
   
   
@@ -1130,7 +1125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analytics/" class="md-nav__link">
+      <a href="../../features/analytics/" class="md-nav__link">
         
   
   
@@ -1155,37 +1150,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Notifications
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
         
   
   
@@ -1201,280 +1169,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#notification-bell" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification bell
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notification-preferences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification preferences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#assignment-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Assignment notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#mention-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        @mention notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#due-date-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Due date notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#card-moved-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Card moved notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#board-invite-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Board invite notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#comment-added-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Comment added notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#staleness-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Staleness notifications
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Staleness notifications">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#staleness-threshold" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Staleness threshold
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#stale-card-indicator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stale card indicator
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#running-the-stale-check" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running the stale check
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notification-retention" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification retention
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#email-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Email notifications
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Email notifications">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#turning-it-on" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Turning it on
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#email-rides-on-the-in-app-notification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Email rides on the in-app notification
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-an-email-contains" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What an email contains
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#who-does-not-receive-email" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Who does not receive email
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#when-mail-fails" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When mail fails
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#extending-delivery" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Extending delivery
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notification-data-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification data model
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notification-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification API
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1487,7 +1181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../realtime/" class="md-nav__link">
+      <a href="../../features/realtime/" class="md-nav__link">
         
   
   
@@ -1515,7 +1209,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-history/" class="md-nav__link">
+      <a href="../../features/card-history/" class="md-nav__link">
         
   
   
@@ -1543,7 +1237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stable-uids/" class="md-nav__link">
+      <a href="../../features/stable-uids/" class="md-nav__link">
         
   
   
@@ -1571,7 +1265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../groups/" class="md-nav__link">
+      <a href="../../features/groups/" class="md-nav__link">
         
   
   
@@ -1599,7 +1293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../navigation/" class="md-nav__link">
+      <a href="../../features/navigation/" class="md-nav__link">
         
   
   
@@ -1627,7 +1321,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keyboard-shortcuts/" class="md-nav__link">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
         
   
   
@@ -1655,7 +1349,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../appearance/" class="md-nav__link">
+      <a href="../../features/appearance/" class="md-nav__link">
         
   
   
@@ -1683,7 +1377,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../personal-access-tokens/" class="md-nav__link">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
         
   
   
@@ -1711,7 +1405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-server/" class="md-nav__link">
+      <a href="../../features/mcp-server/" class="md-nav__link">
         
   
   
@@ -1739,7 +1433,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../permissions/" class="md-nav__link">
+      <a href="../../features/permissions/" class="md-nav__link">
         
   
   
@@ -1767,7 +1461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../feature-toggles/" class="md-nav__link">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
         
   
   
@@ -1795,7 +1489,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../issue-board-lens/" class="md-nav__link">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
         
   
   
@@ -1841,13 +1535,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -1855,7 +1546,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../rbac/" class="md-nav__link ">
+            <a href="../../features/rbac/" class="md-nav__link ">
               
   
   
@@ -1873,7 +1564,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1899,7 +1590,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/roles/" class="md-nav__link">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
         
   
   
@@ -1927,7 +1618,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/inheritance/" class="md-nav__link">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
         
   
   
@@ -1955,7 +1646,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/managing/" class="md-nav__link">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
         
   
   
@@ -2459,6 +2150,8 @@
       
   
   
+    
+  
   
   
     
@@ -2518,16 +2211,19 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -2549,13 +2245,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2827,7 +2523,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/testing/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
@@ -2855,7 +2551,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/mutation-testing/" class="md-nav__link">
+      <a href="../mutation-testing/" class="md-nav__link">
         
   
   
@@ -2883,7 +2579,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/database-migrations/" class="md-nav__link">
+      <a href="../database-migrations/" class="md-nav__link">
         
   
   
@@ -2911,7 +2607,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/dependency-lock/" class="md-nav__link">
+      <a href="../dependency-lock/" class="md-nav__link">
         
   
   
@@ -2939,7 +2635,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/ci-gates/" class="md-nav__link">
+      <a href="../ci-gates/" class="md-nav__link">
         
   
   
@@ -2967,7 +2663,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
         
   
   
@@ -2995,7 +2691,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/rbac-and-broadcast-gates/" class="md-nav__link">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
         
   
   
@@ -3023,7 +2719,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/suppressions/" class="md-nav__link">
+      <a href="../suppressions/" class="md-nav__link">
         
   
   
@@ -3048,10 +2744,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../development/security-invariants/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -3067,6 +2790,103 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-read-a-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to read a rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-1-account-state-gates-apply-to-every-transport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 1: Account-state gates apply to every transport
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-2-a-deactivated-removed-or-demoted-principal-loses-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 2: A deactivated, removed or demoted principal loses access
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-3-anything-that-grants-access-declares-what-revokes-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 3: Anything that grants access declares what revokes it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-4-consume-once-tokens-are-consumed-at-the-gate-under-a-lock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 4: Consume-once tokens are consumed at the gate, under a lock
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-5-user-references-in-imports-resolve-only-within-the-callers-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 5: User references in imports resolve only within the caller's scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-add-a-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to add a rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3079,7 +2899,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/sonarcloud/" class="md-nav__link">
+      <a href="../sonarcloud/" class="md-nav__link">
         
   
   
@@ -3107,7 +2927,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
         
   
   
@@ -3135,7 +2955,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+      <a href="../websocket-event-contract/" class="md-nav__link">
         
   
   
@@ -3163,7 +2983,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/nightly-load-test/" class="md-nav__link">
+      <a href="../nightly-load-test/" class="md-nav__link">
         
   
   
@@ -3191,7 +3011,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/load-test-version-benchmarks/" class="md-nav__link">
+      <a href="../load-test-version-benchmarks/" class="md-nav__link">
         
   
   
@@ -4014,366 +3834,439 @@
   
 
 
-<h1 id="notifications">Notifications<a class="headerlink" href="#notifications" title="Permanent link">&para;</a></h1>
-<p>Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the <code>notify_stale_cards</code> management command.</p>
-<p>Five of these events can also be <strong>delivered by email</strong> — see <a href="#email-notifications">Email notifications</a> below.</p>
-<h2 id="notification-bell">Notification bell<a class="headerlink" href="#notification-bell" title="Permanent link">&para;</a></h2>
-<p>The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only <strong>unread</strong> notifications. Each notification is a deep link — clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.</p>
-<p>Click <strong>Mark all read</strong> to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.</p>
-<div class="admonition note">
-<p class="admonition-title">Notification limit</p>
-<p>The dropdown shows at most <strong>50 unread notifications</strong>. Older unread notifications beyond the 50 most recent are not shown in the UI, though they are still marked read when you click <strong>Mark all read</strong>.</p>
-</div>
-<h2 id="notification-preferences">Notification preferences<a class="headerlink" href="#notification-preferences" title="Permanent link">&para;</a></h2>
-<p>Each user can enable or disable individual notification triggers in <strong>Settings → Notifications</strong>. Preferences are saved immediately on toggle. Available toggles:</p>
+<h1 id="security-invariants-registry">Security Invariants Registry<a class="headerlink" href="#security-invariants-registry" title="Permanent link">&para;</a></h1>
+<p>Some security rules apply on more than one transport. A fix on one transport
+(for example REST) is incomplete until every other surface that must enforce
+the same rule has been checked. This page lists each rule and every surface that
+must enforce it, so a reviewer of a change that touches a rule can walk the
+whole row instead of only the surface in the diff.</p>
+<p>The <code>security-review</code>, <code>rbac-check</code>, <code>completeness-check</code> and <code>architect</code> agents
+read this page. For any diff that touches a listed rule, they verify every
+surface in that rule's table and report a surface that does not enforce the rule
+as a finding.</p>
+<h2 id="how-to-read-a-rule">How to read a rule<a class="headerlink" href="#how-to-read-a-rule" title="Permanent link">&para;</a></h2>
+<p>Each rule has a statement, the reason it exists, and a table:</p>
 <table>
 <thead>
 <tr>
-<th>Trigger</th>
-<th>In-app default</th>
-<th>Email available</th>
-<th>Email default</th>
+<th>Column</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Card assigned to me</td>
-<td>On</td>
-<td>Yes</td>
-<td>Off</td>
+<td>Surface</td>
+<td>The transport or flow through which the rule can be reached</td>
 </tr>
 <tr>
-<td>I am @mentioned</td>
-<td>On</td>
-<td>Yes</td>
-<td>Off</td>
+<td>Entry point</td>
+<td>The file and function (or class) where a request on that surface starts</td>
 </tr>
 <tr>
-<td>Due date approaching</td>
-<td>Off</td>
-<td>Yes</td>
-<td>Off</td>
-</tr>
-<tr>
-<td>Card moved</td>
-<td>Off</td>
-<td>Yes</td>
-<td>Off</td>
-</tr>
-<tr>
-<td>Comment on a watched card</td>
-<td>Off</td>
-<td>Yes</td>
-<td>Off</td>
-</tr>
-<tr>
-<td>Card has gone stale</td>
-<td>Off</td>
-<td>No</td>
-<td>—</td>
-</tr>
-<tr>
-<td>Board invites</td>
-<td>On</td>
-<td>No</td>
-<td>—</td>
+<td>Enforced via</td>
+<td>The code that applies the rule on that surface today</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Changed in 1.2</strong>
-Staleness notifications are user-configurable, and always were — they were
-gated on the <strong>Due date approaching</strong> preference, which is not what that
-preference says it does. 1.2 splits them apart: staleness now has its own
-<strong>Card has gone stale</strong> toggle, and <strong>Due date approaching</strong> finally controls
-the due-date warning it is named after. Your existing setting was copied
-across on upgrade, so nothing you receive today changes.</p>
-</blockquote>
-<h2 id="assignment-notifications">Assignment notifications<a class="headerlink" href="#assignment-notifications" title="Permanent link">&para;</a></h2>
-<p>When a card is assigned to a user by someone else, that user receives a notification:</p>
-<blockquote>
-<p>"You were assigned to "{card title}""</p>
-</blockquote>
-<h2 id="mention-notifications">@mention notifications<a class="headerlink" href="#mention-notifications" title="Permanent link">&para;</a></h2>
-<p>Typing <code>@username</code> in a card comment <strong>or description</strong> notifies the mentioned user:</p>
-<blockquote>
-<p>"{author} mentioned you in "{card title}""</p>
-</blockquote>
-<ul>
-<li>Type <code>@</code> in the comment box or description field to open an inline autocomplete dropdown filtered by username and display name</li>
-<li>Keyboard navigation: ↑↓ to move through suggestions, Enter or Tab to select, Escape to dismiss</li>
-<li>Mentions are rendered as <strong>bold blue</strong> text in saved comments and descriptions</li>
-<li>The author is never notified for their own mention</li>
-<li>Only users who are members of the board (directly, via group inheritance, or site admins) can be mentioned</li>
-<li><strong>Description re-save guard</strong> — Visiban tracks which users have already been notified for mentions on a given card's description. If you edit and re-save a description that still contains an existing <code>@username</code>, that user is not notified again. Only newly added mentions trigger a notification.</li>
-</ul>
-<h2 id="due-date-notifications">Due date notifications<a class="headerlink" href="#due-date-notifications" title="Permanent link">&para;</a></h2>
-<p>When a card's due date is approaching (within 24 hours by default), the assignee is notified:</p>
-<blockquote>
-<p>""{card title}" is due soon"</p>
-</blockquote>
-<p>Recipients opt in with the <strong>Due date approaching</strong> preference. The scan runs from
-the <code>notify_due_soon</code> management command rather than on a request, so it has to
-be scheduled. It runs daily at 07:00 UTC once you turn on the shipped scheduler
-(the Compose <code>scheduler</code> profile or the Helm <code>scheduledJobs.enabled</code> value), and
-<strong>nothing is sent until you do</strong>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
-</code></pre></div>
-<p>Pass <code>--days N</code> to widen the window. <code>Card.due_date</code> is a date, not a timestamp,
-so the window is expressed in whole days; the default of <code>1</code> is the documented
-24-hour warning and covers cards due today or tomorrow.</p>
-<div class="admonition warning">
-<p class="admonition-title">Keep <code>--days</code> below the notification retention window</p>
-<p>The scan checks earlier due-date notifications, up to <code>--days</code> back, so it
-does not send the same one twice. If
-<a href="#notification-retention"><code>prune_notifications</code></a> is scheduled with a
-retention window that is not longer than <code>--days</code>, it can delete those
-records, and cards get notified again. The default <code>--days 1</code> against the
-90-day default retention is well clear. The command logs a warning when
-<code>--days</code> is greater than or equal to <code>NOTIFICATION_RETENTION_DAYS</code>.</p>
-</div>
-<p>The command is idempotent per due date: a card is visible to it on two
-consecutive runs (due tomorrow, then due today) and produces <strong>one</strong> notification
-in total. Changing a card's due date makes it eligible again, because a
-rescheduled card is a new commitment. An assignee who has since lost access to
-the board is skipped — the assignee field is not cleared when a member is
-removed, and card titles are board content.</p>
-<div class="admonition note">
-<p class="admonition-title">Added in 1.2</p>
-<p>The due-date notification is new in 1.2 (#356). Earlier releases described it
-and shipped the preference toggle, but nothing ever created the notification.</p>
-</div>
-<h2 id="card-moved-notifications">Card moved notifications<a class="headerlink" href="#card-moved-notifications" title="Permanent link">&para;</a></h2>
-<p>When a card is moved to a different column by another user, the card's assignee is notified.</p>
-<h2 id="board-invite-notifications">Board invite notifications<a class="headerlink" href="#board-invite-notifications" title="Permanent link">&para;</a></h2>
-<p>When a user is added to a board (directly or via group membership), they receive a notification:</p>
-<blockquote>
-<p>"You were added to "{board name}""</p>
-</blockquote>
-<p>This notification appears in the bell dropdown and includes a <strong>View board →</strong> link, making it clear that clicking will navigate to the board. Users can disable board invite notifications in <strong>Settings → Notifications</strong> by toggling the <strong>Board invites</strong> preference.</p>
-<h2 id="comment-added-notifications">Comment added notifications<a class="headerlink" href="#comment-added-notifications" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Changed in 1.2</strong>
-Before 1.2 the <strong>Comment on a watched card</strong> toggle was saved but never
-created a notification (#1277). It now works as described below, and can
-also be delivered by email (#1295).</p>
-</blockquote>
-<p>When someone comments on a card you are <strong>watching</strong>, you get a notification in
-the bell:</p>
-<blockquote>
-<p>"{username} commented on "{card title}""</p>
-</blockquote>
-<p>For now, you are watching a card when you <strong>created it</strong> or <strong>are assigned to
-it</strong>. There is no separate watch or unwatch control yet, and commenting on a card
-does not make you a watcher. Explicit watch/unwatch is planned (#229).</p>
-<ul>
-<li><strong>Off by default.</strong> Turn on <strong>Comment on a watched card</strong> in
-  <strong>Settings → Notifications</strong> to receive these.</li>
-<li><strong>Never for your own comment.</strong> Commenting on a card you created or are
-  assigned to does not notify you.</li>
-<li><strong>One notification per comment.</strong> If the same comment @mentions you, you get
-  only the @mention notification, not this one as well.</li>
-<li><strong>Only while you can see the board.</strong> If you created a card but have since
-  been removed from the board, or your account is deactivated, you are not
-  notified.</li>
-<li><strong>Email is optional.</strong> Turn on <strong>Also send by email</strong> under <em>Comment on a
-  watched card</em> to get a copy by email as well. It is off by default and, like
-  every email preference, inert while the in-app toggle is off. See
-  <a href="#email-notifications">Email notifications</a>.</li>
-</ul>
-<h2 id="staleness-notifications">Staleness notifications<a class="headerlink" href="#staleness-notifications" title="Permanent link">&para;</a></h2>
-<p>Cards that haven't moved between columns in a configurable number of days are considered <strong>stale</strong>. The <code>notify_stale_cards</code> management command scans all boards and creates notifications for assignees and board admins of stale cards, for those who have the <strong>Card has gone stale</strong> preference on (it was <strong>Due date approaching</strong> before 1.2 — see the note in <a href="#notification-preferences">Notification preferences</a>).</p>
-<h3 id="staleness-threshold">Staleness threshold<a class="headerlink" href="#staleness-threshold" title="Permanent link">&para;</a></h3>
-<p>Each board has a <code>staleness_threshold_days</code> setting (default: <strong>7 days</strong>). A card is stale when its last <code>CardMovement</code> record is older than this threshold (or when a card has never been moved and was created more than that many days ago).</p>
-<h3 id="stale-card-indicator">Stale card indicator<a class="headerlink" href="#stale-card-indicator" title="Permanent link">&para;</a></h3>
-<p>Cards that are stale show an amber tint overlay with reduced opacity in the board view.</p>
-<h3 id="running-the-stale-check">Running the stale check<a class="headerlink" href="#running-the-stale-check" title="Permanent link">&para;</a></h3>
-<p>The command is idempotent — it won't create duplicate notifications if run multiple times in the same day:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
-</code></pre></div>
-<p>It runs daily at 08:00 UTC once the shipped scheduler is turned on. See
-<a href="../../administration/scheduled-jobs/">Scheduled Jobs</a> for Docker Compose,
-Kubernetes, and host-cron setup.</p>
-<h2 id="notification-retention">Notification retention<a class="headerlink" href="#notification-retention" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Notifications are kept until they are pruned. The <code>prune_notifications</code>
-management command deletes notifications, read or unread, older than
-<code>NOTIFICATION_RETENTION_DAYS</code> (default <strong>90</strong>, minimum <strong>14</strong>; on Helm, set the
-window with <code>scheduledJobs.pruneNotifications.args: ["--days", "N"]</code>). It only runs
-when you schedule it: the shipped scheduler has it <strong>off</strong> by default, so an
-existing install keeps every notification until you turn the prune on.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications<span class="w"> </span>--dry-run<span class="w">   </span><span class="c1"># preview</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications<span class="w">             </span><span class="c1"># default window</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications<span class="w"> </span>--days<span class="w"> </span><span class="m">180</span><span class="w">  </span><span class="c1"># override</span>
-</code></pre></div>
-<p>The 14-day minimum is deliberate. The scheduled scans use existing
-notifications as their record of what they have already sent, so pruning more
-aggressively would make them send the same notification again.</p>
-<h2 id="email-notifications">Email notifications<a class="headerlink" href="#email-notifications" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Team members who are not watching the board all day can have notifications
-delivered to their email address as well as the bell. Five events support it:</p>
+<p>Entry points use file and function names, not line numbers, so the table
+survives edits. Paths are relative to <code>backend/</code>. The enumeration test
+planned in #1517 consumes the same surface list as these tables, so a surface
+added here is a surface that test must cover.</p>
+<h2 id="rule-1-account-state-gates-apply-to-every-transport">Rule 1: Account-state gates apply to every transport<a class="headerlink" href="#rule-1-account-state-gates-apply-to-every-transport" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> An account with a forced change pending (<code>must_change_password</code>,
+<code>must_change_username</code>) or that is inactive is refused on every transport, not
+only REST.</p>
+<p><strong>Why.</strong> The gates are easy to add as DRF permission classes and forget
+everywhere else. A client that cannot call REST should not be able to read or
+write the same data over MCP, a socket, an invite link or an import.</p>
 <table>
 <thead>
 <tr>
-<th>Event</th>
-<th>Email preference</th>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Card assigned to me</td>
-<td><strong>Also send by email</strong> under <em>Card assigned to me</em></td>
+<td>REST</td>
+<td><code>visiban/settings.py</code> <code>REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"]</code></td>
+<td><code>visiban.permissions.MustNotHavePendingPasswordChange</code> and <code>MustNotHavePendingUsernameChange</code> come from the defaults. Documented exceptions that declare their own <code>permission_classes</code> so a forced-change user can reach them: <code>CurrentUserView</code>, <code>ChangePasswordView</code>, <code>ChooseUsernameView</code>, <code>/auth/user/</code> and <code>/auth/password/change/</code> (<code>visiban/urls.py</code>). The OpenAPI schema views (<code>visiban/urls.py</code>) declare <code>IsAuthenticated, TokenHasScope</code>. <code>boards/views/boards.py</code> <code>BoardViewSet</code> and <code>accounts/views.py</code> <code>WSTicketView</code> declare an explicit list that includes both gates</td>
 </tr>
 <tr>
-<td>Someone @mentions me</td>
-<td><strong>Also send by email</strong> under <em>Someone @mentions me</em></td>
+<td>REST authentication</td>
+<td><code>accounts/authentication.py</code> <code>PATAuthentication</code>; DRF <code>SessionAuthentication</code> and <code>TokenAuthentication</code> (<code>DEFAULT_AUTHENTICATION_CLASSES</code>)</td>
+<td><code>resolve_personal_access_token</code> rejects a PAT whose user is inactive; <code>SessionAuthentication</code> and DRF's <code>TokenAuthentication</code> check <code>user.is_active</code></td>
 </tr>
 <tr>
-<td>Due date approaching</td>
-<td><strong>Also send by email</strong> under <em>Due date approaching</em></td>
+<td>Login and session issuance</td>
+<td><code>accounts/views.py</code> <code>ThrottledLoginView</code>; <code>accounts/backends.py</code> <code>EmailBackend</code>; <code>accounts/adapter.py</code> <code>SocialRegistrationAdapter</code></td>
+<td><code>ModelBackend</code> and <code>EmailBackend.authenticate</code> call <code>user_can_authenticate</code> (inactive users are refused); <code>ThrottledLoginView</code> mints the DRF <code>Token</code> only after authentication succeeds; for existing social accounts allauth's <code>respond_user_inactive</code> handles an inactive user</td>
 </tr>
 <tr>
-<td>Card I'm watching is moved</td>
-<td><strong>Also send by email</strong> under <em>Card I'm watching is moved</em></td>
+<td>MCP</td>
+<td><code>mcp_server/auth.py</code> <code>BearerAuthMiddleware</code></td>
+<td><code>_authenticate_and_authorize</code> calls <code>_enforce_account_state</code>, which reuses the REST permission classes</td>
 </tr>
 <tr>
-<td>Comment on a watched card</td>
-<td><strong>Also send by email</strong> under <em>Comment on a watched card</em></td>
+<td>WebSocket ticket mint</td>
+<td><code>accounts/views.py</code> <code>WSTicketView</code></td>
+<td>Explicit <code>permission_classes</code>: <code>IsAuthenticated</code>, both pending-change gates, <code>TokenHasScope</code></td>
+</tr>
+<tr>
+<td>WebSocket handshake</td>
+<td><code>accounts/ws_auth.py</code> <code>TicketAuthMiddleware</code>, <code>_resolve_ticket_user</code>; Channels <code>AuthMiddlewareStack</code></td>
+<td><code>_resolve_ticket_user</code> refuses an inactive user at redemption; <code>AuthMiddlewareStack</code> resolves the session user through Django's auth backends</td>
+</tr>
+<tr>
+<td>WebSocket (board)</td>
+<td><code>boards/consumers.py</code> <code>BoardConsumer.connect</code>, <code>_check_access</code></td>
+<td><code>connect</code> refuses an unauthenticated scope user or one with no recorded credential; the periodic re-check runs <code>accounts/ws_auth.py</code> <code>load_live_ws_user</code>, which requires an active user</td>
+</tr>
+<tr>
+<td>WebSocket (group)</td>
+<td><code>groups/consumers.py</code> <code>GroupConsumer.connect</code>, <code>_check_access</code></td>
+<td>Same as the board consumer: same <code>connect</code> refusal; periodic re-check runs <code>load_live_ws_user</code></td>
+</tr>
+<tr>
+<td>Invite link redemption</td>
+<td><code>boards/views/invites.py</code> <code>JoinBoardView</code>; <code>groups/views.py</code> <code>JoinGroupView</code></td>
+<td>POST declares <code>IsAuthenticated</code>, both pending-change gates and <code>TokenHasScope</code>; GET is <code>AllowAny</code></td>
+</tr>
+<tr>
+<td>JSON, CSV and Trello import</td>
+<td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin.import_board</code>, <code>import_trello</code></td>
+<td>Served by <code>BoardViewSet</code>, so its explicit permission list</td>
+</tr>
+<tr>
+<td>OAuth signup</td>
+<td><code>accounts/adapter.py</code> <code>SocialRegistrationAdapter.pre_social_login</code>, <code>save_user</code></td>
+<td>Signup creates the account in the same flow; existing-account matching in <code>_handle_email_collision</code> considers active users only</td>
+</tr>
+<tr>
+<td>Django admin</td>
+<td><code>accounts/admin.py</code> <code>UserAdmin</code> registration; <code>boards/admin.py</code> <code>BoardMembershipAdmin</code></td>
+<td>Django's <code>AdminSite</code> requires an active staff user for <code>/admin/</code></td>
+</tr>
+<tr>
+<td>Admin API</td>
+<td><code>accounts/admin_views.py</code> <code>AdminUserDetailView</code>, <code>AdminUserDeactivateView</code></td>
+<td><code>_ADMIN_PERMISSIONS</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h3>
-<p>Two things have to be true before any email is sent:</p>
+<h2 id="rule-2-a-deactivated-removed-or-demoted-principal-loses-access">Rule 2: A deactivated, removed or demoted principal loses access<a class="headerlink" href="#rule-2-a-deactivated-removed-or-demoted-principal-loses-access" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> A principal who is deactivated, removed from a board or group, or
+demoted loses access everywhere, including open connections and credentials
+already issued. Access is re-derived from current state, not from state captured
+when the credential was issued.</p>
+<p><strong>Why.</strong> Credentials outlive the decision that granted them. A cached role, an
+open socket or a previously minted token keeps working unless the surface
+re-checks.</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REST</td>
+<td><code>boards/permissions.py</code> <code>get_board_role</code>; <code>groups/models.py</code> <code>get_accessible_group_ids</code></td>
+<td>Role resolved from current membership on every request</td>
+</tr>
+<tr>
+<td>REST authentication</td>
+<td><code>PATAuthentication</code>; DRF <code>SessionAuthentication</code>, <code>TokenAuthentication</code></td>
+<td>Each checks <code>user.is_active</code> on every request</td>
+</tr>
+<tr>
+<td>Login and session issuance</td>
+<td><code>accounts/views.py</code> <code>ThrottledLoginView</code>; <code>accounts/backends.py</code> <code>EmailBackend</code></td>
+<td><code>user_can_authenticate</code> refuses inactive users at login; allauth <code>respond_user_inactive</code> handles existing social accounts</td>
+</tr>
+<tr>
+<td>Personal access tokens</td>
+<td><code>accounts/admin_views.py</code> <code>AdminUserDeactivateView._revoke_invite_links</code></td>
+<td>Deletes the user's PATs; invoked by <code>AdminUserDeactivateView.post</code> and by <code>AdminUserDetailView.patch</code> when <code>is_active</code> becomes false</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td><code>mcp_server/auth.py</code> <code>BearerAuthMiddleware</code>; <code>mcp_server/tools.py</code></td>
+<td><code>resolve_personal_access_token</code> rejects inactive users; tools import <code>get_board_role</code> and <code>get_board_roles</code></td>
+</tr>
+<tr>
+<td>WebSocket handshake</td>
+<td><code>accounts/ws_auth.py</code> <code>_resolve_ticket_user</code>; Channels <code>AuthMiddlewareStack</code></td>
+<td>Ticket redemption refuses an inactive user; the session handshake uses Django's auth backends</td>
+</tr>
+<tr>
+<td>WebSocket (board)</td>
+<td><code>boards/consumers.py</code> <code>BoardConsumer</code></td>
+<td>Periodic and per-frame re-check: <code>_refresh_role</code> calls <code>load_live_ws_user</code> (active user, live credential) and <code>_lookup_role</code> resolves the current role with <code>get_board_role</code>; a failed check closes with 4003</td>
+</tr>
+<tr>
+<td>WebSocket (group)</td>
+<td><code>groups/consumers.py</code> <code>GroupConsumer</code></td>
+<td>Periodic re-check: <code>_refresh_access</code> calls <code>load_live_ws_user</code>; <code>_has_access</code> uses <code>get_accessible_group_ids</code></td>
+</tr>
+<tr>
+<td>Site invite links</td>
+<td><code>accounts/admin_views.py</code> <code>AdminUserDeactivateView._revoke_invite_links</code></td>
+<td>Sets <code>revoked_at</code> on the user's unused site links; invoked by <code>AdminUserDeactivateView.post</code> and by <code>AdminUserDetailView.patch</code> when <code>is_active</code> becomes false</td>
+</tr>
+<tr>
+<td>Board invite links</td>
+<td><code>boards/views/invites.py</code> <code>JoinBoardView.get</code>, <code>JoinBoardView.post</code>; <code>boards/invites.py</code> <code>sender_is_board_admin</code></td>
+<td><code>sender_is_board_admin</code> is evaluated at preview and at join; <code>_revoke_pending_board_invites</code> revokes on deactivation</td>
+</tr>
+<tr>
+<td>Group invite links</td>
+<td><code>groups/invite_registration.py</code> <code>_sender_still_admits</code>; <code>groups/views.py</code> <code>sender_is_group_admin</code>, <code>_revoke_lapsed_admin_invite_links</code>; <code>accounts/admin_views.py</code> <code>AdminUserDeactivateView._revoke_group_invite_links</code></td>
+<td>Sender standing is evaluated at preview and redemption; links are revoked when the sender is deactivated or their admin rights lapse</td>
+</tr>
+<tr>
+<td>JSON, CSV and Trello import</td>
+<td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin</code></td>
+<td>Runs as an authenticated REST request, so role is read from current state</td>
+</tr>
+<tr>
+<td>OAuth signup</td>
+<td><code>accounts/adapter.py</code> <code>SocialRegistrationAdapter</code></td>
+<td><code>_handle_email_collision</code> considers active users only</td>
+</tr>
+<tr>
+<td>Django admin</td>
+<td><code>boards/admin.py</code> <code>BoardMembershipAdmin</code></td>
+<td>Membership changes made in the admin emit the <code>EVT_MEMBER_ADDED</code>, <code>EVT_MEMBER_UPDATED</code> and <code>EVT_MEMBER_REMOVED</code> board events through <code>_BoardEventAdminMixin</code></td>
+</tr>
+<tr>
+<td>Admin API</td>
+<td><code>accounts/admin_views.py</code> <code>AdminUserDetailView.patch</code>, <code>AdminUserDeactivateView.post</code></td>
+<td>Deactivation revokes PATs and pending invites in the same operation</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rule-3-anything-that-grants-access-declares-what-revokes-it">Rule 3: Anything that grants access declares what revokes it<a class="headerlink" href="#rule-3-anything-that-grants-access-declares-what-revokes-it" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> Every mechanism that grants access (socket, invite link, token,
+session) has a stated revocation path covering the relevant events:
+deactivation, role removal, password change, logout and creator removal. A new
+grant mechanism lists those events in its docstring and in the table below
+before it merges.</p>
+<p><strong>Why.</strong> A grant with no declared revocation is the source of the standing
+access described in Rule 2.</p>
+<table>
+<thead>
+<tr>
+<th>Grant</th>
+<th>Entry point</th>
+<th>Revoked by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Session</td>
+<td>Django session (<code>SessionAuthentication</code>)</td>
+<td>Logout, a password change (the session auth hash is an HMAC of the password hash), deactivation (<code>ModelBackend</code> refuses inactive users)</td>
+</tr>
+<tr>
+<td>DRF auth <code>Token</code></td>
+<td>dj-rest-auth login via <code>accounts/views.py</code> <code>ThrottledLoginView</code>; <code>TokenAuthentication</code></td>
+<td>Logout (dj-rest-auth <code>LogoutView</code> deletes <code>request.user.auth_token</code>); <code>TokenAuthentication</code> checks <code>user.is_active</code> on each request; an open socket minted from it re-checks the key digest in <code>accounts/ws_auth.py</code> <code>_credential_ref_is_live</code></td>
+</tr>
+<tr>
+<td>Personal access token</td>
+<td><code>accounts/models.py</code> <code>PersonalAccessToken</code>; <code>accounts/authentication.py</code> <code>resolve_personal_access_token</code></td>
+<td>Explicit delete (<code>PersonalAccessTokenDeleteView</code>), expiry (<code>pat_is_expired</code>), deactivation (<code>_revoke_invite_links</code>), and <code>finalize_password_change</code>, which deletes all of the user's PATs</td>
+</tr>
+<tr>
+<td>Password change sources</td>
+<td><code>accounts/views.py</code> <code>finalize_password_change</code>, called by <code>ChangePasswordView</code> and <code>TokenRevokingPasswordChangeView</code></td>
+<td>Clears <code>must_change_password</code> and deletes the user's PATs</td>
+</tr>
+<tr>
+<td>Password reset</td>
+<td><code>accounts/views.py</code> <code>ThrottledPasswordResetConfirmView</code>; <code>accounts/serializers.py</code> <code>VisibanPasswordResetConfirmSerializer</code></td>
+<td><code>validate</code> refuses a link when the account no longer has a verified address (<code>password_reset_still_allowed</code>); <code>save</code> clears the login lockout; the new password hash changes the session auth hash that sessions and open sockets compare</td>
+</tr>
+<tr>
+<td>WebSocket ticket</td>
+<td><code>accounts/ws_auth.py</code> <code>issue_ws_ticket</code>, <code>consume_ws_ticket</code>, <code>_resolve_ticket_user</code></td>
+<td>Single use, <code>WS_TICKET_TTL</code> expiry, refused for an inactive user or a minting credential that is no longer live</td>
+</tr>
+<tr>
+<td>Open WebSocket</td>
+<td><code>accounts/ws_auth.py</code> <code>ws_credential_is_live</code>, <code>load_live_ws_user</code></td>
+<td>Recorded credential no longer live, password changed since handshake (<code>auth_hash</code>), account inactive (4003 at the next re-check)</td>
+</tr>
+<tr>
+<td>Public board share link</td>
+<td><code>boards/views/share.py</code> <code>ShareBoardView</code>; <code>boards/models.py</code> <code>Board.share_token</code>, <code>share_token_expires_at</code></td>
+<td>Clearing <code>share_token</code> on the board (<code>boards/views/boards.py</code>), <code>share_token_expires_at</code> (the view returns 410 once it has passed)</td>
+</tr>
+<tr>
+<td>Site invite link</td>
+<td><code>accounts/invite_utils.py</code> <code>validate_invite_token</code>, <code>consume_invite_token</code></td>
+<td><code>revoked_at</code>, <code>expires_at</code>, <code>used_at</code>, and <code>AdminUserDeactivateView._revoke_invite_links</code> for links the deactivated user created</td>
+</tr>
+<tr>
+<td>Board invite link</td>
+<td><code>boards/views/invites.py</code> <code>JoinBoardView</code>; <code>boards/models.py</code> <code>BoardInviteLink</code></td>
+<td><code>revoked_at</code>, <code>expires_at</code>, <code>used_at</code>; <code>sender_is_board_admin</code> re-evaluated at preview and join</td>
+</tr>
+<tr>
+<td>Group invite link</td>
+<td><code>groups/views.py</code> <code>JoinGroupView</code>; <code>groups/models.py</code> <code>GroupInviteLink</code></td>
+<td><code>is_active</code>, <code>expires_at</code>, <code>used_at</code>; sender standing re-evaluated by <code>_sender_still_admits</code> and <code>sender_is_group_admin</code></td>
+</tr>
+<tr>
+<td>OAuth pending invite</td>
+<td><code>accounts/adapter.py</code> <code>SocialRegistrationAdapter.is_open_for_signup</code></td>
+<td>Invalid or expired token clears <code>PENDING_INVITE_SESSION_KEY</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="rule-4-consume-once-tokens-are-consumed-at-the-gate-under-a-lock">Rule 4: Consume-once tokens are consumed at the gate, under a lock<a class="headerlink" href="#rule-4-consume-once-tokens-are-consumed-at-the-gate-under-a-lock" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> A single-use invite or token is claimed atomically
+(<code>select_for_update()</code> or a conditional <code>UPDATE ... WHERE used_at IS NULL</code>
+checked by row count) at the point of validation, not validated at one step and
+redeemed best-effort at a later one. The gap between the two lets concurrent
+requests both pass. Tests for these paths run concurrently and assert that two
+simultaneous redemptions of one token yield exactly one success.</p>
+<p><strong>Why.</strong> See the "Secure code" section of the root <code>CLAUDE.md</code>, which holds the
+canonical wording.</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Site invite (registration)</td>
+<td><code>accounts/invite_utils.py</code> <code>validate_invite_token</code>, <code>consume_invite_token</code></td>
+<td><code>select_for_update()</code> on validation; conditional <code>used_at IS NULL</code> update checked by row count</td>
+</tr>
+<tr>
+<td>Group invite (registration)</td>
+<td><code>groups/invite_registration.py</code> <code>validate_group_registration_token</code>, <code>redeem_group_registration_token</code></td>
+<td><code>select_for_update()</code> on validation; conditional <code>used_at</code> update checked by row count</td>
+</tr>
+<tr>
+<td>Board invite (join)</td>
+<td><code>boards/views/invites.py</code> <code>JoinBoardView.post</code></td>
+<td><code>select_for_update()</code> on the link row inside the request transaction</td>
+</tr>
+<tr>
+<td>Group invite (join)</td>
+<td><code>groups/views.py</code> <code>JoinGroupView.post</code></td>
+<td><code>select_for_update()</code> on the link row inside the request transaction</td>
+</tr>
+<tr>
+<td>Board invite (registration)</td>
+<td><code>boards/invites.py</code> <code>validate_board_registration_token</code>, <code>redeem_board_registration_token</code></td>
+<td><code>select_for_update()</code> on validation; conditional update on <code>used_at IS NULL, revoked_at IS NULL</code> checked by row count</td>
+</tr>
+<tr>
+<td>Registration dispatch</td>
+<td><code>accounts/registration_tokens.py</code> <code>registration_token_kind</code></td>
+<td>Routes to the site, group or board validate and redeem functions above</td>
+</tr>
+<tr>
+<td>Email and password signup</td>
+<td><code>accounts/views.py</code> <code>InviteRegisterView.post</code></td>
+<td>Runs in <code>transaction.atomic</code>; validates and redeems through <code>registration_token_kind</code></td>
+</tr>
+<tr>
+<td>OAuth signup</td>
+<td><code>accounts/adapter.py</code> <code>SocialRegistrationAdapter.save_user</code>, <code>_redeem_invite</code></td>
+<td>Validate and redeem in one transaction</td>
+</tr>
+<tr>
+<td>WebSocket ticket</td>
+<td><code>accounts/ws_auth.py</code> <code>consume_ws_ticket</code></td>
+<td>Single use decided by the return value of <code>cache.delete()</code></td>
+</tr>
+<tr>
+<td>JSON, CSV and Trello import</td>
+<td><code>boards/views/import_export.py</code></td>
+<td>No consume-once token on this surface</td>
+</tr>
+<tr>
+<td>Admin actions</td>
+<td><code>accounts/admin_views.py</code> <code>AdminInviteLinkRevokeView.delete</code></td>
+<td>Revocation sets <code>revoked_at</code> on the link</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rule-5-user-references-in-imports-resolve-only-within-the-callers-scope">Rule 5: User references in imports resolve only within the caller's scope<a class="headerlink" href="#rule-5-user-references-in-imports-resolve-only-within-the-callers-scope" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> When an import file names users (assignee, actor, mover), the names
+resolve only against users the importer can already see: the importer,
+co-members of their boards and groups, and the target group. A name outside that
+pool is dropped, so the import neither assigns to nor confirms the existence of
+any other account.</p>
+<p><strong>Why.</strong> The uploader controls the file. Resolving against all users turns the
+matched count into an existence oracle for every account on the instance.</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JSON import</td>
+<td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin._import_json</code></td>
+<td><code>_resolve_import_users</code></td>
+</tr>
+<tr>
+<td>CSV import</td>
+<td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin._import_csv</code></td>
+<td><code>_resolve_import_users</code></td>
+</tr>
+<tr>
+<td>Trello import</td>
+<td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin.import_trello</code></td>
+<td><code>boards/services/trello_import.py</code> <code>visible_users</code>, <code>match_members</code></td>
+</tr>
+<tr>
+<td>Invite emails and member add</td>
+<td><code>boards/views/boards.py</code> <code>BoardViewSet.members</code>; <code>groups/views.py</code> <code>GroupViewSet.members</code></td>
+<td>Not an import surface; listed so a reviewer of a new bulk-add path checks it against this rule</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td><code>mcp_server/tools.py</code></td>
+<td>No import tool; user references resolve through the caller's accessible boards</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-to-add-a-rule">How to add a rule<a class="headerlink" href="#how-to-add-a-rule" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>An administrator has configured outgoing email</strong> — either the <code>EMAIL_*</code>
-   environment variables or <strong>Admin → Settings → Email</strong>. See
-   <a href="../../administration/configuration/#email-smtp">Configuration</a>. Nothing is
-   sent, and nothing is queued, if email is unconfigured.</li>
-<li><strong>You turned the event's email toggle on</strong> in <strong>Settings → Notifications</strong>.</li>
+<li>Write the rule as a statement of behavior, not an implementation: what must
+   be true, on which principals, and why it is a rule.</li>
+<li>Enumerate every surface that can reach the protected behavior. Start from this
+   list and add any new transport: REST, MCP, WebSocket, invite links, JSON and
+   CSV import, Trello import, OAuth signup, admin actions, personal access
+   tokens.</li>
+<li>For each surface, read the code and record the entry point (file and function
+   or class, no line numbers) and the code that enforces the rule today. Do not
+   record a surface as enforcing the rule from memory; open the file.</li>
+<li>Add the new rule as its own section above, with a table in the same format.</li>
+<li>If the rule is checked by the enumeration test (#1517), make sure the test
+   reads the same surface list. A surface listed here and not in the test, or the
+   reverse, is a defect in one of the two.</li>
+<li>Keep gap tracking out of this page. A surface that needs work is an issue,
+   not a row annotation.</li>
 </ol>
-<div class="admonition warning">
-<p class="admonition-title">Email is off by default, deliberately</p>
-<p>Every email preference defaults to <strong>off</strong>, for every user, including on an
-instance that already has working SMTP. Upgrading to 1.2 does not start
-emailing anybody. This is the only safe default: the alternative is an
-upgrade that silently mails every member of every board.</p>
-</div>
-<h3 id="email-rides-on-the-in-app-notification">Email rides on the in-app notification<a class="headerlink" href="#email-rides-on-the-in-app-notification" title="Permanent link">&para;</a></h3>
-<p>An email is a copy of the in-app notification, sent when that notification is
-created. So the in-app toggle for an event gates both: with the in-app
-notification off there is no notification to copy, and the email toggle is inert.
-The settings UI disables it and says so rather than letting you turn on something
-that would quietly do nothing.</p>
-<h3 id="what-an-email-contains">What an email contains<a class="headerlink" href="#what-an-email-contains" title="Permanent link">&para;</a></h3>
-<p>Plain text only — no HTML part, no tracking, no images. The subject is the board
-name followed by the same sentence the bell shows. The body repeats it, names the
-board and card, and links straight to the card (the same deep link the bell uses,
-so both land in the same place). A footer links to your notification settings,
-and the message carries a <code>List-Unsubscribe</code> header pointing there.</p>
-<p>Mail is sent from the address configured as the sender (<code>DEFAULT_FROM_EMAIL</code>, or
-the sender set in the admin UI). There is no separate notification sender.</p>
-<h3 id="who-does-not-receive-email">Who does not receive email<a class="headerlink" href="#who-does-not-receive-email" title="Permanent link">&para;</a></h3>
-<ul>
-<li>Users with no email address on their account</li>
-<li>Deactivated users — their notification history is kept, their mail is not</li>
-<li>
-<p>Users whose address is unconfirmed, <strong>when</strong> the instance sets
-  <code>EMAIL_VERIFICATION=mandatory</code>. Under the default <code>optional</code> policy unverified
-  addresses are normal — the same instance already sends password-reset mail to
-  them — so they still receive notification mail.</p>
-<p>Two things follow from that default, and they are the reason to consider
-<code>mandatory</code> on a public instance. Notification mail carries board content
-(board names, card titles) to whatever address the account holder last saved,
-proved or not. And because a member can set their own address to anyone's, a
-member could point notifications at a third party who never asked for them,
-with card titles they chose. Neither gives anybody access to a board they are
-not on, but <code>EMAIL_VERIFICATION=mandatory</code> closes both, and
-<code>NOTIFICATION_EMAIL_ENABLED=false</code> closes them outright.
-- Everybody, when <code>NOTIFICATION_EMAIL_ENABLED=false</code></p>
-</li>
-</ul>
-<h3 id="when-mail-fails">When mail fails<a class="headerlink" href="#when-mail-fails" title="Permanent link">&para;</a></h3>
-<p>A delivery failure never breaks the action that caused it. Notifications are
-created inside the request's transaction; once it commits, the messages are
-handed to a background thread that sends them over a single connection with a
-socket timeout (<code>NOTIFICATION_EMAIL_TIMEOUT</code>, default 10 seconds). If the SMTP
-server is unreachable, misconfigured or rejects the credentials, the card update
-still succeeds, the in-app notification is still created, and the failure is
-logged with a sanitized error code. Logs never contain a recipient address.</p>
-<p>The send runs on a thread rather than inline because the timeout is applied per
-socket operation, not as a wall-clock total — a tarpitting relay can spend it
-again at every step of the conversation, which inline would mean a card
-assignment or drag-and-drop appearing to hang. The trade-off is that delivery is
-explicitly <strong>best-effort</strong>: restarting or recycling a worker mid-send drops that
-batch. Set <code>NOTIFICATION_EMAIL_ASYNC=false</code> to send inline instead.</p>
-<p>There is no retry and no queue: a notification email is only useful promptly, and
-a durable queue is not a dependency the OSS core takes on. If mail is failing, fix
-the SMTP configuration — <strong>Admin → Settings → Email</strong> has a <strong>Send test email</strong>
-button.</p>
-<h3 id="extending-delivery">Extending delivery<a class="headerlink" href="#extending-delivery" title="Permanent link">&para;</a></h3>
-<p>Notification creation fires a <code>post_notification_created</code> signal, which is a
-stable extension point: additional delivery backends attach to it without
-modifying any file in this repository. See
-<a href="../../architecture/open-core-boundary/#oss-extension-points-implementation-status">Open core boundary</a>.</p>
-<hr />
-<h2 id="notification-data-model">Notification data model<a class="headerlink" href="#notification-data-model" title="Permanent link">&para;</a></h2>
-<p>Each notification stores structured metadata alongside the human-readable <code>verb</code> string:</p>
-<ul>
-<li><strong><code>actor</code></strong> — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.</li>
-<li><strong><code>action_type</code></strong> — a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code>, <code>comment_added</code> <em>(<code>due_soon</code> and <code>comment_added</code> added in 1.2)</em>. Useful for filtering or grouping notifications programmatically. Values are added over time, so a client that switches on this field must fall through to a generic rendering for one it does not recognize.</li>
-</ul>
-<h2 id="notification-api">Notification API<a class="headerlink" href="#notification-api" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Endpoint</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>GET /api/v1/notifications/</code></td>
-<td>List unread notifications for the current user (max 50)</td>
-</tr>
-<tr>
-<td><code>GET /api/v1/notifications/unread-count/</code></td>
-<td>Returns <code>{ "count": N }</code></td>
-</tr>
-<tr>
-<td><code>POST /api/v1/notifications/mark-read/</code></td>
-<td>Mark notifications as read — body: <code>{ "ids": [1, 2] }</code> or <code>{ "all": true }</code> to mark all</td>
-</tr>
-</tbody>
-</table>
-<p>The <code>GET /api/v1/notifications/</code> response returns an array of objects with the following shape:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"verb"</span><span class="p">:</span><span class="w"> </span><span class="s2">"You were assigned to \"Deploy v2.3\""</span><span class="p">,</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"card_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"card_title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Deploy v2.3"</span><span class="p">,</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">"board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">,</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="p">,</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"action_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assigned"</span><span class="p">,</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-27T14:00:00Z"</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">}</span>
-</code></pre></div>
-<p>The <code>action_type</code> field is a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code>, <code>comment_added</code> <em>(<code>due_soon</code> and <code>comment_added</code> added in 1.2)</em>, or <code>""</code> (empty string for legacy notifications created before action types were introduced). New values are additive; treat an unrecognized one as generic rather than as an error.</p>
-<div class="admonition note">
-<p class="admonition-title">Added in 1.1</p>
-<p>The <code>actor</code> field (the user who triggered the notification) is included in the API response as a slim user object (#1007). It is <code>null</code> for system-generated notifications such as staleness alerts.</p>
-</div>
+<p>When a change adds a new transport or entry point, add it to the table of every
+rule that applies to it in the same change.</p>
 
 
 
