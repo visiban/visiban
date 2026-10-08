@@ -291,6 +291,19 @@ class BoardInviteOAuthTests(_Fixture, TestCase):
             self.adapter.is_open_for_signup(self._request(raw), mock.MagicMock())
         self.assertIn("auth_error=invite_expired", ctx.exception.response.url)
 
+    def _save_refused(self, raw, username, error_code):
+        """save_user must refuse AND roll back the account it just created (#1489)."""
+        request = self._request(raw)
+
+        def create(*args, **kwargs):
+            return User.objects.create_user(username=username, password="pass")
+
+        with mock.patch.object(SocialRegistrationAdapter.__bases__[0], "save_user", side_effect=create):
+            with self.assertRaises(ImmediateHttpResponse) as ctx:
+                self.adapter.save_user(request, mock.MagicMock(), form=None)
+        self.assertIn(f"auth_error={error_code}", ctx.exception.response.url)
+        self.assertFalse(User.objects.filter(username=username).exists())
+
     def test_save_user_joins_board_and_consumes_invite(self):
         link, raw = self.make_invite(role="viewer")
         user = self._save(raw, "oauth_new")
@@ -302,15 +315,14 @@ class BoardInviteOAuthTests(_Fixture, TestCase):
     def test_save_user_with_consumed_invite_grants_nothing(self):
         link, raw = self.make_invite()
         BoardInviteLink.objects.filter(pk=link.pk).update(used_at=timezone.now())
-        user = self._save(raw, "oauth_late")
-        self.assertFalse(BoardMembership.objects.filter(board=self.board, user=user).exists())
+        self._save_refused(raw, "oauth_late", "invite_invalid")
 
     def test_save_user_with_non_site_admin_invite_grants_nothing(self):
         link, raw = self.make_invite()
         self.sender.is_site_admin = False
         self.sender.save(update_fields=["is_site_admin"])
-        user = self._save(raw, "oauth_ga")
-        self.assertFalse(BoardMembership.objects.filter(board=self.board, user=user).exists())
+        self._save_refused(raw, "oauth_ga", "invite_not_for_registration")
+        self.assertFalse(BoardMembership.objects.filter(board=self.board, user__username="oauth_ga").exists())
         link.refresh_from_db()
         self.assertIsNone(link.used_at)
 

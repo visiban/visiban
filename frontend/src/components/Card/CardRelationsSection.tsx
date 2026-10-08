@@ -101,6 +101,8 @@ export default function CardRelationsSection({
   // also catches `relates_to`-only cards that the seed cannot see.
   const [open, setOpen] = useState(() => card.blocker_count > 0);
   const addButtonRef = useRef<HTMLButtonElement>(null);
+  const selectInFlight = useRef(false);
+  const removeInFlight = useRef(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -150,6 +152,9 @@ export default function CardRelationsSection({
     rel.direction === "blocked_by" && !rel.card.archived;
 
   const handleSelect = async (picked: Card, direction: CardRelationDirection) => {
+    // Ref guard (#1498): flips synchronously, unlike the `submitting` state.
+    if (selectInFlight.current) return;
+    selectInFlight.current = true;
     setSubmitting(true);
     setActionError(null);
     try {
@@ -162,11 +167,14 @@ export default function CardRelationsSection({
     } catch (err) {
       setActionError(errorCopy(err));
     } finally {
+      selectInFlight.current = false;
       setSubmitting(false);
     }
   };
 
   const handleRemove = async (rel: CardRelation) => {
+    if (removeInFlight.current) return;
+    removeInFlight.current = true;
     setActionError(null);
     try {
       await deleteCardRelation(board.id, card.id, rel.id);
@@ -176,6 +184,8 @@ export default function CardRelationsSection({
       if (countsAsBlocker(rel)) onBlockerCountChange(-1);
     } catch {
       setActionError("Could not remove the relation. Try again.");
+    } finally {
+      removeInFlight.current = false;
     }
   };
 

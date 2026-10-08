@@ -360,8 +360,8 @@ class GroupInviteOAuthSignupTests(_GroupInviteFixture, TestCase):
         link, raw = self.make_link()
         self.admin.is_site_admin = False
         self.admin.save(update_fields=["is_site_admin"])
-        user = self._save(raw, "oauth_groupadmin")
-        self.assertFalse(GroupMembership.objects.filter(group=self.group, user=user).exists())
+        self._save_refused(raw, "oauth_groupadmin", "invite_not_for_registration")
+        self.assertFalse(GroupMembership.objects.filter(group=self.group, user__username="oauth_groupadmin").exists())
         link.refresh_from_db()
         self.assertIsNone(link.used_at)
 
@@ -379,6 +379,19 @@ class GroupInviteOAuthSignupTests(_GroupInviteFixture, TestCase):
         self.assertNotIn(PENDING_INVITE_SESSION_KEY, request.session)
         return new_user
 
+    def _save_refused(self, raw, username, error_code):
+        """save_user must refuse AND roll back the account it just created (#1489)."""
+        request = self._request(raw)
+
+        def create(*args, **kwargs):
+            return User.objects.create_user(username=username, password="pass")
+
+        with mock.patch.object(SocialRegistrationAdapter.__bases__[0], "save_user", side_effect=create):
+            with self.assertRaises(ImmediateHttpResponse) as ctx:
+                self.adapter.save_user(request, mock.MagicMock(), form=None)
+        self.assertIn(f"auth_error={error_code}", ctx.exception.response.url)
+        self.assertFalse(User.objects.filter(username=username).exists())
+
     def test_save_user_joins_group_and_consumes_invite(self):
         link, raw = self.make_link(role=GroupInviteLink.Role.MEMBER)
         user = self._save(raw, "oauth_new")
@@ -389,8 +402,7 @@ class GroupInviteOAuthSignupTests(_GroupInviteFixture, TestCase):
     def test_save_user_with_consumed_invite_creates_no_membership(self):
         link, raw = self.make_link()
         GroupInviteLink.objects.filter(pk=link.pk).update(used_at=timezone.now())
-        user = self._save(raw, "oauth_late")
-        self.assertFalse(GroupMembership.objects.filter(group=self.group, user=user).exists())
+        self._save_refused(raw, "oauth_late", "invite_invalid")
 
 
 class GroupInviteRegistrationRaceTests(_GroupInviteFixture, TransactionTestCase):

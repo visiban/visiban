@@ -912,7 +912,31 @@ class AdminUserDetailView(APIView):
                 update_fields.append(field)
 
         if update_fields:
-            target.save(update_fields=update_fields)
+            # Atomic with the revocations below: a rolled-back deactivation must
+            # not leave links revoked (and the on_commit broadcasts never fire).
+            with transaction.atomic():
+                prior = User.objects.values("is_active", "is_site_admin", "can_access_all_content").get(pk=target.pk)
+                was_active = prior["is_active"]
+                target.save(update_fields=update_fields)
+                # Deactivating through PATCH must revoke the user's invite links
+                # exactly like the dedicated deactivate endpoint (#1510): they
+                # were refused at preview/join already, but stayed
+                # is_active=True in the admin lists and kept counting toward
+                # the per-group active-link cap.
+                if was_active and not target.is_active:
+                    AdminUserDeactivateView._revoke_invite_links(target, request.user)
+                elif (
+                    target.is_active
+                    and prior["can_access_all_content"]
+                    and not target.can_access_all_content
+                ):
+                    # can_access_all_content is the only flag that confers
+                    # group-admin rights (_require_group_admin; is_site_admin
+                    # is admin-panel access only): links held only through it
+                    # lapse (links where the user is still a group admin by
+                    # membership are kept).
+                    from groups.views import _revoke_lapsed_admin_invite_links
+                    _revoke_lapsed_admin_invite_links(target)
 
         return Response(AdminUserSerializer(target).data)
 
@@ -1391,8 +1415,26 @@ class AdminUserDeactivateView(APIView):
         target.is_active = False
         target.save(update_fields=["is_active"])
 
+        self._revoke_invite_links(target, request.user)
+
+        logger.info(
+            "user.deactivated pk=%d deactivated_by=%d transfers=%s",
+            target.pk, request.user.pk,
+            [(t["board_id"], t["transfer_to"]) for t in transfers],
+        )
+        return Response(AdminUserSerializer(target).data)
+
+
+    @classmethod
+    def _revoke_invite_links(cls, target, actor):
+        """Delete the user's PATs and revoke every pending site, board and group invite they created.
+
+        Shared by the deactivate endpoint and ``PATCH is_active=false`` (#1510)
+        so the two deactivation paths cannot drift apart.
+        """
         # Security: revoke all personal access tokens so a deactivated user
-        # cannot retain API access via previously issued tokens.
+        # cannot retain API access via previously issued tokens — and cannot
+        # get them back on reactivation.
         target.personal_access_tokens.all().delete()
 
         # Security: a departing admin's unused invite links must not remain valid.
@@ -1406,18 +1448,10 @@ class AdminUserDeactivateView(APIView):
         # pending invites must stop working, not merely fail the sender
         # re-check at redemption. Each revocation is announced on its board so
         # an admin with the invite list open sees it go.
-        self._revoke_pending_board_invites(target, request.user)
+        cls._revoke_pending_board_invites(target, actor)
 
         # And their group invite links (#1490), announced on each group channel.
-        self._revoke_group_invite_links(target)
-
-        logger.info(
-            "user.deactivated pk=%d deactivated_by=%d transfers=%s",
-            target.pk, request.user.pk,
-            [(t["board_id"], t["transfer_to"]) for t in transfers],
-        )
-        return Response(AdminUserSerializer(target).data)
-
+        cls._revoke_group_invite_links(target)
 
     @staticmethod
     def _revoke_group_invite_links(target):
