@@ -86,6 +86,8 @@ Work through each category. For categories with no findings from the scans, stat
 
 Read `docs/development/security-invariants.md`. If the diff touches a rule listed there (account-state gates, access revocation, grants and their revocation paths, consume-once tokens, import user scoping), check every surface in that rule's table, not only the surface in the diff, and report any sibling surface that does not enforce the rule as a finding. Report such a finding to the maintainer privately or file it as a confidential issue; never paste it into an MR description, commit message or public doc.
 
+For design-level trust-boundary questions that precede code, see the `threat-model` skill (`.claude/skills/threat-model/SKILL.md`), which runs upstream of `architect`.
+
 #### Output
 
 **✅ No findings** — list the categories checked with no issues.

@@ -72,6 +72,8 @@ Explicitly call out any of the following if they apply:
 
 Read `docs/development/security-invariants.md`. If the design or diff touches a rule listed there (account-state gates, access revocation, grants and their revocation paths, consume-once tokens, import user scoping), check every surface in that rule's table, not only the surface in the diff, and report any sibling surface that does not enforce the rule as a finding. Report such a finding to the maintainer privately or file it as a confidential issue; never paste it into an MR description, commit message or public doc.
 
+When a `threat-model` pass ran upstream (`.claude/skills/threat-model/SKILL.md`), consume its "Top risks" and "Decisions for the architect" sections, and do not start implementation until its high-severity decisions are answered or explicitly deferred.
+
 #### 3. Flag open questions
 List any design decisions that are not yet resolved and should be answered before implementation starts. Mark each as:
 - 🔴 **Blocking** — must be decided before writing any code

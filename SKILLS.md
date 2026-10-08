@@ -1,6 +1,6 @@
 # Agents & Commands
 
-Custom Claude Code automation for the Visiban project. Agents live in `.claude/agents/` and run automatically based on context. Commands live in `.claude/commands/` and are invoked explicitly with `/command-name`.
+Custom Claude Code automation for the Visiban project. Agents live in `.claude/agents/` and run automatically based on context. Commands live in `.claude/commands/` and are invoked explicitly with `/command-name`. Skills live in `.claude/skills/<name>/SKILL.md`; a few skills, such as `threat-model`, also act as gates and appear in the trigger tables below marked *(skill)*.
 
 ---
 
@@ -49,9 +49,10 @@ Commands are invoked explicitly with `/command-name`. These are workflow orchest
 
 ### Planning & design
 
-| Agent | Triggers when |
+| Agent / skill | Triggers when |
 |---|---|
 | `architect` | Before any new feature or functionality change — before writing code |
+| `threat-model` *(skill, `.claude/skills/threat-model/`)* | Before `architect`, when a feature adds an auth path, changes an authorization boundary, adds external data ingress, changes an OSS-to-enterprise extension point, or adds an anonymous/public read surface; its output is handed to `architect` |
 | `ux-review` | Before any UI/UX change — before writing frontend code |
 | `enterprise-check` | OSS vs enterprise classification is unclear |
 
