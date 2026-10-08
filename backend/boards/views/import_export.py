@@ -1471,10 +1471,11 @@ class BoardImportExportMixin:
             # ``cards`` off imports structure (and labels) only; everything
             # below hangs off a card, so it is skipped with it (#119).
             for card_data in (data.get("cards", []) if options["cards"] else []):
-                column = column_map.get(card_data["column"])
-                swimlane = swimlane_map.get(card_data["swimlane"])
-                if not column or not swimlane:
-                    continue
+                # Validated above: every card's column/swimlane names a
+                # definition in this payload, and the maps are keyed by exactly
+                # those names, so both lookups hit.
+                column = column_map[card_data["column"]]
+                swimlane = swimlane_map[card_data["swimlane"]]
 
                 priority = card_data.get("priority", "medium")
                 # isinstance guard must short-circuit before the membership
@@ -1989,10 +1990,11 @@ class BoardImportExportMixin:
         ]
         # Rebuild fieldnames from the normalized first row so header validation works.
         # Filter None entries — DictReader produces None keys for trailing commas in headers.
-        if reader.fieldnames is not None:
-            reader.fieldnames = [
-                _HEADER_MAP.get(f.strip().lower(), f.strip()) for f in reader.fieldnames if f is not None
-            ]
+        # ``rows`` is non-empty, so DictReader has read a header line and
+        # ``fieldnames`` is a list.
+        reader.fieldnames = [
+            _HEADER_MAP.get(f.strip().lower(), f.strip()) for f in reader.fieldnames if f is not None
+        ]
 
         # Enforce row (card) ceiling early — before scanning for columns/swimlanes —
         # so that oversized imports are rejected without building intermediate data
@@ -2007,9 +2009,8 @@ class BoardImportExportMixin:
 
         # Validate required headers
         required_headers = {"Title", "Column", "Swimlane"}
-        # ``rows`` is non-empty here, so DictReader has already read a header
-        # line and ``fieldnames`` is a list; an input with no header at all
-        # yields no rows and was rejected as empty above.
+        # An input with no header line yields no rows and was rejected as empty
+        # above, so ``reader.fieldnames`` is set here.
         headers = set(reader.fieldnames)
         missing = required_headers - headers
         if missing:
@@ -2386,7 +2387,7 @@ class BoardImportExportMixin:
             SITE_ADMIN,
         ):
             return Response(
-                {"detail": "Board export requires board membership."},  # pragma: no mutate -- fail-closed guard for a stored role outside the four member roles; get_board_for_user never returns one for a valid row, so no request reaches it, but a PostgreSQL or patched-role test could kill it
+                {"detail": "Board export requires board membership."},  # pragma: no mutate -- fail-closed guard, unreachable via the API; killing it needs a patched-role or DB-level test
                 status=status.HTTP_403_FORBIDDEN,
             )
         # #843: enforce the per-board export threshold on top of the base
