@@ -13,6 +13,7 @@ Guides for running and maintaining a Visiban instance.
 | [Django Admin](django-admin.md) | Using the built-in Django `/admin/` panel for direct data management — not to be confused with the site-admin panel at `/admin` (no trailing slash) |
 | [Secret Rotation](secret-rotation.md) | How to rotate `DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `CORS_ALLOWED_ORIGINS`; admin IP restriction |
 | [Media Storage Security](media-security.md) | Attachment upload validation, allowed file types, and S3/GCS bucket hardening |
+| [Verifying Release Images](image-verification.md) | Cosign-verifying the release images and Helm chart, and reading each image's per-architecture CycloneDX SBOM |
 | [Container Image Retention](container-image-retention.md) | GitLab/GHCR registry cleanup policies, the scheduled release-image survival check, and digest pinning |
 | [Demo Data](demo-data.md) | How to seed demo boards for development and demos; production risks; cleanup instructions |
 | [Rate Limits](../architecture/deployment.md#rate-limiting) | Per-client API throttle limits enforced in production |

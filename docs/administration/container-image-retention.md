@@ -22,10 +22,10 @@ its documented production compose defaulted `APP_VERSION` to `latest` — a muta
 its release images were scanned, SBOM'd and signed by digest, so pulling `latest` in
 production could never be verified against that signature or rolled back to a specific
 artifact. Visiban's `APP_VERSION` half of the same gap is now closed — see
-[Upgrading → `APP_VERSION` is now required](upgrade.md#upgrading-to-12x). Visiban's own
-release images are **not yet** scanned, SBOM'd, or signed the way TruePPM's are; that work is
-tracked in [#1153](https://gitlab.com/visiban/visiban/-/issues/1153). Below covers the
-registry-retention half and digest pinning, both of which apply regardless of #1153's status.
+[Upgrading → `APP_VERSION` is now required](upgrade.md#upgrading-to-12x). Since 1.2, Visiban's
+release images are also cosign-signed and carry a CycloneDX SBOM attestation per architecture
+(#1153) — see [Verifying release images](image-verification.md). Below covers the
+registry-retention half and digest pinning.
 
 ## GitLab container registry
 
@@ -63,6 +63,29 @@ this policy against Visiban's actual tag set:
   stops working the moment `main` goes 90+ days without a merge to either image while 10
   other tags get pushed in the meantime. #1190 closes that gap unconditionally instead of
   relying on development cadence.
+
+### Signature and SBOM attestation tags (#1153)
+
+Since 1.2, cosign stores each release image's signatures and SBOM attestations in the same
+repository as **tags** named `sha256-<64 hex>.sig` and `sha256-<64 hex>.att` (one per signed or
+attested digest). The keep-regex recorded above does not match them, so they fall under the
+ordinary `keep_n: 10` / `older_than: 90d` sweep. **On the GitLab registry, a release's
+signatures and SBOMs are deleted about 90 days after it ships, while the image itself
+survives**, and `cosign verify` against `registry.gitlab.com/visiban/visiban` starts failing
+with `no signatures found`. GHCR has no cleanup policy, so its copies are unaffected.
+
+Until the policy is extended, verify against GHCR (see
+[Verifying release images](image-verification.md)). To keep the GitLab copies, a maintainer
+adds the cosign tag shape to `name_regex_keep`:
+
+```text
+^(v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\.(sig|att))\z
+```
+
+This also keeps signatures for intermediate `-amd64`/`-arm64` digests. Those are the same
+digests the release index points at, so keeping them is intended. Record the change here
+the same way #1190 was recorded. The `image-attest-backfill` CI job can re-attach any
+signatures and SBOMs that were already swept.
 
 ### History: the semver-anchored form predates #1190
 
@@ -252,9 +275,10 @@ they run are the exact ones that were built and pushed, can pin by **digest** in
 
 Every release image is content-addressed by its digest (a `sha256:...` hash of the image
 manifest) at the point it is pushed, and it cannot change without the digest itself changing.
-CI does not yet attach an SBOM or signature to that digest — see
-[#1153](https://gitlab.com/visiban/visiban/-/issues/1153) — but once it does, the digest is
-what those attestations will target, independent of whichever tag currently points at it.
+Since 1.2 the signature and SBOM attestations CI attaches target digests, not tags: the
+multi-arch index digest and each platform digest are signed, and each platform digest carries
+its SBOM — independent of whichever tag currently points at it. See
+[Verifying release images](image-verification.md).
 
 ### Finding the digest for a release
 

@@ -925,9 +925,9 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     `DB_PASSWORD`/`REDIS_PASSWORD`/`DOMAIN` pattern the rest of the file already uses. This
     closes the gap TruePPM's audit named directly (#1074): the documented production path
     pulled a mutable tag that could not be verified or rolled back. Release images are
-    content-addressed by digest, but are not yet scanned, SBOM'd, or signed against that
-    digest — that work is tracked separately in
-    [#1153](https://gitlab.com/visiban/visiban/-/issues/1153).
+    content-addressed by digest, and since 1.2 each one is cosign-signed and carries a
+    CycloneDX SBOM attestation against that digest (#1153) — see
+    [Verifying release images](image-verification.md).
 
     **If your `.env` already sets `APP_VERSION`** — the documented path since `.env.example`
     has always shipped one — this changes nothing; `docker compose pull`/`up` resolve to the
