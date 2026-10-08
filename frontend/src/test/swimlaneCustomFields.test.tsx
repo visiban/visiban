@@ -242,6 +242,16 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
       expect([...order].sort((a, b) => a - b)).toEqual(order)
     })
 
+    it('draws a top border on every entry except the first of each list', async () => {
+      const dialog = await openPopover()
+      const rowOf = (label: string) => screen.getByText(label, { selector: 'span' }).parentElement as HTMLElement
+      expect(dialog).toBeInTheDocument()
+      expect(rowOf('Region').className).not.toContain('border-t')
+      expect(rowOf('Segment').className).toContain('border-t')
+      expect(rowOf('Owner').className).not.toContain('border-t')
+      expect(rowOf('Tier').className).toContain('border-t')
+    })
+
     it('omits the "On row" divider when no field is pinned', async () => {
       const user = userEvent.setup()
       renderRow(
