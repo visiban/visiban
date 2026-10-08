@@ -362,7 +362,7 @@ security-deferred-verdict-selftest:
       changes: *security-deferred-verdict-selftest-paths
   script:
     - sh scripts/security-deferred-verdict.sh --self-test
-    - apk add --no-cache bash jq git coreutils
+    - apk add --no-cache bash jq git coreutils python3
     - git config --global --add safe.directory '*'
     - bash scripts/check-security-deferred.sh --self-test
     # release.sh gates the tag on the check above (#1520); its self-test and CLI test had no CI job.
