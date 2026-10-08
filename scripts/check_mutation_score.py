@@ -29,7 +29,10 @@ Exit codes (same contract as TruePPM, #3216):
       non-skipped mutants that do not add up to it), an unfinished
       run (``untested`` mutants left), or zero scoreable mutants. This
       applies in report-only mode too, so a dead run is a yellow job,
-      never a meaningless green. Also a floor outside (0, 1]
+      never a meaningless green. Also a floor outside (0, 1], or a
+      stats/cache path outside the allowed roots (repo, cwd, temp dir;
+      symlinks followed): reported as ``CONFIG ERROR``, nothing read
+      or written
 ====  =============================================================
 
 ``--write-merged`` writes the summed counts (``total`` is the module's mutant
@@ -49,11 +52,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _paths import PathEscapeError, cli_roots, resolve_within  # noqa: E402
 
 # mutmut 2.x Mutant.status -> stats key.
 STATUS_KEYS = {
@@ -68,10 +75,13 @@ STATUS_KEYS = {
 
 def export_cache(cache: Path) -> dict[str, int]:
     """Count mutants per verdict from a mutmut 2.x ``.mutmut-cache`` file."""
+    # The resolved path, not the raw argument, is what reaches the sink (#1377).
+    cache = resolve_within(cli_roots(), cache)
     if not cache.exists():
         raise FileNotFoundError(cache)
-    # Read-only URI: never create an empty cache by accident.
-    con = sqlite3.connect(f"file:{cache}?mode=ro", uri=True)
+    # Read-only URI: never create an empty cache by accident. as_uri() percent-quotes
+    # the path, so `?`, `#`, `%` and spaces in it cannot corrupt or extend the URI.
+    con = sqlite3.connect(cache.as_uri() + "?mode=ro", uri=True)
     try:
         rows = con.execute('SELECT status, COUNT(*) FROM "Mutant" GROUP BY status').fetchall()
     finally:
@@ -110,15 +120,17 @@ def _format_summary(stats: dict[str, int], score: float | None) -> str:
 def _load(paths: list[Path]) -> tuple[list[dict[str, int]], str | None]:
     """Load every readable stats file; return them and the first reason one could not be read."""
     shards: list[dict[str, int]] = []
-    for path in paths:
+    for raw in paths:
+        # PathEscapeError propagates: main() reports it as a config error, not a measurement.
+        path = resolve_within(cli_roots(), raw)
         if not path.exists():
-            return shards, f"stats file not found: {path}"
+            return shards, f"stats file not found: {raw}"
         try:
             data = json.loads(path.read_text("utf-8"))
         except json.JSONDecodeError as exc:
-            return shards, f"{path} is not valid JSON: {exc}"
+            return shards, f"{raw} is not valid JSON: {exc}"
         if not isinstance(data, dict):
-            return shards, f"{path} holds {type(data).__name__}, expected an object."
+            return shards, f"{raw} holds {type(data).__name__}, expected an object."
         shards.append({k: v for k, v in data.items() if isinstance(v, int) and not isinstance(v, bool)})
     return shards, None
 
@@ -352,6 +364,61 @@ def _self_test() -> int:
                 "untested": 1, "total": 8}
         check("export_cache", all(got.get(k) == v for k, v in want.items()), f"returned {got}, expected {want}")
 
+        # URI building: a path with `?`, `#`, `%` and spaces must open the same file.
+        odd_dir = root / "we?ird #dir 100%"
+        odd_dir.mkdir()
+        odd = odd_dir / "cache db"
+        shutil.copy(cache, odd)
+        got_odd = export_cache(odd)
+        check("export_cache with ?, #, % and spaces in the path",
+              all(got_odd.get(k) == v for k, v in want.items()), f"returned {got_odd}")
+
+        # Containment (#1377 helper): a path outside the repo, cwd and temp dir is a config error
+        # (exit 2, CONFIG ERROR), never read or written. The fixtures must be outside every root;
+        # when this host's home dir is not (cwd or checkout under it), say so rather than pass vacuously.
+        outside_dir = Path.home().resolve()
+        outside = outside_dir / "mutscore-1515-outside.json"
+        try:
+            resolve_within(cli_roots(), outside)
+            print("SELF-TEST NOTE: home dir is inside an allowed root here; containment cases skipped.",
+                  file=sys.stderr)
+        except PathEscapeError:
+            outside.unlink(missing_ok=True)
+            through = outside_dir / "mutscore-1515-link.json"
+            try:
+                check("a path under the allowed roots resolves", resolve_within(cli_roots(), ok_stats) == ok_stats.resolve())
+                msg = "escapes the allowed directories"
+                outside.unlink(missing_ok=True)
+                code, err = _run_real_script_full([outside], None)
+                check("a stats file outside the roots is rejected",
+                      code == 2 and "CONFIG ERROR" in err and msg in err, f"exit {code}, stderr {err!r}")
+                outside.unlink(missing_ok=True)
+                code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(outside)])
+                check("--write-merged outside the roots is rejected and not written",
+                      code == 2 and "CONFIG ERROR" in err and not outside.exists(), f"exit {code}, stderr {err!r}")
+                outside.unlink(missing_ok=True)
+                code, err = _run_real_script_full([outside], None, extra=["--export-cache", str(cache)])
+                check("--export-cache output outside the roots is rejected and not written",
+                      code == 2 and "CONFIG ERROR" in err and not outside.exists(), f"exit {code}, stderr {err!r}")
+                outside.unlink(missing_ok=True)
+                code, err = _run_real_script_full([root / "o.json"], None, extra=["--export-cache", str(outside)])
+                check("--export-cache input outside the roots is rejected",
+                      code == 2 and "CONFIG ERROR" in err, f"exit {code}, stderr {err!r}")
+                # A symlink inside an allowed root that points outside is rejected, and nothing is written through it.
+                link = root / "escape"
+                link.symlink_to(outside_dir, target_is_directory=True)
+                through.unlink(missing_ok=True)
+                code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(link / through.name)])
+                check("--write-merged through an escaping symlink is rejected and not written",
+                      code == 2 and "CONFIG ERROR" in err and not through.exists(), f"exit {code}, stderr {err!r}")
+                through.unlink(missing_ok=True)
+                code, err = _run_real_script_full([link / through.name], None)
+                check("a stats file read through an escaping symlink is rejected",
+                      code == 2 and "CONFIG ERROR" in err, f"exit {code}, stderr {err!r}")
+            finally:
+                outside.unlink(missing_ok=True)
+                through.unlink(missing_ok=True)
+
     for failure in failures:
         print(f"SELF-TEST FAILED: {failure}", file=sys.stderr)
     if failures:
@@ -390,10 +457,18 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         try:
             stats = export_cache(args.export_cache)
+        except PathEscapeError as exc:
+            print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
         except (FileNotFoundError, sqlite3.Error) as exc:
             print(f"NOT MEASURED: cannot read mutmut cache {args.export_cache}: {exc}", file=sys.stderr)
             return 2
-        args.stats_paths[0].write_text(json.dumps(stats, indent=2) + "\n", "utf-8")
+        try:
+            out_path = resolve_within(cli_roots(), args.stats_paths[0])
+        except PathEscapeError as exc:
+            print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
+        out_path.write_text(json.dumps(stats, indent=2) + "\n", "utf-8")
         print(f"wrote {args.stats_paths[0]}: {stats}")
         return 0
 
@@ -412,7 +487,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.expect_shards is not None and len(args.stats_paths) != args.expect_shards:
         reason = (f"expected {args.expect_shards} shard stats files, got {len(args.stats_paths)}. "
                   "A shard died or its artifact is missing; summing the rest would read as a complete run.")
-    shards, load_error = _load(args.stats_paths)
+    try:
+        shards, load_error = _load(args.stats_paths)
+    except PathEscapeError as exc:
+        print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+        return 2
     reason = reason or load_error
     if reason is None:
         reason = _check_shard_consistency(shards, args.expect_shards)
@@ -427,10 +506,15 @@ def main(argv: list[str] | None = None) -> int:
         reason = ("no mutant was scoreable.\n"
                   "  Check the job log for a dead pytest run or an unreadable .mutmut-cache.")
     if args.write_merged:
+        try:
+            merged_path = resolve_within(cli_roots(), args.write_merged)
+        except PathEscapeError as exc:
+            print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
         out = dict(stats)
         if reason is not None:
             out["not_measured"] = reason
-        args.write_merged.write_text(json.dumps(out, indent=2) + "\n", "utf-8")
+        merged_path.write_text(json.dumps(out, indent=2) + "\n", "utf-8")
     if reason is not None:
         print(f"NOT MEASURED: {reason}", file=sys.stderr)
         return 2

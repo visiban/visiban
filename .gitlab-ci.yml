@@ -354,6 +354,7 @@ mutation-score-selftest:
   rules:
     - changes: &mutation-score-selftest-paths
         - scripts/check_mutation_score.py
+        - scripts/_paths.py
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *mutation-score-selftest-paths
