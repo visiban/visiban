@@ -89,8 +89,8 @@ GitLab CI runs on every push, MR, and version tag. The pipeline validates code q
 │  │  helm-lint / helm-template / helm-install / helm-netpol  │
 │                                                             │
 │  security                                                    │
-│  │  SAST + Secret Detection (pinned catalog components,     │
-│  │    blocking; see Security Scanners runbook)              │
+│  │  SAST + Secret Detection (pinned catalog components;     │
+│  │    see Security Scanners runbook for what blocks)        │
 │  │  backend-sast (Bandit) / frontend-sast (eslint-security) │
 │  │  backend-dep-scan / frontend-dep-scan / dep-scan-osv     │
 │  │  gitleaks-scan, trivy-scan, license-check jobs           │

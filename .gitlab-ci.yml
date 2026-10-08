@@ -33,17 +33,19 @@ include:
 
 # ─── Scanner blocking policy (#1071) ──────────────────────────────────────────
 #
-# Every security scanner blocks the merge. Previously only bandit did, so a
-# committed credential did not fail the pipeline — and OSS push-mirrors to the
-# enterprise repo and public GitHub within a minute of a merge.
+# Which scanners can actually fail a pipeline. OSS push-mirrors to the
+# enterprise repo and public GitHub within a minute of a merge, so a committed
+# secret is public on three remotes almost immediately.
 #
-#   secret_detection   blocking (any finding)            — override below
-#   gitleaks-scan      blocking (any finding)            — full working tree
-#   gitleaks-history   blocking, main only               — full git history
-#   semgrep-sast       blocking at High/Critical only    — override + sast-severity-gate
-#   backend-sast       blocking (bandit, medium+)
-#   frontend-sast      blocking (eslint 'error' rules)
-#   trivy-scan         tracked separately in #1072
+#   gitleaks-scan      blocks on any finding              — full working tree, MR + main
+#   gitleaks-history   blocks on any finding              — full git history, main only
+#                      (runs after merge: a post-merge tripwire, not a merge gate)
+#   secret_detection   REPORT ONLY for findings           — see below; #1537
+#   semgrep-sast       blocks at High/Critical only       — override + sast-severity-gate
+#   backend-sast       blocks (bandit, medium+)           — pre-existing
+#   frontend-sast      blocks (eslint 'error' rules)      — only when frontend/src/**/*.{ts,tsx} changed
+#   trivy-scan         tracked separately in #1072; dep-scan-osv, pip-audit and the
+#                      license checks are deliberately outside this policy
 #
 # Semgrep's Low/Medium/Info findings stay visible in the MR security widget but
 # do not fail the pipeline; the SAST component has no native severity threshold,
@@ -53,6 +55,10 @@ include:
 
 # Component-generated job: override only what we change; the rest of the job
 # definition (image, script, rules, artifacts) still comes from the component.
+# NOTE: GitLab's analyzers always exit 0 on findings, so allow_failure: false
+# here does NOT make secret_detection block on a leak — it only makes an
+# analyzer crash fail the job. The blocking secret gates are gitleaks-scan and
+# gitleaks-history. Gating on the component's report is tracked in #1537.
 secret_detection:
   allow_failure: false
 
@@ -73,12 +79,13 @@ sast-severity-gate:
     - job: semgrep-sast
       artifacts: true
       optional: true
-  # Rules mirror the component's SAST_DISABLED switch: when semgrep-sast is not
-  # part of the pipeline there is nothing to gate, so skip. When it IS part of
-  # the pipeline, a missing report means the scan failed and the gate fails closed.
+  # Rules match when semgrep-sast actually runs: MR pipelines and the default
+  # branch (the component is included with enable_mr_pipelines: true). The
+  # component has no SAST_DISABLED variable in 3.5.0; its opt-out is the
+  # `excluded_analyzers` include input, which a job rule cannot read. So if
+  # semgrep is ever excluded there, this gate job must be removed in the same
+  # change, otherwise it fails closed on the missing report (intended).
   rules:
-    - if: '$SAST_DISABLED == "true" || $SAST_DISABLED == "True" || $SAST_DISABLED == "1"'
-      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
@@ -2897,6 +2904,15 @@ gitleaks-history:
     - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
     - chmod +x /usr/local/bin/gitleaks
   script:
+    # Fail closed on a shallow clone: GIT_DEPTH 0 should give full history, but a
+    # runner-level override would silently turn this into a partial scan that
+    # still reports green. A guard (rather than GIT_STRATEGY: clone) keeps the
+    # fast fetch and makes the misconfiguration loud.
+    - |
+      if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
+        echo "ERROR: shallow clone; gitleaks-history needs full history (GIT_DEPTH 0)." >&2
+        exit 1
+      fi
     - gitleaks git . --config .gitleaks.toml --no-banner --redact --exit-code 1
   allow_failure: false
 
