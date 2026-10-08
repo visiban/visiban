@@ -20,6 +20,7 @@ import InviteLinkPanel from "../Group/InviteLinkPanel";
 import { EMAIL_RE } from "../../constants/inviteEmail";
 import type { EmailInviteFormHandle } from "../Common/EmailInviteForm";
 import { DEMO_SETTINGS_REASON } from "../../constants/demoCopy";
+import { formatExportFormatLabel, formatExportRowCount } from "../../utils/exportHistory";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
@@ -1246,7 +1247,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             </span>
                           </div>
                           <div className="text-xs text-fg-muted">
-                            {entry.actor_role_label} — {entry.export_format.toUpperCase()} · {entry.row_count} card{entry.row_count === 1 ? "" : "s"}
+                            {entry.actor_role_label} — {formatExportFormatLabel(entry.export_format)} · {formatExportRowCount(entry.export_format, entry.row_count)}
                           </div>
                         </li>
                       ))}
