@@ -118,6 +118,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const cardActionInFlight = useRef(false);
   const attachDeleteInFlight = useRef(false);
   const checklistDeleteInFlight = useRef(false);
+  const commentInFlight = useRef(false);
+  const uploadInFlight = useRef(false);
+  const checklistToggleInFlight = useRef(false);
+  const checklistAddInFlight = useRef(false);
+  const labelCreateInFlight = useRef(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dueDateRef = useRef<HTMLInputElement>(null);
   const dueDateEmptyRef = useRef<HTMLInputElement>(null);
@@ -330,6 +336,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const handleCreateLabel = async (colorOverride?: string) => {
     if (!newLabelName.trim()) return;
+    // Ref guard (#1498): Enter+click or a double click on a color swatch would
+    // otherwise create the label twice.
+    if (labelCreateInFlight.current) return;
+    labelCreateInFlight.current = true;
     setLabelError(null);
     const color = colorOverride ?? newLabelColor;
     try {
@@ -345,6 +355,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setAddingLabel(false);
     } catch {
       setLabelError("Failed to create label. Only board admins can create labels.");
+    } finally {
+      labelCreateInFlight.current = false;
     }
   };
 
@@ -352,21 +364,39 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // Demo (#1179): never attempted, so the typed text is simply kept.
     if (demoMode) return;
     if (!commentBody.trim()) return;
-    const c = await addCardComment(board.id, card.id, commentBody.trim());
-    setComments((prev) => [...prev, c]);
-    setCommentBody("");
+    // Ref guard (#1498): a double click or Enter+click before React re-renders
+    // would otherwise post the same comment twice.
+    if (commentInFlight.current) return;
+    commentInFlight.current = true;
+    setCommentError(null);
+    try {
+      const c = await addCardComment(board.id, card.id, commentBody.trim());
+      setComments((prev) => [...prev, c]);
+      setCommentBody("");
+    } catch {
+      // Typed text is kept so the user can retry without retyping.
+      setCommentError("Could not post comment.");
+    } finally {
+      commentInFlight.current = false;
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (uploadInFlight.current) return;
+    uploadInFlight.current = true;
     setUploading(true);
+    setAttachError(null);
     try {
       const attachment = await uploadCardAttachment(board.id, localCard.id, file);
       setAttachments((prev) => [attachment, ...prev]);
       setLocalCard((c) => ({ ...c, attachment_count: c.attachment_count + 1 }));
       onUpdated({ ...localCard, attachment_count: localCard.attachment_count + 1 });
+    } catch {
+      setAttachError("Could not upload attachment.");
     } finally {
+      uploadInFlight.current = false;
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -392,6 +422,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const handleAddChecklistItem = async () => {
     if (!newItemText.trim()) return;
+    // Ref guard (#1498), shared with handleBulkAdd so the two cannot overlap.
+    if (checklistAddInFlight.current) return;
+    checklistAddInFlight.current = true;
     setChecklistError(null);
     try {
       // Previously unhandled (#1375): a rejected add left the typed text in
@@ -403,12 +436,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       onUpdated({ ...localCard, checklist_total: localCard.checklist_total + 1 });
     } catch {
       setChecklistError("Could not add item.");
+    } finally {
+      checklistAddInFlight.current = false;
     }
   };
 
   const handleBulkAdd = async () => {
     const items = bulkText.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!items.length) return;
+    if (checklistAddInFlight.current) return;
+    checklistAddInFlight.current = true;
     setChecklistError(null);
     const added: CardChecklistItem[] = [];
     try {
@@ -435,6 +472,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           : "Could not add items."
       );
     } finally {
+      checklistAddInFlight.current = false;
       if (added.length > 0) {
         setChecklist((prev) => [...prev, ...added]);
         onUpdated({ ...localCard, checklist_total: localCard.checklist_total + added.length });
@@ -443,14 +481,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   };
 
   const handleToggleChecklistItem = async (item: CardChecklistItem) => {
-    const updated = await updateChecklistItem(board.id, card.id, item.id, { is_checked: !item.is_checked });
-    // Derive the new list from the current closure snapshot of `checklist` rather
-    // than using a stale ±1 delta against localCard.checklist_done. Delta math
-    // accumulates errors when two items are toggled before a re-render occurs.
-    const newChecklist = checklist.map((i) => (i.id === item.id ? updated : i));
-    setChecklist(newChecklist);
-    const done = newChecklist.filter((i) => i.is_checked).length;
-    onUpdated({ ...localCard, checklist_done: done, checklist_total: newChecklist.length });
+    if (checklistToggleInFlight.current) return;
+    checklistToggleInFlight.current = true;
+    setChecklistError(null);
+    try {
+      const updated = await updateChecklistItem(board.id, card.id, item.id, { is_checked: !item.is_checked });
+      // Derive the new list from the current closure snapshot of `checklist` rather
+      // than using a stale ±1 delta against localCard.checklist_done. Delta math
+      // accumulates errors when two items are toggled before a re-render occurs.
+      const newChecklist = checklist.map((i) => (i.id === item.id ? updated : i));
+      setChecklist(newChecklist);
+      const done = newChecklist.filter((i) => i.is_checked).length;
+      onUpdated({ ...localCard, checklist_done: done, checklist_total: newChecklist.length });
+    } catch {
+      setChecklistError("Could not update item.");
+    } finally {
+      checklistToggleInFlight.current = false;
+    }
   };
 
   const handleDeleteChecklistItem = async (itemId: number) => {
@@ -900,9 +947,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         )}
                         <button onClick={() => { setAddingLabel(false); setLabelError(null); }} className="text-xs text-fg-muted hover:text-fg-secondary transition">✕</button>
                       </div>
-                      {labelError && (
-                        <p className="text-xs text-danger mt-0.5">{labelError}</p>
-                      )}
+                      <p role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4 mt-0.5">
+                        {labelError && <span className="text-danger">{labelError}</span>}
+                      </p>
                     </div>
                   ) : canManageLabels ? (
                     <button
@@ -1346,6 +1393,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         {DEMO_COMMENT_REASON}
                       </p>
                     )}
+                    <p role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4">
+                      {commentError && <span className="text-danger">{commentError}</span>}
+                    </p>
                     <div className="flex justify-end">
                       <button
                         onClick={handleComment}
