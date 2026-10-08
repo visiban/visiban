@@ -85,6 +85,8 @@ If any known shortcuts are being taken (acceptable given timeline/scope), log th
 
 > **Debt:** [short name] — [what was deferred and why] → suggested follow-up issue title
 
+A security-related debt item must be filed with the `security::deferred` label and a milestone (see `docs/maintainers/security-deferred-label.md`).
+
 ## Tone
 
 Be direct. Do not soften concerns. If something is a bad idea, say so and explain why. The goal is to catch problems before they are in production, not to validate decisions already made.
