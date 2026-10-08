@@ -166,21 +166,33 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 ## Step 1.5 — Deferred security follow-ups (every audit type)
 
 A security finding deferred during review is filed as an issue labeled `security::deferred`
-(see `docs/maintainers/security-deferred-label.md`). Open ones in the target milestone are
-🔴 blockers **unless** they carry a valid, unexpired accepted-risk note. This is deliberately
-narrow: plain `security` issues (tracking, hardening) are not checked here.
+**and assigned the target milestone** (see `docs/maintainers/security-deferred-label.md`).
+Open ones in the target milestone, **or with no milestone at all**, are 🔴 blockers
+**unless** they carry a valid, unexpired accepted-risk note. This is deliberately narrow:
+plain `security` issues (tracking, hardening) are not checked here.
+
+Step 1.5 always runs and reports, for every audit type. Only a `full` audit gates `/release`
+on it (Step 4). Its blockers feed the Step 2 "Blocking" count and are tagged
+`(tracked in #N)`, so Step 3 does not re-file them. For targeted audits it is report-only
+and does not start the one-time-gate flow.
 
 ```bash
-M="$WORKING_RELEASE"; TODAY=$(date +%F)
+M="$WORKING_RELEASE"; TODAY=$(date +%F); D="${TMPDIR:-/tmp}/deferred.json"
 # --paginate emits one JSON array per page; `jq -s 'add // []'` merges them (and handles zero results)
-glab api --paginate "projects/visiban%2Fvisiban/issues?milestone=$M&labels=security::deferred&state=opened&per_page=100" | jq -s 'add // []' > "$TMPDIR/deferred.json"
-for iid in $(jq -r '.[].iid' "$TMPDIR/deferred.json"); do
-  body=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.description // ""' "$TMPDIR/deferred.json")
+for ms in "$M" None; do   # None = issues with no milestone, which a milestone filter would miss
+  glab api --paginate "projects/visiban%2Fvisiban/issues?milestone=$ms&labels=security::deferred&state=opened&per_page=100" | jq -s 'add // []'
+done | jq -s 'add' > "$D"
+for iid in $(jq -r '.[].iid' "$D"); do
+  body=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.description // ""' "$D")
   notes=$(glab api --paginate "projects/visiban%2Fvisiban/issues/$iid/notes?per_page=100" | jq -s -r 'add // [] | map(select(.system|not)) | .[].body')
   verdict=$(printf '%s\n%s\n' "$body" "$notes" | tr -d '\r' \
-    | grep -E '^Accepted risk:.*accepted-by:[^;]+;.*reason:[^;]+;.*expires: *[0-9]{4}-[0-9]{2}-[0-9]{2}' \
-    | sed -E 's/.*expires: *([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/' | awk -v t="$TODAY" '$0>=t{ok=1} END{print ok?"ACCEPTED":"BLOCKER"}')
-  echo "#$iid confidential=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.confidential' "$TMPDIR/deferred.json") $verdict"
+    | grep -E '^Accepted risk: accepted-by: @[A-Za-z0-9_.-]+; reason: [^;]*[^; ]; expires: [0-9]{4}-[0-9]{2}-[0-9]{2} *$' \
+    | sed -E 's/.*expires: ([0-9-]{10}).*/\1/' \
+    | awk -v t="$TODAY" '{ split($0,a,"-"); y=a[1]+0; m=a[2]+0; d=a[3]+0
+        dim=(m==2)?(((y%4==0&&y%100!=0)||y%400==0)?29:28):((m==4||m==6||m==9||m==11)?30:31)
+        if (m>=1 && m<=12 && d>=1 && d<=dim && $0>=t) ok=1 }
+        END{print ok?"ACCEPTED":"BLOCKER"}')
+  echo "#$iid confidential=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.confidential' "$D") milestone=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.milestone.title // "none"' "$D") $verdict"
 done
 ```
 
@@ -190,15 +202,23 @@ done
 Accepted risk: accepted-by: @<maintainer>; reason: <why shipping is acceptable>; expires: YYYY-MM-DD
 ```
 
-All three fields are required; `;` separates them, so `reason` must not contain `;`. A note
-whose `expires` date is before today does not count (the issue is a 🔴 blocker again). Mixed
-or malformed notes count as no note.
+Fields appear in exactly this order, separated by `; `:
+- `accepted-by` is `@` plus `[A-Za-z0-9_.-]+`.
+- `reason` is non-blank and contains no `;`.
+- `expires` is a real calendar date (month 1-12, valid day) and the last field on the line,
+  so two `expires` fields never match.
+- An `expires` date before today does not count (the issue is a 🔴 blocker again).
+
+Any ONE valid line in the description or comments accepts the issue. The note is
+**honor-system**: nothing verifies that `accepted-by` is a maintainer or that the commenter
+is not the issue's filer, so the release owner must read each accepted note before
+tagging. Do not treat `ACCEPTED` as an enforced approval.
 
 Report each `BLOCKER` as a 🔴 finding ("open deferred security follow-up #N without a valid
-accepted-risk note") and each `ACCEPTED` as 🟢 with its expiry date. **Confidentiality:** the
-maintainer token sees confidential issues. For `confidential=true` issues, report only the
-issue number in anything that leaves the session (MR text, public issue, docs); never quote
-the title or body.
+accepted-risk note", or "... with no milestone") and each `ACCEPTED` as 🟢 with its expiry
+date. **Confidentiality:** the maintainer token sees confidential issues. For
+`confidential=true` issues, report only the issue number in anything that leaves the
+session (MR text, public issue, docs); never quote the title or body.
 
 ---
 
@@ -281,9 +301,8 @@ After the report:
 
 ## Step 4 — Gate check (full audit only)
 
-If the audit type was `full` (the Step 1.5 bullet applies to all types):
+If the audit type was `full`. (Step 1.5 runs for every audit type; only here, on a `full` audit, do its blockers gate `/release`. They count as 🔴 blocking findings below.)
 
-- Open `security::deferred` issues without a valid accepted-risk note (Step 1.5) count as 🔴 blocking findings, for every audit type.
 - If any 🔴 blocking findings remain unresolved against $WORKING_RELEASE → **do not proceed to `/release`**. Tell the user: "Pre-release audit found N blocking issue(s) against $WORKING_RELEASE. Resolve these before running `/release`."
 - If only 🟡 findings remain → advise the user to triage them, then they may proceed to `/release`
 - If all findings are 🟢 → "Pre-release audit passed. You may proceed to `/release` for $WORKING_RELEASE."

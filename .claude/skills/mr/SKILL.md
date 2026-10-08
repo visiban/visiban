@@ -112,6 +112,8 @@ description`. Derive from the most significant commit or the branch name.
 <optional: migration steps, feature flags, known limitations, follow-up issues>
 ```
 
+A follow-up issue for a deferred security finding must carry the `security::deferred` label and a milestone (`docs/maintainers/security-deferred-label.md`).
+
 Rules for the description:
 - Be specific about *what* changed, not just *that* it changed.
 - Link closing issues with `Closes #N` on its own line after the Notes section —
