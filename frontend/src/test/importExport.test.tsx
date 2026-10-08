@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
 import ImportSkippedToast from '../components/Board/ImportSkippedToast'
-import { formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
+import { countImportWarnings, formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
 import type { ImportOptions, ImportSkippedCounts, ImportSummary } from '../types'
 
 // The modal fetches the sample list on open (#1452). Keep the rest of the real
@@ -652,5 +652,39 @@ describe('CSV import warnings (#1526)', () => {
     return screen.findAllByText('Board imported. Skipped: 1 card label.').then(() => {
       expect(screen.queryByRole('list')).toBeNull()
     })
+  })
+})
+
+describe('countImportWarnings (#1526)', () => {
+  it('counts a single warning as 1 and announces it in the singular', () => {
+    expect(countImportWarnings(['Skipped column: empty.'])).toBe(1)
+    render(
+      <ImportSkippedToast
+        summary={{
+          options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+          skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0 },
+          warnings: ['Skipped column: empty.'],
+        }}
+        onDismiss={vi.fn()}
+      />,
+    )
+    return screen.findByText('Board imported. 1 value was not imported.')
+  })
+
+  it('counts the capped shape (20 listed + "...and N more") as 20 + N', () => {
+    const listed = Array.from({ length: 20 }, (_, i) => `Dropped value ${i}`)
+    expect(countImportWarnings([...listed, '\u2026and 7 more'])).toBe(27)
+  })
+
+  it('does not mistake a lookalike for the cap entry', () => {
+    expect(countImportWarnings(["Skipped column 'and 5 more'"])).toBe(1)
+    expect(countImportWarnings(['\u2026and 5 more of these were dropped'])).toBe(1)
+    expect(countImportWarnings(['and 5 more'])).toBe(1)
+  })
+
+  it('returns 0 for an empty list and ignores nothing it was handed', () => {
+    expect(countImportWarnings([])).toBe(0)
+    // importWarnings filters blanks before they reach the counter.
+    expect(countImportWarnings(importWarnings({ warnings: ['', '  '] } as ImportSummary))).toBe(0)
   })
 })

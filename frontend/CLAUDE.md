@@ -730,7 +730,7 @@ This exception is scoped narrowly to the pinned-chip quick-edit affordance itsel
 
 ## Post-import notice (ImportSkippedToast)
 
-1. **Post-import notice (`ImportSkippedToast`).** Informational tone (`bg-primary/15`, `ℹ`), never amber, because the import succeeded and there is nothing to act on, even when it reports dropped values (`import_summary.warnings`). A notice that lists warnings persists until dismissed. The skipped-counts-only notice auto-dismisses after 8s and pauses on hover or focus. Any scrollable list inside a toast carries `tabIndex={0}`, an `aria-label` and the standard focus ring. The list is capped at 20 plus a server-worded "...and N more". The live region announces the headline and a count only, never the list.
+Informational tone (`bg-primary/15`, `ℹ`), never amber, because the import succeeded and there is nothing to act on, even when it reports dropped values (`import_summary.warnings`). A notice that lists warnings persists until dismissed. The skipped-counts-only notice auto-dismisses after 8s and pauses on hover or focus. Any scrollable list inside a toast carries `tabIndex={0}`, an `aria-label` and the standard focus ring. The list is capped at 20 plus a server-worded "...and N more". The live region announces the headline and a count only, never the list.
 
 ## Collapsed sidebar rail
 
