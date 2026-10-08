@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import type { ImportSummary } from "../../types";
-import { formatImportSkipped, IMPORT_SKIPPED_TOAST_MS } from "../../utils/importSummary";
+import {
+  formatImportSkipped,
+  IMPORT_SKIPPED_TOAST_MS,
+  IMPORT_WARNINGS_HEADLINE,
+  IMPORT_WARNINGS_TOAST_MS,
+  importWarnings,
+} from "../../utils/importSummary";
 
 interface Props {
   summary: ImportSummary;
@@ -12,13 +18,20 @@ interface Props {
  * something out (#119). Informational tone, never amber: skipping was the
  * user's choice, not a failure. Renders nothing when nothing was skipped.
  *
+ * A CSV import can also return `warnings` (dropped custom-field values,
+ * swimlane conflicts; #1526). They are listed under the message and keep the
+ * notice open longer. With no warnings the notice is unchanged.
+ *
  * The `role="status"` wrapper mounts empty and the text arrives one tick
  * later: a live region that mounts already holding its text is not reliably
  * announced. The auto-dismiss timer pauses while the notice is hovered or
  * holds focus, so it never disappears from under the reader.
  */
 export default function ImportSkippedToast({ summary, onDismiss }: Props) {
-  const message = formatImportSkipped(summary);
+  const warnings = importWarnings(summary);
+  const skippedMessage = formatImportSkipped(summary);
+  const message = skippedMessage ?? (warnings.length > 0 ? IMPORT_WARNINGS_HEADLINE : null);
+  const dismissMs = warnings.length > 0 ? IMPORT_WARNINGS_TOAST_MS : IMPORT_SKIPPED_TOAST_MS;
   const [shown, setShown] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -33,9 +46,9 @@ export default function ImportSkippedToast({ summary, onDismiss }: Props) {
   useEffect(() => {
     if (!message || paused) return;
     // Restarts the full delay after a pause, rather than resuming mid-way.
-    const timer = setTimeout(onDismiss, IMPORT_SKIPPED_TOAST_MS);
+    const timer = setTimeout(onDismiss, dismissMs);
     return () => clearTimeout(timer);
-  }, [message, paused, onDismiss]);
+  }, [message, paused, onDismiss, dismissMs]);
 
   if (!message) return null;
   return (
@@ -53,7 +66,16 @@ export default function ImportSkippedToast({ summary, onDismiss }: Props) {
       {shown && (
         <div className="flex items-start gap-3 bg-primary/15 border border-primary-emphasis/40 rounded-lg px-4 py-3 text-fg text-sm">
           <span className="text-info shrink-0 mt-px" aria-hidden="true">ℹ</span>
-          <p className="flex-1 min-w-0">{message}</p>
+          <div className="flex-1 min-w-0">
+            <p>{message}</p>
+            {warnings.length > 0 && (
+              <ul className="mt-2 list-disc pl-4 space-y-1 text-xs text-fg-secondary max-h-40 overflow-y-auto">
+                {warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button
             type="button"
             onClick={onDismiss}

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
 import ImportSkippedToast from '../components/Board/ImportSkippedToast'
-import { formatImportSkipped } from '../utils/importSummary'
+import { formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
 import type { ImportOptions, ImportSkippedCounts, ImportSummary } from '../types'
 
 // The modal fetches the sample list on open (#1452). Keep the rest of the real
@@ -573,5 +573,64 @@ describe('ImportSkippedToast (#119)', () => {
       <ImportSkippedToast summary={{ ...summary, skipped: { ...summary.skipped, label_refs: 0 } }} onDismiss={vi.fn()} />,
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('CSV import warnings (#1526)', () => {
+  const base: ImportSummary = {
+    options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+    skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0 },
+  }
+  const warned: ImportSummary = {
+    ...base,
+    warnings: ["Skipped column 'X': the field name is empty.", '\u2026and 3 more'],
+  }
+
+  it('importWarnings and hasImportSkips treat warnings as a reason to show the notice', () => {
+    expect(importWarnings(undefined)).toEqual([])
+    expect(importWarnings(base)).toEqual([])
+    expect(importWarnings({ ...base, warnings: ['', '  '] })).toEqual([])
+    expect(importWarnings(warned)).toHaveLength(2)
+    expect(hasImportSkips(base)).toBe(false)
+    expect(hasImportSkips({ ...base, warnings: [] })).toBe(false)
+    expect(hasImportSkips(warned)).toBe(true)
+  })
+
+  it('lists the warnings and stays open for 20 seconds', () => {
+    vi.useFakeTimers()
+    try {
+      const onDismiss = vi.fn()
+      render(<ImportSkippedToast summary={warned} onDismiss={onDismiss} />)
+      act(() => { vi.advanceTimersByTime(0) })
+      const region = screen.getByRole('status')
+      expect(region).toHaveTextContent('Board imported. Some values were not imported:')
+      expect(screen.getAllByRole('listitem')).toHaveLength(2)
+      expect(screen.getByText("Skipped column 'X': the field name is empty.")).toBeInTheDocument()
+      act(() => { vi.advanceTimersByTime(19999) })
+      expect(onDismiss).not.toHaveBeenCalled()
+      act(() => { vi.advanceTimersByTime(1) })
+      expect(onDismiss).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows warnings under the skipped message when both are present', () => {
+    render(
+      <ImportSkippedToast
+        summary={{ ...warned, skipped: { ...warned.skipped, label_refs: 1 } }}
+        onDismiss={vi.fn()}
+      />,
+    )
+    return screen.findByText('Board imported. Skipped: 1 card label.').then(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    })
+  })
+
+  it('looks unchanged when there are no warnings', () => {
+    render(<ImportSkippedToast summary={{ ...base, skipped: { ...base.skipped, label_refs: 1 }, warnings: [] }} onDismiss={vi.fn()} />)
+    return screen.findByText('Board imported. Skipped: 1 card label.').then(() => {
+      expect(screen.queryByRole('list')).toBeNull()
+    })
   })
 })

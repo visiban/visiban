@@ -3,6 +3,9 @@ import type { ImportSummary } from "../types";
 /** How long the post-import notice stays before dismissing itself. */
 export const IMPORT_SKIPPED_TOAST_MS = 8000;
 
+/** Warnings need reading, not glancing: the notice stays longer when it carries any (#1526). */
+export const IMPORT_WARNINGS_TOAST_MS = 20000;
+
 /** At most this many counts are spelled out; the rest collapse to "and N more". */
 const MAX_LISTED = 3;
 
@@ -34,7 +37,19 @@ export function formatImportSkipped(summary: ImportSummary | null | undefined): 
   return `Board imported. Skipped: ${listed.join(", ")}.`;
 }
 
-/** True when the import left anything out, i.e. the notice should be shown. */
+/**
+ * CSV import warnings (dropped custom-field values, swimlane conflicts), already
+ * worded and capped by the server (#1449). Empty for JSON/Trello imports and for
+ * a CSV import that dropped nothing (#1526).
+ */
+export function importWarnings(summary: ImportSummary | null | undefined): string[] {
+  return (summary?.warnings ?? []).filter((w) => typeof w === "string" && w.trim() !== "");
+}
+
+/** Lead-in for a notice that carries warnings but nothing was skipped. */
+export const IMPORT_WARNINGS_HEADLINE = "Board imported. Some values were not imported:";
+
+/** True when the import left anything out or raised warnings, i.e. the notice should be shown. */
 export function hasImportSkips(summary: ImportSummary | null | undefined): boolean {
-  return formatImportSkipped(summary) !== null;
+  return formatImportSkipped(summary) !== null || importWarnings(summary).length > 0;
 }
