@@ -33,6 +33,14 @@ printf 'misconfigurations:\n  - id: C\n    statement: x\n    expired_at: 2030-01
 expect "no issue link" 1 2026-10-08 "$TMP/nolink.yaml" "no #NNNN"
 printf 'misconfigurations:\n  - id: C\n    statement: x #1\n' > "$TMP/noexp.yaml"
 expect "missing expired_at" 1 2026-10-08 "$TMP/noexp.yaml" "missing expired_at"
+printf 'misconfigurations:\n  - paths: [a]\n    id: C\n    statement: x #1\n    expired_at: 2030-01-01\n' > "$TMP/nonid.yaml"
+expect "entry not starting with id (block)" 1 2026-10-08 "$TMP/nonid.yaml" 'must start with "- id:"'
+printf 'misconfigurations:\n  - {id: C, statement: "x #1", expired_at: 2030-01-01}\n' > "$TMP/flow.yaml"
+expect "flow-style entry" 1 2026-10-08 "$TMP/flow.yaml" 'must start with "- id:"'
+printf 'misconfigurations:\n  - id: C\n    statement: >-\n      no link\n      # see #12\n    expired_at: 2030-01-01\n' > "$TMP/cmt.yaml"
+expect "comment inside statement is not a link" 1 2026-10-08 "$TMP/cmt.yaml" "no #NNNN"
+printf '# top #99\nmisconfigurations:\n  # c #98\n  - id: C\n    paths:\n      - a\n      - b\n    statement: x #1\n    expired_at: 2030-01-01\n' > "$TMP/nested.yaml"
+expect "nested paths list and comments are fine" 0 2026-10-08 "$TMP/nested.yaml" "1 entry OK"
 expect "missing file" 1 2026-10-08 "$TMP/nope.yaml"
 expect "committed file is valid today" 0 "$(date +%Y-%m-%d)" "$REPO_ROOT/.trivyignore.yaml"
 sh "$GATE" --self-test >/dev/null || { echo "  FAIL: --self-test"; fail=1; }

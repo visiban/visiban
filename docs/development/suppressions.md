@@ -146,13 +146,20 @@ the job was advisory (`--exit-code 0` plus `allow_failure: true`).
 Accepted risks go in `.trivyignore.yaml`. Every entry needs:
 
 - an `expired_at` date (`YYYY-MM-DD`), roughly one minor release out;
-- a `statement` explaining why it is accepted, with a `#NNNN` link to an **open** issue that
-  would remove the entry.
+- a `statement` explaining why it is accepted, with a `#NNNN` link to the issue that would
+  remove the entry. CI checks only that an issue number is present; **reviewers must confirm
+  the issue is open** and really covers the finding.
+
+Each entry must start with `- id:` in block style. The checker fails closed on any other
+entry-level list item (for example `- paths:` first, or flow style `- {id: ...}`), because
+such an entry would otherwise escape the checks. Comment-only lines inside a `statement` are
+ignored, so a `# see #12` comment does not satisfy the issue-reference rule.
 
 Trivy itself only stops honoring an expired entry, which would resurface as a confusing red
 scan. `scripts/check-trivyignore-expiry.sh` makes the policy explicit: it fails the job when an
-entry is past its date, has no valid date, or has no issue reference. It has a `--self-test`
-(run in the job before the real check) and a unit test:
+entry is past its date, has no valid date, has no `#NNNN` reference, or does not start with
+`- id:`. It does not look the issue up, so it cannot tell whether the issue is open. It has a
+`--self-test` (run in the job before the real check) and a unit test:
 
 ```bash
 sh scripts/check-trivyignore-expiry.sh
