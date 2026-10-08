@@ -29,7 +29,10 @@ Exit codes (same contract as TruePPM, #3216):
       non-skipped mutants that do not add up to it), an unfinished
       run (``untested`` mutants left), or zero scoreable mutants. This
       applies in report-only mode too, so a dead run is a yellow job,
-      never a meaningless green. Also a floor outside (0, 1]
+      never a meaningless green. Also a floor outside (0, 1], or a
+      stats/cache path outside the allowed roots (repo, cwd, temp dir;
+      symlinks followed): reported as ``CONFIG ERROR``, nothing read
+      or written
 ====  =============================================================
 
 ``--write-merged`` writes the summed counts (``total`` is the module's mutant
@@ -381,32 +384,40 @@ def _self_test() -> int:
                   file=sys.stderr)
         except PathEscapeError:
             outside.unlink(missing_ok=True)
-            check("a path under the allowed roots resolves", resolve_within(cli_roots(), ok_stats) == ok_stats.resolve())
-            msg = "escapes the allowed directories"
-            code, err = _run_real_script_full([outside], None)
-            check("a stats file outside the roots is rejected",
-                  code == 2 and "CONFIG ERROR" in err and msg in err, f"exit {code}, stderr {err!r}")
-            code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(outside)])
-            check("--write-merged outside the roots is rejected and not written",
-                  code == 2 and "CONFIG ERROR" in err and not outside.exists(), f"exit {code}, stderr {err!r}")
-            code, err = _run_real_script_full([outside], None, extra=["--export-cache", str(cache)])
-            check("--export-cache output outside the roots is rejected and not written",
-                  code == 2 and "CONFIG ERROR" in err and not outside.exists(), f"exit {code}, stderr {err!r}")
-            code, err = _run_real_script_full([root / "o.json"], None, extra=["--export-cache", str(outside)])
-            check("--export-cache input outside the roots is rejected",
-                  code == 2 and "CONFIG ERROR" in err, f"exit {code}, stderr {err!r}")
-            # A symlink inside an allowed root that points outside is rejected, and nothing is written through it.
-            link = root / "escape"
-            link.symlink_to(outside_dir, target_is_directory=True)
             through = outside_dir / "mutscore-1515-link.json"
-            through.unlink(missing_ok=True)
-            code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(link / through.name)])
-            check("--write-merged through an escaping symlink is rejected and not written",
-                  code == 2 and "CONFIG ERROR" in err and not through.exists(), f"exit {code}, stderr {err!r}")
-            code, err = _run_real_script_full([link / "mutscore-1515-link.json"], None)
-            check("a stats file read through an escaping symlink is rejected",
-                  code == 2 and "CONFIG ERROR" in err, f"exit {code}, stderr {err!r}")
-            through.unlink(missing_ok=True)
+            try:
+                check("a path under the allowed roots resolves", resolve_within(cli_roots(), ok_stats) == ok_stats.resolve())
+                msg = "escapes the allowed directories"
+                outside.unlink(missing_ok=True)
+                code, err = _run_real_script_full([outside], None)
+                check("a stats file outside the roots is rejected",
+                      code == 2 and "CONFIG ERROR" in err and msg in err, f"exit {code}, stderr {err!r}")
+                outside.unlink(missing_ok=True)
+                code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(outside)])
+                check("--write-merged outside the roots is rejected and not written",
+                      code == 2 and "CONFIG ERROR" in err and not outside.exists(), f"exit {code}, stderr {err!r}")
+                outside.unlink(missing_ok=True)
+                code, err = _run_real_script_full([outside], None, extra=["--export-cache", str(cache)])
+                check("--export-cache output outside the roots is rejected and not written",
+                      code == 2 and "CONFIG ERROR" in err and not outside.exists(), f"exit {code}, stderr {err!r}")
+                outside.unlink(missing_ok=True)
+                code, err = _run_real_script_full([root / "o.json"], None, extra=["--export-cache", str(outside)])
+                check("--export-cache input outside the roots is rejected",
+                      code == 2 and "CONFIG ERROR" in err, f"exit {code}, stderr {err!r}")
+                # A symlink inside an allowed root that points outside is rejected, and nothing is written through it.
+                link = root / "escape"
+                link.symlink_to(outside_dir, target_is_directory=True)
+                through.unlink(missing_ok=True)
+                code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(link / through.name)])
+                check("--write-merged through an escaping symlink is rejected and not written",
+                      code == 2 and "CONFIG ERROR" in err and not through.exists(), f"exit {code}, stderr {err!r}")
+                through.unlink(missing_ok=True)
+                code, err = _run_real_script_full([link / through.name], None)
+                check("a stats file read through an escaping symlink is rejected",
+                      code == 2 and "CONFIG ERROR" in err, f"exit {code}, stderr {err!r}")
+            finally:
+                outside.unlink(missing_ok=True)
+                through.unlink(missing_ok=True)
 
     for failure in failures:
         print(f"SELF-TEST FAILED: {failure}", file=sys.stderr)
