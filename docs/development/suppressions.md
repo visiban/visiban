@@ -132,3 +132,33 @@ bash scripts/check-sonar-exclusions.sh --self-test
 
 These properties apply only to CI-based analysis (the `sonar:scan` job), not to SonarCloud
 Automatic Analysis.
+
+## Trivy suppressions
+
+The `trivy-scan` CI job is blocking: an unsuppressed HIGH or CRITICAL vulnerability, IaC
+misconfiguration or secret finding fails the pipeline (`--scanners vuln,config,secret
+--exit-code 1`, no `allow_failure`). A second, non-blocking pass writes the full
+`trivy-report.json` artifact. The scanner image is pinned by digest (the comment in
+`.gitlab-ci.yml` records the version); bump the version and digest together in a reviewed
+commit. Before #1072 the image tag was already pinned to a version, but not to a digest, and
+the job was advisory (`--exit-code 0` plus `allow_failure: true`).
+
+Accepted risks go in `.trivyignore.yaml`. Every entry needs:
+
+- an `expired_at` date (`YYYY-MM-DD`), roughly one minor release out;
+- a `statement` explaining why it is accepted, with a `#NNNN` link to an **open** issue that
+  would remove the entry.
+
+Trivy itself only stops honoring an expired entry, which would resurface as a confusing red
+scan. `scripts/check-trivyignore-expiry.sh` makes the policy explicit: it fails the job when an
+entry is past its date, has no valid date, or has no issue reference. It has a `--self-test`
+(run in the job before the real check) and a unit test:
+
+```bash
+sh scripts/check-trivyignore-expiry.sh
+sh scripts/check-trivyignore-expiry.sh --self-test
+bash scripts/tests/check-trivyignore-expiry.test.sh
+```
+
+When an entry expires, fix the finding and delete the entry, or renew the date in a commit
+that cites the issue's current status.

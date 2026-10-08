@@ -1,0 +1,19 @@
+# Trivy suppressions for the blocking `trivy-scan` job (#1072).
+#
+# Every entry MUST carry:
+#   - `expired_at`  an ISO date (YYYY-MM-DD). Trivy itself silently stops
+#                   honoring an expired entry; scripts/check-trivyignore-expiry.sh
+#                   additionally FAILS the job once the date has passed, so the
+#                   suppression is revisited instead of quietly resurfacing.
+#   - `statement`   why the finding is accepted, and a `#NNNN` link to an OPEN
+#                   tracking issue that would remove the entry.
+# See docs/development/suppressions.md ("Trivy suppressions").
+misconfigurations:
+  - id: DS-0002
+    paths:
+      - frontend/Dockerfile
+      - frontend/Dockerfile.prod
+    statement: >-
+      Frontend images run nginx as root; moving to a non-root user needs
+      nginx pid/cache path and port changes. Tracked in #1528.
+    expired_at: 2027-01-15
