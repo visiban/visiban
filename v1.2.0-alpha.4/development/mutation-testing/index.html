@@ -2699,43 +2699,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#movement-model-cardmovement-28-survivors-left-of-45" class="md-nav__link">
+  <a href="#movement-model-cardmovement-27-survivors-left-of-73-all-excluded-1503" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Movement model (CardMovement): 28 survivors left of 45
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rbac-permissionspy-4-survivors-left-of-74" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        RBAC (permissions.py): 4 survivors left of 74
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#importexport-_import_csv-export-export_history-after-1484-27-survivors-of-492" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Import/export: _import_csv, export, export_history after #1484 (27 survivors of 492)
+        Movement model (CardMovement): 27 survivors left of 73 (all excluded, #1503)
       
     </span>
   </a>
@@ -2744,139 +2711,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-to-reproduce" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How to reproduce
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="How to reproduce">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#one-module-one-process" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        One module, one process
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#restricting-to-one-class" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Restricting to one class
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parallel-runs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parallel runs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#reproducing-the-update_card-re-measure-1454" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reproducing the update_card re-measure (#1454)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-to-read-the-results" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How to read the results
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ci-pilot-backend-mutation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI pilot (backend-mutation)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="CI pilot (backend-mutation)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#beachhead-boardspermissionspy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Beachhead: boards/permissions.py
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-it-works" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How it works
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#maintainer-steps-and-what-comes-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Maintainer steps and what comes next
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#limits-of-this-baseline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Limits of this baseline
-      
-    </span>
-  </a>
   
 </li>
       
@@ -4054,7 +3888,9 @@
 <th style="text-align: right;">Killed before</th>
 <th style="text-align: right;">Kill rate before</th>
 <th style="text-align: right;">Killed after</th>
-<th style="text-align: right;">Kill rate after</th>
+<th style="text-align: right;">Kill rate after (raw)</th>
+<th style="text-align: right;">Excluded (#1503)</th>
+<th style="text-align: right;">Adjusted after</th>
 <th style="text-align: right;">Timeouts</th>
 </tr>
 </thead>
@@ -4066,24 +3902,30 @@
 <td style="text-align: right;">68.3%</td>
 <td style="text-align: right;">228</td>
 <td style="text-align: right;">93.8%</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">228 of 235 = 97.0% (expected, not re-measured)</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
-<td><code>CardMovement</code> (<code>boards/models.py</code>)</td>
+<td><code>CardMovement</code> (<code>boards/models.py</code>; re-measured 2026-10-08, was 28 survivors / 45 killed / 61.6%)</td>
 <td style="text-align: right;">73</td>
 <td style="text-align: right;">28</td>
 <td style="text-align: right;">38.4%</td>
-<td style="text-align: right;">45</td>
-<td style="text-align: right;">61.6%</td>
+<td style="text-align: right;">46</td>
+<td style="text-align: right;">63.0%</td>
+<td style="text-align: right;">27</td>
+<td style="text-align: right;">46 of 46 = 100%</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
-<td><code>boards/permissions.py</code></td>
+<td><code>boards/permissions.py</code> (116 of 120 expected after #1503's two new killed mutants; 114 of 118 = 96.6% measured)</td>
 <td style="text-align: right;">118</td>
 <td style="text-align: right;">44</td>
 <td style="text-align: right;">37.3%</td>
 <td style="text-align: right;">114</td>
 <td style="text-align: right;">96.6%</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">114 of 114 = 100% (expected, not re-measured whole-module)</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
@@ -4093,6 +3935,8 @@
 <td style="text-align: right;">40.2%</td>
 <td style="text-align: right;">656 of 823 paired</td>
 <td style="text-align: right;">79.7%</td>
+<td style="text-align: right;">n/a (unmarked, pending #1502)</td>
+<td style="text-align: right;">n/a</td>
 <td style="text-align: right;">2 (see below)</td>
 </tr>
 <tr>
@@ -4102,6 +3946,8 @@
 <td style="text-align: right;">58.9%</td>
 <td style="text-align: right;">465 of 492 (447 with the #1453 tests only)</td>
 <td style="text-align: right;">94.5% (90.9%)</td>
+<td style="text-align: right;">n/a (unmarked, pending #1502)</td>
+<td style="text-align: right;">n/a</td>
 <td style="text-align: right;">0</td>
 </tr>
 </tbody>
@@ -4223,7 +4069,7 @@
 <p>Every survivor was put in one of three buckets:</p>
 <ul>
 <li><strong>Missing assertion:</strong> the code is exercised but no test checks the value. Fix by adding an assertion. These were fixed for the movement-record and RBAC paths.</li>
-<li><strong>Equivalent mutant:</strong> the change cannot alter observable behavior in this setup, so no test can kill it. Leave it alone.</li>
+<li><strong>Equivalent mutant:</strong> the change cannot alter observable behavior in this setup, for any production input, so no test can kill it. Mark it with <code># pragma: no mutate -- &lt;reason&gt;</code> under the <a href="#equivalent-mutants-and-the-score-1503">policy</a> rather than leaving it as a survivor.</li>
 <li><strong>Untested code:</strong> no test in the scoped files reaches the line, or reaches it without checking the result. Needs new tests or a decision that it is covered elsewhere.</li>
 </ul>
 <h3 id="movement-service-cardspy-9-survivors-left-of-77-measured-before-1511-the-6-guard-survivors-were-re-checked-in-1504">Movement service (<code>cards.py</code>): 9 survivors left of 77 (measured before #1511; the 6 guard survivors were re-checked in #1504)<a class="headerlink" href="#movement-service-cardspy-9-survivors-left-of-77-measured-before-1511-the-6-guard-survivors-were-re-checked-in-1504" title="Permanent link">&para;</a></h3>
@@ -4248,9 +4094,9 @@
 <td><code>parts.append(f"-{', '.join(names)}")</code> in the label diff (<code>'XX, XX'.join(names)</code>). The removed label names were looked up in the labels on the card <em>after</em> the write, so the list was always empty and the activity row for a removal read <code>-</code> with no name. That was a real bug, not an equivalent mutant. #1511 resolves removed names from the pre-write label snapshot, and <code>test_removed_labels_are_listed_with_minus</code>, <code>test_several_removed_labels_join_with_comma_space</code> and <code>test_add_and_remove_in_one_update</code> now pin the corrected output, so the mutant dies.</td>
 </tr>
 <tr>
-<td>Equivalent</td>
+<td>Equivalent, <strong>excluded</strong> (#1503)</td>
 <td style="text-align: right;">8</td>
-<td><code>_archive_movement</code> falls back to <code>""</code> when <code>card.column</code> or <code>card.swimlane</code> is <code>None</code>. Both foreign keys are non-null on <code>Card</code>, so the branch is unreachable. Left alone here; tracked in #1505.</td>
+<td><code>_archive_movement</code> falls back to <code>""</code> when <code>card.column</code> or <code>card.swimlane</code> is <code>None</code>. Both foreign keys are non-null on <code>Card</code>, so the branch is unreachable. Each of the 8 lines carries <code># pragma: no mutate -- ...</code>, and each holds this one mutant only, so nothing killed is excluded with it. #1505 may delete the dead branches instead, at which point the pragmas go with them.</td>
 </tr>
 <tr>
 <td>Guard condition, <strong>no longer a survivor</strong> (#1504)</td>
@@ -4318,10 +4164,14 @@
 <p>Two findings came out of the test design, neither fixed here because <code>services/cards.py</code> is out of scope. First, two moves out of the <em>same</em> cell deadlock on PostgreSQL (<code>deadlock detected</code>, a 500): each holds its own card row and waits for the other's while taking the source-sibling locks, which contradicts the card-then-siblings order that <code>move_card</code> documents (#1522). Second, two concurrent moves of the <em>same</em> card return 404 for the loser, because PostgreSQL re-checks the <code>select_related</code> join against the pre-commit column row after the wait (#1523). The test accepts 200 or 404 for the loser and asserts the movement history is continuous.</p>
 <p>Scope: this covers <code>move_card</code> and <code>enforce_column_limits</code> only. The other <code>select_for_update</code> sites (such as the column lock in <code>create_card</code>) are not yet exercised by a PostgreSQL race test; that is tracked in #1524.</p>
 <p>With every <code>update_card</code> survivor except the #1511 label mutant killed, <code>cards.py</code> went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last <code>update_card</code> mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. The 6 guard-condition survivors counted in the 15 are killed (#1504, above), which would make it 234 of 243 (96.3%); neither adjustment was re-measured with mutmut. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).</p>
+<p>With the 8 <code>_archive_movement</code> exclusions from #1503 the two numbers are, <strong>expected and not re-measured</strong>: raw 229 of 243 (94.2%) and adjusted 229 of 235 (97.4%), the remaining six survivors being the <code>select_for_update</code> guards. The pragmas only remove mutants, and the 8 excluded were survivors, so the killed count does not change.</p>
 <p>The activity and notification paths in <code>boards/views/cards.py</code> (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the <code>cards.py</code> score above and are unmeasured; a mutation run on <code>boards/views/cards.py</code> would be needed to know their kill rate.</p>
-<h3 id="movement-model-cardmovement-28-survivors-left-of-45">Movement model (<code>CardMovement</code>): 28 survivors left of 45<a class="headerlink" href="#movement-model-cardmovement-28-survivors-left-of-45" title="Permanent link">&para;</a></h3>
-<p>All remaining survivors change a field argument (<code>max_length</code>, <code>blank</code>, <code>db_index</code>, <code>related_name</code>, <code>Meta.indexes</code>). These are schema constants. They have no behavior to assert at the test level, and a drift against the migrations is already caught by the CI <code>migration-check</code> job, so they are treated as equivalent. The behavioral parts (default type, wire values, ordering, <code>SET_NULL</code> history retention) are now asserted.</p>
-<h3 id="rbac-permissionspy-4-survivors-left-of-74">RBAC (<code>permissions.py</code>): 4 survivors left of 74<a class="headerlink" href="#rbac-permissionspy-4-survivors-left-of-74" title="Permanent link">&para;</a></h3>
+<h3 id="movement-model-cardmovement-27-survivors-left-of-73-all-excluded-1503">Movement model (<code>CardMovement</code>): 27 survivors left of 73 (all excluded, #1503)<a class="headerlink" href="#movement-model-cardmovement-27-survivors-left-of-73-all-excluded-1503" title="Permanent link">&para;</a></h3>
+<p>Re-measured 2026-10-08 on <code>main</code> at <code>f6d570d55</code> (4 shards, lines of the class only, the six scoped test files from the table above including <code>test_movement_record_mutation_gaps</code>): 46 killed, 27 survived, none untested. The earlier baseline in this page counted 28 survivors; the difference of one is a field the tests now cover, not a different set of mutants.</p>
+<p>All 27 survivors change a field argument that is a <strong>schema constant</strong>: <code>max_length</code> (+1) and <code>blank</code> (<code>True</code> to <code>False</code>) on the eight <code>*_name</code> / <code>*_uid</code> fields and on <code>notes</code>, <code>max_length</code> on <code>movement_type</code>, <code>db_index</code> on <code>moved_at</code>, <code>related_name="+"</code> on the four FKs, and the two strings and the field list of the <code>movement_card_moved_idx</code> index. They are not claimed to be unobservable (a <code>blank</code> flip changes validation and the admin change form, <code>max_length</code> the form field). They are excluded as the <strong>schema constant guarded by <code>migration-check</code></strong> category in the <a href="#equivalent-mutants-and-the-score-1503">policy</a>: a drift against the migrations fails the CI <code>migration-check</code> job, and testing Django <code>_meta</code> directly would be brittle. The behavioral arguments (<code>default</code>, <code>on_delete</code>, <code>null</code>, <code>choices</code>, <code>ordering</code>, <code>db_table</code>) are killed and stay mutated.</p>
+<h1 id="1503-marks-the-27-with-pragma-no-mutate-schema-constant-migration-check-mutmuts-pragma-is-per-physical-line-so-the-fields-in-this-class-are-written-one-argument-per-line-that-keeps-the-constants-on-their-own-lines-and-the-behavioral-arguments-which-were-killed-outside-any-pragma-this-was-checked-by-generating-the-classs-mutants-with-pragmas-ignored-and-with-them-honored-the-same-73-mutants-exist-in-both-and-the-27-that-disappear-are-exactly-the-27-survivors-above-nothing-that-was-killed-is-excluded-expected-result-raw-46-of-73-630-adjusted-46-of-46-100">1503 marks the 27 with <code># pragma: no mutate -- schema constant (migration-check)</code>. mutmut's pragma is per physical line, so the fields in this class are written one argument per line: that keeps the constants on their own lines and the behavioral arguments (which were killed) outside any pragma. This was checked by generating the class's mutants with pragmas ignored and with them honored: the same 73 mutants exist in both, and the 27 that disappear are exactly the 27 survivors above (nothing that was killed is excluded). Expected result: raw 46 of 73 (63.0%), adjusted 46 of 46 (100%).<a class="headerlink" href="#1503-marks-the-27-with-pragma-no-mutate-schema-constant-migration-check-mutmuts-pragma-is-per-physical-line-so-the-fields-in-this-class-are-written-one-argument-per-line-that-keeps-the-constants-on-their-own-lines-and-the-behavioral-arguments-which-were-killed-outside-any-pragma-this-was-checked-by-generating-the-classs-mutants-with-pragmas-ignored-and-with-them-honored-the-same-73-mutants-exist-in-both-and-the-27-that-disappear-are-exactly-the-27-survivors-above-nothing-that-was-killed-is-excluded-expected-result-raw-46-of-73-630-adjusted-46-of-46-100" title="Permanent link">&para;</a></h1>
+<h3 id="rbac-permissionspy-4-survivors-left-of-118-all-excluded-1503">RBAC (<code>permissions.py</code>): 4 survivors left of 118 (all excluded, #1503)<a class="headerlink" href="#rbac-permissionspy-4-survivors-left-of-118-all-excluded-1503" title="Permanent link">&para;</a></h3>
+<p>Re-measured 2026-10-08 on the lines of <code>get_board_role</code> and <code>_is_demo_visitor</code> that hold them: the same four survivors, all equivalent. (The page used to say "of 74"; the module has 118 mutants, 114 of them killed.)</p>
 <table>
 <thead>
 <tr>
@@ -4332,22 +4182,28 @@
 </thead>
 <tbody>
 <tr>
-<td><code>break</code> to <code>continue</code> in the prefetched-membership scan (line 235)</td>
-<td>Equivalent</td>
+<td><code>break</code> to <code>continue</code> in the prefetched-membership scan</td>
+<td>Equivalent, excluded</td>
 <td>A user has at most one membership per board, so scanning on finds nothing new.</td>
 </tr>
 <tr>
-<td><code>getattr(settings, "DEMO_MODE", False)</code> default flipped to <code>True</code> (line 346)</td>
-<td>Equivalent</td>
+<td><code>getattr(settings, "DEMO_MODE", False)</code> default flipped to <code>True</code></td>
+<td>Equivalent, excluded</td>
 <td><code>DEMO_MODE</code> is always defined in settings.</td>
 </tr>
 <tr>
-<td><code>or ""</code> / <code>"XXXX"</code> defaults on <code>user.username</code> (line 351, two mutants)</td>
-<td>Equivalent</td>
+<td><code>""</code> default flipped to <code>"XXXX"</code> in <code>getattr(user, "username", "")</code></td>
+<td>Equivalent, excluded</td>
+<td>A real user always has a username.</td>
+</tr>
+<tr>
+<td><code>or ""</code> fallback flipped to <code>or "XXXX"</code> on <code>user.username</code></td>
+<td>Equivalent, excluded</td>
 <td>A real user always has a non-empty username.</td>
 </tr>
 </tbody>
 </table>
+<p>The last three shared a line with mutants that tests <em>do</em> kill (the setting name, <code>is not</code>, the <code>or</code> operator, <code>==</code>), so a line-level pragma would have hidden killed mutants too. <code>_is_demo_visitor</code> is therefore written with the defaults on their own lines, and the <code>or</code> on the closing line outside any pragma. The split adds two mutants (<code>demo_mode = None</code> and <code>username = None</code>, so the module now has 120). Both are killed: a re-run over the changed lines (116 mutants honoring the pragmas, 26 killed, 0 survived; the rest belong to other lines) leaves no survivor. As with <code>CardMovement</code>, the 4 mutants that disappear under the pragmas were checked to be exactly the 4 survivors. Expected for the module (114 killed before, plus the 2 new): raw 116 of 120 (96.7%), adjusted 116 of 116 (100%); not a whole-module re-run.</p>
 <h3 id="importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious">Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)<a class="headerlink" href="#importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious" title="Permanent link">&para;</a></h3>
 <p>Not triaged line by line. By region, among the paired mutants:</p>
 <p>The "Survivors after" column counts only mutants that survived. The 33 suspicious mutants (8 in helpers and <code>import_board</code>, 10 in <code>_import_json</code>, 15 in <code>_import_csv</code>) are not in it, but the kill rates above count them as not killed, so 823 - 656 = 167 = 134 survivors + 33 suspicious.</p>
@@ -4549,14 +4405,63 @@
 <li>Third run: the second run's files plus <code>test_card_service_mutation_gaps.py</code>. Result: 1 survivor (#1511). With only the baseline files plus the new file, 4 survive, which is 40 of the 44 killed.</li>
 </ol>
 <p>Sum the survivors over the 8 copies (<code>select count(*) from Mutant where status='bad_survived'</code> in each <code>.mutmut-cache</code>). Run <code>mutmut show</code> with <code>MM_SHARD</code> and <code>MM_N</code> exported, or the config import fails.</p>
+<h2 id="equivalent-mutants-and-the-score-1503">Equivalent mutants and the score (#1503)<a class="headerlink" href="#equivalent-mutants-and-the-score-1503" title="Permanent link">&para;</a></h2>
+<p>Some modules cannot reach the target by tests alone. A survivor that no test can kill is an <strong>equivalent mutant</strong> (bucket two in <a href="#survivor-classification">Survivor classification</a>). Without a rule, a floor either demands brittle tests of Django <code>_meta</code> internals or sits permanently below target. The rule:</p>
+<ul>
+<li><strong>Two numbers per module.</strong> The <strong>adjusted</strong> score leaves out the mutants proven equivalent. The <strong>raw</strong> score keeps them in the denominator, as not detected. Both are printed by <code>scripts/check_mutation_score.py</code> and both are in the <code>mutmut-cicd-stats.json</code> artifact (<code>score_adjusted</code>, <code>score_raw</code>, <code>excluded</code>), so an exclusion is always visible.</li>
+<li><strong>The floor gates the adjusted number.</strong> <code>MUTATION_MIN</code> (<a href="#ci-pilot-backend-mutation">CI pilot</a>) is compared with the adjusted score. A low raw score is reported, never failed.</li>
+<li><strong>An exclusion is a comment in the source, with a reason.</strong> Put <code># pragma: no mutate -- &lt;reason&gt;</code> on the line. A pragma with no <code>-- &lt;reason&gt;</code> (at least 10 characters) is rejected by <code>python3 scripts/check_mutation_score.py --check-pragmas backend</code>, which the <code>mutation-score-selftest</code> CI job runs on every MR that touches backend Python.</li>
+<li><strong>A claim that SQLite cannot observe the mutant is excluded only with a PostgreSQL note.</strong> That is a gap in the test setup, not a property of the code, so the reason must also say that a PostgreSQL test could kill it (the checker rejects a reason that names SQLite but not PostgreSQL). The exception is a mutant for which a PostgreSQL test is already <strong>planned or filed</strong>: it is not excluded and stays a survivor until that test lands. The <code>select_for_update</code> guards were that case (#1504, since merged: the guard conditions turned out to be killed on SQLite). One rule, three places: here, the triage question in <a href="#how-to-read-the-results">How to read the results</a>, and the checker.</li>
+<li><strong>"Schema constant guarded by <code>migration-check</code>" is its own category, not an equivalence claim.</strong> A change to <code>max_length</code>, <code>blank</code>, <code>db_index</code> or <code>related_name</code> can be observable (a <code>blank</code> flip changes model validation and the admin change form; <code>max_length</code> changes the form field). It is excluded because CI <code>migration-check</code> fails on any drift from the migrations, which is a stronger guard than a test of Django <code>_meta</code>, not because no caller could see it. The pragma reason says <code>schema constant (migration-check)</code> for exactly this.</li>
+<li><strong>"Unobservable" means for any production input.</strong> A reason claims the mutant cannot change behavior for any input the running system can produce (a non-null FK, a setting that is always defined, a user that always has a username). It does not claim no test could reach the line: a stub user, an <code>override_settings</code> deletion or an in-memory card with <code>column=None</code> could execute it. Say which production invariant makes it equivalent, not that it is dead.</li>
+<li><strong>Hand-flipped guards are recorded, not pragma'd.</strong> A guard that is not a mutmut mutant (for example the sibling-row lock added by hand in <code>cards.py</code>, #1504) cannot carry a pragma. If it survives a hand-flip on PostgreSQL and is equivalent by argument, list it by name in the module's survivor table as "proven equivalent by argument, not mutmut-excludable", cite the issue, and leave it out of both the raw and the adjusted numbers: it is not in either denominator because mutmut never counted it.</li>
+<li><strong>Triage first.</strong> An equivalence claim is only made after the three questions in <a href="#how-to-read-the-results">How to read the results</a>; the reason states the answer to the first one.</li>
+</ul>
+<p>The import/export survivor tables above keep their "Equivalent" rows unmarked: #1502 owns that module and will decide there which to exclude.</p>
+<h3 id="how-mutmut-251-treats-pragma-no-mutate">How mutmut 2.5.1 treats <code># pragma: no mutate</code><a class="headerlink" href="#how-mutmut-251-treats-pragma-no-mutate" title="Permanent link">&para;</a></h3>
+<p>Checked on mutmut 2.5.1 (the CI pin) with a small module, and re-checked by the real-mutmut cases in <code>check_mutation_score.py --self-test</code> whenever mutmut is importable:</p>
+<table>
+<thead>
+<tr>
+<th>Placement</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any line containing <code># pragma:</code> followed, anywhere after it, by <code>no mutate</code> (so <code># pragma: no cover, no mutate</code> counts)</td>
+<td>No mutant is generated for that line.</td>
+</tr>
+<tr>
+<td>Comment on <code>def f():</code></td>
+<td><strong>Only</strong> the <code>def</code> line. The body is still mutated.</td>
+</tr>
+<tr>
+<td>Comment on the last line of a multi-line call, <code>)  # pragma: no mutate</code></td>
+<td>Only that closing line. The argument lines above it (<code>max_length=10,</code>) are still mutated, and are the survivors you were trying to exclude.</td>
+</tr>
+<tr>
+<td>Comment on the first line of a multi-line call, list or dict</td>
+<td>Only that first line.</td>
+</tr>
+</tbody>
+</table>
+<p>So the scope is <strong>one physical line, and the line the mutant is on</strong>. A multi-line field definition needs the pragma on every line that carries a constant, including the closing <code>)</code> or <code>]</code> when mutmut mutates it. Check by comparing the survivor list with and without the pragma, not by eye. There is no block form in 2.5.1.</p>
+<p>Because mutmut's cache is built from the mutants it generates, a pragma'd line has <strong>no row at all</strong> in <code>.mutmut-cache</code>: it is not killed, not survived, not skipped. A score computed from the cache alone would therefore silently shrink its own denominator and the raw number could not be recovered. <code>check_mutation_score.py --export-cache</code> solves this by reading the mutated source files named in the cache's <code>SourceFile</code> table and asking mutmut to enumerate their mutants twice, once as written and once with its pragma set emptied. The difference is <code>excluded</code>. Consequences:</p>
+<ul>
+<li><code>excluded</code> is module-wide, like <code>total</code>. Every shard reports the same value, the shards must agree (exit 2 otherwise), and the merged file carries it once, not N times.</li>
+<li>The export step needs mutmut importable (it is, in the <code>backend-mutation</code> job). If it is not, the export exits 2 (not measured) rather than reporting a raw score equal to the adjusted one.</li>
+<li>The count assumes the run was not restricted to a line range by a <code>pre_mutation</code> hook that changes which lines are <em>generated</em>. The sharding hook only skips mutants after generation, so it is fine. A hand-restricted run (such as the <code>CardMovement</code> line range) can still be read from <code>.mutmut-cache</code> directly.</li>
+</ul>
 <h2 id="how-to-read-the-results">How to read the results<a class="headerlink" href="#how-to-read-the-results" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>/tmp/mutmut-tools<span class="w"> </span>.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>mutmut<span class="w"> </span>results<span class="w">      </span><span class="c1"># lists survivors by id</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>/tmp/mutmut-tools<span class="w"> </span>.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>mutmut<span class="w"> </span>show<span class="w"> </span><span class="m">42</span><span class="w">      </span><span class="c1"># prints the diff for mutant 42</span>
 </code></pre></div>
+<p>The score a run reports is the <strong>adjusted</strong> one (excluded mutants left out), with the <strong>raw</strong> one beside it; see <a href="#equivalent-mutants-and-the-score-1503">Equivalent mutants and the score</a>. <code>mutmut results</code> and the <code>Mutant</code> table do not list pragma'd lines at all, so a survivor count read from them is already adjusted.</p>
 <p>Status meanings: killed (a test failed, good), survived (all tests passed, look at it), timeout (the mutant made the tests hang, counted as killed by most conventions), suspicious (slow but not a timeout). Statuses are also in the <code>mutant</code> table of <code>.mutmut-cache</code> (SQLite) if you want counts: <code>sqlite3 .mutmut-cache "select status, count(*) from mutant group by status"</code>.</p>
 <p>For each survivor, read the diff and ask in order:</p>
 <ol>
-<li><strong>Can this change alter anything a caller or user could observe?</strong> If not (dead branch, default that is always overridden, lock call on SQLite, schema constant guarded by <code>migration-check</code>), it is an equivalent mutant. Do not write a test for it.</li>
+<li><strong>Can this change alter anything a caller or user could observe, for any production input?</strong> If not (dead branch, default that is always overridden), it is an equivalent mutant. Do not write a test for it; mark it with <code># pragma: no mutate -- &lt;reason&gt;</code> following the <a href="#equivalent-mutants-and-the-score-1503">policy</a>. A lock call that is only unobservable on SQLite is excluded only with a note that a PostgreSQL test could kill it, and stays a survivor if such a test is planned or filed (#1504). A schema constant guarded by <code>migration-check</code> is excluded as its own category (see the policy).</li>
 <li><strong>Is the changed code reached by any test in scope?</strong> If not, it is untested code. Either add a test or note which other suite covers it.</li>
 <li><strong>Otherwise it is a missing assertion.</strong> Add the smallest assertion that fails on the mutant: the exact message or key, the boundary value (<code>limit</code> and <code>limit + 1</code>), the empty-collection case, or the ordering.</li>
 </ol>
@@ -4579,7 +4484,7 @@
 </tr>
 <tr>
 <td>Mutants</td>
-<td>118</td>
+<td>120 (116 scored plus 4 excluded by <code># pragma: no mutate</code>; the nightly artifact reports <code>total</code> 116 and <code>excluded</code> 4; expected after #1503, not re-measured)</td>
 </tr>
 <tr>
 <td>Tests</td>
@@ -4587,7 +4492,7 @@
 </tr>
 <tr>
 <td>Kill rate</td>
-<td>96.6% by the manual baseline above (before the pilot)</td>
+<td>96.6% raw by the manual baseline above (114 of 118, before the pilot); expected 100% adjusted and 96.7% raw (116 of 120) after #1503, not re-measured</td>
 </tr>
 </tbody>
 </table>
@@ -4632,7 +4537,7 @@
 <ol>
 <li>After the pilot MR merges, add <code>MUTATION_TEST=true</code> to the Nightly schedule (4176726). Until then the jobs never run. <code>MUTATION_TEST</code> is in <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> so <code>schedule-config-check</code> does not report it MISSING.</li>
 <li>Remove <code>MUTATION_TEST</code> from <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> in <code>.gitlab-ci.yml</code> once the schedule carries it (not machine-checked).</li>
-<li>After about a week of nightly artifacts, set <code>MUTATION_MIN</code> one point under the lowest observed score, written as a fraction: a 96% low gives <code>MUTATION_MIN=0.95</code>, not <code>95</code>. The checker rejects <code>0</code> and anything outside (0, 1] (exit 2). Record the decision on #1384. #1384 stays open until then.</li>
+<li>After about a week of nightly artifacts, set <code>MUTATION_MIN</code> one point under the lowest observed <strong>adjusted</strong> score (the raw one is reported, not gated, #1503), written as a fraction: a 96% low gives <code>MUTATION_MIN=0.95</code>, not <code>95</code>. The checker rejects <code>0</code> and anything outside (0, 1] (exit 2). Record the decision on #1384. #1384 stays open until then.</li>
 <li>Triage survivors as described in <a href="#how-to-read-the-results">How to read the results</a>.</li>
 </ol>
 <h2 id="limits-of-this-baseline">Limits of this baseline<a class="headerlink" href="#limits-of-this-baseline" title="Permanent link">&para;</a></h2>
@@ -4640,7 +4545,8 @@
 <li>Mutation operators in mutmut 2.x are shallow (operators, constants, <code>None</code> replacements). A high kill rate here does not prove the tests are strong, and a low one on string literals is partly noise.</li>
 <li>Kill rate depends on which tests were allowed to run. The 44 <code>update_card</code> survivors would likely drop with the view-level suites included. They are tracked in #1454.</li>
 <li>SQLite hides locking and concurrency behavior. The <code>select_for_update</code> guards need a PostgreSQL run (<code>ConcurrentMoveLockTests</code>, #1504).</li>
-<li>The <code>CardMovement</code> figure (61.6%) is capped by schema-constant mutants (<code>max_length</code>, <code>db_index</code>, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and <code>SET_NULL</code> retention; the rest is guarded by CI <code>migration-check</code>, not by tests.</li>
+<li>The <code>CardMovement</code> figure (61.6% in the baseline table) is capped by schema-constant mutants (<code>max_length</code>, <code>db_index</code>, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and <code>SET_NULL</code> retention; the rest is guarded by CI <code>migration-check</code>, not by tests. Since #1503 those mutants are excluded with a reason in the source, so the module's <em>adjusted</em> score is 100% and its <em>raw</em> score stays at about 63%; the raw number is what shows how much of the module rests on <code>migration-check</code> rather than on tests.</li>
+<li>A line-level pragma also removes any <em>killed</em> mutants that share its line. Keep a pragma'd line to the equivalent argument only (split a call across lines); the <code>excluded</code> count in the artifact includes everything on those lines.</li>
 <li>It is a point-in-time number on one commit. Re-run it before the 1.2 movement-record and permission changes merge to see how the rate moved.</li>
 </ul>
 
