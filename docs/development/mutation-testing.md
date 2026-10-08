@@ -27,7 +27,7 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 
 | Module | Mutants | Killed before | Kill rate before | Killed after | Kill rate after | Timeouts |
 |---|---:|---:|---:|---:|---:|---:|
-| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since) | 243 | 166 | 68.3% | 228 | 93.8% | 0 |
+| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since; #1504 found the 6 guard survivors in that count are killed, so the figure is 234 of 243 (96.3%) if they are removed from it) | 243 | 166 | 68.3% | 228 | 93.8% | 0 |
 | `CardMovement` (`boards/models.py`) | 73 | 28 | 38.4% | 45 | 61.6% | 0 |
 | `boards/permissions.py` | 118 | 44 | 37.3% | 114 | 96.6% | 0 |
 | `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | 2 (see below) |
@@ -83,19 +83,43 @@ Every survivor was put in one of three buckets:
 - **Equivalent mutant:** the change cannot alter observable behavior in this setup, so no test can kill it. Leave it alone.
 - **Untested code:** no test in the scoped files reaches the line, or reaches it without checking the result. Needs new tests or a decision that it is covered elsewhere.
 
-### Movement service (`cards.py`): 15 survivors left of 77 (measured before #1511)
+### Movement service (`cards.py`): 9 survivors left of 77 (measured before #1511; the 6 guard survivors were re-checked in #1504)
 
-Measured 2026-10-07 (#1454) with the line range of `update_card` only, run in 8 shards against the scoped files, then against the scoped files plus the view suites listed in the table above, then with `test_card_service_mutation_gaps.py` added to each. The 14 survivors outside `update_card` are unchanged from the #1443 baseline.
+Measured 2026-10-07 (#1454) with the line range of `update_card` only, run in 8 shards against the scoped files, then against the scoped files plus the view suites listed in the table above, then with `test_card_service_mutation_gaps.py` added to each. The 14 survivors outside `update_card` are unchanged from the #1443 baseline: 8 `_archive_movement` equivalents and 6 guard-condition mutants. #1504 (2026-10-08) re-checked the six guard mutants against the current code and found them killed, so the survivor count is now 9 (8 equivalent plus the #1511 label mutant, also now fixed) and the 77-mutant table below adds up to 77 with the new bucket.
 
 | Bucket | Count | Detail |
 |---|---:|---|
 | Missing assertion, **fixed** (#1454) | 43 | The 44 `update_card` survivors of the #1443 baseline: per-field `CardActivity` rows (title, priority, weight, assignee, description, labels, due date), the assignment and mention notification contents, the weight-increase limit check, and the `force` default. The view suites (`test_views_cards`, `test_notifications`, `test_card_timeline` and the others in the table above) already killed 25 of them; `test_card_service_mutation_gaps.py` kills the other 18, and on its own with the scoped files kills 40 of the 44. |
 | Latent bug, **fixed** (#1511) | 1 | `parts.append(f"-{', '.join(names)}")` in the label diff (`'XX, XX'.join(names)`). The removed label names were looked up in the labels on the card *after* the write, so the list was always empty and the activity row for a removal read `-` with no name. That was a real bug, not an equivalent mutant. #1511 resolves removed names from the pre-write label snapshot, and `test_removed_labels_are_listed_with_minus`, `test_several_removed_labels_join_with_comma_space` and `test_add_and_remove_in_one_update` now pin the corrected output, so the mutant dies. |
 | Equivalent | 8 | `_archive_movement` falls back to `""` when `card.column` or `card.swimlane` is `None`. Both foreign keys are non-null on `Card`, so the branch is unreachable. Left alone here; tracked in #1505. |
-| Equivalent here | 6 | `select_for_update` guard conditions in `move_card` and `enforce_column_limits` (the `select_for_update` calls on the card, column and sibling rows). The lock is not observable on SQLite. Only a PostgreSQL concurrency test can kill these (`test_concurrent_moves.py` is the place). Tracked in #1504 and #1503. |
+| Guard condition, **no longer a survivor** (#1504) | 6 | The original six sat on the `column_changed and ((wip_enforced and ...wip_limit is not None) or (... weight_limit is not None))` condition in `move_card` (lines 614-616 at baseline `25bcfdf1e`), which has exactly six `and`/`or`/`is not` mutation points. #1428 moved that condition into `enforce_column_limits` (`wip_applies`, `weight_applies` and `if not (wip_applies or weight_applies)`). Applying the six analog mutants by hand on SQLite on 2026-10-08, all six are killed (`RoleAllowListTests` in `test_card_services.py` and `WipEnforcementTests` in `test_wip_enforcement.py`, including `test_hard_mode_applies_even_when_soft_enforcement_is_off`). The old "equivalent here, needs PostgreSQL" label was wrong for these, and had been stale since #1428. Separately, #1504 adds PostgreSQL race tests for the real lock calls; see [PostgreSQL re-run (#1504)](#postgresql-re-run-of-the-select_for_update-guards-1504). |
 | Missing assertion, fixed (#1443) | 19 | Creation-movement origin fields, the `position` bypass guard in `update_card`, the `or 0` weight fallback on an empty column, the role-hint rejection warning, the restore ownership message, the delete broadcast payload, and the create-time mention notification. |
 
-With every `update_card` survivor except the #1511 label mutant killed, `cards.py` went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last `update_card` mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).
+#### PostgreSQL re-run of the `select_for_update` guards (#1504)
+
+Measured 2026-10-08. `ConcurrentMoveLockTests` (`test_concurrent_moves.py`, skipped unless `connection.vendor == "postgresql"`) holds one move open inside its transaction, at a point after it took its locks and before it commits, and starts a second move while the first is held. With the locks the second move queues; without them it runs against stale state. The three tests cover the card-row lock (two moves of one card must produce a continuous movement chain), the target-column lock in `enforce_column_limits` (a hard WIP limit must not be exceeded by two racing moves) and the target-cell sibling lock (two cards entering one occupied cell must not end at the same position).
+
+Second, separate set (a re-derivation, **not** the original six): mutmut 2.5.1 generated six mutants on the lines that carry the real lock calls (0-based lines 330, 372-373, 740-744, 816-819 and 827-830 at `f6d570d55`), ids 35, 168, 169, 170, 188 and 193: `lock=True` to `lock=False`, `select_related("column", ...)` and `select_related(..., "swimlane")` to `XX...XX`, the locked card read replaced by `None`, and `order_by("pk")` to `order_by("XXpkXX")` on the source and target sibling locks. mutmut cannot delete the `.select_for_update()` call or negate `if lock:`, so the lock calls themselves were flipped by hand instead.
+
+| Mutant | SQLite, scoped files | PostgreSQL, `ConcurrentMoveLockTests` |
+|---|---|---|
+| `lock=True` to `lock=False` (`enforce_column_limits`) | **Survives** | Killed by `test_column_lock_serializes_moves_into_a_full_column` |
+| `select_related` name mutants (2), card read replaced by `None`, `order_by("XXpkXX")` (2) | Killed (`FieldError` or `AttributeError` on any database) | Killed |
+
+| Hand-flipped guard | Killed by |
+|---|---|
+| Drop `select_for_update()` on the card read in `move_card` | `test_card_row_lock_serializes_two_moves_of_the_same_card` |
+| Drop `select_for_update()` on the column in `enforce_column_limits`, or `if lock:` to `if not lock:` | `test_column_lock_serializes_moves_into_a_full_column` |
+| Drop `select_for_update()` on the target cell's cards | `test_target_cell_lock_keeps_positions_distinct` |
+| Drop `select_for_update()` on the **source** cell's cards | **Survives on PostgreSQL**; proven equivalent by argument, see below |
+
+The source-cell sibling lock survives. It is a hand-flip, not a mutmut mutant, so a `# pragma: no mutate` cannot apply to it. Classification: proven equivalent by argument (the `select_related` join-row locks make it redundant), not mutmut-excludable; recorded here, not pragma'd. No two-transaction schedule found distinguishes it: every other writer that could touch a source sibling either takes the same card, column and swimlane row locks through the join, or takes its own sibling lock that includes the card the first move already holds. A comment on #1503 names it so that policy can say how hand-flipped guards are recorded.
+
+Two findings came out of the test design, neither fixed here because `services/cards.py` is out of scope. First, two moves out of the *same* cell deadlock on PostgreSQL (`deadlock detected`, a 500): each holds its own card row and waits for the other's while taking the source-sibling locks, which contradicts the card-then-siblings order that `move_card` documents (#1522). Second, two concurrent moves of the *same* card return 404 for the loser, because PostgreSQL re-checks the `select_related` join against the pre-commit column row after the wait (#1523). The test accepts 200 or 404 for the loser and asserts the movement history is continuous.
+
+Scope: this covers `move_card` and `enforce_column_limits` only. The other `select_for_update` sites (such as the column lock in `create_card`) are not yet exercised by a PostgreSQL race test; that is tracked in #1524.
+
+With every `update_card` survivor except the #1511 label mutant killed, `cards.py` went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last `update_card` mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. The 6 guard-condition survivors counted in the 15 are killed (#1504, above), which would make it 234 of 243 (96.3%); neither adjustment was re-measured with mutmut. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).
 
 The activity and notification paths in `boards/views/cards.py` (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the `cards.py` score above and are unmeasured; a mutation run on `boards/views/cards.py` would be needed to know their kill rate.
 
@@ -266,7 +290,7 @@ Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`.
 | Tests | `test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions`, `test_permissions_unit_mutation_gaps` (132 tests, 44 s once, SQLite) |
 | Kill rate | 96.6% by the manual baseline above (before the pilot) |
 
-Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. `boards/services/cards.py` (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 the remaining survivors there are 8 dead `else ""` branches in `_archive_movement`, 6 `select_for_update` guards that need PostgreSQL, and no `update_card` survivors (the label-diff latent bug was fixed in #1511).
+Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. `boards/services/cards.py` (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 the remaining survivors there are 8 dead `else ""` branches in `_archive_movement`, no longer any guard-condition survivors (killed on SQLite, see #1504; the 6 were stale since #1428), and no `update_card` survivors (the label-diff latent bug was fixed in #1511).
 
 Runtime evidence, measured 2026-10-04 on a loaded laptop (another mutmut run was using the CPUs), SQLite, mutmut 2.5.1, one process, `-x` per mutant:
 
@@ -297,6 +321,6 @@ Each mutant costs about 25 s, nearly all of it pytest and Django start-up, not t
 
 - Mutation operators in mutmut 2.x are shallow (operators, constants, `None` replacements). A high kill rate here does not prove the tests are strong, and a low one on string literals is partly noise.
 - Kill rate depends on which tests were allowed to run. The 44 `update_card` survivors would likely drop with the view-level suites included. They are tracked in #1454.
-- SQLite hides locking and concurrency behavior. The `select_for_update` survivors need a PostgreSQL run.
+- SQLite hides locking and concurrency behavior. The `select_for_update` guards need a PostgreSQL run (`ConcurrentMoveLockTests`, #1504).
 - The `CardMovement` figure (61.6%) is capped by schema-constant mutants (`max_length`, `db_index`, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and `SET_NULL` retention; the rest is guarded by CI `migration-check`, not by tests.
 - It is a point-in-time number on one commit. Re-run it before the 1.2 movement-record and permission changes merge to see how the rate moved.
