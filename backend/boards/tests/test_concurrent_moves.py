@@ -4,8 +4,11 @@ Verifies that the select_for_update locking in the card move view
 correctly serializes concurrent operations so that card positions
 remain consistent after parallel moves.
 """
+import threading
+from unittest import skipUnless
 from unittest.mock import patch
 
+from django.db import connection, connections
 from django.test import TransactionTestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -245,3 +248,194 @@ class ConcurrentCardCreationTests(TransactionTestCase):
                 .values_list("position", flat=True)
             )
             self.assertEqual(positions, [0, 1, 2], f"Cell {col.name} should restart at 0")
+
+
+# ---------------------------------------------------------------------------
+# Row-lock guards in boards/services/cards.py (#1504)
+# ---------------------------------------------------------------------------
+#
+# SQLite has no row locks, so the select_for_update() calls in move_card and
+# enforce_column_limits are unobservable there and every mutant on them survived
+# the SQLite mutation run. These tests hold one move open *inside* its
+# transaction (after it took its locks, before it writes) while a second move
+# starts. With the locks the second move queues behind the first and sees its
+# committed result; without them it runs to completion against stale state and
+# the end state is inconsistent.
+
+SERVICES_CARDS = "boards.services.cards"
+HOLD_SECONDS = 1.5
+
+
+@skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
+class ConcurrentMoveLockTests(TransactionTestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="racer", password="pass")
+        self.board, self.col_a, self.col_b, self.col_c, self.swim = _make_board(self.user)
+        self.swim2 = Swimlane.objects.create(board=self.board, name="Second", position=1)
+
+    def _card(self, title, column, position, swimlane=None):
+        return Card.objects.create(
+            board=self.board, column=column, swimlane=swimlane or self.swim,
+            title=title, created_by=self.user, position=position,
+        )
+
+    def _race(self, hold_patch_target, first, second):
+        """Run ``first`` and ``second`` (callables returning a status code).
+
+        ``first`` is paused for HOLD_SECONDS inside its transaction, at the
+        first call to ``hold_patch_target`` it makes (a function that runs after
+        its locks are taken). ``second`` starts only once ``first`` is paused,
+        so the two genuinely overlap without relying on scheduler luck: if the
+        row locks are present ``second`` blocks until ``first`` commits, and if
+        they are absent it runs to completion during the pause.
+        """
+        first_paused = threading.Event()
+        results = {}
+        errors = []
+        original = getattr(__import__(SERVICES_CARDS, fromlist=["x"]), hold_patch_target)
+
+        def hold(*args, **kwargs):
+            out = original(*args, **kwargs)
+            if threading.current_thread().name == "first" and not first_paused.is_set():
+                first_paused.set()
+                # The Event is never set, so this is a plain timed pause that
+                # keeps the transaction (and its locks) open.
+                threading.Event().wait(HOLD_SECONDS)
+            return out
+
+        def worker(name, fn, wait_for_first):
+            try:
+                if wait_for_first:
+                    assert first_paused.wait(10), "first move never reached the hold point"
+                results[name] = fn()
+            except BaseException as exc:  # noqa: BLE001 - surfaced after join
+                errors.append(exc)
+            finally:
+                connections.close_all()  # release this thread's PostgreSQL connection
+
+        with patch(f"{SERVICES_CARDS}.{hold_patch_target}", side_effect=hold), \
+                patch(PATCH_BROADCAST):
+            t1 = threading.Thread(target=worker, args=("first", first, False), name="first")
+            t2 = threading.Thread(target=worker, args=("second", second, True), name="second")
+            t1.start()
+            t2.start()
+            t1.join(30)
+            t2.join(30)
+        self.assertFalse(t1.is_alive() or t2.is_alive(), "a move hung (possible deadlock)")
+        self.assertEqual(errors, [])
+        return results
+
+    def _move(self, card, column, position=0, swimlane=None):
+        def run():
+            client = APIClient()
+            client.force_authenticate(self.user)
+            resp = client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
+                {
+                    "column_id": column.pk,
+                    "swimlane_id": (swimlane or self.swim).pk,
+                    "position": position,
+                },
+            )
+            return resp.status_code
+        return run
+
+    def test_card_row_lock_serializes_two_moves_of_the_same_card(self):
+        """The card-row lock makes the second move see the first one's result.
+
+        Both moves target different columns. Serialized, the movement chain is
+        A -> B then B -> C. Without the card lock both read the card in A and
+        write A -> B and A -> C, a history that cannot have happened.
+        """
+        card = self._card("Contended", self.col_a, 0)
+        results = self._race(
+            "_board_scoped",
+            self._move(card, self.col_b),
+            self._move(card, self.col_c),
+        )
+        self.assertEqual(results["first"], 200)
+        # The queued move may be answered 200 (it re-read the card after the
+        # first commit) or 404: PostgreSQL re-checks the join that
+        # ``select_related`` adds to the locked SELECT against the pre-commit
+        # column row, so the card can drop out of the result. Either way it ran
+        # strictly after the first move; what must never happen is two 200s
+        # both written from column A.
+        # Tighten to == 200 once #1523 (spurious 404 for the queued move) is fixed.
+        self.assertIn(results["second"], (200, 404))
+
+        movements = list(CardMovement.objects.filter(card=card).order_by("moved_at", "pk"))
+        self.assertEqual(
+            len(movements), list(results.values()).count(200),
+            "exactly one movement row per successful move",
+        )
+        self.assertEqual(movements[0].from_column, self.col_a)
+        self.assertEqual(movements[0].to_column, self.col_b)
+        for earlier, later in zip(movements, movements[1:]):
+            self.assertEqual(
+                later.from_column, earlier.to_column,
+                "each movement must start where the previous one ended",
+            )
+        card.refresh_from_db()
+        self.assertEqual(card.column, movements[-1].to_column)
+        self.assertEqual(card.version, 1 + len(movements))
+
+    def test_column_lock_serializes_moves_into_a_full_column(self):
+        """enforce_column_limits locks the target column before counting.
+
+        The column holds one card and has room for exactly one more (hard WIP
+        limit 2). Two different cards race into it: serialized, the second sees
+        the first and is refused. Without the column lock both count one card,
+        both pass, and the column ends up over its hard limit.
+        """
+        self.board.enforce_wip_hard = True
+        self.board.save(update_fields=["enforce_wip_hard"])
+        self.col_b.wip_limit = 2
+        self.col_b.save(update_fields=["wip_limit"])
+        self._card("Resident", self.col_b, 0)
+        # Different source cells: two cards leaving the *same* cell deadlock on
+        # the sibling-row locks (see #1522), which is a
+        # separate problem from the target-column lock exercised here.
+        one = self._card("One", self.col_a, 0)
+        two = self._card("Two", self.col_c, 0, swimlane=self.swim2)
+
+        results = self._race(
+            "enforce_column_limits",
+            self._move(one, self.col_b),
+            self._move(two, self.col_b, swimlane=self.swim2),
+        )
+        self.assertEqual(results["first"], 200)
+        self.assertNotEqual(results["second"], 200, "second move must be refused by the WIP limit")
+
+        self.assertEqual(Card.objects.filter(column=self.col_b).count(), 2)
+        self.assertEqual(CardMovement.objects.filter(card__in=[one, two]).count(), 1)
+
+    def test_target_cell_lock_keeps_positions_distinct(self):
+        """Two cards entering one occupied cell at position 0 do not collide.
+
+        The movers come from different source cells and swimlanes, so nothing
+        but the target-cell sibling lock makes them queue. The first move is
+        held after it has shifted the resident and saved its card, before it
+        commits. Without the lock the second move's shift statement blocks on
+        the resident row, then re-evaluates only that row against its old
+        snapshot, so it never shifts the first mover and both end at position 0.
+        """
+        resident = self._card("resident", self.col_b, 0)
+        x = self._card("x", self.col_a, 0)
+        y = self._card("y", self.col_c, 0, swimlane=self.swim2)
+
+        results = self._race(
+            "_broadcast_after_commit",
+            self._move(x, self.col_b, position=0),
+            self._move(y, self.col_b, position=0),
+        )
+        self.assertEqual(results, {"first": 200, "second": 200})
+
+        placed = dict(
+            Card.objects.filter(column=self.col_b, swimlane=self.swim)
+            .values_list("pk", "position")
+        )
+        self.assertEqual(sorted(placed.values()), [0, 1, 2], f"colliding positions: {placed}")
+        self.assertEqual(placed[y.pk], 0, "the later move lands first")
+        self.assertEqual(placed[x.pk], 1)
+        self.assertEqual(placed[resident.pk], 2)
+        self.assertEqual(CardMovement.objects.filter(card__in=[x, y]).count(), 2)
