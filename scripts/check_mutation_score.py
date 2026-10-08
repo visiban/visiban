@@ -56,6 +56,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _paths import PathEscapeError, cli_roots, resolve_within  # noqa: E402
+
 # mutmut 2.x Mutant.status -> stats key.
 STATUS_KEYS = {
     "ok_killed": "killed",
@@ -67,23 +70,10 @@ STATUS_KEYS = {
 }
 
 
-def _contained(path: Path) -> Path:
-    """Return ``path`` resolved, or raise ValueError if it escapes the working directory.
-
-    Every CLI path is data the job controls, but it is still untrusted input to a
-    file read or write. Resolving first collapses ``..`` and symlinks, so the
-    containment test is made on the real target. The script itself may live
-    outside the cwd (``python ../scripts/...``); only data paths are checked.
-    """
-    resolved = Path(path).resolve()
-    if not resolved.is_relative_to(Path.cwd().resolve()):
-        raise ValueError(f"{path} resolves outside the working directory; stats and cache paths must stay under it")
-    return resolved
-
-
 def export_cache(cache: Path) -> dict[str, int]:
     """Count mutants per verdict from a mutmut 2.x ``.mutmut-cache`` file."""
-    cache = _contained(cache)
+    # The resolved path, not the raw argument, is what reaches the sink (#1377).
+    cache = resolve_within(cli_roots(), cache)
     if not cache.exists():
         raise FileNotFoundError(cache)
     # Read-only URI: never create an empty cache by accident. as_uri() percent-quotes
@@ -128,10 +118,8 @@ def _load(paths: list[Path]) -> tuple[list[dict[str, int]], str | None]:
     """Load every readable stats file; return them and the first reason one could not be read."""
     shards: list[dict[str, int]] = []
     for raw in paths:
-        try:
-            path = _contained(raw)
-        except ValueError as exc:
-            return shards, str(exc)
+        # PathEscapeError propagates: main() reports it as a config error, not a measurement.
+        path = resolve_within(cli_roots(), raw)
         if not path.exists():
             return shards, f"stats file not found: {raw}"
         try:
@@ -292,8 +280,7 @@ def _self_test() -> int:
         "consistent shards": (
             [shard(killed=4, skipped=6, total=10), shard(killed=6, skipped=4, total=10)], None, 0),
     }
-    # Under the cwd: the script rejects data paths outside it, and the child inherits our cwd.
-    with tempfile.TemporaryDirectory(dir=Path.cwd()) as tmp:
+    with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
 
         def write(name: str, body: str) -> Path:
@@ -383,32 +370,43 @@ def _self_test() -> int:
         check("export_cache with ?, #, % and spaces in the path",
               all(got_odd.get(k) == v for k, v in want.items()), f"returned {got_odd}")
 
-        # Containment: data paths outside the cwd are a config error (exit 2), never read or written.
-        outside = Path(tempfile.gettempdir()).resolve() / "mutscore-outside.json"
-        outside.unlink(missing_ok=True)
-        check("_contained accepts a path under the cwd", _contained(ok_stats) == ok_stats.resolve())
-        for label, bad in (("an absolute path outside the cwd", outside),
-                           ("a .. traversal", Path("..") / ".." / "etc" / "passwd")):
-            try:
-                _contained(bad)
-                rejected = False
-            except ValueError:
-                rejected = True
-            check(f"_contained rejects {label}", rejected)
-        code, err = _run_real_script_full([outside], None)
-        check("a stats file outside the cwd is rejected", code == 2 and "outside the working directory" in err,
-              f"exit {code}, stderr {err!r}")
-        code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(outside)])
-        check("--write-merged outside the cwd is rejected and not written",
-              code == 2 and "outside the working directory" in err and not outside.exists(),
-              f"exit {code}, stderr {err!r}")
-        code, err = _run_real_script_full([outside], None, extra=["--export-cache", str(cache)])
-        check("--export-cache output outside the cwd is rejected and not written",
-              code == 2 and "outside the working directory" in err and not outside.exists(),
-              f"exit {code}, stderr {err!r}")
-        code, err = _run_real_script_full([root / "o.json"], None, extra=["--export-cache", str(outside)])
-        check("--export-cache input outside the cwd is rejected",
-              code == 2 and "outside the working directory" in err, f"exit {code}, stderr {err!r}")
+        # Containment (#1377 helper): a path outside the repo, cwd and temp dir is a config error
+        # (exit 2, CONFIG ERROR), never read or written. The fixtures must be outside every root;
+        # when this host's home dir is not (cwd or checkout under it), say so rather than pass vacuously.
+        outside_dir = Path.home().resolve()
+        outside = outside_dir / "mutscore-1515-outside.json"
+        try:
+            resolve_within(cli_roots(), outside)
+            print("SELF-TEST NOTE: home dir is inside an allowed root here; containment cases skipped.",
+                  file=sys.stderr)
+        except PathEscapeError:
+            outside.unlink(missing_ok=True)
+            check("a path under the allowed roots resolves", resolve_within(cli_roots(), ok_stats) == ok_stats.resolve())
+            msg = "escapes the allowed directories"
+            code, err = _run_real_script_full([outside], None)
+            check("a stats file outside the roots is rejected",
+                  code == 2 and "CONFIG ERROR" in err and msg in err, f"exit {code}, stderr {err!r}")
+            code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(outside)])
+            check("--write-merged outside the roots is rejected and not written",
+                  code == 2 and "CONFIG ERROR" in err and not outside.exists(), f"exit {code}, stderr {err!r}")
+            code, err = _run_real_script_full([outside], None, extra=["--export-cache", str(cache)])
+            check("--export-cache output outside the roots is rejected and not written",
+                  code == 2 and "CONFIG ERROR" in err and not outside.exists(), f"exit {code}, stderr {err!r}")
+            code, err = _run_real_script_full([root / "o.json"], None, extra=["--export-cache", str(outside)])
+            check("--export-cache input outside the roots is rejected",
+                  code == 2 and "CONFIG ERROR" in err, f"exit {code}, stderr {err!r}")
+            # A symlink inside an allowed root that points outside is rejected, and nothing is written through it.
+            link = root / "escape"
+            link.symlink_to(outside_dir, target_is_directory=True)
+            through = outside_dir / "mutscore-1515-link.json"
+            through.unlink(missing_ok=True)
+            code, err = _run_real_script_full([ok_stats], None, extra=["--write-merged", str(link / through.name)])
+            check("--write-merged through an escaping symlink is rejected and not written",
+                  code == 2 and "CONFIG ERROR" in err and not through.exists(), f"exit {code}, stderr {err!r}")
+            code, err = _run_real_script_full([link / "mutscore-1515-link.json"], None)
+            check("a stats file read through an escaping symlink is rejected",
+                  code == 2 and "CONFIG ERROR" in err, f"exit {code}, stderr {err!r}")
+            through.unlink(missing_ok=True)
 
     for failure in failures:
         print(f"SELF-TEST FAILED: {failure}", file=sys.stderr)
@@ -448,15 +446,15 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         try:
             stats = export_cache(args.export_cache)
-        except ValueError as exc:
+        except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
         except (FileNotFoundError, sqlite3.Error) as exc:
             print(f"NOT MEASURED: cannot read mutmut cache {args.export_cache}: {exc}", file=sys.stderr)
             return 2
         try:
-            out_path = _contained(args.stats_paths[0])
-        except ValueError as exc:
+            out_path = resolve_within(cli_roots(), args.stats_paths[0])
+        except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
         out_path.write_text(json.dumps(stats, indent=2) + "\n", "utf-8")
@@ -478,7 +476,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.expect_shards is not None and len(args.stats_paths) != args.expect_shards:
         reason = (f"expected {args.expect_shards} shard stats files, got {len(args.stats_paths)}. "
                   "A shard died or its artifact is missing; summing the rest would read as a complete run.")
-    shards, load_error = _load(args.stats_paths)
+    try:
+        shards, load_error = _load(args.stats_paths)
+    except PathEscapeError as exc:
+        print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+        return 2
     reason = reason or load_error
     if reason is None:
         reason = _check_shard_consistency(shards, args.expect_shards)
@@ -494,8 +496,8 @@ def main(argv: list[str] | None = None) -> int:
                   "  Check the job log for a dead pytest run or an unreadable .mutmut-cache.")
     if args.write_merged:
         try:
-            merged_path = _contained(args.write_merged)
-        except ValueError as exc:
+            merged_path = resolve_within(cli_roots(), args.write_merged)
+        except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
         out = dict(stats)
