@@ -3,6 +3,26 @@
 from rest_framework.permissions import BasePermission
 
 
+def has_pending_password_change(user) -> bool:
+    """True if *user* carries the forced password-change flag.
+
+    Single predicate shared by the DRF permission class below and the
+    WebSocket entry points, so every transport applies the same account-state
+    rule.
+    """
+    return bool(getattr(user, "must_change_password", False))
+
+
+def has_pending_username_change(user) -> bool:
+    """True if *user* carries the forced username-change flag (see above)."""
+    return bool(getattr(user, "must_change_username", False))
+
+
+def has_pending_account_action(user) -> bool:
+    """True if *user* must complete a forced password or username change."""
+    return has_pending_password_change(user) or has_pending_username_change(user)
+
+
 class MustNotHavePendingPasswordChange(BasePermission):
     """Block all API access for users with a forced password-change flag set.
 
@@ -23,7 +43,7 @@ class MustNotHavePendingPasswordChange(BasePermission):
         # Unauthenticated requests: let IsAuthenticated handle them.
         if not user.is_authenticated:
             return True
-        return not getattr(user, "must_change_password", False)
+        return not has_pending_password_change(user)
 
 
 class MustNotHavePendingUsernameChange(BasePermission):
@@ -44,4 +64,4 @@ class MustNotHavePendingUsernameChange(BasePermission):
         user = request.user
         if not user.is_authenticated:
             return True
-        return not getattr(user, "must_change_username", False)
+        return not has_pending_username_change(user)

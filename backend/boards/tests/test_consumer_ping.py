@@ -32,7 +32,7 @@ class BoardConsumerPingTests(TestCase):
         consumer.accept = AsyncMock()
         consumer.scope = {
             "url_route": {"kwargs": {"board_id": 1}},
-            "user": MagicMock(is_authenticated=True),
+            "user": MagicMock(is_authenticated=True, must_change_password=False, must_change_username=False),
             # What the auth middleware records on an authenticated handshake
             # (#1483); connect() refuses a scope without it.
             WS_CREDENTIAL_SCOPE_KEY: _CREDENTIAL,

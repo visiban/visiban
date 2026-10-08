@@ -73,6 +73,8 @@ from django.core.cache import cache
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
+from visiban.permissions import has_pending_account_action
+
 # Seconds a ticket stays redeemable. Long enough to cover the round trip from
 # the REST response to the WebSocket upgrade (including a slow mobile network),
 # short enough that a ticket captured from an access log is already dead.
@@ -450,6 +452,10 @@ def load_live_ws_user(scope):
 
     user = get_user_model().objects.filter(pk=scope["user"].id, is_active=True).first()
     if user is None:
+        return None
+    # Same account-state rule the REST permission classes apply; read from the
+    # freshly loaded row so a flag set after the handshake is seen.
+    if has_pending_account_action(user):
         return None
     if not ws_credential_is_live(scope.get(WS_CREDENTIAL_SCOPE_KEY), user):
         return None

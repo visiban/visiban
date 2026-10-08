@@ -26,7 +26,7 @@ class GroupConsumerAuthTests(TestCase):
         consumer.accept = AsyncMock()
         consumer.scope = {
             "url_route": {"kwargs": {"group_id": 1}},
-            "user": MagicMock(is_authenticated=authenticated, id=42),
+            "user": MagicMock(is_authenticated=authenticated, id=42, must_change_password=False, must_change_username=False),
             # What the auth middleware records on an authenticated handshake
             # (#1483); connect() refuses a scope without it.
             WS_CREDENTIAL_SCOPE_KEY: _CREDENTIAL,

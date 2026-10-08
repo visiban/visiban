@@ -8,6 +8,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user
+from visiban.permissions import has_pending_account_action
 
 from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import get_accessible_group_ids
@@ -81,6 +82,12 @@ class GroupConsumer(AsyncWebsocketConsumer):
             # No recorded credential (#1483): never admit a socket the
             # re-check could not later find revoked. Same rule as BoardConsumer.
             await self.close(code=4001)
+            return
+
+        if has_pending_account_action(user):
+            # Account-state rule shared with REST; re-checked on every
+            # periodic access check via load_live_ws_user.
+            await self.close(code=4003)
             return
 
         if not await self._has_access(user, self.group_id):

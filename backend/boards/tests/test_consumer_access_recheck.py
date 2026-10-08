@@ -396,3 +396,67 @@ class NoFrameAccessChangeTests(TransactionTestCase):
 
         self.assertIsNone(self._deliver(consumer, _card_frame()))
         consumer.close.assert_called_once_with(code=4003)
+
+
+class BoardConsumerAccountStateTests(TransactionTestCase):
+    """Pending password/username change is applied at connect and on re-check."""
+
+    FLAGS = ("must_change_password", "must_change_username")
+
+    def setUp(self):
+        cache.clear()
+        self.owner = User.objects.create_user(username="as_owner", password="pass")
+        self.board = Board.objects.create(name="Account state", owner=self.owner)
+        self.member = User.objects.create_user(username="as_member", password="pass")
+        BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
+
+    def _connect(self, *, flag=None, clock=None):
+        from visiban import asgi
+
+        if flag:
+            User.objects.filter(pk=self.member.pk).update(**{flag: True})
+
+        async def run():
+            ticket, _ = await sync_to_async(session_ticket)(self.member)
+            comm = WebsocketCommunicator(asgi.application, f"/ws/boards/{self.board.id}/?ticket={ticket}")
+            connected, code = await comm.connect()
+            await comm.disconnect()
+            return connected, code
+
+        return asyncio.run(run())
+
+    def test_unflagged_user_connects(self):
+        connected, _ = self._connect()
+        self.assertTrue(connected)
+
+    def test_flagged_user_is_refused_at_connect(self):
+        for flag in self.FLAGS:
+            with self.subTest(flag=flag):
+                connected, code = self._connect(flag=flag)
+                self.assertFalse(connected)
+                self.assertEqual(code, 4003)
+                User.objects.filter(pk=self.member.pk).update(**{flag: False})
+
+    def test_open_socket_is_closed_on_recheck_after_flag_is_set(self):
+        from visiban import asgi
+
+        for flag in self.FLAGS:
+            with self.subTest(flag=flag):
+                clock = _Clock()
+
+                async def run():
+                    ticket, _ = await sync_to_async(session_ticket)(self.member)
+                    comm = WebsocketCommunicator(asgi.application, f"/ws/boards/{self.board.id}/?ticket={ticket}")
+                    connected, _ = await comm.connect()
+                    self.assertTrue(connected)
+
+                    await sync_to_async(User.objects.filter(pk=self.member.pk).update)(**{flag: True})
+                    clock.advance(ACCESS_RECHECK_SECONDS + ACCESS_RECHECK_JITTER_SECONDS)
+                    await sync_to_async(broadcast_board_event)(self.board.id, "card.updated", _card_frame()["data"])
+
+                    out = await comm.receive_output(timeout=2)
+                    self.assertEqual(out, {"type": "websocket.close", "code": 4003})
+
+                with patch("boards.consumers._now", clock):
+                    asyncio.run(run())
+                User.objects.filter(pk=self.member.pk).update(**{flag: False})
