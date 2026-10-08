@@ -395,6 +395,60 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     expect(screen.queryByText('Owner:')).not.toBeInTheDocument()
   })
 
+  it('keeps an "All fields" trigger on an all-pinned row when names are hidden (#1509)', async () => {
+    const user = userEvent.setup()
+    const defs = [
+      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: true, position: 1 }),
+    ]
+    const lane = makeSwimlane({ custom_field_values: [
+      { field_definition: 1, value: 'J. Rivera' },
+      { field_definition: 2, value: 'EMEA' },
+    ] })
+    renderRow(lane, defs, false, { hideRowChipFieldNames: true })
+    const trigger = screen.getByRole('button', { name: /Show all 2 field values/ })
+    expect(trigger).toHaveTextContent('All fields')
+    expect(trigger).toHaveAccessibleName(/^All fields: Show all 2 field values for Acme Corp$/)
+    expect(trigger).toHaveClass('min-h-6')
+    await user.click(trigger)
+    const text = screen.getByRole('dialog', { name: 'Field values for Acme Corp' }).textContent ?? ''
+    for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)
+  })
+
+  it('still renders the "All fields" trigger when every pinned value is a checkbox and names are hidden (#1509)', () => {
+    // Checkbox chips always show their name, but the trigger condition counts
+    // all pinned fields, so the trigger stays; this pins that behavior.
+    const defs = [
+      makeDef({ id: 1, name: 'Signed', field_type: 'checkbox', show_on_row: true }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Approved', field_type: 'checkbox', show_on_row: true, position: 1 }),
+    ]
+    renderRow(makeSwimlane({ custom_field_values: [
+      { field_definition: 1, value: 'true' },
+      { field_definition: 2, value: 'true' },
+    ] }), defs, false, { hideRowChipFieldNames: true })
+    expect(screen.getByText('Signed:')).not.toHaveClass('sr-only')
+    expect(screen.getByRole('button', { name: /^All fields: Show all 2 field values/ })).toBeInTheDocument()
+  })
+
+  it('shows no trigger on an all-pinned row when names are visible', () => {
+    const defs = [makeDef({ id: 1, name: 'Owner', show_on_row: true })]
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }), defs, false, { hideRowChipFieldNames: false })
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
+  })
+
+  it('keeps the +N label when unpinned fields exist and names are hidden', () => {
+    const defs = [
+      makeDef({ id: 1, name: 'Owner', show_on_row: true }),
+      makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', show_on_row: false, position: 1 }),
+    ]
+    renderRow(makeSwimlane({ custom_field_values: [
+      { field_definition: 1, value: 'J. Rivera' },
+      { field_definition: 2, value: 'EMEA' },
+    ] }), defs, false, { hideRowChipFieldNames: true })
+    expect(screen.getByRole('button', { name: /Show all 2 field values/ })).toHaveTextContent('+1')
+    expect(screen.getByRole('button', { name: /^\+1: Show all 2 field values/ })).toBeInTheDocument()
+  })
+
   it('leaves the +N field list popover listing names and values', async () => {
     const user = userEvent.setup()
     const defs = [
