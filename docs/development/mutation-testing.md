@@ -27,7 +27,7 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 
 | Module | Mutants | Killed before | Kill rate before | Killed after | Kill rate after | Timeouts |
 |---|---:|---:|---:|---:|---:|---:|
-| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243) | 243 | 166 | 68.3% | 228 | 93.8% | 0 |
+| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since) | 243 | 166 | 68.3% | 228 | 93.8% | 0 |
 | `CardMovement` (`boards/models.py`) | 73 | 28 | 38.4% | 45 | 61.6% | 0 |
 | `boards/permissions.py` | 118 | 44 | 37.3% | 114 | 96.6% | 0 |
 | `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | 2 (see below) |
@@ -83,19 +83,19 @@ Every survivor was put in one of three buckets:
 - **Equivalent mutant:** the change cannot alter observable behavior in this setup, so no test can kill it. Leave it alone.
 - **Untested code:** no test in the scoped files reaches the line, or reaches it without checking the result. Needs new tests or a decision that it is covered elsewhere.
 
-### Movement service (`cards.py`): 15 survivors left of 77
+### Movement service (`cards.py`): 15 survivors left of 77 (measured before #1511)
 
 Measured 2026-10-07 (#1454) with the line range of `update_card` only, run in 8 shards against the scoped files, then against the scoped files plus the view suites listed in the table above, then with `test_card_service_mutation_gaps.py` added to each. The 14 survivors outside `update_card` are unchanged from the #1443 baseline.
 
 | Bucket | Count | Detail |
 |---|---:|---|
 | Missing assertion, **fixed** (#1454) | 43 | The 44 `update_card` survivors of the #1443 baseline: per-field `CardActivity` rows (title, priority, weight, assignee, description, labels, due date), the assignment and mention notification contents, the weight-increase limit check, and the `force` default. The view suites (`test_views_cards`, `test_notifications`, `test_card_timeline` and the others in the table above) already killed 25 of them; `test_card_service_mutation_gaps.py` kills the other 18, and on its own with the scoped files kills 40 of the 44. |
-| Latent bug (#1511) | 1 | `parts.append(f"-{', '.join(names)}")` in the label diff (`'XX, XX'.join(names)`). The list of removed label names is built from the labels on the card *after* the write, so it is always empty and the join separator is never used. The activity row for a removal therefore reads `-` with no name. That is a real bug in the code, filed as #1511, not a truly equivalent mutant: `test_removed_labels_are_listed_with_minus` and `test_add_and_remove_in_one_update` pin the current output, and the mutant dies once #1511 resolves removed names from the pre-write label set and those expectations are updated. |
+| Latent bug, **fixed** (#1511) | 1 | `parts.append(f"-{', '.join(names)}")` in the label diff (`'XX, XX'.join(names)`). The removed label names were looked up in the labels on the card *after* the write, so the list was always empty and the activity row for a removal read `-` with no name. That was a real bug, not an equivalent mutant. #1511 resolves removed names from the pre-write label snapshot, and `test_removed_labels_are_listed_with_minus`, `test_several_removed_labels_join_with_comma_space` and `test_add_and_remove_in_one_update` now pin the corrected output, so the mutant dies. |
 | Equivalent | 8 | `_archive_movement` falls back to `""` when `card.column` or `card.swimlane` is `None`. Both foreign keys are non-null on `Card`, so the branch is unreachable. Left alone here; tracked in #1505. |
 | Equivalent here | 6 | `select_for_update` guard conditions in `move_card` and `enforce_column_limits` (the `select_for_update` calls on the card, column and sibling rows). The lock is not observable on SQLite. Only a PostgreSQL concurrency test can kill these (`test_concurrent_moves.py` is the place). Tracked in #1504 and #1503. |
 | Missing assertion, fixed (#1443) | 19 | Creation-movement origin fields, the `position` bypass guard in `update_card`, the `or 0` weight fallback on an empty column, the role-hint rejection warning, the restore ownership message, the delete broadcast payload, and the create-time mention notification. |
 
-With every `update_card` survivor except the one above killed, `cards.py` goes from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed, above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).
+With every `update_card` survivor except the #1511 label mutant killed, `cards.py` went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last `update_card` mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).
 
 The activity and notification paths in `boards/views/cards.py` (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the `cards.py` score above and are unmeasured; a mutation run on `boards/views/cards.py` would be needed to know their kill rate.
 
@@ -266,7 +266,7 @@ Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`.
 | Tests | `test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions`, `test_permissions_unit_mutation_gaps` (132 tests, 44 s once, SQLite) |
 | Kill rate | 96.6% by the manual baseline above (before the pilot) |
 
-Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. `boards/services/cards.py` (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 the remaining survivors there are 8 dead `else ""` branches in `_archive_movement`, 6 `select_for_update` guards that need PostgreSQL, and 1 latent-bug mutant in the `update_card` label diff (#1511).
+Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. `boards/services/cards.py` (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 the remaining survivors there are 8 dead `else ""` branches in `_archive_movement`, 6 `select_for_update` guards that need PostgreSQL, and no `update_card` survivors (the label-diff latent bug was fixed in #1511).
 
 Runtime evidence, measured 2026-10-04 on a loaded laptop (another mutmut run was using the CPUs), SQLite, mutmut 2.5.1, one process, `-x` per mutant:
 

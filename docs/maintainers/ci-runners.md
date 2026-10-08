@@ -3,27 +3,32 @@
 Inventory and behavior of the GitLab Runners that execute Visiban's pipelines, and the traps
 that follow from how they're configured.
 
-**Why it matters:** no job in `.gitlab-ci.yml` uses `tags:`, so a job that needs a specific
+**Why it matters:** most jobs in `.gitlab-ci.yml` carry no `tags:`, so a job that needs a specific
 runner's resources can silently land on the wrong one and fail with a confusing error instead
 of "no runner available."
 
 ## Inventory
 
-As of 2026-09-14, three GitLab group runners are registered against `visiban/visiban`
+As of 2026-10-08, these GitLab group runners are registered against `visiban/visiban`
 (`glab api "projects/visiban%2Fvisiban/runners?type=group_type"`):
 
 | Runner ID | Description | Status | Tags | `run_untagged` |
 |---|---|---|---|---|
-| 52215741 | (none set) | online | none | true |
-| 56277672 | `Runner-03-NUC` | online | none | true |
-| 56277916 | `runner-04-NUC` | online | none | true |
+| 52215741 | (none set) | stale | none | true |
+| 56277672 | `Runner-03-NUC` | online | `nuc` | true |
+| 56277916 | `runner-04-NUC` | stale | `nuc` | true |
+| 56787877 | `gitlab-runner-nuc-2-visiban` | online | `nuc` | true |
 | 56802474 | `Max1-Runner-Visiban` | online | `arm, arm64, apple, macosx, mac, ios` | false |
+| 56888935 | `gitlab-runner-dell-01-visiban` | online | `dell-small` | true |
 
-All four are self-hosted. Re-run the query above before trusting this table — runner health
+All are self-hosted. The NUC runners carry the `nuc` tag (added 2026-10-08) so that
+hardware-sensitive jobs can pin to them — today only `nightly-load-test`, whose latency
+budgets are absolute milliseconds measured on a NUC. Never add `nuc` to a non-NUC runner:
+that silently invalidates those budgets. Re-run the query above before trusting this table — runner health
 and identity have changed multiple times in this project's history (see below) and nothing
 keeps this page in sync automatically.
 
-`Max1-Runner-Visiban` is the exception to "no tags" and to the warning immediately below: it's
+`Max1-Runner-Visiban` is an exception to "no tags" and to the warning immediately below: it's
 a dedicated Apple Silicon (M1 Max) macOS host running the **shell executor** against its own
 already-installed Docker Desktop, whose engine is itself native `linux/arm64` — no QEMU. Jobs
 that need it request it explicitly with `tags: [arm64]` (`.arm64-docker-push-base` in
@@ -34,8 +39,9 @@ here (the `gitlab-runner` binary itself runs under Rosetta) and `uname -m` on th
 `docker image inspect --format '{{.Architecture}}'` on a built image instead — that's what
 `backend-docker-push-arm64` / `frontend-docker-push-arm64` do.
 
-!!! warning "No job in `.gitlab-ci.yml` uses `tags:`"
-    Every job queues for *any* available runner, self-hosted or GitLab SaaS. A self-hosted
+!!! warning "Most jobs in `.gitlab-ci.yml` carry no `tags:`"
+    Apart from the arm64 legs (`tags: [arm64]`) and `nightly-load-test` (`tags: [nuc]`),
+    every job queues for *any* available runner, self-hosted or GitLab SaaS. A self-hosted
     runner going offline doesn't fail its jobs loudly with "no runner available" — they get
     scheduled onto a SaaS runner instead and fail with a confusing error deep inside the job
     script. This has already happened once (see "Docker push" below). If a job needs the
