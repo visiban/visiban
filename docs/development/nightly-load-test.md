@@ -134,6 +134,16 @@ budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5
   measurement jitter without the number itself being arbitrary — it is still fully determined
   by the measured baseline, just not reported to sub-millisecond precision.
 
+!!! warning "Budgets are only valid on NUC runners"
+    Budgets are absolute milliseconds, so they only hold on the hardware they were measured
+    on. The baseline (job 16796708105) ran on `gitlab-runner-nuc-2-visiban`, and the job is
+    pinned with `tags: [nuc]` (see [CI Runners](../maintainers/ci-runners.md)). Before the
+    pin, the 2026-10-08 scheduled run landed on `gitlab-runner-dell-01-visiban` and failed
+    `card_timeline`, `notifications_list` and `notifications_unread` by 1.3-1.8x with no
+    relevant code change, while every NUC run before it had passed. When re-deriving, take
+    the artifact from a NUC run, and re-derive the whole file if the runner class ever
+    changes.
+
 ### Re-deriving the baseline (do this at every release, and whenever the fixture size changes)
 
 1. Trigger the `nightly-load-test` job (wait for the schedule, or run it manually).
