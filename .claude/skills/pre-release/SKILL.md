@@ -202,7 +202,10 @@ for iid in $(jq -r '.[].iid' "$D"); do
             printf '%s' "$notes" | jq -r '.[]|select(.system|not)|.author.username as $a|.body|gsub("\r";"")|split("\n")[]|select(startswith("Accepted risk:"))|"\($a)|\(.)"'; } )
   # The regex + calendar/expiry verdict lives in a self-tested script (#1521); it reads the
   # "author|line" candidates on stdin and uses TODAY/CAP from the environment. Exit 1 = BLOCKER.
-  verdict=$(printf '%s\n' "$cand" | TODAY="$TODAY" CAP="$CAP" sh scripts/security-deferred-verdict.sh)
+  # Resolve the script from the repo root so this works from any cwd; an empty verdict (script
+  # missing/crashed) fails closed to BLOCKER. Exit 1 is the normal BLOCKER signal, hence `|| true`.
+  verdict=$(printf '%s\n' "$cand" | TODAY="$TODAY" CAP="$CAP" sh "$(git rev-parse --show-toplevel)/scripts/security-deferred-verdict.sh" 2>/dev/null) || true
+  [ -n "$verdict" ] || verdict="BLOCKER (verdict script produced no output)"
   echo "#$iid confidential=$conf milestone=$ms $verdict"
 done
 fi

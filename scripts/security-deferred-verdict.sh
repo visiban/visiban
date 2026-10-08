@@ -23,7 +23,10 @@
 
 verdict() {
   TODAY=${TODAY:-$(date +%F)}
-  CAP=${CAP:-$(date -v+1y +%F 2>/dev/null || date -d '+1 year' +%F)}   # BSD (macOS) or GNU date
+  # CAP derives from TODAY (not the wall clock) so an overridden TODAY keeps the two consistent.
+  # BSD date (-j -f) then GNU date (-d); busybox date can't parse this, leaving CAP empty, which
+  # makes every date "too far out" -- fail closed. Not self-tested: not portable across all three.
+  CAP=${CAP:-$(date -j -v+1y -f %F "$TODAY" +%F 2>/dev/null || date -d "$TODAY +1 year" +%F 2>/dev/null)}
   grep -E '^[^|]+\|Accepted risk: accepted-by: @[A-Za-z0-9_.-]+; reason: [^;]*[^; ]; expires: [0-9]{4}-[0-9]{2}-[0-9]{2} *$' \
     | sed -E 's/^([^|]+)\|.*accepted-by: (@[A-Za-z0-9_.-]+);.*expires: ([0-9-]{10}) *$/\1 \2 \3/' \
     | awk -v t="$TODAY" -v cap="$CAP" '{ split($3,a,"-"); y=a[1]+0; m=a[2]+0; d=a[3]+0
@@ -73,6 +76,20 @@ self_test() {
   n=$((n+1)); [ "$got" = 'ACCEPTED note-by=alice accepted-by=@bob expires=2027-10-08' ] || { echo "FAIL [cap-inclusive]: got '$got'" >&2; fails=$((fails+1)); }
   got=$(printf '%s\n' "${P}ok; expires: 2027-10-09" | TODAY=2026-10-08 CAP=2027-10-08 verdict)
   n=$((n+1)); [ "$got" = 'BLOCKER (expiry too far out; max 1 year)' ] || { echo "FAIL [cap-plus-one]: got '$got'" >&2; fails=$((fails+1)); }
+  # Run the script as a process: assert stdout AND exit code (the contract callers rely on).
+  self=$0
+  cli() { # name want_out want_rc stdin args...
+    cn=$1; wo=$2; wr=$3; ci=$4; shift 4
+    n=$((n+1))
+    co=$(printf '%s\n' "$ci" | TODAY=2026-10-08 CAP=2027-10-08 sh "$self" "$@" 2>/dev/null); cr=$?
+    if [ "$co" != "$wo" ] || [ "$cr" -ne "$wr" ]; then
+      echo "FAIL [cli-$cn]: expected '$wo' rc=$wr, got '$co' rc=$cr" >&2; fails=$((fails+1))
+    fi
+  }
+  cli accepted 'ACCEPTED note-by=alice accepted-by=@bob expires=2027-01-01' 0 "${P}ok; expires: 2027-01-01"
+  cli blocker  'BLOCKER' 1 "${P}ok; expires: 2026-01-01"
+  cli empty    'BLOCKER' 1 ""
+  cli badarg   '' 2 "" --bogus
   if [ "$fails" -ne 0 ]; then echo "security-deferred-verdict self-test: $fails of $n case(s) FAILED" >&2; return 1; fi
   echo "security-deferred-verdict self-test: all $n cases passed"
 }
