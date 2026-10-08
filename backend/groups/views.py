@@ -160,43 +160,44 @@ def _require_group_member(user, group):
     raise PermissionDenied(_("You must be a group member to perform this action."))
 
 
-def _revoke_lapsed_admin_invite_links(user, group):
-    """Revoke ``user``'s unused invite links in ``group``'s subtree they can no longer admin (#1510).
+def _revoke_lapsed_admin_invite_links(user, group=None):
+    """Revoke ``user``'s unused invite links they can no longer administer (#1510).
 
-    Called after the user's membership in ``group`` was removed or demoted.
-    The join/preview recheck (``sender_is_group_admin``) already refuses such a
-    link, but it would otherwise stay ``is_active`` — shown as active to other
-    admins and counted toward the 5-active-link cap. Descendant groups are
-    included because admin rights are inherited down the tree; a link is kept
-    when the user still administers its group by another path (a direct admin
-    row there or on another ancestor).
+    Called after the user's membership in ``group`` was removed or demoted, or
+    (``group=None``) after a site flag that granted admin rights everywhere
+    (``can_access_all_content``) was cleared. The join/preview recheck
+    (``sender_is_group_admin``) already refuses such a link, but it would
+    otherwise stay ``is_active`` — shown as active to other admins and counted
+    toward the 5-active-link cap.
+
+    Links are queried first, in one query: most users hold none, and this
+    avoids walking the group subtree for them. With ``group`` set, only links
+    on that group or a descendant qualify — judged from the loaded ancestor
+    chain, since admin rights are inherited down the tree. A link is kept when
+    the user still administers its group by another path (a direct admin row
+    there or on another ancestor).
 
     Must run inside the caller's ``transaction.atomic()``; the
     ``invite_link.revoked`` broadcasts are deferred to ``on_commit``.
     """
     from .models import _GROUP_TRAVERSAL_MAX_DEPTH
 
-    subtree_ids = {group.pk}
-    frontier = {group.pk}
-    for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
-        if not frontier:
-            break
-        children = set(
-            Group.objects.filter(parent__in=frontier)
-            .exclude(id__in=subtree_ids)
-            .values_list("id", flat=True)
-        )
-        subtree_ids |= children
-        frontier = children
-
     links = list(
         GroupInviteLink.objects.select_for_update(of=("self",)).select_related(
             GROUP_PARENT_CHAIN,
-        ).filter(
-            created_by=user, group_id__in=subtree_ids,
-            is_active=True, used_at__isnull=True,
-        )
+        ).filter(created_by=user, is_active=True, used_at__isnull=True)
     )
+    if group is not None:
+        def _in_subtree(link_group):
+            node, depth = link_group, 0
+            while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
+                if node.pk == group.pk:
+                    return True
+                node = node.parent
+                depth += 1
+            return False
+
+        links = [lk for lk in links if _in_subtree(lk.group)]
     if not links:
         return
     if user.is_active and getattr(user, "can_access_all_content", False):
@@ -1422,6 +1423,11 @@ class JoinGroupView(APIView):
         if not is_member_of_used and not sender_is_group_admin(link):
             logger.info("Invite token lookup failed: creator not admin. token=%s ip=%s", token_hint, ip)
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        # Residual distinction accepted: with a live creator an expired or
+        # consumed link still answers 410, so "creator gone" (404) is
+        # distinguishable from "creator live, link expired/used". The SPA
+        # needs the 410 to show its own message, and the raw token is already a
+        # capability (#801), so only the gone-creator side is made uniform.
         if link.single_use and link.used_at is not None and not is_member_of_used:
             logger.info(
                 "Invite token lookup failed: already used. token=%s ip=%s",

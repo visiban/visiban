@@ -13,7 +13,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import InviteLink, User
+from accounts.models import InviteLink, PersonalAccessToken, User
 from boards.models import Board, BoardInviteLink
 from groups.models import Group, GroupInviteLink, GroupMembership
 
@@ -83,6 +83,67 @@ class PatchDeactivationRevokesLinksTests(TestCase):
         self.assertEqual(self._patch(is_active=True).status_code, status.HTTP_200_OK)
         self.group_link.refresh_from_db()
         self.assertTrue(self.group_link.is_active)
+
+
+class PatchDeactivationTokenTests(TestCase):
+    def test_pat_stays_dead_after_patch_deactivate_then_reactivate(self):
+        admin = User.objects.create_user(username="sa", password="pw", is_site_admin=True)
+        user = User.objects.create_user(username="victim", password="pw")
+        _, raw = PersonalAccessToken.generate(user, "ci")
+        header = {"HTTP_AUTHORIZATION": f"Token {raw}"}
+        self.assertEqual(APIClient().get("/api/v1/auth/me/", **header).status_code, 200)
+        c = APIClient()
+        c.force_authenticate(admin)
+        url = f"/api/v1/admin/users/{user.pk}/"
+        self.assertEqual(c.patch(url, {"is_active": False}, format="json").status_code, 200)
+        self.assertFalse(user.personal_access_tokens.exists())
+        self.assertEqual(c.patch(url, {"is_active": True}, format="json").status_code, 200)
+        self.assertEqual(APIClient().get("/api/v1/auth/me/", **header).status_code, 401)
+
+
+class FlagClearRevokesLinksTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username="sa", password="pw", is_site_admin=True)
+        self.user = User.objects.create_user(
+            username="omni", password="pw", can_access_all_content=True,
+        )
+        owner = User.objects.create_user(username="own", password="pw")
+        self.g1 = Group.objects.create(name="G1", owner=owner)
+        self.g2 = Group.objects.create(name="G2", owner=owner)
+        # Admin by membership in g2 only; g1 link is held via the flag alone.
+        GroupMembership.objects.create(
+            group=self.g2, user=self.user, role=GroupMembership.Role.ADMIN,
+        )
+        self.l1, _ = GroupInviteLink.generate(self.g1, self.user)
+        self.l2, _ = GroupInviteLink.generate(self.g2, self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_clearing_can_access_all_content_revokes_only_lapsed_links(self):
+        with (
+            patch("groups.broadcast.broadcast_group_event") as mock_bc,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            r = self.client.patch(
+                f"/api/v1/admin/users/{self.user.pk}/",
+                {"can_access_all_content": False}, format="json",
+            )
+        self.assertEqual(r.status_code, 200)
+        self.l1.refresh_from_db()
+        self.l2.refresh_from_db()
+        self.assertFalse(self.l1.is_active)
+        self.assertTrue(self.l2.is_active)
+        mock_bc.assert_called_once_with(
+            self.g1.pk, "invite_link.revoked", {"id": self.l1.pk},
+        )
+
+    def test_granting_flag_or_unrelated_patch_revokes_nothing(self):
+        self.client.patch(
+            f"/api/v1/admin/users/{self.user.pk}/",
+            {"has_completed_tour": True}, format="json",
+        )
+        self.l1.refresh_from_db()
+        self.assertTrue(self.l1.is_active)
 
 
 class AdminDemotionRevokesLinksTests(TestCase):
@@ -237,6 +298,70 @@ class PreviewUniformityTests(TestCase):
         self._gone_creator()
         bodies = {str(self.client.get(join_url(t)).json()) for t in (fresh, expired)}
         self.assertEqual(len(bodies), 1)
+
+
+class RevokeQueryCountTests(TestCase):
+    _n = 0
+
+    def _delete_count(self, with_links):
+        RevokeQueryCountTests._n += 1
+        n = self._n
+        boss = User.objects.create_user(username=f"b{n}", password="pw")
+        victim = User.objects.create_user(username=f"v{n}", password="pw")
+        g = Group.objects.create(name="g", owner=boss)
+        GroupMembership.objects.create(group=g, user=boss, role="admin")
+        GroupMembership.objects.create(group=g, user=victim, role="member")
+        if with_links:
+            GroupInviteLink.generate(g, victim)
+        c = APIClient()
+        c.force_authenticate(boss)
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as ctx:
+            r = c.delete(f"/api/v1/groups/{g.pk}/members/{victim.pk}/")
+        self.assertEqual(r.status_code, 204)
+        return len(ctx)
+
+    def test_member_delete_without_links_skips_subtree_walk(self):
+        self._delete_count(False)  # warm one-time caches
+        none = self._delete_count(False)
+        # Constant: the no-links path adds one links query and no subtree BFS.
+        self.assertEqual(none, self._delete_count(False))
+        self.assertLessEqual(none, 16)
+
+
+class JoinPostQueryCountTests(TestCase):
+    _n = 0
+
+    def _nested(self, depth):
+        JoinPostQueryCountTests._n += 1
+        n = self._n
+        creator = User.objects.create_user(username=f"jc{n}", password="pw")
+        joiner = User.objects.create_user(username=f"jj{n}", password="pw")
+        root = Group.objects.create(name="root", owner=creator)
+        GroupMembership.objects.create(group=root, user=creator, role="admin")
+        node = root
+        for i in range(depth):
+            node = Group.objects.create(name=f"n{i}", owner=creator, parent=node)
+        _, raw = GroupInviteLink.generate(node, creator)
+        return joiner, raw
+
+    def _count(self, depth):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        joiner, raw = self._nested(depth)
+        c = APIClient()
+        c.force_authenticate(joiner)
+        with CaptureQueriesContext(connection) as ctx:
+            r = c.post(join_url(raw))
+        self.assertEqual(r.status_code, 201)
+        return len(ctx)
+
+    def test_join_post_query_count_independent_of_depth(self):
+        self._count(1)  # warm one-time caches
+        self.assertEqual(self._count(1), self._count(5))
 
 
 class PreviewQueryCountTests(TestCase):
