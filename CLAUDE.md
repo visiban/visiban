@@ -20,6 +20,8 @@ When writing any backend code, apply these by default — no need to be asked:
 - **Flag `shell=True`** — any `subprocess` call with `shell=True` must have an inline comment explaining why it is safe; prefer list-form args
 - **No hardcoded credentials** — secrets always come from env vars; never commit `.env` files or literal key values
 - **Object-level authorization** — when fetching a resource by PK, always confirm the requesting user has access to that specific object (IDOR prevention)
+- **Consume-once tokens are consumed at the gate, under a lock** — a single-use invite or token must be claimed atomically (`select_for_update()` or a conditional `UPDATE ... WHERE used_at IS NULL` checked by row count) at the point of validation, not validated at one step and redeemed best-effort at a later one; the gap between the two lets concurrent requests both pass
+- **Tests for consume-once paths run concurrently** — assert that two simultaneous redemptions of one token yield exactly one success; follow the threaded-test convention below (`connections.close_all()`)
 - **Frontend: no `dangerouslySetInnerHTML`** unless the content is sanitized server-side and the reason is documented inline
 
 These apply to all new code and to any existing code touched in a change. CI (`bandit`, `eslint-plugin-security`) enforces a subset of these automatically, but do not rely on CI as the first line of defense.
