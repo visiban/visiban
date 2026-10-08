@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 # so operators can detect and address overly deep trees.
 _GROUP_TRAVERSAL_MAX_DEPTH = 6
 
+#: ``select_related`` path that loads ``group`` and every ancestor the capped
+#: ancestor walks (``_require_group_admin``, ``Group.ancestors``) can touch, in
+#: one JOINed query instead of one lazy query per level (#1510).
+GROUP_PARENT_CHAIN = "group" + "__parent" * _GROUP_TRAVERSAL_MAX_DEPTH
+
 
 def get_accessible_group_ids(user):
     """
@@ -351,7 +356,9 @@ class GroupInviteLink(models.Model):
         do their own ``select_for_update`` lookup.
         """
         try:
-            return cls.objects.select_related("created_by", "group").get(
+            return cls.objects.select_related(
+                "created_by", GROUP_PARENT_CHAIN,
+            ).get(
                 token_hash=cls._hash_token(raw_token), is_active=True,
             )
         except cls.DoesNotExist:
