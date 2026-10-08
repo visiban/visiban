@@ -640,9 +640,9 @@ A JSON import also caps its child collections (#1507). The caps sit well above w
 | `movements` per card | 2,000 |
 | `activities` per card | 5,000 |
 | Distinct usernames referenced (`assignee`, movement `moved_by`, activity `actor`) | 1,000 |
-| Card child rows across the whole file (see below) | 50,000 |
+| Rows written by the whole import (see below) | 50,000 |
 
-The whole-file limit counts the rows the import would write, including the ones the importer adds itself, whatever the import options: each comment, movement, and activity counts once; each checklist item twice (the item and its "checklist item added" entry); each label name on a card once (the label link); and every card adds 2 (its "label added" and "weight changed" entries).
+The whole-import limit is an upper bound on every row the import inserts, counted from the file before anything is written and regardless of the import options, so no import writes more than 50,000 rows. It counts 3 for the board itself (the board, your membership, and its `board.created` event); one per column, swimlane, label, and custom field definition; one per swimlane custom field value; and, for each card, 1 for the card, 1 for its MR/PR link, one per custom field value, one per comment, movement, activity, and label name, two per checklist item (the item and its "checklist item added" entry), and 2 for the "label added" and "weight changed" entries the importer may add.
 
 **Malformed values in a JSON file** return `400 Bad Request` naming the item and key, and nothing is created. Since 1.2 (#1507) this covers:
 
@@ -654,7 +654,7 @@ The whole-file limit counts the rows the import would write, including the ones 
 - Dates and timestamps (`due_date`, `archived_at`, and comment, movement, and activity timestamps) must be strings that name a real date or time; a number such as `20200101`, or an impossible value such as `2024-02-30` or `T25:00:00`, is rejected.
 - A file that cannot be parsed, including one with an integer literal of more than 4,300 digits or nesting too deep to parse, returns `{"detail": "The uploaded file is not valid JSON."}`.
 
-Error messages quote at most a short, truncated part of any value from the file. A value that passes these checks but still cannot be stored returns `400` with `{"detail": "The import file contains a value that cannot be stored."}`. Every file the exporter produces imports unchanged.
+Error messages quote at most a short, truncated part of any value from the file. A value that passes these checks but still cannot be stored returns `400` with `{"detail": "The import file contains a value that cannot be stored."}`. Every file the exporter produces imports unchanged as long as it is within the caps above; a board too large for them must be split before it can be re-imported.
 
 **Request** (`multipart/form-data`)
 

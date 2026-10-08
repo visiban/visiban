@@ -447,32 +447,61 @@ class JsonImportValueValidationTests(TestCase):
         board = self.assert_201(_payload(cards=[_card(comments=[{"body": "x"}] * cap)]))
         self.assertEqual(CardComment.objects.filter(card__board=board).count(), cap)
 
-    TOTAL_ROWS_DETAIL = (
-        "Import would create more than {} comments, checklist items, "
-        "label links, movements and activities in total."
-    )
+    TOTAL_ROWS_DETAIL = "Import would write more than {} rows in total."
 
-    def test_total_child_rows_cap(self):
-        # Card 0: 2 comments + 2 generated = 4; card 1: 2 comments + 2 = 4.
-        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 7):
-            cards = [_card(comments=[{}, {}]), _card(comments=[{}, {}])]
-            self.assert_400(_payload(cards=cards), self.TOTAL_ROWS_DETAIL.format(7))
-        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 8):
+    def test_total_rows_cap(self):
+        # Board-level: board + membership + event (3) + 1 column + 1 swimlane = 5.
+        # Each card: itself (1) + 2 comments + 2 generated activities = 5.
+        cards = [_card(comments=[{}, {}]), _card(comments=[{}, {}])]
+        with mock.patch.object(import_export, "_IMPORT_MAX_ROWS", 14):
+            self.assert_400(_payload(cards=cards), self.TOTAL_ROWS_DETAIL.format(14))
+        with mock.patch.object(import_export, "_IMPORT_MAX_ROWS", 15):
             self.assert_201(_payload(cards=cards))
 
-    def test_total_child_rows_counts_generated_rows(self):
-        # Each checklist item also writes an "item added" activity, and each
-        # label reference a label link: 3 checklist (6) + 2 refs + 2 = 10.
+    def test_total_rows_counts_generated_rows(self):
+        # Board-level 5 + 2 labels = 7. Card: 1 + 3 checklist items, each with
+        # an "item added" activity (6) + 2 label links + 2 = 11. Total 18.
         card = _card(checklist=[{"text": "a"}] * 3, labels=["l", "m"])
         data = _payload(cards=[card], labels=[{"name": "l"}, {"name": "m"}])
-        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 9):
-            self.assert_400(data, self.TOTAL_ROWS_DETAIL.format(9))
-        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 10):
+        with mock.patch.object(import_export, "_IMPORT_MAX_ROWS", 17):
+            self.assert_400(data, self.TOTAL_ROWS_DETAIL.format(17))
+        with mock.patch.object(import_export, "_IMPORT_MAX_ROWS", 18):
             self.assert_201(data)
+
+    def test_total_rows_counts_custom_values_and_external_ref(self):
+        # Board-level 5 + 1 card field def + 1 swimlane field def + 1 swimlane
+        # value = 8. Card: 1 + external ref + 1 field value + 2 = 5. Total 13.
+        data = _payload(
+            cards=[_card(
+                external_ref={"provider": "gitlab", "ref": "!1", "url": "https://gitlab.com/a/b/-/merge_requests/1"},
+                custom_field_values={"f": "x"},
+            )],
+            swimlanes=[{"name": "s", "custom_field_values": {"g": "y"}}],
+            custom_fields=[{"name": "f", "field_type": "text"}],
+            swimlane_custom_fields=[{"name": "g", "field_type": "text"}],
+        )
+        with mock.patch.object(import_export, "_IMPORT_MAX_ROWS", 12):
+            self.assert_400(data, self.TOTAL_ROWS_DETAIL.format(12))
+        with mock.patch.object(import_export, "_IMPORT_MAX_ROWS", 13):
+            self.assert_201(data)
+
+    def test_options_error_echo_is_bounded(self):
+        resp = self._post(_payload(), options={"k" * 100_000: True})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(resp.json()["detail"].startswith("Invalid 'options':"))
+        self.assertLess(len(resp.content), 400)
+
+    def test_shift_leaves_absent_due_date_change_values_absent(self):
+        # A due_date_change entry without from_value/to_value imports without
+        # the shift; the shift must not write None into it and refuse the file.
+        act = {"event_type": "due_date_change", "created_at": "2026-03-01T00:00:00Z"}
+        data = _payload(cards=[_card(activities=[act])])
+        self.assert_201(data)
+        self.assert_201(data, options={"shift_dates_from": "2026-03-15"})
 
     def test_documented_ceiling_values(self):
         # docs/api/boards.md lists these numbers; keep them in step.
-        self.assertEqual(import_export._IMPORT_MAX_CHILD_ROWS, 50_000)
+        self.assertEqual(import_export._IMPORT_MAX_ROWS, 50_000)
         self.assertEqual(import_export._IMPORT_MAX_LABELS, 1000)
         self.assertEqual(import_export._IMPORT_MAX_USERNAMES, 1000)
 

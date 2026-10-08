@@ -266,7 +266,9 @@ def _parse_import_options(raw, serializer_class):
         return None, "'options' must be a JSON object."
     ser = serializer_class(data=data)
     if not ser.is_valid():
-        return None, f"Invalid 'options': {_flatten_serializer_errors(ser.errors)}"
+        # An unknown key is echoed back; bound it like every other echo (#1507).
+        message = _bounded_text(_flatten_serializer_errors(ser.errors), _IMPORT_SERIALIZER_ECHO_MAX)
+        return None, f"Invalid 'options': {message}"
     return dict(ser.validated_data), None
 
 
@@ -462,11 +464,11 @@ _IMPORT_MAX_CHILDREN_PER_CARD = {
     "movements": 2000,
     "activities": 5000,
 }
-# Bound on the card-child rows one import writes, so 500 cards each just
-# under their per-card caps are still refused. It counts the rows the
-# importer generates as well as the file's own (see _card_child_rows), so it
-# is the real ceiling, not an estimate.
-_IMPORT_MAX_CHILD_ROWS = 50_000
+# Bound on every row one import writes, so 500 cards each just under their
+# per-card caps are still refused. _board_rows + _card_rows count each row
+# the import can insert, the importer-generated ones included, as an upper
+# bound for every option combination; no import writes more than this.
+_IMPORT_MAX_ROWS = 50_000
 # Distinct usernames (assignee, moved_by, actor) resolved in one query.
 _IMPORT_MAX_USERNAMES = 1000
 # Rows per UPDATE in the timestamp backfills: one unbatched bulk_update builds
@@ -661,7 +663,7 @@ def _validate_json_import_values(data):
     }
     username_len = _field_max_length(get_user_model(), "username")
     usernames = set()
-    total_children = 0
+    total_rows = _board_rows(data)
     for ci, card in enumerate(data.get("cards", [])):
         where = f"Card at index {ci}"
         if error := _check_keys(card, card_specs, where):
@@ -676,12 +678,9 @@ def _validate_json_import_values(data):
             for ji, entry in enumerate(items):
                 if error := _check_keys(entry, specs, f"{where}, {child_label} at index {ji}"):
                     return error
-        total_children += _card_child_rows(card)
-        if total_children > _IMPORT_MAX_CHILD_ROWS:
-            return (
-                f"Import would create more than {_IMPORT_MAX_CHILD_ROWS} comments, checklist items, "
-                "label links, movements and activities in total."
-            )
+        total_rows += _card_rows(card)
+        if total_rows > _IMPORT_MAX_ROWS:
+            return f"Import would write more than {_IMPORT_MAX_ROWS} rows in total."
         # Usernames feed one ``IN`` query; bound how many and how long.
         for key, value in _card_usernames(card):
             if len(value) > username_len:
@@ -692,17 +691,46 @@ def _validate_json_import_values(data):
     return None
 
 
-def _card_child_rows(card):
-    """Upper bound on the child rows the importer writes for one card.
+def _value_rows(values, max_fields):
+    # A custom-field value map writes at most one row per defined field.
+    return min(len(values), max_fields) if isinstance(values, dict) else 0
 
-    The file's comments, checklist items, movements and activities, plus what
-    the importer generates itself: an "item added" activity per checklist
-    item, a label link per label reference, and one label-change and one
-    weight-change activity. Counted regardless of import options, so the
-    ceiling holds for every option combination.
+
+def _board_rows(data):
+    """Upper bound on the rows an import writes outside its cards.
+
+    The board, the importer's membership and the persisted ``board.created``
+    event; every column, swimlane and label; the custom field definitions;
+    and the swimlane custom field values.
     """
     return (
-        len(card.get("comments", []))
+        3
+        + len(data.get("columns", []))
+        + len(data.get("swimlanes", []))
+        + len(data.get("labels", []))
+        + _list_len(data.get("custom_fields"))
+        + _list_len(data.get("swimlane_custom_fields"))
+        + sum(
+            _value_rows(sw.get("custom_field_values"), SwimlaneCustomFieldDefinition.MAX_PER_BOARD)
+            for sw in data.get("swimlanes", [])
+        )
+    )
+
+
+def _card_rows(card):
+    """Upper bound on the rows the importer writes for one card.
+
+    The card; its comments, checklist items, movements and activities;
+    its MR/PR link and custom field values; plus what the importer
+    generates itself: an "item added" activity per checklist item, a label
+    link per label reference, and one label-change and one weight-change
+    activity. Counted regardless of import options.
+    """
+    return (
+        1
+        + (1 if isinstance(card.get("external_ref"), dict) else 0)
+        + _value_rows(card.get("custom_field_values"), CustomFieldDefinition.MAX_PER_BOARD)
+        + len(card.get("comments", []))
         + 2 * len(card.get("checklist", []))
         + len(card.get("movements", []))
         + len(card.get("activities", []))

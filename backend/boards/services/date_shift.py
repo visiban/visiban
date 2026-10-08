@@ -90,6 +90,9 @@ def shift_board_dates(data, days):
                 if isinstance(item, dict) and item.get(key):
                     item[key] = _shift_datetime(item[key], delta)
                 if child == "activities" and isinstance(item, dict) and item.get("event_type") == "due_date_change":
+                    # Only keys the file set: writing None for an absent one
+                    # would turn an importable file into a 400 (#1507).
                     for value_key in ("from_value", "to_value"):
-                        item[value_key] = _shift_date(item.get(value_key), delta)
+                        if value_key in item:
+                            item[value_key] = _shift_date(item[value_key], delta)
     return data

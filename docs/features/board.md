@@ -568,7 +568,9 @@ Everything is included by default ("Importing: everything"), so an import where 
     | Swimlanes | 100 |
     | File size | 10 MB |
 
-    Boards exported from Visiban stay well within these limits in normal use. If you are migrating from an external tool and your board exceeds a limit, split it into smaller boards before importing.
+    A JSON import also limits labels, comments, checklist items, movements, and activity entries per card, the number of distinct usernames, and the total number of rows the import writes (50,000). See the [import limits in the API reference](../api/boards.md#post-apiv1boardsimport) for every cap.
+
+    Most boards exported from Visiban fit within these limits, but a very large or long-lived board can exceed one, and its export is then refused like any other file. If your board exceeds a limit, whether it comes from Visiban or an external tool, split it into smaller boards before importing.
 
 !!! note "JSON vs CSV import fidelity"
     JSON imports restore movement history, activity log, and assignees (matched by username). CSV imports create cards with their current field values only, including the **Assignee** column (matched by username, case-insensitively) — no history or activity log is restored. A blank Assignee, or a username that does not exist on this instance, imports the card unassigned. The user does not need to be a member of the source board; any user on the instance matches, including deactivated accounts, as with JSON.
