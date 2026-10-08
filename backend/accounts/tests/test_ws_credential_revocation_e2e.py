@@ -38,7 +38,7 @@ from groups.broadcast import broadcast_group_event
 from groups.models import Group, GroupMembership
 
 PASSWORD = "Original-long-passphrase-1483"
-NEW_PASSWORD = "Rotated-long-passphrase-1483"
+NEW_PASSWORD = "Rotated-long-passphrase-1483"  # gitleaks:allow -- test-only fixture password, not a credential
 SECRET = "Confidential-title-1483"
 WS_TICKET_URL = "/api/v1/auth/ws-ticket/"
 LOGOUT_URL = "/api/v1/auth/logout/"
