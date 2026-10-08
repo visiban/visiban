@@ -5,7 +5,7 @@ Visiban uses WebSockets (Django Channels + Valkey) to push board changes to all 
 ## How it works
 
 1. When a user opens a board, the frontend opens a WebSocket connection to `ws://{host}/ws/boards/{board_id}/`
-2. The browser SPA authenticates with the session cookie; unauthenticated connections are closed with code `4001`, and connections from a non-member are closed with `4003`
+2. The browser SPA authenticates with the session cookie; unauthenticated connections are closed with code `4001`, connections from a non-member are closed with `4003`, and so are connections from an account with a pending password or username change (the same account-state checks apply to REST, MCP, and WebSocket connections)
 3. Any mutation — card, column, swimlane, label, member, or board setting change — broadcasts an event to all clients subscribed to that board's channel group
 4. The frontend applies the event to local state, keeping all open tabs in sync without a page refresh
 
@@ -125,7 +125,7 @@ In addition to the per-board channel, Visiban exposes a per-group WebSocket chan
 
 **Connection URL:** `ws://{host}/ws/groups/{group_id}/`
 
-**Authentication:** same as the board channel — session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership are closed with code `4003`. No retry is attempted for either code.
+**Authentication:** same as the board channel — session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code.
 
 **What it streams:** board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations. Each payload follows the standard `{"event": "...", "data": {...}}` envelope. The group channel does not emit card-level events — those remain on the per-board channel.
 

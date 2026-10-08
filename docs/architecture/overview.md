@@ -60,7 +60,7 @@ How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking
 
 1. Frontend opens `ws://{host}/ws/boards/{board_id}/` on page load
 2. `AuthMiddlewareStack` authenticates the connection via the session cookie; unauthenticated connections are closed with code 4001. A caller with no session cookie — a PAT/DRF-token client, a different origin, or a native/CLI client — instead requests a short-lived, single-use **ticket** over REST first and passes it as `?ticket=` on the upgrade (`accounts.ws_auth.TicketAuthMiddleware`, #1109); the ticket only authenticates the connection, it grants no extra authorization
-3. On connect, the consumer joins the `board_{id}` channel group and separately checks board membership, closing with code 4003 for a non-member regardless of how the connection was authenticated
+3. On connect, the consumer joins the `board_{id}` channel group and separately checks board membership, closing with code 4003 for a non-member (or an account with a pending password or username change) regardless of how the connection was authenticated
 4. Any mutation (card move, update, delete) calls `broadcast_board_event()` which publishes to Valkey
 5. Valkey fans the event out to all consumers in the group
 6. Each consumer forwards the event to its WebSocket client

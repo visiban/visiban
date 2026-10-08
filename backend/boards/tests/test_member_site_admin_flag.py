@@ -188,7 +188,7 @@ class ConsumerFlagTests(SimpleTestCase):
         consumer.close = AsyncMock()
         consumer.scope = {
             "url_route": {"kwargs": {"board_id": 1}},
-            "user": MagicMock(is_authenticated=True, id=subscriber_id),
+            "user": MagicMock(is_authenticated=True, id=subscriber_id, must_change_password=False, must_change_username=False),
         }
         consumer._role = role
         # Self-subject frames re-resolve the role from the DB (#1332); this is
