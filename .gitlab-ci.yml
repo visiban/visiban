@@ -39,7 +39,7 @@ include:
 #
 #   secret_detection   blocking (any finding)            — override below
 #   gitleaks-scan      blocking (any finding)            — full working tree
-#   secret_detection_history  blocking, main only        — full git history
+#   gitleaks-history   blocking, main only               — full git history
 #   semgrep-sast       blocking at High/Critical only    — override + sast-severity-gate
 #   backend-sast       blocking (bandit, medium+)
 #   frontend-sast      blocking (eslint 'error' rules)
@@ -56,22 +56,9 @@ include:
 secret_detection:
   allow_failure: false
 
-# The component's job only inspects the MR diff (GIT_DEPTH 50) on MR pipelines.
-# This sibling job walks the entire git history of the default branch so a
-# secret that was committed and later "removed" (and is therefore still
-# retrievable from the public mirrors) is still found. Main only: a full-history
-# scan on every MR would be slow and re-report the same findings forever.
-# extends: secret_detection inherits image/script/artifacts from the component.
-secret_detection_history:
-  extends: secret_detection
-  stage: security
-  needs: []
-  variables:
-    SECRET_DETECTION_HISTORIC_SCAN: "true"
-    GIT_DEPTH: "0"
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "merge_request_event"'
-  allow_failure: false
+# The component's job only inspects the MR diff (GIT_DEPTH 50). Full-history
+# coverage is gitleaks-history below (the component analyzer ignores
+# .gitleaks.toml, so it cannot share the repo's reviewed allowlist).
 
 semgrep-sast:
   allow_failure: false
@@ -86,10 +73,16 @@ sast-severity-gate:
     - job: semgrep-sast
       artifacts: true
       optional: true
+  # Rules mirror the component's SAST_DISABLED switch: when semgrep-sast is not
+  # part of the pipeline there is nothing to gate, so skip. When it IS part of
+  # the pipeline, a missing report means the scan failed and the gate fails closed.
   rules:
+    - if: '$SAST_DISABLED == "true" || $SAST_DISABLED == "True" || $SAST_DISABLED == "1"'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
+    - python3 scripts/sast-severity-gate.py --self-test
     - python3 scripts/sast-severity-gate.py gl-sast-report.json .gitlab/sast-suppressions.json
   allow_failure: false
 
@@ -2882,6 +2875,30 @@ gitleaks-scan:
     - chmod +x /usr/local/bin/gitleaks
   script:
     - gitleaks dir . --config .gitleaks.toml --no-banner --redact --exit-code 1
+
+# gitleaks-history (#1071): the same pinned gitleaks and .gitleaks.toml as
+# gitleaks-scan, but `gitleaks git` walks every commit, not just the checkout.
+# A secret that was committed and later "removed" is still retrievable from the
+# public GitHub and enterprise mirrors, so main must prove its whole history is
+# clean. Main only: a full-history scan on every MR is slow and would re-report
+# the same findings forever. GIT_DEPTH 0 because GitLab's default shallow clone
+# would hide everything older than the fetch depth.
+gitleaks-history:
+  stage: security
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.20
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "merge_request_event"'
+  before_script:
+    - apk add --no-cache wget git
+    - wget -q -O /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+    - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+    - chmod +x /usr/local/bin/gitleaks
+  script:
+    - gitleaks git . --config .gitleaks.toml --no-banner --redact --exit-code 1
+  allow_failure: false
 
 # ─── Nightly SonarCloud scan (#1369, part of the #1368 quality epic) ─────────
 #
