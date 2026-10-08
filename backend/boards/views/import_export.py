@@ -15,6 +15,7 @@ import reprlib
 import traceback
 
 from django.conf import settings as django_settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import Prefetch
@@ -450,8 +451,10 @@ _IMPORT_INT_MAX = 2**31 - 1
 # Child-collection caps. Real exports sit far below these (the shipped sample
 # boards top out at 8 labels and, per card, 3 comments, 10 movements, 21
 # activities, 5 checklist items and 2 label refs); they exist so one 10 MB
-# file cannot force millions of rows into a single transaction.
-_IMPORT_MAX_LABELS = 200
+# file cannot force millions of rows into a single transaction. Labels have
+# no model-level cap, so this one is set far above any usable board: a
+# board's own export must not be refused in practice.
+_IMPORT_MAX_LABELS = 1000
 _IMPORT_MAX_LABEL_REFS_PER_CARD = _IMPORT_MAX_LABELS
 _IMPORT_MAX_CHILDREN_PER_CARD = {
     "comments": 1000,
@@ -459,9 +462,16 @@ _IMPORT_MAX_CHILDREN_PER_CARD = {
     "movements": 2000,
     "activities": 5000,
 }
-# Bound on all comments + checklist items + movements + activities in one
-# file, so 500 cards each just under their per-card caps are still refused.
-_IMPORT_MAX_CHILD_ROWS = 200_000
+# Bound on the card-child rows one import writes, so 500 cards each just
+# under their per-card caps are still refused. It counts the rows the
+# importer generates as well as the file's own (see _card_child_rows), so it
+# is the real ceiling, not an estimate.
+_IMPORT_MAX_CHILD_ROWS = 50_000
+# Distinct usernames (assignee, moved_by, actor) resolved in one query.
+_IMPORT_MAX_USERNAMES = 1000
+# Rows per UPDATE in the timestamp backfills: one unbatched bulk_update builds
+# a single CASE with an arm per row, which PostgreSQL evaluates in O(n^2).
+_IMPORT_BACKFILL_BATCH = 500
 # How much of an attacker-supplied value an error message may echo back.
 _IMPORT_ECHO_MAX = 60
 _IMPORT_DUPES_SHOWN = 5
@@ -649,6 +659,8 @@ def _validate_json_import_values(data):
         )),
         "activities": ("activity", (("from_value", _text()), ("to_value", _text()))),
     }
+    username_len = _field_max_length(get_user_model(), "username")
+    usernames = set()
     total_children = 0
     for ci, card in enumerate(data.get("cards", [])):
         where = f"Card at index {ci}"
@@ -661,22 +673,61 @@ def _validate_json_import_values(data):
             cap = _IMPORT_MAX_CHILDREN_PER_CARD[child]
             if len(items) > cap:
                 return f"{where}: '{child}' has {len(items)} entries; the limit is {cap}"
-            total_children += len(items)
             for ji, entry in enumerate(items):
                 if error := _check_keys(entry, specs, f"{where}, {child_label} at index {ji}"):
                     return error
+        total_children += _card_child_rows(card)
         if total_children > _IMPORT_MAX_CHILD_ROWS:
             return (
-                f"Import contains more than {_IMPORT_MAX_CHILD_ROWS} comments, checklist items, "
-                "movements and activities in total."
+                f"Import would create more than {_IMPORT_MAX_CHILD_ROWS} comments, checklist items, "
+                "label links, movements and activities in total."
             )
+        # Usernames feed one ``IN`` query; bound how many and how long.
+        for key, value in _card_usernames(card):
+            if len(value) > username_len:
+                return f"{where}: '{key}' must be at most {username_len} characters"
+            usernames.add(value)
+        if len(usernames) > _IMPORT_MAX_USERNAMES:
+            return f"Import references more than {_IMPORT_MAX_USERNAMES} distinct usernames."
     return None
+
+
+def _card_child_rows(card):
+    """Upper bound on the child rows the importer writes for one card.
+
+    The file's comments, checklist items, movements and activities, plus what
+    the importer generates itself: an "item added" activity per checklist
+    item, a label link per label reference, and one label-change and one
+    weight-change activity. Counted regardless of import options, so the
+    ceiling holds for every option combination.
+    """
+    return (
+        len(card.get("comments", []))
+        + 2 * len(card.get("checklist", []))
+        + len(card.get("movements", []))
+        + len(card.get("activities", []))
+        + len(card.get("labels", []))
+        + 2
+    )
+
+
+def _card_usernames(card):
+    """``(key, username)`` for every truthy username string a card references."""
+    if isinstance(card.get("assignee"), str) and card["assignee"]:
+        yield "assignee", card["assignee"]
+    for child, key in (("movements", "moved_by"), ("activities", "actor")):
+        for entry in card.get(child, []):
+            value = entry.get(key)
+            if isinstance(value, str) and value:
+                yield key, value
 
 
 # What the write block's guard converts to a 400. Database- and value-shaped
 # only; see the comment above the JSON import helpers for why TypeError,
-# KeyError and AttributeError are not here.
-_IMPORT_WRITE_ERRORS = (DataError, IntegrityError, DjangoValidationError, ValueError)
+# KeyError and AttributeError are not here. ValueError is a trade-off: it is
+# how psycopg reports a NUL byte, but it means a genuine importer ValueError
+# also surfaces as a 400 with a warning log rather than a 5xx.
+_IMPORT_WRITE_ERRORS = (DataError, IntegrityError, DjangoValidationError, ValueError, OverflowError)
 
 
 @contextlib.contextmanager
@@ -706,8 +757,17 @@ def _timestamp_error(value, parser):
 
     A number such as ``20200101`` used to pass ``parser(str(value))`` and then
     reach a Date/DateTimeField as an int (#1507), so the type is checked first.
+    Django's parsers raise ValueError for well-formed but impossible values
+    ("2024-02-30", "T25:00:00") rather than returning None (#1461).
     """
-    return bool(value) and (not isinstance(value, str) or parser(value) is None)
+    if not value:
+        return False
+    if not isinstance(value, str):
+        return True
+    try:
+        return parser(value) is None
+    except (ValueError, OverflowError):
+        return True
 
 
 def _resolve_import_users(usernames, importer, group=None):
@@ -837,8 +897,12 @@ class BoardImportExportMixin:
         try:
             raw = file.read().decode("utf-8")
             data = json.loads(raw)
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            logger.warning("Board JSON import rejected — malformed payload: %s", exc)
+        # JSONDecodeError is a ValueError, and so is the "too many digits"
+        # refusal of a huge integer literal; deep nesting raises
+        # RecursionError (#1507). Only the type is logged: the message can
+        # quote the file.
+        except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+            logger.warning("Board JSON import rejected — malformed payload: %s", type(exc).__name__)
             return Response({"detail": "The uploaded file is not valid JSON."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not isinstance(data, dict):
@@ -1469,7 +1533,7 @@ class BoardImportExportMixin:
                     for obj, ts in backfill:
                         obj.created_at = ts
                     CardComment.objects.bulk_update(
-                        [obj for obj, _ in backfill], ["created_at"]
+                        [obj for obj, _ in backfill], ["created_at"], batch_size=_IMPORT_BACKFILL_BATCH,
                     )
 
             # Movements with optional moved_at backfill.
@@ -1483,7 +1547,7 @@ class BoardImportExportMixin:
                     for obj, ts in backfill:
                         obj.moved_at = ts
                     CardMovement.objects.bulk_update(
-                        [obj for obj, _ in backfill], ["moved_at"]
+                        [obj for obj, _ in backfill], ["moved_at"], batch_size=_IMPORT_BACKFILL_BATCH,
                     )
 
             # Imported activities with optional created_at backfill.
@@ -1497,7 +1561,7 @@ class BoardImportExportMixin:
                     for obj, ts in backfill:
                         obj.created_at = ts
                     CardActivity.objects.bulk_update(
-                        [obj for obj, _ in backfill], ["created_at"]
+                        [obj for obj, _ in backfill], ["created_at"], batch_size=_IMPORT_BACKFILL_BATCH,
                     )
 
             # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /

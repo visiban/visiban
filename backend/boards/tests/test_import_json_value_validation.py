@@ -14,6 +14,7 @@ tests assert the same 400 under SQLite.
 import io
 import json
 import logging
+import sys
 from unittest import mock
 
 from django.core.cache import cache
@@ -327,6 +328,84 @@ class JsonImportValueValidationTests(TestCase):
                     f"Card at index 0, {label} at index 0: invalid '{key}': 20200101",
                 )
 
+    # -- impossible dates and the file parse (#1461) ---------------------------
+
+    def test_impossible_card_dates(self):
+        for value in ("2024-02-30", "2024-13-01"):
+            with self.subTest(value=value):
+                self.assert_400(
+                    _payload(cards=[_card(due_date=value)]),
+                    f"Card at index 0: invalid due_date: '{value}'",
+                )
+        for value in ("2024-13-45T00:00:00Z", "2024-01-01T25:00:00"):
+            with self.subTest(value=value):
+                self.assert_400(
+                    _payload(cards=[_card(archived_at=value)]),
+                    f"Card at index 0: invalid timestamp for 'archived_at': '{value}'",
+                )
+
+    def test_impossible_child_timestamps(self):
+        for child, label, key in (
+            ("comments", "comment", "created_at"),
+            ("movements", "movement", "moved_at"),
+            ("activities", "activity", "created_at"),
+        ):
+            for value in ("2024-13-45T00:00:00Z", "2024-01-01T25:00:00"):
+                with self.subTest(child=child, value=value):
+                    entry = {"event_type": "title_change", key: value}
+                    self.assert_400(
+                        _payload(cards=[_card(**{child: [entry]})]),
+                        f"Card at index 0, {label} at index 0: invalid '{key}': '{value}'",
+                    )
+
+    def test_impossible_dates_with_shift_option(self):
+        # The shift leaves an impossible value untouched; it must still be a 400.
+        self.assert_400(
+            _payload(cards=[_card(due_date="2024-02-30")]),
+            "Card at index 0: invalid due_date: '2024-02-30'",
+            options={"shift_dates_from": "2026-03-15"},
+        )
+
+    def test_non_list_comments(self):
+        # #1461's other half, fixed by #1451; asserted here so both halves are covered.
+        for child in ("comments", "movements", "activities", "checklist"):
+            with self.subTest(child=child):
+                self.assert_400(_payload(cards=[_card(**{child: 5})]), f"Card at index 0: '{child}' must be a list")
+
+    def _post_raw(self, raw):
+        cache.clear()
+        f = io.BytesIO(raw)
+        f.name = "board.json"
+        return self.client.post(IMPORT_URL, {"file": f}, format="multipart")
+
+    def test_huge_integer_literal(self):
+        # json.loads refuses > 4300 digits with a plain ValueError.
+        with self.assertLogs("boards.views.import_export", logging.WARNING) as logs:
+            resp = self._post_raw(b'{"name": ' + b"9" * 5000 + b"}")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.json(), {"detail": "The uploaded file is not valid JSON."})
+        self.assertNotIn("9999", "\n".join(logs.output))
+
+    def test_deeply_nested_json(self):
+        # The C decoder's limit sits well above sys.getrecursionlimit() (3.12
+        # still parses 1,100 levels), so go far past both; ~200 KB of input.
+        depth = max(100_000, sys.getrecursionlimit() * 100)
+        resp = self._post_raw(b"[" * depth + b"]" * depth)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.json(), {"detail": "The uploaded file is not valid JSON."})
+
+    def test_timestamp_backfills_are_batched(self):
+        cards = [_card(
+            comments=[{"body": "x", "created_at": "2026-01-01T00:00:00Z"}],
+            movements=[{"moved_at": "2026-01-01T00:00:00Z"}],
+            activities=[{"event_type": "title_change", "created_at": "2026-01-01T00:00:00Z"}],
+        )]
+        for model in (CardComment, CardMovement, CardActivity):
+            with self.subTest(model=model.__name__):
+                with mock.patch.object(model.objects, "bulk_update", wraps=model.objects.bulk_update) as spy:
+                    self.assert_201(_payload(cards=cards))
+                self.assertEqual(spy.call_args.kwargs["batch_size"], import_export._IMPORT_BACKFILL_BATCH)
+
     # -- shift_dates_from with an unhashable custom field name ----------------
 
     def test_shift_dates_with_unhashable_custom_field_name(self):
@@ -368,13 +447,61 @@ class JsonImportValueValidationTests(TestCase):
         board = self.assert_201(_payload(cards=[_card(comments=[{"body": "x"}] * cap)]))
         self.assertEqual(CardComment.objects.filter(card__board=board).count(), cap)
 
+    TOTAL_ROWS_DETAIL = (
+        "Import would create more than {} comments, checklist items, "
+        "label links, movements and activities in total."
+    )
+
     def test_total_child_rows_cap(self):
-        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 3):
-            cards = [_card(comments=[{}, {}]), _card(checklist=[{}, {}])]
-            self.assert_400(
-                _payload(cards=cards),
-                "Import contains more than 3 comments, checklist items, movements and activities in total.",
-            )
+        # Card 0: 2 comments + 2 generated = 4; card 1: 2 comments + 2 = 4.
+        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 7):
+            cards = [_card(comments=[{}, {}]), _card(comments=[{}, {}])]
+            self.assert_400(_payload(cards=cards), self.TOTAL_ROWS_DETAIL.format(7))
+        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 8):
+            self.assert_201(_payload(cards=cards))
+
+    def test_total_child_rows_counts_generated_rows(self):
+        # Each checklist item also writes an "item added" activity, and each
+        # label reference a label link: 3 checklist (6) + 2 refs + 2 = 10.
+        card = _card(checklist=[{"text": "a"}] * 3, labels=["l", "m"])
+        data = _payload(cards=[card], labels=[{"name": "l"}, {"name": "m"}])
+        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 9):
+            self.assert_400(data, self.TOTAL_ROWS_DETAIL.format(9))
+        with mock.patch.object(import_export, "_IMPORT_MAX_CHILD_ROWS", 10):
+            self.assert_201(data)
+
+    def test_documented_ceiling_values(self):
+        # docs/api/boards.md lists these numbers; keep them in step.
+        self.assertEqual(import_export._IMPORT_MAX_CHILD_ROWS, 50_000)
+        self.assertEqual(import_export._IMPORT_MAX_LABELS, 1000)
+        self.assertEqual(import_export._IMPORT_MAX_USERNAMES, 1000)
+
+    # -- usernames ---------------------------------------------------------------
+
+    def test_distinct_username_cap(self):
+        cap = import_export._IMPORT_MAX_USERNAMES
+        movements = [{"moved_by": f"u{i}"} for i in range(cap + 1)]
+        self.assert_400(
+            _payload(cards=[_card(movements=movements)]),
+            f"Import references more than {cap} distinct usernames.",
+        )
+
+    def test_repeated_usernames_count_once(self):
+        cap = import_export._IMPORT_MAX_USERNAMES
+        movements = [{"moved_by": "same"}] * (cap + 1)
+        self.assert_201(_payload(cards=[_card(movements=movements)]))
+
+    def test_over_length_username(self):
+        limit = User._meta.get_field("username").max_length
+        for key, card in (
+            ("assignee", _card(assignee="u" * (limit + 1))),
+            ("moved_by", _card(movements=[{"moved_by": "u" * (limit + 1)}])),
+            ("actor", _card(activities=[{"actor": "u" * (limit + 1)}])),
+        ):
+            with self.subTest(key=key):
+                self.assert_400(
+                    _payload(cards=[card]), f"Card at index 0: '{key}' must be at most {limit} characters",
+                )
 
     # -- bounded echoes and the O(n^2) duplicate check ------------------------
 
@@ -391,11 +518,6 @@ class JsonImportValueValidationTests(TestCase):
         self.assertLess(len(resp.json()["detail"]), 200)
 
     def test_duplicate_label_names_are_listed_bounded(self):
-        labels = [{"name": f"label-{i}"} for i in range(150)] * 2
-        resp = self._post(_payload(labels=labels))
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        detail = resp.json()["detail"]
-        self.assertTrue(detail.startswith("Import contains 300 labels"))
         labels = [{"name": f"label-{i}"} for i in range(10)] * 2
         self.assert_400(
             _payload(labels=labels),
