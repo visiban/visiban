@@ -3844,6 +3844,12 @@ whole row instead of only the surface in the diff.</p>
 read this page. For any diff that touches a listed rule, they verify every
 surface in that rule's table and report a surface that does not enforce the rule
 as a finding.</p>
+<p>The <code>threat-model</code> skill (<code>.claude/skills/threat-model/SKILL.md</code>) is the
+architecture-stage counterpart: it runs before <code>architect</code> on a feature that adds
+an auth path, an authorization boundary change, external data ingress, an
+OSS-to-enterprise extension point or an anonymous read surface, and walks this
+registry's rows as part of its method. It reasons about design; the agents above
+audit code.</p>
 <h2 id="how-to-read-a-rule">How to read a rule<a class="headerlink" href="#how-to-read-a-rule" title="Permanent link">&para;</a></h2>
 <p>Each rule has a statement, the reason it exists, and a table:</p>
 <table>
