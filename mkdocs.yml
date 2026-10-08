@@ -153,4 +153,5 @@ nav:
     - Known CI Failures: maintainers/known-ci-failures.md
     - Hosted Demo: maintainers/demo-deploy.md
     - SonarCloud Runbook: maintainers/sonarcloud.md
+    - Deferred Security Follow-ups: maintainers/security-deferred-label.md
   - Changelog: changelog.md
