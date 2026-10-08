@@ -5860,11 +5860,11 @@ caller below <code>admin</code> — the same role gate this export already appli
 </tr>
 <tr>
 <td><code>export_format</code></td>
-<td><code>"csv"</code> or <code>"json"</code> for board exports; <code>"movements_&lt;format&gt;"</code> (lowercased, at most 20 characters) for movement history exports.</td>
+<td><code>"csv"</code> or <code>"json"</code> for board exports; <code>"movements_&lt;format&gt;"</code> (lowercased, at most 20 characters) for movement history exports. The web UI renders <code>movements_&lt;format&gt;</code> as "Movements (<FORMAT>)".</td>
 </tr>
 <tr>
 <td><code>row_count</code></td>
-<td>Number of cards included in the export.</td>
+<td>Number of rows exported: cards for a board export, movements for a movement-history export (<code>movements_&lt;format&gt;</code>).</td>
 </tr>
 <tr>
 <td><code>created_at</code></td>
