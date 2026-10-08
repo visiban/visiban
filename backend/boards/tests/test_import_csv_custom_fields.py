@@ -18,11 +18,13 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from boards.models import (
     Board,
+    BoardMembership,
     CustomFieldDefinition,
     CustomFieldValue,
     SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
+from groups.models import Group
 from boards.views.import_export import BoardExportThrottle, BoardImportThrottle
 
 _URL = "/api/v1/boards/import/"
@@ -363,6 +365,64 @@ class CsvCustomFieldImportTests(TestCase):
         self.assertEqual(self._lane_values(board, "East"), {})
         self.assertEqual(len(resp.data["import_summary"]["warnings"]), 1)
         self.assertIn("East", resp.data["import_summary"]["warnings"][0])
+
+    def test_nul_byte_cells_are_dropped_with_a_warning(self, *_):
+        resp, board = self._ok(
+            _csv(
+                ["Custom: Note", "Custom: Ok", "Swimlane Custom: Owner", "Swimlane Custom: Tier"],
+                ["A", "To Do", "East", "bad\x00value", "fine", "bad\x00lane", "Gold"],
+            )
+        )
+        self.assertEqual(self._card_values(board), {"Ok": "fine"})
+        self.assertEqual(self._lane_values(board, "East"), {"Tier": "Gold"})
+        warnings = resp.data["import_summary"]["warnings"]
+        self.assertEqual(len(warnings), 2)
+        self.assertTrue(all("NUL" in w for w in warnings))
+
+    def test_unauthenticated_import_is_rejected_and_creates_nothing(self, *_):
+        client = APIClient()
+        before = Board.objects.count()
+        content = _csv(
+            ["Custom: Note", "Swimlane Custom: Owner"],
+            ["A", "To Do", "East", "x", "y"],
+        )
+        resp = client.post(_URL, {"file": _csv_file(content)}, format="multipart")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(Board.objects.count(), before)
+        self.assertFalse(CustomFieldDefinition.objects.exists())
+
+    def test_non_member_group_id_is_forbidden_and_creates_nothing(self, *_):
+        owner = User.objects.create_user(username="gowner", password="pass")
+        group = Group.objects.create(name="G", owner=owner)
+        content = _csv(
+            ["Custom: Note", "Swimlane Custom: Owner"],
+            ["A", "To Do", "East", "x", "y"],
+        )
+        resp = self.client.post(
+            _URL,
+            {"file": _csv_file(content), "group_id": str(group.pk)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Board.objects.exists())
+        self.assertFalse(CustomFieldDefinition.objects.exists())
+        self.assertFalse(SwimlaneCustomFieldDefinition.objects.exists())
+
+    def test_importer_is_admin_and_definitions_belong_to_the_new_board(self, *_):
+        _, board = self._ok(
+            _csv(
+                ["Custom: Note", "Swimlane Custom: Owner"],
+                ["A", "To Do", "East", "x", "y"],
+            )
+        )
+        membership = BoardMembership.objects.get(board=board, user=self.user)
+        self.assertEqual(membership.role, BoardMembership.Role.ADMIN)
+        card_defs = CustomFieldDefinition.objects.all()
+        lane_defs = SwimlaneCustomFieldDefinition.objects.all()
+        self.assertEqual({d.board_id for d in card_defs}, {board.pk})
+        self.assertEqual({d.board_id for d in lane_defs}, {board.pk})
+        self.assertEqual(card_defs.count(), 1)
+        self.assertEqual(lane_defs.count(), 1)
 
     def test_empty_field_name_column_is_skipped_with_a_warning(self, *_):
         resp, board = self._ok(

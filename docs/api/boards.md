@@ -770,8 +770,8 @@ export writes, so card and swimlane field values survive a CSV round trip.
   importer takes the first non-empty cell per lane and field; a later, different value is
   ignored and reported once as a warning. Swimlane values import whatever the `cards`
   option says; card values follow it.
-- **Blank cells** create no value. A value longer than 500 characters, or one an extension
-  validator refuses, is dropped with a warning and the import proceeds.
+- **Blank cells** create no value. A value longer than 500 characters, one containing a NUL
+  (`\x00`) byte, or one an extension validator refuses, is dropped with a warning and the import proceeds.
 
 The response gains `import_summary.warnings`, a list of strings (always present on a CSV
 import, `[]` when nothing was dropped). It holds at most 20 entries followed by one

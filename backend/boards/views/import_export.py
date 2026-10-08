@@ -421,11 +421,19 @@ def _swimlane_values_from_rows(rows, lane_cols):
 def _csv_cell_value(definition, cell, hook_name, where, warnings):
     """Normalize one custom-field CSV cell; ``None`` when it is empty or dropped.
 
-    A dropped (over-length or refused) value adds a warning naming *where*.
+    A dropped (NUL-bearing, over-length or refused) value adds a warning naming
+    *where*. A NUL byte is dropped because PostgreSQL text columns reject it,
+    which would otherwise 500 the whole import (and roll it back).
     Cells are stored exactly as exported (#1449): no un-escaping, since the
     export's formula sanitizing is irreversible.
     """
     if not cell:
+        return None
+    if "\x00" in cell:
+        warnings.append(
+            f"{where} field {_bounded_text(definition.name)!r}: value dropped "
+            "(contains a NUL byte)."
+        )
         return None
     if len(cell) > CustomFieldDefinition.MAX_VALUE_LENGTH:
         warnings.append(
