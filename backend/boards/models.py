@@ -564,6 +564,12 @@ class CardMovement(models.Model):
     (e.g. exclude_type=archived,unarchived) and focus on workflow transitions.
     """
 
+    # Mutation testing (#1503): the no-mutate pragmas below mark a schema
+    # constant (max_length, blank, db_index, related_name, index definition)
+    # that no behavioral test can observe and that CI `migration-check` already
+    # guards. The pragma is per physical line, so each field is split so that
+    # the constants sit on their own lines and the behavioral arguments
+    # (default, on_delete, null, choices) stay mutated and tested.
     class MovementType(models.TextChoices):
         MOVE = "move", "Move"
         ARCHIVED = "archived", "Archived"
@@ -571,35 +577,85 @@ class CardMovement(models.Model):
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="movements")
     from_column = models.ForeignKey(
-        Column, on_delete=models.SET_NULL, null=True, related_name="+"
+        Column,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
     )
     to_column = models.ForeignKey(
-        Column, on_delete=models.SET_NULL, null=True, related_name="+"
+        Column,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
     )
     from_swimlane = models.ForeignKey(
-        Swimlane, on_delete=models.SET_NULL, null=True, related_name="+"
+        Swimlane,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
     )
     to_swimlane = models.ForeignKey(
-        Swimlane, on_delete=models.SET_NULL, null=True, related_name="+"
+        Swimlane,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
     )
-    from_column_name = models.CharField(max_length=255, blank=True, default="")
-    to_column_name = models.CharField(max_length=255, blank=True, default="")
-    from_swimlane_name = models.CharField(max_length=255, blank=True, default="")
-    to_swimlane_name = models.CharField(max_length=255, blank=True, default="")
+    from_column_name = models.CharField(
+        max_length=255,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    to_column_name = models.CharField(
+        max_length=255,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    from_swimlane_name = models.CharField(
+        max_length=255,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    to_swimlane_name = models.CharField(
+        max_length=255,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
     # Stable UIDs captured at write time — parallel to the *_name fields above.
     # Rows where the FK was already NULL at migration time cannot be backfilled
     # and remain ""; this is intentional and consistent with the _name fields.
-    from_column_uid = models.CharField(max_length=16, blank=True, default="")
-    to_column_uid = models.CharField(max_length=16, blank=True, default="")
-    from_swimlane_uid = models.CharField(max_length=16, blank=True, default="")
-    to_swimlane_uid = models.CharField(max_length=16, blank=True, default="")
+    from_column_uid = models.CharField(
+        max_length=16,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    to_column_uid = models.CharField(
+        max_length=16,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    from_swimlane_uid = models.CharField(
+        max_length=16,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    to_swimlane_uid = models.CharField(
+        max_length=16,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
     moved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
     )
-    moved_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    notes = models.CharField(max_length=500, blank=True)
+    moved_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
+    notes = models.CharField(
+        max_length=500,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
     movement_type = models.CharField(
-        max_length=20,
+        max_length=20,  # pragma: no mutate -- schema constant (migration-check)
         choices=MovementType.choices,
         default=MovementType.MOVE,
     )
@@ -611,7 +667,10 @@ class CardMovement(models.Model):
             # Speeds up per-card movement history queries (card detail timeline,
             # analytics dwell-time calculations) by covering the card FK and the
             # default descending moved_at ordering in a single B-tree scan.
-            models.Index(fields=["card", "-moved_at"], name="movement_card_moved_idx"),
+            models.Index(
+                fields=["card", "-moved_at"],  # pragma: no mutate -- schema constant (migration-check)
+                name="movement_card_moved_idx",  # pragma: no mutate -- schema constant (migration-check)
+            ),
         ]
 
 

@@ -13,16 +13,30 @@ Usage::
 
     python scripts/check_mutation_score.py --export-cache backend/.mutmut-cache OUT.json
     python scripts/check_mutation_score.py STATS.json [STATS2.json ...] [--expect-shards N] [--write-merged OUT.json]
+    python scripts/check_mutation_score.py --check-pragmas backend
     python scripts/check_mutation_score.py --self-test
 
-The score is ``(killed + timeout) / (killed + timeout + survived + suspicious)``.
+The **adjusted** score (the one ``MUTATION_MIN`` gates, #1503) is
+``(killed + timeout) / (killed + timeout + survived + suspicious)``.
 ``skipped`` mutants (another shard's lines) and ``untested`` ones are excluded.
+
+Proven-equivalent mutants are excluded in source with
+``# pragma: no mutate -- <reason>``. mutmut never *generates* a mutant on such a
+line, so the cache cannot say how many there were and a score computed from it
+alone would silently shrink its own denominator. ``--export-cache`` therefore
+also counts them (``excluded``) by asking mutmut to enumerate each source file
+once as written and once with its pragmas ignored. The **raw** score keeps them
+in the denominator as not detected:
+``(killed + timeout) / (killed + timeout + survived + suspicious + excluded)``.
+Both are always printed, so an exclusion stays visible. A pragma with no
+reason is rejected by ``--check-pragmas``.
 
 Exit codes (same contract as TruePPM, #3216):
 
 ====  =============================================================
 0     measured and at or above the floor, or no floor requested
-1     measured and BELOW the floor
+1     measured and BELOW the floor, or ``--check-pragmas`` found a
+      ``# pragma: no mutate`` without a valid reason
 2     could not be measured: stats file missing/unparseable/not an
       object, fewer or more shard files than ``--expect-shards``,
       shards that are not one consistent run (unequal ``total``, or
@@ -52,6 +66,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -73,8 +88,122 @@ STATUS_KEYS = {
 }
 
 
-def export_cache(cache: Path) -> dict[str, int]:
-    """Count mutants per verdict from a mutmut 2.x ``.mutmut-cache`` file."""
+# The reason follows `--`. Long enough that "x" or "n/a" cannot pass as one.
+MIN_REASON_CHARS = 10
+
+
+def find_pragma_problems(source: str) -> list[tuple[int, str]]:
+    """Return ``(line_number, problem)`` for every ``# pragma: no mutate`` that is not acceptable.
+
+    mutmut itself accepts a bare pragma, so the reason rule lives here (#1503): an
+    exclusion nobody explained is indistinguishable from a survivor someone
+    wanted to hide. A reason that blames SQLite must also say a PostgreSQL test
+    could kill the mutant, because "SQLite cannot observe it" is a gap in the
+    test setup, not a property of the code. (A mutant a PostgreSQL test is
+    already planned or filed for is not excluded at all; that is a review
+    rule the linter cannot see.)
+    """
+    problems: list[tuple[int, str]] = []
+    lines = source.splitlines()
+    # find_pragma_lines is mutmut 2.5.1's own rule, verbatim: `# pragma:` and then `no mutate`
+    # anywhere after it. So `# pragma: no cover, no mutate` excludes mutants too and must
+    # not slip past the reason check.
+    for number in find_pragma_lines(source):
+        tail = lines[number - 1].partition("# pragma:")[-1]
+        rest = tail.partition("no mutate")[-1].strip()
+        reason = rest[2:].strip() if rest.startswith("--") else ""
+        if len(reason) < MIN_REASON_CHARS:
+            problems.append((number, "needs a reason: `# pragma: no mutate -- <why no test can kill this>`"))
+        elif re.search(r"sqlite", reason, re.IGNORECASE) and not re.search(r"postgres", reason, re.IGNORECASE):
+            problems.append((number, "a SQLite-only claim must also say a PostgreSQL test could kill it"))
+    return problems
+
+
+def _py_files(paths: list[Path]) -> list[Path]:
+    """Expand files and directories to the ``*.py`` files under them, skipping vendored trees."""
+    skip = {".venv", "venv", "node_modules", "__pycache__", ".git", "site-packages"}
+    found: list[Path] = []
+    for root in paths:
+        if root.is_file():
+            found.append(root)
+            continue
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = sorted(d for d in dirnames if d not in skip)
+            found.extend(Path(dirpath) / f for f in sorted(filenames) if f.endswith(".py"))
+    return found
+
+
+def check_pragmas(paths: list[Path]) -> list[str]:
+    """Return one message per unacceptable pragma under ``paths``."""
+    messages: list[str] = []
+    for path in _py_files(paths):
+        try:
+            text = path.read_text("utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if "no mutate" not in text:
+            continue
+        messages += [f"{path}:{n}: {why}" for n, why in find_pragma_problems(text)]
+    return messages
+
+
+class PragmaCountError(RuntimeError):
+    """The pragma-excluded mutant count cannot be trusted."""
+
+
+def find_pragma_lines(source: str) -> list[int]:
+    """Line numbers mutmut 2.5.1 treats as ``no mutate`` (its own rule, verbatim)."""
+    return [n for n, line in enumerate(source.splitlines(), start=1)
+            if "# pragma:" in line and "no mutate" in line.partition("# pragma:")[-1]]
+
+
+def count_mutants(source: str, filename: str, ignore_pragmas: bool) -> int:
+    """Count the mutants mutmut 2.x generates for ``source``, with or without honoring pragmas.
+
+    mutmut skips a line carrying ``# pragma: no mutate`` before generating anything,
+    so the only way to know how many mutants a pragma removed is to enumerate with
+    that skip turned off. Only the pragma set differs between the two calls.
+    """
+    from mutmut import ALL, Context, list_mutations  # imported here: only the mutation job has mutmut
+
+    context = Context(source=source, filename=filename, mutation_id=ALL)
+    if ignore_pragmas:
+        context._pragma_no_mutate_lines = set()  # mutmut 2.5.1 internals; pinned in the job
+    return len(list_mutations(context))
+
+
+def count_excluded(cache: Path, counter=count_mutants) -> int:
+    """Number of mutants removed by ``# pragma: no mutate`` across the cache's source files."""
+    con = sqlite3.connect(cache.as_uri() + "?mode=ro", uri=True)
+    try:
+        names = [r[0] for r in con.execute('SELECT filename FROM "SourceFile"').fetchall()]
+    except sqlite3.OperationalError:
+        return 0  # a cache with no SourceFile table has no mutated files to scan
+    finally:
+        con.close()
+    excluded = 0
+    for name in names:
+        # mutmut stores the path as given to --paths-to-mutate, relative to the run directory.
+        path = resolve_within(cli_roots(), cache.parent / name)
+        source = path.read_text("utf-8")
+        if "no mutate" not in source:
+            continue
+        diff = counter(source, str(path), True) - counter(source, str(path), False)
+        if diff == 0 and any(find_pragma_lines(source)):
+            # The pragma-honoring switch is mutmut 2.5.1 internals; if it silently stopped working
+            # (or every pragma sits on a line with no mutants) `excluded: 0` would be a false number.
+            raise PragmaCountError(f"{path} has `# pragma: no mutate` lines but mutmut generates the same "
+                                   "number of mutants with and without them; refusing to report excluded=0.")
+        excluded += diff
+    return excluded
+
+
+def export_cache(cache: Path, counter=count_mutants) -> dict[str, int]:
+    """Count mutants per verdict from a mutmut 2.x ``.mutmut-cache`` file.
+
+    ``excluded`` is the number of proven-equivalent mutants (``# pragma: no mutate``)
+    that are not in the cache at all, module-wide like ``total``.
+    """
     # The resolved path, not the raw argument, is what reaches the sink (#1377).
     cache = resolve_within(cli_roots(), cache)
     if not cache.exists():
@@ -90,6 +219,8 @@ def export_cache(cache: Path) -> dict[str, int]:
     for status, count in rows:
         stats[STATUS_KEYS.get(status, "other")] = stats.get(STATUS_KEYS.get(status, "other"), 0) + count
     stats["total"] = sum(stats.values())
+    # Counted after `total`: excluded mutants are not in the cache, so they must not be in `total`.
+    stats["excluded"] = count_excluded(cache, counter)
     return stats
 
 
@@ -97,6 +228,16 @@ def compute_score(stats: dict[str, int]) -> float | None:
     """Return the score in [0, 1], or None when nothing was scoreable."""
     detected = stats.get("killed", 0) + stats.get("timeout", 0)
     considered = detected + stats.get("survived", 0) + stats.get("suspicious", 0)
+    if considered == 0:
+        return None
+    return detected / considered
+
+
+def compute_raw_score(stats: dict[str, int]) -> float | None:
+    """Like ``compute_score`` but with proven-equivalent (pragma-excluded) mutants counted as not detected."""
+    detected = stats.get("killed", 0) + stats.get("timeout", 0)
+    considered = (detected + stats.get("survived", 0) + stats.get("suspicious", 0)
+                  + stats.get("excluded", 0))
     if considered == 0:
         return None
     return detected / considered
@@ -111,9 +252,14 @@ def _format_summary(stats: dict[str, int], score: float | None) -> str:
         ("suspicious", "  (counted as not detected)"),
         ("untested", "  (run did not finish)"),
         ("skipped", "  (other shards' lines, excluded)"),
+        ("excluded", "  (# pragma: no mutate, proven equivalent; never generated)"),
     ):
         lines.append(f"  {key + ':':<12}{stats.get(key, 0)}{note}")
-    lines.append("  score:      " + ("n/a (no scoreable mutants)" if score is None else f"{score:.1%}"))
+    raw = compute_raw_score(stats)
+    lines.append("  adjusted:   " + ("n/a (no scoreable mutants)" if score is None else f"{score:.1%}")
+                 + "  (gated by MUTATION_MIN)")
+    lines.append("  raw:        " + ("n/a (no scoreable mutants)" if raw is None else f"{raw:.1%}")
+                 + "  (excluded mutants counted as not detected)")
     return "\n".join(lines)
 
 
@@ -156,7 +302,11 @@ def _check_shard_consistency(shards: list[dict[str, int]], expect_shards: int | 
         return (f"the shards disagree on the module's mutant count (totals {totals}); "
                 "they did not all mutate the same source.")
     total = totals[0]
-    covered = sum(v for s in shards for k, v in s.items() if k not in ("skipped", "total"))
+    excluded = [s.get("excluded", 0) for s in shards]
+    if len(set(excluded)) != 1:
+        return (f"the shards disagree on the module's excluded-mutant count ({excluded}); "
+                "they did not all read the same source.")
+    covered = sum(v for s in shards for k, v in s.items() if k not in ("skipped", "total", "excluded"))
     if covered != total:
         return (f"the shards' non-skipped mutants add up to {covered}, not the module's {total}; "
                 "some lines were mutated by two shards or by none.")
@@ -164,12 +314,14 @@ def _check_shard_consistency(shards: list[dict[str, int]], expect_shards: int | 
 
 
 def _merge(shards: list[dict[str, int]]) -> dict[str, int | str | list[int]]:
-    """Sum the per-verdict counts. ``total`` is the module's count, never N x total."""
+    """Sum the per-verdict counts. ``total`` and ``excluded`` are the module's counts, never N x."""
     merged: dict[str, int | str | list[int]] = {}
     for shard in shards:
         for key, value in shard.items():
-            if key != "total":
+            if key not in ("total", "excluded"):
                 merged[key] = int(merged.get(key, 0)) + value
+    if shards:
+        merged["excluded"] = max(s.get("excluded", 0) for s in shards)
     totals = sorted({s["total"] for s in shards if "total" in s})
     if len(totals) == 1:
         merged["total"] = totals[0]
@@ -282,6 +434,17 @@ def _self_test() -> int:
             [shard(killed=6, skipped=4, total=10), shard(killed=5, skipped=5, total=10)], None, 2),
         "consistent shards": (
             [shard(killed=4, skipped=6, total=10), shard(killed=6, skipped=4, total=10)], None, 0),
+        # #1503: the floor gates the ADJUSTED score. 80/100 adjusted is 80/110 = 72.7% raw; a
+        # floor of 0.8 passes only because the 10 proven-equivalent mutants are excluded.
+        "floor applies to the adjusted score": ([shard(killed=80, survived=20, excluded=10)], "0.8", 0),
+        "adjusted below the floor still fails": ([shard(killed=79, survived=21, excluded=10)], "0.8", 1),
+        "excluded alone is not scoreable": ([shard(excluded=5)], None, 2),
+        "shards disagree on excluded": (
+            [shard(killed=4, skipped=6, total=10, excluded=2), shard(killed=6, skipped=4, total=10, excluded=3)],
+            None, 2),
+        "shards agreeing on excluded": (
+            [shard(killed=4, skipped=6, total=10, excluded=2), shard(killed=6, skipped=4, total=10, excluded=2)],
+            None, 0),
     }
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -347,6 +510,140 @@ def _self_test() -> int:
         check("--write-merged still writes when a shard is missing",
               code == 2 and merged is not None and "not_measured" in merged and merged.get("killed") == 30,
               f"exit {code}, wrote {merged}")
+
+        # Raw vs adjusted (#1503): excluded mutants are in the raw denominator only.
+        check("adjusted score ignores excluded", compute_score({"killed": 80, "survived": 20, "excluded": 10}) == 0.8)
+        raw = compute_raw_score({"killed": 80, "survived": 20, "excluded": 10})
+        check("raw score counts excluded as not detected", raw is not None and abs(raw - 80 / 110) < 1e-9, f"{raw}")
+        check("raw equals adjusted with nothing excluded",
+              compute_raw_score({"killed": 3, "survived": 1}) == compute_score({"killed": 3, "survived": 1}))
+        check("raw of an empty run is None", compute_raw_score({"skipped": 4}) is None)
+        summary = _format_summary({"killed": 80, "survived": 20, "excluded": 10}, 0.8)
+        check("summary prints both numbers",
+              "adjusted:   80.0%" in summary and "raw:        72.7%" in summary, summary)
+        out = root / "both.json"
+        code = _run_real_script([write("both_in.json", shard(killed=80, survived=20, excluded=10))], None,
+                                extra=["--write-merged", str(out)])
+        both = json.loads(out.read_text("utf-8"))
+        check("--write-merged carries both scores and the excluded count",
+              code == 0 and both.get("excluded") == 10 and both.get("score_adjusted") == 0.8
+              and abs(both.get("score_raw", 0) - 80 / 110) < 1e-9, f"exit {code}, wrote {both}")
+        code, merged = merged_run([write("e0.json", shard(killed=2, skipped=4, total=6, excluded=3)),
+                                   write("e1.json", shard(killed=4, skipped=2, total=6, excluded=3))])
+        check("--write-merged: excluded is the module's count, not N x",
+              code == 0 and merged is not None and merged.get("excluded") == 3 and merged.get("total") == 6,
+              f"exit {code}, wrote {merged}")
+
+        # The pragma reason rule.
+        good_reason = "x = 1  # pragma: no mutate -- schema constant, guarded by migration-check\n"
+        for name, text, want in (
+            ("pragma with a reason", good_reason, 0),
+            ("pragma without a reason", "x = 1  # pragma: no mutate\n", 1),
+            ("pragma with an empty reason", "x = 1  # pragma: no mutate --\n", 1),
+            ("pragma with a too-short reason", "x = 1  # pragma: no mutate -- n/a\n", 1),
+            ("pragma with a reason not after --", "x = 1  # pragma: no mutate because it is fine\n", 1),
+            ("SQLite-only reason", "x = 1  # pragma: no mutate -- lock is not observable on SQLite\n", 1),
+            ("SQLite reason naming PostgreSQL",
+             "x = 1  # pragma: no mutate -- lock not observable on SQLite; a PostgreSQL test could kill it\n", 0),
+            ("no pragma at all", "x = 1\n", 0),
+            ("an unrelated pragma", "x = 1  # pragma: no cover\n", 0),
+            ("combined pragma without a reason", "x = 1  # pragma: no cover, no mutate\n", 1),
+            ("combined pragma with a reason",
+             "x = 1  # pragma: no cover, no mutate -- schema constant (migration-check)\n", 0),
+            ("no mutate before the pragma marker", "x = 1  # no mutate # pragma: other\n", 0),
+        ):
+            found = find_pragma_problems(text)
+            check(f"find_pragma_problems: {name}", bool(found) == bool(want), f"returned {found}")
+        pdir = root / "pragmas"
+        pdir.mkdir()
+        (pdir / "ok.py").write_text(good_reason, "utf-8")
+        check("--check-pragmas passes a clean tree", _run_real_script([], None, extra=["--check-pragmas", str(pdir)]) == 0)
+        (pdir / "bad.py").write_text("a = 1\nb = 2  # pragma: no mutate\n", "utf-8")
+        code, err = _run_real_script_full([], None, extra=["--check-pragmas", str(pdir)])
+        check("--check-pragmas fails on a bare pragma and names file:line",
+              code == 1 and "bad.py:2" in err, f"exit {code}, stderr {err!r}")
+        code, err = _run_real_script_full([], None, extra=["--check-pragmas", str(root / "no-such-dir")])
+        check("--check-pragmas on a missing path is exit 2, not a pass", code == 2 and "NOT MEASURED" in err,
+              f"exit {code}, stderr {err!r}")
+        empty = root / "emptydir"
+        empty.mkdir()
+        check("--check-pragmas on a tree with no .py files is exit 2",
+              _run_real_script([], None, extra=["--check-pragmas", str(empty)]) == 2)
+        skipped_dir = pdir / ".venv"
+        skipped_dir.mkdir()
+        (skipped_dir / "vendored.py").write_text("b = 2  # pragma: no mutate\n", "utf-8")
+        (pdir / "bad.py").unlink()
+        check("--check-pragmas skips .venv", _run_real_script([], None, extra=["--check-pragmas", str(pdir)]) == 0)
+
+        # count_excluded with a stand-in counter (mutmut is only installed in the mutation job): the
+        # difference between "ignore pragmas" and "honor pragmas" is the number of excluded mutants.
+        src_dir = root / "srcdir"
+        src_dir.mkdir()
+        (src_dir / "mod.py").write_text("a = 1  # pragma: no mutate -- schema constant, migration-check\nb = 2\n", "utf-8")
+        (src_dir / "plain.py").write_text("c = 3\n", "utf-8")
+        ccache = src_dir / ".mutmut-cache"
+        con = sqlite3.connect(ccache)
+        con.execute('CREATE TABLE "SourceFile" (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, hash TEXT NOT NULL)')
+        con.execute('CREATE TABLE "Mutant" (id INTEGER PRIMARY KEY, status TEXT NOT NULL)')
+        con.executemany('INSERT INTO "SourceFile" (filename, hash) VALUES (?, ?)', [("mod.py", "h"), ("plain.py", "h")])
+        con.execute('INSERT INTO "Mutant" (status) VALUES (?)', ("ok_killed",))
+        con.commit()
+        con.close()
+        calls: list[tuple[str, bool]] = []
+
+        def fake_counter(source: str, filename: str, ignore_pragmas: bool) -> int:
+            calls.append((Path(filename).name, ignore_pragmas))
+            return source.count("=") * (3 if ignore_pragmas and "no mutate" in source else 2)
+
+        got_stats = export_cache(ccache, fake_counter)
+        check("export_cache counts excluded as the with/without-pragma difference",
+              got_stats.get("excluded") == 2 and got_stats.get("killed") == 1
+              and got_stats.get("total") == 1, f"returned {got_stats}")
+        try:
+            export_cache(ccache, lambda source, filename, ignore_pragmas: 5)  # same count either way
+            noop_caught = False
+        except PragmaCountError:
+            noop_caught = True
+        check("export_cache refuses excluded=0 when a pragma file yields equal mutant counts", noop_caught)
+        check("export_cache never scans a source file with no pragma",
+              ("plain.py", True) not in calls, f"calls {calls}")
+        bare = root / "bare-cache"
+        con = sqlite3.connect(bare)
+        con.execute('CREATE TABLE "Mutant" (id INTEGER PRIMARY KEY, status TEXT NOT NULL)')
+        con.commit()
+        con.close()
+        check("a cache with no SourceFile table has nothing excluded",
+              export_cache(bare, fake_counter).get("excluded") == 0)
+        try:
+            from mutmut import ALL as _unused  # noqa: F401
+            have_mutmut = True
+        except ImportError:
+            have_mutmut = False
+        if have_mutmut:
+            # The real mutmut behavior the policy depends on (#1503): a pragma is per physical line and
+            # removes the mutants on that line only, from generation, not just from the verdicts.
+            sample = ("def a(x):\n    return x + 1  # pragma: no mutate -- test line\n\n"
+                      "def b(x):\n    return x + 2\n\nD = dict(\n    max_length=10,\n    db_index=True,\n)\n")
+            honored = count_mutants(sample, "sample.py", False)
+            ignored = count_mutants(sample, "sample.py", True)
+            check("mutmut: a pragma removes the mutants on its own line", ignored - honored == 2,
+                  f"honored {honored}, ignored {ignored}")
+            # The linter must flag exactly what mutmut honors, including the combined form.
+            for form in ("# pragma: no mutate", "# pragma: no cover, no mutate", "# pragma: no mutate -- why not here",
+                         "# pragma:no mutate", "#pragma: no mutate", "# no mutate"):
+                line = f"def a(x):\n    return x + 1  {form}\n"
+                mutmut_honors = count_mutants(line, "t.py", True) > count_mutants(line, "t.py", False)
+                seen = "no mutate" in (form.partition("# pragma:")[-1] if "# pragma:" in form else "")
+                check(f"linter and mutmut agree on `{form}`", mutmut_honors == seen,
+                      f"mutmut honors {mutmut_honors}, linter sees {seen}")
+            multiline = sample.replace("    max_length=10,\n", "    max_length=10,  # pragma: no mutate -- test\n")
+            check("mutmut: a pragma does not cover the other lines of a call",
+                  count_mutants(multiline, "sample.py", False) < honored
+                  and count_mutants(multiline, "sample.py", False) > honored - 4,
+                  f"{count_mutants(multiline, 'sample.py', False)} vs {honored}")
+        else:
+            print("SELF-TEST NOTE: mutmut is not installed here; the real-mutmut pragma checks were skipped.",
+                  file=sys.stderr)
 
         # export_cache against a real SQLite file in mutmut 2.x's schema.
         cache = root / ".mutmut-cache"
@@ -445,11 +742,35 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--write-merged", type=Path, metavar="OUT",
                         help="also write the summed stats JSON to OUT, with a `not_measured` reason "
                              "when the run cannot be judged")
+    parser.add_argument("--check-pragmas", nargs="+", type=Path, metavar="PATH",
+                        help="exit 1 if any `# pragma: no mutate` under these files/directories has no "
+                             "`-- <reason>` (or a SQLite-only reason that omits PostgreSQL), then exit")
     parser.add_argument("--self-test", action="store_true", help="prove the checker can still fail, then exit")
     args = parser.parse_args(argv)
 
     if args.self_test:
         return _self_test()
+
+    if args.check_pragmas:
+        try:
+            roots = [resolve_within(cli_roots(), p) for p in args.check_pragmas]
+        except PathEscapeError as exc:
+            print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
+        missing = [str(r) for r in roots if not r.exists()]
+        if missing or not _py_files(roots):
+            print(f"NOT MEASURED: --check-pragmas found {'no such path: ' + ', '.join(missing) if missing else 'no .py files'} "
+                  "to scan; an empty scan must not read as a pass.", file=sys.stderr)
+            return 2
+        problems = check_pragmas(roots)
+        for problem in problems:
+            print(f"PRAGMA: {problem}", file=sys.stderr)
+        if problems:
+            print(f"FAIL: {len(problems)} `# pragma: no mutate` without an acceptable reason "
+                  "(see docs/development/mutation-testing.md, Equivalent mutants).", file=sys.stderr)
+            return 1
+        print("OK: every `# pragma: no mutate` carries a reason.")
+        return 0
 
     if args.export_cache:
         if len(args.stats_paths) != 1:
@@ -460,7 +781,14 @@ def main(argv: list[str] | None = None) -> int:
         except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
-        except (FileNotFoundError, sqlite3.Error) as exc:
+        except PragmaCountError as exc:
+            print(f"NOT MEASURED: {exc}", file=sys.stderr)
+            return 2
+        except ImportError as exc:
+            print(f"NOT MEASURED: cannot count pragma-excluded mutants, mutmut is not importable: {exc}",
+                  file=sys.stderr)
+            return 2
+        except (FileNotFoundError, sqlite3.Error, UnicodeDecodeError) as exc:
             print(f"NOT MEASURED: cannot read mutmut cache {args.export_cache}: {exc}", file=sys.stderr)
             return 2
         try:
@@ -512,6 +840,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
         out = dict(stats)
+        # Both numbers travel in the artifact so an exclusion stays visible to whoever reads it.
+        out["score_adjusted"] = score
+        out["score_raw"] = compute_raw_score(counts)
         if reason is not None:
             out["not_measured"] = reason
         merged_path.write_text(json.dumps(out, indent=2) + "\n", "utf-8")
@@ -520,11 +851,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if floor is None:
-        print("floor: MUTATION_MIN is unset - report-only, not gating. Set it from the observed "
+        print("floor: MUTATION_MIN is unset - report-only, not gating (it will gate the adjusted score). Set it from the observed "
               "nightly scores as a fraction one point under the low end (e.g. 0.95 for a 96% low), never to 0.")
         return 0
     if score < floor:
-        print(f"FAIL: score {score:.1%} is below the floor {floor:.1%}")
+        print(f"FAIL: adjusted score {score:.1%} is below the floor {floor:.1%}")
         return 1
     print(f"OK: score {score:.1%} meets the floor {floor:.1%}")
     return 0

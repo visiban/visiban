@@ -346,7 +346,10 @@ sonar-scan-selftest:
 # that job runs only on the Nightly schedule with MUTATION_TEST=true, so its
 # --self-test there would catch a broken checker a night late, and never while
 # the schedule lacks the variable. This runs the same self-test on MRs that
-# touch the script or the CI file (#1093 house rule), and on main.
+# touch the script or the CI file (#1093 house rule), and on main. It also runs
+# --check-pragmas over backend/ (#1503): a `# pragma: no mutate` with no
+# `-- <reason>` fails here, on the MR that adds it, not a night later. Hence the
+# backend/**/*.py path: only a backend source change can add a bare pragma.
 mutation-score-selftest:
   stage: lint
   needs: []
@@ -356,10 +359,12 @@ mutation-score-selftest:
         - scripts/check_mutation_score.py
         - scripts/_paths.py
         - .gitlab-ci.yml
+        - backend/**/*.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *mutation-score-selftest-paths
   script:
     - python3 scripts/check_mutation_score.py --self-test
+    - python3 scripts/check_mutation_score.py --check-pragmas backend
 
 # ─── Sonar exclusion-integrity guard (#1380) ─────────────────────────────────
 #
@@ -1122,6 +1127,9 @@ backend-mutation:
     - export MUTATION_SHARDS="$CI_NODE_TOTAL" MUTATION_SHARD="$((CI_NODE_INDEX - 1))"
     # `|| true`: a non-zero exit only means survivors exist. A run that died is
     # caught by the report job (untested mutants or no scoreable ones, exit 2).
+    # --self-test here (mutmut is installed) also runs the real-mutmut pragma cases that the
+    # lint-stage self-test skips (#1503); a mutmut bump that changes pragma behavior fails loudly.
+    - python ../scripts/check_mutation_score.py --self-test
     - mutmut run || true
     - mutmut results || true
     - python ../scripts/check_mutation_score.py --export-cache .mutmut-cache "mutmut-stats-${CI_NODE_INDEX}.json"
@@ -1135,7 +1143,9 @@ backend-mutation:
 # artifact the issue asks for. Report-only: with MUTATION_MIN unset it exits 0
 # on any score, but still exits 2 (yellow) if the run was not measured, so a
 # dead run is never a meaningless green. When the floor is set (a later MR, from
-# observed data) it gates here.
+# observed data) it gates here, on the ADJUSTED score (proven-equivalent mutants
+# marked `# pragma: no mutate -- <reason>` excluded, #1503); the raw score is
+# printed beside it so the exclusions stay visible.
 backend-mutation-report:
   stage: test
   needs:

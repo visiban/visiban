@@ -232,7 +232,7 @@ def get_board_role(user, board):
         for m in prefetched:
             if m.user_id == user.id:
                 explicit = m
-                break
+                break  # pragma: no mutate -- equivalent for any production input: a user has at most one membership per board
         # Not found in the prefetched list — no explicit per-board membership.
     elif not user.can_access_all_content and board.owner_id != user.id:
         # Only worth a query when the first two rungs cannot already decide it.
@@ -343,12 +343,26 @@ def _is_demo_visitor(role, user):
     cards, comments, attachments). Scoped to a plain MEMBER so it can never
     lift a collaborator or viewer.
     """
-    if getattr(settings, "DEMO_MODE", False) is not True:
+    demo_mode = getattr(
+        settings,
+        "DEMO_MODE",
+        False,  # pragma: no mutate -- equivalent for any production input: DEMO_MODE is always defined in settings, so the default is never read
+    )
+    if demo_mode is not True:
         return False
     published = (getattr(settings, "DEMO_LOGIN_USERNAME", "") or "").lower()
     if not published or role != BoardMembership.Role.MEMBER:
         return False
-    return (getattr(user, "username", "") or "").lower() == published
+    # The `or` sits on the closing line, outside any pragma, so its mutants stay
+    # tested; only the two never-read defaults are excluded.
+    username = getattr(
+        user,
+        "username",
+        "",  # pragma: no mutate -- equivalent for any production input: a real user always has a username, so the default is never read
+    ) or (
+        ""  # pragma: no mutate -- equivalent for any production input: a real user always has a non-empty username
+    )
+    return username.lower() == published
 
 
 def can_modify_others_content(board, role, user):
