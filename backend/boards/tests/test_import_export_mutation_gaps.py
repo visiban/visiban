@@ -1345,6 +1345,54 @@ class ImportCsvTests(ImportBase):
             "Row 3: invalid Due Date: 'soon'",
         )
 
+    def test_short_row_missing_required_field_is_400_not_500(self):
+        # DictReader fills missing trailing cells with None (#1496).
+        for field, text in (
+            ("Swimlane", "Title,Column,Swimlane\nA,To Do\n"),
+            ("Column", "Title,Column,Swimlane\nA\n"),
+        ):
+            with self.subTest(field=field):
+                self.assert_400(
+                    self.post_csv(text), f"Row 2 is missing required field: {field}"
+                )
+                self.assertEqual(Board.objects.count(), 0)
+                self.assertEqual(Card.objects.count(), 0)
+
+    def test_short_row_missing_optional_trailing_fields_uses_defaults(self):
+        resp = self.post_csv(
+            "Title,Column,Swimlane,Description,Priority,Weight,Due Date,Assignee,Labels\n"
+            "A,To Do,Lane\n"
+            "B,To Do,Lane,desc\n"
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        a, b = Card.objects.order_by("title")
+        self.assertEqual(
+            (a.description, a.priority, a.weight, a.due_date, a.assignee),
+            ("", "medium", 1, None, None),
+        )
+        self.assertEqual((b.description, b.priority, b.weight), ("desc", "medium", 1))
+        self.assertEqual(Label.objects.count(), 0)
+
+    def test_short_row_missing_trailing_due_date_cell(self):
+        # Due Date is the LAST column, so the short row's cell is None, which
+        # crashed on .strip() before #1496.
+        resp = self.post_csv("Title,Column,Swimlane,Due Date\nA,To Do,Lane\n")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertIsNone(Card.objects.get().due_date)
+
+    def test_short_row_then_invalid_due_date_still_400(self):
+        self.assert_400(
+            self.post_csv("Title,Column,Swimlane,Due Date\nok,A,B\nt,A,B,soon\n"),
+            "Row 3: invalid Due Date: 'soon'",
+        )
+        self.assertEqual(Board.objects.count(), 0)
+
+    def test_long_row_surplus_cells_are_ignored(self):
+        resp = self.post_csv("Title,Column,Swimlane\nA,To Do,Lane,extra,more\n")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        card = Card.objects.get()
+        self.assertEqual(card.title, "A")
+
     def test_header_aliases_are_normalized(self):
         resp = self.post_csv(
             "title , COLUMN,Swimlane,due_date,PRIORITY,weight,Labels,description\n"
