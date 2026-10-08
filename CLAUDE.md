@@ -24,6 +24,8 @@ When writing any backend code, apply these by default — no need to be asked:
 - **Tests for consume-once paths run concurrently** — assert that two simultaneous redemptions of one token yield exactly one success; follow the threaded-test convention below (`connections.close_all()`)
 - **Frontend: no `dangerouslySetInnerHTML`** unless the content is sanitized server-side and the reason is documented inline
 
+- **Security rules that span transports are listed in the registry** — before changing a rule in [`docs/development/security-invariants.md`](docs/development/security-invariants.md) (account-state gates, access revocation, consume-once tokens, import user scoping), check every surface in that rule's table, not just the one in the diff; add new rules there (see "How to add a rule")
+
 These apply to all new code and to any existing code touched in a change. CI (`bandit`, `eslint-plugin-security`) enforces a subset of these automatically, but do not rely on CI as the first line of defense.
 
 ---
