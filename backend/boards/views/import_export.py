@@ -2007,8 +2007,9 @@ class BoardImportExportMixin:
 
         # Validate required headers
         required_headers = {"Title", "Column", "Swimlane"}
-        if reader.fieldnames is None:
-            return Response({"detail": "CSV file has no headers."}, status=status.HTTP_400_BAD_REQUEST)
+        # ``rows`` is non-empty here, so DictReader has already read a header
+        # line and ``fieldnames`` is a list; an input with no header at all
+        # yields no rows and was rejected as empty above.
         headers = set(reader.fieldnames)
         missing = required_headers - headers
         if missing:
@@ -2217,10 +2218,10 @@ class BoardImportExportMixin:
             ) if options["cards"] else {}
             # ``cards`` off imports structure (and labels) only (#119).
             for row in (rows if options["cards"] else []):
-                column = column_map.get(_cell(row, "Column"))
-                swimlane = swimlane_map.get(_cell(row, "Swimlane"))
-                if not column or not swimlane:
-                    continue
+                # Every row's Column/Swimlane is non-empty (validated above) and
+                # every such name was created into these maps, so both lookups hit.
+                column = column_map[_cell(row, "Column")]
+                swimlane = swimlane_map[_cell(row, "Swimlane")]
 
                 priority = _cell(row, "Priority").lower() or "medium"
                 if priority not in [c[0] for c in Card.Priority.choices]:
@@ -2385,7 +2386,7 @@ class BoardImportExportMixin:
             SITE_ADMIN,
         ):
             return Response(
-                {"detail": "Board export requires board membership."},
+                {"detail": "Board export requires board membership."},  # pragma: no mutate -- fail-closed guard for a stored role outside the four member roles; get_board_for_user never returns one for a valid row, so no request reaches it, but a PostgreSQL or patched-role test could kill it
                 status=status.HTTP_403_FORBIDDEN,
             )
         # #843: enforce the per-board export threshold on top of the base
