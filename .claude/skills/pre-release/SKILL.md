@@ -200,15 +200,12 @@ for iid in $(jq -r '.[].iid' "$D"); do
   # candidate lines as "author|line" from the description and every non-system comment
   cand=$( { jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.author.username as $a|(.description // "")|gsub("\r";"")|split("\n")[]|select(startswith("Accepted risk:"))|"\($a)|\(.)"' "$D"
             printf '%s' "$notes" | jq -r '.[]|select(.system|not)|.author.username as $a|.body|gsub("\r";"")|split("\n")[]|select(startswith("Accepted risk:"))|"\($a)|\(.)"'; } )
-  verdict=$(printf '%s\n' "$cand" \
-    | grep -E '^[^|]+\|Accepted risk: accepted-by: @[A-Za-z0-9_.-]+; reason: [^;]*[^; ]; expires: [0-9]{4}-[0-9]{2}-[0-9]{2} *$' \
-    | sed -E 's/^([^|]+)\|.*accepted-by: (@[A-Za-z0-9_.-]+);.*expires: ([0-9-]{10}) *$/\1 \2 \3/' \
-    | awk -v t="$TODAY" -v cap="$CAP" '{ split($3,a,"-"); y=a[1]+0; m=a[2]+0; d=a[3]+0
-        dim=(m==2)?(((y%4==0&&y%100!=0)||y%400==0)?29:28):((m==4||m==6||m==9||m==11)?30:31)
-        if (m<1||m>12||d<1||d>dim||$3<t) next
-        if ($3>cap) { far=1; next }
-        if (!ok) { ok=1; line="ACCEPTED note-by=" $1 " accepted-by=" $2 " expires=" $3 } }
-        END{ print ok ? line : (far ? "BLOCKER (expiry too far out; max 1 year)" : "BLOCKER") }')
+  # The regex + calendar/expiry verdict lives in a self-tested script (#1521); it reads the
+  # "author|line" candidates on stdin and uses TODAY/CAP from the environment. Exit 1 = BLOCKER.
+  # Resolve the script from the repo root so this works from any cwd; an empty verdict (script
+  # missing/crashed) fails closed to BLOCKER. Exit 1 is the normal BLOCKER signal, hence `|| true`.
+  verdict=$(printf '%s\n' "$cand" | TODAY="$TODAY" CAP="$CAP" sh "$(git rev-parse --show-toplevel)/scripts/security-deferred-verdict.sh" 2>/dev/null) || true
+  [ -n "$verdict" ] || verdict="BLOCKER (verdict script produced no output)"
   echo "#$iid confidential=$conf milestone=$ms $verdict"
 done
 fi
@@ -216,7 +213,7 @@ rm -f "$D"
 echo "checked $N issue(s)$([ "$FAIL" = 0 ] || echo '; CHECK DID NOT COMPLETE — a blocker')"
 ```
 
-**Accepted-risk note format** — one line, in the issue description or any non-system comment:
+**Accepted-risk note format** (enforced by `scripts/security-deferred-verdict.sh`, self-tested in CI by `security-deferred-verdict-selftest`; run `sh scripts/security-deferred-verdict.sh --self-test` after touching it) — one line, in the issue description or any non-system comment:
 
 ```
 Accepted risk: accepted-by: @<maintainer>; reason: <why shipping is acceptable>; expires: YYYY-MM-DD

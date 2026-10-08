@@ -35,6 +35,20 @@ Accepted risk: accepted-by: @<maintainer>; reason: <why shipping is acceptable>;
 - Add the note only on a maintainer's explicit decision. Resolving the issue (closing it) is
   the normal way out; the note is for knowingly shipping with the gap.
 
+## Verdict script and its self-test
+
+The accepted-risk verdict (the note regex plus the calendar and expiry check) is
+`scripts/security-deferred-verdict.sh`, not inline shell. It reads candidate lines
+(`<author>|Accepted risk: ...`) on stdin, with `TODAY` and `CAP` (latest allowed expiry)
+from the environment, and prints `ACCEPTED note-by=... accepted-by=... expires=...`
+(exit 0) or `BLOCKER` / `BLOCKER (expiry too far out; max 1 year)` (exit 1). It is POSIX
+`sh`/`awk`, so it runs on macOS (BSD awk) and Linux.
+
+`sh scripts/security-deferred-verdict.sh --self-test` (44 cases) covers valid, expired, blank
+`accepted-by` / `reason`, impossible dates (`2099-13-45`, `2099-02-30`, non-leap Feb 29),
+two `expires` fields, `;` in `reason`, no note, multiple lines, month/day ranges, leap-year rules (2000, 2028, 2100), and handle/author shape. CI runs it in the
+`security-deferred-verdict-selftest` job.
+
 ## Confidential issues
 
 Many deferred security issues are confidential. The audit token sees them; reports that
