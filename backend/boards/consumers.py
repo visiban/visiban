@@ -5,7 +5,7 @@ import secrets
 import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from accounts.models import User
+from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user
 
 from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import Board
@@ -37,8 +37,9 @@ PING_INTERVAL = 30
 # Why cached rather than per frame: a busy board fans every write out to every
 # subscriber, so one access query per forwarded frame would multiply DB load by
 # the subscriber count. With the cache each socket pays at most one re-check
-# per window, and only while frames are flowing (an idle socket costs nothing,
-# and also receives nothing to leak). 5 s (plus up to 2 s of jitter, below) is
+# per window. Frames trigger it, and so does each keepalive ping (#1483), so
+# an idle socket costs at most one re-check per PING_INTERVAL. 5 s (plus up to
+# 2 s of jitter, below) is
 # short next to the time it takes a human to act on a removal and well under
 # PING_INTERVAL, while still collapsing a burst of frames (a bulk move, an
 # import) into one query.
@@ -110,7 +111,10 @@ class BoardConsumer(AsyncWebsocketConsumer):
         self._role = None
         user = self.scope["user"]
 
-        if not user.is_authenticated:
+        if not user.is_authenticated or not self.scope.get(WS_CREDENTIAL_SCOPE_KEY):
+            # No recorded credential (#1483) means nothing the re-check could
+            # later find revoked, so the socket is never admitted. The auth
+            # middleware records one on every authenticated handshake.
             await self.close(code=4001)
             return
 
@@ -139,10 +143,37 @@ class BoardConsumer(AsyncWebsocketConsumer):
         to reset its own inactivity timer without special protocol-level
         handling.  If the connection drops mid-send, the resulting exception
         is swallowed — disconnect() will clean up the task.
+
+        Each ping first runs the same throttled access check as board_event
+        (#1477, #1483), so a socket on a quiet board is still closed with 4003
+        within PING_INTERVAL of losing access or of its credential being
+        revoked, not only on its next board frame. PING_INTERVAL is longer
+        than the re-check window, so this costs at most one check per ping.
+
+        Only a definitive denial closes the socket here. A check that raises
+        (a DB outage, say) is logged and skipped, the ping is still sent, and
+        the next ping retries: nothing is forwarded on this path, so there is
+        nothing to protect by closing, and a 4003 is final for the client, so
+        a brief outage would otherwise take every idle tab offline until
+        reload. The frame path (board_event) still fails closed on an error.
         """
         try:
             while True:
                 await asyncio.sleep(PING_INTERVAL)
+                try:
+                    allowed = await self._check_access()
+                except Exception as exc:  # noqa: BLE001 — retried at the next ping, see docstring
+                    # Class name only: the message can carry DB connection details.
+                    logger.warning(
+                        "board access re-check failed during keepalive: board_id=%s error=%s",
+                        self.board_id,
+                        type(exc).__name__,
+                    )
+                    allowed = True
+                if not allowed:
+                    self._role = None
+                    await self.close(code=4003)
+                    return
                 await self.send(text_data=json.dumps({"event": EVT_PING, "data": {}}))
         except asyncio.CancelledError:
             raise
@@ -251,11 +282,8 @@ class BoardConsumer(AsyncWebsocketConsumer):
         the client retry by itself, but it would retry every 3 s for as long
         as the outage lasts, and the handshake would fail the same way.
         """
-        verified_at = self._access_verified_at
-        if not force and verified_at is not None and _now() - verified_at < self._access_window:
-            return True
         try:
-            role = await self._refresh_role()
+            return await self._check_access(force=force)
         except Exception as exc:  # noqa: BLE001 — fail closed on any check failure, see docstring
             # Class name only: the message can carry DB connection details.
             logger.warning(
@@ -264,6 +292,20 @@ class BoardConsumer(AsyncWebsocketConsumer):
                 type(exc).__name__,
             )
             return False
+
+    async def _check_access(self, *, force=False):
+        """The throttled check behind _verify_access, with errors left raised.
+
+        True: access confirmed (from the cache, or re-resolved — which also
+        refreshes ``self._role`` and draws a new window). False: a definitive
+        denial. Raises if the check itself fails. Split out so the keepalive
+        path can tell a denial from an error (#1483); _verify_access folds
+        the error into False for the frame path.
+        """
+        verified_at = self._access_verified_at
+        if not force and verified_at is not None and _now() - verified_at < self._access_window:
+            return True
+        role = await self._refresh_role()
         if role is None:
             return False
         self._role = role
@@ -285,8 +327,12 @@ class BoardConsumer(AsyncWebsocketConsumer):
         the cached role this method exists to replace. A deactivated account
         resolves to no access, matching the auth middleware, which refuses an
         inactive user at the handshake.
+
+        So does a revoked handshake credential (#1483): after a logout, a
+        password change, a deleted session or a deleted/expired PAT,
+        load_live_ws_user returns None and the socket closes with 4003.
         """
-        user = User.objects.filter(pk=self.scope["user"].id, is_active=True).first()
+        user = load_live_ws_user(self.scope)
         if user is None:
             return None
         return _lookup_role(user, self.board_id)

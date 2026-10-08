@@ -9,8 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.test import TestCase
 
+from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY
+
 from groups.consumers import GroupConsumer, _now
 
+
+_CREDENTIAL = {"kind": "session", "ref": "unit-test-session", "auth_hash": "unit-test-hash"}
 
 class GroupConsumerAuthTests(TestCase):
     def _make_consumer(self, *, authenticated=True):
@@ -23,6 +27,9 @@ class GroupConsumerAuthTests(TestCase):
         consumer.scope = {
             "url_route": {"kwargs": {"group_id": 1}},
             "user": MagicMock(is_authenticated=authenticated, id=42),
+            # What the auth middleware records on an authenticated handshake
+            # (#1483); connect() refuses a scope without it.
+            WS_CREDENTIAL_SCOPE_KEY: _CREDENTIAL,
         }
         # A just-connected socket: connect() stamps this after its access
         # check, so the #1477 per-frame re-check is served from the cache.
@@ -34,6 +41,80 @@ class GroupConsumerAuthTests(TestCase):
         asyncio.run(consumer.connect())
         consumer.close.assert_called_once_with(code=4001)
         consumer.accept.assert_not_called()
+
+    def test_connect_without_a_recorded_credential_closes_with_4001(self):
+        """An authenticated scope with no recorded credential is never admitted (#1483)."""
+        consumer = self._make_consumer()
+        del consumer.scope[WS_CREDENTIAL_SCOPE_KEY]
+
+        async def run():
+            with patch.object(consumer, "_has_access", return_value=True) as has_access:
+                await consumer.connect()
+            consumer.close.assert_called_once_with(code=4001)
+            consumer.accept.assert_not_called()
+            has_access.assert_not_called()
+
+        asyncio.run(run())
+
+    def _run_one_ping(self, consumer):
+        """Run the ping loop for exactly one iteration (the second sleep cancels it)."""
+        sleeps = 0
+
+        async def fake_sleep(seconds):
+            nonlocal sleeps
+            sleeps += 1
+            if sleeps > 1:
+                raise asyncio.CancelledError()
+
+        async def run():
+            with patch("groups.consumers.asyncio.sleep", side_effect=fake_sleep):
+                try:
+                    await consumer._ping_loop()
+                except asyncio.CancelledError:
+                    pass
+
+        asyncio.run(run())
+
+    def test_ping_closes_with_4003_on_a_definitive_denial(self):
+        """A quiet socket is still re-checked: a ping whose check denies closes it (#1483)."""
+        consumer = self._make_consumer()
+        consumer._access_verified_at = None  # window lapsed: the ping re-checks
+        consumer._refresh_access = AsyncMock(return_value=False)
+
+        self._run_one_ping(consumer)
+        consumer._refresh_access.assert_awaited_once()
+        consumer.close.assert_called_once_with(code=4003)
+        consumer.send.assert_not_called()
+
+    def test_ping_survives_a_failing_check_and_retries_next_ping(self):
+        """An error during the keepalive check (e.g. a DB blip) does not close the
+        socket: it is logged by class name, the ping is sent, the window is not
+        stamped, so the next ping re-checks (#1483)."""
+        from django.db import OperationalError
+
+        consumer = self._make_consumer()
+        consumer.group_id = 1  # normally set by connect(); the log line names it
+        consumer._access_verified_at = None
+        consumer._refresh_access = AsyncMock(side_effect=OperationalError("db host secret-detail"))
+
+        with self.assertLogs("groups.consumers", level="WARNING") as logs:
+            self._run_one_ping(consumer)
+        consumer.close.assert_not_called()
+        consumer.send.assert_called_once_with(text_data=json.dumps({"event": "ping", "data": {}}))
+        output = "\n".join(logs.output)
+        self.assertIn("re-check failed during keepalive", output)
+        self.assertIn("OperationalError", output)
+        self.assertNotIn("secret-detail", output)
+        self.assertIsNone(consumer._access_verified_at)
+
+        # Next ping: the DB is back, access is confirmed, the window is stamped.
+        consumer._refresh_access = AsyncMock(return_value=True)
+        consumer.send.reset_mock()
+        self._run_one_ping(consumer)
+        consumer._refresh_access.assert_awaited_once()
+        consumer.close.assert_not_called()
+        consumer.send.assert_called_once()
+        self.assertIsNotNone(consumer._access_verified_at)
 
     def test_non_member_closed_with_4003(self):
         consumer = self._make_consumer()

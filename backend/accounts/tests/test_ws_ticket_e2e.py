@@ -20,7 +20,7 @@ from django.core.cache import cache
 from django.test import TransactionTestCase
 
 from accounts.models import User
-from accounts.ws_auth import issue_ws_ticket
+from accounts.tests.ws_helpers import session_ticket
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
 
@@ -64,7 +64,7 @@ class WSTicketBoardChannelTests(TransactionTestCase):
 
     def test_valid_ticket_connects_to_the_board_channel(self):
         """AC: a token-authenticated client reaches ws/boards/<id>/."""
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         accepted, _ = _connect(f"/ws/boards/{self.board.id}/?ticket={ticket}")
         self.assertTrue(accepted)
 
@@ -74,7 +74,7 @@ class WSTicketBoardChannelTests(TransactionTestCase):
         self.assertEqual(code, 4001)
 
     def test_reused_ticket_is_closed_with_4001(self):
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         first, _ = _connect(f"/ws/boards/{self.board.id}/?ticket={ticket}")
         self.assertTrue(first)
 
@@ -85,14 +85,14 @@ class WSTicketBoardChannelTests(TransactionTestCase):
     def test_expired_ticket_is_closed_with_4001(self):
         from accounts.ws_auth import _ticket_cache_key
 
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         cache.delete(_ticket_cache_key(ticket))  # Simulate the TTL elapsing.
         accepted, code = _connect(f"/ws/boards/{self.board.id}/?ticket={ticket}")
         self.assertFalse(accepted)
         self.assertEqual(code, 4001)
 
     def test_tampered_ticket_is_closed_with_4001(self):
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         accepted, code = _connect(f"/ws/boards/{self.board.id}/?ticket={ticket}x")
         self.assertFalse(accepted)
         self.assertEqual(code, 4001)
@@ -100,7 +100,7 @@ class WSTicketBoardChannelTests(TransactionTestCase):
     def test_valid_ticket_for_a_non_member_is_closed_with_4003(self):
         """AC: the ticket authenticates; it does not authorize."""
         outsider = User.objects.create_user(username="e2e_outsider", password="pass")
-        ticket, _ = issue_ws_ticket(outsider)
+        ticket, _ = session_ticket(outsider)
         accepted, code = _connect(f"/ws/boards/{self.board.id}/?ticket={ticket}")
         self.assertFalse(accepted)
         self.assertEqual(code, 4003)
@@ -111,7 +111,7 @@ class WSTicketBoardChannelTests(TransactionTestCase):
         Proven at the middleware level too, but this is a realistic operational
         sequence and the point of this file is that the real stack agrees.
         """
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         self.user.is_active = False
         self.user.save(update_fields=["is_active"])
         accepted, code = _connect(f"/ws/boards/{self.board.id}/?ticket={ticket}")
@@ -121,7 +121,7 @@ class WSTicketBoardChannelTests(TransactionTestCase):
     def test_ticket_does_not_grant_access_to_an_unrelated_board(self):
         other_owner = User.objects.create_user(username="e2e_other", password="pass")
         other_board = _make_board(other_owner, name="Someone else's board")
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         accepted, code = _connect(f"/ws/boards/{other_board.id}/?ticket={ticket}")
         self.assertFalse(accepted)
         self.assertEqual(code, 4003)
@@ -135,7 +135,7 @@ class WSTicketGroupChannelTests(TransactionTestCase):
 
     def test_valid_ticket_connects_to_the_group_channel(self):
         """AC: one ticket serves the group channel too, not just boards."""
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         accepted, _ = _connect(f"/ws/groups/{self.group.id}/?ticket={ticket}")
         self.assertTrue(accepted)
 
@@ -146,7 +146,7 @@ class WSTicketGroupChannelTests(TransactionTestCase):
 
     def test_valid_ticket_for_a_non_member_is_closed_with_4003(self):
         outsider = User.objects.create_user(username="e2e_goutsider", password="pass")
-        ticket, _ = issue_ws_ticket(outsider)
+        ticket, _ = session_ticket(outsider)
         accepted, code = _connect(f"/ws/groups/{self.group.id}/?ticket={ticket}")
         self.assertFalse(accepted)
         self.assertEqual(code, 4003)

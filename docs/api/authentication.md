@@ -284,7 +284,7 @@ The `ticket` is returned here and never again.
 
 The ticket authenticates only — board and group membership is still enforced on every connection, so a ticket belonging to a non-member is closed with `4003`.
 
-A ticket cannot be revoked once issued: logging out, or deleting the PAT it was obtained with, does not invalidate an outstanding ticket. It remains valid until it is spent or its 30 seconds elapse. The short TTL is what bounds this, and it is a deliberate trade-off for keeping the handshake a single cache lookup.
+The ticket is bound to the credential that minted it (since 1.2, #1483). If that credential is revoked before the ticket is spent (the session logs out, the PAT is deleted or expires, or the session token is deleted), the handshake is closed with `4001`. Once the socket is open, the server closes it with `4003` within the access re-check window after logout, password change, or credential revocation. See [WebSocket API → Credential revocation](websockets.md#credential-revocation-since-12).
 
 **Errors**
 
@@ -292,6 +292,7 @@ A ticket cannot be revoked once issued: logging out, or deleting the PAT it was 
 |---|---|
 | `401 Unauthorized` | Request is not authenticated |
 | `403 Forbidden` | The request was authenticated with a scoped PAT that does not hold `write` |
+| `403 Forbidden` | The request was authenticated by a credential the server cannot re-validate later, so it cannot be bound to a ticket (`"This credential cannot be used to open a WebSocket."`). Session cookies, PATs, and session tokens are always accepted. |
 | `405 Method Not Allowed` | Any method other than `POST` |
 | `429 Too Many Requests` | Per-user rate limit exceeded (60/minute in production) — back off rather than retrying immediately |
 

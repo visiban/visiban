@@ -23,12 +23,14 @@ The top-right corner of the board toolbar shows the connection state via the **C
 
 The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**.
 
+After you log out or change your password, open board and group tabs show the connection indicator as **Offline** within about 30–40 seconds. Reload the page to reconnect. This includes the tab you changed your password in. Logging out in one browser does not affect tabs signed in through another session. See [Credential revocation](../api/websockets.md#credential-revocation-since-12).
+
 ## Event types
 
 Board-channel events fall into a few categories:
 
 - **Board** — settings changes, deletion, and per-user star toggles
-- **Members** — added, role changed, or removed (removing the current user also closes their connection; if that event is lost, the server's access re-check still closes the connection, with code `4003`, at the first board change more than about 7 seconds after the server last confirmed their access — see [Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction))
+- **Members** — added, role changed, or removed (removing the current user also closes their connection; if that event is lost, the server's access re-check still closes the connection, with code `4003`, at the first board change, or the first keepalive ping (sent every 30 seconds), more than about 7 seconds after the server last confirmed their access — see [Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction))
 - **Cards** — created, field changes, moves between columns/swimlanes, deletion, archive, and restore
 - **Columns, swimlanes, and labels** — created, updated, deleted, and (for columns and swimlanes) reordered
 - **Feature-specific families** riding the same board channel: saved-filter events (see [Saved Filters](saved-filters.md)), custom field and swimlane field events (see [Custom Fields](custom-fields.md#api-and-real-time-events)), and — when [Issue Board Lens](issue-board-lens.md) is enabled — Git Lens connection events

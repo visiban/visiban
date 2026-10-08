@@ -13,11 +13,11 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import PersonalAccessToken, User
+from accounts.tests.ws_helpers import session_ticket
 from accounts.ws_auth import (
     WS_TICKET_TTL,
     _ticket_cache_key,
     consume_ws_ticket,
-    issue_ws_ticket,
 )
 
 WS_TICKET_URL = "/api/v1/auth/ws-ticket/"
@@ -36,7 +36,7 @@ class WSTicketEndpointTests(APITestCase):
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_session_authenticated_user_gets_a_ticket(self):
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         r = self.client.post(WS_TICKET_URL)
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertIn("ticket", r.json())
@@ -50,7 +50,7 @@ class WSTicketEndpointTests(APITestCase):
         self.assertTrue(r.json()["ticket"])
 
     def test_ticket_is_redeemable_for_the_issuing_user(self):
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         ticket = self.client.post(WS_TICKET_URL).json()["ticket"]
         self.assertEqual(consume_ws_ticket(ticket), self.user.id)
 
@@ -62,7 +62,7 @@ class WSTicketEndpointTests(APITestCase):
 
         from django.utils import timezone
 
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         body = self.client.post(WS_TICKET_URL).json()
         expires_at = datetime.fromisoformat(body["expires_at"].replace("Z", "+00:00"))
         delta = (expires_at - timezone.now()).total_seconds()
@@ -70,14 +70,14 @@ class WSTicketEndpointTests(APITestCase):
         self.assertLessEqual(delta, WS_TICKET_TTL)
 
     def test_each_request_returns_a_distinct_ticket(self):
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         first = self.client.post(WS_TICKET_URL).json()["ticket"]
         second = self.client.post(WS_TICKET_URL).json()["ticket"]
         self.assertNotEqual(first, second)
 
     def test_raw_ticket_is_not_stored_in_the_cache(self):
         """Only the SHA-256 digest is persisted — never the raw value."""
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         ticket = self.client.post(WS_TICKET_URL).json()["ticket"]
         self.assertIsNone(cache.get(f"ws_ticket:{ticket}"))
         self.assertIsNotNone(cache.get(_ticket_cache_key(ticket)))
@@ -90,19 +90,19 @@ class WSTicketEndpointTests(APITestCase):
         """
         self.user.must_change_password = True
         self.user.save(update_fields=["must_change_password"])
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         r = self.client.post(WS_TICKET_URL)
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_pending_username_change_is_blocked(self):
         self.user.must_change_username = True
         self.user.save(update_fields=["must_change_username"])
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         r = self.client.post(WS_TICKET_URL)
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_get_is_not_allowed(self):
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         r = self.client.get(WS_TICKET_URL)
         self.assertEqual(r.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -115,7 +115,7 @@ class WSTicketEndpointTests(APITestCase):
         """
         from accounts.views import WSTicketThrottle
 
-        self.client.force_authenticate(self.user)
+        self.client.force_login(self.user)
         cache.clear()
 
         with patch.object(WSTicketThrottle, "get_rate", return_value="3/min"):
@@ -163,18 +163,18 @@ class WSTicketLifecycleTests(TestCase):
         self.user = User.objects.create_user(username="lifecycle", password="pass")
 
     def test_ticket_is_single_use(self):
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         self.assertEqual(consume_ws_ticket(ticket), self.user.id)
         self.assertIsNone(consume_ws_ticket(ticket))
 
     def test_expired_ticket_is_rejected(self):
         """An expired ticket is simply gone from the cache."""
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         cache.delete(_ticket_cache_key(ticket))
         self.assertIsNone(consume_ws_ticket(ticket))
 
     def test_tampered_ticket_is_rejected(self):
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         self.assertIsNone(consume_ws_ticket(ticket + "x"))
         # The real ticket is untouched by a failed attempt on a forged one.
         self.assertEqual(consume_ws_ticket(ticket), self.user.id)
@@ -218,7 +218,7 @@ class WSTicketLifecycleTests(TestCase):
     def test_expires_at_reflects_the_configured_ttl(self):
         from django.utils import timezone
 
-        _, expires_at = issue_ws_ticket(self.user)
+        _, expires_at = session_ticket(self.user)
         delta = (expires_at - timezone.now()).total_seconds()
         self.assertGreater(delta, 0)
         self.assertLessEqual(delta, WS_TICKET_TTL)
@@ -235,7 +235,7 @@ class WSTicketConcurrencyTests(TransactionTestCase):
     def test_only_one_of_two_concurrent_redemptions_succeeds(self):
         cache.clear()
         user = User.objects.create_user(username="racer", password="pass")
-        ticket, _ = issue_ws_ticket(user)
+        ticket, _ = session_ticket(user)
 
         results = []
         lock = threading.Lock()

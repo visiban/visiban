@@ -7,7 +7,7 @@ import time
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from accounts.models import User
+from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user
 
 from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import get_accessible_group_ids
@@ -77,7 +77,9 @@ class GroupConsumer(AsyncWebsocketConsumer):
         self._ping_task = None
         user = self.scope["user"]
 
-        if not user.is_authenticated:
+        if not user.is_authenticated or not self.scope.get(WS_CREDENTIAL_SCOPE_KEY):
+            # No recorded credential (#1483): never admit a socket the
+            # re-check could not later find revoked. Same rule as BoardConsumer.
             await self.close(code=4001)
             return
 
@@ -98,9 +100,31 @@ class GroupConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.room, self.channel_name)
 
     async def _ping_loop(self):
+        """Keepalive ping; each one first runs the throttled access check.
+
+        Same as BoardConsumer._ping_loop (#1477, #1483): a socket on a quiet
+        group is closed with 4003 within PING_INTERVAL of losing access or of
+        its credential being revoked, at most one check per ping. Only a
+        definitive denial closes it; a check that raises is logged, skipped
+        and retried at the next ping, with the ping still sent — same
+        reasoning as the board consumer.
+        """
         try:
             while True:
                 await asyncio.sleep(PING_INTERVAL)
+                try:
+                    allowed = await self._check_access()
+                except Exception as exc:  # noqa: BLE001 — retried at the next ping, see docstring
+                    # Class name only: the message can carry DB connection details.
+                    logger.warning(
+                        "group access re-check failed during keepalive: group_id=%s error=%s",
+                        self.group_id,
+                        type(exc).__name__,
+                    )
+                    allowed = True
+                if not allowed:
+                    await self.close(code=4003)
+                    return
                 await self.send(text_data=json.dumps({"event": EVT_PING, "data": {}}))
         except asyncio.CancelledError:
             raise
@@ -150,11 +174,8 @@ class GroupConsumer(AsyncWebsocketConsumer):
         client reconnect loop — same reasoning as
         ``BoardConsumer._verify_access``.
         """
-        verified_at = self._access_verified_at
-        if verified_at is not None and _now() - verified_at < self._access_window:
-            return True
         try:
-            has_access = await self._refresh_access()
+            return await self._check_access()
         except Exception as exc:  # noqa: BLE001 — fail closed on any check failure, see docstring
             # Class name only: the message can carry DB connection details.
             logger.warning(
@@ -163,7 +184,18 @@ class GroupConsumer(AsyncWebsocketConsumer):
                 type(exc).__name__,
             )
             return False
-        if not has_access:
+
+    async def _check_access(self):
+        """The throttled check behind _verify_access, with errors left raised.
+
+        True: access confirmed (cached, or re-evaluated with a new window
+        drawn). False: a definitive denial. Raises if the check itself fails,
+        so the keepalive path can tell a denial from an error (#1483).
+        """
+        verified_at = self._access_verified_at
+        if verified_at is not None and _now() - verified_at < self._access_window:
+            return True
+        if not await self._refresh_access():
             return False
         self._access_verified_at = _now()
         self._access_window = ACCESS_RECHECK_SECONDS + _jitter()
@@ -181,9 +213,11 @@ class GroupConsumer(AsyncWebsocketConsumer):
         ``can_access_all_content`` (which grants every group) would be as stale
         as the access decision this method exists to replace. A deactivated
         account has no access, matching the auth middleware, which refuses an
-        inactive user at the handshake.
+        inactive user at the handshake. So does a revoked handshake credential
+        (logout, password change, deleted session or PAT — #1483); see
+        accounts.ws_auth.load_live_ws_user, shared with BoardConsumer.
         """
-        user = User.objects.filter(pk=self.scope["user"].id, is_active=True).first()
+        user = load_live_ws_user(self.scope)
         if user is None:
             return False
         return self.group_id in get_accessible_group_ids(user)

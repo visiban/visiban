@@ -60,7 +60,7 @@ from .serializers import (
     PublicUserSerializer,
     UserSerializer,
 )
-from .ws_auth import issue_ws_ticket
+from .ws_auth import credential_for_request, issue_ws_ticket
 from visiban.invite_email import invite_email_available
 
 User = get_user_model()
@@ -1051,9 +1051,19 @@ class WSTicketView(APIView):
     throttle_classes = [WSTicketThrottle]
 
     def post(self, request):
+        # The ticket is bound to the credential that asked for it, so a socket
+        # opened with it closes once that credential is revoked (#1483). A
+        # request authenticated by something we cannot later re-validate is
+        # refused rather than handed an unrevocable ticket.
+        credential = credential_for_request(request)
+        if credential is None:
+            return Response(
+                {"detail": "This credential cannot be used to open a WebSocket."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         # The raw ticket is returned here and never again — it is not stored in
         # recoverable form, matching the PAT-creation contract above.
-        ticket, expires_at = issue_ws_ticket(request.user)
+        ticket, expires_at = issue_ws_ticket(request.user, credential)
         return Response(
             {"ticket": ticket, "expires_at": expires_at},
             status=status.HTTP_201_CREATED,

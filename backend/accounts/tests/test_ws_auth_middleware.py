@@ -13,7 +13,8 @@ from django.core.cache import cache
 from django.test import TestCase, TransactionTestCase, override_settings
 
 from accounts.models import User
-from accounts.ws_auth import TicketAuthMiddleware, issue_ws_ticket
+from accounts.tests.ws_helpers import session_ticket
+from accounts.ws_auth import TicketAuthMiddleware
 
 
 class _CapturingApp:
@@ -58,21 +59,21 @@ class TicketAuthMiddlewareTests(TransactionTestCase):
         self.user = User.objects.create_user(username="wsuser", password="pass")
 
     def test_valid_ticket_sets_the_scope_user(self):
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         scope = _run_middleware(f"ticket={ticket}".encode())
         self.assertEqual(scope["user"].id, self.user.id)
         self.assertTrue(scope["user"].is_authenticated)
 
     def test_valid_ticket_overrides_an_anonymous_session_user(self):
         """A token client has no session, so the stack hands us AnonymousUser."""
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         scope = _run_middleware(
             f"ticket={ticket}".encode(), initial_user=AnonymousUser()
         )
         self.assertEqual(scope["user"].id, self.user.id)
 
     def test_ticket_is_consumed_so_a_replay_is_rejected(self):
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         first = _run_middleware(f"ticket={ticket}".encode())
         self.assertEqual(first["user"].id, self.user.id)
 
@@ -82,7 +83,7 @@ class TicketAuthMiddlewareTests(TransactionTestCase):
         self.assertFalse(replayed["user"].is_authenticated)
 
     def test_tampered_ticket_yields_anonymous(self):
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         scope = _run_middleware(f"ticket={ticket}x".encode())
         self.assertFalse(scope["user"].is_authenticated)
 
@@ -114,14 +115,14 @@ class TicketAuthMiddlewareTests(TransactionTestCase):
 
     def test_ticket_for_a_deactivated_user_is_rejected(self):
         """A ticket must not outlive the access it stands for."""
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         self.user.is_active = False
         self.user.save(update_fields=["is_active"])
         scope = _run_middleware(f"ticket={ticket}".encode())
         self.assertFalse(scope["user"].is_authenticated)
 
     def test_ticket_for_a_deleted_user_is_rejected(self):
-        ticket, _ = issue_ws_ticket(self.user)
+        ticket, _ = session_ticket(self.user)
         self.user.delete()
         scope = _run_middleware(f"ticket={ticket}".encode())
         self.assertFalse(scope["user"].is_authenticated)
