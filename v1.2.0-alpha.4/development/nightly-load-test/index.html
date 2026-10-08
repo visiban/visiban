@@ -3934,6 +3934,17 @@ without ever firing.</p>
   measurement jitter without the number itself being arbitrary — it is still fully determined
   by the measured baseline, just not reported to sub-millisecond precision.</li>
 </ul>
+<div class="admonition warning">
+<p class="admonition-title">Budgets are only valid on NUC runners</p>
+<p>Budgets are absolute milliseconds, so they only hold on the hardware they were measured
+on. The baseline (job 16796708105) ran on <code>gitlab-runner-nuc-2-visiban</code>, and the job is
+pinned with <code>tags: [nuc]</code> (see <a href="../../maintainers/ci-runners/">CI Runners</a>). Before the
+pin, the 2026-10-08 scheduled run landed on <code>gitlab-runner-dell-01-visiban</code> and failed
+<code>card_timeline</code>, <code>notifications_list</code> and <code>notifications_unread</code> by 1.3-1.8x with no
+relevant code change, while every NUC run before it had passed. When re-deriving, take
+the artifact from a NUC run, and re-derive the whole file if the runner class ever
+changes.</p>
+</div>
 <h3 id="re-deriving-the-baseline-do-this-at-every-release-and-whenever-the-fixture-size-changes">Re-deriving the baseline (do this at every release, and whenever the fixture size changes)<a class="headerlink" href="#re-deriving-the-baseline-do-this-at-every-release-and-whenever-the-fixture-size-changes" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Trigger the <code>nightly-load-test</code> job (wait for the schedule, or run it manually).</li>

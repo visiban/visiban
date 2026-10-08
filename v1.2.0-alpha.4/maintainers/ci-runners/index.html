@@ -3783,11 +3783,11 @@
 <h1 id="ci-runners">CI Runners<a class="headerlink" href="#ci-runners" title="Permanent link">&para;</a></h1>
 <p>Inventory and behavior of the GitLab Runners that execute Visiban's pipelines, and the traps
 that follow from how they're configured.</p>
-<p><strong>Why it matters:</strong> no job in <code>.gitlab-ci.yml</code> uses <code>tags:</code>, so a job that needs a specific
+<p><strong>Why it matters:</strong> most jobs in <code>.gitlab-ci.yml</code> carry no <code>tags:</code>, so a job that needs a specific
 runner's resources can silently land on the wrong one and fail with a confusing error instead
 of "no runner available."</p>
 <h2 id="inventory">Inventory<a class="headerlink" href="#inventory" title="Permanent link">&para;</a></h2>
-<p>As of 2026-09-14, three GitLab group runners are registered against <code>visiban/visiban</code>
+<p>As of 2026-10-08, these GitLab group runners are registered against <code>visiban/visiban</code>
 (<code>glab api "projects/visiban%2Fvisiban/runners?type=group_type"</code>):</p>
 <table>
 <thead>
@@ -3803,7 +3803,7 @@ of "no runner available."</p>
 <tr>
 <td>52215741</td>
 <td>(none set)</td>
-<td>online</td>
+<td>stale</td>
 <td>none</td>
 <td>true</td>
 </tr>
@@ -3811,14 +3811,21 @@ of "no runner available."</p>
 <td>56277672</td>
 <td><code>Runner-03-NUC</code></td>
 <td>online</td>
-<td>none</td>
+<td><code>nuc</code></td>
 <td>true</td>
 </tr>
 <tr>
 <td>56277916</td>
 <td><code>runner-04-NUC</code></td>
+<td>stale</td>
+<td><code>nuc</code></td>
+<td>true</td>
+</tr>
+<tr>
+<td>56787877</td>
+<td><code>gitlab-runner-nuc-2-visiban</code></td>
 <td>online</td>
-<td>none</td>
+<td><code>nuc</code></td>
 <td>true</td>
 </tr>
 <tr>
@@ -3828,12 +3835,22 @@ of "no runner available."</p>
 <td><code>arm, arm64, apple, macosx, mac, ios</code></td>
 <td>false</td>
 </tr>
+<tr>
+<td>56888935</td>
+<td><code>gitlab-runner-dell-01-visiban</code></td>
+<td>online</td>
+<td><code>dell-small</code></td>
+<td>true</td>
+</tr>
 </tbody>
 </table>
-<p>All four are self-hosted. Re-run the query above before trusting this table — runner health
+<p>All are self-hosted. The NUC runners carry the <code>nuc</code> tag (added 2026-10-08) so that
+hardware-sensitive jobs can pin to them — today only <code>nightly-load-test</code>, whose latency
+budgets are absolute milliseconds measured on a NUC. Never add <code>nuc</code> to a non-NUC runner:
+that silently invalidates those budgets. Re-run the query above before trusting this table — runner health
 and identity have changed multiple times in this project's history (see below) and nothing
 keeps this page in sync automatically.</p>
-<p><code>Max1-Runner-Visiban</code> is the exception to "no tags" and to the warning immediately below: it's
+<p><code>Max1-Runner-Visiban</code> is an exception to "no tags" and to the warning immediately below: it's
 a dedicated Apple Silicon (M1 Max) macOS host running the <strong>shell executor</strong> against its own
 already-installed Docker Desktop, whose engine is itself native <code>linux/arm64</code> — no QEMU. Jobs
 that need it request it explicitly with <code>tags: [arm64]</code> (<code>.arm64-docker-push-base</code> in
@@ -3844,8 +3861,9 @@ here (the <code>gitlab-runner</code> binary itself runs under Rosetta) and <code
 <code>docker image inspect --format '{{.Architecture}}'</code> on a built image instead — that's what
 <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code> do.</p>
 <div class="admonition warning">
-<p class="admonition-title">No job in <code>.gitlab-ci.yml</code> uses <code>tags:</code></p>
-<p>Every job queues for <em>any</em> available runner, self-hosted or GitLab SaaS. A self-hosted
+<p class="admonition-title">Most jobs in <code>.gitlab-ci.yml</code> carry no <code>tags:</code></p>
+<p>Apart from the arm64 legs (<code>tags: [arm64]</code>) and <code>nightly-load-test</code> (<code>tags: [nuc]</code>),
+every job queues for <em>any</em> available runner, self-hosted or GitLab SaaS. A self-hosted
 runner going offline doesn't fail its jobs loudly with "no runner available" — they get
 scheduled onto a SaaS runner instead and fail with a confusing error deep inside the job
 script. This has already happened once (see "Docker push" below). If a job needs the
