@@ -298,8 +298,8 @@ class ConcurrentMoveLockTests(TransactionTestCase):
             out = original(*args, **kwargs)
             if threading.current_thread().name == "first" and not first_paused.is_set():
                 first_paused.set()
-                # Interruptible wait: returns early only if never set, so this
-                # is a plain pause that keeps the transaction (and its locks) open.
+                # The Event is never set, so this is a plain timed pause that
+                # keeps the transaction (and its locks) open.
                 threading.Event().wait(HOLD_SECONDS)
             return out
 
@@ -321,6 +321,7 @@ class ConcurrentMoveLockTests(TransactionTestCase):
             t2.start()
             t1.join(30)
             t2.join(30)
+        self.assertFalse(t1.is_alive() or t2.is_alive(), "a move hung (possible deadlock)")
         self.assertEqual(errors, [])
         return results
 
