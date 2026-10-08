@@ -179,11 +179,31 @@ class FlagClearRevokesLinksTests(TestCase):
             self.g1.pk, "invite_link.revoked", {"id": self.l1.pk},
         )
 
-    def test_granting_flag_or_unrelated_patch_revokes_nothing(self):
+    def test_unrelated_patch_revokes_nothing(self):
         self.client.patch(
             f"/api/v1/admin/users/{self.user.pk}/",
             {"has_completed_tour": True}, format="json",
         )
+        self.l1.refresh_from_db()
+        self.assertTrue(self.l1.is_active)
+
+    def test_granting_can_access_all_content_revokes_nothing(self):
+        User.objects.filter(pk=self.user.pk).update(can_access_all_content=False)
+        r = self.client.patch(
+            f"/api/v1/admin/users/{self.user.pk}/",
+            {"can_access_all_content": True}, format="json",
+        )
+        self.assertEqual(r.status_code, 200)
+        self.l1.refresh_from_db()
+        self.assertTrue(self.l1.is_active)
+
+    def test_clearing_is_site_admin_is_not_a_trigger(self):
+        User.objects.filter(pk=self.user.pk).update(is_site_admin=True)
+        r = self.client.patch(
+            f"/api/v1/admin/users/{self.user.pk}/",
+            {"is_site_admin": False}, format="json",
+        )
+        self.assertEqual(r.status_code, 200)
         self.l1.refresh_from_db()
         self.assertTrue(self.l1.is_active)
 

@@ -925,13 +925,16 @@ class AdminUserDetailView(APIView):
                 # the per-group active-link cap.
                 if was_active and not target.is_active:
                     AdminUserDeactivateView._revoke_invite_links(target, request.user)
-                elif target.is_active and any(
-                    prior[f] and not getattr(target, f)
-                    for f in ("is_site_admin", "can_access_all_content")
+                elif (
+                    target.is_active
+                    and prior["can_access_all_content"]
+                    and not target.can_access_all_content
                 ):
-                    # Clearing a flag that conferred group-admin rights: links
-                    # held only through it lapse (links where the user is still
-                    # a group admin by membership are kept).
+                    # can_access_all_content is the only flag that confers
+                    # group-admin rights (_require_group_admin; is_site_admin
+                    # is admin-panel access only): links held only through it
+                    # lapse (links where the user is still a group admin by
+                    # membership are kept).
                     from groups.views import _revoke_lapsed_admin_invite_links
                     _revoke_lapsed_admin_invite_links(target)
 
