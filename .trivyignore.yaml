@@ -13,12 +13,3 @@
 # Every top-level section is checked. Each entry must start with `- id:` (block style); any other entry-level list
 # item (`- paths:` first, `- {id: ...}`) fails the checker.
 # See docs/development/suppressions.md ("Trivy suppressions").
-misconfigurations:
-  - id: DS-0002
-    paths:
-      - frontend/Dockerfile
-      - frontend/Dockerfile.prod
-    statement: >-
-      Frontend images run nginx as root; moving to a non-root user needs
-      nginx pid/cache path and port changes. Tracked in #1528.
-    expired_at: 2027-01-15
