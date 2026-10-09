@@ -6294,6 +6294,53 @@ export writes, so card and swimlane field values survive a CSV round trip.</p>
 <li><strong>Blank cells</strong> create no value. A value longer than 500 characters, one containing a NUL
   (<code>\x00</code>) byte, or one an extension validator refuses, is dropped with a warning and the import proceeds.</li>
 </ul>
+<p><a id="csv-cell-limits"></a></p>
+<p><strong>Cell limits (since 1.2, #1512).</strong> The importer checks every row before it creates anything.
+A violation returns <code>400 Bad Request</code> as <code>Row N: &lt;field&gt; ...</code> and creates nothing. N counts
+data rows from 2 (the first data row is row 2), so it can differ from the physical line number
+when a quoted cell spans several lines. Any value echoed back is truncated. Only cells the
+import actually writes are checked: with <code>cards</code> set to <code>false</code> the <code>Title</code>, <code>Description</code>,
+<code>Assignee</code> and <code>Weight</code> cells are not checked, and with <code>labels</code> set to <code>false</code> neither is
+<code>Labels</code>. Columns the importer ignores (<code>Priority</code>, <code>Card ID</code>, unknown headers and so on) are
+never checked.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Title</code></td>
+<td>At most 500 characters</td>
+</tr>
+<tr>
+<td><code>Column</code>, <code>Swimlane</code></td>
+<td>At most 255 characters</td>
+</tr>
+<tr>
+<td><code>Labels</code></td>
+<td>Each comma-separated label at most 50 characters</td>
+</tr>
+<tr>
+<td><code>Weight</code></td>
+<td>An integer from -2147483648 to 2147483647 (a non-numeric value still imports as <code>1</code>)</td>
+</tr>
+<tr>
+<td><code>Due Date</code></td>
+<td>A real calendar date; <code>2020-02-30</code> is refused like any other invalid date</td>
+</tr>
+<tr>
+<td><code>Title</code>, <code>Description</code>, <code>Assignee</code>, <code>Column</code>, <code>Swimlane</code>, <code>Labels</code></td>
+<td>No NUL (<code>\x00</code>) bytes (<code>Custom:</code> cells keep the drop-with-warning rule above)</td>
+</tr>
+<tr>
+<td><code>name</code> form field</td>
+<td>At most 255 characters and no NUL bytes, as for a JSON import</td>
+</tr>
+</tbody>
+</table>
 <p>The response gains <code>import_summary.warnings</code>, a list of strings (always present on a CSV
 import, <code>[]</code> when nothing was dropped). It holds at most 20 entries followed by one
 <code>…and N more</code> entry. A JSON import does not return the key.</p>
@@ -6362,7 +6409,7 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <tr>
 <td><code>400 Bad Request</code></td>
 <td><code>{"detail": "..."}</code></td>
-<td>File is missing, empty, has an unsupported extension, exceeds the upload size limit (<code>MAX_UPLOAD_SIZE_BYTES</code>, default 10 MB — the same env var and default as <a href="../cards/#attachments">card attachment uploads</a>, and distinct from the Trello importer's own <code>VISIBAN_IMPORT_MAX_SIZE</code>), is not valid JSON/CSV, or references columns/swimlanes that fail validation. Also returned when <code>options</code> is not valid JSON, is not an object, has an unknown key, has a non-boolean value, sets <code>comments</code>, <code>checklist</code>, or <code>history</code> to <code>true</code> with <code>cards</code> set to <code>false</code>, or — for a CSV file — has any key other than <code>labels</code> and <code>cards</code>.</td>
+<td>File is missing, empty, has an unsupported extension, exceeds the upload size limit (<code>MAX_UPLOAD_SIZE_BYTES</code>, default 10 MB — the same env var and default as <a href="../cards/#attachments">card attachment uploads</a>, and distinct from the Trello importer's own <code>VISIBAN_IMPORT_MAX_SIZE</code>), is not valid JSON/CSV, or references columns/swimlanes that fail validation. Also returned when <code>options</code> is not valid JSON, is not an object, has an unknown key, has a non-boolean value, sets <code>comments</code>, <code>checklist</code>, or <code>history</code> to <code>true</code> with <code>cards</code> set to <code>false</code>, or — for a CSV file — has any key other than <code>labels</code> and <code>cards</code>. A CSV file also returns <code>400</code> for a cell over the <a href="#csv-cell-limits">CSV cell limits</a>, a NUL byte, or an impossible <code>Due Date</code>.</td>
 </tr>
 <tr>
 <td><code>401 Unauthorized</code></td>
