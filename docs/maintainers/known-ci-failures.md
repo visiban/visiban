@@ -234,6 +234,26 @@ check. Common causes:
   but serves nothing back. Usually transient (registry or Rekor). Retry once.
 - Sigstore (Fulcio/Rekor) outage: wait and retry.
 
+**First run after merge.** The self-test stubs syft, cosign and crane, so their real
+contracts are first exercised on the first release tag cut after #1153 merges. A failure
+there most likely means one of these four assumptions was wrong:
+
+1. syft's `--source-name`/`--source-version` set `metadata.component.name`/`.version` in
+   the CycloneDX output. These were confirmed with syft 1.51.1 against `v1.2.0-alpha.4`, but
+   only from a workstation.
+2. Package purls carry an `arch=` qualifier (`?arch=amd64`/`aarch64`/...), which the
+   foreign-arch check depends on.
+3. `cosign attest --type cyclonedx` embeds the SBOM as a JSON **object** in the in-toto
+   statement's `predicate`, not as a string.
+4. `cosign verify-attestation` prints one DSSE envelope per line on stdout, each with a
+   base64 `payload`.
+
+Recovery: fix forward on a branch, then re-run the failed `*-image-attest` job on the tag
+pipeline. Its skips make a re-run safe. The images are already live under their real tags,
+so nothing is rolled back. `helm-publish` stays blocked until both attest jobs are green, so
+the chart ships late rather than pointing at unverifiable images. If the tag pipeline can no
+longer be re-run, use the backfill job (below).
+
 **Retrying is safe.** On a tag pipeline the script skips any digest that already carries a
 verifying signature or SBOM from a **release tag** identity, and logs which identity matched.
 A retry therefore finishes only what is missing and stacks no duplicates. A signature left

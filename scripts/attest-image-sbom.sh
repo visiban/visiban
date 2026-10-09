@@ -589,6 +589,22 @@ STUB
   check "flow: tag job re-run skips (its own identity now present)" [ "$(count_calls sign)/$(count_calls attest)" = 2/4 ]
   expect_ok  "flow: backfill after a tag signature"    run_flow CI_COMMIT_TAG= CI_COMMIT_REF_NAME=main -- --image backend --tag v1.2.0 --registry reg.a
   check "flow: backfill accepts an existing tag identity and skips" [ "$(count_calls sign)/$(count_calls attest)" = 2/4 ]
+  # Partial coverage must not be skipped: every skip condition has to look at
+  # BOTH platform digests, not just the index. (a) Only the index carries a
+  # signature (an earlier non-recursive sign) -> the job must sign again.
+  reset_stub
+  env STUB="$S" CI_COMMIT_TAG=v1.2.0 "${S}/bin/cosign" sign --yes reg.a/backend@sha256:1111000000000000000000000000000000000000000000000000000000000000
+  : > "${S}/calls.log"
+  expect_ok  "flow: index signed, platforms not"       run_flow -- --image backend --tag v1.2.0 --registry reg.a
+  check "flow: index-only signature is not a skip; platforms get signed" [ "$(count_calls sign)" = 1 ]
+  # (b) One platform's SBOM attestation is missing -> attest exactly that one.
+  reset_stub
+  expect_ok  "flow: seed a full release"               run_flow -- --image backend --tag v1.2.0 --registry reg.a
+  rm -f "${S}/state/att-reg.a_backend-bbbb."*
+  : > "${S}/calls.log"
+  expect_ok  "flow: arm64 SBOM missing, amd64 present" run_flow -- --image backend --tag v1.2.0 --registry reg.a
+  check "flow: re-attests only the platform whose SBOM is missing" sh -c \
+    "[ \"\$(grep -c '^attest ' '$S/calls.log')\" = 1 ] && grep -q '^attest reg.a/backend@sha256:bbbb' '$S/calls.log' && [ \"\$(grep -c '^sign ' '$S/calls.log')\" = 0 ]"
   expect_eq  "id: tag-pipeline skip regexp is tag-only" '^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$' \
     env CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_TAG=v1.2.0 bash "$SELF" _t skip_identity_regexp
 

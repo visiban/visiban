@@ -86,7 +86,13 @@ adds the cosign tag shape to `name_regex_keep`:
 This also keeps signatures for intermediate `-amd64`/`-arm64` digests. Those are the same
 digests the release index points at, so keeping them is intended. Record the change here
 the same way #1190 was recorded. The `image-attest-backfill` CI job can re-attach any
-signatures and SBOMs that were already swept.
+signatures and SBOMs that were already swept, but the re-attached copies carry the backfill
+job's `@refs/heads/main` identity, not the original release tag's. For that release, the
+GitLab registry copy then **fails** the tag-only (and exact-release) verification identity
+that [Verifying release images](image-verification.md) recommends. It needs the main-or-tag
+backfill regexp from that page. The GHCR copy is unaffected. Applying the keep-regex above
+([#1541](https://gitlab.com/visiban/visiban/-/issues/1541)) avoids this entirely, because the
+original tag-pipeline signatures are then never swept.
 
 Nothing yet checks on a schedule that a release's signatures and attestations are still
 present. Only the images themselves are checked. That check is tracked in
