@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.4/api/health/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.4/development/authorization-entry-points/">
       
       
-        <link rel="prev" href="../events/">
+        <link rel="prev" href="../security-invariants/">
       
       
-        <link rel="next" href="../version/">
+        <link rel="next" href="../sonarcloud/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Health Checks - Visiban</title>
+        <title>Authorization Entry Points - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#health-check-api" class="md-skip">
+        <a href="#authorization-entry-points" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Health Checks
+              Authorization Entry Points
             
           </span>
         </div>
@@ -288,13 +288,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
           
   
   
@@ -312,10 +310,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../architecture/" class="md-tabs__link">
           
   
@@ -1686,6 +1686,470 @@
       
   
   
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -1695,6 +2159,28 @@
       
         
           
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1739,584 +2225,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API Reference
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    API Reference
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../authentication/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Authentication
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../boards/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Boards
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cards/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cards
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../groups/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../notifications/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Notifications
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../admin/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Admin
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../git-lens/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Issue Board Lens
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../mcp/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MCP Server
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../websockets/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    WebSockets
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../events/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Change Feed
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Health Checks
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Health Checks
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#get-apihealthliveness" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GET /api/health/liveness/
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#get-apihealthreadiness" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GET /api/health/readiness/
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#get-apiv1version" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GET /api/v1/version/
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#kubernetes-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Kubernetes example
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../version/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Version
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../openapi/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OpenAPI Spec
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -2338,13 +2247,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2616,7 +2525,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/testing/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
@@ -2644,7 +2553,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/mutation-testing/" class="md-nav__link">
+      <a href="../mutation-testing/" class="md-nav__link">
         
   
   
@@ -2672,7 +2581,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/database-migrations/" class="md-nav__link">
+      <a href="../database-migrations/" class="md-nav__link">
         
   
   
@@ -2700,7 +2609,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/dependency-lock/" class="md-nav__link">
+      <a href="../dependency-lock/" class="md-nav__link">
         
   
   
@@ -2728,7 +2637,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/ci-gates/" class="md-nav__link">
+      <a href="../ci-gates/" class="md-nav__link">
         
   
   
@@ -2756,7 +2665,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
         
   
   
@@ -2784,7 +2693,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/rbac-and-broadcast-gates/" class="md-nav__link">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
         
   
   
@@ -2812,7 +2721,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/suppressions/" class="md-nav__link">
+      <a href="../suppressions/" class="md-nav__link">
         
   
   
@@ -2840,7 +2749,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/security-invariants/" class="md-nav__link">
+      <a href="../security-invariants/" class="md-nav__link">
         
   
   
@@ -2865,10 +2774,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../development/authorization-entry-points/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2884,6 +2820,103 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-one-function-per-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why one function per rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-shared-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The shared functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-an-entry-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding an entry point
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-enforcement-test-finds-entry-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the enforcement test finds entry points
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advisory-copies-of-the-creator-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advisory copies of the creator rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enterprise
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#feature-flagged-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature-flagged routes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2896,7 +2929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/sonarcloud/" class="md-nav__link">
+      <a href="../sonarcloud/" class="md-nav__link">
         
   
   
@@ -2924,7 +2957,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
         
   
   
@@ -2952,7 +2985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+      <a href="../websocket-event-contract/" class="md-nav__link">
         
   
   
@@ -2980,7 +3013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/nightly-load-test/" class="md-nav__link">
+      <a href="../nightly-load-test/" class="md-nav__link">
         
   
   
@@ -3008,7 +3041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/load-test-version-benchmarks/" class="md-nav__link">
+      <a href="../load-test-version-benchmarks/" class="md-nav__link">
         
   
   
@@ -3891,54 +3924,223 @@
   
 
 
-<h1 id="health-check-api">Health Check API<a class="headerlink" href="#health-check-api" title="Permanent link">&para;</a></h1>
-<p>Two unauthenticated endpoints for liveness and readiness probes — usable with Kubernetes, Docker Compose <code>healthcheck</code> directives, or any uptime monitoring tool.</p>
-<h2 id="get-apihealthliveness"><code>GET /api/health/liveness/</code><a class="headerlink" href="#get-apihealthliveness" title="Permanent link">&para;</a></h2>
-<p>Returns <code>200 OK</code> if the process is running. No authentication required. No external checks performed.</p>
-<p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">}</span>
-</code></pre></div></p>
-<p>Use this as a <strong>liveness probe</strong> — if it fails, the container should be restarted.</p>
-<hr />
-<h2 id="get-apihealthreadiness"><code>GET /api/health/readiness/</code><a class="headerlink" href="#get-apihealthreadiness" title="Permanent link">&para;</a></h2>
-<p>Returns <code>200 OK</code> if both the database and Valkey cache are reachable. No authentication required.</p>
-<p><strong>Response — healthy</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">}</span>
-</code></pre></div></p>
-<p><strong>Response — degraded</strong> (<code>503 Service Unavailable</code>)
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"errors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">"db"</span><span class="p">:</span><span class="w"> </span><span class="s2">"connection refused"</span><span class="p">,</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">"redis"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cache read/write mismatch"</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">}</span>
-</code></pre></div></p>
-<p>Only the failing subsystems appear in <code>errors</code>. Use this as a <strong>readiness probe</strong> — traffic should not be routed to the instance until it returns <code>200</code>.</p>
-<hr />
-<h2 id="get-apiv1version"><code>GET /api/v1/version/</code><a class="headerlink" href="#get-apiv1version" title="Permanent link">&para;</a></h2>
-<p>Returns the running application version string. <strong>Requires authentication</strong> (<code>IsAuthenticated</code>). Unauthenticated requests receive <code>403 Forbidden</code>.</p>
-<p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.1.0"</span><span class="w"> </span><span class="p">}</span>
-</code></pre></div></p>
-<p>The value is read from the <code>APP_VERSION</code> environment variable set at deploy time (see <code>.env.example</code>). Use this to confirm which version is deployed before running migrations or checking the changelog. See <a href="../version/">Version API</a> for the full reference.</p>
-<hr />
-<h2 id="kubernetes-example">Kubernetes example<a class="headerlink" href="#kubernetes-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">livenessProbe</span><span class="p">:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/health/liveness/</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">initialDelaySeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">periodSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nt">readinessProbe</span><span class="p">:</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/health/readiness/</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span><span class="nt">initialDelaySeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="nt">periodSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">  </span><span class="nt">failureThreshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-</code></pre></div>
+<h1 id="authorization-entry-points">Authorization Entry Points<a class="headerlink" href="#authorization-entry-points" title="Permanent link">&para;</a></h1>
+<p>Visiban can be reached over several transports: the REST API, the MCP server,
+the board and group WebSocket consumers, invite links and the allauth OAuth
+adapter. Some security rules apply on all of them. This page says which shared
+function each entry point calls, and how the test that enforces it works, so a
+new view, consumer or transport knows what to call before it merges.</p>
+<p>The rules themselves, and the surfaces each one covers, are listed in the
+<a href="../security-invariants/">Security Invariants Registry</a>. This page covers the
+code you call to apply them.</p>
+<h2 id="why-one-function-per-rule">Why one function per rule<a class="headerlink" href="#why-one-function-per-rule" title="Permanent link">&para;</a></h2>
+<p>Each rule used to be written again on every transport. A fix to one copy then
+left the other copies unfixed, and each gap was found only when a reviewer
+happened to look at the other transport. Now each rule has one definition in
+<code>backend/visiban/authorization.py</code>. Every entry point calls it, and
+<code>backend/accounts/tests/test_auth_entry_points.py</code> fails CI when an entry point
+does not.</p>
+<h2 id="the-shared-functions">The shared functions<a class="headerlink" href="#the-shared-functions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Function</th>
+<th>Called from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Account state (Rule 1): inactive, or a forced password or username change pending</td>
+<td><code>authorize_account(user)</code> returns a bool; <code>account_state_denial(user)</code> returns the refusing <code>AccountGate</code> (with its <code>message</code> and <code>code</code>) or <code>None</code></td>
+<td>WebSocket handshake (<code>BoardConsumer.connect</code>, <code>GroupConsumer.connect</code>); WebSocket re-check (<code>accounts/ws_auth.py</code> <code>load_live_ws_user</code>); MCP (<code>mcp_server/auth.py</code> <code>_enforce_account_state</code>)</td>
+</tr>
+<tr>
+<td>Account state, one gate at a time</td>
+<td>The <code>AccountGate</code> objects <code>INACTIVE</code>, <code>PENDING_PASSWORD_CHANGE</code>, <code>PENDING_USERNAME_CHANGE</code></td>
+<td>REST permission classes <code>MustNotHavePendingPasswordChange</code> and <code>MustNotHavePendingUsernameChange</code> (each holds its gate as <code>gate</code>); <code>PATAuthentication</code> through <code>resolve_personal_access_token</code> (<code>INACTIVE</code>); WebSocket ticket redemption <code>_resolve_ticket_user</code> (<code>INACTIVE</code>)</td>
+</tr>
+<tr>
+<td>Active principal</td>
+<td><code>principal_is_active(user)</code></td>
+<td>Every gate above; the OAuth adapter's existing-account match (<code>_handle_email_collision</code>); the board and group invite creator rules</td>
+</tr>
+<tr>
+<td>Invite creator standing (Rule 2)</td>
+<td><code>invite_creator_is_valid(link, board=None)</code></td>
+<td><code>JoinBoardView.get</code> and <code>.post</code>; <code>JoinGroupView.get</code> and <code>.post</code>; registration through a board or group invite (<code>_sender_still_admits</code> in <code>boards/invites.py</code> and <code>groups/invite_registration.py</code>)</td>
+</tr>
+<tr>
+<td>Who may admit new accounts</td>
+<td><code>sender_may_admit_accounts(sender)</code></td>
+<td>Registration through a board or group invite, before <code>invite_creator_is_valid</code></td>
+</tr>
+<tr>
+<td>Current role on a board or group (Rule 2)</td>
+<td><code>boards.permissions.get_board_role</code>, <code>groups.models.get_accessible_group_ids</code> (unchanged)</td>
+<td>REST, MCP tools, both consumers' handshake and re-check</td>
+</tr>
+<tr>
+<td>Consume-once registration tokens (Rule 4)</td>
+<td><code>accounts.registration_tokens.registration_token_kind</code> (unchanged)</td>
+<td><code>InviteRegisterView</code>, <code>SocialRegistrationAdapter.save_user</code></td>
+</tr>
+<tr>
+<td>Import user scoping (Rule 5)</td>
+<td><code>boards/services/trello_import.py</code> <code>visible_users</code> (unchanged); JSON and CSV reach it through <code>boards/views/import_export.py</code> <code>_resolve_import_users</code></td>
+<td><code>BoardImportExportMixin</code> only. Intentionally outside the enumeration test: it is already one shared function, and every import format enters through the one mixin, so there is no second transport for a copy to drift on. <code>boards/tests/test_import_user_scope.py</code> covers it</td>
+</tr>
+</tbody>
+</table>
+<p>REST keeps DRF permission classes. They evaluate the same gate objects as the
+other transports, one gate per class, so that an endpoint a pending user must
+reach to clear the flag (for example <code>ChooseUsernameView</code>) can leave out exactly
+one gate.</p>
+<h2 id="adding-an-entry-point">Adding an entry point<a class="headerlink" href="#adding-an-entry-point" title="Permanent link">&para;</a></h2>
+<p><strong>A REST view.</strong> Do nothing. A view that keeps <code>DEFAULT_PERMISSION_CLASSES</code>
+gets both forced-change gates. If the view declares its own
+<code>permission_classes</code>, include <code>MustNotHavePendingPasswordChange</code> and
+<code>MustNotHavePendingUsernameChange</code> in the list. If the view really must serve
+a user who has not authenticated, or one with a pending change, add it to
+<code>REST_GATE_ALLOWLIST</code> in the test with a one-line reason and the exact routes
+it is mounted at. To exempt only one method, use the key <code>"module.View:GET"</code>.
+An entry covers only the routes it lists, so mounting the same view somewhere
+new needs a new decision. A route ending in <code>*</code> is a prefix: <code>accounts/oidc/*</code>
+covers every route under <code>accounts/oidc/</code>. A bare <code>*</code> (or <code>/*</code>), which would
+cover every mount, is refused, and so is an entry with no reason or no routes.
+An entry marked <code>optional</code> may match nothing, for a view that exists only in
+some configurations; it is never reported as stale, whether its routes are
+exact or prefixes.</p>
+<p><strong>A non-DRF Django view.</strong> No DRF permission class runs on it. Write a DRF
+view instead, or add it to <code>NON_DRF_ALLOWLIST</code> with a reason and its routes.
+Entries name exact view classes, not modules, so a view that a new allauth
+release adds is reported until someone reviews it. Views served by
+<code>django.contrib.admin.site</code> itself are recognized per view (they require an
+active staff session); a view merely mounted under an <code>admin</code> namespace is not.</p>
+<p><strong>A new DRF authentication class.</strong> The REST inactive-account gate is applied
+by the authentication classes, so the test accepts only the ones in
+<code>ACTIVE_CHECKING_AUTHENTICATORS</code>. Check that the new class refuses an inactive
+user, then add it to that list.</p>
+<p><strong>A WebSocket consumer.</strong> In <code>connect</code>, refuse an unauthenticated scope or one
+with no recorded credential (4001). Then call <code>authorize_account(user)</code> before
+any database lookup, and close with 4003 when it returns false. Do not pass
+<code>exempt</code>: the handshake has no forced-change flow. Run the
+periodic access re-check through <code>load_live_ws_user(self.scope)</code>. The test
+opens a socket to every consumer routed by <code>visiban.asgi.application</code>,
+including enterprise patterns, and fails if the handshake does not consult the
+shared gates.</p>
+<p><strong>An MCP tool.</strong> Do nothing. Tools are reachable only through the mounted MCP
+app, and <code>BearerAuthMiddleware</code> wraps that app and applies the gates to every
+request. A new MCP <em>transport</em> must also be wrapped in <code>BearerAuthMiddleware</code>.</p>
+<p><strong>An invite link kind.</strong> A model with a <code>token_hash</code> and a <code>created_by</code> field
+is treated as an invite link. Register its creator rule in
+<code>INVITE_CREATOR_RULES</code> (<code>invite_creator_is_valid</code> dispatches through that
+table), and call <code>invite_creator_is_valid</code> at preview and at redemption. Claim the token atomically under a lock (Rule 4).</p>
+<p><strong>An allauth hook.</strong> Override it on <code>RegistrationAdapter</code> or
+<code>SocialRegistrationAdapter</code>. Do not rely on allauth's default. The test checks
+that the configured adapters are the project's own classes and that they
+override the signup hooks.</p>
+<h2 id="how-the-enforcement-test-finds-entry-points">How the enforcement test finds entry points<a class="headerlink" href="#how-the-enforcement-test-finds-entry-points" title="Permanent link">&para;</a></h2>
+<p>The test discovers entry points from the running configuration. It does not
+keep a list of them, so a new entry point is checked without anyone adding it:</p>
+<ul>
+<li><strong>REST:</strong> walks the root URL resolver. For each DRF view and each HTTP method
+  it serves (each viewset action, plus <code>OPTIONS</code>), it builds the view and reads
+  its effective <code>get_permissions()</code> and <code>get_authenticators()</code>. A
+  <code>get_permissions()</code> override that changes by action is therefore checked as
+  it runs. <code>A &amp; B</code> counts the gates of both sides. <code>A | B</code> counts only the gates
+  that both sides apply.</li>
+<li><strong>WebSocket:</strong> walks <code>visiban.asgi.application</code>'s websocket middleware down to
+  the <code>URLRouter</code> and opens a socket to each routed consumer. During that
+  handshake, the shared gate evaluator is replaced by a spy that refuses
+  everyone. A consumer passes when the spy saw the scope user with no gate
+  exempted and the socket was not accepted. The test also parses each
+  consumer's source (and its project base classes) and requires a call to
+  <code>load_live_ws_user</code> for its re-check; a mention in a comment does not count.</li>
+<li><strong>MCP:</strong> calls the transport's <code>_authenticate_and_authorize</code> with the spy in
+  place. When the MCP SDK is installed, it also checks that the mounted app is
+  wrapped in <code>BearerAuthMiddleware</code>.</li>
+<li><strong>Invites:</strong> lists every installed model that has <code>token_hash</code> and
+  <code>created_by</code>. It then parses every non-test module of the installed apps and
+  finds each function that looks one of those models up by its token
+  (<code>lookup_by_token</code>, <code>_hash_token</code>, or a <code>token_hash=</code> filter). Each one must
+  call <code>invite_creator_is_valid</code> or a registration refusal function, unless its
+  model is a documented exception.</li>
+<li><strong>Pinned call sites:</strong> <code>REQUIRED_SHARED_CALLS</code> names the join views, the
+  registration refusal functions, <code>_sender_still_admits</code> and the OAuth
+  adapter's <code>_handle_email_collision</code>, with the shared calls each must make.
+  The registration paths must call <code>registration_token_kind</code>. All of these are
+  checked as real calls in the parsed source, so a mention in a comment does
+  not count.</li>
+</ul>
+<p>Each checker also has a negative test. A synthetic view, viewset action,
+consumer, authenticator or invite model that skips the shared check must be
+reported. This proves the checker can fail.</p>
+<p>The allowlists cannot go stale. A view and route pair that matches no
+discovered entry point fails the test, and so does an allowlisted view that
+already applies both gates. Entries for views that exist only in some
+configurations (an OIDC provider installed only when its settings are present)
+are marked optional.</p>
+<h2 id="advisory-copies-of-the-creator-rule">Advisory copies of the creator rule<a class="headerlink" href="#advisory-copies-of-the-creator-rule" title="Permanent link">&para;</a></h2>
+<p>A few places restate part of the invite creator rule inline instead of calling
+the shared function. They are not entry points: none of them decides whether a
+link admits anyone, so a drift there cannot grant access. Registration and
+joining re-check through the shared functions, under the invite's row lock.</p>
+<table>
+<thead>
+<tr>
+<th>Location</th>
+<th>What it is</th>
+<th>Why it is not routed through the shared function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>boards/invites.py</code> <code>board_link_can_register_cheap</code></td>
+<td>The <code>can_register</code> label on the site-admin invite list</td>
+<td>Query-free on purpose: the list spans every board, and resolving each sender's role per row would cost a query per (board, sender) pair. Advisory only</td>
+</tr>
+<tr>
+<td><code>boards/invites.py</code> <code>board_link_registration_refusal</code>, <code>groups/invite_registration.py</code> <code>group_link_registration_refusal</code> (the "not for registration" branch)</td>
+<td>Classifies the link kind to pick a refusal code</td>
+<td>The authorization decision in the same function is <code>_sender_still_admits</code>, which calls <code>sender_may_admit_accounts</code> and <code>invite_creator_is_valid</code></td>
+</tr>
+<tr>
+<td><code>groups/views.py</code> <code>_revoke_lapsed_admin_invite_links</code></td>
+<td>Revokes a demoted admin's unused links</td>
+<td>Revocation housekeeping in bulk; a link it misses is still refused at preview and join by <code>invite_creator_is_valid</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each site has a comment pointing at the shared function.</p>
+<h2 id="enterprise">Enterprise<a class="headerlink" href="#enterprise" title="Permanent link">&para;</a></h2>
+<p>The test also runs in the enterprise mirror. Enterprise URL patterns and
+WebSocket routes registered through the extension points are discovered and
+checked like OSS ones.</p>
+<p>Enterprise records its own exceptions without editing the OSS test, through an
+optional module, <code>enterprise.auth_entry_point_allowlist</code>. The test imports it
+when it is installed and skips it when it is not. The module may define:</p>
+<ul>
+<li><code>REST_GATE_ALLOWLIST</code> and <code>NON_DRF_ALLOWLIST</code>: dicts keyed like the OSS ones
+  (<code>"module.View"</code> or <code>"module.View:GET"</code>). Each value is a dict
+  <code>{"reason": "...", "routes": ["api/v1/..."], "optional": False}</code>, so the
+  module does not have to import the test.</li>
+<li><code>ACTIVE_CHECKING_AUTHENTICATORS</code>: a tuple of additional authenticator classes
+  that refuse inactive accounts. Each must be a concrete DRF authenticator:
+  <code>BaseAuthentication</code> itself, a subclass that does not implement
+  <code>authenticate</code>, or anything that is not a class is refused, because it would
+  make the check accept every authenticator.</li>
+</ul>
+<p>The entries are merged with the OSS lists, validated by the same rules as the
+OSS entries (a reason, at least one route, no bare <code>*</code>), and get the same
+checks, including the stale-entry check. An entry that repeats an OSS key fails the test: the
+module adds decisions, it does not override OSS ones.</p>
+<h2 id="feature-flagged-routes">Feature-flagged routes<a class="headerlink" href="#feature-flagged-routes" title="Permanent link">&para;</a></h2>
+<p>The Issue Board Lens views are mounted only with <code>GIT_LENS_ENABLED</code>. The main
+backend CI job runs with the flag off, so the <code>backend-test-git-lens</code> job also
+runs this test with the flag on, and the lens views are enumerated there. The
+allowlists contain no flag-dependent entries, so the stale-entry check passes
+either way.</p>
 
 
 

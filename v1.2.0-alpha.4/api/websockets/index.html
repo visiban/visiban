@@ -2590,6 +2590,8 @@
       
         
       
+        
+      
     
     
     
@@ -3135,6 +3137,34 @@
     
   
     Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
   
 
     
@@ -4188,7 +4218,7 @@
 </tr>
 <tr>
 <td><code>4003</code></td>
-<td>Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help for a non-member. The same account-state checks as REST and MCP apply: an account with a pending password or username change is also closed with <code>4003</code>, at connect and on the access re-check; once the pending change is completed, a later reconnect can succeed. Since 1.2, <code>4003</code> can also arrive <strong>mid-stream</strong> on an open connection, when the user loses access, when the credential it connected with is revoked (logout, password change, revoked session or token), or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See <a href="#access-re-check-and-eviction">Access re-check and eviction</a>.</td>
+<td>Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help for a non-member. The same account-state checks as REST and MCP apply: an account with a pending password or username change is also closed with <code>4003</code>, at connect and on the access re-check, and once the pending change is completed a later reconnect can succeed. An account deactivated while a connection is open is closed with <code>4003</code> at the next access re-check; a reconnect attempt by an inactive account is refused at authentication with <code>4001</code>. Since 1.2, <code>4003</code> can also arrive <strong>mid-stream</strong> on an open connection, when the user loses access, when the credential it connected with is revoked (logout, password change, revoked session or token), or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See <a href="#access-re-check-and-eviction">Access re-check and eviction</a>.</td>
 </tr>
 </tbody>
 </table>

@@ -16,7 +16,7 @@
         <link rel="prev" href="../suppressions/">
       
       
-        <link rel="next" href="../sonarcloud/">
+        <link rel="next" href="../authorization-entry-points/">
       
       
         
@@ -2207,6 +2207,8 @@
       
         
       
+        
+      
     
     
     
@@ -2887,6 +2889,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3935,9 +3965,18 @@ audit code.</p>
 </tbody>
 </table>
 <p>Entry points use file and function names, not line numbers, so the table
-survives edits. Paths are relative to <code>backend/</code>. The enumeration test
-planned in #1517 consumes the same surface list as these tables, so a surface
-added here is a surface that test must cover.</p>
+survives edits. Paths are relative to <code>backend/</code>. Where a rule has a shared
+implementation, it lives in <code>visiban/authorization.py</code> and the "Enforced via"
+column names it. <code>accounts/tests/test_auth_entry_points.py</code> enforces Rules 1
+and 2: it discovers every routed REST and non-DRF view, every routed WebSocket
+consumer, the MCP transport, every invite-link model, and every function that
+looks an invite up by its token, and fails when one skips the shared function.
+It also pins the registration and OAuth adapter call sites to the shared
+functions and to <code>registration_token_kind</code> (Rule 4 dispatch). It does not
+enumerate Rule 3 (the revocation table is a review checklist) or Rule 5, and it
+does not test locking; the concurrent tests for each consume-once path do.
+<a href="../authorization-entry-points/">Authorization Entry Points</a> says what each
+entry point calls and how that test finds them.</p>
 <h2 id="rule-1-account-state-gates-apply-to-every-transport">Rule 1: Account-state gates apply to every transport<a class="headerlink" href="#rule-1-account-state-gates-apply-to-every-transport" title="Permanent link">&para;</a></h2>
 <p><strong>Rule.</strong> An account with a forced change pending (<code>must_change_password</code>,
 <code>must_change_username</code>) or that is inactive is refused on every transport, not
@@ -3957,12 +3996,12 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <tr>
 <td>REST</td>
 <td><code>visiban/settings.py</code> <code>REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"]</code></td>
-<td><code>visiban.permissions.MustNotHavePendingPasswordChange</code> and <code>MustNotHavePendingUsernameChange</code> come from the defaults. Documented exceptions that declare their own <code>permission_classes</code> so a forced-change user can reach them: <code>CurrentUserView</code>, <code>ChangePasswordView</code>, <code>ChooseUsernameView</code>, <code>/auth/user/</code> and <code>/auth/password/change/</code> (<code>visiban/urls.py</code>). The OpenAPI schema views (<code>visiban/urls.py</code>) declare <code>IsAuthenticated, TokenHasScope</code>. <code>boards/views/boards.py</code> <code>BoardViewSet</code> and <code>accounts/views.py</code> <code>WSTicketView</code> declare an explicit list that includes both gates</td>
+<td><code>visiban.permissions.MustNotHavePendingPasswordChange</code> and <code>MustNotHavePendingUsernameChange</code> come from the defaults; each delegates to its shared gate (<code>visiban.authorization.PENDING_PASSWORD_CHANGE</code>, <code>PENDING_USERNAME_CHANGE</code>). Documented exceptions that declare their own <code>permission_classes</code> so a forced-change user can reach them: <code>CurrentUserView</code>, <code>ChangePasswordView</code>, <code>ChooseUsernameView</code>, <code>/auth/user/</code> and <code>/auth/password/change/</code> (<code>visiban/urls.py</code>). The OpenAPI schema views (<code>visiban/urls.py</code>) declare <code>IsAuthenticated, TokenHasScope</code>. <code>boards/views/boards.py</code> <code>BoardViewSet</code> and <code>accounts/views.py</code> <code>WSTicketView</code> declare an explicit list that includes both gates</td>
 </tr>
 <tr>
 <td>REST authentication</td>
 <td><code>accounts/authentication.py</code> <code>PATAuthentication</code>; DRF <code>SessionAuthentication</code> and <code>TokenAuthentication</code> (<code>DEFAULT_AUTHENTICATION_CLASSES</code>)</td>
-<td><code>resolve_personal_access_token</code> rejects a PAT whose user is inactive; <code>SessionAuthentication</code> and DRF's <code>TokenAuthentication</code> check <code>user.is_active</code></td>
+<td><code>resolve_personal_access_token</code> rejects a PAT whose user is inactive (<code>visiban.authorization.INACTIVE</code>); <code>SessionAuthentication</code> and DRF's <code>TokenAuthentication</code> check <code>user.is_active</code></td>
 </tr>
 <tr>
 <td>Login and session issuance</td>
@@ -3972,7 +4011,7 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <tr>
 <td>MCP</td>
 <td><code>mcp_server/auth.py</code> <code>BearerAuthMiddleware</code></td>
-<td><code>_authenticate_and_authorize</code> calls <code>_enforce_account_state</code>, which reuses the REST permission classes</td>
+<td><code>_authenticate_and_authorize</code> calls <code>_enforce_account_state</code>, which calls <code>visiban.authorization.account_state_denial</code> and returns the gate's message and code</td>
 </tr>
 <tr>
 <td>WebSocket ticket mint</td>
@@ -3982,17 +4021,17 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <tr>
 <td>WebSocket handshake</td>
 <td><code>accounts/ws_auth.py</code> <code>TicketAuthMiddleware</code>, <code>_resolve_ticket_user</code>; Channels <code>AuthMiddlewareStack</code></td>
-<td><code>_resolve_ticket_user</code> refuses an inactive user at redemption; <code>AuthMiddlewareStack</code> resolves the session user through Django's auth backends</td>
+<td><code>_resolve_ticket_user</code> refuses an inactive user at redemption (<code>visiban.authorization.INACTIVE</code>); <code>AuthMiddlewareStack</code> resolves the session user through Django's auth backends</td>
 </tr>
 <tr>
 <td>WebSocket (board)</td>
 <td><code>boards/consumers.py</code> <code>BoardConsumer.connect</code>, <code>_check_access</code></td>
-<td><code>connect</code> refuses an unauthenticated scope user or one with no recorded credential; the periodic re-check runs <code>accounts/ws_auth.py</code> <code>load_live_ws_user</code>, which requires an active user</td>
+<td><code>connect</code> refuses an unauthenticated scope user or one with no recorded credential, then calls <code>visiban.authorization.authorize_account</code>; the periodic re-check runs <code>accounts/ws_auth.py</code> <code>load_live_ws_user</code>, which calls <code>authorize_account</code> on a freshly loaded row</td>
 </tr>
 <tr>
 <td>WebSocket (group)</td>
 <td><code>groups/consumers.py</code> <code>GroupConsumer.connect</code>, <code>_check_access</code></td>
-<td>Same as the board consumer: same <code>connect</code> refusal; periodic re-check runs <code>load_live_ws_user</code></td>
+<td>Same as the board consumer: same <code>connect</code> refusal and <code>authorize_account</code> call; periodic re-check runs <code>load_live_ws_user</code></td>
 </tr>
 <tr>
 <td>Invite link redemption</td>
@@ -4007,7 +4046,7 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <tr>
 <td>OAuth signup</td>
 <td><code>accounts/adapter.py</code> <code>SocialRegistrationAdapter.pre_social_login</code>, <code>save_user</code></td>
-<td>Signup creates the account in the same flow; existing-account matching in <code>_handle_email_collision</code> considers active users only</td>
+<td>Signup creates the account in the same flow; existing-account matching in <code>_handle_email_collision</code> considers active users only (<code>visiban.authorization.principal_is_active</code>)</td>
 </tr>
 <tr>
 <td>Django admin</td>
@@ -4071,7 +4110,7 @@ re-checks.</p>
 <tr>
 <td>WebSocket (board)</td>
 <td><code>boards/consumers.py</code> <code>BoardConsumer</code></td>
-<td>Periodic and per-frame re-check: <code>_refresh_role</code> calls <code>load_live_ws_user</code> (active user, live credential) and <code>_lookup_role</code> resolves the current role with <code>get_board_role</code>; a failed check closes with 4003</td>
+<td>Periodic and per-frame re-check: <code>_refresh_role</code> calls <code>load_live_ws_user</code> (<code>authorize_account</code> on a fresh row, live credential) and <code>_lookup_role</code> resolves the current role with <code>get_board_role</code>; a failed check closes with 4003</td>
 </tr>
 <tr>
 <td>WebSocket (group)</td>
@@ -4086,12 +4125,12 @@ re-checks.</p>
 <tr>
 <td>Board invite links</td>
 <td><code>boards/views/invites.py</code> <code>JoinBoardView.get</code>, <code>JoinBoardView.post</code>; <code>boards/invites.py</code> <code>sender_is_board_admin</code></td>
-<td><code>sender_is_board_admin</code> is evaluated at preview and at join; <code>_revoke_pending_board_invites</code> revokes on deactivation</td>
+<td><code>visiban.authorization.invite_creator_is_valid</code> (the board rule is <code>sender_is_board_admin</code>) is evaluated at preview and at join; <code>_revoke_pending_board_invites</code> revokes on deactivation</td>
 </tr>
 <tr>
 <td>Group invite links</td>
 <td><code>groups/invite_registration.py</code> <code>_sender_still_admits</code>; <code>groups/views.py</code> <code>sender_is_group_admin</code>, <code>_revoke_lapsed_admin_invite_links</code>; <code>accounts/admin_views.py</code> <code>AdminUserDeactivateView._revoke_group_invite_links</code></td>
-<td>Sender standing is evaluated at preview and redemption; links are revoked when the sender is deactivated or their admin rights lapse</td>
+<td>Sender standing is evaluated at preview and redemption through <code>visiban.authorization.invite_creator_is_valid</code> (the group rule is <code>sender_is_group_admin</code>), and at registration also <code>sender_may_admit_accounts</code>; links are revoked when the sender is deactivated or their admin rights lapse (<code>_revoke_lapsed_admin_invite_links</code> is revocation housekeeping, not the access decision; see <a href="../authorization-entry-points/#advisory-copies-of-the-creator-rule">advisory copies</a>)</td>
 </tr>
 <tr>
 <td>JSON, CSV and Trello import</td>
@@ -4325,9 +4364,18 @@ matched count into an existence oracle for every account on the instance.</p>
    or class, no line numbers) and the code that enforces the rule today. Do not
    record a surface as enforcing the rule from memory; open the file.</li>
 <li>Add the new rule as its own section above, with a table in the same format.</li>
-<li>If the rule is checked by the enumeration test (#1517), make sure the test
-   reads the same surface list. A surface listed here and not in the test, or the
-   reverse, is a defect in one of the two.</li>
+<li>If the rule has a shared implementation, put it in
+   <code>backend/visiban/authorization.py</code> and extend
+   <code>backend/accounts/tests/test_auth_entry_points.py</code> so the test discovers
+   every surface in the rule's table (see
+   <a href="../authorization-entry-points/">Authorization Entry Points</a>). A surface listed
+   here and not checked by the test, or the reverse, is a defect in one of the
+   two. Exception: Rule 5 already resolves every import format's names through
+   one shared function, <code>boards/services/trello_import.py</code> <code>visible_users</code>
+   (JSON and CSV reach it through <code>_resolve_import_users</code>), and every format
+   enters through the one import mixin. With no second transport for a copy to
+   drift on, it is intentionally outside the enumeration;
+   <code>boards/tests/test_import_user_scope.py</code> covers it.</li>
 <li>Keep gap tracking out of this page. A surface that needs work is an issue,
    not a row annotation.</li>
 </ol>
