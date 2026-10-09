@@ -7,7 +7,7 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 |---|---|---|---|---|
 | `gitleaks-scan` | Pinned gitleaks binary, `.gitleaks.toml` | Yes, any finding | MR + `main` | Whole working tree |
 | `gitleaks-history` | Pinned gitleaks binary, `.gitleaks.toml` | Yes, any finding, but it runs **after merge on `main`**, so it is a post-merge tripwire, not a merge gate | `main` only | **Full git history** |
-| `secret_detection` | GitLab `secret-detection` component (pinned) | **No for findings.** Reports only; fails only if the analyzer itself crashes. Gating on it is #1537 | MR + `main` | MR diff (shallow clone) |
+| `secret_detection` + `secret-detection-gate` | GitLab `secret-detection` component (pinned) | Yes, any unsuppressed finding (#1537). The component job itself only reports; the gate reads its report | MR + `main` | MR diff (shallow clone) |
 | `semgrep-sast` + `sast-severity-gate` | GitLab `sast` component (pinned) | Yes at **High/Critical** only | MR + `main` | Python and TypeScript/JavaScript |
 | `backend-sast` | bandit | Yes, medium+ | MR + `main` when `backend/**/*.py` changed | `backend/` |
 | `frontend-sast` | eslint-plugin-security | Yes, `error` rules (object-injection and timing rules are `warn`) | MR + `main` when `frontend/src/**/*.{ts,tsx}` changed | `frontend/src` |
@@ -15,9 +15,12 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 
 `dep-scan-osv`, `pip-audit`, and the license checks are deliberately outside this policy.
 
-The secret scanners that actually gate are `gitleaks-scan` and `gitleaks-history`. GitLab's
-analyzers exit 0 even when they find something, so `allow_failure: false` on the component's
-`secret_detection` job only turns an analyzer crash into a red job; it does not stop a leak.
+The secret scanners that gate are `gitleaks-scan`, `gitleaks-history`, and
+`secret-detection-gate`. GitLab's analyzers exit 0 even when they find something, so
+`allow_failure: false` on the component's `secret_detection` job only turns an analyzer crash
+into a red job; it does not stop a leak. `secret-detection-gate` (`scripts/secret-detection-gate.py`,
+with a `--self-test` run before each real invocation) reads `gl-secret-detection-report.json`
+and fails on any unsuppressed finding of any severity, or if the report is missing or unusable.
 
 Component-generated jobs (`secret_detection`, `semgrep-sast`) are not literal job keys
 in a plain reading of `.gitlab-ci.yml`; they come from the `include:` block, and the
@@ -68,7 +71,12 @@ mask real leaks in the blocking scanners. `sample-boards/` and `oidc/keycloak-re
 both scan clean without one.
 
 The component's `secret_detection` job uses its own default ruleset and ignores
-`.gitleaks.toml`. It reports findings but cannot gate on them (see #1537). Full history is
+`.gitleaks.toml`, so its fixture and example hits are allowlisted separately, in
+`.gitlab/secret-detection-suppressions.json` (read by `secret-detection-gate`). Entries use the
+same format and matching rules as the semgrep suppressions above (exact `rule`, exact path or
+glob `file`, `expires` at most 90 days out, expired entries fail the gate), and additionally the
+`reason` must cite a tracking issue as `#NNNN`. The gate prints only the rule name and
+`file:line`, never the matched value. Prefer fixing the file to suppressing it. Full history is
 covered by `gitleaks-history`; the existing history was triaged locally before it became
 blocking.
 
@@ -100,5 +108,6 @@ printf 'aws_access_key_id = "%s%s"\n' AKIA QYLPMN5HHHFPZAM2 \
 ```
 
 This is the planted-credential check for the issue's first acceptance criterion: a leaked
-key fails `gitleaks-scan` (and, on `main`, `gitleaks-history`). It does not fail the
-component's `secret_detection` job (#1537).
+key fails `gitleaks-scan` (and, on `main`, `gitleaks-history`). The component's
+`secret_detection` job does not fail on it; `secret-detection-gate` does, when the component
+reports it.
