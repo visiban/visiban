@@ -441,17 +441,18 @@ security-deferred-verdict-selftest:
         - scripts/security-deferred-verdict.sh
         - scripts/check-security-deferred.sh
         - scripts/release.sh
+        - scripts/tests/release.test.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *security-deferred-verdict-selftest-paths
   script:
     - sh scripts/security-deferred-verdict.sh --self-test
-    - apk add --no-cache bash jq git coreutils
+    - apk add --no-cache bash jq git coreutils python3
     - git config --global --add safe.directory '*'
     - bash scripts/check-security-deferred.sh --self-test
     # release.sh gates the tag on the check above (#1520); its self-test had no CI job.
-    # scripts/tests/release.test.sh is NOT run here: release.sh's BSD-style `sed -i ''` fails on Linux (#1539).
-    - bash scripts/release.sh --self-test
+    # release.test.sh runs release.sh's --self-test plus the end-to-end rollback cases in
+    # hermetic clones; python3 is for assemble-changelog.sh.    - bash scripts/tests/release.test.sh
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #
