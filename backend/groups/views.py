@@ -208,6 +208,10 @@ def _revoke_lapsed_admin_invite_links(user, group=None):
         links = [lk for lk in links if _in_subtree(lk.group)]
     if not links:
         return
+    # Revocation housekeeping only (#1517): this walk mirrors
+    # sender_is_group_admin in bulk. Preview and join re-check through
+    # visiban.authorization.invite_creator_is_valid, so drift here can leave a
+    # link listed as active but cannot let it admit anyone.
     if user.is_active and getattr(user, "can_access_all_content", False):
         return  # still passes _require_group_admin everywhere
     admin_group_ids = set(

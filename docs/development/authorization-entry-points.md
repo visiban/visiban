@@ -47,7 +47,12 @@ a user who has not authenticated, or one with a pending change, add it to
 `REST_GATE_ALLOWLIST` in the test with a one-line reason and the exact routes
 it is mounted at. To exempt only one method, use the key `"module.View:GET"`.
 An entry covers only the routes it lists, so mounting the same view somewhere
-new needs a new decision.
+new needs a new decision. A route ending in `*` is a prefix: `accounts/oidc/*`
+covers every route under `accounts/oidc/`. A bare `*` (or `/*`), which would
+cover every mount, is refused, and so is an entry with no reason or no routes.
+An entry marked `optional` may match nothing, for a view that exists only in
+some configurations; it is never reported as stale, whether its routes are
+exact or prefixes.
 
 **A non-DRF Django view.** No DRF permission class runs on it. Write a DRF
 view instead, or add it to `NON_DRF_ALLOWLIST` with a reason and its routes.
@@ -128,6 +133,21 @@ already applies both gates. Entries for views that exist only in some
 configurations (an OIDC provider installed only when its settings are present)
 are marked optional.
 
+## Advisory copies of the creator rule
+
+A few places restate part of the invite creator rule inline instead of calling
+the shared function. They are not entry points: none of them decides whether a
+link admits anyone, so a drift there cannot grant access. Registration and
+joining re-check through the shared functions, under the invite's row lock.
+
+| Location | What it is | Why it is not routed through the shared function |
+|---|---|---|
+| `boards/invites.py` `board_link_can_register_cheap` | The `can_register` label on the site-admin invite list | Query-free on purpose: the list spans every board, and resolving each sender's role per row would cost a query per (board, sender) pair. Advisory only |
+| `boards/invites.py` `board_link_registration_refusal`, `groups/invite_registration.py` `group_link_registration_refusal` (the "not for registration" branch) | Classifies the link kind to pick a refusal code | The authorization decision in the same function is `_sender_still_admits`, which calls `sender_may_admit_accounts` and `invite_creator_is_valid` |
+| `groups/views.py` `_revoke_lapsed_admin_invite_links` | Revokes a demoted admin's unused links | Revocation housekeeping in bulk; a link it misses is still refused at preview and join by `invite_creator_is_valid` |
+
+Each site has a comment pointing at the shared function.
+
 ## Enterprise
 
 The test also runs in the enterprise mirror. Enterprise URL patterns and
@@ -143,10 +163,14 @@ when it is installed and skips it when it is not. The module may define:
   `{"reason": "...", "routes": ["api/v1/..."], "optional": False}`, so the
   module does not have to import the test.
 - `ACTIVE_CHECKING_AUTHENTICATORS`: a tuple of additional authenticator classes
-  that refuse inactive accounts.
+  that refuse inactive accounts. Each must be a concrete DRF authenticator:
+  `BaseAuthentication` itself, a subclass that does not implement
+  `authenticate`, or anything that is not a class is refused, because it would
+  make the check accept every authenticator.
 
-The entries are merged with the OSS lists and get the same checks, including
-the stale-entry check. An entry that repeats an OSS key fails the test: the
+The entries are merged with the OSS lists, validated by the same rules as the
+OSS entries (a reason, at least one route, no bare `*`), and get the same
+checks, including the stale-entry check. An entry that repeats an OSS key fails the test: the
 module adds decisions, it does not override OSS ones.
 
 ## Feature-flagged routes

@@ -77,6 +77,9 @@ def group_link_registration_refusal(link: GroupInviteLink) -> str | None:
     if not (link.single_use and link.delivery == GroupInviteLink.Delivery.EMAIL):
         return "invite_not_for_registration"
     sender = link.created_by
+    # Link-kind classification (which refusal code to report), not the
+    # authorization decision: _sender_still_admits below applies the shared
+    # visiban.authorization functions (#1517).
     if sender is not None and sender.is_active and not sender.is_site_admin:
         # A group admin's emailed invite: valid for joining, never for sign-up.
         return "invite_not_for_registration"

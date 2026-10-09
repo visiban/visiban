@@ -325,6 +325,37 @@ def _as_allow(value) -> Allow:
     return Allow(value.reason, frozenset(value.routes), bool(getattr(value, "optional", False)))
 
 
+def validate_allow(key: str, entry: Allow) -> None:
+    """Refuse an entry that would silently exempt more than it says.
+
+    A reason is required; at least one route is required; and a bare ``*``
+    is refused because it would cover every mount of the view, which is what
+    pinning entries to routes exists to prevent. A prefix wildcard such as
+    ``accounts/oidc/*`` is allowed.
+    """
+    if not str(entry.reason or "").strip():
+        raise ValueError(f"allowlist entry {key!r} has no reason")
+    if not entry.routes:
+        raise ValueError(f"allowlist entry {key!r} lists no routes")
+    for route in entry.routes:
+        if not isinstance(route, str) or not route.strip() or route.strip() in ("*", "/*"):
+            raise ValueError(f"allowlist entry {key!r} has a catch-all route {route!r}; list the routes")
+
+
+def validate_authenticator(cls) -> None:
+    """Refuse anything but a concrete DRF authenticator class.
+
+    ``issubclass(a, BaseAuthentication)`` is true of every authenticator, so
+    accepting the base class (or ``object``) would disable the check.
+    """
+    from rest_framework.authentication import BaseAuthentication
+
+    if not isinstance(cls, type) or not issubclass(cls, BaseAuthentication):
+        raise ValueError(f"{cls!r} is not a DRF authentication class")
+    if cls is BaseAuthentication or cls.authenticate is BaseAuthentication.authenticate:
+        raise ValueError(f"{cls!r} is not a concrete authenticator (it would accept every authenticator)")
+
+
 def load_extension_allowlists(module_name: str = EXTENSION_ALLOWLIST_MODULE):
     """The extension module, or None when it (or its package) is not installed.
 
@@ -351,8 +382,12 @@ def merge_allowlists(module):
         for key, value in (getattr(module, name, None) or {}).items():
             if key in target:
                 raise ValueError(f"{module.__name__}.{name} redefines OSS entry {key!r}")
-            target[key] = _as_allow(value)
+            entry = _as_allow(value)
+            validate_allow(key, entry)
+            target[key] = entry
     extra = tuple(getattr(module, "ACTIVE_CHECKING_AUTHENTICATORS", ()) or ())
+    for cls in extra:
+        validate_authenticator(cls)
     return rest, non_drf, authenticators + extra
 
 
@@ -555,19 +590,42 @@ def non_drf_violations(points, allowlist=None) -> list[str]:
     return failures
 
 
+def _points_for_key(key, points):
+    view, _, method = key.partition(":")
+    return [p for p in points if p.key == view and (not method or p.method == method)]
+
+
 def stale_allowlist_entries(allowlist, points) -> list[str]:
-    """Allowlist (key, route) pairs that match no discovered entry point."""
+    """Allowlist (key, route) pairs that match no discovered entry point.
+
+    An ``optional`` entry is never stale: it records a view that exists only
+    under some configurations, whether its routes are exact or prefixes.
+    """
     stale = []
     for key, entry in allowlist.items():
-        view, _, method = key.partition(":")
-        routes = {p.route for p in points if p.key == view and (not method or p.method == method)}
+        if entry.optional:
+            continue
+        routes = {p.route for p in _points_for_key(key, points)}
         for route in sorted(entry.routes):
             if route.endswith("*"):
-                if not entry.optional and not any(r.startswith(route[:-1]) for r in routes):
+                if not any(r.startswith(route[:-1]) for r in routes):
                     stale.append(f"{key} @ {route}")
             elif route not in routes:
                 stale.append(f"{key} @ {route}")
     return stale
+
+
+def needless_allowlist_entries(allowlist, points) -> list[str]:
+    """REST allowlist keys (method-keyed ones included) whose covered entry
+    points all apply both forced-change gates already. An entry that covers no
+    discovered entry point is not needless (an absent optional view, or a
+    stale entry, which ``stale_allowlist_entries`` reports)."""
+    needless = []
+    for key, entry in allowlist.items():
+        covered = [p for p in _points_for_key(key, points) if entry.covers(p.route)]
+        if covered and all(FORCED_CHANGE_GATES <= p.gates for p in covered):
+            needless.append(key)
+    return sorted(needless)
 
 
 class _GatedView(APIView):
@@ -637,12 +695,29 @@ class RestEntryPointTests(SimpleTestCase):
         self.assertEqual(stale, [], "REST_GATE_ALLOWLIST names view/route pairs no URL routes to; remove them.")
         # An allowlisted view that now carries both gates on every method no
         # longer needs its entry either.
-        needless = sorted(
-            key for key in EFFECTIVE_REST_ALLOWLIST if ":" not in key and all(
-                FORCED_CHANGE_GATES <= p.gates for p in self.rest_points if p.key == key
-            )
-        )
+        needless = needless_allowlist_entries(EFFECTIVE_REST_ALLOWLIST, self.rest_points)
         self.assertEqual(needless, [], "These allowlisted views apply both gates; drop their entries.")
+
+    def test_stale_and_needless_rules(self):
+        gated = frozenset(FORCED_CHANGE_GATES)
+        points = [
+            RestEntryPoint("x.View", "GET", "x/", gated, ()),
+            RestEntryPoint("x.View", "POST", "x/", frozenset(), ()),
+        ]
+        # (a) optional works for an exact route as well as a prefix.
+        optional_exact = {"y.Absent": Allow("Only with a flag.", frozenset({"y/"}), optional=True)}
+        self.assertEqual(stale_allowlist_entries(optional_exact, points), [])
+        self.assertEqual(
+            stale_allowlist_entries({"y.Absent": Allow("r", frozenset({"y/"}))}, points), ["y.Absent @ y/"]
+        )
+        # (b) a method-keyed entry for a method that already applies both gates is needless.
+        self.assertEqual(
+            needless_allowlist_entries({"x.View:GET": Allow("r", frozenset({"x/"}))}, points), ["x.View:GET"]
+        )
+        self.assertEqual(needless_allowlist_entries({"x.View:POST": Allow("r", frozenset({"x/"}))}, points), [])
+        self.assertEqual(needless_allowlist_entries({"x.View": Allow("r", frozenset({"x/"}))}, points), [])
+        # (c) an absent optional entry is not needless.
+        self.assertEqual(needless_allowlist_entries(optional_exact, points), [])
 
     def test_non_drf_allowlist_has_no_stale_entries(self):
         stale = stale_allowlist_entries(EFFECTIVE_NON_DRF_ALLOWLIST, self.non_drf_points)
@@ -800,6 +875,47 @@ class ExtensionAllowlistTests(SimpleTestCase):
         )
         with self.assertRaises(ValueError):
             merge_allowlists(module)
+
+    def test_oss_entries_pass_the_same_validation(self):
+        for allowlist in (REST_GATE_ALLOWLIST, NON_DRF_ALLOWLIST):
+            for key, entry in allowlist.items():
+                validate_allow(key, entry)
+        for cls in ACTIVE_CHECKING_AUTHENTICATORS:
+            validate_authenticator(cls)
+
+    def test_refuses_an_entry_without_a_reason(self):
+        module = self._fake_module(
+            "fake_extension_noreason_1517",
+            NON_DRF_ALLOWLIST={"ext.views.Page": {"reason": "  ", "routes": ["ext/page/"]}},
+        )
+        with self.assertRaisesRegex(ValueError, "no reason"):
+            merge_allowlists(module)
+
+    def test_refuses_a_catch_all_route(self):
+        for route in ("*", "/*"):
+            module = self._fake_module(
+                f"fake_extension_star_1517_{len(route)}",
+                REST_GATE_ALLOWLIST={"ext.views.Any": {"reason": "x", "routes": [route]}},
+            )
+            with self.assertRaisesRegex(ValueError, "catch-all"):
+                merge_allowlists(module)
+        # A prefix wildcard is fine.
+        validate_allow("ext.views.Prefix", _allow("x", "api/ext/*"))
+
+    def test_refuses_an_entry_without_routes(self):
+        with self.assertRaisesRegex(ValueError, "no routes"):
+            validate_allow("ext.views.None", Allow("x", frozenset()))
+
+    def test_refuses_the_base_authenticator_and_non_classes(self):
+        from rest_framework.authentication import BaseAuthentication
+
+        class _Abstract(BaseAuthentication):
+            pass
+
+        for bad in (BaseAuthentication, object, _Abstract, "rest_framework.authentication.BasicAuthentication"):
+            module = self._fake_module(f"fake_extension_auth_1517_{id(bad)}", ACTIVE_CHECKING_AUTHENTICATORS=(bad,))
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                merge_allowlists(module)
 
     def test_a_broken_module_is_an_error_not_an_absence(self):
         """A missing dependency *inside* the module must not read as "not installed"."""

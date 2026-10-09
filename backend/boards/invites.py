@@ -244,6 +244,9 @@ def board_link_registration_refusal(link: BoardInviteLink, *, board=None, admits
     if not (link.single_use and link.delivery == BoardInviteLink.Delivery.EMAIL):
         return "invite_not_for_registration"
     sender = link.created_by
+    # Link-kind classification (which refusal code to report), not the
+    # authorization decision: _sender_still_admits below applies the shared
+    # visiban.authorization functions (#1517).
     if sender is not None and sender.is_active and not sender.is_site_admin:
         # A board admin's emailed invite: valid for joining, never for sign-up.
         return "invite_not_for_registration"
@@ -289,6 +292,10 @@ def board_link_can_register_cheap(link: BoardInviteLink, *, mode=None) -> bool:
     if link.status != "pending" or not role_is_grantable(link):
         return False
     sender = link.created_by
+    # Inline copy of visiban.authorization.sender_may_admit_accounts /
+    # invite_creator_is_valid, kept query-free for the list (#1517). Advisory
+    # only: registration re-checks through the shared functions under the row
+    # lock, so drift here can mislabel a row but cannot grant access.
     if sender is None or not sender.is_active:
         return False
     mode = mode or get_registration_mode()
