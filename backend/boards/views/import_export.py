@@ -2063,45 +2063,57 @@ class BoardImportExportMixin:
                     )
             # Cell values must fit the model columns before any write (#1512):
             # PostgreSQL rejects NUL bytes and over-length / out-of-range values
-            # with a DataError, which would surface as a 500. The echoed value
-            # is always truncated.
-            for _hdr, _val in row.items():
-                # ``Custom:`` cells have their own NUL handling (dropped with a
-                # warning, #1449), so only the built-in columns reject here.
-                if (
-                    isinstance(_val, str)
-                    and "\x00" in _val
-                    and not str(_hdr).startswith(("Custom:", "Swimlane Custom:"))
-                ):
-                    return Response(
-                        {"detail": f"Row {i + 2}: {_bounded_text(str(_hdr), 40)} contains a NUL byte."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            for _field, _max in (
-                ("Title", _field_max_length(Card, "title")),
+            # with a DataError, which would surface as a 500. Only cells the
+            # chosen options actually write are checked, so a file the importer
+            # used to accept (an ignored column, a skipped card or label) still
+            # imports. Column and Swimlane names are always written; the rest
+            # follow ``cards`` / ``labels``. The echoed value is truncated.
+            # ``Custom:`` cells keep their own NUL handling (#1449).
+            _checked = [
                 ("Column", _field_max_length(Column, "name")),
                 ("Swimlane", _field_max_length(Swimlane, "name")),
-            ):
+            ]
+            if options["cards"]:
+                _checked += [
+                    ("Title", _field_max_length(Card, "title")),
+                    ("Description", None),
+                    ("Assignee", None),
+                ]
+            for _field, _max in _checked:
                 _text = _cell(row, _field)
-                if len(_text) > _max:
+                if "\x00" in _text:
+                    return Response(
+                        {"detail": f"Row {i + 2}: {_field} contains a NUL byte."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if _max is not None and len(_text) > _max:
                     return Response(
                         {"detail": f"Row {i + 2}: {_field} exceeds {_max} characters: {_bounded_text(_text)!r}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-            _label_max = _field_max_length(Label, "name")
-            for _lbl in _cell(row, "Labels").split(","):
-                _lbl = _lbl.strip()
-                if len(_lbl) > _label_max:
+            if options["labels"]:
+                _label_text = _cell(row, "Labels")
+                if "\x00" in _label_text:
                     return Response(
-                        {"detail": f"Row {i + 2}: Labels entry exceeds {_label_max} characters: {_bounded_text(_lbl)!r}"},
+                        {"detail": f"Row {i + 2}: Labels contains a NUL byte."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-            _weight = _cell(row, "Weight")
+                _label_max = _field_max_length(Label, "name")
+                for _lbl in _label_text.split(","):
+                    _lbl = _lbl.strip()
+                    if len(_lbl) > _label_max:
+                        return Response(
+                            {"detail": f"Row {i + 2}: Labels entry exceeds {_label_max} characters: {_bounded_text(_lbl)!r}"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+            # A non-numeric Weight is never stored (it falls back to 1), so only
+            # a parseable integer can overflow the column.
+            _weight = _cell(row, "Weight") if options["cards"] else ""
             if _weight:
                 try:
                     _weight_int = int(_weight)
                 except (ValueError, TypeError):
-                    _weight_int = 1  # non-numeric falls back to 1, as before
+                    _weight_int = 1
                 if not _IMPORT_INT_MIN <= _weight_int <= _IMPORT_INT_MAX:
                     return Response(
                         {"detail": f"Row {i + 2}: Weight out of range: {_bounded_text(_weight)!r}"},

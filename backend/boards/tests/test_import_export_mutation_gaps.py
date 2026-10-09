@@ -1413,6 +1413,35 @@ class ImportCsvTests(ImportBase):
                 self.assertIn(msg, resp.json()["detail"])
                 self.assertEqual(Board.objects.count(), 0)
 
+    def _post_csv_options(self, text, options):
+        cache.clear()
+        return self.client.post(
+            IMPORT_URL,
+            {"file": _csv_upload(text, "b.csv"), "options": json.dumps(options)},
+            format="multipart",
+        )
+
+    def test_values_the_options_skip_are_not_validated(self):
+        # Previously accepted input must still import (#1512): a label is not
+        # written with labels:false and a title is not written with cards:false.
+        resp = self._post_csv_options(
+            f"Title,Column,Swimlane,Labels\nt,A,B,{'l' * 51}\n", {"labels": False}
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(Label.objects.count(), 0)
+        Board.objects.all().delete()
+        resp = self._post_csv_options(
+            f"Title,Column,Swimlane\n{'t' * 501},A,B\n", {"cards": False}
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(Card.objects.count(), 0)
+
+    def test_nul_in_ignored_columns_still_imports(self):
+        resp = self.post_csv(
+            "Title,Column,Swimlane,Priority,Notes\nt,A,B,hi\x00gh,n\x00ote\n"
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+
     def test_max_length_values_still_import(self):
         resp = self.post_csv(f"Title,Column,Swimlane,Labels\n{'t' * 500},{'c' * 255},{'s' * 255},{'l' * 50}\n")
         self.assertEqual(resp.status_code, 201, resp.content)

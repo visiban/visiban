@@ -776,8 +776,13 @@ export writes, so card and swimlane field values survive a CSV round trip.
 <a id="csv-cell-limits"></a>
 
 **Cell limits (since 1.2, #1512).** The importer checks every row before it creates anything.
-A violation returns `400 Bad Request` as `Row N: <field> ...` (N is the line number in the
-file, counting the header as line 1) and creates nothing. Any value echoed back is truncated.
+A violation returns `400 Bad Request` as `Row N: <field> ...` and creates nothing. N counts
+data rows from 2 (the first data row is row 2), so it can differ from the physical line number
+when a quoted cell spans several lines. Any value echoed back is truncated. Only cells the
+import actually writes are checked: with `cards` set to `false` the `Title`, `Description`,
+`Assignee` and `Weight` cells are not checked, and with `labels` set to `false` neither is
+`Labels`. Columns the importer ignores (`Priority`, `Card ID`, unknown headers and so on) are
+never checked.
 
 | Field | Limit |
 |---|---|
@@ -786,7 +791,7 @@ file, counting the header as line 1) and creates nothing. Any value echoed back 
 | `Labels` | Each comma-separated label at most 50 characters |
 | `Weight` | An integer from -2147483648 to 2147483647 (a non-numeric value still imports as `1`) |
 | `Due Date` | A real calendar date; `2020-02-30` is refused like any other invalid date |
-| Any built-in column | No NUL (`\x00`) bytes (`Custom:` cells keep the drop-with-warning rule above) |
+| `Title`, `Description`, `Assignee`, `Column`, `Swimlane`, `Labels` | No NUL (`\x00`) bytes (`Custom:` cells keep the drop-with-warning rule above) |
 | `name` form field | At most 255 characters and no NUL bytes, as for a JSON import |
 
 The response gains `import_summary.warnings`, a list of strings (always present on a CSV
