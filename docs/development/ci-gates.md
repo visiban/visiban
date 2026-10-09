@@ -132,7 +132,7 @@ any CI job — see below.
 (`templates/_validate.tpl`) reject placeholder values. Without help trivy logs
 `Skipping chart ... validate.yaml` and scans no template (#1536). The job therefore passes
 `--helm-values helm/ci/trivy-values.yaml`, a render-only values file (arbitrary, non-secret
-values; never use it to install), and fails if the `Skipping chart` line ever reappears.
+values; never use it to install), and fails if `trivy-report.json` has no result for `helm/visiban/templates/` or if the `Skipping chart` line ever reappears (two checks, so a reworded log line cannot hide a skip).
 
 - **Scanned:** the chart's default render plus NetworkPolicies, the scheduled-job CronJobs,
   the OIDC env block and the SMTP env block (those are switched on in the values file so

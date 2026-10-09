@@ -2823,9 +2823,17 @@ trivy-scan:
         --exit-code 0
         --format json
         --output trivy-report.json
-        2> trivy-stderr.log
+        2> trivy-stderr.log || { cat trivy-stderr.log; exit 1; }
     - cat trivy-stderr.log
-    # A skipped chart is a silent coverage loss (#1536): fail loudly instead.
+    # A skipped chart is a silent coverage loss (#1536). Two independent checks
+    # so a reworded trivy log line cannot hide it: the report must contain a
+    # result for the rendered chart templates, and the skip warning must be
+    # absent. (grep, not jq: the trivy image is minimal.)
+    - |
+      if ! grep -q '"Target": "helm/visiban/templates/' trivy-report.json; then
+        echo "trivy-report.json has no result for helm/visiban/templates/; the chart was not scanned (see issue 1536)"
+        exit 1
+      fi
     - |
       if grep -q "Skipping chart" trivy-stderr.log; then
         echo "trivy skipped the Helm chart; fix helm/ci/trivy-values.yaml (see issue 1536)"
