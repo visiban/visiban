@@ -11,7 +11,7 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 | `semgrep-sast` + `sast-severity-gate` | GitLab `sast` component (pinned) | Yes at **High/Critical** only | MR + `main` | Python and TypeScript/JavaScript |
 | `backend-sast` | bandit | Yes, medium+ | MR + `main` when `backend/**/*.py` changed | `backend/` |
 | `frontend-sast` | eslint-plugin-security | Yes, `error` rules (object-injection and timing rules are `warn`) | MR + `main` when `frontend/src/**/*.{ts,tsx}` changed | `frontend/src` |
-| `trivy-scan` | Trivy | Tracked separately in #1072 | | Container images |
+| `trivy-scan` | Trivy (pinned by digest) | Yes, HIGH/CRITICAL vulnerability, misconfiguration and secret findings (#1072) | MR when its inputs change (Dockerfiles, lockfiles, Helm, the scan's own files) + the Nightly schedule (`CVE_SCAN=true`); **not** every `main` push (#1267) | Repo filesystem (lockfiles, Dockerfile IaC, secrets); not built images |
 
 `dep-scan-osv`, `pip-audit`, and the license checks are deliberately outside this policy.
 

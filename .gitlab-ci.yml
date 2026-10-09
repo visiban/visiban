@@ -44,8 +44,9 @@ include:
 #   semgrep-sast       blocks at High/Critical only       — override + sast-severity-gate
 #   backend-sast       blocks (bandit, medium+)           — pre-existing
 #   frontend-sast      blocks (eslint 'error' rules)      — only when frontend/src/**/*.{ts,tsx} changed
-#   trivy-scan         tracked separately in #1072; dep-scan-osv, pip-audit and the
-#                      license checks are deliberately outside this policy
+#   trivy-scan         blocks (#1072)                     — MR when its inputs change + Nightly (#1267)
+#                      dep-scan-osv, pip-audit and the license checks are deliberately
+#                      outside this policy
 #
 # Semgrep's Low/Medium/Info findings stay visible in the MR security widget but
 # do not fail the pipeline; the SAST component has no native severity threshold,
