@@ -159,7 +159,7 @@ section (`misconfigurations:`, `vulnerabilities:`, `secrets:`, ...) is checked, 
 that use a different list indent.
 
 A suppression for a finding that is itself a deferred security risk needs its tracking issue
-labeled `security::deferred` (#1528 carries it); that label is what puts it through the
+labeled `security::deferred` (for example #1541); that label is what puts it through the
 accepted-risk review described in [Deferred security follow-ups](../maintainers/security-deferred-label.md).
 
 Known limit: trivy's config scanner currently skips the Helm chart because of placeholder

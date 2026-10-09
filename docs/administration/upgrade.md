@@ -877,6 +877,24 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     deep-merges nested maps, so a single-leaf `--set` keeps the chart's other
     `frontend.securityContext.container` defaults in place.
 
+!!! warning "Frontend image now runs as non-root and listens on 8080; reset the dev `node_modules` volume"
+    The `ghcr.io/visiban/visiban/frontend` image (and `frontend/Dockerfile.prod`) now runs as
+    the non-root `nginx` user and nginx listens on **8080** instead of 80.
+
+    - **Direct `docker run` users** must publish the new container port:
+      `docker run -p 80:8080 ghcr.io/visiban/visiban/frontend:<tag>`. The old `-p 80:80`
+      mapping no longer reaches nginx.
+    - **Production Compose and the Helm chart are unaffected.** Production Compose only copies
+      the static files out of the image and serves them from the stock `nginx` service on
+      80/443, and the chart already used 8080 (see the chart 0.7.0 note above).
+    - **Development Compose checkouts must reset the frontend volume.** The dev frontend now
+      runs as the `node` user (uid 1000). An existing checkout keeps a root-owned anonymous
+      `/app/node_modules` volume, so the dev command (`rm -rf /app/node_modules/.vite && npm run dev`)
+      fails and the dev server never starts. Recreate it with `docker compose down -v`, or
+      `docker compose up --build --renew-anon-volumes` (`down -v` also deletes the database
+      volume; the second command only renews the anonymous volumes). On Linux hosts whose user
+      is not uid 1000, the `./frontend:/app` bind mount may also need to be writable by uid 1000.
+
 !!! note "Scheduled jobs ship in 1.2 — off by default"
     1.2 adds a scheduler for `notify_due_soon`, `notify_stale_cards`,
     `prune_board_events` and the new `prune_notifications`: an opt-in `scheduler`

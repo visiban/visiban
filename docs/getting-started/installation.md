@@ -78,6 +78,9 @@ docker compose down -v          # stop all containers and remove volumes
 docker compose up --build       # recreate from scratch
 ```
 
+If the frontend container exits right after upgrading from a pre-1.2 checkout, the cause is a stale
+root-owned `node_modules` volume; see [Upgrading to 1.2.x](../administration/upgrade.md#upgrading-to-12x).
+
 After the containers start, run migrations and recreate the site admin account:
 
 ```bash

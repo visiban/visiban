@@ -521,6 +521,11 @@ postgresql:
 drop on every rendered pod, with no exclusions.
 
 !!! note "The frontend container listens on 8080, not 80 (chart 0.7.0)"
+    The published frontend image now runs as the non-root `nginx` user (uid 101) and listens
+    on 8080 on its own (#1528), so it needs no chart overrides. Direct `docker run` users must
+    publish `-p 80:8080`. The production Compose file is unaffected: its `frontend-build`
+    job only copies the static files into a volume served by the stock `nginx` service on 80/443.
+
     `nginx:1.27-alpine` cannot bind a port below 1024 as the non-root
     `frontend.securityContext.pod.runAsUser` without `CAP_NET_BIND_SERVICE` —
     and that capability is not usable here either: Docker/containerd's

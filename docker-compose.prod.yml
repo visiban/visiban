@@ -174,6 +174,10 @@ services:
   # nginx waits for this service to complete before starting.
   frontend-build:
     image: ghcr.io/visiban/visiban/frontend:${APP_VERSION:?APP_VERSION must be set in .env — see .env.example. Pin it to a released tag (e.g. v1.1.0); it no longer silently falls back to the mutable 'latest' tag (#1074)}
+    # The image itself runs as the non-root `nginx` user (#1528), but a fresh
+    # named volume is root-owned, so this one-shot copy job must run as root
+    # to write into it. The long-running nginx service mounts it read-only.
+    user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
     command: ["cp -r /usr/share/nginx/html/. /dist/"]
     volumes:
