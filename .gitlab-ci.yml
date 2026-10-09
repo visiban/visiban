@@ -3730,14 +3730,24 @@ frontend-manifest:
 # checksums file and an independent download, 2026-10-08):
 #   * syft 1.51.1 (Apache-2.0) — no OSV advisories at this version; 1.18.1
 #     (TruePPM's pin) carries GHSA-rjcw-vg7j-m9rc, fixed in 1.42.3.
-#   * cosign 2.6.5 (Apache-2.0) — newer than helm-publish's 2.4.3 (#1543) on purpose:
-#     this job's assertion IS `verify-attestation`, and 2.4.3 has
-#     GHSA-whqx-f9j3-ch6m (fixed 2.6.2) and GO-2026-5694 (verify false
-#     positive, fixed 2.6.3). The one remaining v2 advisory, GO-2026-4529,
+#   * cosign 2.6.5 (Apache-2.0) — pinned once in `.cosign-pin` below and shared
+#     with `helm-publish` (#1543). This job's assertion IS `verify-attestation`,
+#     and 2.4.3 had GHSA-whqx-f9j3-ch6m (fixed 2.6.2) and GO-2026-5694 (verify
+#     false positive, fixed 2.6.3). The one remaining v2 advisory, GO-2026-4529,
 #     applies only when transparency-log verification is skipped, which
 #     nothing here does. Stays on v2: v3 changes the default bundle/storage
 #     format, which would change the verification commands operators run.
+# Single source of truth for the cosign pin (version + sha256 of the
+# cosign-linux-amd64 release asset). Both `.image-attest-common` and
+# `helm-publish` extend this, so they cannot drift apart again (#1543).
+# Both run on linux/amd64 runners and fetch the same asset.
+.cosign-pin:
+  variables:
+    COSIGN_VERSION: "2.6.5"
+    COSIGN_SHA256: "c3b4f5410e608af03a5eb0aaac84a4313d8da131248e08ff1759ac70c79d1644"
+
 .image-attest-common:
+  extends: .cosign-pin
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
@@ -3754,8 +3764,6 @@ frontend-manifest:
       curl -sSfL "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" -o /tmp/syft.tar.gz
       echo "${SYFT_SHA256}  /tmp/syft.tar.gz" | sha256sum -c -
       tar xzf /tmp/syft.tar.gz -C /usr/local/bin syft
-      COSIGN_VERSION=2.6.5
-      COSIGN_SHA256=c3b4f5410e608af03a5eb0aaac84a4313d8da131248e08ff1759ac70c79d1644
       curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
       echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
       chmod +x /usr/local/bin/cosign
@@ -3915,6 +3923,7 @@ latest-tag-stability-check:
 # exists to prevent.
 
 helm-publish:
+  extends: .cosign-pin
   stage: deploy
   image:
     name: ${DOCKERHUB_MIRROR}/alpine/helm:3.16.4
@@ -3950,14 +3959,17 @@ helm-publish:
     - apk add --no-cache bash curl
     # Pinned and checksum-verified: an unpinned signing tool is a supply-chain
     # hole in the job whose whole purpose is supply-chain provenance.
-    # 2.4.3 lags .image-attest-common's 2.6.5 (its advisories are in
-    # verification, which this job does not do); bump tracked in #1543.
+    # COSIGN_VERSION / COSIGN_SHA256 come from `.cosign-pin`, shared with
+    # `.image-attest-common` (#1543).
+    # Subshell: `set -eu` must not leak into the script section (shared shell),
+    # or the GHCR_USER/GHCR_TOKEN guard would abort on "parameter not set".
     - |
-      COSIGN_VERSION=2.4.3
-      COSIGN_SHA256=caaad125acef1cb81d58dcdc454a1e429d09a750d1e9e2b3ed1aed8964454708
-      curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
-      echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
-      chmod +x /usr/local/bin/cosign
+      (
+        set -eu
+        curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+        echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+        chmod +x /usr/local/bin/cosign
+      )
   script:
     - |
       if [ -z "${GHCR_USER}" ] || [ -z "${GHCR_TOKEN}" ]; then
