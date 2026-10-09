@@ -203,3 +203,9 @@ that is the tag-only job flagged in Step 1's pre-flight inventory if it changed 
       If either resolves to something else or broken, say so in the release notes rather than
       leaving a consumer to discover it — the bad artifact usually needs a permission no
       pipeline has to delete.
+- [ ] **The published chart verifies** — `helm-publish` signs with the cosign pinned in
+      `.cosign-pin` in `.gitlab-ci.yml` (shared with the image-attest jobs, #1543). Run, with
+      `<chart-version>` from `helm show chart oci://ghcr.io/visiban/charts/visiban`:
+      `cosign verify ghcr.io/visiban/charts/visiban:<chart-version> --certificate-identity-regexp '^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$' --certificate-oidc-issuer https://gitlab.com`
+      It must print the verified claims and exit 0. If it fails, the documented command in
+      `docs/administration/image-verification.md` has drifted from what the job signs.
