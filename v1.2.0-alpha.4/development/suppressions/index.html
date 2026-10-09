@@ -2850,6 +2850,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#trivy-suppressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trivy suppressions
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3932,6 +3943,44 @@ deactivated). MR pipelines never run it.</p>
 </code></pre></div>
 <p>These properties apply only to CI-based analysis (the <code>sonar:scan</code> job), not to SonarCloud
 Automatic Analysis.</p>
+<h2 id="trivy-suppressions">Trivy suppressions<a class="headerlink" href="#trivy-suppressions" title="Permanent link">&para;</a></h2>
+<p>The <code>trivy-scan</code> CI job is blocking: an unsuppressed HIGH or CRITICAL vulnerability, IaC
+misconfiguration or secret finding fails the pipeline (<code>--scanners vuln,config,secret
+--exit-code 1</code>, no <code>allow_failure</code>). A second, non-blocking pass writes the full
+<code>trivy-report.json</code> artifact. The scanner image is pinned by digest (the comment in
+<code>.gitlab-ci.yml</code> records the version); bump the version and digest together in a reviewed
+commit. Before #1072 the image tag was already pinned to a version, but not to a digest, and
+the job was advisory (<code>--exit-code 0</code> plus <code>allow_failure: true</code>).</p>
+<p>Accepted risks go in <code>.trivyignore.yaml</code>. Every entry needs:</p>
+<ul>
+<li>an <code>expired_at</code> date (<code>YYYY-MM-DD</code>), at most 366 days from today (the checker fails a later
+  date, so suppressions are renewed at least yearly), ideally about one minor release out;</li>
+<li>a <code>statement</code> explaining why it is accepted, with a <code>#NNNN</code> link to the issue that would
+  remove the entry. CI checks only that an issue number is present; <strong>reviewers must confirm
+  the issue is open</strong> and really covers the finding.</li>
+</ul>
+<p>Each entry must start with <code>- id:</code> in block style. The checker fails closed on any other
+entry-level list item (for example <code>- paths:</code> first, or flow style <code>- {id: ...}</code>), because
+such an entry would otherwise escape the checks. Comment-only lines inside a <code>statement</code> are
+ignored, so a <code># see #12</code> comment does not satisfy the issue-reference rule. Every top-level
+section (<code>misconfigurations:</code>, <code>vulnerabilities:</code>, <code>secrets:</code>, ...) is checked, including ones
+that use a different list indent.</p>
+<p>A suppression for a finding that is itself a deferred security risk needs its tracking issue
+labeled <code>security::deferred</code> (#1528 carries it); that label is what puts it through the
+accepted-risk review described in <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a>.</p>
+<p>Known limit: trivy's config scanner currently skips the Helm chart because of placeholder
+values, so chart misconfigurations are not caught by this job (#1536).</p>
+<p>Trivy itself only stops honoring an expired entry, which would resurface as a confusing red
+scan. <code>scripts/check-trivyignore-expiry.sh</code> makes the policy explicit: it fails the job when an
+entry is past its date, has no valid date, has no <code>#NNNN</code> reference, or does not start with
+<code>- id:</code>. It does not look the issue up, so it cannot tell whether the issue is open. It has a
+<code>--self-test</code> (run in the job before the real check) and a unit test:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sh<span class="w"> </span>scripts/check-trivyignore-expiry.sh
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>sh<span class="w"> </span>scripts/check-trivyignore-expiry.sh<span class="w"> </span>--self-test
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>bash<span class="w"> </span>scripts/tests/check-trivyignore-expiry.test.sh
+</code></pre></div>
+<p>When an entry expires, fix the finding and delete the entry, or renew the date in a commit
+that cites the issue's current status.</p>
 
 
 

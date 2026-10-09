@@ -4003,6 +4003,11 @@ own header — is never mistaken for a real exemption.</p>
 <td>Covers the block/warn/clean/fail-safe boundary with synthetic OSV-Scanner JSON. Full 11-case regression suite lives in <code>scripts/tests/osv-severity-gate.test.sh</code>; the in-script self-test is the smaller, CI-wired proof.</td>
 </tr>
 <tr>
+<td><code>scripts/check-trivyignore-expiry.sh</code></td>
+<td><code>trivy-scan</code></td>
+<td>#1072: fails the job when a <code>.trivyignore.yaml</code> entry is expired, has no valid <code>expired_at</code>, has no <code>#NNNN</code> reference, does not start with <code>- id:</code>, or is dated more than 366 days out (trivy alone just stops honoring an expired entry). <code>--self-test</code> run in the job before the real check: a valid file and a date exactly 366 days out are accepted; expired, missing date, missing issue reference, <code>- paths:</code>-first entry, flow-style entry, a comment-only <code>#NNNN</code>, a date more than 366 days out, and a malformed entry in a second section must each be rejected. Wider regression suite in <code>scripts/tests/check-trivyignore-expiry.test.sh</code> (not run in CI).</td>
+</tr>
+<tr>
 <td><code>scripts/check-issue-collision.sh</code></td>
 <td>pre-push git hook only (not a CI job — see <a href="#known-gaps-and-deferred-work">Known gaps</a>)</td>
 <td>Offline self-test against stubbed forge responses.</td>
@@ -4143,8 +4148,8 @@ So the project keeps <strong>two</strong> schedules (#1383), not one per job:</p
 <td><code>0 5 * * *</code></td>
 <td><code>CVE_SCAN</code>, <code>OSV_SCAN</code>, <code>SONAR_SCHEDULED</code>, <code>FUZZ_DEEP</code>, <code>KAIZEN_YIELD_WATCH</code> (all <code>true</code>), plus <code>MUTATION_TEST=true</code> once a maintainer adds it (#1384)</td>
 <td>maintainers (schedule owner: <code>kellyhair</code>)</td>
-<td><code>backend-dep-scan</code>, <code>frontend-dep-scan</code> (blocking); <code>dep-scan-osv</code> (blocking on HIGH/CRITICAL, warns otherwise); <code>sonar:scan</code>, <code>backend-schema-fuzz-deep</code>, <code>kaizen-yield-watch</code>, <code>backend-mutation</code> and <code>backend-mutation-report</code> (all <code>allow_failure: true</code>)</td>
-<td><strong>Red:</strong> a dependency on <code>main</code> has a new HIGH/CRITICAL advisory, or an ordinary <code>main</code> job failed. Fix or document it (an expiring <code>IgnoredVulns</code> entry for OSV). <strong>Yellow <code>backend-schema-fuzz-deep</code>:</strong> a real API contract defect, never a flake (#1165); see its tracking issue. <strong>Yellow <code>backend-mutation-report</code>:</strong> the mutation run was not measured (a shard died or finished with untested mutants); a low <em>score</em> is not red or yellow, it is only reported, see <a href="../mutation-testing/">Mutation testing</a>. <strong>Yellow <code>sonar:scan</code>:</strong> the SonarCloud dashboard did not refresh that night.</td>
+<td><code>backend-dep-scan</code>, <code>frontend-dep-scan</code> (blocking); <code>dep-scan-osv</code> (blocking on HIGH/CRITICAL, warns otherwise); <code>trivy-scan</code> (blocking since #1072: HIGH/CRITICAL vulnerability, misconfiguration and secret findings all count; it runs on every <code>main</code> pipeline, so also on Nightly, and accepted findings live in <code>.trivyignore.yaml</code> with an expiry); <code>sonar:scan</code>, <code>backend-schema-fuzz-deep</code>, <code>kaizen-yield-watch</code>, <code>backend-mutation</code> and <code>backend-mutation-report</code> (all <code>allow_failure: true</code>)</td>
+<td><strong>Red:</strong> a dependency on <code>main</code> has a new HIGH/CRITICAL advisory, a <code>trivy-scan</code> finding appears (a new misconfiguration or secret counts too) or a <code>.trivyignore.yaml</code> entry expires, or an ordinary <code>main</code> job failed. Fix or document it (an expiring <code>IgnoredVulns</code> entry for OSV). <strong>Yellow <code>backend-schema-fuzz-deep</code>:</strong> a real API contract defect, never a flake (#1165); see its tracking issue. <strong>Yellow <code>backend-mutation-report</code>:</strong> the mutation run was not measured (a shard died or finished with untested mutants); a low <em>score</em> is not red or yellow, it is only reported, see <a href="../mutation-testing/">Mutation testing</a>. <strong>Yellow <code>sonar:scan</code>:</strong> the SonarCloud dashboard did not refresh that night.</td>
 </tr>
 <tr>
 <td>Nightly load test (#1082) (4463581)</td>
@@ -4209,7 +4214,7 @@ that is exactly what a public status badge should show.</p>
 <ul>
 <li><code>nightly-load-test</code> goes over a latency budget. It is blocking and the noisiest of the
   three, because budgets move on a busy shared runner. The 2026-09-30 red was this.</li>
-<li>A real HIGH/CRITICAL CVE or OSV advisory lands against a dependency of <code>main</code>.</li>
+<li>A real HIGH/CRITICAL CVE or OSV advisory lands against a dependency of <code>main</code>, or <code>trivy-scan</code> (blocking since #1072) finds an unsuppressed HIGH/CRITICAL vulnerability, misconfiguration or secret, or an entry in <code>.trivyignore.yaml</code> expires.</li>
 <li>An ordinary <code>main</code> job really fails in a scheduled run (for example, the 2026-10-01
   <code>frontend-test</code> red).</li>
 </ul>
