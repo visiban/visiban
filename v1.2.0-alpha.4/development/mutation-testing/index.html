@@ -2645,6 +2645,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#head-re-measure-2026-10-08-1502" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Head re-measure (2026-10-08, #1502)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Head re-measure (2026-10-08, #1502)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#survivors-left-34-32-equivalent-or-redundant-2-tracked-in-1545" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Survivors left (34): 32 equivalent or redundant, 2 tracked in #1545
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#runtime" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3933,7 +3961,7 @@
 <tr>
 <td>Import/export</td>
 <td><code>boards/views/import_export.py</code></td>
-<td><code>test_export</code>, <code>test_export_controls</code>, <code>test_export_edge_cases</code>, <code>test_import</code>, <code>test_moderator_export</code>; the "after" runs add <code>test_import_export_mutation_gaps</code> (#1453, extended by #1484)</td>
+<td><code>test_export</code>, <code>test_export_controls</code>, <code>test_export_edge_cases</code>, <code>test_import</code>, <code>test_moderator_export</code>; the "after" runs add <code>test_import_export_mutation_gaps</code> (#1453, extended by #1484); the head run (#1502) used nine files: <code>test_import_export_head_gaps</code>, <code>test_import_export_mutation_gaps</code>, <code>test_import</code>, <code>test_import_naming</code>, <code>test_import_options</code>, <code>test_import_user_scope</code>, <code>test_import_custom_fields</code>, <code>test_trello_import</code>, <code>test_import_json_value_validation</code></td>
 </tr>
 </tbody>
 </table>
@@ -3995,9 +4023,20 @@
 <td style="text-align: right;">40.2%</td>
 <td style="text-align: right;">656 of 823 paired</td>
 <td style="text-align: right;">79.7%</td>
-<td style="text-align: right;">2 (export 403 <code>detail</code> key and text, #1505; the rest pending #1502)</td>
+<td style="text-align: right;">2 (export 403 <code>detail</code> key and text, #1505; the head part of this module was triaged in #1502, see the next row)</td>
 <td style="text-align: right;">n/a</td>
 <td style="text-align: right;">2 (see below)</td>
+</tr>
+<tr>
+<td><code>boards/views/import_export.py</code>, head: helpers, <code>import_board</code>, <code>_import_json</code>, <code>import_trello</code> (2026-10-08, #1502; whole-region run, 0-based lines 0 to 1802; at <code>f898bf683</code>, #1449's head code unmeasured, #1546)</td>
+<td style="text-align: right;">1145</td>
+<td style="text-align: right;">n/a (not measured on the current code)</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: right;">1111 of 1145</td>
+<td style="text-align: right;">97.0%</td>
+<td style="text-align: right;">n/a (unmarked; 32 of 34 survivors are documented as equivalent or redundant below, the other 2 are <code>_IMPORT_BACKFILL_BATCH</code> survivors tracked in #1545)</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: right;">2 (killed by timeout, see below)</td>
 </tr>
 <tr>
 <td><code>boards/views/import_export.py</code>, <code>_import_csv</code> + <code>export</code> + <code>export_history</code> (2026-10-06, #1484)</td>
@@ -4006,7 +4045,7 @@
 <td style="text-align: right;">58.9%</td>
 <td style="text-align: right;">465 of 492 (447 with the #1453 tests only)</td>
 <td style="text-align: right;">94.5% (90.9%)</td>
-<td style="text-align: right;">2 (export 403 <code>detail</code> key and text, #1505; the rest pending #1502)</td>
+<td style="text-align: right;">2 (export 403 <code>detail</code> key and text, #1505; #1502 covers only the head, the 27 survivors of this region are triaged below as equivalent or covered elsewhere, and none is marked with a pragma; deciding pragma exclusions has no owner other than #1547)</td>
 <td style="text-align: right;">n/a</td>
 <td style="text-align: right;">0</td>
 </tr>
@@ -4051,7 +4090,7 @@
 </tr>
 </tbody>
 </table>
-<p>The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). <code>export</code> was reached only by that before run, which stopped early (38 killed, 32 survived of 70 tested); it is measured in full by the 2026-10-06 run below. Suspicious mutants are counted as survivors in the rates above. Timeouts are counted as killed: the 2 in the table are both from the after run, in the <code>_imported_board_name</code> uniqueness loop (mutating <code>if candidate not in taken</code> or <code>n += 1</code> makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.</p>
+<p>The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). <code>export</code> was reached only by that before run, which stopped early (38 killed, 32 survived of 70 tested); it is measured in full by the 2026-10-06 run below. Suspicious mutants are counted as survivors in the rates above (the 79.7% and the 40.2% use this convention; the head's 97.0% and the 2026-10-06 rows count suspicious mutants as killed, so those figures are not directly comparable). Timeouts are counted as killed: the 2 in the table are both from the after run, in the <code>_imported_board_name</code> uniqueness loop (mutating <code>if candidate not in taken</code> or <code>n += 1</code> makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.</p>
 <h3 id="remainder-re-measure-2026-10-06-1484">Remainder re-measure (2026-10-06, #1484)<a class="headerlink" href="#remainder-re-measure-2026-10-06-1484" title="Permanent link">&para;</a></h3>
 <p>Run on <code>main</code> at <code>4a5de6273</code> (<code>import_export.py</code> is unchanged since <code>a5e4b7d20</code>), 0-based line range <code>MM_LO=1317 MM_HI=2118</code>: the whole of <code>_import_csv</code>, <code>export</code> and <code>export_history</code>. Mutants with a verdict are all 492 mutants in range; none were left untested, suspicious or timed out. The machine (18 cores, 64 GB) was not swapping: four shards for each of "before" and "after" (8 processes), then 8 shards for the final run, load average 9 to 15. "Before" and "after" use the same five and six test files as above, so the numbers are comparable; the final column adds the #1484 tests to the gaps file.</p>
 <table>
@@ -4091,6 +4130,160 @@
 </tbody>
 </table>
 <p>Together with the 2026-10-05 table, the regions the first run could not reach have now been measured after #1453. The two runs were made on different days and the first covered only the mutants that had a verdict in both its before and after run, so the two tables are not summed into one whole-module percentage.</p>
+<h3 id="head-re-measure-2026-10-08-1502">Head re-measure (2026-10-08, #1502)<a class="headerlink" href="#head-re-measure-2026-10-08-1502" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Scope of these figures.</strong> Everything in this section describes the code at <code>f898bf683</code>, not current <code>main</code>. Code added after that commit is <strong>not</strong> in the 1145 measured mutants and has not been measured: that includes the roughly 140 lines #1449 added to the head: <code>_csv_custom_columns</code>, <code>_swimlane_values_from_rows</code>, <code>_csv_cell_value</code>, <code>_cap_warnings</code>, <code>_is_canonical_number</code>, and a change to <code>_csv_custom_field_cell</code> (<code>_import_field_values</code> and <code>_csv_custom_field_cell</code> themselves already existed at <code>f898bf683</code> and were measured). Measuring them is tracked in #1546. The head figures are for the <code>f898bf683</code> code, and the new head lines are unmeasured. The <code>MM_HI=1802</code> boundary and "<code>_import_csv</code> at 0-based line 1803" below are likewise valid only at <code>f898bf683</code>. Before reusing <code>MM_LO</code>/<code>MM_HI</code>, re-derive the range (<code>grep -n 'def _import_csv' backend/boards/views/import_export.py</code>, then subtract 1 to get the 0-based line), as the <code>update_card</code> section does.</p>
+</blockquote>
+<p>The head of <code>import_export.py</code> (everything before <code>_import_csv</code>) was measured as <strong>one whole-region run</strong>, not a paired sample: 12 shards of the sharded variant in <a href="#parallel-runs">Parallel runs</a>, <code>MM_LO=0 MM_HI=1802</code> (0-based; <code>_import_csv</code> starts at 0-based line 1803), on <code>main</code> at <code>f898bf683</code> plus this branch's tests, 18-core machine. The module had grown to 2609 lines since the 2026-10-05 run (selective import, #1496, #1507), so the head has <strong>1145 mutants</strong>, not the 795 of the paired set. The runner used these nine files (all backend import/export tests; the full suite is not needed): <code>test_import_export_head_gaps.py test_import_export_mutation_gaps.py test_import.py test_import_naming.py test_import_options.py test_import_user_scope.py test_import_custom_fields.py test_trello_import.py test_import_json_value_validation.py</code>.</p>
+<p>Two details of the harness matter if you repeat this:</p>
+<ul>
+<li><code>test_import.py::test_csv_import_accepts_committed_sample_csv</code> reads <code>sample-boards/</code> from the repository root, so each throwaway copy of <code>backend/</code> needs <code>sample-boards/</code> next to it, or the baseline run fails and mutmut tests nothing.</li>
+<li>mutmut 2.5.1 registers one extra mutant (id one past the printed total, line 422, <code>mutmut show</code> prints nothing for it) that every shard reports as <code>untested</code>. It has no diff, so it is not counted in the 1145 and not a gap.</li>
+</ul>
+<p>Line numbers in the region column are <strong>1-based and inclusive</strong>; the <code>MM_LO</code>/<code>MM_HI</code> range above is 0-based. So <code>1673 to 1803</code> here is 0-based 1672 to 1802, and <code>_import_csv</code> starts at 1-based line 1804 (0-based 1803).</p>
+<table>
+<thead>
+<tr>
+<th>Region (1-based lines)</th>
+<th style="text-align: right;">Mutants</th>
+<th style="text-align: right;">Killed, first whole-region run</th>
+<th style="text-align: right;">Killed, final run</th>
+<th style="text-align: right;">Survivors left</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>helpers and <code>import_board</code> (to line 949)</td>
+<td style="text-align: right;">574</td>
+<td style="text-align: right;">523 (91.1%)</td>
+<td style="text-align: right;">559 (97.4%)</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr>
+<td><code>_import_json</code> (950 to 1672)</td>
+<td style="text-align: right;">440</td>
+<td style="text-align: right;">416 (94.5%)</td>
+<td style="text-align: right;">427 (97.0%)</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr>
+<td><code>import_trello</code> and <code>_broadcast_imported_board</code> (1673 to 1803)</td>
+<td style="text-align: right;">131</td>
+<td style="text-align: right;">120 (91.6%)</td>
+<td style="text-align: right;">125 (95.4%)</td>
+<td style="text-align: right;">6</td>
+</tr>
+<tr>
+<td><strong>Head</strong></td>
+<td style="text-align: right;"><strong>1145</strong></td>
+<td style="text-align: right;"><strong>1059 (92.5%)</strong></td>
+<td style="text-align: right;"><strong>1111 (97.0%)</strong></td>
+<td style="text-align: right;"><strong>34</strong></td>
+</tr>
+</tbody>
+</table>
+<p>"First whole-region run" already includes the 538-line <code>test_import_export_head_gaps.py</code> of the first #1502 commit; "final run" adds the boundary, default and tail tests of this pass (<code>EchoBoundTests</code>, <code>CardRowsAndUsernamesTests</code>, <code>TimestampErrorTests</code>, <code>WriteGuardLogTests</code>, <code>ValidateValuesBoundaryTests</code>, <code>ImportJsonTailTests</code>, <code>ImportTrelloTailTests</code>, <code>ImportOpenApiResponseTests</code>). The final figure is the second whole-region run, except that two lines (the write-guard log and the Trello archived count, 0-based 806 and 1786) were re-run on their own after their tests were tightened; both mutants that changed are now killed. Killed counts include the 2 timeouts and 6 slow kills (below).</p>
+<p><strong>The 33 suspicious mutants.</strong> mutmut 2.5.1 marks a mutant <code>suspicious</code> when a test <em>failed</em> (so it is killed) but the run took more than twice the cached baseline time. The 2026-10-05 run did that on a swapping laptop (load average above 250), which is where the 33 came from. In this run six were suspicious (<code>swimlane["name"]</code> in the custom-field value copy, <code>description</code> and <code>created_at</code> key names, <code>to_column</code> <code>or</code> to <code>and</code>, <code>dry_run = None</code>, <code>event_id = None</code>); re-run alone on a quiet machine each is still <code>suspicious</code>, so they are killed late in the file order, not flaky. They are counted as killed. None survives.</p>
+<p><strong>The 2 timeouts</strong> are the <code>_imported_board_name</code> uniqueness loop (<code>if candidate not in taken</code> inverted, <code>n += 1</code> replaced with <code>n = 1</code>). Both make the loop spin forever, so they are a real kill by timeout, as in the 2026-10-05 run. They are not made faster: the hang is the observable behavior.</p>
+<h4 id="survivors-left-34-32-equivalent-or-redundant-2-tracked-in-1545">Survivors left (34): 32 equivalent or redundant, 2 tracked in #1545<a class="headerlink" href="#survivors-left-34-32-equivalent-or-redundant-2-tracked-in-1545" title="Permanent link">&para;</a></h4>
+<p>The 2 <code>_IMPORT_BACKFILL_BATCH</code> survivors could be killed by a PostgreSQL test (#1545, open), so they stay survivors under the policy below. The other 32 are equivalent or redundant; none of those 32 is a missing assertion. They are listed so the next person does not re-triage them; none is marked with <code># pragma: no mutate</code> yet, because most share a line with mutants that <em>are</em> killed and the policy asks that a pragma cover the equivalent mutant only. Marking the 32 equivalent ones is tracked in #1544 and is the open step before a floor can use the adjusted score. The 2 <code>_IMPORT_BACKFILL_BATCH</code> survivors that a PostgreSQL test could kill are tracked in #1545.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Mutants</th>
+<th>Where</th>
+<th>Why no test can kill it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>_EXPORT_ROLE_RANK</code> <code>ADMIN: 3</code> to <code>4</code></td>
+<td>The rank is only compared with another rank from the same dict, so any order-preserving value is equivalent.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>export_min_role or "viewer"</code></td>
+<td>An unknown threshold falls back to rank 0 through <code>.get(threshold, 0)</code>, which is also what <code>viewer</code> maps to.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>_query_flag</code> default <code>""</code> to <code>"XXXX"</code></td>
+<td>Neither is in <code>("true", "1")</code>.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>_IMPORTED_NAME_MAX_SUFFIX</code> 12 to 13</td>
+<td>A shorter <code>startswith</code> head only widens the database query; the exact comparison is in Python.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>_IMPORT_BACKFILL_BATCH</code> 500 to 501 and to <code>None</code></td>
+<td>On SQLite <code>bulk_update</code> caps its own batch size at 499 (<code>connection.ops.bulk_batch_size</code>), so the constant is not observable here; <code>test_timestamp_backfill_runs_in_batches_of_500</code> pins two UPDATEs for 501 rows. A PostgreSQL test could kill it.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>"unknown line"</code> text in <code>_json_import_write_guard</code></td>
+<td>The generator frame of the guard is always one of the importer frames, so <code>frames</code> is never empty.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>403</code> documented response on <code>import_board</code> and on <code>import_trello</code> (1 each)</td>
+<td><code>drf-spectacular</code> emits an object-typed <code>403</code> entry for the action anyway (<code>ImportOpenApiResponseTests</code> passes with the line mutated), so the generated document is unchanged.</td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td><code>MAX_UPLOAD_SIZE</code> default <code>10 * 1024 * 1024</code></td>
+<td><code>settings.MAX_UPLOAD_SIZE</code> is always defined, so the <code>getattr</code> default is never used.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>file.name</code> and <code>file.content_type</code> fallbacks to <code>"XXXX"</code></td>
+<td><code>"XXXX"</code> ends in neither <code>.json</code>/<code>.csv</code> nor contains <code>json</code>/<code>csv</code>, same as <code>""</code>.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>data.get("schema_version", 0)</code> to <code>1</code></td>
+<td>Both are within the supported range and only a version above 2 logs a warning.</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td><code>_str_keys</code> names for <code>movements</code></td>
+<td>Redundant with the value-level check in <code>_validate_json_import_values</code>, which returns the same message for the same input. (<code>moved_by</code>, the one key it does not cover, is killed.)</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>.get("name", "")</code> in <code>_valid_col_names</code> / <code>_valid_sw_names</code></td>
+<td>A column or swimlane without a string <code>name</code> is rejected by the shape check before this line.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>not column or not swimlane</code> to <code>and</code>, <code>continue</code> to <code>break</code></td>
+<td>Every card's column and swimlane was checked against the definitions above, so the lookup cannot fail. Defensive code.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>card_data.get("priority", "medium")</code> sentinel</td>
+<td>An unrecognized priority falls back to <code>medium</code> on the next line.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>act_data.get("event_type", "")</code> sentinel</td>
+<td>Neither value is a valid event type, so the activity is skipped either way.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>distinct=False</code> on <code>_card_count</code> and <code>_archived_card_count</code></td>
+<td>The imported board has one membership, so the join cannot duplicate card rows. (<code>_member_count</code> <code>distinct=False</code> is killed by <code>test_response_counts_distinguish_active_and_archived_cards</code>.)</td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td>Trello <code>file.size is not None</code>, <code>file.read(max_size + 1)</code> and the <code>'name' must be a string</code> response</td>
+<td><code>file.size</code> is always set for an upload and the <code>Content-Length</code> check precedes the bounded read; the endpoint takes <code>MultiPartParser</code> only, so <code>name</code> is always a string. Defense in depth.</td>
+</tr>
+</tbody>
+</table>
+<p>Everything the first commit on this branch and this pass pinned is a value a caller or client can observe (the echo caps are pinned through the length of the response message, not by reading the constants): throttle scopes and rates, option and flag parsing, the exact echo cut-offs of <code>_bounded_repr</code> and <code>_bounded_text</code>, the per-card caps and the username cap on both sides of the limit, <code>_card_rows</code> and <code>_card_usernames</code>, naive-timestamp acceptance, the write-guard log line, JSON and Trello response counts, the group broadcast, label colors, empty movement destinations, the weight-change activity, and the OpenAPI text.</p>
 <h3 id="runtime">Runtime<a class="headerlink" href="#runtime" title="Permanent link">&para;</a></h3>
 <p>Each module was split across 16 parallel copies of the tree (see <a href="#parallel-runs">Parallel runs</a>) on an 18-core machine. "Wall" is the slowest shard; "CPU total" is the sum of every shard's elapsed time, which is roughly what a single serial run would cost under the same load.</p>
 <table>
@@ -4265,40 +4458,8 @@
 </table>
 <p>The last three shared a line with mutants that tests <em>do</em> kill (the setting name, <code>is not</code>, the <code>or</code> operator, <code>==</code>), so a line-level pragma would have hidden killed mutants too. <code>_is_demo_visitor</code> is therefore written with the defaults on their own lines, and the <code>or</code> on the closing line outside any pragma. The split adds two mutants (<code>demo_mode = None</code> and <code>username = None</code>, so the module now has 120). Both are killed: a re-run over the changed lines (116 mutants honoring the pragmas, 26 killed, 0 survived; the rest belong to other lines) leaves no survivor. As with <code>CardMovement</code>, the 4 mutants that disappear under the pragmas were checked to be exactly the 4 survivors. Expected for the module (114 killed before, plus the 2 new): raw 116 of 120 (96.7%), adjusted 116 of 116 (100%); not a whole-module re-run.</p>
 <h3 id="importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious">Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)<a class="headerlink" href="#importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious" title="Permanent link">&para;</a></h3>
-<p>Not triaged line by line. By region, among the paired mutants:</p>
-<p>The "Survivors after" column counts only mutants that survived. The 33 suspicious mutants (8 in helpers and <code>import_board</code>, 10 in <code>_import_json</code>, 15 in <code>_import_csv</code>) are not in it, but the kill rates above count them as not killed, so 823 - 656 = 167 = 134 survivors + 33 suspicious.</p>
-<table>
-<thead>
-<tr>
-<th>Region</th>
-<th style="text-align: right;">Survivors after</th>
-<th>Bucket</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>helpers and <code>import_board</code></td>
-<td style="text-align: right;">69</td>
-<td>Mostly missing assertion: throttle rate strings and the <code>_parse_import_options</code> / <code>_imported_board_name</code> defaults. A handful are equivalent (logger message strings and <code>or ""</code> fallbacks that cannot be observed).</td>
-</tr>
-<tr>
-<td><code>_import_json</code></td>
-<td style="text-align: right;">56</td>
-<td>Missing assertion on the field-level validation messages added by selective import, plus equivalent mutants in <code>.get(..., default)</code> calls whose default is always overridden.</td>
-</tr>
-<tr>
-<td><code>import_trello</code></td>
-<td style="text-align: right;">7</td>
-<td>Missing assertion (mapping defaults).</td>
-</tr>
-<tr>
-<td><code>_import_csv</code>, <code>export</code>, <code>export_history</code></td>
-<td style="text-align: right;">see below</td>
-<td>Measured in full on 2026-10-06 and triaged in the next subsection.</td>
-</tr>
-</tbody>
-</table>
-<p>The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The remaining survivors are expected to be dominated by log-message strings and unobservable defaults (equivalent); that classification is an estimate from sampling the diffs, not a full triage.</p>
+<p>Triaged and re-measured on 2026-10-08 (#1502): see <a href="#head-re-measure-2026-10-08-1502">Head re-measure</a> above. The 2026-10-05 paired figures above predate #1496, #1507 and the other import fixes that grew the head, so they are kept as history, not as a baseline for the current code.</p>
+<p>The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The survivors of the current head code were triaged in full in the Head re-measure section above: all 34 are equivalent or redundant.</p>
 <h3 id="importexport-_import_csv-export-export_history-after-1484-27-survivors-of-492">Import/export: <code>_import_csv</code>, <code>export</code>, <code>export_history</code> after #1484 (27 survivors of 492)<a class="headerlink" href="#importexport-_import_csv-export-export_history-after-1484-27-survivors-of-492" title="Permanent link">&para;</a></h3>
 <p>Triaged with the three questions in <a href="#how-to-read-the-results">How to read the results</a>. The 18 additional kills from #1484 (45 survivors after #1453, 27 now) come from <code>test_import_export_mutation_gaps.py</code> (<code>ImportCsvTailGapTests</code>, <code>ExportGapTests</code>, <code>ExportHistoryGapTests</code>: the lowercase <code>labels</code> header, absent optional columns, a repeated label in one cell, the response <code>member_count</code>/<code>card_count</code>/<code>archived_card_count</code>, the group id, <code>?expand=group</code> and group broadcast on a grouped import, the <code>Movement History</code> cell for a movement with no destination column, the unpaginated <code>export-history</code> fallback, and the OpenAPI summary and description). All 27 remaining survivors are equivalent or covered elsewhere:</p>
 <table>
@@ -4458,7 +4619,7 @@
 <li><strong>Hand-flipped guards are recorded, not pragma'd.</strong> A guard that is not a mutmut mutant (for example the sibling-row lock added by hand in <code>cards.py</code>, #1504) cannot carry a pragma. If it survives a hand-flip on PostgreSQL and is equivalent by argument, list it by name in the module's survivor table as "proven equivalent by argument, not mutmut-excludable", cite the issue, and leave it out of both the raw and the adjusted numbers: it is not in either denominator because mutmut never counted it.</li>
 <li><strong>Triage first.</strong> An equivalence claim is only made after the three questions in <a href="#how-to-read-the-results">How to read the results</a>; the reason states the answer to the first one.</li>
 </ul>
-<p>The import/export survivor tables above keep their "Equivalent" rows unmarked: #1502 owns that module and will decide there which to exclude.</p>
+<p>The import/export survivor tables above keep their "Equivalent" rows unmarked. #1502 re-measured the head and left its 34 equivalent survivors unmarked too (most share a line with killed mutants); marking them, which splits those lines, is the open step before a floor can use the adjusted score for this module.</p>
 <h3 id="how-mutmut-251-treats-pragma-no-mutate">How mutmut 2.5.1 treats <code># pragma: no mutate</code><a class="headerlink" href="#how-mutmut-251-treats-pragma-no-mutate" title="Permanent link">&para;</a></h3>
 <p>Checked on mutmut 2.5.1 (the CI pin) with a small module, and re-checked by the real-mutmut cases in <code>check_mutation_score.py --self-test</code> whenever mutmut is importable:</p>
 <table>
