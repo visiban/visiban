@@ -3285,6 +3285,8 @@
       
         
       
+        
+      
     
     
     
@@ -3634,6 +3636,34 @@
     
   
     Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
   
 
     
@@ -4451,6 +4481,10 @@
 <blockquote>
 <p><strong>Tested:</strong> The production Docker Compose stack has been verified end-to-end. If you encounter issues, open an issue.</p>
 </blockquote>
+<p><em>(Since 1.2)</em> The <code>backend</code> and <code>frontend</code> images this stack pulls are cosign-signed and carry
+a per-architecture CycloneDX SBOM. Verify them before deploying: see
+<a href="../../administration/image-verification/">Verifying release images</a>. The stack's other images
+(<code>postgres</code>, <code>valkey</code>, <code>nginx</code>, <code>certbot</code>) are upstream images that Visiban does not sign.</p>
 <h3 id="tls-modes">TLS modes<a class="headerlink" href="#tls-modes" title="Permanent link">&para;</a></h3>
 <p>The production stack supports three TLS modes, controlled by the <code>TLS_MODE</code> environment variable:</p>
 <table>

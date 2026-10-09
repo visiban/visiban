@@ -3120,6 +3120,8 @@
       
         
       
+        
+      
     
     
     
@@ -3469,6 +3471,34 @@
     
   
     Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
   
 
     
@@ -4111,6 +4141,11 @@ own header — is never mistaken for a real exemption.</p>
 <td><code>scripts/docker-push-retry.sh</code></td>
 <td>sourced in the <code>script:</code> of <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code>; self-test runs in <code>arm64-runner-preflight</code> (release tags)</td>
 <td>Bounded retry around <code>docker push</code> for the persistent arm64 shell runner, whose daemon can hit a transient cross-repo blob-mount failure a fresh kaniko container never sees (#1205, ported from TruePPM). 3-case self-test with a stubbed <code>docker</code> (the stub hook is honored only under <code>--self-test</code>, never from a CI variable): succeeds on a later attempt, gives up after exactly the max, and never re-pushes a clean push. Needs no daemon, so it runs on the preflight's plain alpine image.</td>
+</tr>
+<tr>
+<td><code>scripts/attest-image-sbom.sh</code></td>
+<td><code>backend-image-attest</code> / <code>frontend-image-attest</code> (release tags, after <code>*-manifest</code>), <code>image-attest-backfill</code> (manual, <code>main</code>), and <code>image-attest-selftest</code> (MRs touching the script, <code>docs/administration/image-verification.md</code> or <code>.gitlab-ci.yml</code>; also <code>main</code>)</td>
+<td>Signs each released image (<code>cosign sign --recursive</code>: index + both platform manifests) and attests a syft CycloneDX SBOM to <strong>each</strong> platform digest, on both registries, then verifies in the same job (#1153). 67-case self-test: the pure assertions against fixture JSON (single-arch manifest, missing <code>linux/arm64</code>, temp-path or wrong-arch SBOM name, foreign-arch package purl, zero packages, <code>verify-attestation</code> returning nothing or a wrong-arch SBOM among several, an attestation whose subject is another digest, the CI-only refusal, a multi-line/empty/metacharacter <code>--tag</code>, a <code>VERIFY_IDENTITY</code> variable that must not override the checked identity, and the documented tag-only and backfill identity regexps accepting/rejecting tag, <code>main</code> and <code>visiban-enterprise</code> identities) and the whole flow against stubbed <code>crane</code>/<code>syft</code>/<code>cosign</code> (attests platform digests never the index, idempotent re-run, <code>--force</code>, nothing signed when an arch is missing, a skip that logs which certificate identity matched, a mutated copy without <code>--recursive</code> failing its post-sign verify, and a tag job refusing to skip on a backfill <code>main</code>-identity signature while backfill accepts a tag one, an index-only signature that must not count as a skip, and a single missing platform SBOM that gets re-attested alone). The stub <code>cosign</code> records who signed and honors <code>--recursive</code> and <code>--certificate-identity(-regexp)</code>, so those cases exercise the real matching. Refuses to sign or attest unless <code>GITLAB_CI</code>, <code>CI_JOB_ID</code> and <code>SIGSTORE_ID_TOKEN</code> are set; <code>--dry-run</code> resolves digests read-only anywhere. See <a href="../../administration/image-verification/">Verifying release images</a>.</td>
 </tr>
 <tr>
 <td><code>scripts/check-pipeline-schedules.sh</code></td>

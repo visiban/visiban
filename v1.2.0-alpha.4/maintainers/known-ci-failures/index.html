@@ -2951,6 +2951,8 @@
       
         
       
+        
+      
     
     
     
@@ -3300,6 +3302,34 @@
     
   
     Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
   
 
     
@@ -3689,6 +3719,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#backend-image-attest-frontend-image-attest-fails-on-a-release-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        backend-image-attest / frontend-image-attest fails on a release tag
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4030,6 +4071,64 @@ sign</code> (#1284, <code>.gitlab-ci.yml</code>'s <code>helm-publish</code> job)
 <code>ghcr.io/visiban/charts/visiban:0.6.0</code>) is unsigned — the fix does not retroactively sign an
 already-pushed chart. If this signature reappears, check that the <code>cosign login</code> step wasn't
 dropped in a later edit to the job.</p>
+<h2 id="backend-image-attest-frontend-image-attest-fails-on-a-release-tag"><code>backend-image-attest</code> / <code>frontend-image-attest</code> fails on a release tag<a class="headerlink" href="#backend-image-attest-frontend-image-attest-fails-on-a-release-tag" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> one of the <code>*-image-attest</code> jobs (#1153) fails after <code>*-manifest</code> succeeded.
+The multi-arch images are already live under their real tags on both registries. What is
+missing is some or all of their signatures and SBOM attestations. <code>helm-publish</code> needs both
+attest jobs, so <strong>the chart is not published</strong> for this release until they pass.
+<code>github-release</code> needs only the push and manifest jobs, so the GitHub Release is <strong>not</strong>
+blocked and may already exist.</p>
+<p><strong>Read the log first.</strong> <code>scripts/attest-image-sbom.sh</code> names the failing registry, digest and
+check. Common causes:</p>
+<ul>
+<li><code>refusing to sign/attest ... SIGSTORE_ID_TOKEN is not set</code>: the job lost its
+  <code>id_tokens:</code> block (inherited from <code>.image-attest-common</code>).</li>
+<li><code>UNAUTHORIZED</code> from cosign or syft: <code>GHCR_USER</code>/<code>GHCR_TOKEN</code> missing or expired, or the
+  Docker config written in <code>before_script</code> was dropped. crane, syft and cosign all read
+  <code>~/.docker/config.json</code>. This is the same class as the <code>helm-publish</code> entry above.</li>
+<li><code>not a multi-arch index</code> / <code>no single linux/arm64</code>: the manifest job published something
+  other than a two-platform list. Fix that first. Do not attest a half-covered release.</li>
+<li><code>lists packages for foreign architecture(s)</code> or <code>image config says ...</code>: a platform
+  entry in the index points at the wrong image. Treat this as a release defect, not a flake.</li>
+<li><code>returned no attestations</code> right after <code>cosign attest</code>: the registry accepted the push
+  but serves nothing back. Usually transient (registry or Rekor). Retry once.</li>
+<li>Sigstore (Fulcio/Rekor) outage: wait and retry.</li>
+</ul>
+<p><strong>First run after merge.</strong> The self-test stubs syft, cosign and crane, so their real
+contracts are first exercised on the first release tag cut after #1153 merges. A failure
+there most likely means one of these four assumptions was wrong:</p>
+<ol>
+<li>syft's <code>--source-name</code>/<code>--source-version</code> set <code>metadata.component.name</code>/<code>.version</code> in
+   the CycloneDX output. These were confirmed with syft 1.51.1 against <code>v1.2.0-alpha.4</code>, but
+   only from a workstation.</li>
+<li>Package purls carry an <code>arch=</code> qualifier (<code>?arch=amd64</code>/<code>aarch64</code>/...), which the
+   foreign-arch check depends on.</li>
+<li><code>cosign attest --type cyclonedx</code> embeds the SBOM as a JSON <strong>object</strong> in the in-toto
+   statement's <code>predicate</code>, not as a string.</li>
+<li><code>cosign verify-attestation</code> prints one DSSE envelope per line on stdout, each with a
+   base64 <code>payload</code>.</li>
+</ol>
+<p>Recovery: fix forward on a branch, then re-run the failed <code>*-image-attest</code> job on the tag
+pipeline. Its skips make a re-run safe. The images are already live under their real tags,
+so nothing is rolled back. <code>helm-publish</code> stays blocked until both attest jobs are green, so
+the chart ships late rather than pointing at unverifiable images. If the tag pipeline can no
+longer be re-run, use the backfill job (below).</p>
+<p><strong>Retrying is safe.</strong> On a tag pipeline the script skips any digest that already carries a
+verifying signature or SBOM from a <strong>release tag</strong> identity, and logs which identity matched.
+A retry therefore finishes only what is missing and stacks no duplicates. A signature left
+by the backfill job (<code>@refs/heads/main</code>) does not count, so the tag job signs over it and
+the release still verifies with the tag-only regexp. The backfill job accepts either
+identity. The script's <code>--force</code>
+flag re-attests digests that already verify, for example after a bad SBOM was attached. No CI
+job passes it, so using it takes a deliberate one-off change on a branch. It is never a
+routine retry.</p>
+<p><strong>If the tag pipeline can't be retried</strong> (e.g. it was canceled or its jobs expired), run the
+manual <code>image-attest-backfill</code> job on <code>main</code> with <code>BACKFILL_TAG=&lt;tag&gt;</code>. Its identity ends in
+<code>@refs/heads/main</code>, so that release must then be verified with the backfill regexp in
+<code>docs/administration/image-verification.md</code>. Backfill is trust-on-first-use: before running
+it, compare the tag's current digests (<code>scripts/attest-image-sbom.sh --image &lt;img&gt; --tag &lt;tag&gt;
+--dry-run</code>) with the release pipeline's <code>*-manifest</code> log. Then publish the chart by retrying
+<code>helm-publish</code>.</p>
 
 
 

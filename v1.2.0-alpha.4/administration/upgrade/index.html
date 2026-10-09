@@ -2953,6 +2953,8 @@
       
         
       
+        
+      
     
     
     
@@ -3305,6 +3307,34 @@
     
   
     Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
   
 
     
@@ -4980,9 +5010,9 @@ correct destination cannot be inferred automatically.</p>
 <code>DB_PASSWORD</code>/<code>REDIS_PASSWORD</code>/<code>DOMAIN</code> pattern the rest of the file already uses. This
 closes the gap TruePPM's audit named directly (#1074): the documented production path
 pulled a mutable tag that could not be verified or rolled back. Release images are
-content-addressed by digest, but are not yet scanned, SBOM'd, or signed against that
-digest — that work is tracked separately in
-<a href="https://gitlab.com/visiban/visiban/-/issues/1153">#1153</a>.</p>
+content-addressed by digest, and since 1.2 each one is cosign-signed and carries a
+CycloneDX SBOM attestation against that digest (#1153) — see
+<a href="../image-verification/">Verifying release images</a>.</p>
 <p><strong>If your <code>.env</code> already sets <code>APP_VERSION</code></strong> — the documented path since <code>.env.example</code>
 has always shipped one — this changes nothing; <code>docker compose pull</code>/<code>up</code> resolve to the
 exact same tag as before. <code>GET /api/v1/version/</code> now always returns bare semver

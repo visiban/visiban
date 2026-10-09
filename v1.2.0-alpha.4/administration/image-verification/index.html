@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.4/architecture/overview/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0-alpha.4/administration/image-verification/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../container-image-retention/">
       
       
-        <link rel="next" href="../data-model/">
+        <link rel="next" href="../secret-rotation/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Overview - Visiban</title>
+        <title>Verifying Release Images - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture-overview" class="md-skip">
+        <a href="#verifying-release-images-and-the-helm-chart" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              Verifying Release Images
             
           </span>
         </div>
@@ -310,13 +310,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
           
   
   
@@ -334,11 +332,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../administration/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -2150,8 +2150,6 @@
       
   
   
-    
-  
   
   
     
@@ -2211,23 +2209,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../architecture/" class="md-nav__link ">
               
   
   
@@ -2245,13 +2240,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2268,37 +2263,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
         
   
   
@@ -2314,103 +2282,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#system-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        System components
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tech-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tech stack
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#django-apps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Django apps
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#request-lifecycle-rest" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Request lifecycle (REST)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#websocket-lifecycle" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WebSocket lifecycle
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cicd-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI/CD pipeline
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#frontend-architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Frontend architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2423,7 +2294,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../data-model/" class="md-nav__link">
+      <a href="../../architecture/data-model/" class="md-nav__link">
         
   
   
@@ -2451,7 +2322,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deployment/" class="md-nav__link">
+      <a href="../../architecture/deployment/" class="md-nav__link">
         
   
   
@@ -2479,7 +2350,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../scaling/" class="md-nav__link">
+      <a href="../../architecture/scaling/" class="md-nav__link">
         
   
   
@@ -2507,7 +2378,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../service-layer/" class="md-nav__link">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
         
   
   
@@ -2535,7 +2406,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../open-core-boundary/" class="md-nav__link">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
         
   
   
@@ -2563,7 +2434,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api-versioning/" class="md-nav__link">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
         
   
   
@@ -2591,7 +2462,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../field-enforcement/" class="md-nav__link">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
         
   
   
@@ -2619,7 +2490,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../decisions/" class="md-nav__link">
+      <a href="../../architecture/decisions/" class="md-nav__link">
         
   
   
@@ -3043,6 +2914,8 @@
       
   
   
+    
+  
   
   
     
@@ -3086,20 +2959,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../administration/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -3117,13 +2993,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -3143,7 +3019,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   
@@ -3171,7 +3047,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/site-admins/" class="md-nav__link">
+      <a href="../site-admins/" class="md-nav__link">
         
   
   
@@ -3199,7 +3075,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/admin-panel/" class="md-nav__link">
+      <a href="../admin-panel/" class="md-nav__link">
         
   
   
@@ -3227,7 +3103,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+      <a href="../maintenance-mode/" class="md-nav__link">
         
   
   
@@ -3255,7 +3131,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+      <a href="../issue-board-lens-usage/" class="md-nav__link">
         
   
   
@@ -3283,7 +3159,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+      <a href="../scheduled-jobs/" class="md-nav__link">
         
   
   
@@ -3311,7 +3187,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/authentication/" class="md-nav__link">
+      <a href="../authentication/" class="md-nav__link">
         
   
   
@@ -3339,7 +3215,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/demo-data/" class="md-nav__link">
+      <a href="../demo-data/" class="md-nav__link">
         
   
   
@@ -3367,7 +3243,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/django-admin/" class="md-nav__link">
+      <a href="../django-admin/" class="md-nav__link">
         
   
   
@@ -3395,7 +3271,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/media-security/" class="md-nav__link">
+      <a href="../media-security/" class="md-nav__link">
         
   
   
@@ -3423,7 +3299,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/container-image-retention/" class="md-nav__link">
+      <a href="../container-image-retention/" class="md-nav__link">
         
   
   
@@ -3448,10 +3324,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../administration/image-verification/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -3467,6 +3370,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#verify-an-image-signature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify an image signature
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-and-read-an-images-sbom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify and read an image's SBOM
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-the-helm-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify the Helm chart
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#older-releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Older releases
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-this-does-not-cover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What this does not cover
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3479,7 +3457,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/secret-rotation/" class="md-nav__link">
+      <a href="../secret-rotation/" class="md-nav__link">
         
   
   
@@ -3507,7 +3485,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/upgrade/" class="md-nav__link">
+      <a href="../upgrade/" class="md-nav__link">
         
   
   
@@ -3535,7 +3513,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+      <a href="../zero-downtime-upgrade/" class="md-nav__link">
         
   
   
@@ -3894,184 +3872,164 @@
   
 
 
-<h1 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h1>
-<p>How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking over REST and WebSocket, backed by PostgreSQL and Valkey. Read this first if you're contributing code or evaluating self-hosting.</p>
-<h2 id="system-components">System components<a class="headerlink" href="#system-components" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────┐
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│                     Browser                         │
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│              React 19 + TypeScript SPA              │
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│         Vite dev server / Nginx (production)        │
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>└──────────────────────┬──────────────────────────────┘
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                       │ HTTP / REST JSON
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                       │ WebSocket (ws://)
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>┌──────────────────────▼──────────────────────────────┐
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│           Django 5 + DRF  (daphne ASGI)             │
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   accounts/   boards/   groups/                     │
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   django-allauth   dj-rest-auth   channels          │
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>└────────────┬────────────────────────┬───────────────┘
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>             │ psycopg 3              │ channels-redis
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>┌────────────▼────────────┐ ┌─────────▼───────────────┐
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│      PostgreSQL 17      │ │        Valkey 8          │
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│  (primary data store)   │ │(WebSocket channel layer)│
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└─────────────────────────┘ └─────────────────────────┘
-</code></pre></div>
-<h2 id="tech-stack">Tech stack<a class="headerlink" href="#tech-stack" title="Permanent link">&para;</a></h2>
+<h1 id="verifying-release-images-and-the-helm-chart">Verifying release images and the Helm chart<a class="headerlink" href="#verifying-release-images-and-the-helm-chart" title="Permanent link">&para;</a></h1>
+<p><em>(New in 1.2)</em> Every Visiban release is signed keyless with <a href="https://docs.sigstore.dev/">Sigstore cosign</a>
+by the GitLab CI job that published it, so you can check that what you pull was built and
+pushed by Visiban's release pipeline rather than trusting the registry:</p>
 <table>
 <thead>
 <tr>
-<th>Layer</th>
-<th>Technology</th>
+<th>Artifact</th>
+<th>Where</th>
+<th>What CI attaches</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Backend</td>
-<td>Python 3.12, Django 5, Django REST Framework</td>
+<td>Helm chart</td>
+<td><code>ghcr.io/visiban/charts/visiban</code></td>
+<td>A signature</td>
 </tr>
 <tr>
-<td>ASGI server</td>
-<td>daphne (required for WebSocket support)</td>
-</tr>
-<tr>
-<td>Database</td>
-<td>PostgreSQL 17</td>
-</tr>
-<tr>
-<td>Cache / Pub-Sub</td>
-<td>Valkey 8 (Docker Compose; Helm — built-in StatefulSet on <code>valkey/valkey:8-alpine</code>)</td>
-</tr>
-<tr>
-<td>Real-time</td>
-<td>Django Channels 4, channels-redis</td>
-</tr>
-<tr>
-<td>Auth</td>
-<td>django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth</td>
-</tr>
-<tr>
-<td>Frontend</td>
-<td>React 19, TypeScript, Vite, Tailwind CSS 3</td>
-</tr>
-<tr>
-<td>Drag &amp; Drop</td>
-<td>@dnd-kit/core + @dnd-kit/sortable</td>
-</tr>
-<tr>
-<td>CI/CD</td>
-<td>GitLab CI (Ruff, ESLint, pytest, Vitest, Semgrep SAST, pip-audit, kaniko)</td>
-</tr>
-<tr>
-<td>Infra</td>
-<td>Docker Compose, Nginx, Helm (Kubernetes)</td>
+<td><code>backend</code> and <code>frontend</code> images</td>
+<td><code>ghcr.io/visiban/visiban/&lt;image&gt;</code> <strong>and</strong> <code>registry.gitlab.com/visiban/visiban/&lt;image&gt;</code></td>
+<td>A signature on the multi-arch index <strong>and</strong> on each platform image, plus a CycloneDX SBOM attestation on <strong>each</strong> platform image (<code>linux/amd64</code>, <code>linux/arm64</code>)</td>
 </tr>
 </tbody>
 </table>
-<h2 id="django-apps">Django apps<a class="headerlink" href="#django-apps" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>App</th>
-<th>Responsibility</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>accounts</code></td>
-<td>Custom <code>User</code> model, <code>SiteSetting</code> (registration mode, uploads toggle), <code>PersonalAccessToken</code>, <code>InviteLink</code>, notification preferences, password change, auth provider list</td>
-</tr>
-<tr>
-<td><code>boards</code></td>
-<td>Boards, columns, swimlanes, labels, cards, movements, comments, attachments, checklists</td>
-</tr>
-<tr>
-<td><code>groups</code></td>
-<td>Group hierarchy, group memberships, invite links</td>
-</tr>
-<tr>
-<td><code>git_lens</code></td>
-<td><a href="../../features/issue-board-lens/">Issue Board Lens</a> — off by default (<code>GIT_LENS_ENABLED</code>); only registered, with its routes and one model, when the flag is on</td>
-</tr>
-</tbody>
-</table>
-<h2 id="request-lifecycle-rest">Request lifecycle (REST)<a class="headerlink" href="#request-lifecycle-rest" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Browser sends REST request with session cookie; a non-browser client sends a <code>PersonalAccessToken</code> instead</li>
-<li>DRF authenticates, trying <code>PATAuthentication</code>, then <code>SessionAuthentication</code>, then <code>TokenAuthentication</code> in that order</li>
-<li>View calls <code>get_board_role()</code> or <code>_require_group_admin()</code> to resolve the caller's effective role</li>
-<li>Queryset filtering restricts results to accessible boards/groups</li>
-<li>Response serialized and returned as JSON</li>
-</ol>
-<h2 id="websocket-lifecycle">WebSocket lifecycle<a class="headerlink" href="#websocket-lifecycle" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Frontend opens <code>ws://{host}/ws/boards/{board_id}/</code> on page load</li>
-<li><code>AuthMiddlewareStack</code> authenticates the connection via the session cookie; unauthenticated connections are closed with code 4001. A caller with no session cookie — a PAT/DRF-token client, a different origin, or a native/CLI client — instead requests a short-lived, single-use <strong>ticket</strong> over REST first and passes it as <code>?ticket=</code> on the upgrade (<code>accounts.ws_auth.TicketAuthMiddleware</code>, #1109); the ticket only authenticates the connection, it grants no extra authorization</li>
-<li>On connect, the consumer joins the <code>board_{id}</code> channel group and separately checks board membership, closing with code 4003 for a non-member (or an account with a pending password or username change) regardless of how the connection was authenticated</li>
-<li>Any mutation (card move, update, delete) calls <code>broadcast_board_event()</code> which publishes to Valkey</li>
-<li>Valkey fans the event out to all consumers in the group</li>
-<li>Each consumer forwards the event to its WebSocket client</li>
-<li>The <code>useBoardSocket</code> React hook applies the event to local state</li>
-</ol>
-<h2 id="cicd-pipeline">CI/CD pipeline<a class="headerlink" href="#cicd-pipeline" title="Permanent link">&para;</a></h2>
-<p>GitLab CI runs on every push, MR, and version tag. The pipeline validates code quality, runs tests, scans for vulnerabilities, and — on merges to <code>main</code> and version tags — deploys Docker images and the docs site.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>┌─────────────────────────────────────────────────────────────┐
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>│                     GitLab CI Pipeline                      │
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│                                                             │
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│  lint                                                       │
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>│  │  backend-lint    (Ruff + CodeClimate report)             │
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>│  │  frontend-lint   (ESLint + tsc --noEmit)                 │
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│  │  changelog-check (changelog.d/ fragment required)        │
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│                                                             │
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│  test                                                       │
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│  │  backend-test-coverage (Django tests, 90% floor)         │
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│  │  frontend-test         (Vitest)                          │
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>│  │  migration-check       (makemigrations --check + zero-   │
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>│  │                         downtime schema checks)           │
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>│  │  backend-docker-build  (kaniko --no-push, verification)  │
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>│  │  frontend-docker-build (kaniko --no-push, verification)  │
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>│  │  helm-lint / helm-template / helm-install / helm-netpol  │
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>│                                                             │
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>│  security                                                    │
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>│  │  SAST + Secret Detection (pinned catalog components;     │
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>│  │    see Security Scanners runbook for what blocks)        │
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>│  │  backend-sast (Bandit) / frontend-sast (eslint-security) │
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>│  │  backend-dep-scan / frontend-dep-scan / dep-scan-osv     │
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>│  │  gitleaks-scan, trivy-scan, license-check jobs           │
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│                                                             │
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>│  deploy                                                     │
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>│  │  backend-docker-push / frontend-docker-push (kaniko;     │
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>│  │    amd64 on any runner, arm64 on a dedicated runner —    │
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>│  │    tags only; see CI Runners)                            │
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>│  │  backend-manifest / frontend-manifest (multi-arch        │
-<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>│  │    manifests, tags only)                                 │
-<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>│  │  backend-image-attest / frontend-image-attest (cosign    │
-<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>│  │    sign + per-arch CycloneDX SBOM attestation, both      │
-<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>│  │    registries, tags only)                                │
-<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>│  │  docs-deploy           (version tags only — mike deploy  │
-<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>│  │                         to gh-pages; stable → "latest",  │
-<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>│  │                         pre-release → "next" alias)      │
-<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>│  │  github-release, helm-publish (tags only)                │
-<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>└─────────────────────────────────────────────────────────────┘
+<p>Signatures and attestations are stored in the same registry as the image, so each registry
+carries its own copy. Verify against the registry you actually pull from. GHCR keeps its
+copies indefinitely. On the GitLab registry, the current cleanup policy can sweep signature
+and attestation tags about 90 days after a release, even though the image itself is kept.
+Extending the policy is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1541">#1541</a>.
+See <a href="../container-image-retention/#signature-and-sbom-attestation-tags-1153">Container image retention</a>.</p>
+<p>There is no key to download. A signature is valid when its Sigstore certificate says it was
+issued to Visiban's GitLab CI pipeline. Every command below pins that identity:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">ISSUER</span><span class="o">=</span>https://gitlab.com
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># Recommended: a release tag pipeline only.</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">IDENTITY</span><span class="o">=</span><span class="s1">'^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$'</span>
 </code></pre></div>
-<p>Key design decisions:</p>
+<p>Use this tag-only identity for every release cut after image signing shipped. It proves the
+image was signed by a <strong>release-tag pipeline of this project</strong>. Only Maintainers can create
+<code>v*</code> tags, because they are protected. It does not pin <em>which</em> release: the certificate from
+any <code>v*</code> tag pipeline matches, so <code>v1.2.0-alpha.1</code>'s certificate would also pass on
+<code>v1.2.0</code>'s image. If you deploy one specific release, pin its exact identity instead:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Exact release: only the v1.2.0 tag pipeline's certificate matches.</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>cosign<span class="w"> </span>verify<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.2.0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--certificate-identity<span class="w"> </span>https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--certificate-oidc-issuer<span class="w"> </span><span class="s2">"</span><span class="nv">$ISSUER</span><span class="s2">"</span>
+</code></pre></div>
+<p><code>--certificate-identity</code> with that exact URL also works on <code>cosign verify-attestation</code> and on
+the chart. A release that was signed later by the backfill job needs a wider identity, which
+the exact form never matches. It is described in <a href="#older-releases">Older releases</a>. Use that
+wider identity only for those versions, and on the GitLab registry after a sweep (below).</p>
+<p>Keep the regexp anchored (<code>^...$</code>) as shown. A loose pattern such as <code>gitlab\.com/visiban/visiban</code>
+also matches other projects whose path starts the same way, such as <code>visiban/visiban-enterprise</code>.</p>
+<h2 id="verify-an-image-signature">Verify an image signature<a class="headerlink" href="#verify-an-image-signature" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cosign<span class="w"> </span>verify<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.2.0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--certificate-identity-regexp<span class="w"> </span><span class="s2">"</span><span class="nv">$IDENTITY</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--certificate-oidc-issuer<span class="w"> </span><span class="s2">"</span><span class="nv">$ISSUER</span><span class="s2">"</span>
+</code></pre></div>
+<p>This checks the multi-arch index the tag points at. The platform images inside it are signed
+too, so the same check also works against a single-platform digest (see below). This matters
+if your admission controller or pull policy resolves images to a platform digest.</p>
+<p>To pin a deployment to what you verified, record the digest and deploy by <code>@sha256:...</code>. See
+<a href="../container-image-retention/#digest-pinning">Container image retention → Digest pinning</a>.</p>
+<h2 id="verify-and-read-an-images-sbom">Verify and read an image's SBOM<a class="headerlink" href="#verify-and-read-an-images-sbom" title="Permanent link">&para;</a></h2>
+<p>The SBOM is attached to each <strong>platform</strong> digest, not to the tag. The tag resolves to the
+multi-arch index, which has no filesystem and no packages, so it has nothing to describe.
+Resolve the digest for your platform first:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">IMAGE</span><span class="o">=</span>ghcr.io/visiban/visiban/backend
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.0
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nv">DIGEST</span><span class="o">=</span><span class="k">$(</span>crane<span class="w"> </span>digest<span class="w"> </span>--platform<span class="w"> </span>linux/arm64<span class="w"> </span><span class="s2">"</span><span class="nv">$IMAGE</span><span class="s2">:</span><span class="nv">$TAG</span><span class="s2">"</span><span class="k">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># or: docker buildx imagetools inspect "$IMAGE:$TAG"   (lists each platform's digest)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>cosign<span class="w"> </span>verify-attestation<span class="w"> </span>--type<span class="w"> </span>cyclonedx<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span>--certificate-identity-regexp<span class="w"> </span><span class="s2">"</span><span class="nv">$IDENTITY</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span>--certificate-oidc-issuer<span class="w"> </span><span class="s2">"</span><span class="nv">$ISSUER</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="s2">"</span><span class="nv">$IMAGE</span><span class="s2">@</span><span class="nv">$DIGEST</span><span class="s2">"</span><span class="w"> </span>&gt;<span class="w"> </span>attestation.json
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># The SBOM is the predicate of the in-toto statement:</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.payload'</span><span class="w"> </span>attestation.json<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.predicate'</span><span class="w"> </span>&gt;<span class="w"> </span>backend-arm64.cdx.json
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>jq<span class="w"> </span><span class="s1">'.metadata.component'</span><span class="w"> </span>backend-arm64.cdx.json
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="c1"># → {"type": "container", "name": "ghcr.io/visiban/visiban/backend", "version": "v1.2.0-arm64", ...}</span>
+</code></pre></div>
+<p><code>metadata.component.version</code> is always <code>&lt;tag&gt;-&lt;arch&gt;</code>, which shows which platform image the
+SBOM describes. The release job generates each SBOM with <a href="https://github.com/anchore/syft">syft</a>,
+attaches it, verifies it again in the same job, and fails the release if any of these is
+wrong for either platform on either registry:</p>
 <ul>
-<li><strong>Test and build stages run in parallel</strong> — Docker image builds (kaniko <code>--no-push</code> verification) don't depend on test results, so they share the <code>test</code> stage to avoid sequential waiting.</li>
-<li><strong>Dependency and license scans are non-blocking</strong> (<code>allow_failure: true</code>); <code>dep-scan-osv</code> is severity-gated instead — only low-severity findings are allowed to fail. SAST, secret detection, and the Bandit/eslint-security jobs block the merge like any other job.</li>
-<li><strong>Kaniko for amd64 Docker builds</strong> — no Docker-in-Docker or privileged mode needed, runs on any runner. arm64 release images build on a dedicated Apple Silicon runner instead, since kaniko cannot cross-build — see <a href="../../maintainers/ci-runners/">CI Runners</a>.</li>
-<li><strong>Auto-retry on infrastructure failures</strong> — runner system failures and stuck pods are retried up to 2 times automatically.</li>
-<li><strong>Docs versioned with mike</strong> — each release tag publishes a frozen snapshot to docs.visiban.com; stable releases update the <code>latest</code> alias, pre-releases update <code>next</code>.</li>
+<li>the SBOM does not name its own image, tag, and architecture</li>
+<li>it lists no packages</li>
+<li>it lists a package built for the other architecture</li>
 </ul>
-<h2 id="frontend-architecture">Frontend architecture<a class="headerlink" href="#frontend-architecture" title="Permanent link">&para;</a></h2>
-<p>The SPA is a single <code>App.tsx</code> with React Router v7 routes:</p>
+<p>You can feed the extracted SBOM to any CycloneDX-aware scanner, for example
+<code>grype sbom:backend-arm64.cdx.json</code> or <code>trivy sbom backend-arm64.cdx.json</code>.</p>
+<h2 id="verify-the-helm-chart">Verify the Helm chart<a class="headerlink" href="#verify-the-helm-chart" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cosign<span class="w"> </span>verify<span class="w"> </span>ghcr.io/visiban/charts/visiban:&lt;chart-version&gt;<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--certificate-identity-regexp<span class="w"> </span><span class="s1">'^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$'</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--certificate-oidc-issuer<span class="w"> </span><span class="s2">"</span><span class="nv">$ISSUER</span><span class="s2">"</span>
+</code></pre></div>
+<p><code>&lt;chart-version&gt;</code> is the chart's own <code>version:</code> (for example <code>0.7.0</code>), not the Visiban
+release version. <code>helm show chart oci://ghcr.io/visiban/charts/visiban</code> prints both. The chart is only ever signed from a release tag pipeline, so its identity has no <code>heads/main</code>
+alternative. A chart release is not published until both of that release's images have been
+signed and attested.</p>
+<h2 id="older-releases">Older releases<a class="headerlink" href="#older-releases" title="Permanent link">&para;</a></h2>
+<p>Images published before this feature (1.1.x and the 1.2 pre-releases cut before it merged)
+carry no image signature or SBOM, and <code>cosign verify</code> reports <code>no signatures found</code>.
+This means the image was never signed. It does not mean the image was tampered with.
+Maintainers can bring an already-published release up to the same bar without re-cutting
+it: the manual <code>image-attest-backfill</code> CI job on <code>main</code> signs and attests a given tag's
+images on both registries. It skips any digest that already carries a verifying signature
+or SBOM from either a release tag pipeline or an earlier backfill run.</p>
+<p>In the other direction, the tag pipeline's own attest jobs skip a digest <strong>only</strong> if it
+already carries a signature or SBOM from a release tag pipeline. A backfill (<code>main</code>)
+signature does not satisfy them, so the tag job signs anyway. On GHCR, every release cut
+after this feature shipped therefore verifies with the tag-only <code>IDENTITY</code>, even if the
+backfill job touched those digests first.</p>
+<p><strong>Exception: the GitLab registry after a cleanup sweep.</strong> Until its keep-regex is extended
+(<a href="https://gitlab.com/visiban/visiban/-/issues/1541">#1541</a>), the GitLab registry deletes a
+release's signature and attestation tags about 90 days after it ships. If the backfill job
+re-attaches them, the new copies on <code>registry.gitlab.com/visiban/visiban</code> carry the
+<code>@refs/heads/main</code> identity. The tag-only <code>IDENTITY</code> and the exact-release form then <strong>fail</strong>
+for that release on that registry. Use the backfill regexp below for it. The same release
+on GHCR still verifies with the tag-only identity, because GHCR never sweeps. Once #1541's
+keep-regex is applied, tag-pipeline signatures are no longer swept and this exception stops
+arising for new releases.</p>
+<p>A backfilled release's certificate identity ends in <code>@refs/heads/main</code> rather than
+<code>@refs/tags/v…</code>, because a released tag cannot be re-run without moving it. The tag-only
+<code>IDENTITY</code> above rejects it. For a backfilled version <strong>only</strong>, verify with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Backfilled versions only: a release tag pipeline, or the manual backfill job on main.</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">IDENTITY</span><span class="o">=</span><span class="s1">'^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/(tags/v[0-9][^/]*|heads/main)$'</span>
+</code></pre></div>
+<p>Backfill is <strong>trust-on-first-use</strong>. The job signs whatever the tag points at when it runs,
+not what the original release pipeline pushed. A backfilled signature therefore proves only
+that Visiban's pipeline vouched for those bytes at backfill time. Only Maintainers should run
+the job, and only after comparing the tag's current digests with the original release
+pipeline's log. <code>scripts/attest-image-sbom.sh --dry-run</code> prints the digests read-only. The
+wider regexp also accepts any later run of the backfill job on <code>main</code>. Accepting it for every
+release would widen what you trust for no benefit, which is why it is not the default.</p>
+<p>Charts published at or before <code>v1.2.0-alpha.2</code> are unsigned (#1284). See
+<a href="../../maintainers/known-ci-failures/">Known CI failures</a> if verification fails for a version
+you expect to be signed.</p>
+<h2 id="what-this-does-not-cover">What this does not cover<a class="headerlink" href="#what-this-does-not-cover" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>/</code> — Dashboard (boards + group tree)</li>
-<li><code>/groups/:id</code> — Group detail (members, boards, subgroups)</li>
-<li><code>/boards/:id</code> — Board view (DnD kanban grid)</li>
-<li><code>/settings</code> — User settings (profile, locale, appearance, notifications, security)</li>
-<li><code>/join/:token</code> — Invite link landing page</li>
-<li><code>/share/:token</code> — Public read-only board view (no authentication required)</li>
-<li><code>/admin</code> — Site administration panel (site admins only)</li>
+<li><strong>Build provenance.</strong> The SBOM says what is in the image, not how it was built. SLSA
+  provenance attestations are not published.</li>
+<li><strong>Source signing.</strong> Release git tags are not signed.</li>
+<li><strong>Mutable tags.</strong> A signature on <code>:latest</code> or <code>:1.2</code> proves only what that tag pointed at
+  when you checked. Pin by digest for anything you need to reproduce.</li>
+<li><strong>Third-party images.</strong> Only <code>backend</code> and <code>frontend</code> (and the chart) are signed by
+  Visiban. The other images a deployment pulls come from their upstream publishers and carry
+  no Visiban signature or SBOM:<ul>
+<li>Helm chart: <code>postgres:17</code>, <code>valkey/valkey</code>, <code>curlimages/curl</code> (the <code>helm test</code> hook)
+  and the Bitnami <code>postgresql</code> subchart, when enabled.</li>
+<li>Docker Compose: <code>postgres</code>, <code>valkey/valkey</code>, <code>nginx</code> and <code>certbot/certbot</code>.</li>
 </ul>
-<p>State is local React state with optimistic updates on drag-and-drop. No global state library.</p>
+</li>
+</ul>
+<p>Verify those with their publishers' own mechanisms if they offer one, or pin them by
+  digest.</p>
 
 
 
