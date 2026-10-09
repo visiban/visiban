@@ -306,7 +306,8 @@ class ConcurrentMoveLockTests(TransactionTestCase):
         def worker(name, fn, wait_for_first):
             try:
                 if wait_for_first:
-                    assert first_paused.wait(10), "first move never reached the hold point"
+                    if not first_paused.wait(10):
+                        raise RuntimeError("first move never reached the hold point")
                 results[name] = fn()
             except BaseException as exc:  # noqa: BLE001 - surfaced after join
                 errors.append(exc)
