@@ -3667,7 +3667,7 @@ frontend-manifest:
 # checksums file and an independent download, 2026-10-08):
 #   * syft 1.51.1 (Apache-2.0) — no OSV advisories at this version; 1.18.1
 #     (TruePPM's pin) carries GHSA-rjcw-vg7j-m9rc, fixed in 1.42.3.
-#   * cosign 2.6.5 (Apache-2.0) — newer than helm-publish's 2.4.3 on purpose:
+#   * cosign 2.6.5 (Apache-2.0) — newer than helm-publish's 2.4.3 (#1543) on purpose:
 #     this job's assertion IS `verify-attestation`, and 2.4.3 has
 #     GHSA-whqx-f9j3-ch6m (fixed 2.6.2) and GO-2026-5694 (verify false
 #     positive, fixed 2.6.3). The one remaining v2 advisory, GO-2026-4529,
@@ -3887,6 +3887,8 @@ helm-publish:
     - apk add --no-cache bash curl
     # Pinned and checksum-verified: an unpinned signing tool is a supply-chain
     # hole in the job whose whole purpose is supply-chain provenance.
+    # 2.4.3 lags .image-attest-common's 2.6.5 (its advisories are in
+    # verification, which this job does not do); bump tracked in #1543.
     - |
       COSIGN_VERSION=2.4.3
       COSIGN_SHA256=caaad125acef1cb81d58dcdc454a1e429d09a750d1e9e2b3ed1aed8964454708

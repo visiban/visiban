@@ -74,7 +74,8 @@ signatures and SBOMs are deleted about 90 days after it ships, while the image i
 survives**, and `cosign verify` against `registry.gitlab.com/visiban/visiban` starts failing
 with `no signatures found`. GHCR has no cleanup policy, so its copies are unaffected.
 
-Until the policy is extended, verify against GHCR (see
+Until the policy is extended (tracked in
+[#1541](https://gitlab.com/visiban/visiban/-/issues/1541)), verify against GHCR (see
 [Verifying release images](image-verification.md)). To keep the GitLab copies, a maintainer
 adds the cosign tag shape to `name_regex_keep`:
 
@@ -86,6 +87,18 @@ This also keeps signatures for intermediate `-amd64`/`-arm64` digests. Those are
 digests the release index points at, so keeping them is intended. Record the change here
 the same way #1190 was recorded. The `image-attest-backfill` CI job can re-attach any
 signatures and SBOMs that were already swept.
+
+Nothing yet checks on a schedule that a release's signatures and attestations are still
+present. Only the images themselves are checked. That check is tracked in
+[#1542](https://gitlab.com/visiban/visiban/-/issues/1542).
+
+!!! warning "Cleaning up per-arch tags (#1196) must keep the platform manifests"
+    The `-amd64`/`-arm64` intermediate tags point at the same platform manifests the release
+    index references, and those digests carry the signatures and SBOM attestations. Any
+    cleanup done for [#1196](https://gitlab.com/visiban/visiban/-/issues/1196) may remove the
+    intermediate **tags**, but it must not delete the platform **manifests** or their
+    `sha256-<digest>.sig`/`.att` tags. Deleting them breaks `docker pull` for that platform
+    and removes its signature and SBOM.
 
 ### History: the semver-anchored form predates #1190
 
