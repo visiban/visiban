@@ -629,6 +629,16 @@ class MoveLockRevalidationTests(CardServiceTestBase):
         with patcher, self.assertRaises(MoveNotPermitted):
             self._move(actor=self.member)
 
+    def test_an_assignee_change_without_a_version_bump_still_retries(self):
+        """Not every write bumps version (``clear_viewer_assignees`` does not),
+        so the gate fields are compared directly."""
+        Card.objects.filter(pk=self.card.pk).update(assignee=self.owner)
+
+        patcher, reads = self._stale_reads(1, assignee_id=None)
+        with patcher, self.assertRaises(MoveNotPermitted):
+            self._move(actor=self.member)
+        self.assertEqual(len(reads), 2)
+
     def test_a_card_deleted_before_the_lock_is_not_found(self):
         patcher, _ = self._lock_after(lambda: Card.objects.filter(pk=self.card.pk).delete())
         with patcher, self.assertRaises(CardNotFound):

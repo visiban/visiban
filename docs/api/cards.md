@@ -373,7 +373,7 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
 | `column_id` | ✓ | ID of the destination column (must belong to this board) |
 | `swimlane_id` | ✓ | ID of the destination swimlane (must belong to this board) |
 | `position` | | Target position within the destination cell (0-based, default: `0`) |
-| `version` | | Optimistic concurrency token. When provided, the server rejects the move with `409 Conflict` (`code: "version_conflict"`) if the card has been modified since the client last fetched it. Omitting this field disables the OCC check. |
+| `version` | | Optimistic concurrency token. When provided, the server rejects the move with `409 Conflict` (`code: "version_conflict"`) if the card has been modified since the client last fetched it. Omitting this field disables the OCC check. A move without `version` can still get `409 version_conflict` in one rare case: the card is changed by other writers between the server's read and its row lock on several consecutive attempts (the server re-reads and retries before giving up). Re-fetch and retry. |
 
 **Version conflict error**
 

@@ -277,6 +277,7 @@ Every error has a `code` your agent can branch on. The common ones:
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee_email`/label name that does not resolve to a real board member/label. |
 | `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. Returned by `move_card` and, since 1.2 (#1428), `create_card`. Neither tool overrides either — there is no `force` option over MCP. |
 | `weight_limit_exceeded` | The target column is at its weight limit (`move_card`, and `create_card` since 1.2). |
+| `version_conflict` | `move_card` only. The card kept changing under concurrent writes while the server retried locking it. `move_card` takes no `version` argument, so this is the only cause. Re-read the card and retry. Added in 1.2 (#1522). |
 
 ### `list_columns`
 

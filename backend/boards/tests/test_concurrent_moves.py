@@ -489,8 +489,10 @@ class ConcurrentMoveLockTests(TransactionTestCase):
     def test_two_moves_out_of_the_same_cell_in_reverse_pk_order_do_not_deadlock(self):
         """Same race, with the higher-pk card moving first.
 
-        Guards the ordering half of the fix: whichever card wins, both moves
-        must acquire the cell in the same (pk) order.
+        This only shows the fix does not depend on which card wins. It does
+        not detect a wrong lock order: any order that both moves share (by
+        position, say) would pass too. The pk ordering itself is pinned by
+        ``test_move_locks_cards_then_columns_in_pk_order``.
         """
         low = self._card("Low", self.col_a, 0)
         high = self._card("High", self.col_a, 1)
@@ -552,3 +554,87 @@ class ConcurrentMoveLockTests(TransactionTestCase):
         x.refresh_from_db()
         y.refresh_from_db()
         self.assertEqual((x.column, y.column), (self.col_b, self.col_a))
+
+    def test_move_into_a_limited_column_does_not_deadlock_with_a_column_reorder(self):
+        """A move into a WIP-limited column races POST /columns/reorder/.
+
+        A reorder rewrites ``columns.position``, part of a unique key, so it
+        holds FOR UPDATE on every column row; the move's CardMovement insert
+        needs FOR KEY SHARE on its source column. The move is held after it
+        took its column locks; the reorder must queue behind it. Without the
+        move locking both its columns (and the reorder locking all of them) in
+        pk order, the two wait on each other's column row.
+        """
+        self.board.enforce_wip_limits = True
+        self.board.save(update_fields=["enforce_wip_limits"])
+        self.col_b.wip_limit = 10
+        self.col_b.save(update_fields=["wip_limit"])
+        card = self._card("Mover", self.col_a, 0)
+        new_order = [self.col_c.pk, self.col_b.pk, self.col_a.pk]
+
+        def reorder():
+            client = APIClient()
+            client.force_authenticate(self.user)
+            return client.post(
+                f"/api/v1/boards/{self.board.pk}/columns/reorder/",
+                {"order": new_order}, format="json",
+            ).status_code
+
+        results = self._race("enforce_column_limits", self._move(card, self.col_b), reorder)
+        self.assertEqual(results, {"first": 200, "second": 200})
+        card.refresh_from_db()
+        self.assertEqual(card.column, self.col_b)
+        self.assertEqual(
+            list(Column.objects.filter(board=self.board).order_by("position")
+                 .values_list("pk", flat=True)),
+            new_order,
+        )
+
+    def test_move_locks_cards_then_columns_in_pk_order(self):
+        """Pins the lock statements themselves, which a race test cannot.
+
+        Deadlock freedom depends on every mover taking the same global order;
+        a consistent-but-different order (e.g. by position) would still pass
+        the race tests above while deadlocking against the column reorder and
+        the card-relation lock, which both use pk order.
+        """
+        from django.test.utils import CaptureQueriesContext
+
+        self._card("Sibling", self.col_a, 0)
+        card = self._card("Mover", self.col_a, 1)
+        with CaptureQueriesContext(connection) as ctx, patch(PATCH_BROADCAST):
+            self.assertEqual(self._move(card, self.col_b)(), 200)
+        locking = [q["sql"] for q in ctx.captured_queries if " FOR " in q["sql"]]
+        card_locks = [sql for sql in locking if 'FROM "cards"' in sql]
+        column_locks = [sql for sql in locking if 'FROM "columns"' in sql]
+        self.assertEqual(len(card_locks), 1, card_locks)
+        self.assertIn('ORDER BY "cards"."id" ASC', card_locks[0])
+        self.assertIn('FOR UPDATE OF "cards"', card_locks[0])
+        self.assertEqual(len(column_locks), 1, column_locks)
+        self.assertIn('ORDER BY "columns"."id" ASC', column_locks[0])
+        self.assertIn("FOR NO KEY UPDATE", column_locks[0])
+        self.assertLess(locking.index(card_locks[0]), locking.index(column_locks[0]))
+
+    def test_column_reorder_locks_columns_in_pk_order(self):
+        """The reorder half of the shared column order (#1522).
+
+        bulk_update locks rows in whatever order its UPDATE scans them, which
+        happens to be pk order on a small table, so a race test cannot show the
+        difference; the explicit pk-ordered lock is pinned here instead.
+        """
+        from django.test.utils import CaptureQueriesContext
+
+        client = APIClient()
+        client.force_authenticate(self.user)
+        with CaptureQueriesContext(connection) as ctx, patch(PATCH_BROADCAST):
+            r = client.post(
+                f"/api/v1/boards/{self.board.pk}/columns/reorder/",
+                {"order": [self.col_c.pk, self.col_b.pk, self.col_a.pk]}, format="json",
+            )
+        self.assertEqual(r.status_code, 200)
+        column_locks = [
+            q["sql"] for q in ctx.captured_queries
+            if 'FROM "columns"' in q["sql"] and " FOR UPDATE" in q["sql"]
+        ]
+        self.assertEqual(len(column_locks), 1, column_locks)
+        self.assertIn('ORDER BY "columns"."id" ASC', column_locks[0])

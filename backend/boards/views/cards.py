@@ -710,7 +710,11 @@ class CardViewSet(viewsets.ModelViewSet):
                 ),
                 "version": serializers.IntegerField(
                     required=False, allow_null=True,
-                    help_text="OCC version the client last observed; omit to skip the conflict check.",
+                    help_text=(
+                        "OCC version the client last observed; omit to skip the conflict check. "
+                        "A move without it can still return 409 version_conflict if the card keeps "
+                        "changing concurrently while the server retries its lock."
+                    ),
                 ),
             },
         ),
