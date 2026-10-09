@@ -2685,6 +2685,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#whole-module-re-measure-2026-10-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Whole-module re-measure (2026-10-09)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4051,7 +4062,7 @@
 <td style="text-align: right;">228</td>
 <td style="text-align: right;">93.8%</td>
 <td style="text-align: right;">0 (the 8 #1503 exclusions were deleted in #1505)</td>
-<td style="text-align: right;">228 of 246 on current code (not re-measured; 246 mutants enumerated, none excluded)</td>
+<td style="text-align: right;">238 of 246 = 96.7% (2026-10-09 whole-module re-measure, see <a href="#whole-module-re-measure-2026-10-09">below</a>; 8 survivors, none excluded)</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
@@ -4073,7 +4084,7 @@
 <td style="text-align: right;">114</td>
 <td style="text-align: right;">96.6%</td>
 <td style="text-align: right;">4</td>
-<td style="text-align: right;">114 of 114 = 100% (expected, not re-measured whole-module)</td>
+<td style="text-align: right;">116 of 116 tested = 100%; 116 of 117 = 99.1% counting 1 mutant that never ran (2026-10-09 whole-module re-measure, see <a href="#whole-module-re-measure-2026-10-09">below</a>)</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
@@ -4378,6 +4389,42 @@
 </tbody>
 </table>
 <p>Plan on the whole-module <code>import_export.py</code> run being the expensive one. A serial run of the movement service alone is about two hours.</p>
+<h3 id="whole-module-re-measure-2026-10-09">Whole-module re-measure (2026-10-09)<a class="headerlink" href="#whole-module-re-measure-2026-10-09" title="Permanent link">&para;</a></h3>
+<p>Re-measures the two rows that were marked "expected, not re-measured". Run with mutmut 2.5.1 on throwaway copies of <code>backend/</code> at <code>b90447652</code> (<code>cards.py</code> in 8 shards, <code>permissions.py</code> in 4, <code>line_index % N</code> sharding, SQLite, <code>-x</code> per mutant). Both modules are byte-identical on <code>main</code> at <code>e8be1a22f</code>. <code>cards.py</code> ran against the full test list in the table above (scoped files, the view suites and both gap files); <code>permissions.py</code> against its four scoped files. Counts are summed over the shards' <code>.mutmut-cache</code> files.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th style="text-align: right;">Mutants</th>
+<th style="text-align: right;">Killed</th>
+<th style="text-align: right;">Survived</th>
+<th style="text-align: right;">Untested</th>
+<th style="text-align: right;">Kill rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>boards/services/cards.py</code></td>
+<td style="text-align: right;">246</td>
+<td style="text-align: right;">238</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">96.7%</td>
+</tr>
+<tr>
+<td><code>boards/permissions.py</code></td>
+<td style="text-align: right;">117</td>
+<td style="text-align: right;">116</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">99.1% (100% of the 116 that ran)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong><code>cards.py</code> survivors (8), not yet classified.</strong> They sit on lines 217 and 218 (the <code>CARD_MUTATION_HOOKS</code> failure log's format string and its <code>__qualname__</code> argument), 329 and 330 (<code>check_wip=True</code>, <code>check_weight=True</code> and <code>lock=True</code> in a signature), 364 (<code>weight_enforced = check_weight and board.enforce_weight_limits</code>), 422 and 935 (<code>force=False</code> in two service signatures), and 460 (a call passing <code>lock=False</code>). The <code>lock</code> mutants are the kind the <a href="#postgresql-re-run-of-the-select_for_update-guards-1504">PostgreSQL re-run</a> shows survive on SQLite; the others have not been triaged. The #1511 label mutant is not among them.</li>
+<li><strong><code>permissions.py</code> untested mutant (1).</strong> Mutant 117, on the <code>group_roles = dict(...)</code> statement (line 316, the closing <code>)</code>), was registered in the cache of every shard but never run, and <code>mutmut show 117</code> prints nothing for it. The cause is not known. It is reported as untested rather than as killed, so the raw rate is 116 of 117. The module has 117 mutants here against 118 in the baseline row; the two counts were not reconciled, because the cache omits lines carrying <code># pragma: no mutate</code>.</li>
+</ul>
 <h2 id="survivor-classification">Survivor classification<a class="headerlink" href="#survivor-classification" title="Permanent link">&para;</a></h2>
 <p>Every survivor was put in one of three buckets:</p>
 <ul>
