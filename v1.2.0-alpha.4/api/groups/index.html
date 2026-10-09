@@ -4562,7 +4562,11 @@
 </code></pre></div></p>
 <p>All fields are optional. <code>role</code> defaults to <code>member</code>; <code>expiry_days</code> accepts any positive integer (<code>≥ 1</code>) or <code>null</code> (never expires) — common values <code>7</code>, <code>30</code>, <code>90</code>. <code>single_use</code> (boolean, default <code>false</code>) creates a link that expires automatically after one person joins.</p>
 <p>Valid roles: <code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code></p>
-<p><strong>Response (create only)</strong> — the raw <code>token</code> is returned once and never again:
+<p><strong>Response (create only)</strong> — the raw secret is returned once and never again, in a field named <code>token</code>:</p>
+<div class="admonition note">
+<p class="admonition-title">Field name differs from site invite links</p>
+<p>Group and <a href="../boards/#board-invites">board</a> invite-link create responses name the secret <code>token</code>. The site-wide <a href="../admin/#post-apiv1admininvite-links"><code>POST /api/v1/admin/invite-links/</code></a> response names the same kind of value <code>raw_token</code>. The names differ for historical reasons and are frozen by the 1.0 API contract: both are stable and will not be renamed before a major version. Read the field that matches the endpoint you called. The field is present only on this create response, never on list responses.</p>
+</div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123raw"</span><span class="p">,</span>
@@ -4579,7 +4583,7 @@
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pending"</span><span class="p">,</span>
 <a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">  </span><span class="nt">"delivery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"link"</span>
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="p">}</span>
-</code></pre></div></p>
+</code></pre></div>
 <p><strong>List response</strong> — <code>token</code> is absent; <code>prefix</code> (first 8 chars) is shown for identification:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
