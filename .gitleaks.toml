@@ -53,3 +53,31 @@ paths = [
   # rule on shape alone — an image repository name, never a credential.
   '''(^|/)scripts/helm-structure-check\.sh$''',
 ]
+
+# Commit-scoped allowlist (#1071). Serves gitleaks-scan and gitleaks-history,
+# both of which read this file. A `gitleaks git` run over origin/main history
+# found exactly one hit: the fixture password constant NEW_PASSWORD in
+# backend/accounts/tests/test_ws_credential_revocation_e2e.py, introduced in
+# commit 8079469d9. It is a literal test password used to prove that a
+# password change revokes live WebSocket sessions, against a throwaway test
+# database; never a real credential. It is exempted by commit, not by file, so
+# a real secret later added to that file (or any other test file) is still
+# caught. The working-tree scan needs no entry.
+#
+# Seven more commits surfaced once gitleaks-history began scanning full depth
+# (main pipeline 2930635777 failed with 28 hits). All are literal test
+# passwords in backend/accounts/tests/ (test_social_connect.py,
+# test_password_reset.py, and an earlier revision of
+# test_ws_credential_revocation_e2e.py before its inline `gitleaks:allow`),
+# used against throwaway test databases. The current tree scans clean, so
+# these exist only in history. Still scoped by commit, not by file.
+commits = [
+  "8079469d92fca8989e37ac7427a51d7c8c1b9249",
+  "e45b56374107d5a46b74fc67f1d51fb2921d5f73",
+  "ad48e0acbc2984aee8176870f4e3cbea1c53bc29",
+  "c24bee7fd01e22c7c866187710e59b86bd732eb2",
+  "935c63f8eb59afddc963c69d88c58a80521c852b",
+  "a20074bbe7d20639e0f2d5846c5ddef9d2df7662",
+  "3f58dcb6cba7d2de32fb3aed2173271cc2cde8d4",
+  "721177740bbad794e21f718ba0c8be45e284f21f",
+]

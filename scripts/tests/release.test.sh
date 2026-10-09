@@ -68,8 +68,20 @@ fi
 # clone of this repo so the real branch/commit/rollback machinery runs for
 # real without touching this checkout or any real remote — `origin` on the
 # clone is this on-disk repo, not GitLab, so nothing here reaches the network.
+# Hermetic fixture repos. release.sh runs `git checkout main` and `git pull origin main`, so
+# every fixture needs a local `main` AND an origin that has one. CI checks out a detached HEAD
+# with no local `main`, so cloning REPO_ROOT directly only worked where a developer had one.
+# FIXTURE_SRC is a private copy of the checked-out commit with `main` pointing at it; each
+# fixture clones that, never the real checkout.
+FIXTURE_SRC="$(mktemp -d)"
+git clone --quiet "$REPO_ROOT" "$FIXTURE_SRC/src"
+git -C "$FIXTURE_SRC/src" checkout --quiet -B main "$(git -C "$REPO_ROOT" rev-parse HEAD)"
+make_fixture() { # <dest-parent>
+  git clone --quiet --branch main "$FIXTURE_SRC/src" "$1/repo"
+}
+
 TMPCLONE="$(mktemp -d)"
-git clone --quiet "$REPO_ROOT" "$TMPCLONE/repo"
+make_fixture "$TMPCLONE"
 (
   cd "$TMPCLONE/repo"
   # Simulate bump_chart_app_version's anchor (`^appVersion: `) silently no
@@ -113,7 +125,7 @@ rm -rf "$TMPCLONE"
 # before even the "tag already exists" guard. Using a tag that already
 # exists stops the script immediately afterward with no network calls.
 TMPCLONE2="$(mktemp -d)"
-git clone --quiet "$REPO_ROOT" "$TMPCLONE2/repo"
+make_fixture "$TMPCLONE2"
 (
   cd "$TMPCLONE2/repo"
   git -c user.email=t@t -c user.name=t tag v9.9.9
@@ -143,7 +155,7 @@ else
   echo "${OUT}" | sed 's/^/    /'
   fail=$((fail + 1))
 fi
-rm -rf "$TMPCLONE2"
+rm -rf "$TMPCLONE2" "$FIXTURE_SRC"
 
 echo "release.test.sh: ${pass} passed, ${fail} failed"
 [ "$fail" -eq 0 ]

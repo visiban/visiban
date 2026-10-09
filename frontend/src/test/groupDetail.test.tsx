@@ -1510,6 +1510,27 @@ describe('GroupDetail — navigation (#1374)', () => {
     })
   })
 
+  // #1526: a warnings-only CSV import summary is still forwarded to the board page.
+  it('forwards a warnings-only import summary to the board', async () => {
+    setupAdmin()
+    const importSummary = {
+      options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+      skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0 },
+      warnings: ["Skipped column 'X': the field name is empty."],
+    }
+    mockImportBoard.mockResolvedValue({
+      id: 59, name: 'Imported Board', description: '', owner: fakeUser,
+      group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '',
+      import_summary: importSummary,
+    })
+    renderGroupDetail()
+    fireEvent.click(await screen.findByText('Import'))
+    fireEvent.click(screen.getByText('Confirm import board'))
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/boards/59', { state: { importSummary } })
+    })
+  })
+
   // #119: a selective import passes its options through with the group id,
   // and hands a non-empty skip summary to the board page.
   it('passes import options through and forwards the skip summary', async () => {

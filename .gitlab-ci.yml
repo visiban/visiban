@@ -3,10 +3,22 @@
 # SAST: Semgrep-based static analysis via the official GitLab catalog component.
 # Covers Python and TypeScript/JavaScript with broader rules than Bandit.
 # enable_mr_pipelines: true — runs on MR pipelines in addition to branch
-# pipelines, so findings gate merges. excluded_paths skips generated code.
+# pipelines. excluded_paths skips generated code.
+#
+# Both components are pinned to an exact released version (#1071) instead of
+# `@~latest`: a floating component can change rules, defaults, or job shape
+# under us between two pipelines, so a scanner could silently stop blocking (or
+# start blocking everything). Bump deliberately, in its own MR, after reading
+# the component's release notes. Verify a candidate version exists with:
+#   glab api "projects/components%2Fsast/releases"
+#   glab api "projects/components%2Fsecret-detection/releases"
+#
+# These components generate the `semgrep-sast` and `secret_detection` jobs —
+# they are NOT literal job keys in a plain read of this file. The overrides
+# further down (search "Scanner blocking policy") are what make them blocking.
 
 include:
-  - component: gitlab.com/components/sast/sast@~latest
+  - component: gitlab.com/components/sast/sast@3.5.0
     inputs:
       stage: security
       enable_mr_pipelines: true
@@ -14,10 +26,72 @@ include:
         backend/boards/migrations,
         backend/groups/migrations,
         backend/accounts/migrations
-  - component: gitlab.com/components/secret-detection/secret-detection@~latest
+  - component: gitlab.com/components/secret-detection/secret-detection@2.4.0
     inputs:
       stage: security
       enable_mr_pipelines: true
+
+# ─── Scanner blocking policy (#1071) ──────────────────────────────────────────
+#
+# Which scanners can actually fail a pipeline. OSS push-mirrors to the
+# enterprise repo and public GitHub within a minute of a merge, so a committed
+# secret is public on three remotes almost immediately.
+#
+#   gitleaks-scan      blocks on any finding              — full working tree, MR + main
+#   gitleaks-history   blocks on any finding              — full git history, main only
+#                      (runs after merge: a post-merge tripwire, not a merge gate)
+#   secret_detection   REPORT ONLY for findings           — see below; #1537
+#   semgrep-sast       blocks at High/Critical only       — override + sast-severity-gate
+#   backend-sast       blocks (bandit, medium+)           — pre-existing
+#   frontend-sast      blocks (eslint 'error' rules)      — only when frontend/src/**/*.{ts,tsx} changed
+#   trivy-scan         tracked separately in #1072; dep-scan-osv, pip-audit and the
+#                      license checks are deliberately outside this policy
+#
+# Semgrep's Low/Medium/Info findings stay visible in the MR security widget but
+# do not fail the pipeline; the SAST component has no native severity threshold,
+# so sast-severity-gate reads gl-sast-report.json. Accepting a High/Critical
+# finding requires an entry (reason + expiry date) in
+# .gitlab/sast-suppressions.json — see docs/maintainers/security-scanners.md.
+
+# Component-generated job: override only what we change; the rest of the job
+# definition (image, script, rules, artifacts) still comes from the component.
+# NOTE: GitLab's analyzers always exit 0 on findings, so allow_failure: false
+# here does NOT make secret_detection block on a leak — it only makes an
+# analyzer crash fail the job. The blocking secret gates are gitleaks-scan and
+# gitleaks-history. Gating on the component's report is tracked in #1537.
+secret_detection:
+  allow_failure: false
+
+# The component's job only inspects the MR diff (GIT_DEPTH 50). Full-history
+# coverage is gitleaks-history below (the component analyzer ignores
+# .gitleaks.toml, so it cannot share the repo's reviewed allowlist).
+
+semgrep-sast:
+  allow_failure: false
+
+# Fails the pipeline on a High/Critical semgrep finding that is not covered by an
+# unexpired entry in .gitlab/sast-suppressions.json. Expired suppressions also
+# fail, so a temporary acceptance cannot rot into a permanent one.
+sast-severity-gate:
+  stage: security
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  needs:
+    - job: semgrep-sast
+      artifacts: true
+      optional: true
+  # Rules match when semgrep-sast actually runs: MR pipelines and the default
+  # branch (the component is included with enable_mr_pipelines: true). The
+  # component has no SAST_DISABLED variable in 3.5.0; its opt-out is the
+  # `excluded_analyzers` include input, which a job rule cannot read. So if
+  # semgrep is ever excluded there, this gate job must be removed in the same
+  # change, otherwise it fails closed on the missing report (intended).
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - python3 scripts/sast-severity-gate.py --self-test
+    - python3 scripts/sast-severity-gate.py gl-sast-report.json .gitlab/sast-suppressions.json
+  allow_failure: false
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 #
@@ -61,6 +135,16 @@ stages:
   - test
   - security
   - deploy
+
+# The SAST and secret-detection components declare no `needs:`, so as `security`
+# stage jobs they waited for every `test` job — including the 7-8 min helm
+# drills — before starting, then ran for 15-90 s. They only read the checkout,
+# so they start at pipeline creation.
+semgrep-sast:
+  needs: []
+
+secret_detection:
+  needs: []
 
 # ─── Docker Hub mirror (#1198) ─────────────────────────────────────────────────
 #
@@ -343,7 +427,7 @@ sonar-scan-selftest:
 # ─── security::deferred verdict self-test (#1521) ────────────────────────────
 #
 # scripts/security-deferred-verdict.sh holds the accepted-risk verdict logic that
-# /pre-release Step 1.5 (and later /release, #1520) shells out to. It only ever
+# /pre-release Step 1.5 and scripts/release.sh (via scripts/check-security-deferred.sh, #1520) shell out to. It only ever
 # runs from a maintainer's session, so nothing else would notice it break; this
 # runs its --self-test on MRs touching it (#1093 house rule). Alpine's busybox
 # awk/sed/grep exercise a third implementation beside macOS BSD awk and GNU awk.
@@ -354,11 +438,19 @@ security-deferred-verdict-selftest:
   rules:
     - changes: &security-deferred-verdict-selftest-paths
         - scripts/security-deferred-verdict.sh
+        - scripts/check-security-deferred.sh
+        - scripts/release.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *security-deferred-verdict-selftest-paths
   script:
     - sh scripts/security-deferred-verdict.sh --self-test
+    - apk add --no-cache bash jq git coreutils
+    - git config --global --add safe.directory '*'
+    - bash scripts/check-security-deferred.sh --self-test
+    # release.sh gates the tag on the check above (#1520); its self-test had no CI job.
+    # scripts/tests/release.test.sh is NOT run here: release.sh's BSD-style `sed -i ''` fails on Linux (#1539).
+    - bash scripts/release.sh --self-test
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #
@@ -446,22 +538,25 @@ backend-lint:
 
 # ─── Backend — test ───────────────────────────────────────────────────────────
 #
-# Runs Django tests via pytest, sharded across 3 parallel jobs using
+# Runs Django tests via pytest, sharded across 8 parallel jobs using
 # pytest-split's least_duration algorithm for time-balanced distribution.
 # These jobs gate the pipeline on test failures (fast, parallel).
 # Coverage is measured separately by backend-test-coverage in a single-process
 # run — see that job's comment for why sharded coverage combining is not used.
 #
-# On first run (no .test_durations in cache), pytest-split falls back to
-# round-robin splitting. After one run, the durations file is cached and
-# subsequent runs use time-balanced splitting.
+# Balancing uses the committed backend/.test_durations file. Shards must NOT
+# pass --store-durations: every shard would write only its own slice and the
+# last one to push a cache would win, leaving the file stale. Regenerate it
+# with `pytest --store-durations --durations-path .test_durations` (see
+# docs/development/testing.md); tests missing from the file get the average
+# duration, so a stale file degrades balance but never correctness.
 
 backend-test:
   extends: .pip-cache
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  parallel: 3
+  parallel: 8
   rules:
     - changes:
         - backend/**/*
@@ -494,9 +589,6 @@ backend-test:
         files: [backend/requirements-test.txt]
       paths: [.cache/pip/]
       policy: pull
-    - key: test-durations
-      paths: [backend/.test_durations]
-      policy: pull-push
   before_script:
     - pip install --quiet -r backend/requirements.txt
     - pip install --quiet -r backend/requirements-test.txt
@@ -504,7 +596,7 @@ backend-test:
     - cd backend
     - coverage run --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
         --splitting-algorithm least_duration
-        --store-durations
+        --durations-path .test_durations
         --group $CI_NODE_INDEX
         --splits $CI_NODE_TOTAL
         --junitxml=test-results/junit-${CI_NODE_INDEX}.xml
@@ -517,7 +609,7 @@ backend-test:
     when: always
     expire_in: 1 day
 
-# Combines the .coverage.* artifacts produced by the three parallel backend-test
+# Combines the .coverage.* artifacts produced by the parallel backend-test
 # shards *and by every feature-flagged test job* and enforces the 90% threshold.
 # Each producer runs with --parallel so coverage.py treats its data file as a
 # fragment to be combined rather than a standalone measurement.
@@ -1709,14 +1801,12 @@ helm-install:
   # See scripts/helm-install-drill.sh.
   <<: *helm-drill-base
   timeout: 40m
-  # Only the static chart check (helm-template), not the whole `lint` stage —
-  # stage-based ordering was making this wait on unrelated jobs (frontend-lint,
-  # backend-lint, shellcheck, ...) before booting a 40min cluster. `optional:
-  # true` because helm-template has no schedule rule, so it's absent from
-  # scheduled pipelines that still run this drill.
-  needs:
-    - job: helm-template
-      optional: true
+  # No upstream dependency: the drill boots its own cluster and does not consume
+  # helm-template's output. It used to wait on helm-template (a 5-8 min lint
+  # job), which put the two back-to-back on the critical path of every chart
+  # change. A chart that fails to render now fails both jobs instead of only
+  # helm-template — an acceptable cost for running them concurrently.
+  needs: []
   rules:
     # Advisory on the nightly schedule: a blip on a shared runner pulling Calico
     # manifests or base images is a signal, not a hard red.
@@ -1760,9 +1850,7 @@ helm-netpol:
   <<: *helm-drill-base
   timeout: 45m
   # See helm-install above.
-  needs:
-    - job: helm-template
-      optional: true
+  needs: []
   rules:
     # Excludes the Sonar nightly (#1369) — see helm-install's identical note
     # above; this is a separate 45min cluster drill with nothing to do with a
@@ -2509,7 +2597,12 @@ backend-sast:
 # eslint-plugin-security: JS/TS SAST for injection, prototype pollution,
 # non-literal regexp/require, and other common frontend security issues.
 # Runs as a dedicated security job (separate from style linting) so failures
-# are clearly security-attributed and block merges independently.
+# are clearly security-attributed. Blocking (#1071): ESLint exits non-zero only
+# for rules set to 'error' below (the high-confidence ones); the noisy
+# detect-object-injection / timing-attack rules are 'warn' and never fail the
+# job. A finding that is a genuine false positive is suppressed inline with
+# `// eslint-disable-next-line security/<rule> -- <reason>` (see the
+# suppression-marker convention in CLAUDE.md).
 frontend-sast:
   extends: .npm-cache
   stage: security
@@ -2553,7 +2646,7 @@ frontend-sast:
       ];
       ESLINTEOF
       npx eslint --no-config-lookup --config eslint-security.config.mjs src/
-  allow_failure: true
+  allow_failure: false
 
 # pip-audit: checks Python packages against the OSV vulnerability database.
 # On MRs: only when requirements.txt changes; allow_failure so a new CVE in an
@@ -2650,27 +2743,41 @@ frontend-license-check:
     - npx license-checker --failOn "GPL-2.0;GPL-3.0" --summary
   allow_failure: true
 
-# trivy: filesystem scan for OS-level CVEs in the Docker base images and
-# IaC misconfigurations in Dockerfiles and Helm charts.
+# trivy: filesystem scan of the repository for known-vulnerable declared
+# dependencies, IaC misconfigurations in Dockerfiles, and committed secrets.
 #
 # Why trivy in addition to pip-audit / npm audit:
-#   - pip-audit and npm audit only see application-layer dependencies.
-#     trivy also scans the OS packages installed in the Docker image
-#     (e.g. Alpine apk packages in python:3.12-slim or node:20-alpine)
-#     for CVEs that the app-layer scanners never see.
-#   - --scanners vuln,config catches both CVEs and IaC issues (Dockerfile
-#     USER root, ADD instead of COPY, missing HEALTHCHECK, etc.) in one pass.
+#   - --scanners vuln,config,secret covers CVEs in the lockfiles, IaC issues
+#     (Dockerfile without USER, ADD instead of COPY, ...) and secrets in one
+#     pass. It scans the repo filesystem only: it does NOT inspect the OS
+#     packages inside built base images (that needs an image scan).
+#   - The Helm chart is currently skipped by trivy's config scanner because of
+#     placeholder values in the templates; see #1536.
 #
-# Runs on any change to a Dockerfile, requirements.txt, package-lock.json,
-# or Helm chart, plus always on main. allow_failure: true so a newly
-# published OS CVE in a base image does not immediately block merges —
-# findings are visible in the job log and artifact for triage.
+# Runs on an MR that changes a Dockerfile, a dependency lockfile, the Helm
+# chart, or the scan's own inputs (this job, .trivyignore.yaml and the expiry
+# script), plus always on main.
+#
+# BLOCKING (#1072): HIGH/CRITICAL vuln, config and secret findings fail the
+# job (--exit-code 1, no allow_failure). The scanner BINARY is pinned by
+# digest, so it only changes in a reviewed commit; bump the version and digest
+# together. (The tag was already pinned to a version before #1072; the digest
+# closes the mutable-tag gap.) The data it scans against is NOT pinned: the
+# vulnerability DB and the misconfiguration checks bundle (a floating
+# mirror.gcr.io/aquasec/trivy-checks tag) are downloaded at scan time, so a
+# newly published CVE or check can turn the job red on an unchanged tree —
+# that is the point of the gate. --skip-check-update with a vendored bundle
+# would be a possible later hardening; it is deliberately not used here.
+# Accepted risks live in .trivyignore.yaml with an expiry date and an issue
+# link; scripts/check-trivyignore-expiry.sh fails the job once an entry
+# expires (trivy alone just stops honoring it).
 trivy-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
   image:
-    name: ghcr.io/aquasecurity/trivy:0.74.0
+    # 0.74.0 — pinned by multi-arch index digest, not a tag.
+    name: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
     entrypoint: [""]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -2678,28 +2785,36 @@ trivy-scan:
         - backend/Dockerfile
         - backend/Dockerfile.prod
         - frontend/Dockerfile
+        - frontend/Dockerfile.prod
         - backend/requirements.txt
         - backend/requirements.lock
         - backend/requirements-build.lock
         - frontend/package-lock.json
         - helm/**/*
+        - .gitlab-ci.yml
+        - .trivyignore.yaml
+        - scripts/check-trivyignore-expiry.sh
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
-    # Scan the repo filesystem — catches vuln in declared deps and IaC issues
-    # in Dockerfiles and Helm templates. --exit-code 0 so the job is non-
-    # blocking; severity threshold is HIGH,CRITICAL for the visible summary.
+    # Prove the expiry gate still fires, then enforce it on the real file.
+    - sh scripts/check-trivyignore-expiry.sh --self-test
+    - sh scripts/check-trivyignore-expiry.sh .trivyignore.yaml
+    # Full report first (non-blocking, all scanners, for the artifact), so it
+    # is produced even when the blocking pass below fails the job.
     - trivy fs .
-        --scanners vuln,config
+        --scanners vuln,config,secret
         --severity HIGH,CRITICAL
-        --exit-code 0
-        --format table
-    - trivy fs .
-        --scanners vuln,config
-        --severity HIGH,CRITICAL
+        --ignorefile .trivyignore.yaml
         --exit-code 0
         --format json
         --output trivy-report.json
-  allow_failure: true
+    # Blocking pass: any unsuppressed HIGH/CRITICAL fails the job.
+    - trivy fs .
+        --scanners vuln,config,secret
+        --severity HIGH,CRITICAL
+        --ignorefile .trivyignore.yaml
+        --exit-code 1
+        --format table
   artifacts:
     when: always
     expire_in: 1 week
@@ -2803,6 +2918,39 @@ gitleaks-scan:
     - chmod +x /usr/local/bin/gitleaks
   script:
     - gitleaks dir . --config .gitleaks.toml --no-banner --redact --exit-code 1
+
+# gitleaks-history (#1071): the same pinned gitleaks and .gitleaks.toml as
+# gitleaks-scan, but `gitleaks git` walks every commit, not just the checkout.
+# A secret that was committed and later "removed" is still retrievable from the
+# public GitHub and enterprise mirrors, so main must prove its whole history is
+# clean. Main only: a full-history scan on every MR is slow and would re-report
+# the same findings forever. GIT_DEPTH 0 because GitLab's default shallow clone
+# would hide everything older than the fetch depth.
+gitleaks-history:
+  stage: security
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.20
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "merge_request_event"'
+  before_script:
+    - apk add --no-cache wget git
+    - wget -q -O /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+    - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+    - chmod +x /usr/local/bin/gitleaks
+  script:
+    # Fail closed on a shallow clone: GIT_DEPTH 0 should give full history, but a
+    # runner-level override would silently turn this into a partial scan that
+    # still reports green. A guard (rather than GIT_STRATEGY: clone) keeps the
+    # fast fetch and makes the misconfiguration loud.
+    - |
+      if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
+        echo "ERROR: shallow clone; gitleaks-history needs full history (GIT_DEPTH 0)." >&2
+        exit 1
+      fi
+    - gitleaks git . --config .gitleaks.toml --no-banner --redact --exit-code 1
+  allow_failure: false
 
 # ─── Nightly SonarCloud scan (#1369, part of the #1368 quality epic) ─────────
 #

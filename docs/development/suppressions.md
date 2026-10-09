@@ -132,3 +132,50 @@ bash scripts/check-sonar-exclusions.sh --self-test
 
 These properties apply only to CI-based analysis (the `sonar:scan` job), not to SonarCloud
 Automatic Analysis.
+
+## Trivy suppressions
+
+The `trivy-scan` CI job is blocking: an unsuppressed HIGH or CRITICAL vulnerability, IaC
+misconfiguration or secret finding fails the pipeline (`--scanners vuln,config,secret
+--exit-code 1`, no `allow_failure`). A second, non-blocking pass writes the full
+`trivy-report.json` artifact. The scanner image is pinned by digest (the comment in
+`.gitlab-ci.yml` records the version); bump the version and digest together in a reviewed
+commit. Before #1072 the image tag was already pinned to a version, but not to a digest, and
+the job was advisory (`--exit-code 0` plus `allow_failure: true`).
+
+Accepted risks go in `.trivyignore.yaml`. Every entry needs:
+
+- an `expired_at` date (`YYYY-MM-DD`), at most 366 days from today (the checker fails a later
+  date, so suppressions are renewed at least yearly), ideally about one minor release out;
+- a `statement` explaining why it is accepted, with a `#NNNN` link to the issue that would
+  remove the entry. CI checks only that an issue number is present; **reviewers must confirm
+  the issue is open** and really covers the finding.
+
+Each entry must start with `- id:` in block style. The checker fails closed on any other
+entry-level list item (for example `- paths:` first, or flow style `- {id: ...}`), because
+such an entry would otherwise escape the checks. Comment-only lines inside a `statement` are
+ignored, so a `# see #12` comment does not satisfy the issue-reference rule. Every top-level
+section (`misconfigurations:`, `vulnerabilities:`, `secrets:`, ...) is checked, including ones
+that use a different list indent.
+
+A suppression for a finding that is itself a deferred security risk needs its tracking issue
+labeled `security::deferred` (#1528 carries it); that label is what puts it through the
+accepted-risk review described in [Deferred security follow-ups](../maintainers/security-deferred-label.md).
+
+Known limit: trivy's config scanner currently skips the Helm chart because of placeholder
+values, so chart misconfigurations are not caught by this job (#1536).
+
+Trivy itself only stops honoring an expired entry, which would resurface as a confusing red
+scan. `scripts/check-trivyignore-expiry.sh` makes the policy explicit: it fails the job when an
+entry is past its date, has no valid date, has no `#NNNN` reference, or does not start with
+`- id:`. It does not look the issue up, so it cannot tell whether the issue is open. It has a
+`--self-test` (run in the job before the real check) and a unit test:
+
+```bash
+sh scripts/check-trivyignore-expiry.sh
+sh scripts/check-trivyignore-expiry.sh --self-test
+bash scripts/tests/check-trivyignore-expiry.test.sh
+```
+
+When an entry expires, fix the finding and delete the entry, or renew the date in a commit
+that cites the issue's current status.

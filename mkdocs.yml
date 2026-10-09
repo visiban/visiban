@@ -155,4 +155,5 @@ nav:
     - Hosted Demo: maintainers/demo-deploy.md
     - SonarCloud Runbook: maintainers/sonarcloud.md
     - Deferred Security Follow-ups: maintainers/security-deferred-label.md
+    - Security Scanners: maintainers/security-scanners.md
   - Changelog: changelog.md

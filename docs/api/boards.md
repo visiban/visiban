@@ -486,7 +486,7 @@ Export the board. Append `?format=json` for a JSON dump; omit for CSV (the defau
 
 **Rate limit:** 20 exports/hour per authenticated user (scope: `board_export`). Exceeding the limit returns `429 Too Many Requests`.
 
-Requires board membership — non-members receive `403 Forbidden` with body `{"detail": "Board export requires board membership."}`. If the caller is a member but their role is below the board's `export_min_role` threshold, returns `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
+Requires board membership — non-members receive `403 Forbidden` with the standard permission-denied body (`{"detail": "You do not have permission to perform this action."}`), or `404 Not Found` if the board does not exist. If the caller is a member but their role is below the board's `export_min_role` threshold, returns `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
 
 **CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
 

@@ -96,4 +96,4 @@ if role not in ("admin", "member"):
     return Response(status=status.HTTP_403_FORBIDDEN)
 ```
 
-**Deferring a gap:** a deferred RBAC gap is a security finding. File it as an issue labeled `security::deferred` (plus `security`), assigned the target milestone, and name it in the MR; `/pre-release` blocks on it until fixed or given an `Accepted risk:` note. See `docs/maintainers/security-deferred-label.md`.
+**Deferring a gap:** a deferred RBAC gap is a security finding. File it as an issue labeled `security::deferred` (plus `security`), assigned a milestone for planning (the pre-tag and `/pre-release` check scans all open `security::deferred` issues regardless of milestone), and name it in the MR; `/pre-release` and `release.sh` block on it until fixed or given an `Accepted risk:` note. See `docs/maintainers/security-deferred-label.md`.
