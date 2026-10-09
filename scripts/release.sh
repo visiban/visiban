@@ -3,6 +3,13 @@
 # Example: ./scripts/release.sh 0.2.0-beta.1
 set -euo pipefail
 
+# sed_inplace <expr> <file> -- portable in-place edit (#1539). BSD sed needs `-i ''`
+# while GNU sed and busybox read the '' as the script, so use the `-i.bak` form that
+# both accept and remove the backup ourselves. Output is identical to `sed -i`.
+sed_inplace() {
+  sed -i.bak "$1" "$2" && rm -f "$2.bak"
+}
+
 # ─── CHANGELOG rotation ──────────────────────────────────────────────────────
 #
 # rotate_changelog <file> <version> <date>  — writes the rotated file to stdout.
@@ -669,29 +676,29 @@ fi
 # APP_VERSION is the v-prefixed image tag (matches the tags CI actually
 # publishes to GHCR), not the bare VERSION -- #1174. The backend strips the
 # "v" itself before serving GET /api/v1/version/ (visiban/utils.py).
-sed -i '' "s/^APP_VERSION=.*/APP_VERSION=${TAG}/" .env.example
+sed_inplace "s/^APP_VERSION=.*/APP_VERSION=${TAG}/" .env.example
 
 # Update frontend/package.json — Vite injects this as __APP_VERSION__ at build time
 # so the Settings → About page reads the version from here.
-sed -i '' "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" frontend/package.json
+sed_inplace "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" frontend/package.json
 
 # Update README.md Docker image version examples
 # The release badge is now a dynamic shields.io/github badge — no sed needed.
 # Matches lines like: docker pull ghcr.io/visiban/visiban/backend:v1.0.0-rc.10
-sed -i '' "s|ghcr.io/visiban/visiban/backend:v[^ ]*|ghcr.io/visiban/visiban/backend:${TAG}|g" README.md
-sed -i '' "s|ghcr.io/visiban/visiban/frontend:v[^ ]*|ghcr.io/visiban/visiban/frontend:${TAG}|g" README.md
+sed_inplace "s|ghcr.io/visiban/visiban/backend:v[^ ]*|ghcr.io/visiban/visiban/backend:${TAG}|g" README.md
+sed_inplace "s|ghcr.io/visiban/visiban/frontend:v[^ ]*|ghcr.io/visiban/visiban/frontend:${TAG}|g" README.md
 
 # Update docs/getting-started/installation.md APP_VERSION example
 # Same v-prefixed tag form as .env.example above -- #1174.
-sed -i '' "s|^APP_VERSION=.*|APP_VERSION=${TAG}|" docs/getting-started/installation.md
+sed_inplace "s|^APP_VERSION=.*|APP_VERSION=${TAG}|" docs/getting-started/installation.md
 
 # Update docs/getting-started/kubernetes.md `helm upgrade --set ...image.tag=`
 # examples -- same v-prefixed tag form, and the same drift #1174 fixed for
 # installation.md. Anchored on `backend.image.tag=`/`frontend.image.tag=`
 # specifically so this does not touch the unrelated prose mention of
 # `backend.image.tag`/`frontend.image.tag` a few lines below the example.
-sed -i '' "s|backend\.image\.tag=v[^ ]*|backend.image.tag=${TAG}|" docs/getting-started/kubernetes.md
-sed -i '' "s|frontend\.image\.tag=v[^ ]*|frontend.image.tag=${TAG}|" docs/getting-started/kubernetes.md
+sed_inplace "s|backend\.image\.tag=v[^ ]*|backend.image.tag=${TAG}|" docs/getting-started/kubernetes.md
+sed_inplace "s|frontend\.image\.tag=v[^ ]*|frontend.image.tag=${TAG}|" docs/getting-started/kubernetes.md
 
 # Update docs/index.md's pre-release/stable banner.
 #
@@ -707,8 +714,8 @@ sed -i '' "s|frontend\.image\.tag=v[^ ]*|frontend.image.tag=${TAG}|" docs/gettin
 if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
   RC_NUM=$(echo "$VERSION" | grep -oE 'rc\.[0-9]+')
   PREV_RC_NUM=$(( $(echo "$RC_NUM" | grep -oE '[0-9]+$') - 1 ))
-  sed -i '' "s|\*\*[0-9][0-9.]*-rc\.[0-9]*\*\*|**${VERSION}**|g" docs/index.md
-  sed -i '' "s|Earlier release candidates (rc\.1–rc\.[0-9]*)|Earlier release candidates (rc.1–rc.${PREV_RC_NUM})|" docs/index.md
+  sed_inplace "s|\*\*[0-9][0-9.]*-rc\.[0-9]*\*\*|**${VERSION}**|g" docs/index.md
+  sed_inplace "s|Earlier release candidates (rc\.1–rc\.[0-9]*)|Earlier release candidates (rc.1–rc.${PREV_RC_NUM})|" docs/index.md
   # First RC of a cycle: docs/index.md still holds the previous cycle's GA
   # "Latest release" banner (or, now that alpha/beta are wired up, that
   # cycle's own "Pre-release" banner), so the seds above find nothing to
@@ -733,7 +740,7 @@ elif echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta)\.[0-9]+$';
   # wording -- an alpha/beta is not "the current release candidate" (#1265).
   # No "Earlier release candidates" bookkeeping either; that list is
   # rc-cycle-specific and alpha/beta don't have an equivalent convention yet.
-  sed -i '' "s|\*\*[0-9][0-9.]*-\(alpha\|beta\)\.[0-9]*\*\* is a pre-release development build|**${VERSION}** is a pre-release development build|" docs/index.md
+  sed_inplace "s|\*\*[0-9][0-9.]*-\(alpha\|beta\)\.[0-9]*\*\* is a pre-release development build|**${VERSION}** is a pre-release development build|" docs/index.md
   if ! dev_banner_is_current docs/index.md "$VERSION"; then
     TMP_INDEX=$(mktemp)
     awk -v ver="$VERSION" '
