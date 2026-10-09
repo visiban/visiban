@@ -1,0 +1,1 @@
+Pipeline critical path shortened: `semgrep-sast` and `secret_detection` start immediately instead of waiting for the whole `test` stage, and the `helm-install` / `helm-netpol` drills no longer wait for `helm-template`.

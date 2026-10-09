@@ -136,6 +136,16 @@ stages:
   - security
   - deploy
 
+# The SAST and secret-detection components declare no `needs:`, so as `security`
+# stage jobs they waited for every `test` job — including the 7-8 min helm
+# drills — before starting, then ran for 15-90 s. They only read the checkout,
+# so they start at pipeline creation.
+semgrep-sast:
+  needs: []
+
+secret_detection:
+  needs: []
+
 # ─── Docker Hub mirror (#1198) ─────────────────────────────────────────────────
 #
 # Every Docker Hub image:/services:/name: reference in this file, and every
@@ -528,22 +538,25 @@ backend-lint:
 
 # ─── Backend — test ───────────────────────────────────────────────────────────
 #
-# Runs Django tests via pytest, sharded across 3 parallel jobs using
+# Runs Django tests via pytest, sharded across 8 parallel jobs using
 # pytest-split's least_duration algorithm for time-balanced distribution.
 # These jobs gate the pipeline on test failures (fast, parallel).
 # Coverage is measured separately by backend-test-coverage in a single-process
 # run — see that job's comment for why sharded coverage combining is not used.
 #
-# On first run (no .test_durations in cache), pytest-split falls back to
-# round-robin splitting. After one run, the durations file is cached and
-# subsequent runs use time-balanced splitting.
+# Balancing uses the committed backend/.test_durations file. Shards must NOT
+# pass --store-durations: every shard would write only its own slice and the
+# last one to push a cache would win, leaving the file stale. Regenerate it
+# with `pytest --store-durations --durations-path .test_durations` (see
+# docs/development/testing.md); tests missing from the file get the average
+# duration, so a stale file degrades balance but never correctness.
 
 backend-test:
   extends: .pip-cache
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  parallel: 3
+  parallel: 8
   rules:
     - changes:
         - backend/**/*
@@ -576,9 +589,6 @@ backend-test:
         files: [backend/requirements-test.txt]
       paths: [.cache/pip/]
       policy: pull
-    - key: test-durations
-      paths: [backend/.test_durations]
-      policy: pull-push
   before_script:
     - pip install --quiet -r backend/requirements.txt
     - pip install --quiet -r backend/requirements-test.txt
@@ -586,7 +596,7 @@ backend-test:
     - cd backend
     - coverage run --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
         --splitting-algorithm least_duration
-        --store-durations
+        --durations-path .test_durations
         --group $CI_NODE_INDEX
         --splits $CI_NODE_TOTAL
         --junitxml=test-results/junit-${CI_NODE_INDEX}.xml
@@ -599,7 +609,7 @@ backend-test:
     when: always
     expire_in: 1 day
 
-# Combines the .coverage.* artifacts produced by the three parallel backend-test
+# Combines the .coverage.* artifacts produced by the parallel backend-test
 # shards *and by every feature-flagged test job* and enforces the 90% threshold.
 # Each producer runs with --parallel so coverage.py treats its data file as a
 # fragment to be combined rather than a standalone measurement.
@@ -1791,14 +1801,12 @@ helm-install:
   # See scripts/helm-install-drill.sh.
   <<: *helm-drill-base
   timeout: 40m
-  # Only the static chart check (helm-template), not the whole `lint` stage —
-  # stage-based ordering was making this wait on unrelated jobs (frontend-lint,
-  # backend-lint, shellcheck, ...) before booting a 40min cluster. `optional:
-  # true` because helm-template has no schedule rule, so it's absent from
-  # scheduled pipelines that still run this drill.
-  needs:
-    - job: helm-template
-      optional: true
+  # No upstream dependency: the drill boots its own cluster and does not consume
+  # helm-template's output. It used to wait on helm-template (a 5-8 min lint
+  # job), which put the two back-to-back on the critical path of every chart
+  # change. A chart that fails to render now fails both jobs instead of only
+  # helm-template — an acceptable cost for running them concurrently.
+  needs: []
   rules:
     # Advisory on the nightly schedule: a blip on a shared runner pulling Calico
     # manifests or base images is a signal, not a hard red.
@@ -1842,9 +1850,7 @@ helm-netpol:
   <<: *helm-drill-base
   timeout: 45m
   # See helm-install above.
-  needs:
-    - job: helm-template
-      optional: true
+  needs: []
   rules:
     # Excludes the Sonar nightly (#1369) — see helm-install's identical note
     # above; this is a separate 45min cluster drill with nothing to do with a
