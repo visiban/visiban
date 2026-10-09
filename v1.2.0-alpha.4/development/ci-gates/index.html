@@ -2775,6 +2775,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-trivy-scan-covers-in-the-helm-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What trivy-scan covers in the Helm chart
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#path-containment-for-cli-arguments" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4212,6 +4223,22 @@ own header — is never mistaken for a real exemption.</p>
 <p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,
 covering the exact version-dotted-slug incident that motivated #1093), but is not wired into
 any CI job — see below.</p>
+<h2 id="what-trivy-scan-covers-in-the-helm-chart">What <code>trivy-scan</code> covers in the Helm chart<a class="headerlink" href="#what-trivy-scan-covers-in-the-helm-chart" title="Permanent link">&para;</a></h2>
+<p><code>trivy fs</code> renders a Helm chart before it scans it, and the chart's render-time guards
+(<code>templates/_validate.tpl</code>) reject placeholder values. Without help trivy logs
+<code>Skipping chart ... validate.yaml</code> and scans no template (#1536). The job therefore passes
+<code>--helm-values helm/ci/trivy-values.yaml</code>, a render-only values file (arbitrary, non-secret
+values; never use it to install), and fails if <code>trivy-report.json</code> has no result for <code>helm/visiban/templates/</code> or if the <code>Skipping chart</code> line ever reappears (two checks, so a reworded log line cannot hide a skip).</p>
+<ul>
+<li><strong>Scanned:</strong> the chart's default render plus NetworkPolicies, the scheduled-job CronJobs,
+  the OIDC env block and the SMTP env block (those are switched on in the values file so
+  their templates render). Misconfiguration findings (for example <code>privileged: true</code>) of
+  HIGH or CRITICAL severity fail the job like any other finding.</li>
+<li><strong>Not scanned:</strong> public demo mode (<code>values-demo.yaml</code> is a different render shape that
+  conflicts with the SMTP/OIDC settings above), the bundled <code>postgresql</code> subchart tarball,
+  and the other <code>values-*.yaml</code> overlays. Add a template or a new optional resource to the
+  values file when it is gated behind a flag that is off by default.</li>
+</ul>
 <h2 id="path-containment-for-cli-arguments">Path containment for CLI arguments<a class="headerlink" href="#path-containment-for-cli-arguments" title="Permanent link">&para;</a></h2>
 <p>Gate scripts that open files named on the command line or via <code>--root</code> do so through <code>scripts/_paths.py::resolve_within</code> (#1377). It canonicalizes the path (collapsing <code>..</code> and following symlinks) and only then checks it sits under an allowed root, so a symlink that leaves the tree is rejected too. A rejected path is a "cannot run" outcome (exit 2 for the rbac, ws-event and broadcast gates), never a clean result.</p>
 <ul>
