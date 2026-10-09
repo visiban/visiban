@@ -101,6 +101,9 @@ GitLab CI runs on every push, MR, and version tag. The pipeline validates code q
 │  │    tags only; see CI Runners)                            │
 │  │  backend-manifest / frontend-manifest (multi-arch        │
 │  │    manifests, tags only)                                 │
+│  │  backend-image-attest / frontend-image-attest (cosign    │
+│  │    sign + per-arch CycloneDX SBOM attestation, both      │
+│  │    registries, tags only)                                │
 │  │  docs-deploy           (version tags only — mike deploy  │
 │  │                         to gh-pages; stable → "latest",  │
 │  │                         pre-release → "next" alias)      │

@@ -25,12 +25,17 @@ needed if you want to modify it:
 
 ```bash
 # Verify the signature first (optional but recommended)
-cosign verify ghcr.io/visiban/charts/visiban:<version> \
-  --certificate-identity-regexp 'gitlab\.com/visiban/visiban' \
+cosign verify ghcr.io/visiban/charts/visiban:<chart-version> \
+  --certificate-identity-regexp '^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$' \
   --certificate-oidc-issuer https://gitlab.com
 
 helm show values oci://ghcr.io/visiban/charts/visiban
 ```
+
+The `backend` and `frontend` images the chart pulls are signed too, and each platform image
+carries a CycloneDX SBOM attestation *(since 1.2)*. See
+[Verifying release images and the Helm chart](../administration/image-verification.md) for the
+image and SBOM verification commands, and for which older releases are unsigned.
 
 > A chart signing gap (#1284, fixed after `v1.2.0-alpha.2`) means any chart published at or
 > before that tag is unsigned — `cosign verify` against those versions fails with no signature

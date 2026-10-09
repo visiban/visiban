@@ -30,13 +30,18 @@ or loopback entry (`*`, `localhost`, `127.0.0.1`, `[::1]`, ...) fails the render
 unless you set `backend.settings.allowUnsafeHosts=true`. See the upgrade guide
 (`docs/administration/upgrade.md`) for why.
 
-Release tags are Cosign-signed. Verify before installing:
+The chart is Cosign-signed by the release tag pipeline. Verify it before installing.
+`<chart-version>` is the chart's `version:`, not the Visiban release version:
 
 ```bash
-cosign verify ghcr.io/visiban/charts/visiban:<version> \
-  --certificate-identity-regexp 'gitlab\.com/visiban/visiban' \
+cosign verify ghcr.io/visiban/charts/visiban:<chart-version> \
+  --certificate-identity-regexp '^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$' \
   --certificate-oidc-issuer https://gitlab.com
 ```
+
+Since 1.2 the `backend` and `frontend` images the chart pulls are signed too, and each
+platform image (`linux/amd64`, `linux/arm64`) carries a CycloneDX SBOM attestation. See
+`docs/administration/image-verification.md` for the image and SBOM verification commands.
 
 ## Verify the install
 

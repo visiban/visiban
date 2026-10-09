@@ -3632,6 +3632,167 @@ frontend-manifest:
         fi
       done
 
+# ─── Image signing + SBOM attestation (release tags, #1153) ──────────────────
+#
+# `helm-publish` signs the chart; until #1153 the images it pulls were neither
+# signed nor SBOM'd. These jobs close that: each released backend/frontend
+# image is cosign-signed (index + each platform manifest, `--recursive`) and a
+# syft CycloneDX SBOM is `cosign attest`ed to EACH per-platform digest, then
+# `cosign verify`/`verify-attestation` run in the same job and the returned
+# SBOMs are asserted to name their own image, version and architecture.
+# All of the logic, and every assertion, lives in scripts/attest-image-sbom.sh.
+#
+# Where, and why here rather than in the arch legs:
+#   * After `*-manifest`, because only then do both platform digests exist
+#     under one index — this job reads them FROM the published index, so it
+#     attests exactly what a puller resolves, on each platform. Attesting in
+#     the legs would mean the amd64 kaniko job (no cosign, no index yet) and
+#     the arm64 leg (a persistent shared macOS shell runner) each did half, and
+#     the arm64 half would put a Sigstore identity token and registry creds on
+#     a host that outlives the job. Attesting only the index would go green
+#     while covering nothing: an index has no filesystem.
+#   * On BOTH registries: cosign stores signatures/attestations as tags in the
+#     image's own repository, so a GHCR attestation is invisible to someone
+#     verifying registry.gitlab.com/visiban/visiban (and vice versa). The
+#     script loops over both; syft runs per registry so each SBOM names the
+#     repository it is attached to.
+#   * Plain alpine on the default (amd64) runners — syft reads a platform
+#     digest from the registry without running it, so nothing needs arm64.
+#
+# Keyless via `id_tokens: SIGSTORE_ID_TOKEN` (same as helm-publish); the
+# certificate identity is this job on refs/tags/<tag>. The script refuses to
+# sign or attest when GITLAB_CI/CI_JOB_ID/SIGSTORE_ID_TOKEN are absent.
+#
+# Pins (version + sha256 of the release asset, verified against the upstream
+# checksums file and an independent download, 2026-10-08):
+#   * syft 1.51.1 (Apache-2.0) — no OSV advisories at this version; 1.18.1
+#     (TruePPM's pin) carries GHSA-rjcw-vg7j-m9rc, fixed in 1.42.3.
+#   * cosign 2.6.5 (Apache-2.0) — newer than helm-publish's 2.4.3 (#1543) on purpose:
+#     this job's assertion IS `verify-attestation`, and 2.4.3 has
+#     GHSA-whqx-f9j3-ch6m (fixed 2.6.2) and GO-2026-5694 (verify false
+#     positive, fixed 2.6.3). The one remaining v2 advisory, GO-2026-4529,
+#     applies only when transparency-log verification is skipped, which
+#     nothing here does. Stays on v2: v3 changes the default bundle/storage
+#     format, which would change the verification commands operators run.
+.image-attest-common:
+  stage: deploy
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  before_script:
+    - apk add --no-cache bash curl jq crane tar
+    - |
+      set -eu
+      SYFT_VERSION=1.51.1
+      SYFT_SHA256=8fcb33017a0dc1058298c923c436d19dfa68ae93968e0b423248542e3afb9fc3
+      curl -sSfL "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" -o /tmp/syft.tar.gz
+      echo "${SYFT_SHA256}  /tmp/syft.tar.gz" | sha256sum -c -
+      tar xzf /tmp/syft.tar.gz -C /usr/local/bin syft
+      COSIGN_VERSION=2.6.5
+      COSIGN_SHA256=c3b4f5410e608af03a5eb0aaac84a4313d8da131248e08ff1759ac70c79d1644
+      curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+      echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+      chmod +x /usr/local/bin/cosign
+    # One Docker config file serves crane, syft and cosign alike (all three
+    # resolve auth through go-containerregistry's default keychain) — the
+    # `cosign login` helm-publish needs (#1284) is the same fix, done once.
+    - |
+      set -eu
+      if [ -z "${GHCR_USER:-}" ] || [ -z "${GHCR_TOKEN:-}" ]; then
+        echo "ERROR: GHCR_USER/GHCR_TOKEN not set — cannot sign or attest the GHCR images."
+        exit 1
+      fi
+      mkdir -p "$HOME/.docker"
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS="\"${CI_REGISTRY}\":{\"auth\":\"$(b64 "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}")\"}"
+      AUTHS="${AUTHS},\"ghcr.io\":{\"auth\":\"$(b64 "${GHCR_USER}" "${GHCR_TOKEN}")\"}"
+      printf '{"auths":{%s}}' "${AUTHS}" > "$HOME/.docker/config.json"
+
+backend-image-attest:
+  extends: .image-attest-common
+  needs: [backend-manifest]
+  script:
+    - bash scripts/attest-image-sbom.sh --self-test
+    - bash scripts/attest-image-sbom.sh --image backend --tag "${CI_COMMIT_TAG}"
+
+frontend-image-attest:
+  extends: .image-attest-common
+  needs: [frontend-manifest]
+  script:
+    - bash scripts/attest-image-sbom.sh --self-test
+    - bash scripts/attest-image-sbom.sh --image frontend --tag "${CI_COMMIT_TAG}"
+
+# MR-time self-test for the script above, so a broken assertion is caught in
+# review and not on the release tag — by which point the images are already
+# live under their real tags and only the attestation is missing (#1093).
+image-attest-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      # The self-test also reads both identity regexps out of the verification
+      # doc, so a docs-only regexp edit must run it too; .gitlab-ci.yml because
+      # the jobs that call the script live there.
+      changes: &image-attest-selftest-paths
+        - scripts/attest-image-sbom.sh
+        - docs/administration/image-verification.md
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *image-attest-selftest-paths
+  before_script:
+    - apk add --no-cache bash jq
+  script:
+    - bash scripts/attest-image-sbom.sh --self-test
+
+# MANUAL backfill for releases published before #1153 (or whose attest job
+# failed): signs + attests an already-published tag's images, both images, both
+# registries, without re-cutting the release. Set BACKFILL_TAG (e.g.
+# v1.2.0-alpha.4) in the "Run job" dialog. Default branch only, never blocks a
+# pipeline. Digests that already verify are skipped (script default), so
+# re-playing it is safe.
+#
+# Certificate identity differs from a tag pipeline's: this job runs on main, so
+# its SAN ends `@refs/heads/main`, not `@refs/tags/v…` — an already-released
+# tag cannot be re-run without moving it. Only backfilled versions need the
+# main-or-tag verification regexp; releases cut after #1153 verify with the
+# tag-only one. See docs/administration/image-verification.md.
+#
+# Trust model: backfill is trust-on-first-use — it signs whatever the tag
+# points at when the job runs, so only Maintainers should run it, and only
+# after checking the tag's current digests (`attest-image-sbom.sh --dry-run`
+# prints them, read-only, from anywhere) against the original release
+# pipeline's manifest-job log. Not gated by a protected environment:
+# protected environments are a GitLab Premium feature and this project is on
+# Free; who can run it is bounded by who can run manual jobs on `main`.
+image-attest-backfill:
+  extends: .image-attest-common
+  needs: []
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
+      when: manual
+      allow_failure: true
+  variables:
+    BACKFILL_TAG: ""
+  script:
+    - bash scripts/attest-image-sbom.sh --self-test
+    - |
+      set -eu
+      if [ -z "${BACKFILL_TAG}" ]; then
+        echo "ERROR: set BACKFILL_TAG (e.g. v1.2.0-alpha.4) when running this job."
+        exit 1
+      fi
+      # Whole-string validation (rejects a multi-line or metacharacter value
+      # typed into the Run-job dialog) before anything is signed — the same
+      # validate_tag the script applies to --tag.
+      bash scripts/attest-image-sbom.sh _t validate_tag "${BACKFILL_TAG}"
+      for IMG in backend frontend; do
+        bash scripts/attest-image-sbom.sh --image "${IMG}" --tag "${BACKFILL_TAG}"
+      done
+
 # ─── Latest-tag stability check (release tags) ───────────────────────────────
 #
 # Fails the TAG PIPELINE ITSELF, immediately, if backend:latest/frontend:latest
@@ -3712,7 +3873,11 @@ helm-publish:
   # replaces that implicit ordering rather than adding to it, so leaving
   # docs-version-accuracy off here would have silently dropped a gate this
   # job used to have.
-  needs: [backend-manifest, frontend-manifest, docs-version-accuracy]
+  #
+  # `*-image-attest` (#1153): a signed chart pointing at unsigned, un-SBOM'd
+  # images is the inconsistent trust boundary #1153 was filed about, so the
+  # chart is not published until both images verify.
+  needs: [backend-manifest, frontend-manifest, backend-image-attest, frontend-image-attest, docs-version-accuracy]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   id_tokens:
@@ -3722,6 +3887,8 @@ helm-publish:
     - apk add --no-cache bash curl
     # Pinned and checksum-verified: an unpinned signing tool is a supply-chain
     # hole in the job whose whole purpose is supply-chain provenance.
+    # 2.4.3 lags .image-attest-common's 2.6.5 (its advisories are in
+    # verification, which this job does not do); bump tracked in #1543.
     - |
       COSIGN_VERSION=2.4.3
       COSIGN_SHA256=caaad125acef1cb81d58dcdc454a1e429d09a750d1e9e2b3ed1aed8964454708

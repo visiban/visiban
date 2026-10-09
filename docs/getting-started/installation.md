@@ -253,6 +253,11 @@ A Helm chart is included for Kubernetes deployments. See [Deployment — Kuberne
 
 > **Tested:** The production Docker Compose stack has been verified end-to-end. If you encounter issues, open an issue.
 
+*(Since 1.2)* The `backend` and `frontend` images this stack pulls are cosign-signed and carry
+a per-architecture CycloneDX SBOM. Verify them before deploying: see
+[Verifying release images](../administration/image-verification.md). The stack's other images
+(`postgres`, `valkey`, `nginx`, `certbot`) are upstream images that Visiban does not sign.
+
 ### TLS modes
 
 The production stack supports three TLS modes, controlled by the `TLS_MODE` environment variable:
