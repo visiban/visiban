@@ -1358,6 +1358,48 @@ class ImportCsvTests(ImportBase):
                 self.assertEqual(Board.objects.count(), 0)
                 self.assertEqual(Card.objects.count(), 0)
 
+    def _assert_rejected_clean(self, text, prefix):
+        resp = self.post_csv(text)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
+        detail = resp.json()["detail"]
+        self.assertTrue(detail.startswith(prefix), detail)
+        self.assertLess(len(detail), 400)  # echoes a bounded slice only
+        self.assertEqual(Board.objects.count(), 0)
+        self.assertEqual(Card.objects.count(), 0)
+
+    def test_over_length_title_column_swimlane_label_is_400(self):
+        # #1512: PostgreSQL DataError in bulk_create became a 500.
+        for field, text, prefix in (
+            ("Title", f"Title,Column,Swimlane\n{'t' * 501},A,B\n", "Row 2: Title exceeds 500"),
+            ("Column", f"Title,Column,Swimlane\nt,{'c' * 256},B\n", "Row 2: Column exceeds 255"),
+            ("Swimlane", f"Title,Column,Swimlane\nt,A,{'s' * 256}\n", "Row 2: Swimlane exceeds 255"),
+            ("Labels", f"Title,Column,Swimlane,Labels\nt,A,B,{'l' * 51}\n", "Row 2: Labels entry exceeds 50"),
+        ):
+            with self.subTest(field=field):
+                self._assert_rejected_clean(text, prefix)
+
+    def test_max_length_values_still_import(self):
+        resp = self.post_csv(f"Title,Column,Swimlane,Labels\n{'t' * 500},{'c' * 255},{'s' * 255},{'l' * 50}\n")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(len(Card.objects.get().title), 500)
+
+    def test_oversized_weight_is_400(self):
+        self._assert_rejected_clean(
+            "Title,Column,Swimlane,Weight\nt,A,B,2147483648\n", "Row 2: Weight out of range"
+        )
+
+    def test_nul_byte_in_cell_is_400(self):
+        self._assert_rejected_clean(
+            "Title,Column,Swimlane,Description\nt,A,B,bad\x00cell\n",
+            "Row 2: Description contains a NUL byte",
+        )
+
+    def test_impossible_due_date_is_400(self):
+        self._assert_rejected_clean(
+            "Title,Column,Swimlane,Due Date\nt,A,B,2020-02-30\n",
+            "Row 2: invalid Due Date: '2020-02-30'",
+        )
+
     def test_short_row_missing_optional_trailing_fields_uses_defaults(self):
         resp = self.post_csv(
             "Title,Column,Swimlane,Description,Priority,Weight,Due Date,Assignee,Labels\n"

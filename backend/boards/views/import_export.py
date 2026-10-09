@@ -2060,10 +2060,55 @@ class BoardImportExportMixin:
                         {"detail": f"Row {i + 2} is missing required field: {field}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+            # Cell values must fit the model columns before any write (#1512):
+            # PostgreSQL rejects NUL bytes and over-length / out-of-range values
+            # with a DataError, which would surface as a 500. The echoed value
+            # is always truncated.
+            for _hdr, _val in row.items():
+                # ``Custom:`` cells have their own NUL handling (dropped with a
+                # warning, #1449), so only the built-in columns reject here.
+                if (
+                    isinstance(_val, str)
+                    and "\x00" in _val
+                    and not str(_hdr).startswith(("Custom:", "Swimlane Custom:"))
+                ):
+                    return Response(
+                        {"detail": f"Row {i + 2}: {_bounded_text(str(_hdr), 40)} contains a NUL byte."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            for _field, _max in (("Title", 500), ("Column", 255), ("Swimlane", 255)):
+                _text = _cell(row, _field)
+                if len(_text) > _max:
+                    return Response(
+                        {"detail": f"Row {i + 2}: {_field} exceeds {_max} characters: {_bounded_text(_text)!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            for _lbl in _cell(row, "Labels").split(","):
+                _lbl = _lbl.strip()
+                if len(_lbl) > 50:
+                    return Response(
+                        {"detail": f"Row {i + 2}: Labels entry exceeds 50 characters: {_bounded_text(_lbl)!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            _weight = _cell(row, "Weight")
+            if _weight:
+                try:
+                    _weight_int = int(_weight)
+                except (ValueError, TypeError):
+                    _weight_int = 1  # non-numeric falls back to 1, as before
+                if abs(_weight_int) > 2147483647:
+                    return Response(
+                        {"detail": f"Row {i + 2}: Weight out of range: {_bounded_text(_weight)!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             _due = _cell(row, "Due Date")
-            if _due and _parse_date_csv(_due) is None:
+            try:
+                _due_ok = not _due or _parse_date_csv(_due) is not None
+            except ValueError:  # well-formed but impossible, e.g. 2020-02-30
+                _due_ok = False
+            if not _due_ok:
                 return Response(
-                    {"detail": f"Row {i + 2}: invalid Due Date: {_due!r}"},
+                    {"detail": f"Row {i + 2}: invalid Due Date: {_bounded_text(_due)!r}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
