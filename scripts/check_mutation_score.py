@@ -28,11 +28,14 @@ mutants outside it belong to no target and are left out of every count.
 mutmut 2.5.1 can leave a **phantom** row in ``.mutmut-cache``: it looks up a
 mutant's line by its text, so on a file with two identical lines (two closing
 ``    )`` lines, say) it can file the later line's mutant under the earlier one,
-creating a row that is never run and stays ``untested`` for ever. Left in, it
+creating a row that is never run and stays ``untested`` forever. Left in, it
 would make every run "unfinished". The export compares the cache with the
 mutants mutmut actually generates for the file and drops any row that is not
-one of them (``phantom`` in the stats); a generated mutant with no row is
-counted ``untested``, so a run that skipped real work still fails closed.
+one of them (``phantom`` in the stats). A phantom is never run, so it is always
+``untested``; a non-generated row with any other status means the cache and
+the source disagree, and the export refuses it (exit 2). A generated mutant
+with no row is counted ``untested``, so a run that skipped real work still
+fails closed.
 
 The **adjusted** score (the one ``MUTATION_MIN`` gates, #1503) is
 ``(killed + timeout) / (killed + timeout + survived + suspicious)``.
@@ -85,6 +88,7 @@ anything outside (0, 1] exits 2. The nightly job sets ``MUTATION_MIN=0.90``
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -168,7 +172,11 @@ def check_pragmas(paths: list[Path]) -> list[str]:
     return messages
 
 
-class PragmaCountError(RuntimeError):
+class ExportError(RuntimeError):
+    """The cache cannot be turned into trustworthy counts (export exits 2, not measured)."""
+
+
+class PragmaCountError(ExportError):
     """The pragma-excluded mutant count cannot be trusted."""
 
 
@@ -275,6 +283,12 @@ def export_cache(cache: Path, enumerate_fn=enumerate_mutants, line_range: LineRa
             if sourcefile != file_id or not _in_range(line, line_range):
                 continue
             if (line, index) not in generated:
+                if status != "untested":
+                    # A phantom is never run. A verdict on a mutant mutmut does not generate means
+                    # the cache describes other source (or another mutmut): do not guess.
+                    raise ExportError(f"{path}: cache row at 0-based line {line}, index {index} has "
+                                      f"status {status!r} but is no mutant mutmut generates for this "
+                                      "source; the cache does not match the code.")
                 phantom += 1
                 continue
             seen.add((line, index))
@@ -853,6 +867,26 @@ def _self_test() -> int:
         check("export_cache drops a phantom row and reports it",
               got_stats.get("phantom") == 1 and got_stats.get("untested") == 0 and got_stats.get("total") == 6,
               f"returned {got_stats}")
+        for status in ("ok_killed", "bad_survived", "bad_timeout", "ok_suspicious", "skipped"):
+            vdir = src_dir / f"verdict-{status}"
+            vdir.mkdir()
+            (vdir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
+            try:
+                export_cache(make_cache(vdir / ".mutmut-cache", all_killed + [("mod.py", 1, 5, status)]),
+                             fake_enumerate)
+                refused = False
+            except ExportError:
+                refused = True
+            check(f"export_cache refuses a non-generated row with status {status}", refused)
+        vdir = src_dir / "verdict-cli"
+        vdir.mkdir()
+        (vdir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
+        vcache = make_cache(vdir / ".mutmut-cache", all_killed + [("mod.py", 1, 5, "ok_killed")])
+        # Through the CLI the real enumerator runs, so this needs mutmut (the nightly job has it).
+        if importlib.util.find_spec("mutmut") is not None:
+            code, err = _run_real_script_full([vdir / "out.json"], None, extra=["--export-cache", str(vcache)])
+            check("--export-cache on a non-generated row with a verdict is exit 2 (not measured)",
+                  code == 2 and "NOT MEASURED" in err and "does not match" in err, f"exit {code}, stderr {err!r}")
         mdir = src_dir / "missing"
         mdir.mkdir()
         (mdir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
@@ -1065,7 +1099,7 @@ def main(argv: list[str] | None = None) -> int:
         except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
-        except PragmaCountError as exc:
+        except ExportError as exc:
             print(f"NOT MEASURED: {exc}", file=sys.stderr)
             return 2
         except ImportError as exc:

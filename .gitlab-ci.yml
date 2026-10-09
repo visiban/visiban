@@ -1230,9 +1230,18 @@ backend-schema-fuzz-deep:
 # stats. `parallel:` below must equal the sum of TARGETS' shard counts: the
 # driver refuses to run otherwise, and `mutation-score-selftest` fails the MR
 # that lets them drift. Each shard has its own Postgres service, so shards cannot
-# collide on test data; a target is split by source line (`line_index % N == k`).
-# Shard sizes and the per-mutant cost behind them are in the doc ("Shard
-# arithmetic"); `timeout:` is the slowest shard's estimate with headroom.
+# collide on test data; a target's mutants are dealt round-robin over its shards
+# (sizes differ by at most one). Shard sizes and the per-mutant cost behind them
+# are in the doc ("Shard arithmetic"): about 30 min of mutants plus ~5 min setup
+# per job, so `timeout: 60m` is ~1.7x the slowest estimate. At most 50 shards
+# (GitLab's `needs:` cap for the report; the self-test enforces it).
+#
+# LOAD: ~25 runner-hours a night (44 jobs). With three untagged self-hosted
+# runners online (docs/maintainers/ci-runners.md) a 05:00 UTC run holds them
+# until late morning and overlaps MR pipelines; untagged, the jobs can also land
+# on a SaaS runner. No tag pin (none fits; `nuc` is for the load test). If the
+# overlap hurts, move MUTATION_TEST to a separate weekly schedule (a maintainer
+# change); see mutation-testing.md "Runner load".
 #
 # FLOOR: backend-mutation-report fails (exit 1) when the MERGED adjusted score
 # over all targets is under MUTATION_MIN (0.90, #1384, chosen by the maintainer
@@ -4243,7 +4252,7 @@ docs-deploy:
 #   Variables   : CVE_SCAN=true OSV_SCAN=true SONAR_SCHEDULED=true
 #                 FUZZ_DEEP=true KAIZEN_YIELD_WATCH=true MUTATION_TEST=true
 #                 (MUTATION_TEST is added by hand after the #1384 nightly-targets
-#                 MR merges; it runs backend-mutation's 44 shards, about 21
+#                 MR merges; it runs backend-mutation's 44 shards, about 25
 #                 runner-hours a night by the estimate in mutation-testing.md)
 # nightly-load-test keeps its own 03:00 schedule (LOAD_TEST_SCHEDULE=true):
 # its latency budgets are noisy on a busy runner. The full schedule table, and

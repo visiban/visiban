@@ -18,13 +18,17 @@ else is derived from it:
   shard fails on the MR rather than a night later.
 
 ``pre_mutation`` is mutmut 2.x's per-mutant hook. mutmut is single-process, so a
-target is split across jobs by source line: shard k of N mutates only lines
-where ``line_index % N == k``. A target with a ``scope`` class also skips every
-line outside that class; the range is computed from the code with ``ast`` on
-every run, never hardcoded, because the class moves whenever ``models.py``
-changes. Outside CI with no ``MUTATION_TARGET`` the hook falls back to the bare
-``MUTATION_SHARDS``/``MUTATION_SHARD`` split (one shard and all lines when those
-are unset too), so a hand run with ``--paths-to-mutate`` behaves as before.
+target is split across jobs by mutant: the target's mutants, in (line, index)
+order, are dealt round-robin, so shard k of N mutates the mutants whose ordinal
+is ``k`` modulo N and every shard gets the same count, give or take one. (An
+earlier ``line_index % N`` split left some shards twice as full as others,
+because mutants cluster on a few lines.) A target with a ``scope`` class only
+deals the mutants inside that class and skips the rest; the range is computed
+from the code with ``ast`` on every run, never hardcoded, because the class
+moves whenever ``models.py`` changes. Outside CI with no ``MUTATION_TARGET`` the
+hook falls back to a bare ``MUTATION_SHARDS``/``MUTATION_SHARD`` split by line
+(one shard and all lines when those are unset too), so a hand run with
+``--paths-to-mutate`` behaves as before.
 """
 
 from __future__ import annotations
@@ -32,6 +36,7 @@ from __future__ import annotations
 import ast
 import os
 import subprocess
+from collections import Counter
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -97,6 +102,9 @@ _IMPORT_EXPORT_TESTS = (
 # (CI pilot, "Shard arithmetic"): each shard is sized to finish well inside the job's
 # `timeout:`. Changing a count means changing `parallel:` on backend-mutation too;
 # `self-test --ci-file` fails the MR until both agree.
+# GitLab lets one job `needs:` at most 50 jobs, and backend-mutation-report needs every shard.
+MAX_SHARDS = 50
+
 TARGETS: tuple[Target, ...] = (
     Target("permissions", "boards/permissions.py", _RBAC_TESTS, shards=2),
     Target("cards", "boards/services/cards.py", _CARD_SERVICE_TESTS, shards=7),
@@ -176,27 +184,63 @@ def runner_command(target: Target) -> str:
 
 # ── mutmut hook ──────────────────────────────────────────────────────────────
 
-_ACTIVE: tuple[int, int, tuple[int, int] | None] | None = None
+Mutant = tuple[int, int]  # (0-based line, index on that line): mutmut's own key
 
 
-def _active() -> tuple[int, int, tuple[int, int] | None]:
-    """(shards, shard, line range) for this process, resolved once from the environment."""
+def assign(target: Target, mutants: list[Mutant]) -> dict[Mutant, int]:
+    """Deal the target's mutants (inside its class range, if any) round-robin over its shards."""
+    rng = line_range(target)
+    inside = sorted(m for m in set(mutants) if rng is None or rng[0] <= m[0] <= rng[1])
+    return {m: i % target.shards for i, m in enumerate(inside)}
+
+
+def target_mutants(target: Target) -> list[Mutant]:
+    """Every mutant mutmut 2.5.1 generates for the target's file (pragmas honored)."""
+    from mutmut import ALL, Context, list_mutations  # only the mutation job has mutmut
+
+    source = (BACKEND / target.path).read_text("utf-8")
+    context = Context(source=source, filename=target.path, mutation_id=ALL)
+    return [(m.line_number, m.index) for m in list_mutations(context)]
+
+
+@dataclass(frozen=True)
+class _Active:
+    shard: int
+    shards: int
+    assignment: dict[Mutant, int] | None  # None: hand run, split by line only
+
+
+_ACTIVE: _Active | None = None
+
+
+def _active() -> _Active:
+    """This process's shard, resolved once from the environment."""
     global _ACTIVE
     if _ACTIVE is None:
         shards = int(os.environ.get("MUTATION_SHARDS", "1"))
         shard = int(os.environ.get("MUTATION_SHARD", "0"))
         name = os.environ.get("MUTATION_TARGET")
-        _ACTIVE = (shards, shard, line_range(get_target(name)) if name else None)
+        if name:
+            target = get_target(name)
+            _ACTIVE = _Active(
+                shard, target.shards, assign(target, target_mutants(target))
+            )
+        else:
+            _ACTIVE = _Active(shard, shards, None)
     return _ACTIVE
 
 
+def _skip(active: _Active, line: int, index: int) -> bool:
+    if active.assignment is not None:
+        # Outside the class range, or a mutant the enumeration does not know: no shard runs
+        # it. The export then counts it untested (fail closed) unless it is a cache phantom.
+        return active.assignment.get((line, index)) != active.shard
+    return active.shards > 1 and line % active.shards != active.shard
+
+
 def pre_mutation(context):
-    """Skip every mutant outside the target's class range or not on this shard's lines."""
-    shards, shard, rng = _active()
-    index = context.current_line_index
-    if rng is not None and not rng[0] <= index <= rng[1]:
-        context.skip = True
-    elif shards > 1 and index % shards != shard:
+    """Skip every mutant that is not this shard's (or is outside the target's class)."""
+    if _skip(_active(), context.mutation_id.line_number, context.mutation_id.index):
         context.skip = True
 
 
@@ -281,6 +325,17 @@ def _self_test(ci_file: Path | None) -> int:
             continue
         if rng is not None and rng[1] <= rng[0]:
             problems.append(f"{target.name}: empty line range {rng}")
+        if target.scope is not None and rng != _text_class_span(target):
+            problems.append(
+                f"{target.name}: line_range() gives {rng}, but class {target.scope} spans "
+                f"{_text_class_span(target)} in the source text; the run would mutate part of it"
+            )
+        problems += _check_partition(target)
+    if total_shards() > MAX_SHARDS:
+        problems.append(
+            f"TARGETS add up to {total_shards()} shards; backend-mutation-report `needs:` every "
+            f"shard and GitLab caps `needs:` at {MAX_SHARDS} jobs. Use fewer, longer shards."
+        )
     # Every job maps to exactly one (target, shard), and every (target, shard) to one job.
     seen = [
         (t.name, s)
@@ -313,6 +368,80 @@ def _self_test(ci_file: Path | None) -> int:
         f"OK: {len(TARGETS)} mutation targets, {total_shards()} shards ({expect_spec()})."
     )
     return 0
+
+
+def _text_class_span(target: Target) -> tuple[int, int] | None:
+    """The class's 0-based line span read from the text, independently of ``ast``.
+
+    From its first decorator (or ``class`` line) to the last line before the next
+    top-level statement that is neither blank nor a comment.
+    """
+    lines = (BACKEND / target.path).read_text("utf-8").splitlines()
+    start = next(
+        (
+            i
+            for i, t in enumerate(lines)
+            if t.startswith(f"class {target.scope}(")
+            or t.startswith(f"class {target.scope}:")
+        ),
+        None,
+    )
+    if start is None:
+        return None
+    first = start
+    while first > 0 and lines[first - 1].startswith("@"):
+        first -= 1
+    end = start
+    for i in range(start + 1, len(lines)):
+        text = lines[i]
+        if text and not text[0].isspace() and not text.startswith("#"):
+            break
+        if text.strip() and not text.lstrip().startswith("#"):
+            end = i
+    return first, end
+
+
+def _check_partition(target: Target) -> list[str]:
+    """Run ``pre_mutation``'s decision for every shard over the target's mutants.
+
+    Every mutant inside the class range must be run by exactly one shard, every
+    mutant outside it by none, and the shards' counts may differ by at most one.
+    With mutmut importable the real mutants are used; otherwise (the lint image)
+    two stand-in mutants on every line of the file.
+    """
+    try:
+        mutants = target_mutants(target)
+    except ImportError:
+        n_lines = len((BACKEND / target.path).read_text("utf-8").splitlines())
+        mutants = [(line, i) for line in range(n_lines) for i in (0, 1)]
+    assignment = assign(target, mutants)
+    rng = line_range(target)
+    runs: dict[Mutant, int] = {m: 0 for m in mutants}
+    per_shard = [0] * target.shards
+    for shard in range(target.shards):
+        active = _Active(shard, target.shards, assignment)
+        for m in mutants:
+            if not _skip(active, *m):
+                runs[m] += 1
+                per_shard[shard] += 1
+    problems = []
+    inside = [m for m in mutants if rng is None or rng[0] <= m[0] <= rng[1]]
+    if not inside:
+        problems.append(f"{target.name}: no mutants to run")
+    bad_inside = [m for m in inside if runs[m] != 1]
+    bad_outside = [m for m in mutants if m not in set(inside) and runs[m] != 0]
+    if bad_inside:
+        problems.append(
+            f"{target.name}: {len(bad_inside)} mutants are not run by exactly one shard "
+            f"(first {bad_inside[0]}, run {runs[bad_inside[0]]} times)"
+        )
+    if bad_outside:
+        problems.append(
+            f"{target.name}: {len(bad_outside)} mutants outside class {target.scope} are run"
+        )
+    if per_shard and max(per_shard) - min(per_shard) > 1:
+        problems.append(f"{target.name}: uneven shards {per_shard}")
+    return problems
 
 
 def _ci_parallel(ci_file: Path) -> int | None:
@@ -351,9 +480,20 @@ def main(argv: list[str]) -> int:
     if command == "targets":
         for target in TARGETS:
             rng = line_range(target)
+            try:
+                sizes = sorted(
+                    set(
+                        Counter(
+                            assign(target, target_mutants(target)).values()
+                        ).values()
+                    )
+                )
+                count = f", {sum(1 for _ in assign(target, target_mutants(target)))} mutants, per shard {sizes}"
+            except ImportError:
+                count = ""
             print(
                 f"{target.name:<14} {target.path}{' ' + target.scope if target.scope else ''}"
-                f"{f' lines {rng[0]}-{rng[1]} (0-based)' if rng else ''}, {target.shards} shards"
+                f"{f' lines {rng[0]}-{rng[1]} (0-based)' if rng else ''}, {target.shards} shards{count}"
             )
             print(f"{'':<14} {runner_command(target)}")
         return 0

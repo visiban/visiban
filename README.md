@@ -136,7 +136,7 @@ What stands between AI-written code and `main`:
 - **Schema fuzzing.** The API is fuzzed against its own schema in CI. A failing fuzz run is treated as a real defect, not a flake.
 - **Static analysis.** A [SonarCloud](https://sonarcloud.io/project/overview?id=visiban_visiban) scan runs nightly.
 
-What this does **not** prove: that AI-written tests assert the right things. Coverage numbers do not show that. Mutation testing is the way to measure it: a [manual baseline](https://docs.visiban.com/next/development/mutation-testing/) covers the movement record, RBAC, and import/export modules, and a report-only nightly CI job (`backend-mutation`) tracks the permissions module. It has no pass/fail floor yet, and most of the codebase has not been mutated. If you find a test that passes without checking anything meaningful, please [open an issue](https://gitlab.com/visiban/visiban/-/issues).
+What this does **not** prove: that AI-written tests assert the right things. Coverage numbers do not show that. Mutation testing is the way to measure it: a [manual baseline](https://docs.visiban.com/next/development/mutation-testing/) covers the movement record, RBAC, and import/export modules, and a nightly CI job (`backend-mutation`) runs mutation testing on those same modules (RBAC, the card service, the movement-record model and import/export) with a 90% floor on the merged score. For its first week the floor is reported but not yet blocking. Most of the codebase has not been mutated. If you find a test that passes without checking anything meaningful, please [open an issue](https://gitlab.com/visiban/visiban/-/issues).
 
 ---
 
