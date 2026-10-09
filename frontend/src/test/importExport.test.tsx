@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
 import ImportSkippedToast from '../components/Board/ImportSkippedToast'
-import { formatImportSkipped } from '../utils/importSummary'
+import { countImportWarnings, formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
 import type { ImportOptions, ImportSkippedCounts, ImportSummary } from '../types'
 
 // The modal fetches the sample list on open (#1452). Keep the rest of the real
@@ -532,9 +532,10 @@ describe('ImportSkippedToast (#119)', () => {
       const onDismiss = vi.fn()
       render(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
       const region = screen.getByRole('status')
+      const wrapper = screen.getByTestId('import-notice')
       expect(region).toHaveTextContent('')
-      expect(region.className).toContain('w-max')
-      expect(region.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
+      expect(wrapper.className).toContain('w-max')
+      expect(wrapper.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
       act(() => { vi.advanceTimersByTime(0) })
       expect(region).toHaveTextContent('Board imported. Skipped: 1 card label.')
       act(() => { vi.advanceTimersByTime(7999) })
@@ -552,7 +553,7 @@ describe('ImportSkippedToast (#119)', () => {
       const onDismiss = vi.fn()
       render(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
       act(() => { vi.advanceTimersByTime(0) })
-      const region = screen.getByRole('status')
+      const region = screen.getByTestId('import-notice')
       fireEvent.mouseEnter(region)
       act(() => { vi.advanceTimersByTime(20000) })
       expect(onDismiss).not.toHaveBeenCalled()
@@ -573,5 +574,117 @@ describe('ImportSkippedToast (#119)', () => {
       <ImportSkippedToast summary={{ ...summary, skipped: { ...summary.skipped, label_refs: 0 } }} onDismiss={vi.fn()} />,
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('CSV import warnings (#1526)', () => {
+  const base: ImportSummary = {
+    options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+    skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0 },
+  }
+  const warned: ImportSummary = {
+    ...base,
+    warnings: ["Skipped column 'X': the field name is empty.", '\u2026and 3 more'],
+  }
+
+  it('importWarnings and hasImportSkips treat warnings as a reason to show the notice', () => {
+    expect(importWarnings(undefined)).toEqual([])
+    expect(importWarnings(base)).toEqual([])
+    expect(importWarnings({ ...base, warnings: ['', '  '] })).toEqual([])
+    expect(importWarnings(warned)).toHaveLength(2)
+    expect(hasImportSkips(base)).toBe(false)
+    expect(hasImportSkips({ ...base, warnings: [] })).toBe(false)
+    expect(hasImportSkips(warned)).toBe(true)
+  })
+
+  it('lists the warnings in a focusable labelled list and persists until dismissed', () => {
+    vi.useFakeTimers()
+    try {
+      const onDismiss = vi.fn()
+      render(<ImportSkippedToast summary={warned} onDismiss={onDismiss} />)
+      act(() => { vi.advanceTimersByTime(0) })
+      expect(screen.getByText('Board imported, with import warnings:')).toBeInTheDocument()
+      const list = screen.getByLabelText('Import warnings')
+      expect(list).toHaveAttribute('tabindex', '0')
+      expect(list.className).toContain('focus:ring-2')
+      expect(screen.getAllByRole('listitem')).toHaveLength(2)
+      expect(screen.getByText("Skipped column 'X': the field name is empty.")).toBeInTheDocument()
+      act(() => { vi.advanceTimersByTime(10 * 60 * 1000) })
+      expect(onDismiss).not.toHaveBeenCalled()
+      expect(screen.getByLabelText('Import warnings')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }))
+      expect(onDismiss).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('announces the headline and a count, never the list', () => {
+    vi.useFakeTimers()
+    try {
+      render(<ImportSkippedToast summary={warned} onDismiss={vi.fn()} />)
+      const status = screen.getByRole('status')
+      expect(status).toHaveTextContent('')
+      act(() => { vi.advanceTimersByTime(0) })
+      // 1 listed warning plus "...and 3 more" = 4 values.
+      expect(status).toHaveTextContent('Board imported. 4 import warnings.')
+      expect(status).not.toHaveTextContent('Skipped column')
+      expect(status.className).toContain('sr-only')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows warnings under the skipped message when both are present', () => {
+    render(
+      <ImportSkippedToast
+        summary={{ ...warned, skipped: { ...warned.skipped, label_refs: 1 } }}
+        onDismiss={vi.fn()}
+      />,
+    )
+    return screen.findAllByText('Board imported. Skipped: 1 card label.').then(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    })
+  })
+
+  it('looks unchanged when there are no warnings', () => {
+    render(<ImportSkippedToast summary={{ ...base, skipped: { ...base.skipped, label_refs: 1 }, warnings: [] }} onDismiss={vi.fn()} />)
+    return screen.findAllByText('Board imported. Skipped: 1 card label.').then(() => {
+      expect(screen.queryByRole('list')).toBeNull()
+    })
+  })
+})
+
+describe('countImportWarnings (#1526)', () => {
+  it('counts a single warning as 1 and announces it in the singular', () => {
+    expect(countImportWarnings(['Skipped column: empty.'])).toBe(1)
+    render(
+      <ImportSkippedToast
+        summary={{
+          options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+          skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0 },
+          warnings: ['Skipped column: empty.'],
+        }}
+        onDismiss={vi.fn()}
+      />,
+    )
+    return screen.findByText('Board imported. 1 import warning.')
+  })
+
+  it('counts the capped shape (20 listed + "...and N more") as 20 + N', () => {
+    const listed = Array.from({ length: 20 }, (_, i) => `Dropped value ${i}`)
+    expect(countImportWarnings([...listed, '\u2026and 7 more'])).toBe(27)
+  })
+
+  it('does not mistake a lookalike for the cap entry', () => {
+    expect(countImportWarnings(["Skipped column 'and 5 more'"])).toBe(1)
+    expect(countImportWarnings(['\u2026and 5 more of these were dropped'])).toBe(1)
+    expect(countImportWarnings(['and 5 more'])).toBe(1)
+  })
+
+  it('returns 0 for an empty list and ignores nothing it was handed', () => {
+    expect(countImportWarnings([])).toBe(0)
+    // importWarnings filters blanks before they reach the counter.
+    expect(countImportWarnings(importWarnings({ warnings: ['', '  '] } as ImportSummary))).toBe(0)
   })
 })

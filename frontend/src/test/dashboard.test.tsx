@@ -504,6 +504,32 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/boards/55'))
   })
 
+  // #1526: a CSV import that only raised warnings (nothing skipped) must still
+  // hand its summary to the board page; hasImportSkips guards this seam.
+  it('forwards a warnings-only import summary to the board', async () => {
+    const user = userEvent.setup()
+    const importSummary = {
+      options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },
+      skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 0, movements: 0, activities: 0 },
+      warnings: ["Skipped column 'X': the field name is empty."],
+    }
+    mockImportBoard.mockResolvedValue({
+      id: 58, name: 'Imported Board', description: '', owner: fakeUser,
+      group: null, group_name: null, member_count: 1, created_at: '', updated_at: '',
+      import_summary: importSummary,
+    })
+    renderDashboard()
+    await screen.findByText('Import')
+    await user.click(screen.getByText('Import'))
+    const dialog = await screen.findByRole('dialog')
+    const fileInput = dialog.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(fileInput, new File(['{}'], 'board.json', { type: 'application/json' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Import' }))
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/boards/58', { state: { importSummary } }),
+    )
+  })
+
   // #119: unchecking an Include option sends it, and a non-empty skip
   // summary is handed to the board page in the navigation state.
   it('sends import options and forwards the skip summary to the board', async () => {

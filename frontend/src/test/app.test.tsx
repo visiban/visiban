@@ -329,12 +329,21 @@ describe('App', () => {
       skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 3, movements: 0, activities: 0 },
     }
     const entry = { pathname: '/boards/1', state: { importSummary } }
+    const NOTICE = 'Board imported. Skipped: 3 card labels.'
+    // The visible copy (not the sr-only live region), and the live region apart.
+    const visibleNotice = async () =>
+      (await waitFor(() => {
+        const p = screen.getByTestId('import-notice').querySelector('p')
+        if (!p) throw new Error('notice not shown')
+        return p
+      }))
 
     it('shows the notice when the import skipped something', async () => {
       mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
       mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
       render(<MemoryRouter initialEntries={[entry]}><App /></MemoryRouter>)
-      expect(await screen.findByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+      expect(await visibleNotice()).toHaveTextContent(NOTICE)
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(NOTICE))
     })
 
     it('clears the navigation state so a reload or Back does not show it again', async () => {
@@ -345,10 +354,10 @@ describe('App', () => {
         return <span data-testid="location-probe">{`${loc.pathname}|${JSON.stringify(loc.state)}`}</span>
       }
       render(<MemoryRouter initialEntries={[entry]}><App /><LocationProbe /></MemoryRouter>)
-      expect(await screen.findByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+      expect(await visibleNotice()).toHaveTextContent(NOTICE)
       await waitFor(() => expect(screen.getByTestId('location-probe')).toHaveTextContent('/boards/1|null'))
       // Captured on mount, so the notice survives its own state being cleared.
-      expect(screen.getByText('Board imported. Skipped: 3 card labels.')).toBeInTheDocument()
+      expect(screen.getByTestId('import-notice').querySelector('p')).toHaveTextContent(NOTICE)
     })
 
     it('does not show the notice while a move error is showing', async () => {
@@ -361,6 +370,7 @@ describe('App', () => {
       expect(await screen.findByText(/Card was updated/)).toBeInTheDocument()
       await new Promise((r) => setTimeout(r, 10))
       expect(screen.queryByText(/Board imported\. Skipped/)).not.toBeInTheDocument()
+      expect(screen.queryByTestId('import-notice')).not.toBeInTheDocument()
     })
   })
 })

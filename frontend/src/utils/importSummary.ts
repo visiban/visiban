@@ -34,7 +34,31 @@ export function formatImportSkipped(summary: ImportSummary | null | undefined): 
   return `Board imported. Skipped: ${listed.join(", ")}.`;
 }
 
-/** True when the import left anything out, i.e. the notice should be shown. */
+/**
+ * CSV import warnings (dropped custom-field values, swimlane conflicts), already
+ * worded and capped by the server (#1449). Empty for JSON/Trello imports and for
+ * a CSV import that dropped nothing (#1526).
+ */
+export function importWarnings(summary: ImportSummary | null | undefined): string[] {
+  return (summary?.warnings ?? []).filter((w) => typeof w === "string" && w.trim() !== "");
+}
+
+/**
+ * How many values the warnings cover, for the screen-reader announcement. The
+ * server caps the list and appends "\u2026and N more"; that entry stands for N
+ * further warnings, not one (#1449).
+ */
+export function countImportWarnings(warnings: string[]): number {
+  return warnings.reduce((total, w) => {
+    const more = /^\u2026and (\d+) more$/.exec(w);
+    return total + (more ? Number(more[1]) : 1);
+  }, 0);
+}
+
+/** Lead-in for a notice that carries warnings but nothing was skipped. */
+export const IMPORT_WARNINGS_HEADLINE = "Board imported, with import warnings:";
+
+/** True when the import left anything out or raised warnings, i.e. the notice should be shown. */
 export function hasImportSkips(summary: ImportSummary | null | undefined): boolean {
-  return formatImportSkipped(summary) !== null;
+  return formatImportSkipped(summary) !== null || importWarnings(summary).length > 0;
 }
