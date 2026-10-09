@@ -3931,9 +3931,9 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 <td><strong>Full git history</strong></td>
 </tr>
 <tr>
-<td><code>secret_detection</code></td>
+<td><code>secret_detection</code> + <code>secret-detection-gate</code></td>
 <td>GitLab <code>secret-detection</code> component (pinned)</td>
-<td><strong>No for findings.</strong> Reports only; fails only if the analyzer itself crashes. Gating on it is #1537</td>
+<td>Yes, any unsuppressed finding (#1537). The component job itself only reports; the gate reads its report</td>
 <td>MR + <code>main</code></td>
 <td>MR diff (shallow clone)</td>
 </tr>
@@ -3968,9 +3968,12 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 </tbody>
 </table>
 <p><code>dep-scan-osv</code>, <code>pip-audit</code>, and the license checks are deliberately outside this policy.</p>
-<p>The secret scanners that actually gate are <code>gitleaks-scan</code> and <code>gitleaks-history</code>. GitLab's
-analyzers exit 0 even when they find something, so <code>allow_failure: false</code> on the component's
-<code>secret_detection</code> job only turns an analyzer crash into a red job; it does not stop a leak.</p>
+<p>The secret scanners that gate are <code>gitleaks-scan</code>, <code>gitleaks-history</code>, and
+<code>secret-detection-gate</code>. GitLab's analyzers exit 0 even when they find something, so
+<code>allow_failure: false</code> on the component's <code>secret_detection</code> job only turns an analyzer crash
+into a red job; it does not stop a leak. <code>secret-detection-gate</code> (<code>scripts/secret-detection-gate.py</code>,
+with a <code>--self-test</code> run before each real invocation) reads <code>gl-secret-detection-report.json</code>
+and fails on any unsuppressed finding of any severity, or if the report is missing or unusable.</p>
 <p>Component-generated jobs (<code>secret_detection</code>, <code>semgrep-sast</code>) are not literal job keys
 in a plain reading of <code>.gitlab-ci.yml</code>; they come from the <code>include:</code> block, and the
 "Scanner blocking policy" section of <code>.gitlab-ci.yml</code> overrides them. Look there when
@@ -4009,7 +4012,12 @@ one-off hit in history. The issue's suggested directory allowlists (<code>backen
 mask real leaks in the blocking scanners. <code>sample-boards/</code> and <code>oidc/keycloak-realm.json</code>
 both scan clean without one.</p>
 <p>The component's <code>secret_detection</code> job uses its own default ruleset and ignores
-<code>.gitleaks.toml</code>. It reports findings but cannot gate on them (see #1537). Full history is
+<code>.gitleaks.toml</code>, so its fixture and example hits are allowlisted separately, in
+<code>.gitlab/secret-detection-suppressions.json</code> (read by <code>secret-detection-gate</code>). Entries use the
+same format and matching rules as the semgrep suppressions above (exact <code>rule</code>, exact path or
+glob <code>file</code>, <code>expires</code> at most 90 days out, expired entries fail the gate), and additionally the
+<code>reason</code> must cite a tracking issue as <code>#NNNN</code>. The gate prints only the rule name and
+<code>file:line</code>, never the matched value. Prefer fixing the file to suppressing it. Full history is
 covered by <code>gitleaks-history</code>; the existing history was triaged locally before it became
 blocking.</p>
 <p>If <code>gitleaks-history</code> flags an old commit, treat the credential as compromised: rotate it
@@ -4032,8 +4040,9 @@ scanner locally, in memory, instead:</p>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>gitleaks<span class="w"> </span>stdin<span class="w"> </span>--config<span class="w"> </span>.gitleaks.toml<span class="w"> </span>--redact<span class="w"> </span>--exit-code<span class="w"> </span><span class="m">1</span><span class="w">   </span><span class="c1"># must exit 1</span>
 </code></pre></div>
 <p>This is the planted-credential check for the issue's first acceptance criterion: a leaked
-key fails <code>gitleaks-scan</code> (and, on <code>main</code>, <code>gitleaks-history</code>). It does not fail the
-component's <code>secret_detection</code> job (#1537).</p>
+key fails <code>gitleaks-scan</code> (and, on <code>main</code>, <code>gitleaks-history</code>). The component's
+<code>secret_detection</code> job does not fail on it; <code>secret-detection-gate</code> does, when the component
+reports it.</p>
 
 
 
