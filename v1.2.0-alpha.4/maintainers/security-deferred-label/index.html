@@ -3717,6 +3717,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-release-does-with-it-pre-tag-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What /release does with it (pre-tag gate)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What /release does with it (pre-tag gate)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#milestone-scope-all-open-issues-any-milestone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestone scope: all open issues, any milestone
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#accepted-risk-note" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3818,12 +3846,27 @@
 fixed on the branch. Without a signal, that issue can sit open while a release ships.</p>
 <h2 id="the-label">The label<a class="headerlink" href="#the-label" title="Permanent link">&para;</a></h2>
 <p><code>security::deferred</code> marks issues filed as <strong>deferred follow-ups from a review</strong>. Apply it
-in addition to <code>security</code>, and <strong>assign the target milestone</strong> (the audit also reports open <code>security::deferred</code> issues with no milestone as blockers). It is deliberately narrow: do not put it on tracking items,
+in addition to <code>security</code>, and <strong>assign the target milestone</strong> for planning (the check itself ignores milestones; see below). It is deliberately narrow: do not put it on tracking items,
 dependency advisories waiting on an upstream fix, or general hardening ideas.</p>
 <h2 id="what-pre-release-does-with-it">What <code>/pre-release</code> does with it<a class="headerlink" href="#what-pre-release-does-with-it" title="Permanent link">&para;</a></h2>
 <p>Step 1.5 of <code>.claude/skills/pre-release/SKILL.md</code> lists every open <code>security::deferred</code>
-issue in the target milestone, plus those with no milestone, and reports each as a 🔴 blocker unless it carries a valid,
-unexpired accepted-risk note. A blocker stops <code>/release</code> for a <code>full</code> audit.</p>
+issue and reports each as a 🔴 blocker unless it carries a valid, unexpired accepted-risk
+note. A blocker stops <code>/release</code> for a <code>full</code> audit.</p>
+<h2 id="what-release-does-with-it-pre-tag-gate">What <code>/release</code> does with it (pre-tag gate)<a class="headerlink" href="#what-release-does-with-it-pre-tag-gate" title="Permanent link">&para;</a></h2>
+<p><code>/pre-release full</code> runs about a sprint before the tag, so a deferral filed since then would
+never be checked. <code>scripts/release.sh</code> therefore re-runs the same check <strong>for GA tags only</strong> (pre-releases — alpha, beta, rc — are not gated and print a one-line note; <code>/pre-release full</code> still runs it)
+(<code>check_security_deferred_clear</code>, after the <code>:latest</code> drift guard and before it branches) and
+refuses to cut the tag while any blocker remains. <code>RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1</code>
+bypasses it deliberately; it still prints the open-issue list to stderr as a trace and never changes the outcome.</p>
+<h3 id="milestone-scope-all-open-issues-any-milestone">Milestone scope: all open issues, any milestone<a class="headerlink" href="#milestone-scope-all-open-issues-any-milestone" title="Permanent link">&para;</a></h3>
+<p>The check scans <strong>every open <code>security::deferred</code> issue regardless of milestone</strong>. The unfixed
+gap is in <code>main</code> and ships with the tag whichever milestone the issue sits on; an issue moved to
+a later milestone, or left open in an already-closed one, must not drop out of the check.
+This replaced the earlier "target milestone plus <code>milestone=None</code>" scope (#1519) so
+<code>/pre-release</code> and <code>/release</code> agree. Both call the single implementation,
+<code>scripts/check-security-deferred.sh</code> (<code>--self-test</code> covers closed-, later- and no-milestone
+issues, the query shape, and each fail-closed path). A deliberate deferral to a later release
+is expressed with an accepted-risk note, not by moving the milestone.</p>
 <h2 id="accepted-risk-note">Accepted-risk note<a class="headerlink" href="#accepted-risk-note" title="Permanent link">&para;</a></h2>
 <p>One line, in the issue description or any non-system comment:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Accepted risk: accepted-by: @&lt;maintainer&gt;; reason: &lt;why shipping is acceptable&gt;; expires: YYYY-MM-DD
@@ -3836,7 +3879,7 @@ unexpired accepted-risk note. A blocker stops <code>/release</code> for a <code>
 <li>Any ONE valid line accepts the issue. The note is honor-system: nothing verifies that
   <code>accepted-by</code> is a maintainer or that the commenter is not the filer, so the release
   owner must read it before tagging (the audit output prints the note author, handle and expiry).</li>
-<li>The check fails closed: if the GitLab query fails, <code>/pre-release</code> reports a blocker rather than "0 issues".</li>
+<li>The check fails closed in both <code>/pre-release</code> and <code>release.sh</code>: if <code>glab</code>/<code>jq</code> is missing or the GitLab query fails, it reports a blocker rather than "0 issues" (unlike the <code>:latest</code> guard, which fails open, nothing backstops this one).</li>
 <li>Add the note only on a maintainer's explicit decision. Resolving the issue (closing it) is
   the normal way out; the note is for knowingly shipping with the gap.</li>
 </ul>
@@ -3851,6 +3894,8 @@ from the environment, and prints <code>ACCEPTED note-by=... accepted-by=... expi
 <code>accepted-by</code> / <code>reason</code>, impossible dates (<code>2099-13-45</code>, <code>2099-02-30</code>, non-leap Feb 29),
 two <code>expires</code> fields, <code>;</code> in <code>reason</code>, no note, multiple lines, month/day ranges, leap-year rules (2000, 2028, 2100), and handle/author shape. CI runs it in the
 <code>security-deferred-verdict-selftest</code> job.</p>
+<p><code>bash scripts/check-security-deferred.sh --self-test</code> (stubbed <code>glab</code>, no network) covers the
+query/loop around the verdict; CI runs it in the same <code>security-deferred-verdict-selftest</code> job.</p>
 <h2 id="confidential-issues">Confidential issues<a class="headerlink" href="#confidential-issues" title="Permanent link">&para;</a></h2>
 <p>Many deferred security issues are confidential. The audit token sees them; reports that
 leave the session (MR text, public issues, docs) cite the issue number only, never the
