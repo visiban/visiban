@@ -4,6 +4,8 @@ Neither path admits anyone (preview/join re-check the creator), but the links
 would otherwise stay ``is_active`` and keep holding per-group cap slots.
 """
 
+from unittest.mock import patch
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -58,6 +60,30 @@ class ReparentRevokesLapsedLinksTests(TestCase):
         self.assertFalse(self.inherited.is_active)
 
 
+class ReparentDeepAndBroadcastTests(ReparentRevokesLapsedLinksTests):
+    def test_grandchild_link_revoked_and_broadcast_id_only(self):
+        grand = Group.objects.create(name="Grand", owner=self.actor, parent=self.child)
+        link, raw = GroupInviteLink.generate(grand, self.ancestor_admin)
+        with (
+            patch("groups.broadcast.broadcast_group_event") as bc,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self.assertEqual(self._reparent(self.new_root.pk).status_code, 200)
+        link.refresh_from_db()
+        self.assertFalse(link.is_active)
+        revoked = [c for c in bc.call_args_list if c.args[1] == "invite_link.revoked"]
+        self.assertIn((grand.pk, {"id": link.pk}), [(c.args[0], c.args[2]) for c in revoked])
+        for c in revoked:
+            self.assertEqual(set(c.args[2]), {"id"})
+            self.assertNotIn(raw, str(c.args))
+
+    def test_link_outside_moved_subtree_untouched(self):
+        other, _ = GroupInviteLink.generate(self.old_root, self.ancestor_admin)
+        self.assertEqual(self._reparent(self.new_root.pk).status_code, 200)
+        other.refresh_from_db()
+        self.assertTrue(other.is_active)
+
+
 class CreatorDeletionRevokesLinksTests(TestCase):
     def setUp(self):
         self.creator = User.objects.create_user(username="creator", password="pw")
@@ -85,3 +111,43 @@ class CreatorDeletionRevokesLinksTests(TestCase):
         self.creator.delete()
         self.link.refresh_from_db()
         self.assertTrue(self.link.is_active)
+
+    def test_deletion_broadcasts_link_id_only(self):
+        with (
+            patch("groups.broadcast.broadcast_group_event") as bc,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self.creator.delete()
+        revoked = [c for c in bc.call_args_list if c.args[1] == "invite_link.revoked"]
+        self.assertEqual([(c.args[0], c.args[2]) for c in revoked], [(self.group.pk, {"id": self.link.pk})])
+
+    def test_bulk_queryset_delete_deactivates_links(self):
+        User.objects.filter(pk__in=[self.creator.pk, self.other_user.pk]).delete()
+        self.link.refresh_from_db()
+        self.other_link.refresh_from_db()
+        self.assertFalse(self.link.is_active)
+        self.assertFalse(self.other_link.is_active)
+
+
+class CreatorlessBackfillMigrationTests(TestCase):
+    def test_backfill_deactivates_only_unused_creatorless_links(self):
+        import importlib
+
+        from django.apps import apps
+
+        mod = importlib.import_module("groups.migrations.0016_deactivate_creatorless_invite_links")
+        owner = User.objects.create_user(username="o", password="pw")
+        group = Group.objects.create(name="G", owner=owner)
+        orphan, _ = GroupInviteLink.generate(group, owner)
+        used, _ = GroupInviteLink.generate(group, owner)
+        kept, _ = GroupInviteLink.generate(group, owner)
+        from django.utils import timezone
+
+        GroupInviteLink.objects.filter(pk__in=[orphan.pk, used.pk]).update(created_by=None)
+        GroupInviteLink.objects.filter(pk=used.pk).update(used_at=timezone.now())
+        mod.deactivate_creatorless_links(apps, None)
+        for lk in (orphan, used, kept):
+            lk.refresh_from_db()
+        self.assertFalse(orphan.is_active)
+        self.assertTrue(used.is_active)
+        self.assertTrue(kept.is_active)

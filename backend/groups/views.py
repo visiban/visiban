@@ -256,18 +256,26 @@ def _revoke_lapsed_subtree_invite_links(group):
     """
     from .models import _GROUP_TRAVERSAL_MAX_DEPTH
 
-    candidates = GroupInviteLink.objects.select_related(
-        "created_by", GROUP_PARENT_CHAIN,
-    ).filter(created_by__isnull=False, is_active=True, used_at__isnull=True)
-    creators = {}
-    for link in candidates:
-        node, depth = link.group, 0
-        while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
-            if node.pk == group.pk:
-                creators[link.created_by_id] = link.created_by
-                break
-            node = node.parent
-            depth += 1
+    # Bound the scan to the moved subtree (one query per level, at most the
+    # traversal depth) rather than loading every active link system-wide.
+    # A link's group sits at most depth-1 levels below ``group`` for the
+    # inherited-admin walk to reach it.
+    subtree_ids = {group.pk}
+    frontier = [group.pk]
+    for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH - 1):
+        frontier = list(
+            Group.objects.filter(parent_id__in=frontier).values_list("pk", flat=True)
+        )
+        if not frontier:
+            break
+        subtree_ids.update(frontier)
+    creators = {
+        link.created_by_id: link.created_by
+        for link in GroupInviteLink.objects.select_related("created_by").filter(
+            group_id__in=subtree_ids, created_by__isnull=False,
+            is_active=True, used_at__isnull=True,
+        )
+    }
     for creator in creators.values():
         _revoke_lapsed_admin_invite_links(creator, group)
 
