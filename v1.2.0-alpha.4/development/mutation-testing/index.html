@@ -3962,8 +3962,8 @@
 <td style="text-align: right;">68.3%</td>
 <td style="text-align: right;">228</td>
 <td style="text-align: right;">93.8%</td>
-<td style="text-align: right;">8</td>
-<td style="text-align: right;">228 of 235 = 97.0% (expected, not re-measured)</td>
+<td style="text-align: right;">0 (the 8 #1503 exclusions were deleted in #1505)</td>
+<td style="text-align: right;">228 of 246 on current code (not re-measured; 246 mutants enumerated, none excluded)</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
@@ -3995,7 +3995,7 @@
 <td style="text-align: right;">40.2%</td>
 <td style="text-align: right;">656 of 823 paired</td>
 <td style="text-align: right;">79.7%</td>
-<td style="text-align: right;">n/a (unmarked, pending #1502)</td>
+<td style="text-align: right;">2 (export 403 <code>detail</code> key and text, #1505; the rest pending #1502)</td>
 <td style="text-align: right;">n/a</td>
 <td style="text-align: right;">2 (see below)</td>
 </tr>
@@ -4006,7 +4006,7 @@
 <td style="text-align: right;">58.9%</td>
 <td style="text-align: right;">465 of 492 (447 with the #1453 tests only)</td>
 <td style="text-align: right;">94.5% (90.9%)</td>
-<td style="text-align: right;">n/a (unmarked, pending #1502)</td>
+<td style="text-align: right;">2 (export 403 <code>detail</code> key and text, #1505; the rest pending #1502)</td>
 <td style="text-align: right;">n/a</td>
 <td style="text-align: right;">0</td>
 </tr>
@@ -4154,9 +4154,9 @@
 <td><code>parts.append(f"-{', '.join(names)}")</code> in the label diff (<code>'XX, XX'.join(names)</code>). The removed label names were looked up in the labels on the card <em>after</em> the write, so the list was always empty and the activity row for a removal read <code>-</code> with no name. That was a real bug, not an equivalent mutant. #1511 resolves removed names from the pre-write label snapshot, and <code>test_removed_labels_are_listed_with_minus</code>, <code>test_several_removed_labels_join_with_comma_space</code> and <code>test_add_and_remove_in_one_update</code> now pin the corrected output, so the mutant dies.</td>
 </tr>
 <tr>
-<td>Equivalent, <strong>excluded</strong> (#1503)</td>
+<td>Equivalent, <strong>deleted</strong> (#1505)</td>
 <td style="text-align: right;">8</td>
-<td><code>_archive_movement</code> falls back to <code>""</code> when <code>card.column</code> or <code>card.swimlane</code> is <code>None</code>. Both foreign keys are non-null on <code>Card</code>, so the branch is unreachable. Each of the 8 lines carries <code># pragma: no mutate -- ...</code>, and each holds this one mutant only, so nothing killed is excluded with it. #1505 may delete the dead branches instead, at which point the pragmas go with them.</td>
+<td><code>_archive_movement</code> fell back to <code>""</code> when <code>card.column</code> or <code>card.swimlane</code> was <code>None</code>. Both foreign keys are non-null on <code>Card</code> and every caller passes a persisted card, so the branch was unreachable. #1505 deleted the 8 fallbacks (and the #1503 pragmas with them). Mutant counts, enumerated with mutmut 2.5.1 (mutant counts only; the test suite was not re-run against them, so kill rates are not re-measured; re-measuring is part of the nightly baseline work in #1384): <code>cards.py</code> goes from 246 honored / 254 raw on <code>main</code> to 246 / 246, exactly the 8 pragma'd mutants gone, i.e. 8 fewer than <code>main</code> (254 to 246 raw).</td>
 </tr>
 <tr>
 <td>Guard condition, <strong>no longer a survivor</strong> (#1504)</td>
@@ -4224,7 +4224,7 @@
 <p>Two findings came out of the test design, neither fixed here because <code>services/cards.py</code> is out of scope. First, two moves out of the <em>same</em> cell deadlock on PostgreSQL (<code>deadlock detected</code>, a 500): each holds its own card row and waits for the other's while taking the source-sibling locks, which contradicts the card-then-siblings order that <code>move_card</code> documents (#1522). Second, two concurrent moves of the <em>same</em> card return 404 for the loser, because PostgreSQL re-checks the <code>select_related</code> join against the pre-commit column row after the wait (#1523). The test accepts 200 or 404 for the loser and asserts the movement history is continuous.</p>
 <p>Scope: this covers <code>move_card</code> and <code>enforce_column_limits</code> only. The other <code>select_for_update</code> sites (such as the column lock in <code>create_card</code>) are not yet exercised by a PostgreSQL race test; that is tracked in #1524.</p>
 <p>With every <code>update_card</code> survivor except the #1511 label mutant killed, <code>cards.py</code> went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last <code>update_card</code> mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. The 6 guard-condition survivors counted in the 15 are killed (#1504, above), which would make it 234 of 243 (96.3%); neither adjustment was re-measured with mutmut. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).</p>
-<p>With the 8 <code>_archive_movement</code> exclusions from #1503 the two numbers are, <strong>expected and not re-measured</strong>: raw 229 of 243 (94.2%) and adjusted 229 of 235 (97.4%), the remaining six survivors being the <code>select_for_update</code> guards. The pragmas only remove mutants, and the 8 excluded were survivors, so the killed count does not change.</p>
+<p>With the 8 <code>_archive_movement</code> exclusions from #1503 the two numbers are, <strong>expected and not re-measured</strong>: raw 229 of 243 (94.2%) and adjusted 229 of 235 (97.4%), the remaining six survivors being the <code>select_for_update</code> guards. The pragmas only remove mutants, and the 8 excluded were survivors, so the killed count does not change. <strong>Update (#1505):</strong> the 8 excluded lines were deleted instead, so there is no <code># pragma: no mutate</code> in <code>_archive_movement</code> and the module has 246 mutants (8 fewer than the 254 raw on <code>main</code>), enumerated with mutmut 2.5.1 (mutant counts only; the test suite was not re-run against them, so kill rates are not re-measured; re-measuring is part of the nightly baseline work in #1384). The expected figure is 229 of 246 raw and adjusted alike, not re-measured.</p>
 <p>The activity and notification paths in <code>boards/views/cards.py</code> (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the <code>cards.py</code> score above and are unmeasured; a mutation run on <code>boards/views/cards.py</code> would be needed to know their kill rate.</p>
 <h3 id="movement-model-cardmovement-27-survivors-left-of-73-all-excluded-1503">Movement model (<code>CardMovement</code>): 27 survivors left of 73 (all excluded, #1503)<a class="headerlink" href="#movement-model-cardmovement-27-survivors-left-of-73-all-excluded-1503" title="Permanent link">&para;</a></h3>
 <p>Re-measured 2026-10-08 on <code>main</code> at <code>f6d570d55</code> (4 shards, lines of the class only, the six scoped test files from the table above including <code>test_movement_record_mutation_gaps</code>): 46 killed, 27 survived, none untested. The earlier baseline in this page counted 28 survivors; the difference of one is a field the tests now cover, not a different set of mutants.</p>
@@ -4326,8 +4326,8 @@
 <tr>
 <td><code>not column or not swimlane</code> to <code>and</code>, <code>continue</code> to <code>break</code> (lines 1522-1523)</td>
 <td style="text-align: right;">2</td>
-<td>Equivalent</td>
-<td>Every column and swimlane name was just created, so the lookup cannot fail. Defensive code.</td>
+<td>Equivalent, <strong>deleted</strong> (#1505; mutant counts in the note below, kill rates not re-measured)</td>
+<td>Every column and swimlane name was just created, so the lookup cannot fail. The guard was removed and the lookups index the maps directly. The JSON-import twin of this guard (card loop in <code>_import_json</code>) was deleted too: card references are validated against the payload's definitions, and the maps are keyed by exactly those names.</td>
 </tr>
 <tr>
 <td><code>row.get("Priority", "medium")</code> and <code>row.get("Weight", "1")</code> sentinel defaults (lines 1525, 1533)</td>
@@ -4356,8 +4356,8 @@
 <tr>
 <td><code>CSV file has no headers.</code> key and text (line 1383)</td>
 <td style="text-align: right;">2</td>
-<td>Equivalent</td>
-<td><code>DictReader</code> has no fieldnames only for an empty file, which the earlier <code>CSV file is empty.</code> check already rejected. Dead code.</td>
+<td>Equivalent, <strong>deleted</strong> (#1505; mutant counts in the note below, kill rates not re-measured)</td>
+<td><code>DictReader</code> has no fieldnames only when it yields no rows, which the earlier <code>CSV file is empty.</code> check rejects (a BOM-only, whitespace-only or header-only file all give no rows or a list). The branch and the dead <code>fieldnames is not None</code> guard before it were removed.</td>
 </tr>
 <tr>
 <td><code>distinct=False</code> on <code>_card_count</code> and <code>_archived_card_count</code> (lines 1608-1609)</td>
@@ -4368,35 +4368,16 @@
 <tr>
 <td>403 body <code>detail</code> key and text for a role outside the four member roles (line 1658)</td>
 <td style="text-align: right;">2</td>
-<td>Equivalent</td>
-<td><code>get_board_for_user</code> raises 404 or 403 for a non-member, so <code>export</code> never sees another role. The membership message is unreachable through the API.</td>
-</tr>
-<tr>
-<td><code>board.export_min_role or "viewer"</code> (line 1672)</td>
-<td style="text-align: right;">1</td>
-<td>Equivalent</td>
-<td>The restriction branch is entered only when <code>export_min_role</code> is set.</td>
-</tr>
-<tr>
-<td><code>request.query_params.get("format", "csv")</code> default (line 1676)</td>
-<td style="text-align: right;">1</td>
-<td>Equivalent</td>
-<td>Any value other than <code>json</code> takes the CSV branch.</td>
-</tr>
-<tr>
-<td><code>BoardExportLogSerializer(..., context={"request": request})</code> (lines 2116, 2118)</td>
-<td style="text-align: right;">2</td>
-<td>Equivalent</td>
-<td>The actor serializer only reads the request when a <code>board</code> is also in its context, which this view does not pass.</td>
-</tr>
-<tr>
-<td><code>responses=BoardExportLogSerializer(many=False)</code> on <code>export_history</code> (line 2093)</td>
-<td style="text-align: right;">1</td>
-<td>Covered elsewhere</td>
-<td><code>test_board_schema_contract.py::test_export_history_matches_schema</code> fails on it; that file is outside the scoped list.</td>
+<td>Equivalent, <strong>kept as a guard and excluded</strong> (#1505, #1503; the pragma removes these 2 mutants, see the counts below)</td>
+<td><code>get_board_for_user</code> returns only the four roles or <code>SITE_ADMIN</code>, so no request reaches it via the API. It stays as a fail-closed permission guard against a stored role outside the enum (the column has no DB constraint), and the <code>detail</code> line carries <code># pragma: no mutate</code> because killing it needs a patched-role or DB-level test.</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Mutant counts for #1505</strong> (enumerated with mutmut 2.5.1 (mutant counts only; the test suite was not re-run against them, so kill rates are not re-measured; re-measuring is part of the nightly baseline work in #1384)): <code>cards.py</code> 246 honored / 254 raw on <code>main</code> to 246 / 246 at HEAD (the 8 pragma'd mutants gone). <code>import_export.py</code> 1721 / 1721 on <code>main</code> to 1707 / 1709 at HEAD: 12 mutants deleted with the dead branches, and the 2 excluded are the <code>detail</code> key and text of the export 403. Kill rates for the touched modules were not re-measured.
+| <code>board.export_min_role or "viewer"</code> (line 1672) | 1 | Equivalent | The restriction branch is entered only when <code>export_min_role</code> is set. |
+| <code>request.query_params.get("format", "csv")</code> default (line 1676) | 1 | Equivalent | Any value other than <code>json</code> takes the CSV branch. |
+| <code>BoardExportLogSerializer(..., context={"request": request})</code> (lines 2116, 2118) | 2 | Equivalent | The actor serializer only reads the request when a <code>board</code> is also in its context, which this view does not pass. |
+| <code>responses=BoardExportLogSerializer(many=False)</code> on <code>export_history</code> (line 2093) | 1 | Covered elsewhere | <code>test_board_schema_contract.py::test_export_history_matches_schema</code> fails on it; that file is outside the scoped list. |</p>
 <h2 id="how-to-reproduce">How to reproduce<a class="headerlink" href="#how-to-reproduce" title="Permanent link">&para;</a></h2>
 <div class="admonition warning">
 <p class="admonition-title">Always mutate a throwaway copy</p>
@@ -4556,7 +4537,7 @@
 </tr>
 </tbody>
 </table>
-<p>Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. <code>boards/services/cards.py</code> (243 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 the remaining survivors there are 8 dead <code>else ""</code> branches in <code>_archive_movement</code>, no longer any guard-condition survivors (killed on SQLite, see #1504; the 6 were stale since #1428), and no <code>update_card</code> survivors (the label-diff latent bug was fixed in #1511).</p>
+<p>Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. <code>boards/services/cards.py</code> (246 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 and #1505 the 8 dead <code>else ""</code> branches in <code>_archive_movement</code> are deleted, and there are no longer any guard-condition survivors (killed on SQLite, see #1504; the 6 were stale since #1428), and no <code>update_card</code> survivors (the label-diff latent bug was fixed in #1511).</p>
 <p>Runtime evidence, measured 2026-10-04 on a loaded laptop (another mutmut run was using the CPUs), SQLite, mutmut 2.5.1, one process, <code>-x</code> per mutant:</p>
 <table>
 <thead>
