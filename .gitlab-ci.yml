@@ -44,8 +44,9 @@ include:
 #   semgrep-sast       blocks at High/Critical only       — override + sast-severity-gate
 #   backend-sast       blocks (bandit, medium+)           — pre-existing
 #   frontend-sast      blocks (eslint 'error' rules)      — only when frontend/src/**/*.{ts,tsx} changed
-#   trivy-scan         tracked separately in #1072; dep-scan-osv, pip-audit and the
-#                      license checks are deliberately outside this policy
+#   trivy-scan         blocks (#1072)                     — MR when its inputs change + Nightly (#1267)
+#                      dep-scan-osv, pip-audit and the license checks are deliberately
+#                      outside this policy
 #
 # Semgrep's Low/Medium/Info findings stay visible in the MR security widget but
 # do not fail the pipeline; the SAST component has no native severity threshold,
@@ -2758,7 +2759,11 @@ frontend-license-check:
 #
 # Runs on an MR that changes a Dockerfile, a dependency lockfile, the Helm
 # chart, or the scan's own inputs (this job, .trivyignore.yaml and the expiry
-# script), plus always on main.
+# script), and on the Nightly schedule (CVE_SCAN=true, #1383, #1267). There is
+# deliberately no unconditional main rule: a newly disclosed CVE against an
+# unchanged pinned dependency or base image is a time-based concern, so it is
+# caught by the schedule (same drift-detection pattern as backend-dep-scan and
+# frontend-dep-scan), not by every push to main.
 #
 # BLOCKING (#1072): HIGH/CRITICAL vuln, config and secret findings fail the
 # job (--exit-code 1, no allow_failure). The scanner BINARY is pinned by
@@ -2796,7 +2801,8 @@ trivy-scan:
         - .gitlab-ci.yml
         - .trivyignore.yaml
         - scripts/check-trivyignore-expiry.sh
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CVE_SCAN == "true"'
+      allow_failure: false
   script:
     # Prove the expiry gate still fires, then enforce it on the real file.
     - sh scripts/check-trivyignore-expiry.sh --self-test
@@ -4151,7 +4157,8 @@ docs-deploy:
 #
 # One consolidated schedule instead of one per job, so the project pays for one
 # full scheduled pipeline a night rather than N. backend-dep-scan and
-# frontend-dep-scan (security stage above) run on it with CVE_SCAN=true.
+# frontend-dep-scan and trivy-scan (security stage above) run on it with
+# CVE_SCAN=true (trivy-scan has no other main trigger, #1267).
 # Unlike their MR counterparts they use allow_failure: false, so a new
 # HIGH/CRITICAL CVE causes the pipeline to fail and GitLab emails all
 # maintainers who have "Failed pipeline" notifications enabled.
