@@ -587,6 +587,7 @@ def _is_truthy_non_string(value):
 # (production's backend) on every backend so SQLite tests see the same 400.
 # ---------------------------------------------------------------------------
 _IMPORT_INT_MAX = 2**31 - 1
+_IMPORT_INT_MIN = -(2**31)
 # Child-collection caps. Real exports sit far below these (the shipped sample
 # boards top out at 8 labels and, per card, 3 comments, 10 movements, 21
 # activities, 5 checklist items and 2 label refs); they exist so one 10 MB
@@ -2076,18 +2077,23 @@ class BoardImportExportMixin:
                         {"detail": f"Row {i + 2}: {_bounded_text(str(_hdr), 40)} contains a NUL byte."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-            for _field, _max in (("Title", 500), ("Column", 255), ("Swimlane", 255)):
+            for _field, _max in (
+                ("Title", _field_max_length(Card, "title")),
+                ("Column", _field_max_length(Column, "name")),
+                ("Swimlane", _field_max_length(Swimlane, "name")),
+            ):
                 _text = _cell(row, _field)
                 if len(_text) > _max:
                     return Response(
                         {"detail": f"Row {i + 2}: {_field} exceeds {_max} characters: {_bounded_text(_text)!r}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+            _label_max = _field_max_length(Label, "name")
             for _lbl in _cell(row, "Labels").split(","):
                 _lbl = _lbl.strip()
-                if len(_lbl) > 50:
+                if len(_lbl) > _label_max:
                     return Response(
-                        {"detail": f"Row {i + 2}: Labels entry exceeds 50 characters: {_bounded_text(_lbl)!r}"},
+                        {"detail": f"Row {i + 2}: Labels entry exceeds {_label_max} characters: {_bounded_text(_lbl)!r}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             _weight = _cell(row, "Weight")
@@ -2096,7 +2102,7 @@ class BoardImportExportMixin:
                     _weight_int = int(_weight)
                 except (ValueError, TypeError):
                     _weight_int = 1  # non-numeric falls back to 1, as before
-                if abs(_weight_int) > 2147483647:
+                if not _IMPORT_INT_MIN <= _weight_int <= _IMPORT_INT_MAX:
                     return Response(
                         {"detail": f"Row {i + 2}: Weight out of range: {_bounded_text(_weight)!r}"},
                         status=status.HTTP_400_BAD_REQUEST,
@@ -2129,11 +2135,15 @@ class BoardImportExportMixin:
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        explicit_name = request.data.get("name")
+        if explicit_name and (problem := _text_error(explicit_name, _field_max_length(Board, "name"))):
+            return Response({"detail": f"'name' {problem}"}, status=status.HTTP_400_BAD_REQUEST)
+
         group = self._resolve_import_group(request)
         # A CSV carries no board name, so the default is derived from the
         # uploaded filename without its extension (#1446). An explicit
         # ``name`` is used exactly as given.
-        board_name = request.data.get("name") or _imported_board_name(
+        board_name = explicit_name or _imported_board_name(
             os.path.splitext(file.name or "")[0], request.user, group
         )
 

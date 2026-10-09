@@ -773,6 +773,22 @@ export writes, so card and swimlane field values survive a CSV round trip.
 - **Blank cells** create no value. A value longer than 500 characters, one containing a NUL
   (`\x00`) byte, or one an extension validator refuses, is dropped with a warning and the import proceeds.
 
+<a id="csv-cell-limits"></a>
+
+**Cell limits (since 1.2, #1512).** The importer checks every row before it creates anything.
+A violation returns `400 Bad Request` as `Row N: <field> ...` (N is the line number in the
+file, counting the header as line 1) and creates nothing. Any value echoed back is truncated.
+
+| Field | Limit |
+|---|---|
+| `Title` | At most 500 characters |
+| `Column`, `Swimlane` | At most 255 characters |
+| `Labels` | Each comma-separated label at most 50 characters |
+| `Weight` | An integer from -2147483648 to 2147483647 (a non-numeric value still imports as `1`) |
+| `Due Date` | A real calendar date; `2020-02-30` is refused like any other invalid date |
+| Any built-in column | No NUL (`\x00`) bytes (`Custom:` cells keep the drop-with-warning rule above) |
+| `name` form field | At most 255 characters and no NUL bytes, as for a JSON import |
+
 The response gains `import_summary.warnings`, a list of strings (always present on a CSV
 import, `[]` when nothing was dropped). It holds at most 20 entries followed by one
 `…and N more` entry. A JSON import does not return the key.
@@ -827,7 +843,7 @@ The `board.created` event for the new board carries the resolved options as an a
 
 | Status | Body | When |
 |---|---|---|
-| `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, has an unsupported extension, exceeds the upload size limit (`MAX_UPLOAD_SIZE_BYTES`, default 10 MB — the same env var and default as [card attachment uploads](cards.md#attachments), and distinct from the Trello importer's own `VISIBAN_IMPORT_MAX_SIZE`), is not valid JSON/CSV, or references columns/swimlanes that fail validation. Also returned when `options` is not valid JSON, is not an object, has an unknown key, has a non-boolean value, sets `comments`, `checklist`, or `history` to `true` with `cards` set to `false`, or — for a CSV file — has any key other than `labels` and `cards`. |
+| `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, has an unsupported extension, exceeds the upload size limit (`MAX_UPLOAD_SIZE_BYTES`, default 10 MB — the same env var and default as [card attachment uploads](cards.md#attachments), and distinct from the Trello importer's own `VISIBAN_IMPORT_MAX_SIZE`), is not valid JSON/CSV, or references columns/swimlanes that fail validation. Also returned when `options` is not valid JSON, is not an object, has an unknown key, has a non-boolean value, sets `comments`, `checklist`, or `history` to `true` with `cards` set to `false`, or — for a CSV file — has any key other than `labels` and `cards`. A CSV file also returns `400` for a cell over the [CSV cell limits](#csv-cell-limits), a NUL byte, or an impossible `Due Date`. |
 | `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
 | `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied but the caller is not a member of that group. |
 | `404 Not Found` | `{"detail": "..."}` | `group_id` does not match an existing group. |

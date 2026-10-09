@@ -1378,6 +1378,41 @@ class ImportCsvTests(ImportBase):
             with self.subTest(field=field):
                 self._assert_rejected_clean(text, prefix)
 
+    def test_weight_boundaries(self):
+        for value, ok in (
+            (2147483647, True), (2147483648, False), (-2147483648, True), (-2147483649, False),
+        ):
+            with self.subTest(weight=value):
+                Board.objects.all().delete()
+                resp = self.post_csv(f"Title,Column,Swimlane,Weight\nt,A,B,{value}\n")
+                self.assertEqual(resp.status_code, 201 if ok else 400, resp.content)
+                self.assertEqual(Card.objects.count(), 1 if ok else 0)
+
+    def test_nul_byte_in_title_column_labels_is_400(self):
+        for header, row in (
+            ("Title", "a\x00b,A,B,x"),
+            ("Column", "t,a\x00b,B,x"),
+            ("Labels", "t,A,B,a\x00b"),
+        ):
+            with self.subTest(header=header):
+                self._assert_rejected_clean(
+                    f"Title,Column,Swimlane,Labels\n{row}\n",
+                    f"Row 2: {header} contains a NUL byte",
+                )
+
+    def test_explicit_board_name_over_length_or_nul_is_400(self):
+        for name, msg in (("n" * 256, "must be at most 255"), ("a\x00b", "NUL")):
+            with self.subTest(name=name[:5]):
+                cache.clear()
+                resp = self.client.post(
+                    IMPORT_URL,
+                    {"file": _csv_upload("Title,Column,Swimlane\nt,A,B\n", "b.csv"), "name": name},
+                    format="multipart",
+                )
+                self.assertEqual(resp.status_code, 400, resp.content)
+                self.assertIn(msg, resp.json()["detail"])
+                self.assertEqual(Board.objects.count(), 0)
+
     def test_max_length_values_still_import(self):
         resp = self.post_csv(f"Title,Column,Swimlane,Labels\n{'t' * 500},{'c' * 255},{'s' * 255},{'l' * 50}\n")
         self.assertEqual(resp.status_code, 201, resp.content)
