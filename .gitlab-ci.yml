@@ -343,7 +343,7 @@ sonar-scan-selftest:
 # ─── security::deferred verdict self-test (#1521) ────────────────────────────
 #
 # scripts/security-deferred-verdict.sh holds the accepted-risk verdict logic that
-# /pre-release Step 1.5 (and later /release, #1520) shells out to. It only ever
+# /pre-release Step 1.5 and scripts/release.sh (via scripts/check-security-deferred.sh, #1520) shell out to. It only ever
 # runs from a maintainer's session, so nothing else would notice it break; this
 # runs its --self-test on MRs touching it (#1093 house rule). Alpine's busybox
 # awk/sed/grep exercise a third implementation beside macOS BSD awk and GNU awk.
@@ -354,11 +354,19 @@ security-deferred-verdict-selftest:
   rules:
     - changes: &security-deferred-verdict-selftest-paths
         - scripts/security-deferred-verdict.sh
+        - scripts/check-security-deferred.sh
+        - scripts/release.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *security-deferred-verdict-selftest-paths
   script:
     - sh scripts/security-deferred-verdict.sh --self-test
+    - apk add --no-cache bash jq git coreutils
+    - git config --global --add safe.directory '*'
+    - bash scripts/check-security-deferred.sh --self-test
+    # release.sh gates the tag on the check above (#1520); its self-test had no CI job.
+    # scripts/tests/release.test.sh is NOT run here: release.sh's BSD-style `sed -i ''` fails on Linux (#1539).
+    - bash scripts/release.sh --self-test
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #
