@@ -22,8 +22,16 @@ not route through that definition:
 - **Invites** — every model that looks like an invite link (``token_hash`` and
   ``created_by``) has a creator rule in
   ``visiban.authorization.INVITE_CREATOR_RULES`` or a documented exception.
-- **allauth adapter** — the configured adapters are the project's, and the
-  signup hooks allauth calls are overridden there.
+- **Invite redemption** — every function in the installed apps that looks an
+  invite up by its token calls ``invite_creator_is_valid`` (or a registration
+  refusal function pinned to it), and the pinned call sites in
+  ``REQUIRED_SHARED_CALLS`` make their shared calls (checked with ``ast``).
+- **allauth adapter** — the configured adapters are the project's, the signup
+  hooks allauth calls are overridden there, and the account-matching and
+  registration paths call the shared functions.
+
+An installed extension package can add allowlist entries through the optional
+``EXTENSION_ALLOWLIST_MODULE`` instead of editing this file.
 
 Each checker is a plain function and has a negative test that feeds it a
 synthetic entry point without the shared check, so a checker that silently
@@ -289,6 +297,69 @@ ACTIVE_CHECKING_AUTHENTICATORS: tuple[type, ...] = (
     TokenAuthentication,  # DRF: refuses a token whose user has is_active False
 )
 
+# ---------------------------------------------------------------------------
+# Extension point: allowlist additions from an installed extension package
+# ---------------------------------------------------------------------------
+
+#: Optional module an extension package (the enterprise edition) provides to
+#: record its own decisions without editing this file. It may define any of:
+#:
+#: - ``REST_GATE_ALLOWLIST`` and ``NON_DRF_ALLOWLIST``: dicts keyed like the
+#:   ones above. A value is either an object with ``reason``, ``routes`` and
+#:   (optionally) ``optional`` attributes, or a dict with those keys, so the
+#:   module never has to import this test module.
+#: - ``ACTIVE_CHECKING_AUTHENTICATORS``: a tuple of authenticator classes.
+#:
+#: Its entries are merged with the OSS lists and get the same checks, the
+#: stale-entry check included. A key the OSS list already has is an error: an
+#: extension adds decisions, it does not override OSS ones. With the module
+#: absent, the OSS lists are used as they are.
+EXTENSION_ALLOWLIST_MODULE = "enterprise.auth_entry_point_allowlist"
+
+
+def _as_allow(value) -> Allow:
+    if isinstance(value, Allow):
+        return value
+    if isinstance(value, dict):
+        return Allow(value["reason"], frozenset(value["routes"]), bool(value.get("optional", False)))
+    return Allow(value.reason, frozenset(value.routes), bool(getattr(value, "optional", False)))
+
+
+def load_extension_allowlists(module_name: str = EXTENSION_ALLOWLIST_MODULE):
+    """The extension module, or None when it (or its package) is not installed.
+
+    A module that exists but fails to import for another reason is an error,
+    not an absence, so it is re-raised.
+    """
+    try:
+        return importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:
+        prefixes = {".".join(module_name.split(".")[:i]) for i in range(1, module_name.count(".") + 2)}
+        if exc.name in prefixes:
+            return None
+        raise
+
+
+def merge_allowlists(module):
+    """``(rest_allowlist, non_drf_allowlist, authenticators)`` with *module*'s
+    additions merged into the OSS lists (see EXTENSION_ALLOWLIST_MODULE)."""
+    rest, non_drf = dict(REST_GATE_ALLOWLIST), dict(NON_DRF_ALLOWLIST)
+    authenticators = ACTIVE_CHECKING_AUTHENTICATORS
+    if module is None:
+        return rest, non_drf, authenticators
+    for name, target in (("REST_GATE_ALLOWLIST", rest), ("NON_DRF_ALLOWLIST", non_drf)):
+        for key, value in (getattr(module, name, None) or {}).items():
+            if key in target:
+                raise ValueError(f"{module.__name__}.{name} redefines OSS entry {key!r}")
+            target[key] = _as_allow(value)
+    extra = tuple(getattr(module, "ACTIVE_CHECKING_AUTHENTICATORS", ()) or ())
+    return rest, non_drf, authenticators + extra
+
+
+EFFECTIVE_REST_ALLOWLIST, EFFECTIVE_NON_DRF_ALLOWLIST, EFFECTIVE_AUTHENTICATORS = merge_allowlists(
+    load_extension_allowlists()
+)
+
 
 @dataclass(frozen=True)
 class RestEntryPoint:
@@ -436,15 +507,16 @@ def _rest_allowed(point, allowlist) -> bool:
     return False
 
 
-def rest_violations(points, allowlist) -> list[str]:
+def rest_violations(points, allowlist, authenticators=None) -> list[str]:
     """Human-readable failures for REST entry points that skip the shared gates."""
+    authenticators = EFFECTIVE_AUTHENTICATORS if authenticators is None else authenticators
     failures = []
     for point in points:
         if point.error is not None:
             failures.append(f"{point.key} {point.method} ({point.route}): could not evaluate permissions: {point.error}")
             continue
         unsupported = [
-            a for a in point.authenticators if not issubclass(a, ACTIVE_CHECKING_AUTHENTICATORS)
+            a for a in point.authenticators if not issubclass(a, authenticators)
         ]
         if unsupported:
             failures.append(
@@ -467,7 +539,7 @@ def rest_violations(points, allowlist) -> list[str]:
 
 
 def non_drf_violations(points, allowlist=None) -> list[str]:
-    allowlist = NON_DRF_ALLOWLIST if allowlist is None else allowlist
+    allowlist = EFFECTIVE_NON_DRF_ALLOWLIST if allowlist is None else allowlist
     failures = []
     for point in points:
         if point.django_admin:
@@ -538,9 +610,14 @@ class RestEntryPointTests(SimpleTestCase):
         ):
             self.assertIn(expected, keys)
         self.assertGreater(len(self.rest_points), 100)
+        if settings.GIT_LENS_ENABLED:
+            # Mounted only with the flag; the backend-test-git-lens CI job runs
+            # this module with it on so these views are enumerated too.
+            for lens_view in ("LensBoardView", "LensConnectionView", "LensUsageAdminView"):
+                self.assertIn(f"git_lens.views.{lens_view}", keys)
 
     def test_every_rest_entry_point_applies_the_shared_account_gates(self):
-        failures = rest_violations(self.rest_points, REST_GATE_ALLOWLIST)
+        failures = rest_violations(self.rest_points, EFFECTIVE_REST_ALLOWLIST)
         self.assertEqual(failures, [], "\n".join(failures))
 
     def test_every_non_drf_view_is_a_recorded_decision(self):
@@ -556,19 +633,19 @@ class RestEntryPointTests(SimpleTestCase):
             self.assertTrue(FORCED_CHANGE_GATES <= by_method[(key, "POST")].gates, key)
 
     def test_rest_allowlist_has_no_stale_entries(self):
-        stale = stale_allowlist_entries(REST_GATE_ALLOWLIST, self.rest_points)
+        stale = stale_allowlist_entries(EFFECTIVE_REST_ALLOWLIST, self.rest_points)
         self.assertEqual(stale, [], "REST_GATE_ALLOWLIST names view/route pairs no URL routes to; remove them.")
         # An allowlisted view that now carries both gates on every method no
         # longer needs its entry either.
         needless = sorted(
-            key for key in REST_GATE_ALLOWLIST if ":" not in key and all(
+            key for key in EFFECTIVE_REST_ALLOWLIST if ":" not in key and all(
                 FORCED_CHANGE_GATES <= p.gates for p in self.rest_points if p.key == key
             )
         )
         self.assertEqual(needless, [], "These allowlisted views apply both gates; drop their entries.")
 
     def test_non_drf_allowlist_has_no_stale_entries(self):
-        stale = stale_allowlist_entries(NON_DRF_ALLOWLIST, self.non_drf_points)
+        stale = stale_allowlist_entries(EFFECTIVE_NON_DRF_ALLOWLIST, self.non_drf_points)
         self.assertEqual(stale, [], "NON_DRF_ALLOWLIST names view/route pairs no URL routes to; remove them.")
 
     def test_django_admin_site_views_are_recognized(self):
@@ -648,7 +725,7 @@ class RestEntryPointTests(SimpleTestCase):
         rest_point = RestEntryPoint(
             "accounts.views.CurrentUserView", "GET", "api/v1/new-mount/", frozenset(), (SessionAuthentication,)
         )
-        self.assertTrue(rest_violations([rest_point], REST_GATE_ALLOWLIST))
+        self.assertTrue(rest_violations([rest_point], EFFECTIVE_REST_ALLOWLIST))
         redirect = NonDrfEntryPoint("django.views.generic.base.RedirectView", "api/v1/new-redirect/")
         self.assertTrue(non_drf_violations([redirect]))
         future_allauth = NonDrfEntryPoint("allauth.headless.account.views.SessionView", "accounts/headless/")
@@ -669,6 +746,68 @@ class RestEntryPointTests(SimpleTestCase):
         self.assertEqual(
             stale_allowlist_entries(allow, self.rest_points), ["accounts.views.CurrentUserView @ api/v1/gone/"]
         )
+
+
+class ExtensionAllowlistTests(SimpleTestCase):
+    """The extension-point hook: an optional module adds allowlist entries."""
+
+    def _fake_module(self, name, **attrs):
+        import sys
+        import types
+
+        module = types.ModuleType(name)
+        for key, value in attrs.items():
+            setattr(module, key, value)
+        patcher = mock.patch.dict(sys.modules, {name: module})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return module
+
+    def test_absent_module_leaves_the_oss_lists(self):
+        self.assertIsNone(load_extension_allowlists("visiban_no_such_pkg_1517.allowlist"))
+        rest, non_drf, auth = merge_allowlists(None)
+        self.assertEqual(rest, REST_GATE_ALLOWLIST)
+        self.assertEqual(non_drf, NON_DRF_ALLOWLIST)
+        self.assertEqual(auth, ACTIVE_CHECKING_AUTHENTICATORS)
+
+    def test_module_entries_are_merged_in_either_shape(self):
+        from rest_framework.authentication import BasicAuthentication
+
+        name = "fake_extension_1517"
+        module = self._fake_module(
+            name,
+            REST_GATE_ALLOWLIST={
+                "ext.views.PublicView": {"reason": "Public: extension health.", "routes": ["api/ext/health/"]},
+            },
+            NON_DRF_ALLOWLIST={"ext.views.Page": _allow("Static page.", "ext/page/")},
+            ACTIVE_CHECKING_AUTHENTICATORS=(BasicAuthentication,),
+        )
+        self.assertIs(load_extension_allowlists(name), module)
+        rest, non_drf, auth = merge_allowlists(module)
+        self.assertTrue(rest["ext.views.PublicView"].covers("api/ext/health/"))
+        self.assertIn("ext.views.Page", non_drf)
+        self.assertIn(BasicAuthentication, auth)
+        self.assertIn("accounts.views.CurrentUserView", rest)
+        # The stale-entry check applies to merged entries like OSS ones.
+        self.assertIn("ext.views.PublicView @ api/ext/health/", stale_allowlist_entries(rest, []))
+        point = RestEntryPoint("ext.views.PublicView", "GET", "api/ext/health/", frozenset(), (BasicAuthentication,))
+        self.assertEqual(rest_violations([point], rest, auth), [])
+
+    def test_module_cannot_override_an_oss_entry(self):
+        module = self._fake_module(
+            "fake_extension_override_1517",
+            REST_GATE_ALLOWLIST={"accounts.views.CurrentUserView": {"reason": "x", "routes": ["y/"]}},
+        )
+        with self.assertRaises(ValueError):
+            merge_allowlists(module)
+
+    def test_a_broken_module_is_an_error_not_an_absence(self):
+        """A missing dependency *inside* the module must not read as "not installed"."""
+        with mock.patch.object(
+            importlib, "import_module", side_effect=ModuleNotFoundError("dep", name="some_missing_dependency")
+        ):
+            with self.assertRaises(ModuleNotFoundError):
+                load_extension_allowlists("fake_extension_broken_1517")
 
 
 # ---------------------------------------------------------------------------
@@ -765,24 +904,34 @@ def handshake_consults_shared_gates(app, route_kwargs) -> tuple[bool, str]:
     return True, ""
 
 
-def _calls_name(cls, name: str) -> bool:
-    """True if *cls*'s own source contains a call to *name* (``f()`` or ``m.f()``).
-
-    Parsed with ``ast``, so the name appearing only in a comment, a docstring
-    or an import does not count.
-    """
-    try:
-        tree = ast.parse(textwrap.dedent(inspect.getsource(cls)))
-    except (OSError, TypeError):  # no source available: cannot prove the call
-        return False
+def _called_names_in_tree(tree) -> set[str]:
+    """Names called anywhere in *tree*: ``f()`` gives ``f``, ``m.f()`` gives ``f``."""
+    names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             func = node.func
-            if (isinstance(func, ast.Name) and func.id == name) or (
-                isinstance(func, ast.Attribute) and func.attr == name
-            ):
-                return True
-    return False
+            if isinstance(func, ast.Name):
+                names.add(func.id)
+            elif isinstance(func, ast.Attribute):
+                names.add(func.attr)
+    return names
+
+
+def _called_names(obj) -> set[str]:
+    """Names *obj*'s own source calls (a class, function or method).
+
+    Parsed with ``ast``, so a name appearing only in a comment, a docstring or
+    an import does not count. An object without source calls nothing.
+    """
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(obj)))
+    except (OSError, TypeError):  # no source available: cannot prove the call
+        return set()
+    return _called_names_in_tree(tree)
+
+
+def _calls_name(obj, name: str) -> bool:
+    return name in _called_names(obj)
 
 
 def recheck_uses_live_user_loader(consumer_class) -> bool:
@@ -1074,5 +1223,231 @@ class AllauthAdapterEntryPointTests(SimpleTestCase):
         from accounts import adapter
         from accounts.views import InviteRegisterView
 
-        for fn in (adapter._validate_signup_token, adapter.SocialRegistrationAdapter._redeem_invite, InviteRegisterView):
-            self.assertIn("registration_token_kind", inspect.getsource(fn), fn)
+        for fn in (
+            adapter._validate_signup_token,
+            adapter.SocialRegistrationAdapter._redeem_invite,
+            InviteRegisterView.create,
+        ):
+            self.assertTrue(_calls_name(fn, "registration_token_kind"), fn)
+
+    def test_negative_token_table_named_only_in_a_comment_is_reported(self):
+        def comment_only(raw_token):
+            # Should go through registration_token_kind(raw_token), but does not.
+            return raw_token
+
+        self.assertFalse(_calls_name(comment_only, "registration_token_kind"))
+
+
+# ---------------------------------------------------------------------------
+# Invite redemption and adapter call sites
+# ---------------------------------------------------------------------------
+
+#: Each function that applies a shared rule, and the calls it must make. Checked
+#: with ``ast`` (a real call, not a mention), so deleting the call fails the
+#: test. The registration refusal functions reach the shared rules through
+#: ``_sender_still_admits``, which is pinned below as well.
+REQUIRED_SHARED_CALLS: dict[str, frozenset] = {
+    "boards.views.invites.JoinBoardView.get": frozenset({"invite_creator_is_valid"}),
+    "boards.views.invites.JoinBoardView.post": frozenset({"invite_creator_is_valid"}),
+    "groups.views.JoinGroupView.get": frozenset({"invite_creator_is_valid"}),
+    "groups.views.JoinGroupView.post": frozenset({"invite_creator_is_valid"}),
+    "boards.invites.board_link_registration_refusal": frozenset({"_sender_still_admits"}),
+    "groups.invite_registration.group_link_registration_refusal": frozenset({"_sender_still_admits"}),
+    "boards.invites._sender_still_admits": frozenset({"sender_may_admit_accounts", "invite_creator_is_valid"}),
+    "groups.invite_registration._sender_still_admits": frozenset(
+        {"sender_may_admit_accounts", "invite_creator_is_valid"}
+    ),
+    "accounts.adapter.SocialRegistrationAdapter._handle_email_collision": frozenset({"principal_is_active"}),
+}
+
+#: Calls that count as applying the creator rule in a function that looks an
+#: invite up by its token: the shared function itself, or a registration
+#: refusal function that REQUIRED_SHARED_CALLS pins to it.
+CREATOR_RULE_CALLS: frozenset = frozenset(
+    {"invite_creator_is_valid", "board_link_registration_refusal", "group_link_registration_refusal"}
+)
+
+
+def _resolve_dotted(path: str):
+    """Import ``module.attr[.attr...]``, trying the longest module prefix first."""
+    parts = path.split(".")
+    for split in range(len(parts) - 1, 0, -1):
+        try:
+            obj = importlib.import_module(".".join(parts[:split]))
+        except ImportError:
+            continue
+        for attr in parts[split:]:
+            obj = getattr(obj, attr)
+        return obj
+    raise ImportError(path)
+
+
+def required_call_violations(table) -> list[str]:
+    failures = []
+    for path, required in sorted(table.items()):
+        try:
+            target = _resolve_dotted(path)
+        except (ImportError, AttributeError):
+            failures.append(f"{path}: no longer exists; update REQUIRED_SHARED_CALLS")
+            continue
+        missing = sorted(required - _called_names(target))
+        if missing:
+            failures.append(f"{path} does not call {missing}")
+    return failures
+
+
+def _chain_root(node):
+    while isinstance(node, (ast.Attribute, ast.Call, ast.Subscript)):
+        node = node.func if isinstance(node, ast.Call) else node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _token_lookup_model(func_node, model_names) -> str | None:
+    """The invite model *func_node* looks up by a presented token, or None.
+
+    A token lookup is ``Model.lookup_by_token(...)``, ``Model._hash_token(...)``
+    or a query on ``Model`` with a ``token_hash=`` filter.
+    """
+    for node in ast.walk(func_node):
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr in ("lookup_by_token", "_hash_token")
+            and isinstance(node.value, ast.Name)
+            and node.value.id in model_names
+        ):
+            return node.value.id
+        if isinstance(node, ast.Call) and any(k.arg == "token_hash" for k in node.keywords):
+            root = _chain_root(node)
+            if root in model_names:
+                return root
+    return None
+
+
+def invite_token_consumers(tree, module_name, model_names):
+    """``(qualname, model_name, function_node)`` for each function in *tree*
+    that looks an invite link up by its token. The model's own methods (whose
+    lookups go through ``cls``) are not consumers."""
+    found = []
+
+    def visit(node, stack):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.ClassDef):
+                visit(child, stack + [child.name])
+            elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                qual = ".".join([module_name, *stack, child.name])
+                model = _token_lookup_model(child, model_names)
+                if model is not None:
+                    found.append((qual, model, child))
+                visit(child, stack + [child.name])
+
+    visit(tree, [])
+    return found
+
+
+def _project_modules():
+    """``(module_name, path)`` for every non-test, non-migration module of the
+    installed apps that live in this repository (enterprise apps included)."""
+    import pathlib
+
+    base = pathlib.Path(settings.BASE_DIR).resolve()
+    for config in apps.get_app_configs():
+        root = pathlib.Path(config.path).resolve()
+        if base not in root.parents and root != base:
+            continue
+        for path in root.rglob("*.py"):
+            rel = path.relative_to(base)
+            if {"tests", "migrations"} & set(rel.parts) or path.name.startswith("test_"):
+                continue
+            yield ".".join(rel.with_suffix("").parts), path
+
+
+def invite_consumer_violations(consumers, model_label_by_name, exceptions) -> list[str]:
+    failures = []
+    for qual, model, node in consumers:
+        if model_label_by_name.get(model) in exceptions:
+            continue
+        if not CREATOR_RULE_CALLS & _called_names_in_tree(node):
+            failures.append(
+                f"{qual} looks up a {model} by token but never calls "
+                "visiban.authorization.invite_creator_is_valid (or a registration refusal "
+                "function pinned in REQUIRED_SHARED_CALLS)."
+            )
+    return failures
+
+
+class InviteRedemptionCallSiteTests(SimpleTestCase):
+    def _models(self):
+        models = list(invite_like_models())
+        return {m.__name__ for m in models}, {m.__name__: m._meta.label for m in models}
+
+    def _discover(self):
+        names, _ = self._models()
+        found = []
+        for module_name, path in _project_modules():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            found.extend(invite_token_consumers(tree, module_name, names))
+        return found
+
+    def test_required_shared_calls_are_made(self):
+        failures = required_call_violations(REQUIRED_SHARED_CALLS)
+        self.assertEqual(failures, [], "\n".join(failures))
+
+    def test_discovery_finds_the_known_redemption_paths(self):
+        quals = {qual for qual, _, _ in self._discover()}
+        for expected in (
+            "boards.views.invites.JoinBoardView.get",
+            "boards.views.invites.JoinBoardView.post",
+            "groups.views.JoinGroupView.get",
+            "groups.views.JoinGroupView.post",
+            "boards.invites.validate_board_registration_token",
+            "groups.invite_registration.validate_group_registration_token",
+        ):
+            self.assertIn(expected, quals)
+
+    def test_every_invite_token_consumer_applies_the_creator_rule(self):
+        _, labels = self._models()
+        failures = invite_consumer_violations(self._discover(), labels, INVITE_KINDS_WITHOUT_CREATOR_RULE)
+        self.assertEqual(failures, [], "\n".join(failures))
+
+    # -- Negative tests.
+
+    _CONSUMER_SOURCE = textwrap.dedent(
+        """
+        class NewJoinView:
+            def post(self, request, token):
+                # invite_creator_is_valid(link) would go here.
+                link = BoardInviteLink.objects.select_for_update().get(
+                    token_hash=BoardInviteLink._hash_token(token)
+                )
+                return link
+
+        def checked(token):
+            link = GroupInviteLink.lookup_by_token(token)
+            return invite_creator_is_valid(link)
+        """
+    )
+
+    def test_negative_a_new_consumer_without_the_creator_rule_is_reported(self):
+        consumers = invite_token_consumers(
+            ast.parse(self._CONSUMER_SOURCE), "synthetic", {"BoardInviteLink", "GroupInviteLink"}
+        )
+        self.assertEqual({q for q, _, _ in consumers}, {"synthetic.NewJoinView.post", "synthetic.checked"})
+        labels = {"BoardInviteLink": "boards.BoardInviteLink", "GroupInviteLink": "groups.GroupInviteLink"}
+        failures = invite_consumer_violations(consumers, labels, {})
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("synthetic.NewJoinView.post", failures[0])
+
+    def test_negative_a_removed_shared_call_is_reported(self):
+        def collision_without_shared_rule(matches):
+            # principal_is_active(user) was here.
+            return [user for user in matches if user.is_active]
+
+        target = f"{__name__}._removed_call_probe"
+        with mock.patch(target, collision_without_shared_rule, create=True):
+            failures = required_call_violations({target: frozenset({"principal_is_active"})})
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("principal_is_active", failures[0])
+
+    def test_negative_a_vanished_function_is_reported(self):
+        failures = required_call_violations({f"{__name__}.no_such_function_1517": frozenset({"x"})})
+        self.assertIn("no longer exists", failures[0])

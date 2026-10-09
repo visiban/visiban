@@ -30,6 +30,7 @@ does not.
 | Who may admit new accounts | `sender_may_admit_accounts(sender)` | Registration through a board or group invite, before `invite_creator_is_valid` |
 | Current role on a board or group (Rule 2) | `boards.permissions.get_board_role`, `groups.models.get_accessible_group_ids` (unchanged) | REST, MCP tools, both consumers' handshake and re-check |
 | Consume-once registration tokens (Rule 4) | `accounts.registration_tokens.registration_token_kind` (unchanged) | `InviteRegisterView`, `SocialRegistrationAdapter.save_user` |
+| Import user scoping (Rule 5) | `boards/services/trello_import.py` `visible_users` (unchanged); JSON and CSV reach it through `boards/views/import_export.py` `_resolve_import_users` | `BoardImportExportMixin` only. Intentionally outside the enumeration test: it is already one shared function, and every import format enters through the one mixin, so there is no second transport for a copy to drift on. `boards/tests/test_import_user_scope.py` covers it |
 
 REST keeps DRF permission classes. They evaluate the same gate objects as the
 other transports, one gate per class, so that an endpoint a pending user must
@@ -105,7 +106,17 @@ keep a list of them, so a new entry point is checked without anyone adding it:
   place. When the MCP SDK is installed, it also checks that the mounted app is
   wrapped in `BearerAuthMiddleware`.
 - **Invites:** lists every installed model that has `token_hash` and
-  `created_by`.
+  `created_by`. It then parses every non-test module of the installed apps and
+  finds each function that looks one of those models up by its token
+  (`lookup_by_token`, `_hash_token`, or a `token_hash=` filter). Each one must
+  call `invite_creator_is_valid` or a registration refusal function, unless its
+  model is a documented exception.
+- **Pinned call sites:** `REQUIRED_SHARED_CALLS` names the join views, the
+  registration refusal functions, `_sender_still_admits` and the OAuth
+  adapter's `_handle_email_collision`, with the shared calls each must make.
+  The registration paths must call `registration_token_kind`. All of these are
+  checked as real calls in the parsed source, so a mention in a comment does
+  not count.
 
 Each checker also has a negative test. A synthetic view, viewset action,
 consumer, authenticator or invite model that skips the shared check must be
@@ -121,5 +132,27 @@ are marked optional.
 
 The test also runs in the enterprise mirror. Enterprise URL patterns and
 WebSocket routes registered through the extension points are discovered and
-checked like OSS ones. An enterprise view that must be public needs an
-allowlist entry, the same as an OSS view.
+checked like OSS ones.
+
+Enterprise records its own exceptions without editing the OSS test, through an
+optional module, `enterprise.auth_entry_point_allowlist`. The test imports it
+when it is installed and skips it when it is not. The module may define:
+
+- `REST_GATE_ALLOWLIST` and `NON_DRF_ALLOWLIST`: dicts keyed like the OSS ones
+  (`"module.View"` or `"module.View:GET"`). Each value is a dict
+  `{"reason": "...", "routes": ["api/v1/..."], "optional": False}`, so the
+  module does not have to import the test.
+- `ACTIVE_CHECKING_AUTHENTICATORS`: a tuple of additional authenticator classes
+  that refuse inactive accounts.
+
+The entries are merged with the OSS lists and get the same checks, including
+the stale-entry check. An entry that repeats an OSS key fails the test: the
+module adds decisions, it does not override OSS ones.
+
+## Feature-flagged routes
+
+The Issue Board Lens views are mounted only with `GIT_LENS_ENABLED`. The main
+backend CI job runs with the flag off, so the `backend-test-git-lens` job also
+runs this test with the flag on, and the lens views are enumerated there. The
+allowlists contain no flag-dependent entries, so the stale-entry check passes
+either way.

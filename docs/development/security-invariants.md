@@ -31,10 +31,16 @@ Each rule has a statement, the reason it exists, and a table:
 Entry points use file and function names, not line numbers, so the table
 survives edits. Paths are relative to `backend/`. Where a rule has a shared
 implementation, it lives in `visiban/authorization.py` and the "Enforced via"
-column names it. `accounts/tests/test_auth_entry_points.py` discovers the REST,
-WebSocket, MCP, invite and allauth entry points and fails when one skips the
-shared function. [Authorization Entry Points](authorization-entry-points.md)
-says what each entry point calls and how that test finds them.
+column names it. `accounts/tests/test_auth_entry_points.py` enforces Rules 1
+and 2: it discovers every routed REST and non-DRF view, every routed WebSocket
+consumer, the MCP transport, every invite-link model, and every function that
+looks an invite up by its token, and fails when one skips the shared function.
+It also pins the registration and OAuth adapter call sites to the shared
+functions and to `registration_token_kind` (Rule 4 dispatch). It does not
+enumerate Rule 3 (the revocation table is a review checklist) or Rule 5, and it
+does not test locking; the concurrent tests for each consume-once path do.
+[Authorization Entry Points](authorization-entry-points.md) says what each
+entry point calls and how that test finds them.
 
 ## Rule 1: Account-state gates apply to every transport
 
@@ -180,7 +186,12 @@ matched count into an existence oracle for every account on the instance.
    every surface in the rule's table (see
    [Authorization Entry Points](authorization-entry-points.md)). A surface listed
    here and not checked by the test, or the reverse, is a defect in one of the
-   two.
+   two. Exception: Rule 5 already resolves every import format's names through
+   one shared function, `boards/services/trello_import.py` `visible_users`
+   (JSON and CSV reach it through `_resolve_import_users`), and every format
+   enters through the one import mixin. With no second transport for a copy to
+   drift on, it is intentionally outside the enumeration;
+   `boards/tests/test_import_user_scope.py` covers it.
 6. Keep gap tracking out of this page. A surface that needs work is an issue,
    not a row annotation.
 
