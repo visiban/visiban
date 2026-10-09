@@ -27,9 +27,9 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 
 | Module | Mutants | Killed before | Kill rate before | Killed after | Kill rate after (raw) | Excluded (#1503) | Adjusted after | Timeouts |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since; #1504 found the 6 guard survivors in that count are killed, so the figure is 234 of 243 (96.3%) if they are removed from it) | 243 | 166 | 68.3% | 228 | 93.8% | 0 (the 8 #1503 exclusions were deleted in #1505) | 228 of 246 on current code (not re-measured; 246 mutants enumerated, none excluded) | 0 |
+| `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since; #1504 found the 6 guard survivors in that count are killed, so the figure is 234 of 243 (96.3%) if they are removed from it) | 243 | 166 | 68.3% | 228 | 93.8% | 0 (the 8 #1503 exclusions were deleted in #1505) | 238 of 246 = 96.7% (2026-10-09 whole-module re-measure, see [below](#whole-module-re-measure-2026-10-09); 8 survivors, none excluded) | 0 |
 | `CardMovement` (`boards/models.py`; re-measured 2026-10-08, was 28 survivors / 45 killed / 61.6%) | 73 | 28 | 38.4% | 46 | 63.0% | 27 | 46 of 46 = 100% | 0 |
-| `boards/permissions.py` (116 of 120 expected after #1503's two new killed mutants; 114 of 118 = 96.6% measured) | 118 | 44 | 37.3% | 114 | 96.6% | 4 | 114 of 114 = 100% (expected, not re-measured whole-module) | 0 |
+| `boards/permissions.py` (116 of 120 expected after #1503's two new killed mutants; 114 of 118 = 96.6% measured) | 118 | 44 | 37.3% | 114 | 96.6% | 4 | 116 of 116 tested = 100%; 116 of 117 = 99.1% counting 1 mutant that never ran (2026-10-09 whole-module re-measure, see [below](#whole-module-re-measure-2026-10-09)) | 0 |
 | `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | 2 (export 403 `detail` key and text, #1505; the head part of this module was triaged in #1502, see the next row) | n/a | 2 (see below) |
 | `boards/views/import_export.py`, head: helpers, `import_board`, `_import_json`, `import_trello` (2026-10-08, #1502; whole-region run, 0-based lines 0 to 1802; at `f898bf683`, #1449's head code unmeasured, #1546) | 1145 | n/a (not measured on the current code) | n/a | 1111 of 1145 | 97.0% | n/a (unmarked; 32 of 34 survivors are documented as equivalent or redundant below, the other 2 are `_IMPORT_BACKFILL_BATCH` survivors tracked in #1545) | n/a | 2 (killed by timeout, see below) |
 | `boards/views/import_export.py`, `_import_csv` + `export` + `export_history` (2026-10-06, #1484) | 492 | 290 of 492 | 58.9% | 465 of 492 (447 with the #1453 tests only) | 94.5% (90.9%) | 2 (export 403 `detail` key and text, #1505; #1502 covers only the head, the 27 survivors of this region are triaged below as equivalent or covered elsewhere, and none is marked with a pragma; deciding pragma exclusions has no owner other than #1547) | n/a | 0 |
@@ -127,6 +127,18 @@ Each module was split across 16 parallel copies of the tree (see [Parallel runs]
 | `boards/views/import_export.py` | ~31 min | ~7.2 h |
 
 Plan on the whole-module `import_export.py` run being the expensive one. A serial run of the movement service alone is about two hours.
+
+### Whole-module re-measure (2026-10-09)
+
+Re-measures the two rows that were marked "expected, not re-measured". Run with mutmut 2.5.1 on throwaway copies of `backend/` at `b90447652` (`cards.py` in 8 shards, `permissions.py` in 4, `line_index % N` sharding, SQLite, `-x` per mutant). Both modules are byte-identical on `main` at `e8be1a22f`. `cards.py` ran against the full test list in the table above (scoped files, the view suites and both gap files); `permissions.py` against its four scoped files. Counts are summed over the shards' `.mutmut-cache` files.
+
+| Module | Mutants | Killed | Survived | Untested | Kill rate |
+|---|---:|---:|---:|---:|---:|
+| `boards/services/cards.py` | 246 | 238 | 8 | 0 | 96.7% |
+| `boards/permissions.py` | 117 | 116 | 0 | 1 | 99.1% (100% of the 116 that ran) |
+
+- **`cards.py` survivors (8), not yet classified.** They sit on lines 217 and 218 (the `CARD_MUTATION_HOOKS` failure log's format string and its `__qualname__` argument), 329 and 330 (`check_wip=True`, `check_weight=True` and `lock=True` in a signature), 364 (`weight_enforced = check_weight and board.enforce_weight_limits`), 422 and 935 (`force=False` in two service signatures), and 460 (a call passing `lock=False`). The `lock` mutants are the kind the [PostgreSQL re-run](#postgresql-re-run-of-the-select_for_update-guards-1504) shows survive on SQLite; the others have not been triaged. The #1511 label mutant is not among them.
+- **`permissions.py` untested mutant (1).** Mutant 117, on the `group_roles = dict(...)` statement (line 316, the closing `)`), was registered in the cache of every shard but never run, and `mutmut show 117` prints nothing for it. The cause is not known. It is reported as untested rather than as killed, so the raw rate is 116 of 117. The module has 117 mutants here against 118 in the baseline row; the two counts were not reconciled, because the cache omits lines carrying `# pragma: no mutate`.
 
 ## Survivor classification
 
