@@ -226,7 +226,7 @@ def _status_counts(rows) -> dict[str, int]:
 
 
 def export_cache(cache: Path, enumerate_fn=enumerate_mutants, line_range: LineRange | None = None,
-                 target: str | None = None) -> dict[str, int | str]:
+                 target: str | None = None, source: str | None = None) -> dict[str, int | str]:
     """Count mutants per verdict from a mutmut 2.x ``.mutmut-cache`` file.
 
     Only the mutants mutmut generates for the cached source files are counted
@@ -236,6 +236,11 @@ def export_cache(cache: Path, enumerate_fn=enumerate_mutants, line_range: LineRa
     ``untested``. ``excluded`` is the number of proven-equivalent mutants
     (``# pragma: no mutate``) that are not in the cache at all, per target like
     ``total``.
+
+    A cache that holds no generated mutant at all (or, with ``source``, none for
+    that file) is refused: mutmut registers mutants only after its baseline test
+    run passes, so an empty cache means the run died before mutating anything,
+    and a shard reporting ``total: 0`` would read as a complete, empty target.
     """
     # The resolved path, not the raw argument, is what reaches the sink (#1377).
     cache = resolve_within(cli_roots(), cache)
@@ -258,6 +263,9 @@ def export_cache(cache: Path, enumerate_fn=enumerate_mutants, line_range: LineRa
                 stats["target"] = target
             return stats
         files = con.execute('SELECT id, filename FROM "SourceFile"').fetchall()
+        if source is not None and not any(Path(name) == Path(source) for _, name in files):
+            raise ExportError(f"{cache} has no mutants for {source}: mutmut never registered the file, "
+                              "most likely because its baseline test run failed. Check the job log above.")
         rows = con.execute('SELECT l.sourcefile, l.line_number, m."index", m.status FROM "Mutant" m '
                            'JOIN "Line" l ON m.line = l.id').fetchall()
     finally:
@@ -297,6 +305,9 @@ def export_cache(cache: Path, enumerate_fn=enumerate_mutants, line_range: LineRa
     stats = dict(_status_counts(counts.items()))
     stats["untested"] += missing
     stats["total"] = sum(v for v in stats.values() if isinstance(v, int))
+    if stats["total"] == 0:
+        raise ExportError(f"{cache} holds no mutant mutmut generates{' in lines %d-%d' % line_range if line_range else ''}; "
+                          "the run died before mutating anything (a failed baseline test run, most likely).")
     # Counted after `total`: excluded mutants are not in the cache and phantoms are not mutants.
     stats.update(excluded=excluded, phantom=phantom)
     if target:
@@ -728,6 +739,16 @@ def _self_test() -> int:
         ):
             got_rc = _run_real_script(paths, floor, expect)
             check(name, got_rc == want, f"exited {got_rc}, expected {want}")
+        # A target whose run died: total 0 (or nothing scoreable) is not measured, even though
+        # 0 == 0 passes the shard-consistency check and the other targets are fine.
+        dead_b = write("b0dead.json", tagged("b", total=0))
+        code, err = _run_real_script_full([multi[0], multi[1], dead_b], "0.5", spec)
+        check("a target with total 0 is not measured, not dropped from the merge",
+              code == 2 and "target b:" in err and "no scoreable" in err, f"exit {code}, stderr {err!r}")
+        skipped_b = write("b0skip.json", tagged("b", skipped=50, total=50))
+        code, err = _run_real_script_full([multi[0], multi[1], skipped_b], "0.5", spec)
+        check("a target with nothing scoreable is not measured",
+              code == 2 and "target b:" in err, f"exit {code}, stderr {err!r}")
         bad_a = write("a1bad.json", tagged("a", killed=41, survived=5, skipped=54, total=100, excluded=4))
         code, err = _run_real_script_full([multi[0], bad_a, multi[2]], None, spec)
         check("a target's shards that do not partition its total are named",
@@ -887,6 +908,26 @@ def _self_test() -> int:
             code, err = _run_real_script_full([vdir / "out.json"], None, extra=["--export-cache", str(vcache)])
             check("--export-cache on a non-generated row with a verdict is exit 2 (not measured)",
                   code == 2 and "NOT MEASURED" in err and "does not match" in err, f"exit {code}, stderr {err!r}")
+        # A run that died before mutmut registered anything: SourceFile/Line/Mutant exist but are
+        # empty, or hold another file. The export must refuse it, never write `total: 0`.
+        edir = src_dir / "empty"
+        edir.mkdir()
+        (edir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
+        for name, rows, source in (("an empty cache", [], None),
+                                   ("a cache without the target's file", [("plain.py", 0, 0, "ok_killed")], "mod.py")):
+            (edir / ".mutmut-cache").unlink(missing_ok=True)
+            if not (edir / "plain.py").exists():
+                (edir / "plain.py").write_text("c = 3\n", "utf-8")
+            try:
+                export_cache(make_cache(edir / ".mutmut-cache", rows), fake_enumerate, source=source)
+                refused = False
+            except ExportError:
+                refused = True
+            check(f"export_cache refuses {name}", refused)
+        code, err = _run_real_script_full([edir / "out.json"], None, extra=["--export-cache", str(edir / ".mutmut-cache"),
+                                                                            "--source", "mod.py"])
+        check("--export-cache --source on a cache without the file is exit 2",
+              code == 2 and "NOT MEASURED" in err and "no mutants for mod.py" in err, f"exit {code}, stderr {err!r}")
         mdir = src_dir / "missing"
         mdir.mkdir()
         (mdir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
@@ -1049,6 +1090,9 @@ def main(argv: list[str] | None = None) -> int:
                              "not read as a smaller, complete run")
     parser.add_argument("--target", metavar="NAME",
                         help="with --export-cache: tag the stats with this target name (the merge groups by it)")
+    parser.add_argument("--source", metavar="PATH",
+                        help="with --export-cache: the file the target mutates, as given to --paths-to-mutate; "
+                             "exit 2 if the cache has no mutants for it")
     parser.add_argument("--line-range", metavar="LO:HI",
                         help="with --export-cache: count only mutants on these 0-based lines (inclusive), "
                              "for a target that is one class of a module")
@@ -1095,7 +1139,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
         try:
-            stats = export_cache(args.export_cache, line_range=line_range, target=args.target)
+            stats = export_cache(args.export_cache, line_range=line_range, target=args.target, source=args.source)
         except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
@@ -1147,6 +1191,16 @@ def main(argv: list[str] | None = None) -> int:
         if problem is not None:
             reason = f"target {name}: {problem}" if name else problem
     per_target = {name: _merge(group) for name, group in groups.items()}
+    for name, target_stats in per_target.items():
+        if reason is not None or not name:
+            break
+        # Judged per target, not only on the merged score: a target whose run died
+        # (total 0, or nothing scoreable) would otherwise drop out of the merged
+        # denominator and the floor would be judged on the other targets alone.
+        target_counts = {k: v for k, v in target_stats.items() if isinstance(v, int)}
+        if target_counts.get("total", 0) == 0 or compute_score(target_counts) is None:
+            reason = (f"target {name}: no scoreable mutant (total {target_counts.get('total', 0)}); "
+                      "its run died, so the merged score would describe the other targets only.")
     stats = _merge_targets(per_target) if len(per_target) != 1 else dict(next(iter(per_target.values())))
     counts = {k: v for k, v in stats.items() if isinstance(v, int)}
     score = compute_score(counts)

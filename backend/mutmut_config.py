@@ -25,7 +25,9 @@ earlier ``line_index % N`` split left some shards twice as full as others,
 because mutants cluster on a few lines.) A target with a ``scope`` class only
 deals the mutants inside that class and skips the rest; the range is computed
 from the code with ``ast`` on every run, never hardcoded, because the class
-moves whenever ``models.py`` changes. Outside CI with no ``MUTATION_TARGET`` the
+moves whenever ``models.py`` changes. With ``MUTATION_TARGET`` set but no
+``MUTATION_SHARD`` (a hand run), every mutant of the target runs; the CI driver
+always sets ``MUTATION_SHARD``. Outside CI with no ``MUTATION_TARGET`` the
 hook falls back to a bare ``MUTATION_SHARDS``/``MUTATION_SHARD`` split by line
 (one shard and all lines when those are unset too), so a hand run with
 ``--paths-to-mutate`` behaves as before.
@@ -99,7 +101,7 @@ _IMPORT_EXPORT_TESTS = (
 )
 
 # Shard counts come from the per-mutant cost in docs/development/mutation-testing.md
-# (CI pilot, "Shard arithmetic"): each shard is sized to finish well inside the job's
+# (Nightly CI job, "Shard arithmetic"): each shard is sized to finish well inside the job's
 # `timeout:`. Changing a count means changing `parallel:` on backend-mutation too;
 # `self-test --ci-file` fails the MR until both agree.
 # GitLab lets one job `needs:` at most 50 jobs, and backend-mutation-report needs every shard.
@@ -205,7 +207,9 @@ def target_mutants(target: Target) -> list[Mutant]:
 
 @dataclass(frozen=True)
 class _Active:
-    shard: int
+    shard: (
+        int | None
+    )  # None: no MUTATION_SHARD, so a hand run of a target runs all its shards
     shards: int
     assignment: dict[Mutant, int] | None  # None: hand run, split by line only
 
@@ -223,7 +227,9 @@ def _active() -> _Active:
         if name:
             target = get_target(name)
             _ACTIVE = _Active(
-                shard, target.shards, assign(target, target_mutants(target))
+                shard if "MUTATION_SHARD" in os.environ else None,
+                target.shards,
+                assign(target, target_mutants(target)),
             )
         else:
             _ACTIVE = _Active(shard, shards, None)
@@ -231,6 +237,8 @@ def _active() -> _Active:
 
 
 def _skip(active: _Active, line: int, index: int) -> bool:
+    if active.assignment is not None and active.shard is None:
+        return (line, index) not in active.assignment
     if active.assignment is not None:
         # Outside the class range, or a mutant the enumeration does not know: no shard runs
         # it. The export then counts it untested (fail closed) unless it is a cache phantom.
@@ -291,6 +299,10 @@ def _run(node_index: int, node_total: int) -> int:
         ".mutmut-cache",
         "--target",
         target.name,
+        # Exit 2 if mutmut never registered this file (its baseline test run died):
+        # mutmut's own exit code cannot say so, since survivors also make it non-zero.
+        "--source",
+        target.path,
     ]
     if rng:
         export += ["--line-range", f"{rng[0]}:{rng[1]}"]
@@ -438,6 +450,13 @@ def _check_partition(target: Target) -> list[str]:
     if bad_outside:
         problems.append(
             f"{target.name}: {len(bad_outside)} mutants outside class {target.scope} are run"
+        )
+    hand = _Active(None, target.shards, assignment)
+    hand_runs = [m for m in mutants if not _skip(hand, *m)]
+    if sorted(hand_runs) != sorted(inside):
+        problems.append(
+            f"{target.name}: a hand run without MUTATION_SHARD runs {len(hand_runs)} mutants, "
+            f"not the {len(inside)} of the whole range"
         )
     if per_shard and max(per_shard) - min(per_shard) > 1:
         problems.append(f"{target.name}: uneven shards {per_shard}")

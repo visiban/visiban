@@ -138,7 +138,7 @@ Re-measures the two rows that were marked "expected, not re-measured". Run with 
 | `boards/permissions.py` | 117 | 116 | 0 | 1 | 99.1% (100% of the 116 that ran) |
 
 - **`cards.py` survivors (8), not yet classified.** They sit on lines 217 and 218 (the `CARD_MUTATION_HOOKS` failure log's format string and its `__qualname__` argument), 329 and 330 (`check_wip=True`, `check_weight=True` and `lock=True` in a signature), 364 (`weight_enforced = check_weight and board.enforce_weight_limits`), 422 and 935 (`force=False` in two service signatures), and 460 (a call passing `lock=False`). The `lock` mutants are the kind the [PostgreSQL re-run](#postgresql-re-run-of-the-select_for_update-guards-1504) shows survive on SQLite; the others have not been triaged. The #1511 label mutant is not among them.
-- **`permissions.py` untested mutant (1).** Mutant 117, on the `group_roles = dict(...)` statement (line 316, the closing `)`), was registered in the cache of every shard but never run, and `mutmut show 117` prints nothing for it. The cause is not known. It is reported as untested rather than as killed, so the raw rate is 116 of 117. The module has 117 mutants here against 118 in the baseline row; the two counts were not reconciled, because the cache omits lines carrying `# pragma: no mutate`.
+- **`permissions.py` untested mutant (1).** Mutant 117, on the `group_roles = dict(...)` statement (line 316, the closing `)`), was registered in the cache of every shard but never run, and `mutmut show 117` prints nothing for it. It was later explained as a mutmut 2.5.1 **phantom** row (see [How it works](#how-it-works) under the nightly job): no such mutant exists, and the export now drops it. Here it was reported as untested rather than as killed, so the raw rate is 116 of 117; without the phantom it is 116 of 116. The module has 117 mutants here against 118 in the baseline row; the two counts were not reconciled, because the cache omits lines carrying `# pragma: no mutate`.
 
 ## Survivor classification
 
@@ -281,7 +281,7 @@ For the other modules, swap `--paths-to-mutate` and the test files using the tab
 
 ### Restricting to one class
 
-mutmut imports `mutmut_config.py` from the working directory automatically. The committed `backend/mutmut_config.py` is the CI hook. With `MUTATION_TARGET=card_movement` exported it already restricts the run to `CardMovement` (range computed from the code), and with no variables set it skips nothing; the variant below is for an arbitrary range. To restrict a run to a line range, overwrite it **in the throwaway copy only**:
+mutmut imports `mutmut_config.py` from the working directory automatically. The committed `backend/mutmut_config.py` is the CI hook. With `MUTATION_TARGET=card_movement` exported it already restricts the run to `CardMovement` (range computed from the code) and, unless `MUTATION_SHARD=k` is also set, runs every mutant of that range (the CI driver sets `MUTATION_SHARD` per job); with no variables set it skips nothing. The variant below is for an arbitrary range. To restrict a run to a line range, overwrite it **in the throwaway copy only**:
 
 ```python
 # mutmut_config.py -- in the throwaway copy only; do not commit over the shard hook
@@ -428,7 +428,7 @@ The shard total is capped at 50: `backend-mutation-report` `needs:` every shard,
 
 #### Runner load
 
-The run costs about 1270 runner-minutes of mutants plus about 220 of setup (44 x 5), roughly **25 runner-hours a night**. As of 2026-10-08 only three self-hosted runners that take untagged jobs are online (two NUCs and the Dell, [CI runners](../maintainers/ci-runners.md)); at, say, two jobs per runner at a time the 44 shards take about 6 hours of wall time, so a run that starts at 05:00 UTC holds the runners until about 11:00 UTC and overlaps the morning's MR and `main` pipelines, which queue behind it. The jobs carry no `tags:`: [CI runners](../maintainers/ci-runners.md) has no pin convention for heavy scheduled jobs (`nuc` is reserved for the latency-sensitive load test, and pinning 44 jobs to two NUCs would only lengthen the queue), so like every untagged job they can also be picked up by a GitLab SaaS runner if one is available to the project. Watch the queue during the observation week. If the overlap hurts, the cheapest fix is a separate weekly schedule (for example Saturday 05:00 UTC) carrying `MUTATION_TEST=true` instead of the Nightly one; that is a schedule change for a maintainer, and `schedule-config-check` needs the variable on whichever schedule runs it.
+The run costs about 1270 runner-minutes of mutants plus about 220 of setup (44 x 5), roughly **25 runner-hours a night**. As of 2026-10-08 only three self-hosted runners that take untagged jobs are online (two NUCs and the Dell, [CI runners](../maintainers/ci-runners.md)); at, say, two jobs per runner at a time (6 slots) the run takes about 1493 / 6 = 250 minutes, about 4.2 hours, or about 4.7 hours counting 8 waves of the ~35-minute jobs. A run that starts at 05:00 UTC holds the runners until about 09:45 UTC and overlaps the morning's MR and `main` pipelines, which queue behind it. The jobs carry no `tags:`: [CI runners](../maintainers/ci-runners.md) has no pin convention for heavy scheduled jobs (`nuc` is reserved for the latency-sensitive load test, and pinning 44 jobs to two NUCs would only lengthen the queue), so like every untagged job they can also be picked up by a GitLab SaaS runner if one is available to the project. Watch the queue during the observation week. If the overlap hurts, the cheapest fix is a separate weekly schedule (for example Saturday 05:00 UTC) carrying `MUTATION_TEST=true` instead of the Nightly one; that is a schedule change for a maintainer, and `schedule-config-check` needs the variable on whichever schedule runs it.
 
 `--reuse-db` keeps pytest-django from creating the PostgreSQL test database and replaying every migration for each mutant. The schema comes from the migration files, which no mutant touches, so reusing it cannot change a verdict.
 
@@ -462,11 +462,10 @@ About 145 `import_export` mutants (1780 now against 1635 measured) belong to cod
 
 ### Maintainer steps and what comes next
 
-1. After the #1384 MR merges, add `MUTATION_TEST=true` to the Nightly schedule (4176726). Until then the jobs never run. `MUTATION_TEST` is in `SCHEDULE_AUDIT_ACCEPTED_GAPS` so `schedule-config-check` does not report it MISSING.
-2. Remove `MUTATION_TEST` from `SCHEDULE_AUDIT_ACCEPTED_GAPS` in `.gitlab-ci.yml` once the schedule carries it (not machine-checked). That is part of the follow-up MR.
-3. Observation week: read each night's `backend-mutation-report` log (per-target lines and the merged score) and the shard durations. Resize shards in `TARGETS` (and `parallel:`) if any shard runs near the timeout.
-4. Follow-up MR on #1384: set `allow_failure: false` on `backend-mutation-report` (keep it on the shard jobs, whose verdict the report already judges), remove the `SCHEDULE_AUDIT_ACCEPTED_GAPS` entry, and record the observed scores here. #1384 stays open until then.
-5. Triage survivors as described in [How to read the results](#how-to-read-the-results).
+1. Done: the Nightly schedule (4176726) carries `MUTATION_TEST=true`, and `MUTATION_TEST` is no longer in `SCHEDULE_AUDIT_ACCEPTED_GAPS` (the list is empty). A nightly that runs before the #1384 nightly-targets MR merges runs `main`'s old 4-shard `permissions.py` pilot, which exits 2 (not measured) on the mutmut phantom row described above; that is expected and stops once the MR merges.
+2. Observation week: read each night's `backend-mutation-report` log (per-target lines and the merged score) and the shard durations. Resize shards in `TARGETS` (and `parallel:`) if any shard runs near the timeout.
+3. Follow-up MR on #1384, the only remaining step: set `allow_failure: false` on `backend-mutation-report` (keep it on the shard jobs, whose verdict the report already judges) and record the observed scores here. #1384 stays open until then.
+4. Triage survivors as described in [How to read the results](#how-to-read-the-results).
 
 ## Limits of this baseline
 

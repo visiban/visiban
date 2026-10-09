@@ -4251,9 +4251,11 @@ docs-deploy:
 #   Target branch: main
 #   Variables   : CVE_SCAN=true OSV_SCAN=true SONAR_SCHEDULED=true
 #                 FUZZ_DEEP=true KAIZEN_YIELD_WATCH=true MUTATION_TEST=true
-#                 (MUTATION_TEST is added by hand after the #1384 nightly-targets
-#                 MR merges; it runs backend-mutation's 44 shards, about 25
-#                 runner-hours a night by the estimate in mutation-testing.md)
+#                 (MUTATION_TEST added by hand for #1384; with the #1384
+#                 nightly-targets MR merged it runs backend-mutation's 44 shards,
+#                 about 25 runner-hours a night by the estimate in
+#                 mutation-testing.md. Before that MR merges it runs main's old
+#                 4-shard permissions pilot, which exits 2 on mutmut's phantom row)
 # nightly-load-test keeps its own 03:00 schedule (LOAD_TEST_SCHEDULE=true):
 # its latency budgets are noisy on a busy runner. The full schedule table, and
 # what red means for each job, is in docs/development/ci-gates.md.
@@ -4489,30 +4491,19 @@ nightly-load-test:
 # only. Before #1383 the script also stopped at the rejected CI_JOB_TOKEN and
 # never tried GITLAB_API_TOKEN at all; it now falls through.
 #
-# SCHEDULE_AUDIT_ACCEPTED_GAPS below lists gaps #1213's own audit already
-# found and filed as #1232 — a documented, temporary exception (same shape as
+# SCHEDULE_AUDIT_ACCEPTED_GAPS (unset here, so empty) once listed gaps #1213's own
+# audit found and filed as #1232 — a documented, temporary exception (same shape as
 # check-release-images' ACCEPTED_GAPS), not a way to quiet this gate
-# permanently. #1232's entries are all resolved. The one entry now is
-# MUTATION_TEST (#1384): the nightly backend-mutation jobs' rules read it, but no
-# schedule can set it until the #1384 MR has merged and a maintainer adds it to
-# the Nightly schedule by hand, so without the entry every scheduled pipeline in
-# between would report it MISSING. Remove the entry (the script defaults the list
-# to empty) once the schedule carries the variable; see the comment on the
-# variable below.
+# permanently. #1232's entries are all resolved, and MUTATION_TEST (#1384), the
+# last temporary entry, was removed once the Nightly schedule carried it, so the
+# list is empty (the script's default) and every schedule-gated variable must
+# be on an active schedule.
 schedule-config-check:
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-  variables:
-    # Temporary (tracked in #1384, not machine-checked): MUTATION_TEST gates the
-    # nightly backend-mutation jobs. A maintainer must add MUTATION_TEST=true to the
-    # Nightly schedule (4176726) by hand after the #1384 MR merges, then remove
-    # this variable (the script defaults the list to empty). The schedule must
-    # carry the variable BEFORE this entry is removed, or the next scheduled
-    # pipeline reports it MISSING.
-    SCHEDULE_AUDIT_ACCEPTED_GAPS: "MUTATION_TEST"
   before_script:
     - apk add --no-cache bash curl jq
   script:
