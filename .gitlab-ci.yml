@@ -3734,8 +3734,13 @@ image-attest-selftest:
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      # The self-test also reads both identity regexps out of the verification
+      # doc, so a docs-only regexp edit must run it too; .gitlab-ci.yml because
+      # the jobs that call the script live there.
       changes: &image-attest-selftest-paths
         - scripts/attest-image-sbom.sh
+        - docs/administration/image-verification.md
+        - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *image-attest-selftest-paths
   before_script:

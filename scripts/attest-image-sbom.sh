@@ -182,7 +182,7 @@ signer_identities() {
       jq -r -s '.[] | if type=="array" then .[] else . end | .optional.Subject? // empty' "$1" 2>/dev/null || true
       [ -n "${2:-}" ] && sed -n 's/^Certificate subject: *//p' "$2" 2>/dev/null || true
     } | sort -u | paste -sd, - )"
-  if [ -n "$ids" ]; then echo "$ids"; else echo "(identity not reported; matched $(project_identity_regexp))"; fi
+  if [ -n "$ids" ]; then echo "$ids"; else echo "(identity not reported; matched $(skip_identity_regexp))"; fi
 }
 
 # this_identity — the exact certificate SAN this job's keyless cert carries.
@@ -200,6 +200,23 @@ project_identity_regexp() {
   local base
   base="$(printf '%s' "${CI_SERVER_URL}/${CI_PROJECT_PATH}" | sed 's/[.]/\\./g')"
   echo "^${base}//\\.gitlab-ci\\.yml@refs/(tags/v[0-9][^/]*|heads/${CI_DEFAULT_BRANCH:-main})\$"
+}
+
+# skip_identity_regexp — which existing signer lets this run SKIP a digest.
+# On a tag pipeline: a release-tag identity only. If the backfill job (main
+# identity) got there first, its signature must NOT satisfy the tag job — the
+# docs tell operators to verify releases with the tag-only regexp, so the tag
+# job signs/attests anyway and the release verifies the recommended way.
+# Off a tag (the backfill job): either identity, so a backfill never stacks a
+# duplicate on a release that is already covered.
+skip_identity_regexp() {
+  local base
+  base="$(printf '%s' "${CI_SERVER_URL}/${CI_PROJECT_PATH}" | sed 's/[.]/\\./g')"
+  if [ -n "${CI_COMMIT_TAG:-}" ]; then
+    echo "^${base}//\\.gitlab-ci\\.yml@refs/tags/v[0-9][^/]*\$"
+  else
+    project_identity_regexp
+  fi
 }
 
 # ─── main flow ───────────────────────────────────────────────────────────────
@@ -226,7 +243,7 @@ attest_repo() {
   fi
 
   identity="$(this_identity)"
-  regexp="$(project_identity_regexp)"
+  regexp="$(skip_identity_regexp)"
   issuer="${CI_SERVER_URL}"
 
   # Signature: index + each platform manifest (--recursive).
@@ -453,32 +470,67 @@ while [ $# -gt 0 ]; do case "$1" in
 arch="${ver##*-}"; [ -n "${STUB_SYFT_ARCH:-}" ] && arch="$STUB_SYFT_ARCH"
 printf '{"metadata":{"component":{"name":"%s","version":"%s"}},"components":[{"purl":"pkg:deb/debian/p@1?arch=%s"}]}' "$name" "$ver" "$arch" > "$out"
 STUB
+  # cosign stub: records WHO signed (the identity this CI context would get)
+  # and honors --recursive (without it only the targeted digest is signed), and
+  # verify/verify-attestation match --certificate-identity(-regexp) against the
+  # recorded signer, the way real cosign does.
   cat > "${S}/bin/cosign" <<'STUB'
 #!/usr/bin/env bash
 set -eu
 cmd="$1"; shift
-ref=""; pred=""
+ref=""; pred=""; want_id=""; want_re=""; recursive=0
 for a in "$@"; do case "$a" in *@sha256:*) ref="$a" ;; esac; done
-while [ $# -gt 0 ]; do [ "$1" = "--predicate" ] && pred="$2"; shift; done
-key="$(printf '%s' "$ref" | tr '/@:' '___')"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --predicate) pred="$2" ;;
+    --certificate-identity) want_id="$2" ;;
+    --certificate-identity-regexp) want_re="$2" ;;
+    --recursive) recursive=1 ;;
+  esac
+  shift
+done
+if [ -n "${CI_COMMIT_TAG:-}" ]; then
+  me="https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/${CI_COMMIT_TAG}"
+else
+  me="https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/heads/${CI_COMMIT_REF_NAME:-main}"
+fi
+repo="$(printf '%s' "${ref%@*}" | tr '/' '_')"
+case "$ref" in *sha256:aaaa*) d=aaaa ;; *sha256:bbbb*) d=bbbb ;; *) d=1111 ;; esac
 echo "$cmd $ref" >> "${STUB}/calls.log"
+# matching_signers <state-prefix> — identities on file that satisfy the request.
+matching_signers() {
+  for f in "${STUB}/state/$1".*; do
+    [ -f "$f" ] || continue
+    who="$(head -1 "$f")"
+    if [ -n "$want_id" ]; then [ "$who" = "$want_id" ] || continue; fi
+    if [ -n "$want_re" ]; then printf '%s' "$who" | grep -E -q "$want_re" || continue; fi
+    echo "$f"
+  done
+}
 case "$cmd" in
-  sign) repo="$(printf '%s' "${ref%@*}" | tr '/' '_')"
-    for d in aaaa bbbb 1111; do touch "${STUB}/state/sig-${repo}-${d}"; done ;;
+  sign)
+    n="$(ls "${STUB}/state/" | grep -c "^sig-${repo}-${d}\." || true)"
+    if [ "$recursive" = 1 ]; then targets="aaaa bbbb 1111"; else targets="$d"; fi
+    for t in $targets; do echo "$me" > "${STUB}/state/sig-${repo}-${t}.${n}-$$"; done ;;
   verify)
-    repo="$(printf '%s' "${ref%@*}" | tr '/' '_')"
-    case "$ref" in *sha256:aaaa*) d=aaaa ;; *sha256:bbbb*) d=bbbb ;; *) d=1111 ;; esac
-    [ -f "${STUB}/state/sig-${repo}-${d}" ] || exit 1
-    echo '[{"critical":{},"optional":{"Subject":"https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0"}}]' ;;
-  attest) cp "$pred" "${STUB}/state/att-${key}" ;;
+    found="$(matching_signers "sig-${repo}-${d}")"
+    [ -n "$found" ] || { echo "Error: no matching signatures" >&2; exit 1; }
+    for f in $found; do printf '[{"critical":{},"optional":{"Subject":"%s"}}]\n' "$(head -1 "$f")"; done ;;
+  attest)
+    f="${STUB}/state/att-${repo}-${d}.$$"
+    { echo "$me"; cat "$pred"; } > "$f" ;;
   verify-attestation)
     [ "${STUB_VERIFY_EMPTY:-0}" = 1 ] && exit 0
-    [ -f "${STUB}/state/att-${key}" ] || exit 1
+    found="$(matching_signers "att-${repo}-${d}")"
+    [ -n "$found" ] || { echo "Error: no matching attestations" >&2; exit 1; }
     hex="${ref##*sha256:}"
-    echo "Certificate subject: https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.2.0" >&2
-    jq -c -n --slurpfile p "${STUB}/state/att-${key}" --arg d "$hex" \
-      '{predicateType:"https://cyclonedx.org/bom",subject:[{digest:{sha256:$d}}],predicate:$p[0]}' \
-      | base64 | tr -d '\n' | jq -R -c '{payload:.}' ;;
+    for f in $found; do
+      echo "Certificate subject: $(head -1 "$f")" >&2
+      tail -n +2 "$f" > "${STUB}/pred.json"
+      jq -c -n --slurpfile p "${STUB}/pred.json" --arg d "$hex" \
+        '{predicateType:"https://cyclonedx.org/bom",subject:[{digest:{sha256:$d}}],predicate:$p[0]}' \
+        | base64 | tr -d '\n' | jq -R -c '{payload:.}'
+    done ;;
 esac
 STUB
   chmod +x "${S}/bin/"*
@@ -488,7 +540,7 @@ STUB
     while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
     env PATH="${S}/bin:${PATH}" STUB="$S" GITLAB_CI=true CI_JOB_ID=1 SIGSTORE_ID_TOKEN=x \
       CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_TAG=v1.2.0 \
-      ${envs[@]+"${envs[@]}"} bash "$SELF" "$@"
+      ${envs[@]+"${envs[@]}"} bash "${FLOW_SCRIPT:-$SELF}" "$@"
   }
   reset_stub() { rm -f "${S}/state/"* "${S}/calls.log"; cp "${T}/idx-good.json" "${S}/index.json"; }
   count_calls() { if [ -f "${S}/calls.log" ]; then grep -c "^$1 " "${S}/calls.log" || true; else echo 0; fi; }
@@ -519,6 +571,27 @@ STUB
   expect_err "flow: refuses outside CI"                "outside GitLab CI" run_flow GITLAB_CI= -- --image backend --tag v1.2.0 --registry reg.a
   check "flow: no cosign call outside CI" [ ! -s "${S}/calls.log" ]
   expect_ok  "flow: --dry-run works outside CI"        run_flow GITLAB_CI= SIGSTORE_ID_TOKEN= -- --image frontend --tag v1.2.0 --registry reg.a --dry-run
+  # --recursive must be what signs the platform manifests: a copy of this
+  # script with the flag dropped has to fail its own post-sign verify.
+  reset_stub
+  sed 's/cosign sign --yes --recursive /cosign sign --yes /' "$SELF" > "${T}/no-recursive.sh"
+  # shellcheck disable=SC2016 # literal ${repo}/${index_digest}: matching source text, not expanding it.
+  check "flow: mutation fixture really drops --recursive" grep -q '^    cosign sign --yes "\${repo}@\${index_digest}"$' "${T}/no-recursive.sh"
+  FLOW_SCRIPT="${T}/no-recursive.sh" expect_err "flow: missing --recursive is caught (platform digest unsigned)" "right after signing" run_flow -- --image backend --tag v1.2.0 --registry reg.a
+
+  # Identity-aware skip: backfill (main identity) first, then the tag job.
+  reset_stub
+  expect_ok  "flow: backfill (main identity) signs + attests" run_flow CI_COMMIT_TAG= CI_COMMIT_REF_NAME=main -- --image backend --tag v1.2.0 --registry reg.a
+  check "flow: backfill made 1 sign, 2 attests" [ "$(count_calls sign)/$(count_calls attest)" = 1/2 ]
+  expect_ok  "flow: tag job after backfill"            run_flow -- --image backend --tag v1.2.0 --registry reg.a
+  check "flow: a main-identity signature does not let the TAG job skip" [ "$(count_calls sign)/$(count_calls attest)" = 2/4 ]
+  expect_ok  "flow: tag job re-run"                    run_flow -- --image backend --tag v1.2.0 --registry reg.a
+  check "flow: tag job re-run skips (its own identity now present)" [ "$(count_calls sign)/$(count_calls attest)" = 2/4 ]
+  expect_ok  "flow: backfill after a tag signature"    run_flow CI_COMMIT_TAG= CI_COMMIT_REF_NAME=main -- --image backend --tag v1.2.0 --registry reg.a
+  check "flow: backfill accepts an existing tag identity and skips" [ "$(count_calls sign)/$(count_calls attest)" = 2/4 ]
+  expect_eq  "id: tag-pipeline skip regexp is tag-only" '^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$' \
+    env CI_SERVER_URL=https://gitlab.com CI_PROJECT_PATH=visiban/visiban CI_COMMIT_TAG=v1.2.0 bash "$SELF" _t skip_identity_regexp
+
   expect_err "args: bad image refused"                 "--image must be" run_flow -- --image web --tag v1.2.0 --registry reg.a
   expect_err "args: bare version tag refused"          "--tag must be" run_flow -- --image backend --tag 1.2.0 --registry reg.a
   expect_err "args: multi-line tag refused end to end" "--tag must be" run_flow -- --image backend --tag "$(printf 'v1.2.0\nx')" --registry reg.a
@@ -544,7 +617,7 @@ STUB
 if [ "${1:-}" = "_t" ]; then
   shift
   case "${1:-}" in
-    index_platform_digest|assert_sbom|assert_attestations|require_ci|this_identity|project_identity_regexp|arch_aliases|validate_tag|signer_identities) ;;
+    index_platform_digest|assert_sbom|assert_attestations|require_ci|this_identity|project_identity_regexp|skip_identity_regexp|arch_aliases|validate_tag|signer_identities) ;;
     *) die "'${1:-}' is not a self-test helper" ;;
   esac
   "$@"

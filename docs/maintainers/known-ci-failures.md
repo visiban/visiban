@@ -234,9 +234,12 @@ check. Common causes:
   but serves nothing back. Usually transient (registry or Rekor). Retry once.
 - Sigstore (Fulcio/Rekor) outage: wait and retry.
 
-**Retrying is safe.** The script skips any digest that already carries a verifying
-signature or SBOM from this project, and logs which certificate identity matched. A retry
-therefore finishes only what is missing and stacks no duplicates. The script's `--force`
+**Retrying is safe.** On a tag pipeline the script skips any digest that already carries a
+verifying signature or SBOM from a **release tag** identity, and logs which identity matched.
+A retry therefore finishes only what is missing and stacks no duplicates. A signature left
+by the backfill job (`@refs/heads/main`) does not count, so the tag job signs over it and
+the release still verifies with the tag-only regexp. The backfill job accepts either
+identity. The script's `--force`
 flag re-attests digests that already verify, for example after a bad SBOM was attached. No CI
 job passes it, so using it takes a deliberate one-off change on a branch. It is never a
 routine retry.

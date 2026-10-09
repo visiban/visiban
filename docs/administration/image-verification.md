@@ -102,7 +102,14 @@ carry no image signature or SBOM, and `cosign verify` reports `no signatures fou
 This means the image was never signed. It does not mean the image was tampered with.
 Maintainers can bring an already-published release up to the same bar without re-cutting
 it: the manual `image-attest-backfill` CI job on `main` signs and attests a given tag's
-images on both registries, and skips any digest that already verifies.
+images on both registries. It skips any digest that already carries a verifying signature
+or SBOM from either a release tag pipeline or an earlier backfill run.
+
+In the other direction, the tag pipeline's own attest jobs skip a digest **only** if it
+already carries a signature or SBOM from a release tag pipeline. A backfill (`main`)
+signature does not satisfy them, so the tag job signs anyway. Every release cut after this
+feature shipped therefore verifies with the tag-only `IDENTITY`, even if the backfill job
+touched those digests first.
 
 A backfilled release's certificate identity ends in `@refs/heads/main` rather than
 `@refs/tags/v…`, because a released tag cannot be re-run without moving it. The tag-only
@@ -132,3 +139,12 @@ you expect to be signed.
 - **Source signing.** Release git tags are not signed.
 - **Mutable tags.** A signature on `:latest` or `:1.2` proves only what that tag pointed at
   when you checked. Pin by digest for anything you need to reproduce.
+- **Third-party images.** Only `backend` and `frontend` (and the chart) are signed by
+  Visiban. The other images a deployment pulls come from their upstream publishers and carry
+  no Visiban signature or SBOM:
+    - Helm chart: `postgres:17`, `valkey/valkey`, `curlimages/curl` (the `helm test` hook)
+      and the Bitnami `postgresql` subchart, when enabled.
+    - Docker Compose: `postgres`, `valkey/valkey`, `nginx` and `certbot/certbot`.
+
+  Verify those with their publishers' own mechanisms if they offer one, or pin them by
+  digest.
