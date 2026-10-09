@@ -40,13 +40,19 @@ include:
 #   gitleaks-scan      blocks on any finding              — full working tree, MR + main
 #   gitleaks-history   blocks on any finding              — full git history, main only
 #                      (runs after merge: a post-merge tripwire, not a merge gate)
-#   secret_detection   REPORT ONLY for findings           — see below; #1537
+#   secret_detection   blocks via secret-detection-gate    — the component job itself only reports;
+#                      the gate reads its report (#1537)
 #   semgrep-sast       blocks at High/Critical only       — override + sast-severity-gate
 #   backend-sast       blocks (bandit, medium+)           — pre-existing
 #   frontend-sast      blocks (eslint 'error' rules)      — only when frontend/src/**/*.{ts,tsx} changed
 #   trivy-scan         blocks (#1072)                     — MR when its inputs change + Nightly (#1267)
 #                      dep-scan-osv, pip-audit and the license checks are deliberately
 #                      outside this policy
+#
+# The secret-detection component cannot fail on a finding either, so
+# secret-detection-gate reads gl-secret-detection-report.json and fails on any
+# unsuppressed finding. Accepting one requires an entry (reason citing an issue +
+# expiry date) in .gitlab/secret-detection-suppressions.json.
 #
 # Semgrep's Low/Medium/Info findings stay visible in the MR security widget but
 # do not fail the pipeline; the SAST component has no native severity threshold,
@@ -58,8 +64,8 @@ include:
 # definition (image, script, rules, artifacts) still comes from the component.
 # NOTE: GitLab's analyzers always exit 0 on findings, so allow_failure: false
 # here does NOT make secret_detection block on a leak — it only makes an
-# analyzer crash fail the job. The blocking secret gates are gitleaks-scan and
-# gitleaks-history. Gating on the component's report is tracked in #1537.
+# analyzer crash fail the job. Findings are gated by secret-detection-gate
+# below (#1537), alongside gitleaks-scan and gitleaks-history.
 secret_detection:
   allow_failure: false
 
@@ -92,6 +98,26 @@ sast-severity-gate:
   script:
     - python3 scripts/sast-severity-gate.py --self-test
     - python3 scripts/sast-severity-gate.py gl-sast-report.json .gitlab/sast-suppressions.json
+  allow_failure: false
+
+# Fails the pipeline on any secret_detection finding that is not covered by an
+# unexpired entry in .gitlab/secret-detection-suppressions.json (#1537). The
+# component job exits 0 on findings, so this reads its report. A missing or
+# unparsable report fails closed. Runs when the component job runs (it is
+# included with enable_mr_pipelines: true); if the component is ever removed
+# from `include:`, remove this gate in the same change.
+secret-detection-gate:
+  stage: security
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  needs:
+    - job: secret_detection
+      artifacts: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - python3 scripts/secret-detection-gate.py --self-test
+    - python3 scripts/secret-detection-gate.py gl-secret-detection-report.json .gitlab/secret-detection-suppressions.json
   allow_failure: false
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
