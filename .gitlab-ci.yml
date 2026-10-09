@@ -2754,8 +2754,14 @@ frontend-license-check:
 #     (Dockerfile without USER, ADD instead of COPY, ...) and secrets in one
 #     pass. It scans the repo filesystem only: it does NOT inspect the OS
 #     packages inside built base images (that needs an image scan).
-#   - The Helm chart is currently skipped by trivy's config scanner because of
-#     placeholder values in the templates; see #1536.
+#   - The Helm chart is rendered with helm/ci/trivy-values.yaml (--helm-values)
+#     and its rendered templates are scanned for misconfigurations (#1536).
+#     Without that file the chart's render guards reject the placeholder
+#     values and trivy logs "Skipping chart" and scans nothing, so the job
+#     fails if that line ever reappears. Scanned: the default render plus
+#     NetworkPolicies, scheduled-job CronJobs, OIDC env and SMTP env. NOT
+#     scanned: public demo mode (a different render shape), the bundled
+#     postgresql subchart tarball, and values-*.yaml overlays.
 #
 # Runs on an MR that changes a Dockerfile, a dependency lockfile, the Helm
 # chart, or the scan's own inputs (this job, .trivyignore.yaml and the expiry
@@ -2812,14 +2818,32 @@ trivy-scan:
     - trivy fs .
         --scanners vuln,config,secret
         --severity HIGH,CRITICAL
+        --helm-values helm/ci/trivy-values.yaml
         --ignorefile .trivyignore.yaml
         --exit-code 0
         --format json
         --output trivy-report.json
+        2> trivy-stderr.log || { cat trivy-stderr.log; exit 1; }
+    - cat trivy-stderr.log
+    # A skipped chart is a silent coverage loss (#1536). Two independent checks
+    # so a reworded trivy log line cannot hide it: the report must contain a
+    # result for the rendered chart templates, and the skip warning must be
+    # absent. (grep, not jq: the trivy image is minimal.)
+    - |
+      if ! grep -q '"Target": "helm/visiban/templates/' trivy-report.json; then
+        echo "trivy-report.json has no result for helm/visiban/templates/; the chart was not scanned (see issue 1536)"
+        exit 1
+      fi
+    - |
+      if grep -q "Skipping chart" trivy-stderr.log; then
+        echo "trivy skipped the Helm chart; fix helm/ci/trivy-values.yaml (see issue 1536)"
+        exit 1
+      fi
     # Blocking pass: any unsuppressed HIGH/CRITICAL fails the job.
     - trivy fs .
         --scanners vuln,config,secret
         --severity HIGH,CRITICAL
+        --helm-values helm/ci/trivy-values.yaml
         --ignorefile .trivyignore.yaml
         --exit-code 1
         --format table

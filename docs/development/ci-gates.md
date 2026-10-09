@@ -126,6 +126,23 @@ own header — is never mistaken for a real exemption.
 covering the exact version-dotted-slug incident that motivated #1093), but is not wired into
 any CI job — see below.
 
+## What `trivy-scan` covers in the Helm chart
+
+`trivy fs` renders a Helm chart before it scans it, and the chart's render-time guards
+(`templates/_validate.tpl`) reject placeholder values. Without help trivy logs
+`Skipping chart ... validate.yaml` and scans no template (#1536). The job therefore passes
+`--helm-values helm/ci/trivy-values.yaml`, a render-only values file (arbitrary, non-secret
+values; never use it to install), and fails if `trivy-report.json` has no result for `helm/visiban/templates/` or if the `Skipping chart` line ever reappears (two checks, so a reworded log line cannot hide a skip).
+
+- **Scanned:** the chart's default render plus NetworkPolicies, the scheduled-job CronJobs,
+  the OIDC env block and the SMTP env block (those are switched on in the values file so
+  their templates render). Misconfiguration findings (for example `privileged: true`) of
+  HIGH or CRITICAL severity fail the job like any other finding.
+- **Not scanned:** public demo mode (`values-demo.yaml` is a different render shape that
+  conflicts with the SMTP/OIDC settings above), the bundled `postgresql` subchart tarball,
+  and the other `values-*.yaml` overlays. Add a template or a new optional resource to the
+  values file when it is gated behind a flag that is off by default.
+
 ## Path containment for CLI arguments
 
 Gate scripts that open files named on the command line or via `--root` do so through `scripts/_paths.py::resolve_within` (#1377). It canonicalizes the path (collapsing `..` and following symlinks) and only then checks it sits under an allowed root, so a symlink that leaves the tree is rejected too. A rejected path is a "cannot run" outcome (exit 2 for the rbac, ws-event and broadcast gates), never a clean result.
