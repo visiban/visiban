@@ -587,6 +587,7 @@ def _is_truthy_non_string(value):
 # (production's backend) on every backend so SQLite tests see the same 400.
 # ---------------------------------------------------------------------------
 _IMPORT_INT_MAX = 2**31 - 1
+_IMPORT_INT_MIN = -(2**31)
 # Child-collection caps. Real exports sit far below these (the shipped sample
 # boards top out at 8 labels and, per card, 3 comments, 10 movements, 21
 # activities, 5 checklist items and 2 label refs); they exist so one 10 MB
@@ -2060,10 +2061,72 @@ class BoardImportExportMixin:
                         {"detail": f"Row {i + 2} is missing required field: {field}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+            # Cell values must fit the model columns before any write (#1512):
+            # PostgreSQL rejects NUL bytes and over-length / out-of-range values
+            # with a DataError, which would surface as a 500. Only cells the
+            # chosen options actually write are checked, so a file the importer
+            # used to accept (an ignored column, a skipped card or label) still
+            # imports. Column and Swimlane names are always written; the rest
+            # follow ``cards`` / ``labels``. The echoed value is truncated.
+            # ``Custom:`` cells keep their own NUL handling (#1449).
+            _checked = [
+                ("Column", _field_max_length(Column, "name")),
+                ("Swimlane", _field_max_length(Swimlane, "name")),
+            ]
+            if options["cards"]:
+                _checked += [
+                    ("Title", _field_max_length(Card, "title")),
+                    ("Description", None),
+                    ("Assignee", None),
+                ]
+            for _field, _max in _checked:
+                _text = _cell(row, _field)
+                if "\x00" in _text:
+                    return Response(
+                        {"detail": f"Row {i + 2}: {_field} contains a NUL byte."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if _max is not None and len(_text) > _max:
+                    return Response(
+                        {"detail": f"Row {i + 2}: {_field} exceeds {_max} characters: {_bounded_text(_text)!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            if options["labels"]:
+                _label_text = _cell(row, "Labels")
+                if "\x00" in _label_text:
+                    return Response(
+                        {"detail": f"Row {i + 2}: Labels contains a NUL byte."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                _label_max = _field_max_length(Label, "name")
+                for _lbl in _label_text.split(","):
+                    _lbl = _lbl.strip()
+                    if len(_lbl) > _label_max:
+                        return Response(
+                            {"detail": f"Row {i + 2}: Labels entry exceeds {_label_max} characters: {_bounded_text(_lbl)!r}"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+            # A non-numeric Weight is never stored (it falls back to 1), so only
+            # a parseable integer can overflow the column.
+            _weight = _cell(row, "Weight") if options["cards"] else ""
+            if _weight:
+                try:
+                    _weight_int = int(_weight)
+                except (ValueError, TypeError):
+                    _weight_int = 1
+                if not _IMPORT_INT_MIN <= _weight_int <= _IMPORT_INT_MAX:
+                    return Response(
+                        {"detail": f"Row {i + 2}: Weight out of range: {_bounded_text(_weight)!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             _due = _cell(row, "Due Date")
-            if _due and _parse_date_csv(_due) is None:
+            try:
+                _due_ok = not _due or _parse_date_csv(_due) is not None
+            except ValueError:  # well-formed but impossible, e.g. 2020-02-30
+                _due_ok = False
+            if not _due_ok:
                 return Response(
-                    {"detail": f"Row {i + 2}: invalid Due Date: {_due!r}"},
+                    {"detail": f"Row {i + 2}: invalid Due Date: {_bounded_text(_due)!r}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -2084,11 +2147,15 @@ class BoardImportExportMixin:
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        explicit_name = request.data.get("name")
+        if explicit_name and (problem := _text_error(explicit_name, _field_max_length(Board, "name"))):
+            return Response({"detail": f"'name' {problem}"}, status=status.HTTP_400_BAD_REQUEST)
+
         group = self._resolve_import_group(request)
         # A CSV carries no board name, so the default is derived from the
         # uploaded filename without its extension (#1446). An explicit
         # ``name`` is used exactly as given.
-        board_name = request.data.get("name") or _imported_board_name(
+        board_name = explicit_name or _imported_board_name(
             os.path.splitext(file.name or "")[0], request.user, group
         )
 
