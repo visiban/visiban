@@ -148,7 +148,7 @@ Valid roles: `admin`, `member`, `collaborator`, `viewer`
 **Response (create only)** — the raw secret is returned once and never again, in a field named `token`:
 
 !!! note "Field name differs from site invite links"
-    Group and [board](boards.md#board-invites) invite-link create responses name the secret `token`. The site-wide [`POST /api/v1/admin/invite-links/`](admin.md#post-apiv1admininvite-links) response names the same kind of value `raw_token`. The names are intentionally left as they are: renaming either would break the 1.0 API contract, so both are stable and will not change before a major version. Read the field that matches the endpoint you called. The field is present only on this create response, never on list responses.
+    Group and [board](boards.md#board-invites) invite-link create responses name the secret `token`. The site-wide [`POST /api/v1/admin/invite-links/`](admin.md#post-apiv1admininvite-links) response names the same kind of value `raw_token`. The names differ for historical reasons and are frozen by the 1.0 API contract: both are stable and will not be renamed before a major version. Read the field that matches the endpoint you called. The field is present only on this create response, never on list responses.
 
 ```json
 {

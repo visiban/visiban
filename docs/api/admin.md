@@ -567,7 +567,7 @@ Create a new invite link.
 
 **Response** `201 Created`
 
-The response includes a one-time `raw_token` field. Note that the [group](groups.md#post-apiv1groupsidinvite-links) and [board](boards.md#post-apiv1boardsidinvite-links) invite-link create responses return the same kind of secret as `token`, not `raw_token`. The names differ across the three endpoints and are all stable under the 1.0 contract; none is renamed before a major version. **Store or share it immediately — it cannot be retrieved again.** All other fields are identical to the list response.
+The response includes a one-time `raw_token` field. Note that the [group](groups.md#post-apiv1groupsidinvite-links) and [board](boards.md#post-apiv1boardsidinvite-links) invite-link create responses return the same kind of secret as `token`, not `raw_token`. The names differ across the three endpoints for historical reasons and are frozen by the 1.0 contract; none is renamed before a major version. **Store or share it immediately — it cannot be retrieved again.** All other fields are identical to the list response.
 
 ```json
 {
