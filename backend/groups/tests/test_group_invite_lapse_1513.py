@@ -77,6 +77,15 @@ class ReparentDeepAndBroadcastTests(ReparentRevokesLapsedLinksTests):
             self.assertEqual(set(c.args[2]), {"id"})
             self.assertNotIn(raw, str(c.args))
 
+    def test_already_lapsed_link_outside_moved_subtree_untouched(self):
+        # Pins the delegate scope: re-parenting must only revoke inside the
+        # moved subtree, never sweep a creator's other already-lapsed links.
+        sibling = Group.objects.create(name="Sib", owner=self.actor)
+        lapsed, _ = GroupInviteLink.generate(sibling, self.ancestor_admin)  # not an admin there
+        self.assertEqual(self._reparent(self.new_root.pk).status_code, 200)
+        lapsed.refresh_from_db()
+        self.assertTrue(lapsed.is_active)
+
     def test_link_outside_moved_subtree_untouched(self):
         other, _ = GroupInviteLink.generate(self.old_root, self.ancestor_admin)
         self.assertEqual(self._reparent(self.new_root.pk).status_code, 200)
@@ -145,9 +154,12 @@ class CreatorlessBackfillMigrationTests(TestCase):
 
         GroupInviteLink.objects.filter(pk__in=[orphan.pk, used.pk]).update(created_by=None)
         GroupInviteLink.objects.filter(pk=used.pk).update(used_at=timezone.now(), single_use=True)
+        inactive = User.objects.create_user(username="gone", password="pw", is_active=False)
+        stale, _ = GroupInviteLink.generate(group, inactive)
         mod.deactivate_creatorless_links(apps, None)
-        for lk in (orphan, used, kept):
+        for lk in (orphan, used, kept, stale):
             lk.refresh_from_db()
+        self.assertFalse(stale.is_active)
         self.assertFalse(orphan.is_active)
         self.assertTrue(used.is_active)
         self.assertTrue(kept.is_active)
