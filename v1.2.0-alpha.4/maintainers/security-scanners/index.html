@@ -3960,10 +3960,10 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 </tr>
 <tr>
 <td><code>trivy-scan</code></td>
-<td>Trivy</td>
-<td>Tracked separately in #1072</td>
-<td></td>
-<td>Container images</td>
+<td>Trivy (pinned by digest)</td>
+<td>Yes, HIGH/CRITICAL vulnerability, misconfiguration and secret findings (#1072)</td>
+<td>MR when its inputs change (Dockerfiles, lockfiles, Helm, the scan's own files) + the Nightly schedule (<code>CVE_SCAN=true</code>); <strong>not</strong> every <code>main</code> push (#1267)</td>
+<td>Repo filesystem (lockfiles, Dockerfile IaC, secrets); not built images</td>
 </tr>
 </tbody>
 </table>
