@@ -86,6 +86,8 @@ Work through each category. For categories with no findings from the scans, stat
 
 Read `docs/development/security-invariants.md`. If the diff touches a rule listed there (account-state gates, access revocation, grants and their revocation paths, consume-once tokens, import user scoping), check every surface in that rule's table, not only the surface in the diff, and report any sibling surface that does not enforce the rule as a finding. Report such a finding to the maintainer privately or file it as a confidential issue; never paste it into an MR description, commit message or public doc.
 
+For design-level trust-boundary questions that precede code, see the `threat-model` skill (`.claude/skills/threat-model/SKILL.md`), which runs upstream of `architect`.
+
 #### Output
 
 **✅ No findings** — list the categories checked with no issues.
@@ -102,4 +104,4 @@ Read `docs/development/security-invariants.md`. If the diff touches a rule liste
 
 If there are no 🔴 findings, state that explicitly so the output is unambiguous.
 
-**Deferring a finding:** if a security finding is deferred rather than fixed on the branch, it must be filed as an issue labeled `security::deferred` (in addition to `security`), assigned the target milestone, and named in the MR. `/pre-release` treats every open `security::deferred` issue as a 🔴 blocker unless it carries an `Accepted risk: accepted-by: @x; reason: y; expires: YYYY-MM-DD` note. See `docs/maintainers/security-deferred-label.md`.
+**Deferring a finding:** if a security finding is deferred rather than fixed on the branch, it must be filed as an issue labeled `security::deferred` (in addition to `security`), assigned a milestone for planning (the pre-tag and `/pre-release` check scans all open `security::deferred` issues regardless of milestone), and named in the MR. `/pre-release` and the pre-tag `release.sh` check treat every open `security::deferred` issue as a 🔴 blocker unless it carries an `Accepted risk: accepted-by: @x; reason: y; expires: YYYY-MM-DD` note. See `docs/maintainers/security-deferred-label.md`.

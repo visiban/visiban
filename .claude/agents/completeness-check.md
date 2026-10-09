@@ -148,7 +148,7 @@ this gate exists to catch. Paste the `## Requirements` table into the MR descrip
 only after this.
 
 A GAP that is a **security finding** deferred to an issue must be deferred to one labeled
-`security::deferred` with the target milestone set (verify with `glab issue view N`); otherwise `/pre-release` will not see it.
+`security::deferred` (verify with `glab issue view N`) and assigned a milestone for planning; the pre-tag and `/pre-release` check scans all open `security::deferred` issues regardless of milestone, so a missing milestone does not hide it.
 See `docs/maintainers/security-deferred-label.md`.
 
 ## Cause tags

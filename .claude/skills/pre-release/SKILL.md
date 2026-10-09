@@ -167,8 +167,9 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 
 A security finding deferred during review is filed as an issue labeled `security::deferred`
 **and assigned the target milestone** (see `docs/maintainers/security-deferred-label.md`).
-Open ones in the target milestone, **or with no milestone at all**, are 🔴 blockers
-**unless** they carry a valid, unexpired accepted-risk note. This is deliberately narrow:
+Open ones in **any** milestone (the target, a later one, an already-closed one, or none)
+are 🔴 blockers — the unfixed gap is in `main` and ships whichever milestone the issue sits
+on (#1520; this widened the earlier target-milestone-plus-`None` scope) — **unless** they carry a valid, unexpired accepted-risk note. This is deliberately narrow:
 plain `security` issues (tracking, hardening) are not checked here.
 
 Step 1.5 runs for every audit type (in Step 1; on the early exits it is run from Step 4 or the
@@ -177,41 +178,13 @@ Step 1.5 runs for every audit type (in Step 1; on the early exits it is run from
 and does not start the one-time-gate flow.
 
 ```bash
-M="$WORKING_RELEASE"; TODAY=$(date +%F); N=0; FAIL=0
-CAP=$(date -v+1y +%F 2>/dev/null || date -d '+1 year' +%F)   # BSD (macOS) or GNU date
-D=$(mktemp)   # unique per run: parallel sessions must not share a path
-# fetch <api-path>: fail closed. glab must exit 0 and EVERY page must be a JSON array
-# (an auth/404 error is an object, or a nonzero exit); prints the merged array.
-fetch() {
-  local out; out=$(glab api --paginate "$1") || return 1
-  printf '%s' "$out" | jq -s -e 'length>0 and all(.[]; type=="array")' >/dev/null 2>&1 || return 1
-  printf '%s' "$out" | jq -s 'add'
-}
-# milestone=None catches issues filed with no milestone, which a milestone filter would miss
-{ fetch "projects/visiban%2Fvisiban/issues?milestone=$M&labels=security::deferred&state=opened&per_page=100" \
-  && fetch "projects/visiban%2Fvisiban/issues?milestone=None&labels=security::deferred&state=opened&per_page=100"; } \
-  | jq -s -e 'add' > "$D" || { FAIL=1; echo "🔴 deferred-security check could not run: issue query failed (auth/network/API error) — treat as a blocker"; }
-if [ "$FAIL" = 0 ]; then
-for iid in $(jq -r '.[].iid' "$D"); do
-  N=$((N+1))
-  conf=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.confidential' "$D")
-  ms=$(jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.milestone.title // "none"' "$D")
-  notes=$(fetch "projects/visiban%2Fvisiban/issues/$iid/notes?per_page=100") || { FAIL=1; echo "🔴 #$iid deferred-security check could not run: notes query failed — treat as a blocker"; continue; }
-  # candidate lines as "author|line" from the description and every non-system comment
-  cand=$( { jq -r --argjson i "$iid" '.[]|select(.iid==$i)|.author.username as $a|(.description // "")|gsub("\r";"")|split("\n")[]|select(startswith("Accepted risk:"))|"\($a)|\(.)"' "$D"
-            printf '%s' "$notes" | jq -r '.[]|select(.system|not)|.author.username as $a|.body|gsub("\r";"")|split("\n")[]|select(startswith("Accepted risk:"))|"\($a)|\(.)"'; } )
-  # The regex + calendar/expiry verdict lives in a self-tested script (#1521); it reads the
-  # "author|line" candidates on stdin and uses TODAY/CAP from the environment. Exit 1 = BLOCKER.
-  # Resolve the script from the repo root so this works from any cwd; an empty verdict (script
-  # missing/crashed) fails closed to BLOCKER. Exit 1 is the normal BLOCKER signal, hence `|| true`.
-  verdict=$(printf '%s\n' "$cand" | TODAY="$TODAY" CAP="$CAP" sh "$(git rev-parse --show-toplevel)/scripts/security-deferred-verdict.sh" 2>/dev/null) || true
-  [ -n "$verdict" ] || verdict="BLOCKER (verdict script produced no output)"
-  echo "#$iid confidential=$conf milestone=$ms $verdict"
-done
-fi
-rm -f "$D"
-echo "checked $N issue(s)$([ "$FAIL" = 0 ] || echo '; CHECK DID NOT COMPLETE — a blocker')"
+bash "$(git rev-parse --show-toplevel)/scripts/check-security-deferred.sh"   # exit 1 = blocker(s) or check did not run
 ```
+
+The query, the fail-closed handling and the per-issue verdict all live in that one script
+(self-tested; `bash scripts/check-security-deferred.sh --self-test`), which `scripts/release.sh`
+also runs immediately before tagging (#1520). It scans **every open `security::deferred` issue
+in any milestone** and prints one `#N confidential=… milestone=… <verdict>` line per issue.
 
 **Accepted-risk note format** (enforced by `scripts/security-deferred-verdict.sh`, self-tested in CI by `security-deferred-verdict-selftest`; run `sh scripts/security-deferred-verdict.sh --self-test` after touching it) — one line, in the issue description or any non-system comment:
 
@@ -231,10 +204,10 @@ Any ONE valid line in the description or comments accepts the issue. The note is
 is not the issue's filer, so the release owner must read each accepted note before
 tagging; the output prints the note author, the `accepted-by` handle and the expiry for that purpose. Do not treat `ACCEPTED` as an enforced approval.
 
-**Fails closed:** if any `glab` call exits nonzero or returns something other than a JSON array (401, 404, malformed output), the block prints a `🔴 ... could not run` line; report that as a 🔴 blocker, never as "0 issues". The final `checked N issue(s)` line distinguishes a clean zero from a check that did not run.
+**Fails closed:** if `glab`/`jq` is missing, or any `glab` call exits nonzero or returns something other than a JSON array (401, 404, malformed output), the block prints a `🔴 ... could not run` line; report that as a 🔴 blocker, never as "0 issues". The final `checked N issue(s)` line distinguishes a clean zero from a check that did not run.
 
 Report each `BLOCKER` as a 🔴 finding ("open deferred security follow-up #N without a valid
-accepted-risk note", or "... with no milestone") and each `ACCEPTED` as 🟢 with its expiry
+accepted-risk note") and each `ACCEPTED` as 🟢 with its expiry
 date. **Confidentiality:** the maintainer token sees confidential issues. For
 `confidential=true` issues, report only the issue number in anything that leaves the
 session (MR text, public issue, docs); never quote the title or body.
