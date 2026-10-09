@@ -17,7 +17,7 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 | Movement service | `boards/services/cards.py` | `test_card_services`, `test_card_move`, `test_card_archiving`, `test_card_mutation_hooks`, `test_card_edge_cases`; the #1454 re-measure of `update_card` adds `test_card_service_mutation_gaps` and, to find what view suites already kill, `test_views_cards`, `test_notifications`, `test_card_timeline`, `test_views_extra`, `test_board_events`, `test_security_fixes`, `test_movement_record_mutation_gaps` |
 | Movement model | `CardMovement` in `boards/models.py` (lines 358-423 only) | same as above |
 | RBAC | `boards/permissions.py` | `test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions` |
-| Import/export | `boards/views/import_export.py` | `test_export`, `test_export_controls`, `test_export_edge_cases`, `test_import`, `test_moderator_export`; the "after" runs add `test_import_export_mutation_gaps` (#1453, extended by #1484) |
+| Import/export | `boards/views/import_export.py` | `test_export`, `test_export_controls`, `test_export_edge_cases`, `test_import`, `test_moderator_export`; the "after" runs add `test_import_export_mutation_gaps` (#1453, extended by #1484); the head run (#1502) used nine files: `test_import_export_head_gaps`, `test_import_export_mutation_gaps`, `test_import`, `test_import_naming`, `test_import_options`, `test_import_user_scope`, `test_import_custom_fields`, `test_trello_import`, `test_import_json_value_validation` |
 
 `CardMovement` has no methods, so mutmut only finds field and `Meta` arguments in it. To keep the run to that class, a `pre_mutation` hook skips every line outside its range (see below). Running mutmut on all of `boards/models.py` would have generated tens of thousands of mutants for no signal.
 
@@ -31,8 +31,8 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 | `CardMovement` (`boards/models.py`; re-measured 2026-10-08, was 28 survivors / 45 killed / 61.6%) | 73 | 28 | 38.4% | 46 | 63.0% | 27 | 46 of 46 = 100% | 0 |
 | `boards/permissions.py` (116 of 120 expected after #1503's two new killed mutants; 114 of 118 = 96.6% measured) | 118 | 44 | 37.3% | 114 | 96.6% | 4 | 114 of 114 = 100% (expected, not re-measured whole-module) | 0 |
 | `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | n/a (unmarked; the head part of this module was triaged in #1502, see the next row) | n/a | 2 (see below) |
-| `boards/views/import_export.py`, head: helpers, `import_board`, `_import_json`, `import_trello` (2026-10-08, #1502; whole-region run, 0-based lines 0 to 1802) | 1145 | n/a (not measured on the current code) | n/a | 1111 of 1145 | 97.0% | n/a (unmarked; 34 of 34 survivors are documented as equivalent below) | n/a | 2 (killed by timeout, see below) |
-| `boards/views/import_export.py`, `_import_csv` + `export` + `export_history` (2026-10-06, #1484) | 492 | 290 of 492 | 58.9% | 465 of 492 (447 with the #1453 tests only) | 94.5% (90.9%) | n/a (unmarked; #1502 covers only the head, so the 27 survivors of this region are not yet triaged for equivalence) | n/a | 0 |
+| `boards/views/import_export.py`, head: helpers, `import_board`, `_import_json`, `import_trello` (2026-10-08, #1502; whole-region run, 0-based lines 0 to 1802; at `f898bf683`, #1449's head code unmeasured, #1546) | 1145 | n/a (not measured on the current code) | n/a | 1111 of 1145 | 97.0% | n/a (unmarked; 32 of 34 survivors are documented as equivalent or redundant below, the other 2 are `_IMPORT_BACKFILL_BATCH` survivors tracked in #1545) | n/a | 2 (killed by timeout, see below) |
+| `boards/views/import_export.py`, `_import_csv` + `export` + `export_history` (2026-10-06, #1484) | 492 | 290 of 492 | 58.9% | 465 of 492 (447 with the #1453 tests only) | 94.5% (90.9%) | n/a (unmarked; #1502 covers only the head, the 27 survivors of this region are triaged below as equivalent or covered elsewhere, and none is marked with a pragma; deciding pragma exclusions has no owner other than #1547) | n/a | 0 |
 
 **The 2 timeouts** in the 2026-10-05 row: both are in `_imported_board_name`, in the first run's range. Mutating the `if candidate not in taken` check or the `n += 1` step makes its uniqueness loop spin forever, so pytest hangs and mutmut kills the run. Timeouts are counted as killed. The 2026-10-06 run (`_import_csv`, `export`, `export_history`) had none.
 
@@ -48,7 +48,7 @@ Import/export was re-measured on 2026-10-05 against `main` at `a5e4b7d20`, after
 | `_import_csv` (28, sample only) | 16 | 11 (15 more are suspicious, not counted as killed) |
 | **Total (823)** | **331 (40.2%)** | **656 (79.7%)** |
 
-The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). `export` was reached only by that before run, which stopped early (38 killed, 32 survived of 70 tested); it is measured in full by the 2026-10-06 run below. Suspicious mutants are counted as survivors in the rates above. Timeouts are counted as killed: the 2 in the table are both from the after run, in the `_imported_board_name` uniqueness loop (mutating `if candidate not in taken` or `n += 1` makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.
+The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). `export` was reached only by that before run, which stopped early (38 killed, 32 survived of 70 tested); it is measured in full by the 2026-10-06 run below. Suspicious mutants are counted as survivors in the rates above (the 79.7% and the 40.2% use this convention; the head's 97.0% and the 2026-10-06 rows count suspicious mutants as killed, so those figures are not directly comparable). Timeouts are counted as killed: the 2 in the table are both from the after run, in the `_imported_board_name` uniqueness loop (mutating `if candidate not in taken` or `n += 1` makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.
 
 ### Remainder re-measure (2026-10-06, #1484)
 
@@ -65,7 +65,7 @@ Together with the 2026-10-05 table, the regions the first run could not reach ha
 
 ### Head re-measure (2026-10-08, #1502)
 
-> **Scope of these figures.** Everything in this section describes the code at `f898bf683`, not current `main`. Code added after that commit is **not** in the 1145 measured mutants and has not been measured: that includes #1449 (`_import_field_values`, `_csv_custom_field_cell` and the CSV custom-column handling) and the other lines it added before `_import_csv`. The head figures are for the `f898bf683` code, and the new head lines are unmeasured. The `MM_HI=1802` boundary and "`_import_csv` at 0-based line 1803" below are likewise valid only at `f898bf683`. Before reusing `MM_LO`/`MM_HI`, re-derive the range (`grep -n 'def _import_csv' backend/boards/views/import_export.py`, then subtract 1 to get the 0-based line), as the `update_card` section does.
+> **Scope of these figures.** Everything in this section describes the code at `f898bf683`, not current `main`. Code added after that commit is **not** in the 1145 measured mutants and has not been measured: that includes the roughly 140 lines #1449 added to the head: `_csv_custom_columns`, `_swimlane_values_from_rows`, `_csv_cell_value`, `_cap_warnings`, `_is_canonical_number`, and a change to `_csv_custom_field_cell` (`_import_field_values` and `_csv_custom_field_cell` themselves already existed at `f898bf683` and were measured). Measuring them is tracked in #1546. The head figures are for the `f898bf683` code, and the new head lines are unmeasured. The `MM_HI=1802` boundary and "`_import_csv` at 0-based line 1803" below are likewise valid only at `f898bf683`. Before reusing `MM_LO`/`MM_HI`, re-derive the range (`grep -n 'def _import_csv' backend/boards/views/import_export.py`, then subtract 1 to get the 0-based line), as the `update_card` section does.
 
 The head of `import_export.py` (everything before `_import_csv`) was measured as **one whole-region run**, not a paired sample: 12 shards of the sharded variant in [Parallel runs](#parallel-runs), `MM_LO=0 MM_HI=1802` (0-based; `_import_csv` starts at 0-based line 1803), on `main` at `f898bf683` plus this branch's tests, 18-core machine. The module had grown to 2609 lines since the 2026-10-05 run (selective import, #1496, #1507), so the head has **1145 mutants**, not the 795 of the paired set. The runner used these nine files (all backend import/export tests; the full suite is not needed): `test_import_export_head_gaps.py test_import_export_mutation_gaps.py test_import.py test_import_naming.py test_import_options.py test_import_user_scope.py test_import_custom_fields.py test_trello_import.py test_import_json_value_validation.py`.
 
@@ -74,7 +74,9 @@ Two details of the harness matter if you repeat this:
 - `test_import.py::test_csv_import_accepts_committed_sample_csv` reads `sample-boards/` from the repository root, so each throwaway copy of `backend/` needs `sample-boards/` next to it, or the baseline run fails and mutmut tests nothing.
 - mutmut 2.5.1 registers one extra mutant (id one past the printed total, line 422, `mutmut show` prints nothing for it) that every shard reports as `untested`. It has no diff, so it is not counted in the 1145 and not a gap.
 
-| Region | Mutants | Killed, first whole-region run | Killed, final run | Survivors left |
+Line numbers in the region column are **1-based and inclusive**; the `MM_LO`/`MM_HI` range above is 0-based. So `1673 to 1803` here is 0-based 1672 to 1802, and `_import_csv` starts at 1-based line 1804 (0-based 1803).
+
+| Region (1-based lines) | Mutants | Killed, first whole-region run | Killed, final run | Survivors left |
 |---|---:|---:|---:|---:|
 | helpers and `import_board` (to line 949) | 574 | 523 (91.1%) | 559 (97.4%) | 15 |
 | `_import_json` (950 to 1672) | 440 | 416 (94.5%) | 427 (97.0%) | 13 |
@@ -87,9 +89,9 @@ Two details of the harness matter if you repeat this:
 
 **The 2 timeouts** are the `_imported_board_name` uniqueness loop (`if candidate not in taken` inverted, `n += 1` replaced with `n = 1`). Both make the loop spin forever, so they are a real kill by timeout, as in the 2026-10-05 run. They are not made faster: the hang is the observable behavior.
 
-#### Survivors left (34), all equivalent or redundant
+#### Survivors left (34): 32 equivalent or redundant, 2 tracked in #1545
 
-None is a missing assertion. They are listed so the next person does not re-triage them; none is marked with `# pragma: no mutate` yet, because most share a line with mutants that *are* killed and the policy asks that a pragma cover the equivalent mutant only. Marking them is tracked in #1544 and is the open step before a floor can use the adjusted score. The 2 `_IMPORT_BACKFILL_BATCH` survivors that a PostgreSQL test could kill are tracked in #1545.
+The 2 `_IMPORT_BACKFILL_BATCH` survivors could be killed by a PostgreSQL test (#1545, open), so they stay survivors under the policy below. The other 32 are equivalent or redundant; none of those 32 is a missing assertion. They are listed so the next person does not re-triage them; none is marked with `# pragma: no mutate` yet, because most share a line with mutants that *are* killed and the policy asks that a pragma cover the equivalent mutant only. Marking the 32 equivalent ones is tracked in #1544 and is the open step before a floor can use the adjusted score. The 2 `_IMPORT_BACKFILL_BATCH` survivors that a PostgreSQL test could kill are tracked in #1545.
 
 | Mutants | Where | Why no test can kill it |
 |---:|---|---|
@@ -111,7 +113,7 @@ None is a missing assertion. They are listed so the next person does not re-tria
 | 2 | `distinct=False` on `_card_count` and `_archived_card_count` | The imported board has one membership, so the join cannot duplicate card rows. (`_member_count` `distinct=False` is killed by `test_response_counts_distinguish_active_and_archived_cards`.) |
 | 5 | Trello `file.size is not None`, `file.read(max_size + 1)` and the `'name' must be a string` response | `file.size` is always set for an upload and the `Content-Length` check precedes the bounded read; the endpoint takes `MultiPartParser` only, so `name` is always a string. Defense in depth. |
 
-Everything the first commit on this branch and this pass pinned is a value a caller or client can observe: throttle scopes and rates, option and flag parsing, the exact echo cut-offs of `_bounded_repr` and `_bounded_text`, the per-card caps and the username cap on both sides of the limit, `_card_rows` and `_card_usernames`, naive-timestamp acceptance, the write-guard log line, JSON and Trello response counts, the group broadcast, label colors, empty movement destinations, the weight-change activity, and the OpenAPI text.
+Everything the first commit on this branch and this pass pinned is a value a caller or client can observe (the echo caps are pinned through the length of the response message, not by reading the constants): throttle scopes and rates, option and flag parsing, the exact echo cut-offs of `_bounded_repr` and `_bounded_text`, the per-card caps and the username cap on both sides of the limit, `_card_rows` and `_card_usernames`, naive-timestamp acceptance, the write-guard log line, JSON and Trello response counts, the group broadcast, label colors, empty movement destinations, the weight-change activity, and the OpenAPI text.
 
 ### Runtime
 

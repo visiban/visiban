@@ -728,11 +728,38 @@ class ValidateValuesBoundaryTests(TestCase):
             "Import references more than 1000 distinct usernames.",
         )
 
-    def test_echo_limits_for_serializer_messages(self):
-        from boards.views.import_export import _IMPORT_ECHO_MAX, _IMPORT_SERIALIZER_ECHO_MAX
+    def test_options_serializer_message_is_cut_at_200(self):
+        # An unknown option key is echoed back by the serializer message; the
+        # response bounds the message to 200 characters, not the 60 of the
+        # other echoes and not unbounded.
+        prefix = "Invalid 'options': "
+        error = _parse_import_options(json.dumps({"k" * 300: True}), ImportOptionsSerializer)[1]
+        message = error[len(prefix) :]
+        self.assertTrue(error.startswith(prefix))
+        self.assertEqual(len(message), 200)
+        self.assertTrue(message.startswith("Unknown import option(s): kkk"))
+        self.assertTrue(message.endswith("k..."))
 
-        self.assertEqual(_IMPORT_ECHO_MAX, 60)
-        self.assertEqual(_IMPORT_SERIALIZER_ECHO_MAX, 200)
+    def test_options_serializer_message_under_cap_is_untouched(self):
+        error = _parse_import_options(json.dumps({"k" * 100: True}), ImportOptionsSerializer)[1]
+        self.assertEqual(error, f"Invalid 'options': Unknown import option(s): {'k' * 100}.")
+
+    def test_field_definition_serializer_message_is_cut_at_200(self):
+        from boards.serializers import CustomFieldDefinitionSerializer
+        from boards.views.import_export import _validate_import_field_definitions
+
+        error = _validate_import_field_definitions(
+            [{"name": "a", "field_type": "z" * 300}],
+            CustomFieldDefinitionSerializer,
+            CustomFieldDefinition,
+            "pinned",
+            "custom_fields",
+        )[1]
+        prefix = "'custom_fields' entry at index 0: "
+        self.assertTrue(error.startswith(prefix))
+        message = error[len(prefix) :]
+        self.assertEqual(len(message), 200)
+        self.assertTrue(message.endswith("z..."))
 
 
 class ImportJsonTailTests(TestCase):
