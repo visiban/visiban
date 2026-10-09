@@ -29,6 +29,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import TokenHasScope
 from groups.views import JoinGroupRateThrottle
+from visiban.authorization import invite_creator_is_valid
 from visiban.invite_email import InviteEmailBadRequestSerializer, InviteEmailErrorSerializer
 from visiban.permissions import MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange
 from visiban.utils import get_client_ip
@@ -377,7 +378,7 @@ class JoinBoardView(APIView):
         board = _invites.load_board(link.board_id)
         has_access = request.user.is_authenticated and get_board_role(request.user, board) is not None
         code = _invites.unusable_code(link, caller_has_access=has_access)
-        if code is None and not _invites.sender_is_board_admin(link, board):
+        if code is None and not invite_creator_is_valid(link, board=board):
             # The sender can no longer add people (deactivated, or no longer an
             # admin of this board): to the holder the invite is simply dead.
             code = "revoked"
@@ -437,7 +438,7 @@ class JoinBoardView(APIView):
             board = _invites.load_board(link.board_id)
             has_access = get_board_role(user, board) is not None
             code = _invites.unusable_code(link, caller_has_access=has_access)
-            if code is None and not _invites.sender_is_board_admin(link, board):
+            if code is None and not invite_creator_is_valid(link, board=board):
                 code = "revoked"
             if code is not None:
                 logger.info(

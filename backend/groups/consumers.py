@@ -8,7 +8,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user
-from visiban.permissions import has_pending_account_action
+from visiban.authorization import authorize_account
 
 from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import get_accessible_group_ids
@@ -84,9 +84,12 @@ class GroupConsumer(AsyncWebsocketConsumer):
             await self.close(code=4001)
             return
 
-        if has_pending_account_action(user):
-            # Account-state rule shared with REST; re-checked on every
-            # periodic access check via load_live_ws_user.
+        if not authorize_account(user):
+            # Shared account-state gates (visiban.authorization, #1517): the
+            # same rule REST and MCP apply. Re-checked on every periodic
+            # access check via load_live_ws_user. Must stay before any
+            # database lookup; accounts/tests/test_auth_entry_points.py
+            # checks every routed consumer for this call.
             await self.close(code=4003)
             return
 

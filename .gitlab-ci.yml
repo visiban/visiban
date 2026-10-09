@@ -1329,7 +1329,9 @@ backend-test-git-lens:
     # sweep walks whatever URLconf is mounted, and this is the only job where
     # git_lens' routes exist, so without it the demo fence's sweep never
     # covers the lens write endpoints.
-    - coverage run --parallel --data-file=.coverage.git-lens -m pytest git_lens/ accounts/tests/test_demo_mode.py -q
+    # accounts/tests/test_auth_entry_points.py rides along for the same reason
+    # (#1517): it enumerates every mounted view, and the lens views exist only here.
+    - coverage run --parallel --data-file=.coverage.git-lens -m pytest git_lens/ accounts/tests/test_demo_mode.py accounts/tests/test_auth_entry_points.py -q
   artifacts:
     paths:
       - backend/.coverage.*

@@ -6,6 +6,8 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.permissions import SAFE_METHODS
 
+from visiban.authorization import INACTIVE
+
 from .models import (
     MCP_SCOPES,
     PAT_PREFIX,
@@ -126,8 +128,10 @@ def resolve_personal_access_token(raw_token):
     if pat_is_expired(pat):
         raise InvalidPersonalAccessToken("Token has expired.")
 
-    if not pat.user.is_active:
-        raise InvalidPersonalAccessToken("User account is disabled.")
+    # Shared inactive-account gate (#1517): the same predicate and message the
+    # WebSocket and MCP entry points apply.
+    if INACTIVE.blocks(pat.user):
+        raise InvalidPersonalAccessToken(INACTIVE.message)
 
     return pat
 

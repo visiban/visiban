@@ -29,9 +29,18 @@ Each rule has a statement, the reason it exists, and a table:
 | Enforced via | The code that applies the rule on that surface today |
 
 Entry points use file and function names, not line numbers, so the table
-survives edits. Paths are relative to `backend/`. The enumeration test
-planned in #1517 consumes the same surface list as these tables, so a surface
-added here is a surface that test must cover.
+survives edits. Paths are relative to `backend/`. Where a rule has a shared
+implementation, it lives in `visiban/authorization.py` and the "Enforced via"
+column names it. `accounts/tests/test_auth_entry_points.py` enforces Rules 1
+and 2: it discovers every routed REST and non-DRF view, every routed WebSocket
+consumer, the MCP transport, every invite-link model, and every function that
+looks an invite up by its token, and fails when one skips the shared function.
+It also pins the registration and OAuth adapter call sites to the shared
+functions and to `registration_token_kind` (Rule 4 dispatch). It does not
+enumerate Rule 3 (the revocation table is a review checklist) or Rule 5, and it
+does not test locking; the concurrent tests for each consume-once path do.
+[Authorization Entry Points](authorization-entry-points.md) says what each
+entry point calls and how that test finds them.
 
 ## Rule 1: Account-state gates apply to every transport
 
@@ -45,17 +54,17 @@ write the same data over MCP, a socket, an invite link or an import.
 
 | Surface | Entry point | Enforced via |
 |---|---|---|
-| REST | `visiban/settings.py` `REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"]` | `visiban.permissions.MustNotHavePendingPasswordChange` and `MustNotHavePendingUsernameChange` come from the defaults. Documented exceptions that declare their own `permission_classes` so a forced-change user can reach them: `CurrentUserView`, `ChangePasswordView`, `ChooseUsernameView`, `/auth/user/` and `/auth/password/change/` (`visiban/urls.py`). The OpenAPI schema views (`visiban/urls.py`) declare `IsAuthenticated, TokenHasScope`. `boards/views/boards.py` `BoardViewSet` and `accounts/views.py` `WSTicketView` declare an explicit list that includes both gates |
-| REST authentication | `accounts/authentication.py` `PATAuthentication`; DRF `SessionAuthentication` and `TokenAuthentication` (`DEFAULT_AUTHENTICATION_CLASSES`) | `resolve_personal_access_token` rejects a PAT whose user is inactive; `SessionAuthentication` and DRF's `TokenAuthentication` check `user.is_active` |
+| REST | `visiban/settings.py` `REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"]` | `visiban.permissions.MustNotHavePendingPasswordChange` and `MustNotHavePendingUsernameChange` come from the defaults; each delegates to its shared gate (`visiban.authorization.PENDING_PASSWORD_CHANGE`, `PENDING_USERNAME_CHANGE`). Documented exceptions that declare their own `permission_classes` so a forced-change user can reach them: `CurrentUserView`, `ChangePasswordView`, `ChooseUsernameView`, `/auth/user/` and `/auth/password/change/` (`visiban/urls.py`). The OpenAPI schema views (`visiban/urls.py`) declare `IsAuthenticated, TokenHasScope`. `boards/views/boards.py` `BoardViewSet` and `accounts/views.py` `WSTicketView` declare an explicit list that includes both gates |
+| REST authentication | `accounts/authentication.py` `PATAuthentication`; DRF `SessionAuthentication` and `TokenAuthentication` (`DEFAULT_AUTHENTICATION_CLASSES`) | `resolve_personal_access_token` rejects a PAT whose user is inactive (`visiban.authorization.INACTIVE`); `SessionAuthentication` and DRF's `TokenAuthentication` check `user.is_active` |
 | Login and session issuance | `accounts/views.py` `ThrottledLoginView`; `accounts/backends.py` `EmailBackend`; `accounts/adapter.py` `SocialRegistrationAdapter` | `ModelBackend` and `EmailBackend.authenticate` call `user_can_authenticate` (inactive users are refused); `ThrottledLoginView` mints the DRF `Token` only after authentication succeeds; for existing social accounts allauth's `respond_user_inactive` handles an inactive user |
-| MCP | `mcp_server/auth.py` `BearerAuthMiddleware` | `_authenticate_and_authorize` calls `_enforce_account_state`, which reuses the REST permission classes |
+| MCP | `mcp_server/auth.py` `BearerAuthMiddleware` | `_authenticate_and_authorize` calls `_enforce_account_state`, which calls `visiban.authorization.account_state_denial` and returns the gate's message and code |
 | WebSocket ticket mint | `accounts/views.py` `WSTicketView` | Explicit `permission_classes`: `IsAuthenticated`, both pending-change gates, `TokenHasScope` |
-| WebSocket handshake | `accounts/ws_auth.py` `TicketAuthMiddleware`, `_resolve_ticket_user`; Channels `AuthMiddlewareStack` | `_resolve_ticket_user` refuses an inactive user at redemption; `AuthMiddlewareStack` resolves the session user through Django's auth backends |
-| WebSocket (board) | `boards/consumers.py` `BoardConsumer.connect`, `_check_access` | `connect` refuses an unauthenticated scope user or one with no recorded credential; the periodic re-check runs `accounts/ws_auth.py` `load_live_ws_user`, which requires an active user |
-| WebSocket (group) | `groups/consumers.py` `GroupConsumer.connect`, `_check_access` | Same as the board consumer: same `connect` refusal; periodic re-check runs `load_live_ws_user` |
+| WebSocket handshake | `accounts/ws_auth.py` `TicketAuthMiddleware`, `_resolve_ticket_user`; Channels `AuthMiddlewareStack` | `_resolve_ticket_user` refuses an inactive user at redemption (`visiban.authorization.INACTIVE`); `AuthMiddlewareStack` resolves the session user through Django's auth backends |
+| WebSocket (board) | `boards/consumers.py` `BoardConsumer.connect`, `_check_access` | `connect` refuses an unauthenticated scope user or one with no recorded credential, then calls `visiban.authorization.authorize_account`; the periodic re-check runs `accounts/ws_auth.py` `load_live_ws_user`, which calls `authorize_account` on a freshly loaded row |
+| WebSocket (group) | `groups/consumers.py` `GroupConsumer.connect`, `_check_access` | Same as the board consumer: same `connect` refusal and `authorize_account` call; periodic re-check runs `load_live_ws_user` |
 | Invite link redemption | `boards/views/invites.py` `JoinBoardView`; `groups/views.py` `JoinGroupView` | POST declares `IsAuthenticated`, both pending-change gates and `TokenHasScope`; GET is `AllowAny` |
 | JSON, CSV and Trello import | `boards/views/import_export.py` `BoardImportExportMixin.import_board`, `import_trello` | Served by `BoardViewSet`, so its explicit permission list |
-| OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter.pre_social_login`, `save_user` | Signup creates the account in the same flow; existing-account matching in `_handle_email_collision` considers active users only |
+| OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter.pre_social_login`, `save_user` | Signup creates the account in the same flow; existing-account matching in `_handle_email_collision` considers active users only (`visiban.authorization.principal_is_active`) |
 | Django admin | `accounts/admin.py` `UserAdmin` registration; `boards/admin.py` `BoardMembershipAdmin` | Django's `AdminSite` requires an active staff user for `/admin/` |
 | Admin API | `accounts/admin_views.py` `AdminUserDetailView`, `AdminUserDeactivateView` | `_ADMIN_PERMISSIONS` |
 
@@ -78,11 +87,11 @@ re-checks.
 | Personal access tokens | `accounts/admin_views.py` `AdminUserDeactivateView._revoke_invite_links` | Deletes the user's PATs; invoked by `AdminUserDeactivateView.post` and by `AdminUserDetailView.patch` when `is_active` becomes false |
 | MCP | `mcp_server/auth.py` `BearerAuthMiddleware`; `mcp_server/tools.py` | `resolve_personal_access_token` rejects inactive users; tools import `get_board_role` and `get_board_roles` |
 | WebSocket handshake | `accounts/ws_auth.py` `_resolve_ticket_user`; Channels `AuthMiddlewareStack` | Ticket redemption refuses an inactive user; the session handshake uses Django's auth backends |
-| WebSocket (board) | `boards/consumers.py` `BoardConsumer` | Periodic and per-frame re-check: `_refresh_role` calls `load_live_ws_user` (active user, live credential) and `_lookup_role` resolves the current role with `get_board_role`; a failed check closes with 4003 |
+| WebSocket (board) | `boards/consumers.py` `BoardConsumer` | Periodic and per-frame re-check: `_refresh_role` calls `load_live_ws_user` (`authorize_account` on a fresh row, live credential) and `_lookup_role` resolves the current role with `get_board_role`; a failed check closes with 4003 |
 | WebSocket (group) | `groups/consumers.py` `GroupConsumer` | Periodic re-check: `_refresh_access` calls `load_live_ws_user`; `_has_access` uses `get_accessible_group_ids` |
 | Site invite links | `accounts/admin_views.py` `AdminUserDeactivateView._revoke_invite_links` | Sets `revoked_at` on the user's unused site links; invoked by `AdminUserDeactivateView.post` and by `AdminUserDetailView.patch` when `is_active` becomes false |
-| Board invite links | `boards/views/invites.py` `JoinBoardView.get`, `JoinBoardView.post`; `boards/invites.py` `sender_is_board_admin` | `sender_is_board_admin` is evaluated at preview and at join; `_revoke_pending_board_invites` revokes on deactivation |
-| Group invite links | `groups/invite_registration.py` `_sender_still_admits`; `groups/views.py` `sender_is_group_admin`, `_revoke_lapsed_admin_invite_links`; `accounts/admin_views.py` `AdminUserDeactivateView._revoke_group_invite_links` | Sender standing is evaluated at preview and redemption; links are revoked when the sender is deactivated or their admin rights lapse |
+| Board invite links | `boards/views/invites.py` `JoinBoardView.get`, `JoinBoardView.post`; `boards/invites.py` `sender_is_board_admin` | `visiban.authorization.invite_creator_is_valid` (the board rule is `sender_is_board_admin`) is evaluated at preview and at join; `_revoke_pending_board_invites` revokes on deactivation |
+| Group invite links | `groups/invite_registration.py` `_sender_still_admits`; `groups/views.py` `sender_is_group_admin`, `_revoke_lapsed_admin_invite_links`; `accounts/admin_views.py` `AdminUserDeactivateView._revoke_group_invite_links` | Sender standing is evaluated at preview and redemption through `visiban.authorization.invite_creator_is_valid` (the group rule is `sender_is_group_admin`), and at registration also `sender_may_admit_accounts`; links are revoked when the sender is deactivated or their admin rights lapse (`_revoke_lapsed_admin_invite_links` is revocation housekeeping, not the access decision; see [advisory copies](authorization-entry-points.md#advisory-copies-of-the-creator-rule)) |
 | JSON, CSV and Trello import | `boards/views/import_export.py` `BoardImportExportMixin` | Runs as an authenticated REST request, so role is read from current state |
 | OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter` | `_handle_email_collision` considers active users only |
 | Django admin | `boards/admin.py` `BoardMembershipAdmin` | Membership changes made in the admin emit the `EVT_MEMBER_ADDED`, `EVT_MEMBER_UPDATED` and `EVT_MEMBER_REMOVED` board events through `_BoardEventAdminMixin` |
@@ -171,9 +180,18 @@ matched count into an existence oracle for every account on the instance.
    or class, no line numbers) and the code that enforces the rule today. Do not
    record a surface as enforcing the rule from memory; open the file.
 4. Add the new rule as its own section above, with a table in the same format.
-5. If the rule is checked by the enumeration test (#1517), make sure the test
-   reads the same surface list. A surface listed here and not in the test, or the
-   reverse, is a defect in one of the two.
+5. If the rule has a shared implementation, put it in
+   `backend/visiban/authorization.py` and extend
+   `backend/accounts/tests/test_auth_entry_points.py` so the test discovers
+   every surface in the rule's table (see
+   [Authorization Entry Points](authorization-entry-points.md)). A surface listed
+   here and not checked by the test, or the reverse, is a defect in one of the
+   two. Exception: Rule 5 already resolves every import format's names through
+   one shared function, `boards/services/trello_import.py` `visible_users`
+   (JSON and CSV reach it through `_resolve_import_users`), and every format
+   enters through the one import mixin. With no second transport for a copy to
+   drift on, it is intentionally outside the enumeration;
+   `boards/tests/test_import_user_scope.py` covers it.
 6. Keep gap tracking out of this page. A surface that needs work is an issue,
    not a row annotation.
 

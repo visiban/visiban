@@ -73,7 +73,7 @@ from django.core.cache import cache
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
-from visiban.permissions import has_pending_account_action
+from visiban.authorization import INACTIVE, authorize_account
 
 # Seconds a ticket stays redeemable. Long enough to cover the round trip from
 # the REST response to the WebSocket upgrade (including a slow mobile network),
@@ -320,8 +320,11 @@ def _resolve_ticket_user(raw_ticket: str):
 
     # Re-check liveness at redemption. The account can be deactivated inside the
     # ticket's TTL, and a ticket must never outlive the access it stands for —
-    # the same guard PATAuthentication applies on every REST call.
-    if not user.is_active:
+    # the same shared gate PATAuthentication applies on every REST call. Only
+    # the inactive gate: a forced-change user is refused by the consumer's
+    # authorize_account() check with 4003, and refusing here instead would
+    # turn that into a 4001 (#1517 keeps close codes unchanged).
+    if INACTIVE.blocks(user):
         return None
     # The minting credential may already have been revoked inside the TTL
     # (a logout right after minting); refuse the handshake rather than let
@@ -450,12 +453,11 @@ def load_live_ws_user(scope):
     """
     from django.contrib.auth import get_user_model
 
-    user = get_user_model().objects.filter(pk=scope["user"].id, is_active=True).first()
-    if user is None:
-        return None
-    # Same account-state rule the REST permission classes apply; read from the
-    # freshly loaded row so a flag set after the handshake is seen.
-    if has_pending_account_action(user):
+    user = get_user_model().objects.filter(pk=scope["user"].id).first()
+    # The shared account-state gates (inactive, forced password or username
+    # change) the REST permission classes and the handshake apply (#1517),
+    # read from the freshly loaded row so a change after the handshake is seen.
+    if user is None or not authorize_account(user):
         return None
     if not ws_credential_is_live(scope.get(WS_CREDENTIAL_SCOPE_KEY), user):
         return None
