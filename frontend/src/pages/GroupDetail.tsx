@@ -1012,9 +1012,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
               {/* Default member role */}
               <div className="mb-5">
-                <label className="text-fg-tertiary text-sm block mb-2">Default member role for new boards</label>
+                <label htmlFor="group-default-member-role" className="text-fg-tertiary text-sm block mb-2">Default member role for new boards</label>
                 <div className="flex items-center gap-3">
                   <SelectDropdown
+                    id="group-default-member-role"
+                    ariaDescribedBy="group-default-member-role-hint"
                     value={group.default_board_member_role ?? "member"}
                     onChange={(v) => handleDefaultRoleChange(v as "admin" | "member" | "collaborator" | "viewer")}
                     disabled={savingDefaults}
@@ -1029,7 +1031,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   {defaultsError && <span className="text-danger text-xs">{defaultsError}</span>}
                 </div>
                 {/* #1430: stored but never read; access comes from GroupMembership.role via get_board_role() */}
-                <p className="text-fg-muted text-xs mt-2">
+                <p id="group-default-member-role-hint" className="text-fg-muted text-xs mt-2">
                   Not yet enforced. Group members currently get their group role on every group board.
                 </p>
               </div>

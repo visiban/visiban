@@ -892,6 +892,13 @@ describe('GroupDetail', () => {
       ).toBeInTheDocument()
     })
 
+    it('associates the not-yet-enforced hint with the default role control (#1430)', async () => {
+      await loadAndSwitchToSettings()
+      const hint = await screen.findByText(/Not yet enforced\. Group members currently/)
+      const control = screen.getByLabelText('Default member role for new boards')
+      expect(control).toHaveAccessibleDescription(hint.textContent ?? '')
+    })
+
     it('board defaults section shows the allowed priorities label', async () => {
       await loadAndSwitchToSettings()
       expect(await screen.findByText('Allowed priorities on new boards')).toBeInTheDocument()

@@ -37,6 +37,8 @@ interface Props<T extends string> {
    * `disabledReason` still wins.
    */
   ariaLabel?: string;
+  /** id of helper text describing the trigger (applied as `aria-describedby`). */
+  ariaDescribedBy?: string;
 }
 
 const MIN_MENU_WIDTH = 96;
@@ -53,6 +55,7 @@ export default function SelectDropdown<T extends string>({
   id,
   escapePriority = 50,
   ariaLabel,
+  ariaDescribedBy,
 }: Props<T>) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -192,6 +195,7 @@ export default function SelectDropdown<T extends string>({
         aria-label={
           disabled && disabledReason ? disabledReason : ariaLabel ? `${ariaLabel}: ${label}` : undefined
         }
+        aria-describedby={ariaDescribedBy}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
