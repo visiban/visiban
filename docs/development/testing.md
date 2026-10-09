@@ -304,7 +304,8 @@ Do the same for broadcast events: assert nothing was queued.
 
 ## CI
 
-- Backend tests run in the `backend-test` job (3 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
+- Backend tests run in the `backend-test` job (8 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
+  - Shards are time-balanced by `pytest-split` from the committed `backend/.test_durations` file. Shards never write it (concurrent shards would overwrite each other's slice). Refresh it occasionally, e.g. after a large batch of new tests: `cd backend && pytest --store-durations --durations-path .test_durations`, then commit the file. A stale file only degrades balance, never correctness.
 - Frontend unit tests run in `frontend-test`. Unlike `backend-schema-fuzz` below, a single
   failed test retries once automatically under CI (`vitest.config.ts`'s `test.retry`, gated
   on `process.env.CI` so local runs stay strict) before failing the job — a mitigation for
