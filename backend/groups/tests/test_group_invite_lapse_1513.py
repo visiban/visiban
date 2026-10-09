@@ -144,7 +144,7 @@ class CreatorlessBackfillMigrationTests(TestCase):
         from django.utils import timezone
 
         GroupInviteLink.objects.filter(pk__in=[orphan.pk, used.pk]).update(created_by=None)
-        GroupInviteLink.objects.filter(pk=used.pk).update(used_at=timezone.now())
+        GroupInviteLink.objects.filter(pk=used.pk).update(used_at=timezone.now(), single_use=True)
         mod.deactivate_creatorless_links(apps, None)
         for lk in (orphan, used, kept):
             lk.refresh_from_db()
