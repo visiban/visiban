@@ -3,10 +3,22 @@
 # SAST: Semgrep-based static analysis via the official GitLab catalog component.
 # Covers Python and TypeScript/JavaScript with broader rules than Bandit.
 # enable_mr_pipelines: true — runs on MR pipelines in addition to branch
-# pipelines, so findings gate merges. excluded_paths skips generated code.
+# pipelines. excluded_paths skips generated code.
+#
+# Both components are pinned to an exact released version (#1071) instead of
+# `@~latest`: a floating component can change rules, defaults, or job shape
+# under us between two pipelines, so a scanner could silently stop blocking (or
+# start blocking everything). Bump deliberately, in its own MR, after reading
+# the component's release notes. Verify a candidate version exists with:
+#   glab api "projects/components%2Fsast/releases"
+#   glab api "projects/components%2Fsecret-detection/releases"
+#
+# These components generate the `semgrep-sast` and `secret_detection` jobs —
+# they are NOT literal job keys in a plain read of this file. The overrides
+# further down (search "Scanner blocking policy") are what make them blocking.
 
 include:
-  - component: gitlab.com/components/sast/sast@~latest
+  - component: gitlab.com/components/sast/sast@3.5.0
     inputs:
       stage: security
       enable_mr_pipelines: true
@@ -14,10 +26,72 @@ include:
         backend/boards/migrations,
         backend/groups/migrations,
         backend/accounts/migrations
-  - component: gitlab.com/components/secret-detection/secret-detection@~latest
+  - component: gitlab.com/components/secret-detection/secret-detection@2.4.0
     inputs:
       stage: security
       enable_mr_pipelines: true
+
+# ─── Scanner blocking policy (#1071) ──────────────────────────────────────────
+#
+# Which scanners can actually fail a pipeline. OSS push-mirrors to the
+# enterprise repo and public GitHub within a minute of a merge, so a committed
+# secret is public on three remotes almost immediately.
+#
+#   gitleaks-scan      blocks on any finding              — full working tree, MR + main
+#   gitleaks-history   blocks on any finding              — full git history, main only
+#                      (runs after merge: a post-merge tripwire, not a merge gate)
+#   secret_detection   REPORT ONLY for findings           — see below; #1537
+#   semgrep-sast       blocks at High/Critical only       — override + sast-severity-gate
+#   backend-sast       blocks (bandit, medium+)           — pre-existing
+#   frontend-sast      blocks (eslint 'error' rules)      — only when frontend/src/**/*.{ts,tsx} changed
+#   trivy-scan         tracked separately in #1072; dep-scan-osv, pip-audit and the
+#                      license checks are deliberately outside this policy
+#
+# Semgrep's Low/Medium/Info findings stay visible in the MR security widget but
+# do not fail the pipeline; the SAST component has no native severity threshold,
+# so sast-severity-gate reads gl-sast-report.json. Accepting a High/Critical
+# finding requires an entry (reason + expiry date) in
+# .gitlab/sast-suppressions.json — see docs/maintainers/security-scanners.md.
+
+# Component-generated job: override only what we change; the rest of the job
+# definition (image, script, rules, artifacts) still comes from the component.
+# NOTE: GitLab's analyzers always exit 0 on findings, so allow_failure: false
+# here does NOT make secret_detection block on a leak — it only makes an
+# analyzer crash fail the job. The blocking secret gates are gitleaks-scan and
+# gitleaks-history. Gating on the component's report is tracked in #1537.
+secret_detection:
+  allow_failure: false
+
+# The component's job only inspects the MR diff (GIT_DEPTH 50). Full-history
+# coverage is gitleaks-history below (the component analyzer ignores
+# .gitleaks.toml, so it cannot share the repo's reviewed allowlist).
+
+semgrep-sast:
+  allow_failure: false
+
+# Fails the pipeline on a High/Critical semgrep finding that is not covered by an
+# unexpired entry in .gitlab/sast-suppressions.json. Expired suppressions also
+# fail, so a temporary acceptance cannot rot into a permanent one.
+sast-severity-gate:
+  stage: security
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  needs:
+    - job: semgrep-sast
+      artifacts: true
+      optional: true
+  # Rules match when semgrep-sast actually runs: MR pipelines and the default
+  # branch (the component is included with enable_mr_pipelines: true). The
+  # component has no SAST_DISABLED variable in 3.5.0; its opt-out is the
+  # `excluded_analyzers` include input, which a job rule cannot read. So if
+  # semgrep is ever excluded there, this gate job must be removed in the same
+  # change, otherwise it fails closed on the missing report (intended).
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - python3 scripts/sast-severity-gate.py --self-test
+    - python3 scripts/sast-severity-gate.py gl-sast-report.json .gitlab/sast-suppressions.json
+  allow_failure: false
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 #
@@ -2523,7 +2597,12 @@ backend-sast:
 # eslint-plugin-security: JS/TS SAST for injection, prototype pollution,
 # non-literal regexp/require, and other common frontend security issues.
 # Runs as a dedicated security job (separate from style linting) so failures
-# are clearly security-attributed and block merges independently.
+# are clearly security-attributed. Blocking (#1071): ESLint exits non-zero only
+# for rules set to 'error' below (the high-confidence ones); the noisy
+# detect-object-injection / timing-attack rules are 'warn' and never fail the
+# job. A finding that is a genuine false positive is suppressed inline with
+# `// eslint-disable-next-line security/<rule> -- <reason>` (see the
+# suppression-marker convention in CLAUDE.md).
 frontend-sast:
   extends: .npm-cache
   stage: security
@@ -2567,7 +2646,7 @@ frontend-sast:
       ];
       ESLINTEOF
       npx eslint --no-config-lookup --config eslint-security.config.mjs src/
-  allow_failure: true
+  allow_failure: false
 
 # pip-audit: checks Python packages against the OSV vulnerability database.
 # On MRs: only when requirements.txt changes; allow_failure so a new CVE in an
@@ -2839,6 +2918,39 @@ gitleaks-scan:
     - chmod +x /usr/local/bin/gitleaks
   script:
     - gitleaks dir . --config .gitleaks.toml --no-banner --redact --exit-code 1
+
+# gitleaks-history (#1071): the same pinned gitleaks and .gitleaks.toml as
+# gitleaks-scan, but `gitleaks git` walks every commit, not just the checkout.
+# A secret that was committed and later "removed" is still retrievable from the
+# public GitHub and enterprise mirrors, so main must prove its whole history is
+# clean. Main only: a full-history scan on every MR is slow and would re-report
+# the same findings forever. GIT_DEPTH 0 because GitLab's default shallow clone
+# would hide everything older than the fetch depth.
+gitleaks-history:
+  stage: security
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.20
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "merge_request_event"'
+  before_script:
+    - apk add --no-cache wget git
+    - wget -q -O /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+    - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+    - chmod +x /usr/local/bin/gitleaks
+  script:
+    # Fail closed on a shallow clone: GIT_DEPTH 0 should give full history, but a
+    # runner-level override would silently turn this into a partial scan that
+    # still reports green. A guard (rather than GIT_STRATEGY: clone) keeps the
+    # fast fetch and makes the misconfiguration loud.
+    - |
+      if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
+        echo "ERROR: shallow clone; gitleaks-history needs full history (GIT_DEPTH 0)." >&2
+        exit 1
+      fi
+    - gitleaks git . --config .gitleaks.toml --no-banner --redact --exit-code 1
+  allow_failure: false
 
 # ─── Nightly SonarCloud scan (#1369, part of the #1368 quality epic) ─────────
 #
