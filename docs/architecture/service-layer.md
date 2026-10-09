@@ -22,13 +22,13 @@ For one state transition:
 | Role allow-list | only `member`, `admin`, `site_admin` may mutate a card |
 | Ownership / assignment gate | a member may edit only cards they created, unless they hold the moderator entitlement |
 | Optimistic concurrency | compare the caller's `version` against the stored row |
-| Row locks, in a fixed order | card row → target column row → source cell rows by pk → target cell rows by pk |
+| Row locks, in a fixed order | the moved card plus every card in its source and target cells, in one statement ordered by pk → target column row (`FOR NO KEY UPDATE`) |
 | Limit enforcement | WIP soft, WIP hard, weight, and the `force` override authorization — one helper, `enforce_column_limits()`, shared by move, create, restore, and a weight increase on update (#1428) |
 | Audit trail | the `CardMovement` row and the `CardActivity` diff |
 | The transaction | one `atomic()` block per transition |
 | Deferred side effects | the `transaction.on_commit()` WebSocket broadcast and `CARD_MUTATION_HOOKS` |
 
-The lock order is a deadlock-avoidance contract, not an implementation detail: concurrent moves queue behind each other only because every caller takes the same locks in the same sequence.
+The lock order is a deadlock-avoidance contract, not an implementation detail: concurrent moves queue behind each other only because every caller takes the same locks in the same sequence. Two consequences of #1522 are easy to undo by accident. First, card rows are never locked one statement at a time: locking the moved card and then its siblings deadlocked two moves out of one cell, because each held its own card and wanted the other's. Because the source cell is only known after the card is read, `move_card` reads it unlocked, locks the cells, and re-checks the card under the lock, retrying if a concurrent writer changed it (and returning `409` if that keeps happening). Second, the column lock is `FOR NO KEY UPDATE`, not `FOR UPDATE`: writing a `CardMovement` takes a key-share lock on both of its columns, and with `FOR UPDATE` two opposite-direction moves deadlocked on each other's target column.
 
 ## What stays in the view
 

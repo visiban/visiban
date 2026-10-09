@@ -349,8 +349,12 @@ class ConcurrentMoveLockTests(TransactionTestCase):
         write A -> B and A -> C, a history that cannot have happened.
         """
         card = self._card("Contended", self.col_a, 0)
+        # Held right after the card-row lock is taken. (Before #1522 the lock
+        # was the first statement and ``_board_scoped`` ran after it; the card
+        # is now read unlocked, so only a hold after _lock_move_cells keeps the
+        # first move inside its lock.)
         results = self._race(
-            "_board_scoped",
+            "_lock_move_cells",
             self._move(card, self.col_b),
             self._move(card, self.col_c),
         )
@@ -361,6 +365,9 @@ class ConcurrentMoveLockTests(TransactionTestCase):
         # column row, so the card can drop out of the result. Either way it ran
         # strictly after the first move; what must never happen is two 200s
         # both written from column A.
+        # Since #1522 the card is locked without the join and a move whose card
+        # changed before the lock retries, so this is 200 in practice; the
+        # assertion is tightened under #1523, which owns that contract.
         # Tighten to == 200 once #1523 (spurious 404 for the queued move) is fixed.
         self.assertIn(results["second"], (200, 404))
 
@@ -393,9 +400,9 @@ class ConcurrentMoveLockTests(TransactionTestCase):
         self.col_b.wip_limit = 2
         self.col_b.save(update_fields=["wip_limit"])
         self._card("Resident", self.col_b, 0)
-        # Different source cells: two cards leaving the *same* cell deadlock on
-        # the sibling-row locks (see #1522), which is a
-        # separate problem from the target-column lock exercised here.
+        # Different source cells, so the target-column lock is the only thing
+        # that can make these two moves queue. (The same-cell case is covered by
+        # the #1522 deadlock tests below.)
         one = self._card("One", self.col_a, 0)
         two = self._card("Two", self.col_c, 0, swimlane=self.swim2)
 
@@ -440,3 +447,108 @@ class ConcurrentMoveLockTests(TransactionTestCase):
         self.assertEqual(placed[x.pk], 1)
         self.assertEqual(placed[resident.pk], 2)
         self.assertEqual(CardMovement.objects.filter(card__in=[x, y]).count(), 2)
+
+    # -- Deadlock freedom (#1522) -------------------------------------------
+    #
+    # A deadlock surfaces as ``OperationalError: deadlock detected``, which the
+    # test client re-raises and ``_race`` collects in ``errors`` — so each test
+    # below fails on the deadlock itself, before any end-state assertion.
+
+    def _assert_cell_positions_compact(self, column, swimlane):
+        positions = sorted(
+            Card.objects.filter(column=column, swimlane=swimlane, archived_at__isnull=True)
+            .values_list("position", flat=True)
+        )
+        self.assertEqual(positions, list(range(len(positions))), f"{column.name}: {positions}")
+
+    def test_two_moves_out_of_the_same_cell_do_not_deadlock(self):
+        """Two different cards leave one cell at once and both moves succeed.
+
+        The reported #1522 case. Before the fix each move locked its own card
+        row first and then the *other* card as a source-cell sibling, so the
+        two transactions waited on each other. Locking the whole cell in one
+        pk-ordered statement makes the second move queue behind the first.
+        """
+        one = self._card("One", self.col_a, 0)
+        two = self._card("Two", self.col_a, 1)
+        self._card("Three", self.col_a, 2)
+
+        results = self._race(
+            "enforce_column_limits",
+            self._move(one, self.col_b),
+            self._move(two, self.col_c),
+        )
+        self.assertEqual(results, {"first": 200, "second": 200})
+
+        one.refresh_from_db()
+        two.refresh_from_db()
+        self.assertEqual((one.column, two.column), (self.col_b, self.col_c))
+        self._assert_cell_positions_compact(self.col_a, self.swim)
+        self.assertEqual(CardMovement.objects.filter(card__in=[one, two]).count(), 2)
+
+    def test_two_moves_out_of_the_same_cell_in_reverse_pk_order_do_not_deadlock(self):
+        """Same race, with the higher-pk card moving first.
+
+        Guards the ordering half of the fix: whichever card wins, both moves
+        must acquire the cell in the same (pk) order.
+        """
+        low = self._card("Low", self.col_a, 0)
+        high = self._card("High", self.col_a, 1)
+
+        results = self._race(
+            "enforce_column_limits",
+            self._move(high, self.col_b),
+            self._move(low, self.col_c),
+        )
+        self.assertEqual(results, {"first": 200, "second": 200})
+        self._assert_cell_positions_compact(self.col_a, self.swim)
+
+    def test_opposite_moves_between_two_cells_do_not_deadlock(self):
+        """A card goes A -> B while another goes B -> A, in the same swimlane.
+
+        Each move's source cell is the other's target cell. Locking source then
+        target as two statements would let the moves take the two cells in
+        opposite orders; both cells are locked in one pk-ordered statement.
+        """
+        x = self._card("x", self.col_a, 0)
+        y = self._card("y", self.col_b, 0)
+
+        results = self._race(
+            "enforce_column_limits",
+            self._move(x, self.col_b),
+            self._move(y, self.col_a),
+        )
+        self.assertEqual(results, {"first": 200, "second": 200})
+        x.refresh_from_db()
+        y.refresh_from_db()
+        self.assertEqual((x.column, y.column), (self.col_b, self.col_a))
+        self._assert_cell_positions_compact(self.col_a, self.swim)
+        self._assert_cell_positions_compact(self.col_b, self.swim)
+
+    def test_opposite_moves_between_limited_columns_do_not_deadlock(self):
+        """Opposite-direction moves in different swimlanes, both columns limited.
+
+        The cells are disjoint, so only column rows are shared. Each move locks
+        its target column for the WIP count; the ``CardMovement`` insert then
+        needs a key-share lock on its *source* column, which is the other
+        move's target. A plain ``FOR UPDATE`` on the column conflicts with that
+        key-share lock and the two moves deadlock; the column lock is therefore
+        ``FOR NO KEY UPDATE``, which still serializes concurrent limit checks.
+        """
+        self.board.enforce_wip_limits = True
+        self.board.save(update_fields=["enforce_wip_limits"])
+        for column in (self.col_a, self.col_b):
+            column.wip_limit = 10
+            column.save(update_fields=["wip_limit"])
+        x = self._card("x", self.col_a, 0)
+        y = self._card("y", self.col_b, 0, swimlane=self.swim2)
+
+        results = self._race(
+            "enforce_column_limits",
+            self._move(x, self.col_b),
+            self._move(y, self.col_a, swimlane=self.swim2),
+        )
+        self.assertEqual(results, {"first": 200, "second": 200})
+        x.refresh_from_db()
+        y.refresh_from_db()
+        self.assertEqual((x.column, y.column), (self.col_b, self.col_a))
