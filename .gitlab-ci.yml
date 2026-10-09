@@ -451,8 +451,11 @@ security-deferred-verdict-selftest:
     - git config --global --add safe.directory '*'
     - bash scripts/check-security-deferred.sh --self-test
     # release.sh gates the tag on the check above (#1520); its self-test had no CI job.
-    # release.test.sh runs release.sh's --self-test plus the end-to-end rollback cases in
-    # hermetic clones; python3 is for assemble-changelog.sh.
+    # Invoked directly (not only via release.test.sh) so check-gate-selftest-parity.sh
+    # (#1093) sees the --self-test flag on the release.sh line itself.
+    - bash scripts/release.sh --self-test
+    # release.test.sh adds the end-to-end rollback cases in hermetic clones;
+    # python3 is for assemble-changelog.sh.
     - bash scripts/tests/release.test.sh
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
