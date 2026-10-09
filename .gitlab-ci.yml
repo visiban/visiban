@@ -62,6 +62,16 @@ stages:
   - security
   - deploy
 
+# The SAST and secret-detection components declare no `needs:`, so as `security`
+# stage jobs they waited for every `test` job — including the 7-8 min helm
+# drills — before starting, then ran for 15-90 s. They only read the checkout,
+# so they start at pipeline creation.
+semgrep-sast:
+  needs: []
+
+secret_detection:
+  needs: []
+
 # ─── Docker Hub mirror (#1198) ─────────────────────────────────────────────────
 #
 # Every Docker Hub image:/services:/name: reference in this file, and every
@@ -1717,14 +1727,12 @@ helm-install:
   # See scripts/helm-install-drill.sh.
   <<: *helm-drill-base
   timeout: 40m
-  # Only the static chart check (helm-template), not the whole `lint` stage —
-  # stage-based ordering was making this wait on unrelated jobs (frontend-lint,
-  # backend-lint, shellcheck, ...) before booting a 40min cluster. `optional:
-  # true` because helm-template has no schedule rule, so it's absent from
-  # scheduled pipelines that still run this drill.
-  needs:
-    - job: helm-template
-      optional: true
+  # No upstream dependency: the drill boots its own cluster and does not consume
+  # helm-template's output. It used to wait on helm-template (a 5-8 min lint
+  # job), which put the two back-to-back on the critical path of every chart
+  # change. A chart that fails to render now fails both jobs instead of only
+  # helm-template — an acceptable cost for running them concurrently.
+  needs: []
   rules:
     # Advisory on the nightly schedule: a blip on a shared runner pulling Calico
     # manifests or base images is a signal, not a hard red.
@@ -1768,9 +1776,7 @@ helm-netpol:
   <<: *helm-drill-base
   timeout: 45m
   # See helm-install above.
-  needs:
-    - job: helm-template
-      optional: true
+  needs: []
   rules:
     # Excludes the Sonar nightly (#1369) — see helm-install's identical note
     # above; this is a separate 45min cluster drill with nothing to do with a
