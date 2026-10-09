@@ -1,0 +1,87 @@
+"""Re-parenting a group and deleting a creator revoke stale invite links (#1513).
+
+Neither path admits anyone (preview/join re-check the creator), but the links
+would otherwise stay ``is_active`` and keep holding per-group cap slots.
+"""
+
+from django.test import TestCase
+from rest_framework.test import APIClient
+
+from accounts.models import User
+from groups.models import Group, GroupInviteLink, GroupMembership
+
+
+class ReparentRevokesLapsedLinksTests(TestCase):
+    def setUp(self):
+        self.actor = User.objects.create_user(username="actor", password="pw")
+        self.ancestor_admin = User.objects.create_user(username="anc", password="pw")
+        self.old_root = Group.objects.create(name="Old", owner=self.ancestor_admin)
+        self.new_root = Group.objects.create(name="New", owner=self.actor)
+        self.moved = Group.objects.create(name="Moved", owner=self.actor, parent=self.old_root)
+        self.child = Group.objects.create(name="Child", owner=self.actor, parent=self.moved)
+        GroupMembership.objects.create(group=self.old_root, user=self.ancestor_admin, role="admin")
+        GroupMembership.objects.create(group=self.moved, user=self.actor, role="admin")
+        GroupMembership.objects.create(group=self.new_root, user=self.actor, role="admin")
+        # Admin only through the old ancestor chain (member below).
+        GroupMembership.objects.create(group=self.moved, user=self.ancestor_admin, role="member")
+        self.inherited, _ = GroupInviteLink.generate(self.child, self.ancestor_admin)
+        self.kept, _ = GroupInviteLink.generate(self.moved, self.actor)
+        self.client = APIClient()
+        self.client.force_authenticate(self.actor)
+
+    def _reparent(self, parent):
+        return self.client.patch(f"/api/v1/groups/{self.moved.pk}/", {"parent": parent}, format="json")
+
+    def test_reparent_revokes_links_whose_creator_loses_inherited_admin(self):
+        self.assertEqual(self._reparent(self.new_root.pk).status_code, 200)
+        self.inherited.refresh_from_db()
+        self.kept.refresh_from_db()
+        self.assertFalse(self.inherited.is_active)
+        self.assertTrue(self.kept.is_active)
+
+    def test_rename_without_reparent_revokes_nothing(self):
+        r = self.client.patch(f"/api/v1/groups/{self.moved.pk}/", {"name": "X"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.inherited.refresh_from_db()
+        self.assertTrue(self.inherited.is_active)
+
+    def test_reparent_keeps_link_when_creator_still_admin(self):
+        GroupMembership.objects.filter(group=self.new_root, user=self.actor).update(role="admin")
+        GroupMembership.objects.create(group=self.new_root, user=self.ancestor_admin, role="admin")
+        self.assertEqual(self._reparent(self.new_root.pk).status_code, 200)
+        self.inherited.refresh_from_db()
+        self.assertTrue(self.inherited.is_active)
+
+    def test_reparent_to_root_revokes_and_frees_cap_slot(self):
+        self.assertEqual(self._reparent(None).status_code, 200)
+        self.inherited.refresh_from_db()
+        self.assertFalse(self.inherited.is_active)
+
+
+class CreatorDeletionRevokesLinksTests(TestCase):
+    def setUp(self):
+        self.creator = User.objects.create_user(username="creator", password="pw")
+        # Not owned by the creator: Group.owner cascades and would delete the link.
+        self.owner = User.objects.create_user(username="owner", password="pw")
+        self.group = Group.objects.create(name="G", owner=self.owner)
+        GroupMembership.objects.create(group=self.group, user=self.creator, role="admin")
+        self.link, _ = GroupInviteLink.generate(self.group, self.creator)
+        self.other_user = User.objects.create_user(username="other", password="pw")
+        GroupMembership.objects.create(group=self.group, user=self.other_user, role="admin")
+        self.other_link, _ = GroupInviteLink.generate(self.group, self.other_user)
+
+    def test_deleting_creator_deactivates_their_links_only(self):
+        self.creator.delete()
+        self.link.refresh_from_db()
+        self.other_link.refresh_from_db()
+        self.assertIsNone(self.link.created_by)
+        self.assertFalse(self.link.is_active)
+        self.assertTrue(self.other_link.is_active)
+
+    def test_consumed_single_use_link_keeps_history(self):
+        from django.utils import timezone
+
+        GroupInviteLink.objects.filter(pk=self.link.pk).update(used_at=timezone.now(), single_use=True)
+        self.creator.delete()
+        self.link.refresh_from_db()
+        self.assertTrue(self.link.is_active)
