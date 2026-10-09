@@ -4246,6 +4246,8 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>down<span class="w"> </span>-v<span class="w">          </span><span class="c1"># stop all containers and remove volumes</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build<span class="w">       </span><span class="c1"># recreate from scratch</span>
 </code></pre></div>
+<p>If the frontend container exits right after upgrading from a pre-1.2 checkout, the cause is a stale
+root-owned <code>node_modules</code> volume; see <a href="../../administration/upgrade/#upgrading-to-12x">Upgrading to 1.2.x</a>.</p>
 <p>After the containers start, run migrations and recreate the site admin account:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin

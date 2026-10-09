@@ -4738,6 +4738,10 @@ somewhere this chart does not mount an <code>emptyDir</code> for:</p>
 drop on every rendered pod, with no exclusions.</p>
 <div class="admonition note">
 <p class="admonition-title">The frontend container listens on 8080, not 80 (chart 0.7.0)</p>
+<p>The published frontend image now runs as the non-root <code>nginx</code> user (uid 101) and listens
+on 8080 on its own (#1528), so it needs no chart overrides. Direct <code>docker run</code> users must
+publish <code>-p 80:8080</code>. The production Compose file is unaffected: its <code>frontend-build</code>
+job only copies the static files into a volume served by the stock <code>nginx</code> service on 80/443.</p>
 <p><code>nginx:1.27-alpine</code> cannot bind a port below 1024 as the non-root
 <code>frontend.securityContext.pod.runAsUser</code> without <code>CAP_NET_BIND_SERVICE</code> —
 and that capability is not usable here either: Docker/containerd's

@@ -4993,6 +4993,26 @@ custom frontend image:</p>
 deep-merges nested maps, so a single-leaf <code>--set</code> keeps the chart's other
 <code>frontend.securityContext.container</code> defaults in place.</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Frontend image now runs as non-root and listens on 8080; reset the dev <code>node_modules</code> volume</p>
+<p>The <code>ghcr.io/visiban/visiban/frontend</code> image (and <code>frontend/Dockerfile.prod</code>) now runs as
+the non-root <code>nginx</code> user and nginx listens on <strong>8080</strong> instead of 80.</p>
+<ul>
+<li><strong>Direct <code>docker run</code> users</strong> must publish the new container port:
+  <code>docker run -p 80:8080 ghcr.io/visiban/visiban/frontend:&lt;tag&gt;</code>. The old <code>-p 80:80</code>
+  mapping no longer reaches nginx.</li>
+<li><strong>Production Compose and the Helm chart are unaffected.</strong> Production Compose only copies
+  the static files out of the image and serves them from the stock <code>nginx</code> service on
+  80/443, and the chart already used 8080 (see the chart 0.7.0 note above).</li>
+<li><strong>Development Compose checkouts must reset the frontend volume.</strong> The dev frontend now
+  runs as the <code>node</code> user (uid 1000). An existing checkout keeps a root-owned anonymous
+  <code>/app/node_modules</code> volume, so the dev command (<code>rm -rf /app/node_modules/.vite &amp;&amp; npm run dev</code>)
+  fails and the dev server never starts. Recreate it with <code>docker compose down -v</code>, or
+  <code>docker compose up --build --renew-anon-volumes</code> (<code>down -v</code> also deletes the database
+  volume; the second command only renews the anonymous volumes). On Linux hosts whose user
+  is not uid 1000, the <code>./frontend:/app</code> bind mount may also need to be writable by uid 1000.</li>
+</ul>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Scheduled jobs ship in 1.2 — off by default</p>
 <p>1.2 adds a scheduler for <code>notify_due_soon</code>, <code>notify_stale_cards</code>,

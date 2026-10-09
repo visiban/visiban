@@ -4056,7 +4056,7 @@ ignored, so a <code># see #12</code> comment does not satisfy the issue-referenc
 section (<code>misconfigurations:</code>, <code>vulnerabilities:</code>, <code>secrets:</code>, ...) is checked, including ones
 that use a different list indent.</p>
 <p>A suppression for a finding that is itself a deferred security risk needs its tracking issue
-labeled <code>security::deferred</code> (#1528 carries it); that label is what puts it through the
+labeled <code>security::deferred</code> (for example #1541); that label is what puts it through the
 accepted-risk review described in <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a>.</p>
 <p>Known limit: trivy's config scanner currently skips the Helm chart because of placeholder
 values, so chart misconfigurations are not caught by this job (#1536).</p>
