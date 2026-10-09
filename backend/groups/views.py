@@ -12,6 +12,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from accounts.permissions import TokenHasScope
+from visiban.authorization import invite_creator_is_valid, principal_is_active
 from visiban.permissions import MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange
 from visiban.utils import get_client_ip
 from rest_framework.response import Response
@@ -113,6 +114,9 @@ def sender_is_group_admin(link) -> bool:
     people through it. Mirrors ``boards.invites.sender_is_board_admin``.
     Deactivation also revokes the link outright (``AdminUserDeactivateView``);
     this covers demotion and any path that leaves the link active.
+
+    This is the group rule behind ``visiban.authorization.invite_creator_is_valid``;
+    entry points (preview, join) call that, not this (#1517).
     """
     from rest_framework.exceptions import PermissionDenied
 
@@ -123,7 +127,7 @@ def sender_is_group_admin(link) -> bool:
         return cached
     creator = link.created_by
     result = False
-    if creator is not None and creator.is_active:
+    if principal_is_active(creator):
         try:
             _require_group_admin(creator, link.group)
             result = True
@@ -1424,7 +1428,7 @@ class JoinGroupView(APIView):
         # the status code does not leak the creator's state to a token holder.
         # A used single-use link stays visible to its own members (#1445).
         is_member_of_used = link.used_at is not None and _is_member(request.user, link.group_id)
-        if not is_member_of_used and not sender_is_group_admin(link):
+        if not is_member_of_used and not invite_creator_is_valid(link):
             logger.info("Invite token lookup failed: creator not admin. token=%s ip=%s", token_hint, ip)
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         # Residual distinction accepted: with a live creator an expired or
@@ -1511,7 +1515,7 @@ class JoinGroupView(APIView):
             # and consumed links for existing members skip the creator check —
             # joining is then a no-op that changes nothing.
             already_member = _is_member(request.user, link.group_id)
-            if not (link.used_at is not None and already_member) and not sender_is_group_admin(link):
+            if not (link.used_at is not None and already_member) and not invite_creator_is_valid(link):
                 logger.info(
                     "Invite token redemption failed: creator not admin. token=%s user_id=%s ip=%s outcome=failure",
                     token_hint,

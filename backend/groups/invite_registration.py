@@ -169,14 +169,15 @@ def _sender_still_admits(link: GroupInviteLink) -> bool:
     already in flight — the same reason site invites are revoked when their
     creator is deactivated. The plain join path is unchanged.
     """
-    from .views import sender_is_group_admin
+    from visiban.authorization import invite_creator_is_valid, sender_may_admit_accounts
 
-    sender = link.created_by
-    if sender is None or not sender.is_active or not sender.is_site_admin:
+    # Shared rungs (#1517): the same account-level rule the board kind
+    # applies, then the same creator rule the join path applies.
+    if not sender_may_admit_accounts(link.created_by):
         return False
     # Memoized on the link, so the preview's own creator check (#1490) and this
     # one share a single ancestor walk.
-    return sender_is_group_admin(link)
+    return invite_creator_is_valid(link)
 
 
 def redeem_group_registration_token(link: GroupInviteLink, user) -> None:

@@ -8,6 +8,8 @@ from django.conf import settings as django_settings
 from django.http import HttpResponseRedirect
 from rest_framework.exceptions import PermissionDenied
 
+from visiban.authorization import principal_is_active
+
 from .invite_utils import InviteTokenError
 from .models import (
     SiteSetting,
@@ -437,7 +439,9 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         matches = list(find_accounts_for_email(email))
         if not matches:
             return
-        active = [user for user in matches if user.is_active]
+        # Shared inactive-account rule (#1517): a disabled account is never a
+        # match, the same predicate every other entry point applies.
+        active = [user for user in matches if principal_is_active(user)]
         if not active:
             self._redirect_with_error(request, "oauth_failed")
 

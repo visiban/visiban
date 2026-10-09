@@ -38,6 +38,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 
 from accounts.invite_utils import InviteTokenError
+from visiban.authorization import invite_creator_is_valid, principal_is_active, sender_may_admit_accounts
 from accounts.models import SiteSetting, get_registration_mode
 
 from . import broadcast as _broadcast
@@ -90,9 +91,13 @@ def sender_is_board_admin(link: BoardInviteLink, board=None) -> bool:
     been deactivated or lost admin on the board must not keep adding people
     through invites already in flight. (Deactivation also revokes pending
     invites outright — ``AdminUserDeactivateView``.)
+
+    This is the board rule behind ``visiban.authorization.invite_creator_is_valid``;
+    entry points (preview, join) call that, not this, so every invite kind is
+    asked the same question through one function (#1517).
     """
     sender = link.created_by
-    if sender is None or not sender.is_active:
+    if not principal_is_active(sender):
         return False
     board = board if board is not None else load_board(link.board_id)
     return get_board_role(sender, board) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
@@ -356,11 +361,13 @@ def _sender_still_admits(link: BoardInviteLink, *, board=None, memo=None) -> boo
     """The sender may admit a new account: an active site admin who is still an
     admin of the board, checked now. ``memo`` caches the answer per sender."""
     sender = link.created_by
-    if sender is None or not sender.is_active or not sender.is_site_admin:
+    # Shared rungs (#1517): the same account-level rule the group kind
+    # applies, then the same creator rule the join path applies.
+    if not sender_may_admit_accounts(sender):
         return False
     if memo is not None and sender.pk in memo:
         return memo[sender.pk]
-    admits = sender_is_board_admin(link, board)
+    admits = invite_creator_is_valid(link, board=board)
     if memo is not None:
         memo[sender.pk] = admits
     return admits

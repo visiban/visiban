@@ -20,10 +20,7 @@ from accounts.authentication import (
     resolve_personal_access_token,
 )
 
-from visiban.permissions import (
-    MustNotHavePendingPasswordChange,
-    MustNotHavePendingUsernameChange,
-)
+from visiban.authorization import account_state_denial
 
 from .context import (
     reset_current_scopes, reset_current_token_id, reset_current_user,
@@ -54,22 +51,19 @@ class AccountStateBlocked(Exception):
 
 
 def _enforce_account_state(user):
-    """Apply the REST account-state gates to the MCP caller.
+    """Apply the shared account-state gates to the MCP caller.
 
-    Reuses the REST permission classes' own predicate, message and code so the
-    two transports cannot drift. MCP exposes no password- or username-change
-    tool, so unlike REST there is no exempt endpoint: a flat reject is correct.
+    Evaluates the same ``visiban.authorization`` gates the REST permission
+    classes delegate to, and returns their message and code, so the two
+    transports cannot drift (#1517). MCP exposes no password- or
+    username-change tool, so unlike REST there is no exempt endpoint: a flat
+    reject is correct. An inactive owner never reaches here
+    (``resolve_personal_access_token`` already answered 401), so in practice
+    only the two forced-change gates can fire.
     """
-    class _Request:
-        pass
-
-    request = _Request()
-    request.user = user
-    for gate in (MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange):
-        if not gate().has_permission(request, None):
-            raise AccountStateBlocked(
-                gate.message, getattr(gate, "code", "permission_denied")
-            )
+    gate = account_state_denial(user)
+    if gate is not None:
+        raise AccountStateBlocked(gate.message, gate.code)
 
 
 async def _send_json_error(send, status, detail, code=None):
