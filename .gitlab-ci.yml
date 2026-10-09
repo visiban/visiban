@@ -3961,11 +3961,15 @@ helm-publish:
     # hole in the job whose whole purpose is supply-chain provenance.
     # COSIGN_VERSION / COSIGN_SHA256 come from `.cosign-pin`, shared with
     # `.image-attest-common` (#1543).
+    # Subshell: `set -eu` must not leak into the script section (shared shell),
+    # or the GHCR_USER/GHCR_TOKEN guard would abort on "parameter not set".
     - |
-      set -eu
-      curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
-      echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
-      chmod +x /usr/local/bin/cosign
+      (
+        set -eu
+        curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+        echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+        chmod +x /usr/local/bin/cosign
+      )
   script:
     - |
       if [ -z "${GHCR_USER}" ] || [ -z "${GHCR_TOKEN}" ]; then
