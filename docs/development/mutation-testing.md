@@ -30,9 +30,9 @@ Line coverage says a line ran. Mutation testing says whether a test would notice
 | `boards/services/cards.py` (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since; #1504 found the 6 guard survivors in that count are killed, so the figure is 234 of 243 (96.3%) if they are removed from it) | 243 | 166 | 68.3% | 228 | 93.8% | 8 | 228 of 235 = 97.0% (expected, not re-measured) | 0 |
 | `CardMovement` (`boards/models.py`; re-measured 2026-10-08, was 28 survivors / 45 killed / 61.6%) | 73 | 28 | 38.4% | 46 | 63.0% | 27 | 46 of 46 = 100% | 0 |
 | `boards/permissions.py` (116 of 120 expected after #1503's two new killed mutants; 114 of 118 = 96.6% measured) | 118 | 44 | 37.3% | 114 | 96.6% | 4 | 114 of 114 = 100% (expected, not re-measured whole-module) | 0 |
-| `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | n/a (unmarked, pending #1502) | n/a | 2 (see below) |
+| `boards/views/import_export.py` (2026-10-05 re-measure, first 823 paired mutants) | 1364 | 331 of 823 paired | 40.2% | 656 of 823 paired | 79.7% | n/a (unmarked; the head part of this module was triaged in #1502, see the next row) | n/a | 2 (see below) |
 | `boards/views/import_export.py`, head: helpers, `import_board`, `_import_json`, `import_trello` (2026-10-08, #1502; whole-region run, 0-based lines 0 to 1802) | 1145 | n/a (not measured on the current code) | n/a | 1111 of 1145 | 97.0% | n/a (unmarked; 34 of 34 survivors are documented as equivalent below) | n/a | 2 (killed by timeout, see below) |
-| `boards/views/import_export.py`, `_import_csv` + `export` + `export_history` (2026-10-06, #1484) | 492 | 290 of 492 | 58.9% | 465 of 492 (447 with the #1453 tests only) | 94.5% (90.9%) | n/a (unmarked, pending #1502) | n/a | 0 |
+| `boards/views/import_export.py`, `_import_csv` + `export` + `export_history` (2026-10-06, #1484) | 492 | 290 of 492 | 58.9% | 465 of 492 (447 with the #1453 tests only) | 94.5% (90.9%) | n/a (unmarked; #1502 covers only the head, so the 27 survivors of this region are not yet triaged for equivalence) | n/a | 0 |
 
 **The 2 timeouts** in the 2026-10-05 row: both are in `_imported_board_name`, in the first run's range. Mutating the `if candidate not in taken` check or the `n += 1` step makes its uniqueness loop spin forever, so pytest hangs and mutmut kills the run. Timeouts are counted as killed. The 2026-10-06 run (`_import_csv`, `export`, `export_history`) had none.
 
@@ -65,6 +65,8 @@ Together with the 2026-10-05 table, the regions the first run could not reach ha
 
 ### Head re-measure (2026-10-08, #1502)
 
+> **Scope of these figures.** Everything in this section describes the code at `f898bf683`, not current `main`. Code added after that commit is **not** in the 1145 measured mutants and has not been measured: that includes #1449 (`_import_field_values`, `_csv_custom_field_cell` and the CSV custom-column handling) and the other lines it added before `_import_csv`. The head figures are for the `f898bf683` code, and the new head lines are unmeasured. The `MM_HI=1802` boundary and "`_import_csv` at 0-based line 1803" below are likewise valid only at `f898bf683`. Before reusing `MM_LO`/`MM_HI`, re-derive the range (`grep -n 'def _import_csv' backend/boards/views/import_export.py`, then subtract 1 to get the 0-based line), as the `update_card` section does.
+
 The head of `import_export.py` (everything before `_import_csv`) was measured as **one whole-region run**, not a paired sample: 12 shards of the sharded variant in [Parallel runs](#parallel-runs), `MM_LO=0 MM_HI=1802` (0-based; `_import_csv` starts at 0-based line 1803), on `main` at `f898bf683` plus this branch's tests, 18-core machine. The module had grown to 2609 lines since the 2026-10-05 run (selective import, #1496, #1507), so the head has **1145 mutants**, not the 795 of the paired set. The runner used these nine files (all backend import/export tests; the full suite is not needed): `test_import_export_head_gaps.py test_import_export_mutation_gaps.py test_import.py test_import_naming.py test_import_options.py test_import_user_scope.py test_import_custom_fields.py test_trello_import.py test_import_json_value_validation.py`.
 
 Two details of the harness matter if you repeat this:
@@ -87,7 +89,7 @@ Two details of the harness matter if you repeat this:
 
 #### Survivors left (34), all equivalent or redundant
 
-None is a missing assertion. They are listed so the next person does not re-triage them; none is marked with `# pragma: no mutate` yet, because most share a line with mutants that *are* killed and the policy asks that a pragma cover the equivalent mutant only.
+None is a missing assertion. They are listed so the next person does not re-triage them; none is marked with `# pragma: no mutate` yet, because most share a line with mutants that *are* killed and the policy asks that a pragma cover the equivalent mutant only. Marking them is tracked in #1544 and is the open step before a floor can use the adjusted score. The 2 `_IMPORT_BACKFILL_BATCH` survivors that a PostgreSQL test could kill are tracked in #1545.
 
 | Mutants | Where | Why no test can kill it |
 |---:|---|---|
@@ -97,7 +99,7 @@ None is a missing assertion. They are listed so the next person does not re-tria
 | 1 | `_IMPORTED_NAME_MAX_SUFFIX` 12 to 13 | A shorter `startswith` head only widens the database query; the exact comparison is in Python. |
 | 2 | `_IMPORT_BACKFILL_BATCH` 500 to 501 and to `None` | On SQLite `bulk_update` caps its own batch size at 499 (`connection.ops.bulk_batch_size`), so the constant is not observable here; `test_timestamp_backfill_runs_in_batches_of_500` pins two UPDATEs for 501 rows. A PostgreSQL test could kill it. |
 | 1 | `"unknown line"` text in `_json_import_write_guard` | The generator frame of the guard is always one of the importer frames, so `frames` is never empty. |
-| 1 | `403` documented response on `import_board` (and 1 on `import_trello`) | `drf-spectacular` emits an object-typed `403` entry for the action anyway (`ImportOpenApiResponseTests` passes with the line mutated), so the generated document is unchanged. |
+| 2 | `403` documented response on `import_board` and on `import_trello` (1 each) | `drf-spectacular` emits an object-typed `403` entry for the action anyway (`ImportOpenApiResponseTests` passes with the line mutated), so the generated document is unchanged. |
 | 5 | `MAX_UPLOAD_SIZE` default `10 * 1024 * 1024` | `settings.MAX_UPLOAD_SIZE` is always defined, so the `getattr` default is never used. |
 | 2 | `file.name` and `file.content_type` fallbacks to `"XXXX"` | `"XXXX"` ends in neither `.json`/`.csv` nor contains `json`/`csv`, same as `""`. |
 | 1 | `data.get("schema_version", 0)` to `1` | Both are within the supported range and only a version above 2 logs a warning. |
@@ -197,9 +199,9 @@ The last three shared a line with mutants that tests *do* kill (the setting name
 
 ### Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)
 
-Triaged and re-measured on 2026-10-08 (#1502): see [Head re-measure](#head-re-measure-2026-10-08-1502) below. The 2026-10-05 paired figures above predate #1496, #1507 and the other import fixes that grew the head, so they are kept as history, not as a baseline for the current code.
+Triaged and re-measured on 2026-10-08 (#1502): see [Head re-measure](#head-re-measure-2026-10-08-1502) above. The 2026-10-05 paired figures above predate #1496, #1507 and the other import fixes that grew the head, so they are kept as history, not as a baseline for the current code.
 
-The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The remaining survivors are expected to be dominated by log-message strings and unobservable defaults (equivalent); that classification is an estimate from sampling the diffs, not a full triage.
+The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The survivors of the current head code were triaged in full in the Head re-measure section above: all 34 are equivalent or redundant.
 
 ### Import/export: `_import_csv`, `export`, `export_history` after #1484 (27 survivors of 492)
 
