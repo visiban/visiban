@@ -1,0 +1,28 @@
+# Render-only values for the `trivy-scan` CI job (#1536). NOT for installs.
+#
+# trivy renders the chart before scanning it, and the chart's render-time
+# guards (templates/_validate.tpl) fail on placeholder values, so without these
+# trivy logs "Skipping chart" and scans no template. Every value is arbitrary
+# and non-secret; the optional resources below are switched on so that their
+# templates are rendered (and therefore scanned) too. Public demo mode is a
+# different render shape and is not scanned (see docs/development/ci-gates.md).
+secret:
+  djangoSecretKey: trivy-scan-not-a-real-secret
+backend:
+  settings:
+    allowedHosts: trivy-scan.visiban.local
+  email:
+    backend: smtp
+    host: smtp.visiban.local
+    fromAddress: noreply@visiban.local
+  oauth:
+    oidc:
+      serverUrl: https://idp.visiban.local/realms/visiban
+networkPolicy:
+  enabled: true
+scheduledJobs:
+  enabled: true
+  pruneBoardEvents:
+    enabled: true
+  pruneNotifications:
+    enabled: true
