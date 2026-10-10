@@ -4149,7 +4149,9 @@ for both surfaces.</p>
 <li><code>is_starred</code>, on <code>board.*</code> payloads, reflects the <strong>actor's</strong> state at the time
   of the event, not the reader's. This matches the WebSocket surface, where the
   same payload is fanned out to every subscriber. Read a board's own
-  <code>GET /api/v1/boards/{id}/</code> for the caller's star state.</li>
+  <code>GET /api/v1/boards/{id}/</code> for the caller's star state. <code>is_starred</code> is deprecated in
+  <code>board.created</code> / <code>board.updated</code> payloads (#1559): clients must ignore it and use
+  <code>board.star_changed</code> for per-user star state.</li>
 </ul>
 <hr />
 <h2 id="retention">Retention<a class="headerlink" href="#retention" title="Permanent link">&para;</a></h2>
