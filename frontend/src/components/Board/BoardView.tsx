@@ -103,7 +103,7 @@ function ColumnTrashZone() {
           : "bg-danger/30 border-line"
       }`}
     >
-      <span className={`text-xs font-medium whitespace-nowrap ${isOver ? "text-danger" : "text-fg-secondary"}`}>
+      <span className={`text-xs font-medium whitespace-nowrap ${isOver ? "text-fg" : "text-fg-secondary"}`}>
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mx-auto mb-0.5" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
         </svg>
@@ -1991,7 +1991,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             <button
               data-tour-step="filter"
               onClick={() => setShowFilters((v) => !v)}
-              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
               aria-pressed={showFilters || activeCount > 0}
               aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
               aria-keyshortcuts="F"
@@ -2036,7 +2036,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
               className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 cardLayout === "compact"
-                  ? "text-info bg-info/10"
+                  ? "text-info-on-tint bg-info/10"
                   : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
               }`}
             >
@@ -2048,7 +2048,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <Tooltip content={showArchived ? "Hide archived cards (Y)" : "Show archived cards (Y)"}>
             <button
               onClick={() => setShowArchived((v) => !v)}
-              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning-on-tint bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
               aria-pressed={showArchived}
               aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
               aria-keyshortcuts="Y"
@@ -2075,7 +2075,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               aria-pressed={drawerOpen}
               aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
               className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                drawerOpen ? "text-info bg-info/10" : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+                drawerOpen ? "text-info-on-tint bg-info/10" : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
               }`}
             >
               {ActivityDrawerIcon}
@@ -2210,7 +2210,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
       {cardNotFound !== null && (
-        <div className="mx-4 mt-2 px-4 py-2 bg-warning/10 border border-warning/30 rounded-lg text-warning text-sm">
+        <div className="mx-4 mt-2 px-4 py-2 bg-warning/10 border border-warning/30 rounded-lg text-warning-on-tint text-sm">
           {cardNotFound}
         </div>
       )}
@@ -2227,14 +2227,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
       {view === "board" && collapsedSwimlaneIds.size > 0 && (
-        <div className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-1.5 flex items-center gap-3 text-sm text-info shrink-0">
-          <svg className="w-3.5 h-3.5 text-info shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+        <div className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-1.5 flex items-center gap-3 text-sm text-info-on-tint shrink-0">
+          <svg className="w-3.5 h-3.5 text-info-on-tint shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
             <line x1="2" y1="5" x2="14" y2="5" />
             <line x1="2" y1="11" x2="14" y2="11" />
             <polyline points="10,2 13,5 10,8" />
           </svg>
           <span>
-            <span className="font-medium text-info">{collapsedSwimlaneIds.size}</span>
+            <span className="font-medium text-info-on-tint">{collapsedSwimlaneIds.size}</span>
             {" "}
             {collapsedSwimlaneIds.size === 1 ? "swimlane" : "swimlanes"} collapsed
           </span>
@@ -2262,16 +2262,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
       {focusedSwimlaneId !== null && (
-        <div className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info transition-opacity duration-150">
-          <svg className="w-3.5 h-3.5 text-info shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <div className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info-on-tint transition-opacity duration-150">
+          <svg className="w-3.5 h-3.5 text-info-on-tint shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="8" cy="8" r="3" />
             <line x1="8" y1="1" x2="8" y2="4" />
             <line x1="8" y1="12" x2="8" y2="15" />
             <line x1="1" y1="8" x2="4" y2="8" />
             <line x1="12" y1="8" x2="15" y2="8" />
           </svg>
-          <span className="text-info">Focused on:</span>
-          <span className="font-medium text-info truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
+          <span className="text-info-on-tint">Focused on:</span>
+          <span className="font-medium text-info-on-tint truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
           <div className="flex-1" />
           <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Exit focus

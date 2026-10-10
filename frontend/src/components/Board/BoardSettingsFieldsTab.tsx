@@ -568,7 +568,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
           aria-label={`${def.show_on_card ? "Unpin" : "Pin"} ${def.name} ${def.show_on_card ? "from" : "to"} card face`}
           className={`text-xs rounded px-2 py-0.5 whitespace-nowrap shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             def.show_on_card
-              ? "text-info bg-info/10 border border-info/25 font-medium"
+              ? "text-info-on-tint bg-info/10 border border-info/25 font-medium"
               : "text-fg-muted hover:text-fg-secondary"
           }`}
         >

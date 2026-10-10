@@ -58,7 +58,7 @@ export default function LensIssueCard({ issue, laneCount = 1, compact = false }:
           className={`text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0 ${
             closed
               ? "bg-surface-hover text-fg-muted"
-              : "bg-success/15 text-success"
+              : "bg-success/15 text-success-on-tint"
           }`}
         >
           {closed ? "Closed" : "Open"}

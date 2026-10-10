@@ -48,7 +48,7 @@ export function DemoModeBar({ nextResetAt }: DemoModeBarProps) {
         <div
           data-testid="demo-mode-bar"
           data-state="warning"
-          className="bg-warning/10 border-b border-warning/30 px-4 py-2 flex items-center gap-3 text-sm text-warning shrink-0"
+          className="bg-warning/10 border-b border-warning/30 px-4 py-2 flex items-center gap-3 text-sm text-warning-on-tint shrink-0"
         >
           <span aria-hidden="true" className="text-base leading-none shrink-0">⚠</span>
           <span className="font-medium shrink-0">Demo resets in 5 minutes — you'll be signed out</span>
