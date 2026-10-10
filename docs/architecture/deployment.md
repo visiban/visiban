@@ -378,7 +378,7 @@ When a single-server deployment starts to show latency under load, see [Scaling]
 
 ## Rate limiting
 
-In production (`DEBUG=False`), the API enforces the following request rate limits per client. In development (`DEBUG=True`), throttling is effectively disabled (9999/hour for all scopes).
+In production (`DEBUG=False`), the API enforces the following request rate limits per client. In development (`DEBUG=True`), most scopes are raised to 9999/hour, which is a finite budget rather than true disabling; the public share-link scopes (`share_link`, `share_link_token`) have no development bypass. `VISIBAN_DISABLE_THROTTLING=True` is a CI-only switch (used by the schema-fuzz job) that lifts every throttle rate; it requires `DEBUG=True` and the app refuses to start otherwise.
 
 | Scope | Limit | Notes |
 |---|---|---|
