@@ -150,7 +150,18 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # perform_create/perform_update, so a concurrent create/delete can't
             # slip in between the full-set check below and the position writes
             # it authorizes (#1302).
-            Board.objects.select_for_update().get(pk=board.pk)
+            #
+            # FOR NO KEY UPDATE, not FOR UPDATE (#1566): this request goes on to
+            # wait for column row locks, and a card insert (create_card, the
+            # admin card form) holds its column lock and needs FOR KEY SHARE on
+            # this board row at commit for its foreign key. FOR UPDATE blocks
+            # that key-share, so the two wait on each other and PostgreSQL
+            # aborts one with a deadlock (500). FOR NO KEY UPDATE does not block
+            # key-share but still conflicts with FOR UPDATE and FOR NO KEY
+            # UPDATE, which is every other board-row lock (column/swimlane/
+            # custom-field create, invite caps) and a second reorder, so the
+            # serialization #1302 needs is unchanged.
+            Board.objects.select_for_update(no_key=True).get(pk=board.pk)
             existing_ids = set(Column.objects.filter(board=board).values_list("id", flat=True))
             order_ints = validate_full_reorder_order(
                 order, existing_ids, item_label="column", scope_label="this board",

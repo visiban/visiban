@@ -195,7 +195,7 @@ Two findings came out of the test design, neither fixed in #1504 because `servic
   - `test_move_into_a_limited_column_does_not_deadlock_with_a_column_reorder` passes on origin/main and fails on 2b12e2a02. It passes once the move locks its source and target columns (`_lock_move_columns`), even without the reorder-side change.
   - `test_move_locks_cards_then_columns_in_pk_order` and `test_column_reorder_locks_columns_in_pk_order` fail on origin/main. They are the only tests that pin the pk ordering, the `FOR NO KEY UPDATE` column mode and the reorder's pk-ordered column lock, none of which a two-transaction race distinguishes from a consistent alternative.
   - The same-card test now holds on `_lock_move_cells`.
-- **Known gaps (tracked):** a third concurrent move can still deadlock after a card commits into a locked cell (#1567), and `create_card` can deadlock against a column reorder, which predates #1522 (#1566).
+- **Known gaps (tracked):** a third concurrent move can still deadlock after a card commits into a locked cell (#1567). `create_card` against a column reorder (which predates #1522) was fixed in #1566 and is covered by `test_card_create_reorder_race.py`.
 
 Scope: this covers `move_card` and `enforce_column_limits` only. The other `select_for_update` sites (such as the column lock in `create_card`) are not yet exercised by a PostgreSQL race test; that is tracked in #1524.
 
