@@ -72,6 +72,22 @@ describe('classifyCardUrgency (#961)', () => {
     expect(result).toEqual({ kind: 'recent', label: 'Just moved', tone: 'info' })
   })
 
+  it('recent does not fire when the only movement is the card creation (#1576)', () => {
+    const result = classifyCardUrgency(
+      { due_date: null, is_stale: false, last_moved_at: '2026-05-02T11:59:00Z', last_move_is_creation: true },
+      NOW,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('creation flag does not suppress overdue or stale', () => {
+    const result = classifyCardUrgency(
+      { due_date: null, is_stale: true, last_moved_at: '2026-05-02T11:59:00Z', last_move_is_creation: true },
+      NOW,
+    )
+    expect(result?.kind).toBe('stale')
+  })
+
   it('recent does not fire 25h after last move', () => {
     const result = classifyCardUrgency(
       { due_date: null, is_stale: false, last_moved_at: '2026-05-01T11:00:00Z' },

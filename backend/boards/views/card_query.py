@@ -36,6 +36,7 @@ from ..serializers import (
     CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
     ParkedCustomFieldValueListSerializer, ParkedLabelListSerializer, _blocker_count,
     _card_attachments, _card_checklist_items, _card_movements, _card_queryset,
+    _last_move_is_creation,
 )
 from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
 
@@ -100,6 +101,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
         child=CustomFieldValueSerializer(), read_only=True,
     )
     last_moved_at = serializers.SerializerMethodField()
+    last_move_is_creation = serializers.SerializerMethodField()
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
@@ -115,7 +117,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "id", "uid", "board", "column", "swimlane", "title", "description",
             "priority", "assignee", "labels", "due_date", "weight", "position",
             "created_by", "created_at", "updated_at", "last_moved_at",
-            "attachment_count", "checklist_total", "checklist_done",
+            "last_move_is_creation", "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref",
         ]
@@ -134,6 +136,12 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # to_attr (#1212) — obj.<relation>.all() would miss them.
         movements = _card_movements(obj)
         return movements[0].moved_at if movements else None
+
+    def get_last_move_is_creation(self, obj) -> bool:
+        # Present because CardQuerySerializerFieldParityTests requires this
+        # field set to stay in step with CardSerializer's readable fields.
+        # Reads the movements _card_queryset() already prefetches — no query.
+        return _last_move_is_creation(obj)
 
     def get_attachment_count(self, obj) -> int:
         return len(_card_attachments(obj))

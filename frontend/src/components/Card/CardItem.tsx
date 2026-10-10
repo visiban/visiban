@@ -76,6 +76,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.card.weight !== next.card.weight ||
     prev.card.description !== next.card.description ||
     prev.card.last_moved_at !== next.card.last_moved_at ||
+    prev.card.last_move_is_creation !== next.card.last_move_is_creation ||
     prev.card.attachment_count !== next.card.attachment_count ||
     prev.card.checklist_total !== next.card.checklist_total ||
     prev.card.checklist_done !== next.card.checklist_done ||
@@ -233,7 +234,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // not the board's staleness threshold. The two concepts are independent:
   // staleness_threshold_days flags cards that need attention; the 24h window
   // controls which cards show a dot (very recent) vs. a text label (older).
-  const isRecent = card.last_moved_at
+  // A creation-only history is not a move (#1576): no dot, no "moved" text.
+  const isRecent = card.last_moved_at && !card.last_move_is_creation
     ? Date.now() - new Date(card.last_moved_at).getTime() < 86_400_000
     : false;
 
@@ -257,7 +259,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // Show a text label for cards moved ≥24h ago; the blue dot (isRecent) handles the <24h case.
   // formatRelativeMovedAt returns "moved today" for ms < 86_400_000, which is unreachable here
   // because movedLabel is only computed when !isRecent (same threshold). See date.ts JSDoc.
-  const movedLabel = (showLastMovedText && !isRecent) ? formatRelativeMovedAt(card.last_moved_at, userDateFormat) : null;
+  const movedLabel = (showLastMovedText && !isRecent && !card.last_move_is_creation) ? formatRelativeMovedAt(card.last_moved_at, userDateFormat) : null;
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
 
   // Worst-offender urgency badge (#961). Drives a single high-signal cue at
@@ -268,7 +270,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const urgency = density === "dense"
     ? null
     : classifyCardUrgency(
-        { due_date: card.due_date, is_stale: card.is_stale, last_moved_at: card.last_moved_at },
+        { due_date: card.due_date, is_stale: card.is_stale, last_moved_at: card.last_moved_at, last_move_is_creation: card.last_move_is_creation },
       );
   // Suppress the dedicated due-date pill at lower densities when the urgency
   // badge is already carrying that information (overdue / due-soon). At dense
