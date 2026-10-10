@@ -114,6 +114,8 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 
 ### Board events
 
+Board and group `board.*` event payloads never carry the share-link fields (`share_token`, `share_token_expires_at`), and neither does the change feed. Board admins read them over REST from [`GET /api/v1/boards/{id}/full/`](boards.md) and from the share action response.
+
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `board.created` | New board created (only emitted to subscribers already connected to the board channel) | Full `BoardSerializer` object (`is_starred` is the creator's value and deprecated here; use `board.star_changed`, #1559). On a Visiban JSON/CSV import ([`POST /api/v1/boards/import/`](boards.md#post-apiv1boardsimport)) it also carries `import_options` — all five resolved booleans (`labels`, `cards`, `comments`, `checklist`, `history`; added in 1.2), plus `shift_dates_from` (a `YYYY-MM-DD` string; added in 1.2) when the import sent it. The same payload goes to the group channel when the import sets `group_id`. `import_options` is absent on ordinary board creation, Trello imports, and group-move events. |

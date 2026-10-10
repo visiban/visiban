@@ -16,6 +16,7 @@ from boards.broadcast import (
     EVT_MEMBER_REMOVED,
     EVT_MEMBER_UPDATED,
     EVT_PING,
+    without_admin_only_board_fields,
 )
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,9 @@ def broadcast_group_event(group_id: int, event_type: str, payload: dict) -> None
         return
     # DRF serializer.data may contain datetime/Decimal objects that msgpack cannot
     # serialize. Round-trip through JSONRenderer to get plain Python types.
-    safe_payload = json.loads(JSONRenderer().render(payload))
+    # Drops admin-only board fields at the top level of the payload only; nested
+    # values pass through unchanged (see ADMIN_ONLY_BOARD_FIELDS).
+    safe_payload = json.loads(JSONRenderer().render(without_admin_only_board_fields(payload)))
     try:
         async_to_sync(channel_layer.group_send)(
             f"group_{group_id}",
