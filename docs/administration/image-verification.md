@@ -14,6 +14,9 @@ carries its own copy. Verify against the registry you actually pull from. GHCR k
 copies indefinitely. On the GitLab registry, the current cleanup policy can sweep signature
 and attestation tags about 90 days after a release, even though the image itself is kept.
 Extending the policy is tracked in [#1541](https://gitlab.com/visiban/visiban/-/issues/1541).
+A nightly CI job, `check-release-attestations`, re-verifies the newest releases' signatures and SBOM
+attestations on both registries so a sweep or delete does not go unnoticed. See
+[CI gate self-tests](../development/ci-gates.md).
 See [Container image retention](container-image-retention.md#signature-and-sbom-attestation-tags-1153).
 
 There is no key to download. A signature is valid when its Sigstore certificate says it was
