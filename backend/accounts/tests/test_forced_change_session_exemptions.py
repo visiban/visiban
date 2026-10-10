@@ -18,6 +18,9 @@ The per-route decision table for every ``/accounts/`` and ``/admin/`` route is
 in ``test_auth_entry_points.py``.
 """
 
+import functools
+import sys
+import types
 from unittest import mock
 from urllib.parse import urlsplit
 
@@ -33,8 +36,9 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.cache import cache
 from django.http import HttpResponse
-from django.urls import path as url_path
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
+from django.urls import include
+from django.urls import path as url_path
 
 from accounts.checks import (
     check_pending_action_extra_exempt_views,
@@ -47,12 +51,14 @@ from visiban.demo import DEMO_READ_ONLY_CODE
 from visiban.middleware import (
     PENDING_ACTION_REFUSAL,
     PendingAccountActionMiddleware,
-    oss_gated_view_names,
+    _view_name_of,
     is_pending_action_exempt_view,
     is_well_formed_exempt_view,
+    oss_gated_view_names,
     pending_action_exempt_views,
     resolved_view_name,
 )
+
 
 def _saml_acs(request):
     return HttpResponse("ok")
@@ -63,6 +69,16 @@ urlpatterns = [
     url_path("sso/acs/", _saml_acs, name="saml_acs"),
     url_path("sso/other/", _saml_acs, name="saml_other"),
 ]
+
+# A URLconf with an OSS-prefixed namespaced include and an unnamed route.
+_gated = types.ModuleType(f"{__name__}_gated_urls")
+_inner = [url_path("inner/", _saml_acs, name="inner")]
+_gated.urlpatterns = [
+    url_path("admin/", include((_inner, "gated"), namespace="gated")),
+    url_path("accounts/unnamed/", _saml_acs),
+    url_path("elsewhere/", _saml_acs, name="elsewhere"),
+]
+sys.modules[_gated.__name__] = _gated
 
 FRONTEND = "https://app.example.test"
 PASSWORD = "Sess-Gate-Passw0rd!"  # gitleaks:allow -- test-only fixture password, not a credential
@@ -219,6 +235,33 @@ class ExtraExemptViewsTests(SimpleTestCase):
         self.assertEqual(check_pending_action_extra_exempt_views_not_oss_gated(None), [])
 
     @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("*", "no_such_view"))
+    def test_gated_name_is_ignored_at_runtime_even_with_check_silenced(self):
+        with override_settings(
+            PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("account_email", "admin:index", "saml_acs"),
+            SILENCED_SYSTEM_CHECKS=["accounts.E007"],
+        ):
+            self.assertFalse(is_pending_action_exempt_view("/accounts/email/"))
+            self.assertFalse(is_pending_action_exempt_view("/admin/"))
+            self.assertTrue(is_pending_action_exempt_view("/sso/acs/", urlconf=__name__))
+
+    def test_view_name_of_handles_unnamed_and_callable_instances(self):
+        from django.urls import URLPattern, path
+
+        class Callable:
+            def __call__(self, request):
+                return HttpResponse("ok")
+
+        unnamed = path("x/", _saml_acs)
+        self.assertEqual(_view_name_of(unnamed), f"{__name__}._saml_acs")
+        inst = URLPattern(unnamed.pattern, Callable(), name=None)
+        self.assertEqual(_view_name_of(inst), f"{__name__}.{Callable.__qualname__}")
+        partial = path("y/", functools.partial(_saml_acs))
+        self.assertEqual(_view_name_of(partial), f"{__name__}._saml_acs")
+
+    def test_walk_names_nested_namespaced_includes_and_unnamed_routes(self):
+        names = oss_gated_view_names(f"{__name__}_gated_urls")
+        self.assertEqual(names, {"gated:inner", f"{__name__}._saml_acs"})
+
     def test_malformed_and_unknown_names_are_not_e007(self):
         self.assertEqual(check_pending_action_extra_exempt_views_not_oss_gated(None), [])
 
@@ -276,7 +319,6 @@ class MiddlewareInstalledCheckTests(SimpleTestCase):
     def test_an_entry_that_fails_to_import_is_matched_by_name_only(self):
         """An ImproperlyConfigured middleware module yields a check result, not an exception."""
         from django.core.exceptions import ImproperlyConfigured
-
         from django.utils import module_loading
 
         real = module_loading.import_string

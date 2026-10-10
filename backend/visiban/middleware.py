@@ -1,3 +1,4 @@
+import functools
 import ipaddress
 import logging
 import os
@@ -635,20 +636,18 @@ def _view_name_of(pattern) -> str:
     if pattern.name:
         return pattern.name
     callback = pattern.callback
-    callback = getattr(callback, "view_class", None) or getattr(callback, "func", callback)
-    return f"{callback.__module__}.{getattr(callback, '__qualname__', callback.__name__)}"
+    # Unwrap as ResolverMatch does: functools.partial, then a class-based view's class.
+    if isinstance(callback, functools.partial):
+        callback = callback.func
+    callback = getattr(callback, "view_class", None) or callback
+    # A callable instance has no __qualname__/__name__ of its own; use its class.
+    qualname = getattr(callback, "__qualname__", None) or type(callback).__qualname__
+    module = getattr(callback, "__module__", None) or type(callback).__module__
+    return f"{module}.{qualname}"
 
 
-def oss_gated_view_names(urlconf=None) -> frozenset[str]:
-    """Names of every view mounted under a BUILT-IN gated prefix (``/accounts/``, ``/admin/``).
-
-    Walks the URLconf rather than calling ``reverse()`` so that a view whose
-    route needs arguments (``admin:auth_user_change``) is covered too. Only
-    ``PENDING_ACTION_GATED_PREFIXES`` is used, not the extension prefixes: an
-    extension's own views are what ``PENDING_ACTION_EXTRA_EXEMPT_VIEWS`` is for.
-    Used by ``accounts.E007`` so the check and the middleware share one prefix
-    constant.
-    """
+@functools.lru_cache(maxsize=8)
+def _oss_gated_view_names(urlconf) -> frozenset[str]:
     from django.urls import URLPattern, URLResolver, get_resolver
 
     names: set[str] = set()
@@ -664,6 +663,25 @@ def oss_gated_view_names(urlconf=None) -> frozenset[str]:
 
     walk(get_resolver(urlconf).url_patterns, "", "")
     return frozenset(names)
+
+
+def oss_gated_view_names(urlconf=None) -> frozenset[str]:
+    """Names of every view mounted under a BUILT-IN gated prefix (``/accounts/``, ``/admin/``).
+
+    Walks the URLconf rather than calling ``reverse()`` so that a view whose
+    route needs arguments (``admin:accounts_user_change``) is covered too. Only
+    ``PENDING_ACTION_GATED_PREFIXES`` is used, not the extension prefixes: an
+    extension's own views are what ``PENDING_ACTION_EXTRA_EXEMPT_VIEWS`` is for.
+    Used by ``accounts.E007`` and by ``pending_action_exempt_views`` so the
+    check, the merge and the gate share one prefix constant. Cached per
+    URLconf (the default is resolved first so a ROOT_URLCONF override is a
+    different key); call ``oss_gated_view_names.cache_clear()`` after
+    changing URL patterns in a test.
+    """
+    return _oss_gated_view_names(urlconf or settings.ROOT_URLCONF)
+
+
+oss_gated_view_names.cache_clear = _oss_gated_view_names.cache_clear  # type: ignore[attr-defined]
 
 
 def _sso_round_trip_views() -> frozenset[str]:
@@ -693,7 +711,12 @@ def pending_action_exempt_views() -> frozenset[str]:
     extension package whose own views under a gated prefix meet the admission
     rule above (for example a SAML assertion consumer). Exact view names only;
     an entry that is not well formed is left out here and reported by the
-    ``accounts.E006`` system check.
+    ``accounts.E006`` system check. A name shared with an OSS view under
+    ``/accounts/`` or ``/admin/`` that is not already exempt is also left out
+    (reported by ``accounts.E007``): checks do not run under gunicorn/ASGI or
+    with ``--skip-checks``, so this merge is the enforcement and the check is
+    the reporter. The admission rule itself is policy; only the OSS-prefix
+    subset is enforced.
     """
     extra = getattr(settings, "PENDING_ACTION_EXTRA_EXEMPT_VIEWS", ()) or ()
     if isinstance(extra, str):
@@ -701,7 +724,12 @@ def pending_action_exempt_views() -> frozenset[str]:
     return (
         PENDING_ACTION_EXEMPT_VIEWS
         | _sso_round_trip_views()
-        | frozenset(name for name in extra if is_well_formed_exempt_view(name))
+        | frozenset(
+            name
+            for name in extra
+            if is_well_formed_exempt_view(name)
+            and (name in PENDING_ACTION_EXEMPT_VIEWS or name not in oss_gated_view_names())
+        )
     )
 
 

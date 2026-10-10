@@ -281,7 +281,8 @@ def check_pending_action_extra_exempt_views_not_oss_gated(app_configs, **kwargs)
             hint=(
                 "Only an extension's own views may be exempt, and only if an anonymous visitor "
                 "reaches them with the same effect or they apply the forced-change gate themselves. "
-                "See docs/development/authorization-entry-points.md."
+                "A name shared with an OSS gated view is rejected even when your view is mounted "
+                "elsewhere; rename your URL. See docs/development/authorization-entry-points.md."
             ),
             id="accounts.E007",
         )
