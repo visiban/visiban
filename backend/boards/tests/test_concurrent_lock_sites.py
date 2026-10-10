@@ -21,11 +21,28 @@ Site coverage:
 * ``views/swimlanes.py`` ``perform_create`` / ``reorder`` -> ``BoardRowLockTests``
 * ``views/custom_fields.py`` create / update           -> ``BoardRowLockTests``
 * ``views/swimlane_custom_fields.py`` create / update  -> ``BoardRowLockTests``
+* ``views/invites.py`` link cap, emailed-invite cap, revoke -> ``InviteLockTests``
 * ``views/columns.py`` ``reorder`` board lock          -> deliberately NOT here:
   #1522 is changing the column reorder locking, so a test here would pin the
   ordering that issue replaces. Covered by #1522.
 
-Not covered: the ``order_by("pk")`` in the card-relation lock. It only matters
+Other ``select_for_update`` sites in ``backend/boards`` are covered elsewhere:
+``services/cards.py`` (``move_card`` card/sibling locks, ``enforce_column_limits``)
+by ``test_concurrent_moves.py`` (#1504); ``boards/invites.py`` and the join path
+in ``views/invites.py`` (consume-once invite redemption) by
+``test_board_invite_races.py``.
+
+``ConcurrentCardCreationTests`` in ``test_concurrent_moves.py`` only creates
+cards sequentially and passes even with the ``create_card`` lock removed;
+``CreateCardLockTests`` here supersedes it. That class is left unedited because
+#1522 is editing the file; its cleanup is tracked in #1556.
+
+Timing margin: the pause is ``HOLD_SECONDS``. A very slow runner could in theory
+let an unlocked second request finish inside the pause and pass the ordering
+assertion, which is why every test also asserts the final state (positions,
+caps, relation count) as a backstop.
+
+Not covered (tracked in #1556): the ``order_by("pk")`` in the card-relation lock. It only matters
 when two requests acquire the *same pair* of locks in opposite orders, and this
 harness pauses after both locks are held, so it cannot make a missing sort
 deadlock deterministically.
@@ -36,13 +53,15 @@ import time
 from unittest import skipUnless
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.db import connection, connections
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
     Board,
+    BoardInviteLink,
     BoardMembership,
     Card,
     CardRelation,
@@ -55,7 +74,7 @@ from boards.views.cards import CardViewSet
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
 RECORD_EVENT = "boards.broadcast.record_board_event"
-HOLD_SECONDS = 1.5
+HOLD_SECONDS = 2.5
 
 
 @skipUnless(
@@ -358,3 +377,76 @@ class BoardRowLockTests(_LockRaceBase):
             ).count(),
             cap,
         )
+
+
+@override_settings(
+    INVITE_EMAIL_ENABLED=True, DEMO_MODE=False, DEFAULT_FROM_EMAIL="invites@acme.test"
+)
+class InviteLockTests(_LockRaceBase):
+    """Board-row / link-row locks in ``views/invites.py`` (cap and revoke)."""
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()  # the send endpoint draws on cache-backed throttles
+
+    def tearDown(self):
+        cache.clear()
+        super().tearDown()
+
+    def _mint(self, count, delivery):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        return [
+            BoardInviteLink.generate(
+                self.board,
+                self.user,
+                expires_at=timezone.now() + timedelta(days=7),
+                delivery=delivery,
+            )[0]
+            for _ in range(count)
+        ]
+
+    def test_link_cap_lock_enforces_the_active_link_cap(self):
+        from boards.views.invites import BOARD_MAX_ACTIVE_SHAREABLE_LINKS as cap
+
+        self._mint(cap - 1, BoardInviteLink.Delivery.LINK)
+        post = self._request("post", "/invite-links/", {"expiry_days": 7})
+        done, hold_ended = self._race(post, post)
+        self.assertEqual(done["first"][0].status_code, 201)
+        self.assertEqual(done["second"][0].status_code, 400)
+        self.assertQueued(done, hold_ended)
+        self.assertEqual(
+            BoardInviteLink.objects.filter(
+                board=self.board, delivery=BoardInviteLink.Delivery.LINK
+            ).count(),
+            cap,
+        )
+
+    def test_email_cap_lock_enforces_the_pending_invite_cap(self):
+        from boards.views.invites import BOARD_MAX_PENDING_EMAILED_INVITES as cap
+
+        self._mint(cap - 1, BoardInviteLink.Delivery.EMAIL)
+        send = lambda addr: self._request(  # noqa: E731
+            "post", "/invite-links/send/", {"email": addr}
+        )
+        done, hold_ended = self._race(send("a@example.test"), send("b@example.test"))
+        self.assertEqual(done["first"][0].status_code, 202)
+        self.assertEqual(done["second"][0].status_code, 400)
+        self.assertQueued(done, hold_ended)
+        self.assertEqual(
+            BoardInviteLink.objects.filter(
+                board=self.board, delivery=BoardInviteLink.Delivery.EMAIL
+            ).count(),
+            cap,
+        )
+
+    def test_revoke_lock_makes_the_second_revoke_see_the_first(self):
+        """Two admins revoking one invite: the second must find it revoked (404)."""
+        (link,) = self._mint(1, BoardInviteLink.Delivery.LINK)
+        revoke = self._request("delete", f"/invite-links/{link.pk}/")
+        done, hold_ended = self._race(revoke, revoke)
+        self.assertEqual(done["first"][0].status_code, 204)
+        self.assertEqual(done["second"][0].status_code, 404)
+        self.assertQueued(done, hold_ended)
