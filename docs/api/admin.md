@@ -393,7 +393,9 @@ Update a user's account flags. Site admin only.
 | `has_completed_tour` | boolean | Reset (`false`) to re-show the onboarding tour to this user on next login |
 | `must_change_password` | boolean | `true` forces a password reset on next login |
 
-*(1.2+)* Setting `is_active: false` also deletes the user's personal access tokens (so they do not come back on reactivation) and revokes the user's pending invite links exactly like [`POST /api/v1/admin/users/{id}/deactivate/`](#post-apiv1adminusersiddeactivate): unused site invite links, pending board invites and active, unused group invite links (each affected board and group receives an `invite_link.revoked` event). Consumed single-use links are left as they are. Clearing `can_access_all_content` (the only flag that confers group-admin rights; `is_site_admin` does not) revokes the user's unused group invite links that they can no longer administer (links where they are still a group admin by membership are kept). Previously the links stayed active in the database and in the admin link lists, though they were already refused at preview and join.
+*(1.2+)* Setting `is_active: false` also deletes the user's personal access tokens (so they do not come back on reactivation) and revokes the user's pending invite links exactly like [`POST /api/v1/admin/users/{id}/deactivate/`](#post-apiv1adminusersiddeactivate): unused site invite links, pending board invites and active, unused group invite links (each affected board and group receives an `invite_link.revoked` event). Consumed single-use links are left as they are. Clearing `can_access_all_content` (the only flag that confers group-admin rights; `is_site_admin` does not) revokes the user's unused group invite links that they can no longer administer (links where they are still a group admin by membership are kept). Previously those board and group links stayed active in the database and in the admin link lists, though they were already refused at preview and join.
+
+*(1.2+)* Clearing `is_site_admin` revokes the user's unused site invite links. Site invite links create accounts only while their creator is an active site admin (see [`GET /api/v1/admin/invite-links/`](#get-apiv1admininvite-links)).
 
 **Request**
 ```json
@@ -510,7 +512,7 @@ List all invite links on the instance.
     "revoked_at": null,
     "created_at": "2026-03-20T10:00:00Z",
     "use_count": 0,
-    "status": "active",
+    "status": "pending",
     "created_by_username": "admin",
     "delivery": "link"
   },
@@ -542,7 +544,7 @@ List all invite links on the instance.
 | `revoked_at` | datetime \| null | ISO 8601 UTC timestamp of when the link was revoked, or `null`. |
 | `created_at` | datetime | ISO 8601 UTC timestamp of when the link was created. |
 | `use_count` | integer | Number of successful registrations through this link. Incremented on every consumption (including multi-use links) and preserved across revocation for audit visibility. |
-| `status` | `"active"` \| `"expired"` \| `"used"` \| `"revoked"` | Computed status of the link. |
+| `status` | `"pending"` \| `"expired"` \| `"used"` \| `"revoked"` | Computed status of the link. Precedence is revoked > used > expired > pending. *(1.2+)* A link that would otherwise be `pending` reports `revoked` when its creator is no longer an active site admin (deactivated, deleted, or no longer a site admin), because registration refuses it; `revoked_at` stays `null` in that case until the link is revoked explicitly. Such a link is not permanently revoked: if the creator's standing is restored, it reports `pending` and works again. To retire it for good, revoke it explicitly with `DELETE /api/v1/admin/invite-links/{id}/`, which accepts a link in this state. |
 | `created_by_username` | string | Username of the admin who created the link. |
 | `delivery` | `"link"` \| `"email"` | `link` for links created and shared by an admin; `email` for links sent with `POST /api/v1/admin/invite-links/send/`. Added in 1.2. |
 
@@ -590,7 +592,7 @@ The response includes a one-time `raw_token` field. Note that the [group](groups
 | Status | Reason |
 |---|---|
 | `400 Bad Request` | `expires_in_days` is not one of `1`, `7`, `30`, or `null` |
-| `400 Bad Request` | The active-link cap for the instance (50) has been reached. Emailed links do not count toward it. |
+| `400 Bad Request` | The active-link cap for the instance (50) has been reached. Emailed links do not count toward it, and *(1.2+)* neither do links reported as `revoked` because their creator is no longer an active site admin. |
 
 ---
 
@@ -626,7 +628,7 @@ The server mints a link with `single_use: true` and `delivery: "email"` and send
 | Status | Reason |
 |---|---|
 | `400 Bad Request` | Invalid or missing `email`, address with a line break, or `expires_in_days` not one of `1`, `7`, `30` |
-| `400 Bad Request` | `{"code": "invite_email_cap_reached"}` — 200 pending emailed links already exist on the instance |
+| `400 Bad Request` | `{"code": "invite_email_cap_reached"}` — 200 pending emailed links already exist on the instance (*(1.2+)* links whose creator is no longer an active site admin do not count) |
 | `403 Forbidden` | Not a site admin, or `{"code": "invite_email_disabled"}` when `INVITE_EMAIL_ENABLED=false` or in demo mode |
 | `429 Too Many Requests` | 10 sends/hour per admin (shared with that admin's group invite emails), and 200/day instance-wide for site-admin invites — a budget separate from group invite emails, so group admins cannot exhaust it. Refused or failed sends don't count |
 | `502 Bad Gateway` | `{"code": "<error code>"}` — the mail server refused or could not be reached; the just-created link is revoked automatically. `code` is a sanitized SMTP code (`auth_failed`, `connection_refused`, `dns_failure`, `tls_failure`, `timeout`, `config_unusable`, `unknown`) |

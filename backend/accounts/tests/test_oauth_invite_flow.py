@@ -58,7 +58,7 @@ def create_invite(creator, **kwargs):
 
 class ValidateInviteTokenTests(TestCase):
     def setUp(self):
-        self.creator = make_user(username="creator")
+        self.creator = make_admin(username="creator")  # only site admins mint site invites
 
     def test_valid_token_returns_link(self):
         link, raw = create_invite(self.creator)
@@ -109,7 +109,7 @@ class ValidateInviteTokenTests(TestCase):
 
 class ConsumeInviteTokenTests(TestCase):
     def setUp(self):
-        self.creator = make_user(username="creator")
+        self.creator = make_admin(username="creator")  # only site admins mint site invites
 
     def test_single_use_sets_used_at(self):
         link, raw = create_invite(self.creator, single_use=True)
@@ -248,7 +248,7 @@ class SocialRegistrationAdapterIsOpenTests(TestCase):
     """Test is_open_for_signup across registration modes."""
 
     def setUp(self):
-        self.creator = make_user(username="creator")
+        self.creator = make_admin(username="creator")  # only site admins mint site invites
         self.adapter = SocialRegistrationAdapter()
         self.factory = RequestFactory()
 
@@ -282,6 +282,17 @@ class SocialRegistrationAdapterIsOpenTests(TestCase):
         _link, raw = create_invite(self.creator)
         request = self._request_with_session(token=raw)
         self.assertTrue(self.adapter.is_open_for_signup(request, MagicMock()))
+
+    def test_invite_only_token_whose_creator_lost_site_admin_redirects(self):
+        """OAuth signup re-checks the site invite's creator too (#1540)."""
+        set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
+        _link, raw = create_invite(self.creator)
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        request = self._request_with_session(token=raw)
+        from allauth.core.exceptions import ImmediateHttpResponse
+        with self.assertRaises(ImmediateHttpResponse) as ctx:
+            self.adapter.is_open_for_signup(request, MagicMock())
+        self.assertIn("auth_error=invite_invalid", ctx.exception.response.url)
 
     def test_invite_only_without_token_redirects(self):
         set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)
@@ -329,7 +340,7 @@ class SocialRegistrationAdapterSaveUserTests(TestCase):
     """Test that save_user consumes the invite token after user creation."""
 
     def setUp(self):
-        self.creator = make_user(username="creator")
+        self.creator = make_admin(username="creator")  # only site admins mint site invites
         self.adapter = SocialRegistrationAdapter()
         self.factory = RequestFactory()
 

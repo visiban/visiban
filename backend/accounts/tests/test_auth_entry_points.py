@@ -111,7 +111,6 @@ def _allow(reason, *routes, optional=False):
     return Allow(reason, frozenset(routes), optional)
 
 
-_DJ_REST_AUTH = "Public: dj-rest-auth default."
 _EMAIL_KEY = "Public: email confirmation (the key is the credential)."
 _SCHEMA = "OpenAPI schema; registry Rule 1 lists this exception."
 _INVITE_PREVIEW = (
@@ -130,24 +129,16 @@ REST_GATE_ALLOWLIST: dict[str, Allow] = {
         "Forced-change exempt: the SPA reads must_change_* from /auth/me/.", "api/v1/auth/me/"
     ),
     "accounts.views.UserDetailsView": _allow(
-        "Forced-change exempt: the SPA bootstraps must_change_* from /auth/user/.", "api/v1/auth/user/"
+        "Forced-change exempt: the SPA bootstraps must_change_* from /auth/user/.", "^api/v1/auth/user/?$"
     ),
     "accounts.views.ChangePasswordView": _allow(
         "Forced-change exempt: clears must_change_password.", "api/v1/auth/change-password/"
     ),
     "accounts.views.TokenRevokingPasswordChangeView": _allow(
-        "Forced-change exempt: clears must_change_password.", "api/v1/auth/password/change/"
+        "Forced-change exempt: clears must_change_password.", "^api/v1/auth/password/change/?$"
     ),
     "accounts.views.ChooseUsernameView": _allow(
         "Forced-change exempt: clears must_change_username.", "api/v1/auth/choose-username/"
-    ),
-    "dj_rest_auth.views.UserDetailsView": _allow(
-        "Forced-change exempt, same as accounts.views.UserDetailsView. "
-        "Registered by include('dj_rest_auth.urls').",
-        "api/v1/auth/user/?$",
-    ),
-    "dj_rest_auth.views.PasswordChangeView": _allow(
-        "Forced-change exempt, same as TokenRevokingPasswordChangeView.", "api/v1/auth/password/change/?$"
     ),
     # -- Public by design: no authenticated principal to gate.
     "accounts.views.AuthProvidersView": _allow(
@@ -155,20 +146,20 @@ REST_GATE_ALLOWLIST: dict[str, Allow] = {
     ),
     "accounts.views.SiteConfigView": _allow("Public: pre-login site configuration.", "api/v1/auth/site-config/"),
     "accounts.views.ThrottledLoginView": _allow(
-        "Public: login. Inactive accounts are refused by the auth backends.", "api/v1/auth/login/"
+        "Public: login. Inactive accounts are refused by the auth backends.", "^api/v1/auth/login/?$"
     ),
     "accounts.views.ThrottledPasswordResetView": _allow(
-        "Public: password reset request.", "api/v1/auth/password/reset/"
+        "Public: password reset request.", "^api/v1/auth/password/reset/?$"
     ),
     "accounts.views.ThrottledPasswordResetConfirmView": _allow(
-        "Public: password reset confirm (the key is the credential).", "api/v1/auth/password/reset/confirm/"
+        "Public: password reset confirm (the key is the credential).", "^api/v1/auth/password/reset/confirm/?$"
     ),
     "accounts.views.InviteRegisterView": _allow(
         "Public: registration. Invites are validated and consumed under a row lock through "
         "accounts.registration_tokens.registration_token_kind (registry Rule 4).",
         "api/v1/auth/registration/",
     ),
-    "accounts.views.VerifyEmailView": _allow(_EMAIL_KEY, "api/v1/auth/registration/verify-email/"),
+    "accounts.views.VerifyEmailView": _allow(_EMAIL_KEY, "^api/v1/auth/registration/verify-email/?$"),
     "accounts.views.EmailConfirmRedirectView": _allow(
         "Public: redirect to the SPA confirm page.",
         r"^accounts/confirm-email/(?P<key>[\w:\-]{1,200})/$",
@@ -177,22 +168,13 @@ REST_GATE_ALLOWLIST: dict[str, Allow] = {
     "accounts.views.SocialSignupRedirectView": _allow(
         "Public: redirect to the SPA signup page.", "^accounts/3rdparty/signup/$"
     ),
-    "dj_rest_auth.views.LoginView": _allow(_DJ_REST_AUTH, "api/v1/auth/login/?$"),
     "dj_rest_auth.views.LogoutView": _allow(
         "AllowAny by dj-rest-auth design: it ends only the caller's own session or token, and "
         "has nothing to end without one.",
-        "api/v1/auth/logout/?$",
-    ),
-    "dj_rest_auth.views.PasswordResetView": _allow(_DJ_REST_AUTH, "api/v1/auth/password/reset/?$"),
-    "dj_rest_auth.views.PasswordResetConfirmView": _allow(_DJ_REST_AUTH, "api/v1/auth/password/reset/confirm/?$"),
-    "dj_rest_auth.registration.views.RegisterView": _allow(
-        "Shadowed by InviteRegisterView at the same path.", "api/v1/auth/registration/"
-    ),
-    "dj_rest_auth.registration.views.VerifyEmailView": _allow(
-        _EMAIL_KEY, "api/v1/auth/registration/verify-email/?$"
+        "^api/v1/auth/logout/?$",
     ),
     "dj_rest_auth.registration.views.ResendEmailVerificationView": _allow(
-        "Public: resend confirmation email.", "api/v1/auth/registration/resend-email/?$"
+        "Public: resend confirmation email.", "^api/v1/auth/registration/resend-email/?$"
     ),
     "boards.views.health.LivenessView": _allow(
         "Public: orchestrator liveness probe, no data.", "api/health/liveness/"
@@ -284,8 +266,7 @@ NON_DRF_ALLOWLIST: dict[str, Allow] = {
     ),
     "django.views.generic.base.TemplateView": _allow(
         "Static template only, no data.",
-        r"api/v1/auth/registration/^account-confirm-email/(?P<key>[-:\w]+)/$",
-        "api/v1/auth/registration/account-email-verification-sent/?$",
+        "^api/v1/auth/registration/account-email-verification-sent/?$",
     ),
 }
 
@@ -1227,12 +1208,7 @@ class McpEntryPointTests(TestCase):
 
 #: Invite-like models (``token_hash`` + ``created_by``) that have no
 #: redemption-time creator rule, with the reason.
-INVITE_KINDS_WITHOUT_CREATOR_RULE: dict[str, str] = {
-    "accounts.InviteLink": (
-        "Site invites: creator standing is handled by revocation on deactivation "
-        "(AdminUserDeactivateView._revoke_invite_links)."
-    ),
-}
+INVITE_KINDS_WITHOUT_CREATOR_RULE: dict[str, str] = {}
 
 
 def _always_valid(link, board=None):
@@ -1270,11 +1246,15 @@ class InviteEntryPointTests(SimpleTestCase):
             self.assertTrue(callable(import_string(target)), target)
 
     def test_inactive_or_deleted_creator_is_never_valid(self):
+        from accounts.models import InviteLink
         from boards.models import BoardInviteLink
         from groups.models import GroupInviteLink
 
         inactive = User(pk=424242, username="gone-1517", is_active=False)
         for link in (
+            InviteLink(created_by=User(pk=424243, username="gone-admin", is_active=False, is_site_admin=True)),
+            InviteLink(created_by=User(pk=424244, username="demoted", is_active=True, is_site_admin=False)),
+            InviteLink(created_by=None),
             BoardInviteLink(board_id=1, created_by=inactive),
             GroupInviteLink(group_id=1, created_by=inactive),
             BoardInviteLink(board_id=1, created_by=None),
@@ -1304,9 +1284,16 @@ class InviteEntryPointTests(SimpleTestCase):
     def test_negative_an_unregistered_invite_kind_is_reported(self):
         from accounts.models import InviteLink
 
-        self.assertTrue(invite_model_violations([InviteLink], INVITE_CREATOR_RULES, {}))
-        with self.assertRaises(TypeError):
-            authorization.invite_creator_is_valid(InviteLink())
+        self.assertTrue(invite_model_violations([InviteLink], {}, {}))
+        with mock.patch.dict(INVITE_CREATOR_RULES, clear=True):
+            with self.assertRaises(TypeError):
+                authorization.invite_creator_is_valid(InviteLink())
+
+    def test_site_invite_creator_must_be_an_active_site_admin(self):
+        from accounts.models import InviteLink
+
+        admin = User(pk=424245, username="site-admin", is_active=True, is_site_admin=True)
+        self.assertTrue(authorization.invite_creator_is_valid(InviteLink(created_by=admin)))
 
 
 class AllauthAdapterEntryPointTests(SimpleTestCase):
@@ -1374,6 +1361,8 @@ REQUIRED_SHARED_CALLS: dict[str, frozenset] = {
         {"sender_may_admit_accounts", "invite_creator_is_valid"}
     ),
     "accounts.adapter.SocialRegistrationAdapter._handle_email_collision": frozenset({"principal_is_active"}),
+    "accounts.invite_utils.validate_invite_token": frozenset({"invite_creator_is_valid"}),
+    "accounts.invite_utils.site_invite_creator_admits": frozenset({"sender_may_admit_accounts"}),
 }
 
 #: Calls that count as applying the creator rule in a function that looks an
@@ -1517,6 +1506,7 @@ class InviteRedemptionCallSiteTests(SimpleTestCase):
             "groups.views.JoinGroupView.post",
             "boards.invites.validate_board_registration_token",
             "groups.invite_registration.validate_group_registration_token",
+            "accounts.invite_utils.validate_invite_token",
         ):
             self.assertIn(expected, quals)
 

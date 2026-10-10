@@ -185,6 +185,42 @@ class SetSiteAdminTests(TestCase):
         self.assertFalse(self.user.can_access_all_content)
         self.assertIn("Revoked", out.getvalue())
 
+    def test_revoke_lapses_group_links_held_only_through_the_flag(self):
+        """--revoke clears can_access_all_content, so group invite links the
+        user administered only through it lapse; links on a group the user
+        still administers by membership are kept (same as the admin API)."""
+        from groups.models import Group, GroupInviteLink, GroupMembership
+
+        User.objects.filter(pk=self.user.pk).update(is_site_admin=True, can_access_all_content=True)
+        owner = User.objects.create_user(username="owner", password="pass")
+        g1 = Group.objects.create(name="G1", owner=owner)
+        g2 = Group.objects.create(name="G2", owner=owner)
+        GroupMembership.objects.create(group=g2, user=self.user, role=GroupMembership.Role.ADMIN)
+        l1, _ = GroupInviteLink.generate(g1, self.user)
+        l2, _ = GroupInviteLink.generate(g2, self.user)
+
+        with patch("groups.broadcast.broadcast_group_event"), self.captureOnCommitCallbacks(execute=True):
+            call_command("set_site_admin", "testuser", "--revoke", stdout=StringIO())
+
+        l1.refresh_from_db()
+        l2.refresh_from_db()
+        self.assertFalse(l1.is_active)
+        self.assertTrue(l2.is_active)
+
+    def test_revoke_without_the_content_flag_leaves_group_links(self):
+        from groups.models import Group, GroupInviteLink, GroupMembership
+
+        User.objects.filter(pk=self.user.pk).update(is_site_admin=True, can_access_all_content=False)
+        owner = User.objects.create_user(username="owner", password="pass")
+        g1 = Group.objects.create(name="G1", owner=owner)
+        GroupMembership.objects.create(group=g1, user=self.user, role=GroupMembership.Role.ADMIN)
+        l1, _ = GroupInviteLink.generate(g1, self.user)
+        with patch("groups.views._revoke_lapsed_admin_invite_links") as lapse:
+            call_command("set_site_admin", "testuser", "--revoke", stdout=StringIO())
+        lapse.assert_not_called()
+        l1.refresh_from_db()
+        self.assertTrue(l1.is_active)
+
     def test_nonexistent_user_raises_error(self):
         with self.assertRaises(CommandError) as ctx:
             call_command("set_site_admin", "nobody")

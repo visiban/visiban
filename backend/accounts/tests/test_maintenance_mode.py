@@ -414,6 +414,26 @@ class ExemptPathTests(MaintenanceModeBaseTest):
             with self.subTest(path=path):
                 self.assertTrue(_is_exempt_path(path), f"{path} must stay writable during maintenance")
 
+    def test_auth_routes_stay_exempt_without_the_trailing_slash(self):
+        """The auth routes resolve in both slash forms (#1540); so does the exemption."""
+        for path in (
+            "/api/v1/auth/login",
+            "/api/v1/auth/logout",
+            "/api/v1/auth/password/reset",
+            "/api/v1/auth/password/reset/confirm",
+            "/api/v1/auth/password/change",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(_is_exempt_path(path))
+        for path in ("/api/v1/auth/user", "/api/v1/auth/registration", "/api/v1/auth/loginx", "/api/v1/admin"):
+            with self.subTest(path=path):
+                self.assertFalse(_is_exempt_path(path))
+
+    def test_no_slash_login_is_reachable_during_maintenance(self):
+        _set_maintenance(True)
+        r = self.client.post("/api/v1/auth/login", {"username": "nobody", "password": "x"}, format="json")
+        self.assertNotEqual(r.status_code, 503)
+
     def test_admin_prefix_trailing_slash_is_not_satisfied_by_a_lookalike_path(self):
         """Guards the exact regression the trailing-slash comment in middleware.py calls out.
 
