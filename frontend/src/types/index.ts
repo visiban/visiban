@@ -569,6 +569,9 @@ export interface Card {
   created_at: string;
   updated_at: string;
   last_moved_at: string | null;
+  /** True when the newest movement is the card's creation, not a move (#1576).
+   *  Optional: absent in payloads that predate the field; treat as false. */
+  last_move_is_creation?: boolean;
   attachment_count: number;
   checklist_total: number;
   checklist_done: number;
@@ -1097,6 +1100,9 @@ export interface PublicCard {
   checklist_done: number;
   assignee: PublicAssignee | null;
   last_moved_at: string | null;
+  /** True when the newest movement is the card's creation, not a move (#1576).
+   *  Optional: absent in payloads that predate the field; treat as false. */
+  last_move_is_creation?: boolean;
   is_stale: boolean;
   /**
    * Same blocked signal as on `Card` (#449). The count is safe on an anonymous

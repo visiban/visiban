@@ -75,6 +75,23 @@ describe('CardItem — compact vs expanded rendering', () => {
     expect(titleEl).toHaveTextContent('Test Card Title')
   })
 
+  // --- Creation is not a move (#1576) ---
+
+  it('shows "Just moved" for a card moved in the last 24h', () => {
+    const card = makeCard({ last_moved_at: new Date(Date.now() - 60_000).toISOString() })
+    render(<CardItem density="comfortable" card={card} />)
+    expect(screen.getByText('Just moved')).toBeInTheDocument()
+  })
+
+  it('does not show "Just moved" when the only movement is the card creation', () => {
+    const card = makeCard({
+      last_moved_at: new Date(Date.now() - 60_000).toISOString(),
+      last_move_is_creation: true,
+    })
+    render(<CardItem density="comfortable" card={card} />)
+    expect(screen.queryByText('Just moved')).not.toBeInTheDocument()
+  })
+
   // --- Blocked indicator (#449) ---
 
   it('renders the blocked indicator in the compact per-user layout', () => {

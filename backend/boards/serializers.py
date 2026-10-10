@@ -2063,6 +2063,26 @@ def _card_movements(card):
     return _parked_or_manager(card, _PARKED_MOVEMENTS, "movements")
 
 
+def _last_move_is_creation(card) -> bool:
+    """True when the newest movement is the card's creation row (#1576).
+
+    Card creation writes a MOVE row with an empty ``from_column_name``. This
+    lets the UI avoid labeling a brand-new card "Just moved" without touching
+    ``last_moved_at`` or the audit trail. ``from_column_name`` is the
+    denormalized write-time copy, so it survives the FK being nulled when a
+    column is deleted. Shared by CardSerializer, PublicCardSerializer and
+    CardQuerySerializer so the three read paths cannot drift.
+    """
+    movements = _card_movements(card)
+    if not movements:
+        return False
+    latest = movements[0]
+    return (
+        latest.movement_type == CardMovement.MovementType.MOVE
+        and latest.from_column_name == ""
+    )
+
+
 def _card_custom_field_values(card):
     return _parked_or_manager(card, _PARKED_CUSTOM_FIELD_VALUES, "custom_field_values")
 
@@ -2291,6 +2311,7 @@ class CardSerializer(serializers.ModelSerializer):
     created_by = BoardUserSerializer(read_only=True, allow_null=True)
     description = serializers.CharField(max_length=50_000, allow_blank=True, required=False)
     last_moved_at = serializers.SerializerMethodField()
+    last_move_is_creation = serializers.SerializerMethodField()
     # Read-and-write, same shape both ways — see CustomFieldValuesField (#371).
     custom_field_values = CustomFieldValuesField()
     # MR/PR link (#352). Omitted = untouched, null = cleared, object = full
@@ -2338,7 +2359,7 @@ class CardSerializer(serializers.ModelSerializer):
             "id", "uid", "column", "swimlane", "title", "description", "priority",
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
             "weight", "position", "created_by", "created_at", "updated_at",
-            "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
+            "last_moved_at", "last_move_is_creation", "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref",
         ]
@@ -2443,6 +2464,9 @@ class CardSerializer(serializers.ModelSerializer):
         # (e.g. a generated TS type) would reject on every unmoved card.
         movements = _card_movements(obj)
         return movements[0].moved_at if movements else None
+
+    def get_last_move_is_creation(self, obj) -> bool:
+        return _last_move_is_creation(obj)
 
     def get_attachment_count(self, obj) -> int:
         # len() on the prefetched rows uses memory; .count() would query.
@@ -3403,6 +3427,7 @@ class PublicCardSerializer(serializers.ModelSerializer):
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
     last_moved_at = serializers.SerializerMethodField()
+    last_move_is_creation = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
     blocker_count = serializers.SerializerMethodField()
 
@@ -3421,7 +3446,7 @@ class PublicCardSerializer(serializers.ModelSerializer):
             "uid", "column", "swimlane", "title", "priority", "labels",
             "due_date", "weight", "position",
             "checklist_total", "checklist_done", "assignee",
-            "last_moved_at", "is_stale", "blocker_count",
+            "last_moved_at", "last_move_is_creation", "is_stale", "blocker_count",
         ]
 
     # checklist_items and movements are parked with to_attr by get_cards()
@@ -3445,6 +3470,9 @@ class PublicCardSerializer(serializers.ModelSerializer):
         # movements are prefetched ordered by -moved_at; index [0] is the most recent.
         movements = _card_movements(obj)
         return movements[0].moved_at if movements else None
+
+    def get_last_move_is_creation(self, obj) -> bool:
+        return _last_move_is_creation(obj)
 
     def get_is_stale(self, obj) -> bool:
         # Read the SQL-level annotation when PublicBoardSerializer.get_cards()

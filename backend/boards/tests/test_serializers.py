@@ -212,6 +212,47 @@ class CardSerializerLastMovedAtTests(TestCase):
         self.assertNotEqual(data["last_moved_at"], older.moved_at)
 
 
+class CardSerializerLastMoveIsCreationTests(TestCase):
+    """last_move_is_creation lets the UI skip "Just moved" on new cards (#1576)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_lmc", password="pass")
+        self.board = _make_board(self.owner)
+        self.col, self.swim = _make_infrastructure(self.board, self.owner)
+        self.card = _make_card(self.board, self.col, self.swim, self.owner)
+
+    def _real_move(self):
+        return CardMovement.objects.create(
+            card=self.card,
+            from_column=self.col, from_column_name=self.col.name,
+            to_column=self.col, to_column_name=self.col.name,
+            from_swimlane=self.swim, from_swimlane_name=self.swim.name,
+            to_swimlane=self.swim, to_swimlane_name=self.swim.name,
+            moved_by=self.owner,
+        )
+
+    def test_false_when_card_has_no_movements(self):
+        self.assertFalse(_serialize_card(self.card)["last_move_is_creation"])
+
+    def test_true_when_only_movement_is_creation(self):
+        _make_movement(self.card, self.col, self.swim, self.owner)
+        self.assertTrue(_serialize_card(self.card)["last_move_is_creation"])
+
+    def test_false_after_a_real_move_follows_creation(self):
+        _make_movement(self.card, self.col, self.swim, self.owner, days_ago=1)
+        self._real_move()
+        data = _serialize_card(self.card)
+        self.assertFalse(data["last_move_is_creation"])
+
+    def test_last_moved_at_is_unchanged_for_a_creation_only_card(self):
+        mv = _make_movement(self.card, self.col, self.swim, self.owner)
+        self.assertEqual(_serialize_card(self.card)["last_moved_at"], mv.moved_at)
+
+    def test_public_serializer_exposes_the_flag(self):
+        _make_movement(self.card, self.col, self.swim, self.owner)
+        self.assertTrue(_serialize_public_card(self.card)["last_move_is_creation"])
+
+
 # ---------------------------------------------------------------------------
 # CardSerializer — checklist_done (#590)
 # ---------------------------------------------------------------------------
