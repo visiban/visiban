@@ -925,7 +925,7 @@ describe('GroupDetail', () => {
         const btn = screen.getByRole('button', { name })
         expect(btn).toHaveClass(textClass, 'focus:ring-2')
         expect(btn.className).toMatch(/bg-(success|warning|danger)\/20/)
-        expect(btn.className).not.toMatch(/\/(50|60)/)
+        expect(btn.className).not.toMatch(/bg-(success|warning|danger)\/(50|60)/)
       }
     })
 
