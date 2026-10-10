@@ -168,6 +168,7 @@ almost never matches a seeded row, and schemathesis never exercises the operatio
 `SavedFilter`, `CardAttachment`, `GroupInviteLink`, and `GroupLabel`, and
 `schemathesis_hooks.py` now maps their path parameters the same way, so these resource
 families are also reachable instead of always 404ing under fuzzing.
+[#1570](https://gitlab.com/visiban/visiban/-/issues/1570) added three more fixtures: the board's non-owner members are group MEMBERs (the fuzz user must belong to the group or every `/groups/{id}/...` route 404s), `schemathesis_hooks.py` mints board and group join tokens and maps the board share token and the seeded attachment's media path, and one card created by the fuzz user carries its own attachment, comment, checklist item, and relation so the authorship-gated deletes can reach their success path.
 
 **Enforced (`allow_failure: false`) as of [#1120](https://gitlab.com/visiban/visiban/-/issues/1120).**
 Per #1080's own phased plan, the job ran non-blocking for one release to establish a baseline.

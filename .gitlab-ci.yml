@@ -1082,7 +1082,16 @@ backend-schema-fuzz:
   #   * /api/v1/admin/... is out of reach for a non-admin token by design (#1080)
   # 403s that are role rules, not wrong ids: DELETE /auth/tokens/{id}/ (a PAT may
   # never manage PATs, #1110), group admin-only actions, board-admin-only actions.
-  # Verify the warning count from the job log after changing any of this.
+  # AC re-check of the earlier 403s after the hook-id fixes (#1570), run locally
+  # against a seeded DB with the fuzz user's PAT: DELETE card, attachment, comment
+  # and relation now reach 2xx. Still 403 by design: DELETE /auth/tokens/{id}/
+  # for a PAT caller (#1110) and the group admin-only and board-admin-only
+  # actions. The post-change 403 count must be confirmed from the CI job log.
+  # NOT verified locally, CI only: the drop in the "Missing valid test data"
+  # warning, and any new fuzz findings on the newly reachable routes (join POST,
+  # group members PATCH/DELETE, relations, media). A new finding is a real defect.
+  # The unobserved schemathesis-baseline.json entry is pruned separately, once the
+  # nightly deep run also reports it unobserved: #1582 (not pruned here).
   services:
     - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres

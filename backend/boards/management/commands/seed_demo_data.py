@@ -1690,7 +1690,15 @@ class Command(BaseCommand):
         )
         card = next((c for c in candidates if c.created_by_id == member.id), None)
         if card is None:
-            return None
+            # Authorship is drawn from the shared RNG, so a small or unlucky
+            # corpus may have no card by this user. Reassign the first live card
+            # (UPDATE only: no RNG draw, corpus titles unchanged) rather than
+            # silently skipping the fixture.
+            if not candidates:
+                return None
+            card = candidates[0]
+            Card.objects.filter(pk=card.pk).update(created_by=member)
+            card.created_by = member
         content = b"Member-owned attachment seeded by seed_demo_data (#1570).\n"
         CardAttachment.objects.create(
             card=card,
