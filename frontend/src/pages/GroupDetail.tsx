@@ -1048,10 +1048,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     const effectivePriorities = group.allowed_priorities.length > 0 ? group.allowed_priorities : (["low", "medium", "high", "urgent"] as Priority[]);
                     const active = effectivePriorities.includes(p);
                     const colorMap: Record<Priority, string> = {
-                      low: "bg-success/60 border-success/60 text-success",
-                      medium: "bg-warning/60 border-warning/60 text-warning",
-                      high: "bg-warning/60 border-warning/60 text-warning",
-                      urgent: "bg-danger/60 border-danger/60 text-danger",
+                      low: "bg-success/20 border-success/60 text-success-on-tint",
+                      medium: "bg-warning/20 border-warning/60 text-warning-on-tint",
+                      high: "bg-warning/20 border-warning/60 text-warning-on-tint",
+                      urgent: "bg-danger/20 border-danger/60 text-danger-on-tint",
                     };
                     return (
                       <button

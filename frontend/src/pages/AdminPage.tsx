@@ -1294,7 +1294,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                               </span>
                             )}
                             {u.must_change_password && (
-                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-warning/20 text-warning">
+                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-warning/20 text-warning-on-tint">
                                 Reset req.
                               </span>
                             )}

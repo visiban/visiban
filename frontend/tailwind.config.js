@@ -37,6 +37,13 @@ export default {
         success: "rgb(var(--success) / <alpha-value>)",
         info: "rgb(var(--info) / <alpha-value>)",
 
+        // On-tint text (#1550) — pair with `bg-<hue>/20`..`/30` pills and strips
+        "danger-on-tint": "rgb(var(--danger-on-tint) / <alpha-value>)",
+        "warning-on-tint": "rgb(var(--warning-on-tint) / <alpha-value>)",
+        "success-on-tint": "rgb(var(--success-on-tint) / <alpha-value>)",
+        "info-on-tint": "rgb(var(--info-on-tint) / <alpha-value>)",
+        "muted-on-tint": "rgb(var(--muted-on-tint) / <alpha-value>)",
+
         // Interactive — primary (Visiban brand blue)
         primary: "rgb(var(--primary) / <alpha-value>)",
         "primary-hover": "rgb(var(--primary-hover) / <alpha-value>)",

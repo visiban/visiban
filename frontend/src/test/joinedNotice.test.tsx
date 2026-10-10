@@ -9,7 +9,7 @@ describe('JoinedNotice', () => {
     const onDismiss = vi.fn()
     render(<JoinedNotice onDismiss={onDismiss}>You've joined <strong>Platform</strong>. Welcome!</JoinedNotice>)
     expect(screen.getByText(/You've joined/)).toHaveTextContent("You've joined Platform. Welcome!")
-    expect(screen.getByText(/You've joined/).parentElement).toHaveClass('bg-success/60', 'text-success')
+    expect(screen.getByText(/You've joined/).parentElement).toHaveClass('bg-success/20', 'text-success-on-tint')
     expect(screen.getByRole('status')).toHaveTextContent("You've joined Platform. Welcome!")
     await userEvent.setup().click(screen.getByRole('button', { name: 'Dismiss notification' }))
     expect(onDismiss).toHaveBeenCalledTimes(1)

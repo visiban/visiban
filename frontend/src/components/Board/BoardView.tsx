@@ -188,8 +188,8 @@ export function ViewToggle({
             <span
               className={`px-1 py-0 text-xs font-medium rounded leading-4 ${
                 view === "analytics"
-                  ? "bg-warning/30 text-warning"
-                  : "bg-warning/20 text-warning"
+                  ? "bg-warning/30 text-warning-on-tint"
+                  : "bg-warning/20 text-warning-on-tint"
               }`}
             >
               Beta
