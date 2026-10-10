@@ -494,6 +494,19 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.updateBoardSettings).not.toHaveBeenCalled()
   })
 
+  it('board.updated drops the acting user is_starred before merging (#1559)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'board.updated', data: { name: 'Renamed', is_starred: true } }) })
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith({ name: 'Renamed' })
+    expect(ctx.mergeBoardState).not.toHaveBeenCalledWith(expect.objectContaining({ is_starred: expect.anything() }))
+    // board.star_changed for this user still updates the star.
+    act(() => { getOnEvent.dispatch({ event: 'board.star_changed', data: { uid: 'board-uid-1', user_id: fakeUser.id, is_starred: true } }) })
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith({ is_starred: true })
+  })
+
   it('board.updated does not throw when mergeBoardState is provided', async () => {
     mockBoardContextValue = makeContext()
     render(<BoardView />)

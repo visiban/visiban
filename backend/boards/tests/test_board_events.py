@@ -255,6 +255,33 @@ class EveryEmittedEventIsPersistedTests(BoardEventTestBase):
             ["board.created", "board.deleted"],
         )
 
+    def test_board_created_and_updated_payloads_still_carry_is_starred(self):
+        """Contract pin (#1559): ``is_starred`` stays in board.created/updated.
+
+        The value is the ACTING user's and clients ignore it, but removing the
+        field from a published event payload needs a major bump (1.x WebSocket
+        contract). This fails if someone "fixes" #1559 on the server by
+        dropping it.
+        """
+        c = self.client_for(self.owner)
+        with self.captureOnCommitCallbacks(execute=True):
+            created = c.post("/api/v1/boards/", {"name": "Pinned"}, format="json")
+        self.assertEqual(created.status_code, 201)
+        with self.captureOnCommitCallbacks(execute=True):
+            updated = c.patch(
+                f"/api/v1/boards/{self.board.pk}/", {"name": "Renamed"}, format="json"
+            )
+        self.assertEqual(updated.status_code, 200)
+
+        payloads = {}
+        for call in self.broadcast.call_args_list:
+            _board_id, event, payload = call.args[:3]
+            payloads.setdefault(event, payload)
+        self.assertIn("board.created", payloads)
+        self.assertIn("board.updated", payloads)
+        self.assertIn("is_starred", payloads["board.created"])
+        self.assertIn("is_starred", payloads["board.updated"])
+
     def test_saved_filter_events_are_persisted(self):
         c = self.client_for(self.owner)
         b = self.board.pk

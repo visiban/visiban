@@ -1253,6 +1253,45 @@ describe('GroupDetail', () => {
       expect(screen.queryByText('Sprint Board')).not.toBeInTheDocument()
     })
 
+    it('board.updated carrying the actor is_starred leaves the local star unchanged (#1559)', async () => {
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([{ ...existingBoard, uid: 'board-uid-1', is_starred: false }])
+      renderGroupDetail()
+      await screen.findByText('Sprint Board')
+      const row = () => screen.getByText(/Sprint Board|Renamed By Starrer/).closest('[data-board-id]') as HTMLElement
+      expect(row()).toHaveAttribute('data-starred', 'false')
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.updated',
+          data: { ...existingBoard, uid: 'board-uid-1', name: 'Renamed By Starrer', is_starred: true },
+        } as BoardEvent)
+      })
+      expect(await screen.findByText('Renamed By Starrer')).toBeInTheDocument()
+      expect(row()).toHaveAttribute('data-starred', 'false')
+      // The user's own board.star_changed still updates it.
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.star_changed',
+          data: { uid: 'board-uid-1', user_id: fakeUser.id, is_starred: true },
+        } as BoardEvent)
+      })
+      expect(row()).toHaveAttribute('data-starred', 'true')
+    })
+
+    it('board.created with the creator is_starred appends an unstarred row (#1559)', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.created',
+          data: { ...existingBoard, id: 3, name: 'Starred By Creator', is_starred: true },
+        } as BoardEvent)
+      })
+      const row = screen.getByText('Starred By Creator').closest('[data-board-id]') as HTMLElement
+      expect(row).toHaveAttribute('data-starred', 'false')
+    })
+
     it('board.updated for an unknown board id is a no-op', async () => {
       await loadGroup()
       act(() => {
