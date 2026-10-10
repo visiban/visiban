@@ -245,6 +245,41 @@ def _revoke_lapsed_admin_invite_links(user, group=None):
     transaction.on_commit(_announce)
 
 
+def _revoke_lapsed_subtree_invite_links(group):
+    """Revoke unused invite links in ``group``'s subtree whose creators lost admin (#1513).
+
+    Run after a re-parent: admin rights are inherited down the tree, so a
+    creator who administered a link's group only through the old ancestor chain
+    no longer does. Delegates per creator to ``_revoke_lapsed_admin_invite_links``
+    so there is a single definition of "still administers". Must run inside the
+    caller's ``transaction.atomic()``.
+    """
+    from .models import _GROUP_TRAVERSAL_MAX_DEPTH
+
+    # Bound the scan to the moved subtree (one query per level, at most the
+    # traversal depth) rather than loading every active link system-wide.
+    # A link's group sits at most depth-1 levels below ``group`` for the
+    # inherited-admin walk to reach it.
+    subtree_ids = {group.pk}
+    frontier = [group.pk]
+    for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH - 1):
+        frontier = list(
+            Group.objects.filter(parent_id__in=frontier).values_list("pk", flat=True)
+        )
+        if not frontier:
+            break
+        subtree_ids.update(frontier)
+    creators = {
+        link.created_by_id: link.created_by
+        for link in GroupInviteLink.objects.select_related("created_by").filter(
+            group_id__in=subtree_ids, created_by__isnull=False,
+            is_active=True, used_at__isnull=True,
+        )
+    }
+    for creator in creators.values():
+        _revoke_lapsed_admin_invite_links(creator, group)
+
+
 class GroupViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for groups, scoped to groups the requesting user is a member of."""
 
@@ -360,8 +395,13 @@ class GroupViewSet(viewsets.ModelViewSet):
         Re-fetches through ``get_queryset`` so the broadcast payload includes
         the count annotations and resolves any rename / re-parent change.
         """
+        old_parent_id = group.parent_id
         with transaction.atomic():
             response = super().partial_update(request, *args, **kwargs) if partial else super().update(request, *args, **kwargs)
+            group.refresh_from_db(fields=["parent"])
+            if group.parent_id != old_parent_id:
+                # Inherited admin rights moved with the subtree (#1513).
+                _revoke_lapsed_subtree_invite_links(group)
             annotated = self.get_queryset().get(pk=group.pk)
             group_data = GroupSerializer(annotated, context={"request": request}).data
 

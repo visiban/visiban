@@ -159,6 +159,9 @@ class GroupInviteCreatorRecheckTests(TestCase):
         )
         link, raw = GroupInviteLink.generate(self.group, other)
         other.delete()
+        # Deletion now deactivates the link (#1513); re-activate it to model a
+        # creatorless link that pre-dates that, so the guard itself is still tested.
+        GroupInviteLink.objects.filter(pk=link.pk).update(is_active=True)
         link.refresh_from_db()
         self.assertIsNone(link.created_by_id)
         self.assertTrue(link.is_active)

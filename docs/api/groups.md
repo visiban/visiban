@@ -52,6 +52,8 @@ Update group fields. Both `PUT` and `PATCH` are accepted. Requires group admin.
 
 **Writable fields:** `name`, `description`, `parent`, `default_board_member_role`, `allowed_priorities`. The latter two duplicate what [`PATCH /groups/{id}/board-defaults/`](#board-defaults) does — either endpoint can set them.
 
+Changing `parent` revokes unused invite links in the moved subtree whose creator no longer administers the link's group through the new ancestor chain (see [Invite links](#invite-links)).
+
 ### `DELETE /api/v1/groups/{id}/`
 Delete a group. Requires group owner or site admin.
 
@@ -126,7 +128,9 @@ List all boards in this group and all of its descendant subgroups that the reque
 
 A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (`delivery: "email"`, below) are capped separately — up to 50 pending per group — and never count against the 5.
 
-A link can stay listed as active, and keep holding one of the 5 slots, after its creator is deleted or the group is re-parented so the creator no longer administers it, and links left in that state before upgrading are not backfilled. Join and preview still refuse such a link, so nobody is admitted through it; cleaning up the listing and the slot is tracked in #1513.
+A link is revoked automatically (set inactive, freeing its slot, and announced as `invite_link.revoked`) when its creator is deactivated or deleted, loses group admin rights, or when a `parent` change moves the group so the creator no longer administers the link's group. Unused links only; a consumed single-use link is left alone. Join and preview independently refuse any link whose creator no longer qualifies, so nobody is admitted through a stale one.
+
+Upgrade cleanup: on upgrade, unused links whose creator was already deleted or deactivated are deactivated once. **Not backfilled:** links whose creator still exists and is active but was demoted, removed, or moved out of administering the group before this fix (tracked in #1565). They stay listed as active and hold a slot until revoked manually, but still admit nobody.
 
 Inherited group-admin rights (which decide whether a link's creator still counts as an admin, and which links are revoked on demotion) are considered only up to 6 ancestor levels; nesting deeper than that is not honored for these checks.
 

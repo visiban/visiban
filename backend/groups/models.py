@@ -1,7 +1,9 @@
 import hashlib
 import logging
 import secrets
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from django.db.models import CheckConstraint, Q
 from django.conf import settings
 from django.utils import timezone
@@ -377,3 +379,34 @@ class GroupFavorite(models.Model):
     class Meta:
         db_table = "group_favorites"
         unique_together = ["user", "group"]
+
+
+@receiver(pre_delete, sender=settings.AUTH_USER_MODEL, dispatch_uid="groups_revoke_deleted_creator_links")
+def revoke_invite_links_of_deleted_creator(sender, instance, **kwargs):
+    """Deactivate a user's unused group invite links before the user row goes (#1513).
+
+    ``GroupInviteLink.created_by`` is SET_NULL, so without this the links of a
+    deleted creator stay ``is_active`` with no creator: they admit nobody
+    (preview/join refuse a creatorless link) but sit in the admin list as
+    active and hold per-group cap slots forever. A pre_delete receiver, not a
+    call in one delete view, so every deletion path (admin API, shell,
+    cascade, ``QuerySet.delete()``) is covered. Consumed single-use links keep
+    their history (``used_at`` is set; #1445).
+    """
+    links = list(
+        GroupInviteLink.objects.filter(
+            created_by=instance, is_active=True, used_at__isnull=True,
+        ).values_list("pk", "group_id")
+    )
+    if not links:
+        return
+    GroupInviteLink.objects.filter(pk__in=[pk for pk, _ in links]).update(is_active=False)
+
+    def _announce():
+        from . import broadcast as _group_broadcast
+        for link_id, group_id in links:
+            _group_broadcast.broadcast_group_event(
+                group_id, _group_broadcast.EVT_INVITE_LINK_REVOKED, {"id": link_id},
+            )
+
+    transaction.on_commit(_announce)
