@@ -130,7 +130,7 @@ A group can have up to 5 active shareable invite links. Each link has an indepen
 
 A link is revoked automatically (set inactive, freeing its slot, and announced as `invite_link.revoked`) when its creator is deactivated or deleted, loses group admin rights, or when a `parent` change moves the group so the creator no longer administers the link's group. Unused links only; a consumed single-use link is left alone. Join and preview independently refuse any link whose creator no longer qualifies, so nobody is admitted through a stale one.
 
-Upgrade cleanup: on upgrade, unused links whose creator was already deleted or deactivated are deactivated once. **Not backfilled:** links whose creator still exists and is active but was demoted, removed, or moved out of administering the group before this fix. They stay listed as active and hold a slot until revoked manually, but still admit nobody.
+Upgrade cleanup: on upgrade, unused links whose creator was already deleted or deactivated are deactivated once. **Not backfilled:** links whose creator still exists and is active but was demoted, removed, or moved out of administering the group before this fix (tracked in #1565). They stay listed as active and hold a slot until revoked manually, but still admit nobody.
 
 Inherited group-admin rights (which decide whether a link's creator still counts as an admin, and which links are revoked on demotion) are considered only up to 6 ancestor levels; nesting deeper than that is not honored for these checks.
 
