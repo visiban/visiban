@@ -846,6 +846,24 @@ class AdminUsersView(APIView):
         return Response(AdminUserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
+def lock_user_row(pk):
+    """Return the stored user row, locked until the surrounding transaction ends.
+
+    Callers read the "before" state of an access change through this so a
+    concurrent change cannot slip between the read and the save (#1563).
+    """
+    return User.objects.select_for_update().get(pk=pk)
+
+
+def access_state(user):
+    """The fields :func:`apply_access_loss_revocations` compares, from *user*."""
+    return {
+        "is_active": user.is_active,
+        "is_site_admin": user.is_site_admin,
+        "can_access_all_content": user.can_access_all_content,
+    }
+
+
 def apply_access_loss_revocations(target, actor, prior):
     """Revoke what a user's lost access should take with it (#1510, #1563).
 
@@ -953,7 +971,7 @@ class AdminUserDetailView(APIView):
             # Atomic with the revocations below: a rolled-back deactivation must
             # not leave links revoked (and the on_commit broadcasts never fire).
             with transaction.atomic():
-                prior = User.objects.values("is_active", "is_site_admin", "can_access_all_content").get(pk=target.pk)
+                prior = access_state(lock_user_row(target.pk))
                 target.save(update_fields=update_fields)
                 # Deactivating through PATCH must revoke the user's invite links
                 # exactly like the dedicated deactivate endpoint (#1510): they

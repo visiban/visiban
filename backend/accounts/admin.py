@@ -75,18 +75,24 @@ class VisibanUserAdmin(UserAdmin):
         # housekeeping as the admin API (#1563). The stored values are read
         # under a row lock before the save because the ModelForm has already
         # written the submitted values onto ``obj``.
-        from .admin_views import apply_access_loss_revocations
+        from .admin_views import access_state, apply_access_loss_revocations, lock_user_row
 
         with transaction.atomic():
-            prior = (
-                User.objects.select_for_update()
-                .filter(pk=obj.pk)
-                .values("is_active", "is_site_admin", "can_access_all_content")
-                .first()
-            )
+            try:
+                stored = lock_user_row(obj.pk)
+            except User.DoesNotExist:
+                stored = None
+            if stored is not None and form is not None:
+                # The form wrote its values onto an instance loaded when the
+                # page rendered. Fields the form does not carry must come from
+                # the locked row, or this save would undo a concurrent change
+                # to them (a demotion, a pending password-change flag).
+                for field in User._meta.concrete_fields:
+                    if field.name not in form.fields:
+                        setattr(obj, field.attname, getattr(stored, field.attname))
             super().save_model(request, obj, form, change)
-            if prior is not None:
-                apply_access_loss_revocations(obj, request.user, prior)
+            if stored is not None:
+                apply_access_loss_revocations(obj, request.user, access_state(stored))
 
 
 def _stored_password_hash(pk, *, lock=False):
