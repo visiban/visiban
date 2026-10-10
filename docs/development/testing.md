@@ -295,6 +295,10 @@ self.assertFalse(CardMovement.objects.filter(notes="Card created").exists())
 
 Do the same for broadcast events: assert nothing was queued.
 
+### Row-lock tests (PostgreSQL only)
+
+SQLite has no row locks, so a `select_for_update()` can be deleted without failing the SQLite suite. Test each lock with the hold-the-first-transaction pattern: pause the first request inside its transaction (after it took the lock and wrote, before it commits), start a second request only once the first is paused, and assert both that the second could not finish before the pause ended and that the final state is consistent (distinct positions, caps respected). Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` and use `TransactionTestCase`. Every thread that touches the ORM must call `connections.close_all()` in a `finally`. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See `backend/boards/tests/test_concurrent_moves.py` (`ConcurrentMoveLockTests`) and `backend/boards/tests/test_concurrent_lock_sites.py`.
+
 ### What not to do
 
 - **Do not write one test per mutant.** Write the smallest assertion that states the behavior; one test often kills several mutants. A suite shaped like the survivor list breaks on every refactor.
