@@ -798,11 +798,21 @@ def _lock_move_cells(*, board, card_id, cells):
     same global order no matter which card is moving, so concurrent moves that
     share any row queue instead.
 
-    ``of=("self",)`` keeps the lock off the joined column and swimlane rows
-    (there are no joins here, but it pins the intent): a column-row lock taken
-    as a side effect would sit outside the documented order. ``cells`` is a set
-    of ``(column_id, swimlane_id)`` pairs. Returns the locked moved card, or
-    ``None`` when it no longer exists on the board.
+    The statement must not join (no ``select_related``). When it waits on a
+    card row that a concurrent move then commits, PostgreSQL re-evaluates the
+    WHERE clause against the updated card but joins it to the *pre-commit*
+    snapshot of any joined row, so ``card.column_id = column.id`` fails and the
+    card silently drops out of the result — the loser of two moves of one card
+    answered 404 for a card that existed (#1523). Without a join the moved card
+    is always found by its pk, and a changed card goes through the
+    ``_CardChangedBeforeLock`` retry instead. ``test_same_card_move_race.py``
+    pins both. The caller reads column and swimlane from its unlocked read.
+
+    ``of=("self",)`` keeps the lock on card rows only, so that if a join is
+    ever added a column-row lock is not taken as a side effect outside the
+    documented order. ``cells`` is a set of ``(column_id, swimlane_id)`` pairs.
+    Returns the locked moved card, or ``None`` when it no longer exists on the
+    board (deleted by a concurrent request: a genuine 404).
     """
     cell_filter = Q(pk=card_id)
     for column_id, swimlane_id in cells:
