@@ -65,6 +65,14 @@ refuses a `process=connect` callback for a pending account. A view that changes
 the signed-in account (email addresses, connected providers, passwords) is
 never exempt.
 
+The rule is enforced for the extension setting: system check `accounts.E007`
+fails startup when a `PENDING_ACTION_EXTRA_EXEMPT_VIEWS` entry names any view
+mounted under the built-in `/accounts/` or `/admin/` prefixes (including admin
+model views whose routes take arguments), other than a view already exempt in
+OSS. The setting is for an extension's own views only. Prefixes added through
+`PENDING_ACTION_EXTRA_GATED_PREFIXES` are not part of that set, so an extension
+can exempt its own view under its own prefix.
+
 REST keeps DRF permission classes. They evaluate the same gate objects as the
 other transports, one gate per class, so that an endpoint a pending user must
 reach to clear the flag (for example `ChooseUsernameView`) can leave out exactly
@@ -216,7 +224,7 @@ when it is installed and skips it when it is not. The module may define:
   `"exempt: <reason>"` for the extension's routes under a gated prefix. An
   exempt route's view name must also be in the Django setting
   `PENDING_ACTION_EXTRA_EXEMPT_VIEWS` (default `()`; exact view names only,
-  checked by `accounts.E006`), which is what the middleware reads, and must
+  checked by `accounts.E006` and `accounts.E007`), which is what the middleware reads, and must
   meet the rule under "Which views may be exempt" above. An
   OSS route cannot be redefined.
 - `ACTIVE_CHECKING_AUTHENTICATORS`: a tuple of additional authenticator classes

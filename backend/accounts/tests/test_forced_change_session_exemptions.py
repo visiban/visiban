@@ -11,7 +11,7 @@ on the resolved view. This module covers:
 - the SSO round trip: sign-in completes and lands on the SPA, while a connect
   attempt is refused by ``SocialRegistrationAdapter.pre_social_login``;
 - the extension setting ``PENDING_ACTION_EXTRA_EXEMPT_VIEWS``;
-- the ``accounts.E005`` and ``accounts.E006`` system checks;
+- the ``accounts.E005``, ``accounts.E006`` and ``accounts.E007`` system checks;
 - ordering with the maintenance and demo middleware.
 
 The per-route decision table for every ``/accounts/`` and ``/admin/`` route is
@@ -33,10 +33,12 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.cache import cache
 from django.http import HttpResponse
+from django.urls import path as url_path
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from accounts.checks import (
     check_pending_action_extra_exempt_views,
+    check_pending_action_extra_exempt_views_not_oss_gated,
     check_pending_action_middleware_installed,
 )
 from accounts.models import SiteSetting, User
@@ -45,11 +47,22 @@ from visiban.demo import DEMO_READ_ONLY_CODE
 from visiban.middleware import (
     PENDING_ACTION_REFUSAL,
     PendingAccountActionMiddleware,
+    oss_gated_view_names,
     is_pending_action_exempt_view,
     is_well_formed_exempt_view,
     pending_action_exempt_views,
     resolved_view_name,
 )
+
+def _saml_acs(request):
+    return HttpResponse("ok")
+
+
+# An extension-style URLconf: its views live outside the OSS gated prefixes.
+urlpatterns = [
+    url_path("sso/acs/", _saml_acs, name="saml_acs"),
+    url_path("sso/other/", _saml_acs, name="saml_other"),
+]
 
 FRONTEND = "https://app.example.test"
 PASSWORD = "Sess-Gate-Passw0rd!"  # gitleaks:allow -- test-only fixture password, not a credential
@@ -177,15 +190,37 @@ class ExemptionDecisionTests(SimpleTestCase):
 
 @override_settings(FRONTEND_URL=FRONTEND)
 class ExtraExemptViewsTests(SimpleTestCase):
-    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("account_email",))
+    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("saml_acs",))
     def test_an_extra_view_name_is_exempt(self):
-        self.assertTrue(is_pending_action_exempt_view("/accounts/email/"))
+        self.assertTrue(is_pending_action_exempt_view("/sso/acs/", urlconf=__name__))
+        self.assertFalse(is_pending_action_exempt_view("/sso/other/", urlconf=__name__))
         self.assertEqual(check_pending_action_extra_exempt_views(None), [])
+        self.assertEqual(check_pending_action_extra_exempt_views_not_oss_gated(None), [])
 
-    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS="account_email")
+    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS="saml_acs")
     def test_a_single_string_is_one_name(self):
-        self.assertTrue(is_pending_action_exempt_view("/accounts/email/"))
+        self.assertTrue(is_pending_action_exempt_view("/sso/acs/", urlconf=__name__))
         self.assertFalse(is_pending_action_exempt_view("/admin/"))
+
+    def test_oss_gated_view_names_cover_args_and_namespaces(self):
+        names = oss_gated_view_names()
+        for name in ("account_email", "admin:index", "admin:accounts_user_change", "account_logout"):
+            with self.subTest(name=name):
+                self.assertIn(name, names)
+        self.assertNotIn("saml_acs", names)
+
+    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("account_email", "admin:index", "admin:accounts_user_change"))
+    def test_oss_gated_names_are_rejected(self):
+        errors = check_pending_action_extra_exempt_views_not_oss_gated(None)
+        self.assertEqual([e.id for e in errors], ["accounts.E007"] * 3)
+
+    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("account_logout", "saml_acs"))
+    def test_repeating_an_already_exempt_oss_view_is_allowed(self):
+        self.assertEqual(check_pending_action_extra_exempt_views_not_oss_gated(None), [])
+
+    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("*", "no_such_view"))
+    def test_malformed_and_unknown_names_are_not_e007(self):
+        self.assertEqual(check_pending_action_extra_exempt_views_not_oss_gated(None), [])
 
     @override_settings(
         PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("*", "admin:*", "/accounts/email/", "account email", "", None)

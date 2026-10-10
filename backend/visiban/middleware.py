@@ -630,6 +630,42 @@ def is_well_formed_exempt_view(name) -> bool:
     return isinstance(name, str) and bool(_VIEW_NAME_RE.match(name))
 
 
+def _view_name_of(pattern) -> str:
+    """The name ``resolve()`` reports for *pattern*: its URL name, else the dotted view path."""
+    if pattern.name:
+        return pattern.name
+    callback = pattern.callback
+    callback = getattr(callback, "view_class", None) or getattr(callback, "func", callback)
+    return f"{callback.__module__}.{getattr(callback, '__qualname__', callback.__name__)}"
+
+
+def oss_gated_view_names(urlconf=None) -> frozenset[str]:
+    """Names of every view mounted under a BUILT-IN gated prefix (``/accounts/``, ``/admin/``).
+
+    Walks the URLconf rather than calling ``reverse()`` so that a view whose
+    route needs arguments (``admin:auth_user_change``) is covered too. Only
+    ``PENDING_ACTION_GATED_PREFIXES`` is used, not the extension prefixes: an
+    extension's own views are what ``PENDING_ACTION_EXTRA_EXEMPT_VIEWS`` is for.
+    Used by ``accounts.E007`` so the check and the middleware share one prefix
+    constant.
+    """
+    from django.urls import URLPattern, URLResolver, get_resolver
+
+    names: set[str] = set()
+
+    def walk(patterns, route: str, namespace: str) -> None:
+        for p in patterns:
+            here = route + str(p.pattern).lstrip("^")
+            if isinstance(p, URLResolver):
+                ns = f"{namespace}{p.namespace}:" if p.namespace else namespace
+                walk(p.url_patterns, here, ns)
+            elif isinstance(p, URLPattern) and ("/" + here).startswith(PENDING_ACTION_GATED_PREFIXES):
+                names.add(f"{namespace}{_view_name_of(p)}")
+
+    walk(get_resolver(urlconf).url_patterns, "", "")
+    return frozenset(names)
+
+
 def _sso_round_trip_views() -> frozenset[str]:
     """``<provider>_login`` and ``<provider>_callback`` for every installed provider.
 
