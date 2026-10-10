@@ -1333,8 +1333,14 @@ class CardViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         with transaction.atomic():
-            attachment.file.delete(save=False)
+            # Storage deletion is irreversible, so defer it to commit: if the
+            # refetch below 404s (card deleted concurrently, #1584) the DB row
+            # rolls back and the file must survive with it. Capture the storage
+            # and name now; the model instance is not touched after commit.
+            file_storage, file_name = attachment.file.storage, attachment.file.name
             attachment.delete()
+            if file_name:
+                transaction.on_commit(lambda: file_storage.delete(file_name))
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)

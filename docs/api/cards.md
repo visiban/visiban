@@ -593,7 +593,7 @@ Use this endpoint when you need a single list combining moves, comments, field e
 List comments. Requires board member or above.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/comments/`
-Add a comment. **Minimum role: Collaborator.**
+Add a comment. **Minimum role: Collaborator.** Returns `404 Not Found` if the card was deleted concurrently; nothing is saved.
 
 **Request** `{ "body": "Looking into this now." }`
 
@@ -666,7 +666,7 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 ```
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
-Delete an attachment. **Minimum role: Collaborator.** Collaborators may only delete their own attachments. Members with the `is_moderator` entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of `is_moderator`.
+Delete an attachment. **Minimum role: Collaborator.** Collaborators may only delete their own attachments. Members with the `is_moderator` entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of `is_moderator`. Returns `404 Not Found` if the card was deleted concurrently; the attachment and its file are kept.
 
 ---
 
@@ -797,12 +797,14 @@ complete card payload. See [WebSockets](websockets.md).
 List checklist items.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/checklist/`
-Add a checklist item. **Minimum role: Collaborator.**
+Add a checklist item. **Minimum role: Collaborator.** Returns `404 Not Found` if the card was deleted concurrently; nothing is saved.
 
 **Request** `{ "text": "Write tests" }`
 
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
 Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
+
+> **Concurrent card delete:** if the card is deleted while the request is in flight, the response is `404 Not Found` and the change is not saved.
 
 > **Ownership gate:** Collaborators and members may only edit items they created. Admins and moderators may edit any item. Items created before the `created_by` field existed (migration 0044) have no recorded creator and are unrestricted. Non-moderator callers who did not create the item receive `403 Forbidden` with `{"detail": "You can only edit checklist items you created."}`.
 
@@ -811,7 +813,7 @@ Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 **Request** `{ "is_checked": true }`
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
-Delete a checklist item. **Minimum role: Collaborator.** Same ownership gate as `PATCH` above.
+Delete a checklist item. **Minimum role: Collaborator.** Same ownership gate as `PATCH` above. Returns `404 Not Found` if the card was deleted concurrently; the item is not removed.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/`
 Reorder checklist items on a card. **Minimum role: Collaborator.** Not ownership-gated — unlike `PATCH`/`DELETE` on a single item, reordering changes the whole list's display order rather than one item's content, so any collaborator+ may reorder regardless of who created each item. *(Since 1.2, #1292.)*
