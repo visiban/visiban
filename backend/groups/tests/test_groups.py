@@ -64,6 +64,18 @@ class GroupCRUDTests(TestCase):
         r = self.client.delete(f"/api/v1/groups/{self.group.id}/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
+    def test_group_member_delete_is_403_with_json_body(self):
+        """#1570: a visible-but-not-owner caller gets a JSON error, not an empty 403."""
+        GroupMembership.objects.create(
+            group=self.group, user=self.other, role=GroupMembership.Role.MEMBER,
+        )
+        self.client.force_authenticate(self.other)
+        r = self.client.delete(f"/api/v1/groups/{self.group.id}/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(r["Content-Type"], "application/json")
+        self.assertIn("detail", r.json())
+        self.assertTrue(Group.objects.filter(pk=self.group.id).exists())
+
     def test_other_user_cannot_see_group(self):
         self.client.force_authenticate(self.other)
         r = self.client.get("/api/v1/groups/")

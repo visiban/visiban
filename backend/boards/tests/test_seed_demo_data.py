@@ -262,6 +262,64 @@ class SeedGroupCustomFieldAndSubResourceTests(TestCase):
         self.assertTrue(attachment.file.name)
         self.assertGreater(attachment.size, 0)
 
+    def test_demo2_to_demo5_are_group_members_and_demo1_is_admin(self):
+        """#1570: exact roles, by username. A MEMBER row is what lets the fuzz
+        user pass get_accessible_group_ids(); without it every group route 404s."""
+        from groups.models import GroupMembership, get_accessible_group_ids
+
+        _seed()
+        group = Group.objects.get(name=DEMO_GROUP_NAME)
+        roles = {
+            m.user.username: m.role
+            for m in GroupMembership.objects.filter(group=group).select_related("user")
+        }
+        self.assertEqual(roles["demo1"], GroupMembership.Role.ADMIN)
+        for name in ("demo2", "demo3", "demo4", "demo5"):
+            self.assertEqual(roles[name], GroupMembership.Role.MEMBER, name)
+        demo2 = GroupMembership.objects.get(group=group, user__username="demo2").user
+        self.assertIn(group.id, get_accessible_group_ids(demo2))
+
+    def test_demo2_owns_a_fixture_card_with_all_children(self):
+        """#1570: authorship-gated DELETEs need rows the fuzz user created."""
+        from boards.models import CardComment, CardRelation
+
+        _seed()
+        board = Board.objects.get(name=BOARD_NAME)
+        card = CardAttachment.objects.get(card__board=board, uploaded_by__username="demo2").card
+        self.assertEqual(card.created_by.username, "demo2")
+        self.assertTrue(CardComment.objects.filter(card=card, author__username="demo2").exists())
+        self.assertTrue(card.checklist_items.exists())
+        self.assertTrue(
+            CardRelation.objects.filter(from_card=card).exists()
+            or CardRelation.objects.filter(to_card=card).exists()
+        )
+
+    def test_fixture_card_is_created_when_member_authored_none(self):
+        """No RNG dependence: creates a new card, never rewrites an existing one's author."""
+        from boards.management.commands.seed_demo_data import Command
+        from boards.models import Card
+
+        _seed()
+        board = Board.objects.get(name=BOARD_NAME)
+        member = board.memberships.exclude(user=board.owner).order_by("id").first().user
+        CardAttachment.objects.filter(uploaded_by=member).delete()
+        Card.objects.filter(board=board, created_by=member).update(created_by=board.owner)
+        before = Card.objects.filter(board=board).count()
+        authors = dict(Card.objects.filter(board=board).values_list("id", "created_by_id"))
+
+        card = Command()._create_member_fixture_card(board, member)
+
+        self.assertIsNotNone(card)
+        card.refresh_from_db()
+        self.assertEqual(card.created_by_id, member.id)
+        self.assertEqual(Card.objects.filter(board=board).count(), before + 1)
+        # No pre-existing card changed author.
+        self.assertEqual(
+            {k: v for k, v in Card.objects.filter(board=board).values_list("id", "created_by_id") if k in authors},
+            authors,
+        )
+        self.assertTrue(CardAttachment.objects.filter(card=card, uploaded_by=member).exists())
+
     def test_new_fixtures_do_not_change_card_corpus(self):
         """The new fixtures are created with fixed literals *after* card/movement/
         archival generation, not from the shared `random` stream, so they must not
@@ -973,7 +1031,9 @@ class SeedDemoSiteShowcaseTests(TestCase):
         field = CustomFieldDefinition.objects.get(board=board)
         self.assertEqual((field.name, field.field_type, field.show_on_card), ("Story Points", "number", True))
         self.assertEqual(CustomFieldValue.objects.filter(field_definition=field).count(), 1)
-        self.assertFalse(CardRelation.objects.filter(from_card__board=board).exists())
+        # Exactly the one member-owned relation seeded for the schema-fuzz (#1570);
+        # the demo-site showcase relations must not leak onto this board.
+        self.assertEqual(CardRelation.objects.filter(from_card__board=board).count(), 1)
         self.assertFalse(CardExternalRef.objects.filter(card__board=board).exists())
 
 

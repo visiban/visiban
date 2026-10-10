@@ -54,7 +54,7 @@ import logging
 from dataclasses import dataclass
 
 from django.db import transaction
-from django.db.models import F, Q, Sum, prefetch_related_objects
+from django.db.models import F, Max, Q, Sum, prefetch_related_objects
 from django.utils import timezone
 
 from .. import broadcast as _broadcast
@@ -69,7 +69,7 @@ from ..utils import notify_new_mentions
 from .notifications import create_notifications
 from .errors import (
     CardCreationNotAllowed, CardNotFound, ColumnNotFound, ForceNotPermitted,
-    InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
+    InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
     UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
     WipLimitExceeded,
 )
@@ -897,6 +897,15 @@ def _move_card_attempt(
             if card.version != expected_version:
                 raise VersionConflict(card.version)
 
+        # Same placement rule as the version coercion above. A huge or negative
+        # integer reached the INSERT/UPDATE unchecked and Postgres answered
+        # "integer out of range" as a 500 (#1570, schema-fuzz); it is clamped
+        # below, once the target cell is locked.
+        try:
+            position = int(position)
+        except (TypeError, ValueError, OverflowError):
+            raise InvalidPosition() from None
+
         target_column = _board_scoped(Column, target_column_id, board, ColumnNotFound)
         target_swimlane = _board_scoped(Swimlane, target_swimlane_id, board, SwimlaneNotFound)
 
@@ -976,10 +985,19 @@ def _move_card_attempt(
                 position=F("position") - 1
             )
 
-        # Shift the (already locked) target cell to make room.
-        Card.objects.filter(
+        # Clamp into [0, highest sibling + 1]. Order-preserving for any input
+        # (nothing sorts after "one past the last", and the shift below moves
+        # every sibling for any value at or under the lowest), and it bounds
+        # stored positions by the cell size. A fixed cap would not: repeated
+        # moves to just under it shift the top sibling past int32 (#1570).
+        target_cell = Card.objects.filter(
             board=board, column=target_column, swimlane=target_swimlane
-        ).exclude(pk=card.pk).filter(position__gte=position).update(
+        ).exclude(pk=card.pk)
+        highest = target_cell.aggregate(m=Max("position"))["m"]
+        position = max(0, min(position, -1 if highest is None else highest + 1))
+
+        # Shift the (already locked) target cell to make room.
+        target_cell.filter(position__gte=position).update(
             position=F("position") + 1
         )
 

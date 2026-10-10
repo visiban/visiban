@@ -415,7 +415,12 @@ class GroupViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         group = self.get_object()
         if group.owner != request.user and not getattr(request.user, "can_access_all_content", False):
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            # JSON body, like every other 403 here: a bodyless 403 with no
+            # Content-Type contradicts the documented JSON error shape (#1570).
+            return Response(
+                {"detail": "Only the group owner can delete this group."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         gid = group.pk
         parent_id = group.parent_id
         with transaction.atomic():

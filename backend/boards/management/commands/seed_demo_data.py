@@ -760,10 +760,15 @@ class Command(BaseCommand):
             # board only — the --scale load-test board (#1082) is ephemeral
             # CI fixture data with no schemathesis route dependency on these
             # rows.
-            self._create_demo_group(board, users[0])
+            self._create_demo_group(board, users[0], users[1:])
             self._create_custom_field(board, cards)
             self._create_saved_filter(board, users[0])
             self._create_attachment(cards, users[0])
+            # ── #1570: the schema-fuzz job authenticates as users[1] (a plain
+            # MEMBER). Give that user one card whose sub-resources it owns, so
+            # the ownership-gated writes (DELETE card/comment/attachment) can
+            # reach their success path instead of answering 403.
+            self._create_member_fixture_card(board, users[1])
 
         if options["with_notifications"]:
             n_notifications = len(self._create_notifications(board, cards, users))
@@ -1612,7 +1617,7 @@ class Command(BaseCommand):
             created.append(notif)
         return created
 
-    def _create_demo_group(self, board, owner):
+    def _create_demo_group(self, board, owner, members=()):
         """Create a demo Group and attach the demo board to it (#1125).
 
         `seed_demo_data` previously left `Board.group` null, so the
@@ -1648,6 +1653,18 @@ class Command(BaseCommand):
         GroupMembership.objects.get_or_create(
             group=group, user=owner, defaults={"role": GroupMembership.Role.ADMIN},
         )
+        # #1570: every route under /groups/{id}/ resolves the group through
+        # get_accessible_group_ids(), which admits only owners and members. The
+        # schema-fuzz user is a plain board MEMBER (never the group owner), so
+        # without a GroupMembership row all ~17 group operations answered 404
+        # no matter which id the hook supplied. MEMBER, not ADMIN: the fuzzer
+        # must keep exercising the real 403s of admin-only group actions.
+        # An explicit board membership always outranks a group-inherited role
+        # (get_board_role), so this changes no board permission for these users.
+        for member in members:
+            GroupMembership.objects.get_or_create(
+                group=group, user=member, defaults={"role": GroupMembership.Role.MEMBER},
+            )
         GroupLabel.objects.create(group=group, name="Demo", color="#6366F1")
         GroupInviteLink.generate(
             group=group,
@@ -1656,6 +1673,60 @@ class Command(BaseCommand):
             role=GroupInviteLink.Role.MEMBER,
         )
         return group
+
+    def _create_member_fixture_card(self, board, member):
+        """Give ``member`` a card carrying its own attachment, comment, checklist
+        item and relation (#1570).
+
+        Card, comment and attachment deletes are gated on authorship ("You can
+        only delete your own ..."), and the hook can only supply one card id
+        per path. Without a card whose rows were all created by the fuzz user,
+        those 403s were an artifact of the fixture, not of the role rules.
+        Fixed literals only: drawing from the shared ``random`` stream would
+        shift the seeded card corpus.
+        """
+        candidates = list(
+            Card.objects.filter(board=board, archived_at__isnull=True).order_by("id")
+        )
+        card = next((c for c in candidates if c.created_by_id == member.id), None)
+        if card is None:
+            # Authorship is drawn from the shared RNG, so a small or unlucky
+            # corpus may have no card by this user. Create a new one with fixed
+            # literals (no RNG draw) rather than reassigning authorship of a
+            # seeded card, which would rewrite history on the published demo.
+            column = board.columns.order_by("position").first()
+            swimlane = board.swimlanes.order_by("position").first()
+            if column is None or swimlane is None:
+                return None
+            last = Card.objects.filter(column=column, swimlane=swimlane).order_by("-position").first()
+            card = Card.objects.create(
+                board=board, column=column, swimlane=swimlane,
+                title="Schema-fuzz fixture card", created_by=member,
+                position=(last.position + 1) if last else 0,
+            )
+        content = b"Member-owned attachment seeded by seed_demo_data (#1570).\n"
+        CardAttachment.objects.create(
+            card=card,
+            file=ContentFile(content, name="member-notes.txt"),
+            filename="member-notes.txt",
+            size=len(content),
+            uploaded_by=member,
+        )
+        CardComment.objects.create(
+            card=card, author=member, body="Seeded member-owned comment (#1570).",
+        )
+        if not card.checklist_items.exists():
+            CardChecklist.objects.create(card=card, text="Seeded checklist item", position=0)
+        other = next((c for c in candidates if c.pk != card.pk), None)
+        if other is not None:
+            # relates_to is symmetric: stored lower id first, as the API does.
+            low, high = sorted((card, other), key=lambda c: c.pk)
+            CardRelation.objects.get_or_create(
+                from_card=low, to_card=high,
+                relation_type=CardRelation.Type.RELATES_TO,
+                defaults={"created_by": member},
+            )
+        return card
 
     def _create_custom_field(self, board, cards):
         """Create one board-scoped CustomFieldDefinition and a value on one

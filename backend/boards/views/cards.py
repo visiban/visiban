@@ -706,7 +706,11 @@ class CardViewSet(viewsets.ModelViewSet):
                 "swimlane_id": serializers.IntegerField(),
                 "position": serializers.IntegerField(
                     required=False, default=0,
-                    help_text="Zero-based target index within the destination column/swimlane cell.",
+                    help_text=(
+                        "Zero-based target index within the destination column/swimlane cell. "
+                        "Clamped: a negative value moves the card first, a value past the "
+                        "end moves it last."
+                    ),
                 ),
                 "version": serializers.IntegerField(
                     required=False, allow_null=True,
@@ -727,7 +731,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 },
             ),
             400: OpenApiResponse(
-                description="`version` was supplied but was not an integer.",
+                description="`version` or `position` was supplied but was not an integer.",
                 response=inline_serializer(name="CardMoveVersionTypeError", fields={"detail": serializers.CharField()}),
             ),
             403: OpenApiResponse(
@@ -1488,7 +1492,10 @@ class CardViewSet(viewsets.ModelViewSet):
         if role not in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied(_PERM_DENIED)
         card = get_object_or_404(Card, pk=pk, board=board)
-        order = request.data.get("order", [])
+        # A JSON body that parses to a non-object (a bare number, string or list)
+        # has no .get(); treat it as "no order given" so the validator below
+        # answers 400 instead of an AttributeError surfacing as a 500 (#1570).
+        order = request.data.get("order", []) if isinstance(request.data, dict) else []
         # `order` must be exactly this card's full set of checklist item IDs, no
         # duplicates, no IDs from another card (#1292). See
         # validate_full_reorder_order's docstring for why any mismatch — missing,

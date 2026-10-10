@@ -1064,6 +1064,57 @@ backend-schema-fuzz:
         - backend/visiban/settings.py
         - backend/visiban/schema_hooks.py
         - backend/schemathesis_hooks.py
+        # The hook resolves ids from the seeded rows (#1570).
+        - backend/boards/management/commands/seed_demo_data.py
+  # "Missing valid test data" accounting (#1570). Before it, 43 operations
+  # repeatedly 404ed: the fuzz user (demo2) was not a GROUP member, so
+  # GroupViewSet.get_queryset() hid every /groups/{id}/... route whatever id the
+  # hook supplied; join/share/media had no hook mapping; and the card collection,
+  # relations and checklist-reorder routes were unmapped. seed_demo_data now adds
+  # the board's members to the demo group, and schemathesis_hooks.py mints join
+  # tokens (stored hashed, so only the hook can hold the raw value), maps the
+  # share token, the seeded attachment's media path and a real sample slug.
+  # DELETE operations get a freshly minted disposable row per call (never the
+  # shared fixture): a hard card delete cascades and removes the attachment file,
+  # which otherwise 404ed every later card/media call (#1570).
+  # MEASURED LOCALLY (seed 1, 10 examples, 600 s, 4 workers, same schemathesis
+  # 4.27.1 and options as this job, but SQLite instead of Postgres):
+  #   origin/main hook:  43 operations "Missing valid test data", 64 "Missing
+  #                      authentication" (403)
+  #   this branch:        6 operations "Missing valid test data", 72 "Missing
+  #                      authentication" (403: more routes are now reachable and
+  #                      answer their declared role-rule 403 instead of 404)
+  #   every DELETE on card/attachment/comment/checklist item/relation/saved
+  #   filter reached 2xx on all ~240 calls each.
+  # The 6 that remain, and why:
+  #   * DELETE /auth/me/connected-accounts/{provider}/  needs a linked social
+  #     account the seed does not create
+  #   * DELETE /boards/{id}/invite-links/{link_id}/  link_id is not seeded and a
+  #     plain member fails the board-admin check first (boards/views/invites.py)
+  #   * POST /auth/me/pending-email/resend/  404s unless the user has a pending
+  #     email change; none is seeded
+  #   * POST /auth/registration/verify-email/  needs a signup confirmation key
+  #   * POST /boards/import/trello/  no Trello export is seeded; the generated
+  #     multipart body never parses
+  #   * POST /boards/{board_pk}/cards/{id}/move/  the target column/swimlane ids
+  #     are in the request BODY, which the path-parameter hook does not touch
+  # (/boards/samples/{sample_id}/ is mapped to a real manifest slug.) The two
+  # email-confirm routes are excluded above (#1321); /api/v1/admin/... is out of
+  # reach for a non-admin token by design (#1080).
+  # 403s that are role rules, not wrong ids, and stay: DELETE /auth/tokens/{id}/
+  # for a PAT caller (#1110), group-admin, group-owner and board-admin actions.
+  # Locally, DELETE card/attachment/comment/relation went from 403/404 to 2xx
+  # after the hook-id fixes; the checklist item and saved filter DELETEs were 404
+  # before (unmapped child id) and are 2xx now.
+  # NOT reproducible locally, so confirm in the CI job log: the post-change
+  # "Missing valid test data" and 403 counts on Postgres, and any finding on the
+  # newly reachable routes. The local run's 500s were all SQLite artifacts
+  # ("database is locked" under 4 workers; one OverflowError on a >64-bit
+  # integer in POST /boards/{board_pk}/cards/, which Postgres may report as a
+  # DataError instead -- if CI shows a 500 there it is a real finding).
+  # A new finding is a real defect, never a flake.
+  # The unobserved schemathesis-baseline.json entry is pruned separately, once the
+  # nightly deep run also reports it unobserved: #1582 (not pruned here).
   services:
     - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres

@@ -159,6 +159,8 @@ failures are auto-retried, by the pipeline-wide `default:` block.)
    `backend-schema-fuzz` at the deep budget. Locally, boot the app against `seed_demo_data`
    and run `st run <url>/api/schema/ --seed <n> ...` with the flags from the job.
 
+   > **Warning: use a throwaway database.** `schemathesis_hooks.py` writes to the database it is loaded against ([#1570](https://gitlab.com/visiban/visiban/-/issues/1570)): it mints non-expiring, multi-use `MEMBER` join links (named "schemathesis fuzz fixture"), sets a public share token on the demo board, and creates a pool of disposable rows for DELETE operations. Replay against a scratch database, not one you keep.
+
 **Path-parameter seeding.** `backend/schemathesis_hooks.py`, loaded via the job's
 `SCHEMATHESIS_HOOKS` variable, substitutes real ids pulled from `seed_demo_data`'s board for
 `board_pk`/`id`/etc. on nested board-resource routes — otherwise a randomly-generated id
@@ -168,6 +170,7 @@ almost never matches a seeded row, and schemathesis never exercises the operatio
 `SavedFilter`, `CardAttachment`, `GroupInviteLink`, and `GroupLabel`, and
 `schemathesis_hooks.py` now maps their path parameters the same way, so these resource
 families are also reachable instead of always 404ing under fuzzing.
+[#1570](https://gitlab.com/visiban/visiban/-/issues/1570) added three more fixtures: the board's non-owner members are group MEMBERs (the fuzz user must belong to the group or every `/groups/{id}/...` route 404s), `schemathesis_hooks.py` mints board and group join tokens and maps the board share token and the seeded attachment's media path, and one card created by the fuzz user carries its own attachment, comment, checklist item, and relation so the authorship-gated deletes can reach their success path.
 
 **Enforced (`allow_failure: false`) as of [#1120](https://gitlab.com/visiban/visiban/-/issues/1120).**
 Per #1080's own phased plan, the job ran non-blocking for one release to establish a baseline.
