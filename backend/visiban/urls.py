@@ -122,9 +122,9 @@ class ApiNotFoundView(APIView):
 
 
 urlpatterns = [
-    # The admin's own "change my password" pages go to the SPA, where the
-    # self-service password rules apply (#1551). Registered BEFORE the admin
-    # site so they win the match. Setting another user's password stays in the
+    # The admin's own "change my password" pages go to the SPA's Settings
+    # page, where the self-service password rules apply (#1551, #1561).
+    # Registered BEFORE the admin site so they win the match. Setting another user's password stays in the
     # admin (accounts.admin.VisibanUserAdmin).
     path("admin/password_change/", AdminPasswordChangeRedirectView.as_view()),
     path("admin/password_change/done/", AdminPasswordChangeRedirectView.as_view()),
@@ -157,6 +157,13 @@ urlpatterns = [
     # Same technique (#1324): replaces allauth's stock signup_closed page with a
     # redirect to the SPA in CLOSED / INVITE_ONLY mode — see VisibanSignupView.
     path("accounts/signup/", VisibanSignupView.as_view()),
+    # Same technique (#1561): allauth's own change-password and set-password
+    # pages go to the SPA's Settings page, like the admin's above, so there is
+    # one self-service password UI. Registered BEFORE the allauth include;
+    # reverse("account_change_password") / ("account_set_password") still
+    # produce these same paths, so allauth's own redirects land here too.
+    path("accounts/password/change/", AdminPasswordChangeRedirectView.as_view()),
+    path("accounts/password/set/", AdminPasswordChangeRedirectView.as_view()),
     path("accounts/", include("allauth.urls")),
     # All versioned API endpoints live under /api/v1/.
     # The v1 prefix is a literal path segment — not a captured kwarg — so view

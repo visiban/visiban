@@ -217,9 +217,11 @@ NON_DRF_ALLOWLIST: dict[str, Allow] = {
     ),
     "accounts.views.VisibanEmailView": _allow("allauth HTML email management (session).", "accounts/email/"),
     "accounts.views.AdminPasswordChangeRedirectView": _allow(
-        "Redirect to the SPA for every method, reads nothing (#1551).",
+        "Redirect to the SPA for every method, reads nothing (#1551, #1561).",
         "admin/password_change/",
         "admin/password_change/done/",
+        "accounts/password/change/",
+        "accounts/password/set/",
     ),
     "allauth.account.views.AccountInactiveView": _allow(_ALLAUTH_SESSION, "accounts/inactive/"),
     "allauth.account.views.ConfirmEmailView": _allow(_ALLAUTH_SESSION, r"accounts/^confirm-email/(?P<key>[-:\w]+)/$"),
@@ -227,6 +229,8 @@ NON_DRF_ALLOWLIST: dict[str, Allow] = {
     "allauth.account.views.EmailView": _allow(_ALLAUTH_SESSION, "accounts/email/"),
     "allauth.account.views.LoginView": _allow(_ALLAUTH_SESSION, "accounts/login/"),
     "allauth.account.views.LogoutView": _allow(_ALLAUTH_SESSION, "accounts/logout/"),
+    # Shadowed by the project's redirect to the SPA (#1561); listed because
+    # allauth's urlconf still routes them.
     "allauth.account.views.PasswordChangeView": _allow(_ALLAUTH_SESSION, "accounts/password/change/"),
     "allauth.account.views.PasswordResetDoneView": _allow(_ALLAUTH_SESSION, "accounts/password/reset/done/"),
     "allauth.account.views.PasswordResetFromKeyDoneView": _allow(
@@ -304,6 +308,10 @@ ACTIVE_CHECKING_AUTHENTICATORS: tuple[type, ...] = (
 #:   prefixes. Declaring one here does not gate it; each must also be in
 #:   ``settings.PENDING_ACTION_EXTRA_GATED_PREFIXES``, which the middleware
 #:   reads, and the test fails when it is not.
+#: - ``FORCED_CHANGE_ROUTE_DECISIONS``: a dict of route to ``"gated"`` or
+#:   ``"exempt: <reason>"`` for the extension's routes under a gated prefix
+#:   (see ``FORCED_CHANGE_ROUTE_DECISIONS`` below). An exempt route's view name
+#:   must also be in ``settings.PENDING_ACTION_EXTRA_EXEMPT_VIEWS``.
 #:
 #: Its entries are merged with the OSS lists and get the same checks, the
 #: stale-entry check included. A key the OSS list already has is an error: an
@@ -951,6 +959,347 @@ class PendingActionMiddlewareCoverageTests(SimpleTestCase):
     def test_positive_a_gated_prefix_passes(self):
         points = [NonDrfEntryPoint("x.View", "^accounts/x/$"), NonDrfEntryPoint("y.View", "admin/y/")]
         self.assertEqual(pending_action_coverage_violations([], points, ("/accounts/", "/admin/")), [])
+
+
+# ---------------------------------------------------------------------------
+# Forced-change decision per session route (#1561)
+# ---------------------------------------------------------------------------
+
+GATED = "gated"
+
+
+def _exempt(reason: str) -> str:
+    return f"exempt: {reason}"
+
+
+_SSO = "SSO sign-in round trip; process=connect is refused for a pending user by SocialRegistrationAdapter.pre_social_login."
+_ANON = "reachable signed out with the same effect, so a pending session gains nothing."
+
+#: The forced-change decision for every route under the middleware's gated
+#: prefixes that is not served by ``django.contrib.admin.site`` itself, keyed
+#: by route as discovered. ``gated``: a pending user is redirected (GET/HEAD)
+#: or refused (other methods). ``exempt: <reason>``: the middleware lets the
+#: request through, because the resolved view is in
+#: ``visiban.middleware.pending_action_exempt_views()``. A route that another
+#: pattern shadows takes the decision of the view that actually serves its
+#: path. Django admin site views are ``gated`` by rule (see
+#: ``FORCED_CHANGE_ADMIN_SITE_EXEMPT``), so a newly registered ModelAdmin is
+#: covered without an entry, and each of its routes is still exercised below.
+FORCED_CHANGE_ROUTE_DECISIONS: dict[str, str] = {
+    # Project overrides registered ahead of the allauth include.
+    "admin/password_change/": GATED,
+    "admin/password_change/done/": GATED,
+    r"^accounts/confirm-email/(?P<key>[\w:\-]{1,200})/$": _exempt(
+        "email confirmation link; redirects to the SPA with the key and changes nothing"
+    ),
+    "accounts/email/": GATED,
+    r"^accounts/3rdparty/signup/$": GATED,
+    "accounts/signup/": GATED,
+    "accounts/password/change/": GATED,
+    "accounts/password/set/": GATED,
+    # allauth account views.
+    "accounts/login/": GATED,
+    "accounts/logout/": _exempt("ends the session; logging out grants nothing"),
+    "accounts/inactive/": _exempt("static page; " + _ANON),
+    "accounts/reauthenticate/": GATED,
+    "accounts/confirm-email/": GATED,
+    r"accounts/^confirm-email/(?P<key>[-:\w]+)/$": _exempt(
+        "shadowed by the project's confirm-email redirect above"
+    ),
+    "accounts/login/code/confirm/": GATED,
+    "accounts/password/reset/": _exempt("requests a reset email; " + _ANON),
+    "accounts/password/reset/done/": _exempt("static page; " + _ANON),
+    r"accounts/^password/reset/key/(?P<uidb36>[0-9A-Za-z]+)-(?P<key>.+)/$": _exempt(
+        "the emailed key is the credential; a completed reset clears the forced password change; " + _ANON
+    ),
+    "accounts/password/reset/key/done/": _exempt("static page; " + _ANON),
+    # allauth social views.
+    "accounts/3rdparty/": GATED,
+    "accounts/3rdparty/login/cancelled/": _exempt("static page; " + _ANON),
+    "accounts/3rdparty/login/error/": _exempt("static page; " + _ANON),
+    "accounts/3rdparty/signup/": GATED,
+    "accounts/social/connections/": GATED,
+    "accounts/social/login/cancelled/": GATED,
+    "accounts/social/login/error/": GATED,
+    "accounts/social/signup/": GATED,
+    "accounts/google/login/": _exempt(_SSO),
+    "accounts/google/login/callback/": _exempt(_SSO),
+    "accounts/google/login/token/": GATED,
+    "accounts/github/login/": _exempt(_SSO),
+    "accounts/github/login/callback/": _exempt(_SSO),
+    "accounts/gitlab/login/": _exempt(_SSO),
+    "accounts/gitlab/login/callback/": _exempt(_SSO),
+    # Installed only when the OIDC env vars are set.
+    r"accounts/oidc/^(?P<provider_id>[^/]+)/login/": _exempt(_SSO),
+    r"accounts/oidc/^(?P<provider_id>[^/]+)/login/callback/": _exempt(_SSO),
+}
+
+#: Routes in the table that exist only under some configurations.
+FORCED_CHANGE_OPTIONAL_ROUTES = frozenset({
+    r"accounts/oidc/^(?P<provider_id>[^/]+)/login/",
+    r"accounts/oidc/^(?P<provider_id>[^/]+)/login/callback/",
+})
+
+#: Django admin site views exempt from the gate, by route.
+FORCED_CHANGE_ADMIN_SITE_EXEMPT: dict[str, str] = {
+    "admin/logout/": "ends the session; logging out grants nothing",
+}
+
+
+def merge_forced_change_decisions(module):
+    """OSS decisions plus *module*'s ``FORCED_CHANGE_ROUTE_DECISIONS`` (additive only)."""
+    decisions = dict(FORCED_CHANGE_ROUTE_DECISIONS)
+    if module is None:
+        return decisions
+    for route, decision in (getattr(module, "FORCED_CHANGE_ROUTE_DECISIONS", None) or {}).items():
+        if route in decisions:
+            raise ValueError(f"{module.__name__}.FORCED_CHANGE_ROUTE_DECISIONS redefines OSS entry {route!r}")
+        if not _is_valid_decision(decision):
+            raise ValueError(f"FORCED_CHANGE_ROUTE_DECISIONS entry {route!r} must be 'gated' or 'exempt: <reason>'")
+        decisions[route] = decision
+    return decisions
+
+
+def _is_valid_decision(decision) -> bool:
+    if decision == GATED:
+        return True
+    return isinstance(decision, str) and decision.startswith("exempt: ") and bool(decision[8:].strip())
+
+
+EFFECTIVE_FORCED_CHANGE_DECISIONS = merge_forced_change_decisions(load_extension_allowlists())
+
+
+def _group_body(pattern: str, start: int) -> int:
+    """Index just past the group that opens at *start* (balanced parentheses)."""
+    depth, i = 0, start
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "[":
+            close = pattern.index("]", i + 1)
+            i = close + 1
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    raise ValueError(f"unbalanced group in {pattern!r}")
+
+
+def _group_sample(inner: str) -> str:
+    import re
+
+    candidates = ["1", "abc", "1-x", inner.split("|", 1)[0]]
+    for candidate in candidates:
+        try:
+            if re.fullmatch(inner, candidate):
+                return candidate
+        except re.error:
+            break
+    raise ValueError(f"no sample value for group {inner!r}")
+
+
+def sample_path(route: str) -> str:
+    """A concrete request path for a discovered route string.
+
+    Converters (``<int:pk>``, ``<path:object_id>``) become ``1``; a named
+    regex group becomes the first of a few candidates its pattern accepts.
+    """
+    import re
+
+    route = re.sub(r"(?<!\?P)<(?:\w+:)?\w+>", "1", route)
+    out, i = [], 0
+    while i < len(route):
+        if route.startswith("(?P<", i):
+            end = _group_body(route, i)
+            inner = route[route.index(">", i) + 1:end - 1]
+            out.append(_group_sample(inner))
+            i = end
+            continue
+        if route[i] in "^$":
+            i += 1
+            continue
+        if route[i] == "\\":
+            out.append(route[i + 1])
+            i += 2
+            continue
+        out.append(route[i])
+        i += 1
+    return "/" + "".join(out)
+
+
+def session_route_points(rest_points, non_drf_points, gated_prefixes):
+    """``{route: NonDrfEntryPoint-like}`` for every discovered route under a gated prefix."""
+    routes = {}
+    for point in [*rest_points, *non_drf_points]:
+        path = "/" + point.route.lstrip("^")
+        if not path.startswith(tuple(gated_prefixes)):
+            continue
+        routes.setdefault(point.route, point)
+        if getattr(point, "django_admin", False):
+            routes[point.route] = point
+    return routes
+
+
+def route_decision(point, decisions) -> str | None:
+    if point.route in decisions:
+        return decisions[point.route]
+    if getattr(point, "django_admin", False):
+        reason = FORCED_CHANGE_ADMIN_SITE_EXEMPT.get(point.route)
+        return _exempt(reason) if reason else GATED
+    return None
+
+
+def forced_change_decision_violations(routes, decisions, behaves) -> list[str]:
+    """Routes with no decision, or whose middleware behavior differs from it.
+
+    *behaves* maps a request path to ``"gated"`` or ``"exempt"`` as the
+    middleware actually answers it.
+    """
+    failures = []
+    for route, point in sorted(routes.items()):
+        decision = route_decision(point, decisions)
+        if decision is None:
+            failures.append(
+                f"{point.key} ({route}) is under a forced-change gated prefix and has no decision. Add it to "
+                "FORCED_CHANGE_ROUTE_DECISIONS as 'gated' or 'exempt: <reason>' (an exemption also needs "
+                "its view in visiban.middleware.PENDING_ACTION_EXEMPT_VIEWS)."
+            )
+            continue
+        try:
+            path = sample_path(route)
+        except ValueError as exc:
+            failures.append(f"{route}: cannot build a sample path ({exc})")
+            continue
+        actual = behaves(path)
+        expected = GATED if decision == GATED else "exempt"
+        if actual != expected:
+            failures.append(f"{route} ({path}): decision is {expected!r} but the middleware answers {actual!r}")
+    return failures
+
+
+def stale_forced_change_decisions(routes, decisions) -> list[str]:
+    return sorted(
+        route for route in decisions
+        if route not in routes and route not in FORCED_CHANGE_OPTIONAL_ROUTES
+    ) + sorted(route for route in FORCED_CHANGE_ADMIN_SITE_EXEMPT if route not in routes)
+
+
+@override_settings(FRONTEND_URL="https://app.example.test")
+class ForcedChangeRouteDecisionTests(SimpleTestCase):
+    """Every session route under /accounts/ and /admin/ has a forced-change decision the middleware keeps (#1561)."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from visiban.middleware import pending_action_gated_prefixes
+
+        rest, non_drf = discover_http_entry_points()
+        cls.routes = session_route_points(rest, non_drf, pending_action_gated_prefixes())
+
+    @staticmethod
+    def _answer(path, flags, method="GET"):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        from visiban.middleware import PendingAccountActionMiddleware
+
+        request = RequestFactory().generic(method, path)
+        request.user = User(username="pending", **flags)
+        return PendingAccountActionMiddleware(lambda r: HttpResponse("view ran"))(request)
+
+    def _behaves(self, flags):
+        def behaves(path):
+            response = self._answer(path, flags)
+            if response.status_code == 302 and response["Location"] == "https://app.example.test":
+                post = self._answer(path, flags, "POST")
+                return GATED if post.status_code == 403 else f"redirected GET but POST answered {post.status_code}"
+            if response.content == b"view ran":
+                return "exempt"
+            return f"unexpected {response.status_code}"
+        return behaves
+
+    def test_every_session_route_has_a_decision_the_middleware_keeps_for_each_flag(self):
+        self.assertTrue(any(getattr(p, "django_admin", False) for p in self.routes.values()))
+        for flags in ({"must_change_password": True}, {"must_change_username": True}):
+            with self.subTest(flags=flags):
+                failures = forced_change_decision_violations(
+                    self.routes, EFFECTIVE_FORCED_CHANGE_DECISIONS, self._behaves(flags)
+                )
+                self.assertEqual(failures, [], "\n".join(failures))
+
+    def test_admin_site_views_are_not_skipped(self):
+        """Each admin route is exercised (302 to the SPA), not waved through as staff-only."""
+        admin_routes = [r for r, p in self.routes.items() if getattr(p, "django_admin", False)]
+        self.assertIn("admin/", admin_routes)
+        self.assertTrue(any("<path:object_id>/change/" in r for r in admin_routes), admin_routes[:5])
+        behaves = self._behaves({"must_change_password": True})
+        for route in admin_routes:
+            if route in FORCED_CHANGE_ADMIN_SITE_EXEMPT:
+                continue
+            with self.subTest(route=route):
+                self.assertEqual(behaves(sample_path(route)), GATED)
+
+    def test_no_stale_decisions(self):
+        stale = stale_forced_change_decisions(self.routes, EFFECTIVE_FORCED_CHANGE_DECISIONS)
+        self.assertEqual(stale, [], "These decisions name routes nothing routes to; remove them.")
+
+    def test_every_exempt_view_name_is_routed_or_a_provider_name(self):
+        """PENDING_ACTION_EXEMPT_VIEWS lists no view that no longer exists."""
+        from django.urls import resolve
+
+        from visiban.middleware import PENDING_ACTION_EXEMPT_VIEWS
+
+        routed = set()
+        for route in self.routes:
+            try:
+                routed.add(resolve(sample_path(route)).view_name)
+            except Exception:  # noqa: BLE001 — unresolvable samples are reported by the decision test
+                continue
+        optional = {"openid_connect_login", "openid_connect_callback"}
+        self.assertEqual(sorted(PENDING_ACTION_EXEMPT_VIEWS - routed - optional), [])
+
+    def test_sample_paths(self):
+        self.assertEqual(sample_path("admin/auth/group/<path:object_id>/change/"), "/admin/auth/group/1/change/")
+        self.assertEqual(
+            sample_path(r"accounts/^password/reset/key/(?P<uidb36>[0-9A-Za-z]+)-(?P<key>.+)/$"),
+            "/accounts/password/reset/key/1-1/",
+        )
+        self.assertEqual(sample_path(r"admin/^(?P<app_label>auth|sites)/$"), "/admin/auth/")
+        self.assertEqual(sample_path(r"^accounts/confirm-email/(?P<key>[\w:\-]{1,200})/$"), "/accounts/confirm-email/1/")
+
+    def test_negative_an_undecided_route_is_reported(self):
+        point = NonDrfEntryPoint("x.NewAllauthView", "accounts/new/")
+        failures = forced_change_decision_violations({"accounts/new/": point}, {}, lambda path: GATED)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("no decision", failures[0])
+
+    def test_negative_a_decision_the_middleware_does_not_keep_is_reported(self):
+        point = NonDrfEntryPoint("x.View", "accounts/email/")
+        failures = forced_change_decision_violations(
+            {"accounts/email/": point}, {"accounts/email/": _exempt("wrong")}, self._behaves({"must_change_password": True})
+        )
+        self.assertEqual(len(failures), 1)
+        self.assertIn("'exempt'", failures[0])
+
+    def test_negative_a_stale_decision_is_reported(self):
+        self.assertEqual(stale_forced_change_decisions({}, {"accounts/gone/": GATED})[:1], ["accounts/gone/"])
+
+    def test_extension_decisions_are_merged_and_validated(self):
+        import types
+
+        module = types.SimpleNamespace(
+            __name__="ext", FORCED_CHANGE_ROUTE_DECISIONS={"accounts/saml/<org>/acs/": _exempt("SAML ACS")}
+        )
+        self.assertIn("accounts/saml/<org>/acs/", merge_forced_change_decisions(module))
+        for bad in ({"accounts/email/": GATED}, {"x/": "exempt"}, {"x/": "exempt:   "}, {"x/": "open"}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                merge_forced_change_decisions(types.SimpleNamespace(__name__="ext", FORCED_CHANGE_ROUTE_DECISIONS=bad))
 
 
 class ExtensionAllowlistTests(SimpleTestCase):

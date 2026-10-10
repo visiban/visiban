@@ -1,7 +1,7 @@
 """allauth password signal receivers (#1551).
 
-allauth's HTML views (``accounts/password/change/``, ``accounts/password/set/``
-and ``accounts/password/reset/key/...``) save the password through the
+allauth's HTML views (its change and set views, whose project routes go to
+the SPA, #1561, and ``accounts/password/reset/key/...``) save the password through the
 project's forms in ``accounts.forms``, which apply the follow-up from
 ``accounts.credentials`` in the same transaction as the save. After the save,
 allauth sends ``password_changed``, ``password_set`` or ``password_reset``;

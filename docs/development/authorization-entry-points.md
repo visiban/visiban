@@ -36,12 +36,34 @@ The session-based HTML surfaces, allauth's pages under `/accounts/` and the
 Django admin under `/admin/`, run no DRF permission class. For an authenticated
 account they apply the forced-change gates through
 `visiban/middleware.py` `PendingAccountActionMiddleware`, which calls
-`has_pending_account_action(user)`. The enumeration test checks that every
-routed top-level path segment is either one of that middleware's gated prefixes
-or listed in `NOT_SESSION_HTML` with a reason, so a new top-level HTML mount is
-reported until someone decides. An installed extension package gates its own
-session-based HTML prefixes through the setting
-`PENDING_ACTION_EXTRA_GATED_PREFIXES` (see [Enterprise](#enterprise)).
+`account_state_denial(user, ...)` limited to `FORCED_CHANGE_GATES` (an inactive
+account's session already resolves to an anonymous user). The enumeration test
+checks that every routed top-level path segment is either one of that
+middleware's gated prefixes or listed in `NOT_SESSION_HTML` with a reason, so a
+new top-level HTML mount is reported until someone decides. It also gives every
+route under the gated prefixes a forced-change decision in
+`FORCED_CHANGE_ROUTE_DECISIONS`, either `gated` or `exempt: <reason>`, and
+checks the middleware's answer for each pending flag: a gated route redirects
+GET to `FRONTEND_URL` and refuses POST with 403, an exempt one reaches its
+view. Django admin site views are `gated` by rule, with `admin/logout/` the
+recorded exception, and each of their routes is exercised too. A new route
+with no decision, a decision the middleware does not keep, and a decision for a
+route that no longer exists all fail the test. An installed extension package
+gates its own session-based HTML prefixes through the setting
+`PENDING_ACTION_EXTRA_GATED_PREFIXES` and exempts its own views through
+`PENDING_ACTION_EXTRA_EXEMPT_VIEWS` (see [Enterprise](#enterprise)).
+
+**Which views may be exempt.** The middleware decides on the view the path
+resolves to (`PENDING_ACTION_EXEMPT_VIEWS`, by URL name, or by dotted view path
+for an unnamed route), never on the shape of the path. A view qualifies only
+when an anonymous visitor reaches it with the same effect, so a pending session
+gains nothing a signed-out browser does not have (logout, the password-reset
+pages, the email-confirmation redirect, static result pages), or when it
+applies the forced-change gate itself: the SSO login and callback of each
+installed provider qualify because `SocialRegistrationAdapter.pre_social_login`
+refuses a `process=connect` callback for a pending account. A view that changes
+the signed-in account (email addresses, connected providers, passwords) is
+never exempt.
 
 REST keeps DRF permission classes. They evaluate the same gate objects as the
 other transports, one gate per class, so that an endpoint a pending user must
@@ -68,8 +90,11 @@ exact or prefixes.
 **A non-DRF Django view.** No DRF permission class runs on it. Write a DRF
 view instead, or add it to `NON_DRF_ALLOWLIST` with a reason and its routes.
 Mount it under `/accounts/` or `/admin/` so `PendingAccountActionMiddleware`
-applies the forced-change gates; a new top-level path segment fails the test
-until it is added to the middleware's prefixes or to `NOT_SESSION_HTML`.
+applies the forced-change gates, and record its decision in
+`FORCED_CHANGE_ROUTE_DECISIONS` (an exemption also needs its view name in
+`PENDING_ACTION_EXEMPT_VIEWS` and must meet the rule above); a new top-level
+path segment fails the test until it is added to the middleware's prefixes or
+to `NOT_SESSION_HTML`.
 Entries name exact view classes, not modules, so a view that a new allauth
 release adds is reported until someone reviews it. Views served by
 `django.contrib.admin.site` itself are recognized per view (they require an
@@ -187,6 +212,13 @@ when it is installed and skips it when it is not. The module may define:
   `PENDING_ACTION_EXTRA_GATED_PREFIXES` (default `()`), so the enterprise
   settings include must set that too. The test fails for a declared prefix the
   setting does not contain.
+- `FORCED_CHANGE_ROUTE_DECISIONS`: a dict of route to `"gated"` or
+  `"exempt: <reason>"` for the extension's routes under a gated prefix. An
+  exempt route's view name must also be in the Django setting
+  `PENDING_ACTION_EXTRA_EXEMPT_VIEWS` (default `()`; exact view names only,
+  checked by `accounts.E006`), which is what the middleware reads, and must
+  meet the rule under "Which views may be exempt" above. An
+  OSS route cannot be redefined.
 - `ACTIVE_CHECKING_AUTHENTICATORS`: a tuple of additional authenticator classes
   that refuse inactive accounts. Each must be a concrete DRF authenticator:
   `BaseAuthentication` itself, a subclass that does not implement

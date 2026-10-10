@@ -304,7 +304,8 @@ MIDDLEWARE = [
     "visiban.middleware.MaintenanceModeMiddleware",
     # Forced password/username change gate for the session-based HTML
     # surfaces, /accounts/ (allauth) and /admin/ (#1551). Needs request.user,
-    # so it comes after AuthenticationMiddleware.
+    # so it comes after AuthenticationMiddleware; the accounts.E005 system
+    # check fails startup if a later include drops or reorders it (#1561).
     "visiban.middleware.PendingAccountActionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -833,6 +834,11 @@ LOGIN_REDIRECT_URL = FRONTEND_URL
 # extension package that mounts its own session-based HTML pages; each entry
 # needs a leading and trailing slash (system check accounts.E004).
 PENDING_ACTION_EXTRA_GATED_PREFIXES = ()
+# Extra views under a gated prefix that a user with a pending forced change may
+# still reach (#1561), by exact resolved view name (e.g. "saml_acs"). Same
+# extension point; each entry must meet the admission rule in
+# docs/development/authorization-entry-points.md (system check accounts.E006).
+PENDING_ACTION_EXTRA_EXEMPT_VIEWS = ()
 ACCOUNT_LOGOUT_REDIRECT_URL = FRONTEND_URL
 # Guard against operator misconfiguration: a value like "//evil.com" would produce
 # a protocol-relative open redirect in confirmation emails. Fail fast at startup

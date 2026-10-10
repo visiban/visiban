@@ -4,7 +4,8 @@ Registry Rules 1 and 3 (``docs/development/security-invariants.md``):
 
 - ``visiban.middleware.PendingAccountActionMiddleware`` applies the
   forced-change gates to allauth's pages under ``/accounts/`` and to the Django
-  admin under ``/admin/``.
+  admin under ``/admin/``, with the exemptions decided on the resolved view
+  (#1561; the per-route table is in ``test_auth_entry_points.py``).
 - Each web, API and Django admin route that sets a password applies the shared follow-up in
   ``accounts.credentials`` in the same transaction as the save: allauth's HTML
   change, set and reset-by-key forms (``accounts.forms``, with allauth's
@@ -20,6 +21,7 @@ from allauth.account.utils import user_pk_to_url_str
 from django.contrib import admin
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
+from django.urls import path as url_path
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
@@ -32,6 +34,7 @@ from accounts.models import PersonalAccessToken, User
 from visiban.middleware import PENDING_ACTION_REFUSAL, is_pending_action_gated_path
 
 FRONTEND = "https://app.example.test"
+SPA_SETTINGS = f"{FRONTEND}/settings"
 CURRENT = "Current-Passw0rd!"  # gitleaks:allow -- test-only fixture password, not a credential
 NEW = "Brand-New-Passw0rd!"  # gitleaks:allow -- test-only fixture password, not a credential
 OTHER = "Another-Passw0rd!9"  # gitleaks:allow -- test-only fixture password, not a credential
@@ -162,19 +165,87 @@ class PendingUserIsGatedTests(TestCase):
         follow = self.client.get("/")
         self.assertNotEqual(follow.status_code, 302)
 
-    def test_sso_routes_are_gated_for_an_authenticated_pending_user(self):
+    def test_sso_round_trip_is_not_gated_for_an_authenticated_pending_user(self):
+        """Sign-in views pass; a connect attempt is refused by the adapter instead."""
         for path in ("/accounts/google/login/", "/accounts/google/login/callback/"):
             with self.subTest(path=path):
                 r = self.client.get(path)
-                self.assertEqual(r.status_code, 302)
-                self.assertEqual(r["Location"], FRONTEND)
+                self.assertNotEqual(r.get("Location"), FRONTEND)
+                self.assertNotEqual(r.status_code, 403)
 
-    def test_redirect_overrides_are_gated_in_one_hop(self):
-        for path in ("/accounts/confirm-email/abc:def/", "/accounts/3rdparty/signup/"):
+    def test_other_provider_views_stay_gated(self):
+        r = self.client.get("/accounts/google/login/token/")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], FRONTEND)
+        self.assertEqual(self.client.post("/accounts/google/login/token/").status_code, 403)
+
+    def test_confirm_email_link_reaches_the_spa_with_its_key(self):
+        r = self.client.get("/accounts/confirm-email/abc:def/")
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r["Location"].endswith("/confirm-email/abc:def"), r["Location"])
+
+    def test_signup_redirect_override_is_gated_in_one_hop(self):
+        r = self.client.get("/accounts/3rdparty/signup/")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], FRONTEND)
+
+    def test_password_reset_pages_are_reachable(self):
+        for path in ("/accounts/password/reset/", "/accounts/password/reset/done/"):
             with self.subTest(path=path):
-                r = self.client.get(path)
-                self.assertEqual(r.status_code, 302)
-                self.assertEqual(r["Location"], FRONTEND)
+                self.assertEqual(self.client.get(path).status_code, 200)
+
+    def test_reset_by_key_clears_the_pending_password_change(self):
+        """The emailed key works while signed in, as it does signed out."""
+        r = self.client.get(
+            f"/accounts/password/reset/key/{user_pk_to_url_str(self.user)}-"
+            f"{default_token_generator.make_token(self.user)}/"
+        )
+        self.assertEqual(r.status_code, 302)
+        self.assertNotEqual(r["Location"], FRONTEND)
+        r = self.client.post(r["Location"], {"password1": NEW, "password2": NEW})
+        self.assertNotEqual(r.status_code, 403)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(NEW))
+        self.assertFalse(self.user.must_change_password)
+        self.assertEqual(self.user.personal_access_tokens.count(), 0)
+
+    def test_exempt_views_match_by_resolved_view(self):
+        """Exemption follows the resolved view."""
+        # allauth's reset-by-key key accepts slashes, so this path is still the
+        # reset view (an invalid-link page), never the email view it spells.
+        r = self.client.post(
+            "/accounts/password/reset/key/1-x/../../../email/",
+            {"action_add": "", "email": "second-address@example.com"},
+        )
+        self.assertEqual(r.resolver_match.view_name, "account_reset_password_from_key")
+        for path in (
+            "/accounts/logout/../email/",
+            "/accounts/password/reset/done/x/",
+            "/admin/logout/x/",
+            "/admin/logoutx/",
+        ):
+            with self.subTest(path=path):
+                r = self.client.post(path, {"action_add": "", "email": "second-address@example.com"})
+                self.assertIn(r.status_code, (403, 404), r.status_code)
+        self.assertFalse(
+            self.user.emailaddress_set.filter(email="second-address@example.com").exists()
+        )
+
+    def test_encoded_and_doubled_slash_paths_reach_no_view(self):
+        for path in ("//admin/", "//accounts/email/", "/ADMIN/", "/Accounts/email/"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
+        r = self.client.get("/%61dmin/")
+        self.assertEqual(r["Location"], FRONTEND)
+
+    def test_inactive_and_error_pages_are_reachable(self):
+        for path in (
+            "/accounts/inactive/",
+            "/accounts/3rdparty/login/cancelled/",
+            "/accounts/3rdparty/login/error/",
+        ):
+            with self.subTest(path=path):
+                self.assertNotEqual(self.client.get(path).get("Location"), FRONTEND)
 
     def test_admin_password_form_for_another_user_is_refused(self):
         target = _user("target")
@@ -221,9 +292,45 @@ class NonPendingAndAnonymousPassTests(TestCase):
 
     def test_non_pending_user_reaches_the_pages(self):
         client = _logged_in(_user("normal", staff=True))
-        for path in ("/accounts/password/change/", "/accounts/email/", "/admin/"):
+        for path in ("/accounts/email/", "/admin/"):
             with self.subTest(path=path):
                 self.assertEqual(client.get(path).status_code, 200)
+
+    def test_password_change_and_set_pages_go_to_the_spa_settings(self):
+        user = _with_credentials(_user("normal", staff=True))
+        before = user.password
+        client = _logged_in(user)
+        for path in (
+            "/accounts/password/change/",
+            "/accounts/password/set/",
+            "/accounts/password/change",
+        ):
+            with self.subTest(path=path):
+                r = client.get(path, follow=False)
+                if path.endswith("/"):
+                    self.assertEqual(r.status_code, 302)
+                    self.assertEqual(r["Location"], SPA_SETTINGS)
+                else:
+                    # APPEND_SLASH sends it to the slashed route above.
+                    self.assertEqual(r.status_code, 301)
+        # Every method redirects and nothing is read from the body.
+        for path, body in (
+            ("/accounts/password/change/", {"oldpassword": CURRENT, "password1": NEW, "password2": NEW}),
+            ("/accounts/password/set/", {"password1": NEW, "password2": NEW}),
+        ):
+            with self.subTest(path=path, method="POST"):
+                r = client.post(path, body)
+                self.assertEqual(r.status_code, 302)
+                self.assertEqual(r["Location"], SPA_SETTINGS)
+        user.refresh_from_db()
+        self.assertEqual(user.password, before)
+        self.assertEqual(user.personal_access_tokens.count(), 2)
+
+    def test_allauth_reverse_still_lands_on_the_redirect(self):
+        from django.urls import reverse
+
+        self.assertEqual(reverse("account_change_password"), "/accounts/password/change/")
+        self.assertEqual(reverse("account_set_password"), "/accounts/password/set/")
 
     def test_anonymous_reaches_the_login_pages(self):
         client = Client()
@@ -322,7 +429,29 @@ def _redeem_reset_on_allauth_html_page(user, password=NEW, key=None):
     return client.post(r["Location"], {"password1": password, "password2": password})
 
 
-@override_settings(STORAGES=PLAIN_STATIC)
+def _allauth_password_views_urlconf():
+    """Project URLs with allauth's own change/set views mounted ahead of the redirects.
+
+    The project redirects ``/accounts/password/change/`` and ``/set/`` to the
+    SPA (#1561), but the allauth forms configured in ``ACCOUNT_FORMS`` must
+    still finalize if allauth's views are reached some other way, so these
+    tests mount them directly.
+    """
+    from allauth.account import views as allauth_views
+
+    from visiban import urls as project_urls
+
+    return [
+        url_path("accounts/password/change/", allauth_views.password_change),
+        url_path("accounts/password/set/", allauth_views.password_set),
+        *project_urls.urlpatterns,
+    ]
+
+
+urlpatterns = _allauth_password_views_urlconf()
+
+
+@override_settings(STORAGES=PLAIN_STATIC, ROOT_URLCONF=__name__)
 class AllauthFinalizationTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -697,13 +826,13 @@ class DjangoAdminPasswordTests(TestCase):
             with self.subTest(path=path):
                 r = self.client.get(path)
                 self.assertEqual(r.status_code, 302)
-                self.assertEqual(r["Location"], FRONTEND)
+                self.assertEqual(r["Location"], SPA_SETTINGS)
         r = self.client.post(
             "/admin/password_change/",
             {"old_password": CURRENT, "new_password1": NEW, "new_password2": NEW},
         )
         self.assertEqual(r.status_code, 302)
-        self.assertEqual(r["Location"], FRONTEND)
+        self.assertEqual(r["Location"], SPA_SETTINGS)
         self.staff.refresh_from_db()
         self.assertEqual(self.staff.password, before)
 

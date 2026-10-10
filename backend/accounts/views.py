@@ -1210,18 +1210,21 @@ class EmailConfirmRedirectView(APIView):
 
 
 class AdminPasswordChangeRedirectView(View):
-    """Send the Django admin's "change my password" pages to the SPA (#1551).
+    """Send the server-rendered "change my password" pages to the SPA (#1551, #1561).
 
     Mounted over ``/admin/password_change/`` and ``/admin/password_change/done/``
-    in ``visiban/urls.py``, ahead of the admin site, so a staff member changes
-    their own password where every rule for a self-service change applies
-    (current password, policy, token revocation, forced-change flag). Every
-    method redirects and nothing is read from the request, so a POST changes
-    nothing. Staff set other users' passwords through ``VisibanUserAdmin``.
+    ahead of the admin site, and over allauth's ``/accounts/password/change/``
+    and ``/accounts/password/set/`` ahead of the allauth include (all in
+    ``visiban/urls.py``), so a user changes or sets their own password on the
+    SPA's Settings page, where every rule for a self-service change applies
+    (current password, policy, token revocation, forced-change flag) and the
+    forced-change flow runs. Every method redirects and nothing is read from
+    the request, so a POST changes nothing; the target comes from settings
+    only. Staff set other users' passwords through ``VisibanUserAdmin``.
     """
 
     def dispatch(self, request, *args, **kwargs):
-        return HttpResponseRedirect(settings.FRONTEND_URL)
+        return HttpResponseRedirect(f"{settings.FRONTEND_URL.rstrip('/')}/settings")
 
 
 class VisibanSignupView(AllauthSignupView):
