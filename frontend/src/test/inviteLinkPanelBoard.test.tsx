@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import InviteLinkPanel from '../components/Group/InviteLinkPanel'
 import type { BoardInviteLink, GroupInviteLink } from '../types'
+import { INVITE_STATUS_STYLES } from '../constants/invites'
 
 // #1444 — the generalized InviteLinkPanel on a board (embedded in Board
 // Settings → Members), plus the #1421 revoke fixes that apply to groups too.
@@ -166,6 +167,19 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     // Terminal rows: no Revoke, no "Existing accounts only" pill.
     expect(screen.getAllByRole('button', { name: /^Revoke invite/ })).toHaveLength(1)
     expect(screen.queryByText('Existing accounts only')).not.toBeInTheDocument()
+  })
+
+  it('expired badge carries the shared /20 tone, not /60 (#1501)', async () => {
+    mockList.mockResolvedValue([invite({ status: 'expired', is_expired: true })])
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(await screen.findByRole('button', { name: 'Show past invites (1)' }))
+    const badge = screen.getAllByText('Expired').find((el) => el.className.includes('font-semibold'))
+    expect(badge).toBeDefined()
+    for (const cls of INVITE_STATUS_STYLES.expired.split(' ')) {
+      expect(badge!.className).toContain(cls)
+    }
+    expect(badge!.className).not.toContain('bg-danger/60')
   })
 
   it('no toggle when there are no past invites; toggle still shows with no pending', async () => {
