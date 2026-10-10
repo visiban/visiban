@@ -20,6 +20,11 @@ export function stripPerUserBoardFields<T extends object>(payload: T): Omit<T, "
 /**
  * Normalize a board.created payload for a board the subscriber has not seen:
  * the creator's per-user values are replaced with neutral defaults.
+ *
+ * Known trade-off: this also applies to a board moved INTO the group that the
+ * viewer may already have starred. Its row shows unstarred until the next
+ * reload or `board.star_changed`; accepted because the alternative is showing
+ * the creator's star to everyone.
  */
 export function neutralizePerUserBoardFields<T extends object>(payload: T): T {
   return { ...stripPerUserBoardFields(payload), is_starred: false } as T;

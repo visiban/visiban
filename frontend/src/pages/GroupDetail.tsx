@@ -865,6 +865,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <button
                       onClick={() => navigate(`/boards/${b.id}`)}
                       data-board-id={b.id}
+                      data-starred={b.is_starred ? "true" : "false"}
                       className="flex-1 bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <div className="flex items-center gap-2">
