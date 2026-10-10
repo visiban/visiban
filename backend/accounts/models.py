@@ -563,9 +563,11 @@ class PersonalAccessToken(models.Model):
 
     Invariants:
     - A user may hold at most PAT_MAX_PER_USER (10) active tokens.
-    - All tokens for a user are deleted when their password is changed
-      (enforced in ChangePasswordView) so that a compromised account cannot
-      retain API access after a credential reset.
+    - All tokens for a user are deleted when their password is changed or
+      reset through the web interface, the API or the Django admin (the
+      helpers in ``accounts.credentials``; registry Rule 3 lists the callers),
+      so that a compromised account cannot retain API access after a
+      credential reset.
     - expires_at is nullable; null means the token never expires.
     - scopes is nullable; null means "legacy" (see the field comment).
     """

@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import HttpResponseRedirect
+from django.views import View
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from allauth.account.adapter import get_adapter
@@ -45,6 +46,10 @@ from .models import (
     get_registration_mode,
 )
 from .invite_utils import InviteTokenError
+# Defined in accounts.credentials (#1551) so the allauth signal receivers, the
+# REST reset serializer and the Django admin can share it without importing
+# this module; kept importable from here for existing callers.
+from .credentials import finalize_password_change
 from .validators import (
     USERNAME_TAKEN_MESSAGE,
     is_username_taken,
@@ -586,26 +591,6 @@ class VerifyEmailView(DjRestAuthVerifyEmailView):
                 status=status.HTTP_409_CONFLICT,
             )
         return super().post(request, *args, **kwargs)
-
-
-def finalize_password_change(user):
-    """Side effects every successful user-initiated password change must have.
-
-    Shared by ChangePasswordView and TokenRevokingPasswordChangeView so the two
-    endpoints cannot drift again (#1259: the second only revoked tokens and
-    left a forced-change user locked out). Call it inside the same transaction
-    as the password save, so a failure here cannot leave a new password in
-    place with the old tokens still live.
-
-    - Clears ``must_change_password``: choosing a new password is exactly what
-      the forced-change flag asks for, whichever endpoint the user reached.
-    - Revokes every Personal Access Token: ``PersonalAccessToken`` documents
-      "all tokens are deleted when the password changes", and users are told
-      rotating the password is how to cut off a leaked token (#406, #1110).
-    """
-    user.must_change_password = False
-    user.save(update_fields=["must_change_password"])
-    user.personal_access_tokens.all().delete()
 
 
 class ChangePasswordView(APIView):
@@ -1222,6 +1207,21 @@ class EmailConfirmRedirectView(APIView):
         if not self._KEY_RE.match(key):
             return HttpResponseRedirect(f"{frontend_url}/confirm-email/invalid")
         return HttpResponseRedirect(f"{frontend_url}/confirm-email/{key}")
+
+
+class AdminPasswordChangeRedirectView(View):
+    """Send the Django admin's "change my password" pages to the SPA (#1551).
+
+    Mounted over ``/admin/password_change/`` and ``/admin/password_change/done/``
+    in ``visiban/urls.py``, ahead of the admin site, so a staff member changes
+    their own password where every rule for a self-service change applies
+    (current password, policy, token revocation, forced-change flag). Every
+    method redirects and nothing is read from the request, so a POST changes
+    nothing. Staff set other users' passwords through ``VisibanUserAdmin``.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        return HttpResponseRedirect(settings.FRONTEND_URL)
 
 
 class VisibanSignupView(AllauthSignupView):

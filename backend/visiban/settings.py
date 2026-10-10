@@ -302,6 +302,10 @@ MIDDLEWARE = [
     # refusals — but do not "fix" the ordering on the assumption that moving
     # this earlier or later changes it. It does not.
     "visiban.middleware.MaintenanceModeMiddleware",
+    # Forced password/username change gate for the session-based HTML
+    # surfaces, /accounts/ (allauth) and /admin/ (#1551). Needs request.user,
+    # so it comes after AuthenticationMiddleware.
+    "visiban.middleware.PendingAccountActionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
@@ -768,6 +772,10 @@ ACCOUNT_FORMS = {
     "signup": "accounts.forms.VisibanSignupForm",
     "reset_password": "accounts.forms.VisibanResetPasswordForm",
     "reset_password_from_key": "accounts.forms.VisibanResetPasswordKeyForm",
+    # Set the password and apply accounts.credentials' follow-up in one
+    # transaction (#1551).
+    "change_password": "accounts.forms.VisibanChangePasswordForm",
+    "set_password": "accounts.forms.VisibanSetPasswordForm",
 }
 # One reset-token generator for every reset entry point — both request forms
 # and both redemption paths (the REST confirm endpoint and allauth's HTML
@@ -818,6 +826,11 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 # reconfigure anything.
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 LOGIN_REDIRECT_URL = FRONTEND_URL
+# Extra path prefixes (e.g. "/sso/") that PendingAccountActionMiddleware gates
+# like /accounts/ and /admin/ (#1551). Extension point for an installed
+# extension package that mounts its own session-based HTML pages; each entry
+# needs a leading and trailing slash (system check accounts.E004).
+PENDING_ACTION_EXTRA_GATED_PREFIXES = ()
 ACCOUNT_LOGOUT_REDIRECT_URL = FRONTEND_URL
 # Guard against operator misconfiguration: a value like "//evil.com" would produce
 # a protocol-relative open redirect in confirmation emails. Fail fast at startup

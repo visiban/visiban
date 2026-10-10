@@ -3,9 +3,10 @@ import logging
 import os
 
 from django.conf import settings
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse
 
 from accounts.models import get_maintenance_message, get_maintenance_state
+from visiban.authorization import has_pending_account_action
 from visiban.demo import (
     DEMO_ALLOWED_WRITES,
     DEMO_READ_ONLY_CODE,
@@ -522,3 +523,100 @@ class DemoModeMiddleware:
             {"code": DEMO_READ_ONLY_CODE, "detail": DEMO_READ_ONLY_DETAIL},
             status=403,
         )
+
+
+# Session-based HTML surfaces outside the REST API: allauth's account pages and
+# the Django admin. Each keeps its trailing slash so a future /administrators/
+# or /accountsx/ route is not swept in by accident.
+PENDING_ACTION_GATED_PREFIXES = ("/accounts/", "/admin/")
+
+# Exact paths only. Ending the session is always allowed: a pending user must
+# be able to sign out, and logging out grants nothing.
+PENDING_ACTION_EXEMPT_PATHS = frozenset({"/accounts/logout/", "/admin/logout/"})
+
+PENDING_ACTION_REFUSAL = "Complete the pending account change in the app before continuing."
+
+
+def is_well_formed_gated_prefix(prefix) -> bool:
+    """True for a path prefix such as ``/sso/``: leading and trailing slash, not ``/`` alone."""
+    return (
+        isinstance(prefix, str)
+        and len(prefix) > 2
+        and prefix.startswith("/")
+        and prefix.endswith("/")
+        and "//" not in prefix
+    )
+
+
+def pending_action_gated_prefixes() -> tuple[str, ...]:
+    """The built-in gated prefixes plus ``settings.PENDING_ACTION_EXTRA_GATED_PREFIXES``.
+
+    The setting is the extension point for an installed extension package
+    that mounts its own session-based HTML pages (default ``()``). Entries
+    that are not well formed are left out here and reported by the
+    ``accounts.E004`` system check, so a typo cannot widen the gate to every
+    path.
+    """
+    extra = getattr(settings, "PENDING_ACTION_EXTRA_GATED_PREFIXES", ()) or ()
+    if isinstance(extra, str):
+        extra = (extra,)
+    return PENDING_ACTION_GATED_PREFIXES + tuple(p for p in extra if is_well_formed_gated_prefix(p))
+
+
+def is_pending_action_gated_path(path: str) -> bool:
+    """True when *path* is one of the session HTML surfaces the gate covers.
+
+    A path without its trailing slash (``/admin``) is normalized first, so it
+    is gated like ``/admin/`` rather than slipping past the prefix match.
+    """
+    if not path.endswith("/"):
+        path = path + "/"
+    if path in PENDING_ACTION_EXEMPT_PATHS:
+        return False
+    return path.startswith(pending_action_gated_prefixes())
+
+
+class PendingAccountActionMiddleware:
+    """Apply the forced-change gates to the session-based HTML surfaces (#1551).
+
+    Registry Rule 1 (``docs/development/security-invariants.md``): an account
+    with a forced password or username change pending is refused on every
+    transport. REST applies it through DRF permission classes, MCP and the
+    WebSockets through ``visiban.authorization``. allauth's account pages under
+    ``/accounts/`` and the Django admin under ``/admin/`` are plain Django
+    views that run no DRF permission class, so the same rule is applied here,
+    at the one layer every one of them passes through.
+
+    The gated prefixes are ``/accounts/``, ``/admin/`` and any listed in
+    ``settings.PENDING_ACTION_EXTRA_GATED_PREFIXES``.
+
+    The predicate is ``visiban.authorization.has_pending_account_action``, the
+    same definition the other transports use. A gated GET or HEAD is redirected
+    to the SPA (``FRONTEND_URL``), which walks the user through the change; any
+    other method is refused with a plain 403. Neither response says which
+    change is pending or echoes ``next``.
+
+    Unauthenticated requests pass, so sign-in (including the SSO round trip)
+    works; after sign-in allauth redirects to ``LOGIN_REDIRECT_URL``, which is
+    ``FRONTEND_URL`` and outside the gated prefixes (``accounts.checks``
+    refuses a configuration where it is not, since that would loop).
+
+    Must sit after ``AuthenticationMiddleware``, which sets ``request.user``.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if is_pending_action_gated_path(request.path_info) and self._is_pending(request):
+            if request.method in ("GET", "HEAD"):
+                return HttpResponseRedirect(settings.FRONTEND_URL)
+            return HttpResponseForbidden(PENDING_ACTION_REFUSAL, content_type="text/plain")
+        return self.get_response(request)
+
+    @staticmethod
+    def _is_pending(request) -> bool:
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return False
+        return has_pending_account_action(user)

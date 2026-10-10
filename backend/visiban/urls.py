@@ -11,6 +11,7 @@ from drf_spectacular.utils import extend_schema
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from accounts.permissions import TokenHasScope
 from accounts.views import (
+    AdminPasswordChangeRedirectView,
     EmailConfirmRedirectView,
     InviteRegisterView,
     ResendEmailThrottle,
@@ -121,6 +122,12 @@ class ApiNotFoundView(APIView):
 
 
 urlpatterns = [
+    # The admin's own "change my password" pages go to the SPA, where the
+    # self-service password rules apply (#1551). Registered BEFORE the admin
+    # site so they win the match. Setting another user's password stays in the
+    # admin (accounts.admin.VisibanUserAdmin).
+    path("admin/password_change/", AdminPasswordChangeRedirectView.as_view()),
+    path("admin/password_change/done/", AdminPasswordChangeRedirectView.as_view()),
     path("admin/", admin.site.urls),
     # Safety-net: allauth's built-in confirm-email view at accounts/confirm-email/<key>/
     # raises ImproperlyConfigured (TemplateResponseMixin has no template) because Visiban

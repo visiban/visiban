@@ -1,11 +1,13 @@
 from django import forms
 from django.conf import settings
+from django.db import transaction
 
 from allauth.account.adapter import get_adapter
-from allauth.account.forms import ResetPasswordForm, ResetPasswordKeyForm, SignupForm
+from allauth.account.forms import ChangePasswordForm, ResetPasswordForm, ResetPasswordKeyForm, SetPasswordForm, SignupForm
 from allauth.account.utils import user_pk_to_url_str
 from dj_rest_auth.forms import AllAuthPasswordResetForm
 
+from . import credentials
 from .tokens import AddressBoundTokenGenerator
 
 
@@ -106,7 +108,12 @@ def password_reset_still_allowed(user) -> bool:
 
 
 class VisibanResetPasswordKeyForm(ResetPasswordKeyForm):
-    """allauth's HTML set-new-password form, with the #1314 use-time re-check."""
+    """allauth's HTML set-new-password form, with the #1314 use-time re-check.
+
+    ``save`` sets the password and applies the reset follow-up
+    (``accounts.credentials.finalize_password_reset``) in one transaction
+    (#1551), the same as the REST reset-confirm serializer.
+    """
 
     def clean(self):
         cleaned = super().clean()
@@ -115,6 +122,37 @@ class VisibanResetPasswordKeyForm(ResetPasswordKeyForm):
                 "This password reset link is no longer valid. Request a new one."
             )
         return cleaned
+
+    def save(self):
+        with transaction.atomic():
+            super().save()
+            credentials.finalize_password_reset(self.user)
+
+
+class VisibanChangePasswordForm(ChangePasswordForm):
+    """allauth's HTML change-password form (``/accounts/password/change/``).
+
+    ``save`` sets the password and applies the self-service follow-up
+    (``accounts.credentials.finalize_password_change``) in one transaction
+    (#1551), so the two commit or roll back together.
+    """
+
+    def save(self):
+        with transaction.atomic():
+            super().save()
+            credentials.finalize_password_change(self.user)
+
+
+class VisibanSetPasswordForm(SetPasswordForm):
+    """allauth's HTML set-password form for password-less accounts (``/accounts/password/set/``).
+
+    Same transaction rule as ``VisibanChangePasswordForm`` (#1551).
+    """
+
+    def save(self):
+        with transaction.atomic():
+            super().save()
+            credentials.finalize_password_change(self.user)
 
 
 class _ResetLinkGateMixin:

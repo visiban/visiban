@@ -153,7 +153,7 @@ Personal Access Tokens (PATs) are named, long-lived tokens tied to a user accoun
 
 The raw token value is shown **once** at creation and never again — Visiban stores only a SHA-256 hash.
 
-All PATs for a user are revoked automatically when that user's password is changed.
+All PATs for a user are revoked automatically when that user's password is changed or reset through the web interface, the API or the Django admin: the REST endpoints, allauth's pages under `/accounts/password/`, or an administrator setting it in the Django admin.
 
 ---
 
@@ -508,7 +508,7 @@ Set a new password using the token from the reset email. **No authentication req
 **Response** `200 OK { "detail": "Password has been reset with the new password." }` on success; `400 Bad Request` on invalid/expired token or mismatched passwords.
 
 !!! note
-    Session tokens issued by `POST /api/v1/auth/login/` are invalidated on the next login with the new password. Personal Access Tokens (PATs) are **not** automatically revoked by a password reset — use `DELETE /api/v1/auth/tokens/{id}/` to revoke individual PATs, or change the password via `POST /api/v1/auth/change-password/` (which does revoke all PATs).
+    *Changed in 1.3.* A successful reset deletes the API token issued by `POST /api/v1/auth/login/` and all of the account's Personal Access Tokens, and clears a pending forced password change (`must_change_password`). Existing sessions end because the password changed. allauth's own reset page at `/accounts/password/reset/key/<uid>-<token>/` does the same.
 
 ---
 
