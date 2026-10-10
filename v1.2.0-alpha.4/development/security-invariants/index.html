@@ -4127,17 +4127,17 @@ re-checks.</p>
 <tr>
 <td>Site invite links</td>
 <td><code>accounts/invite_utils.py</code> <code>validate_invite_token</code>, <code>site_invite_creator_admits</code>, <code>revoke_site_invite_links</code></td>
-<td><code>visiban.authorization.invite_creator_is_valid</code> (the site rule is <code>site_invite_creator_admits</code>, which calls <code>sender_may_admit_accounts</code>: an active site admin) is evaluated at redemption under the row lock, for REST and OAuth signup alike, so a creator deactivated, deleted or demoted by any route stops admitting accounts; <code>revoke_site_invite_links</code> sets <code>revoked_at</code> on the creator's unused links on deactivation (<code>AdminUserDeactivateView.post</code>, <code>AdminUserDetailView.patch</code> with <code>is_active</code> false) and on loss of site admin (<code>AdminUserDetailView.patch</code> with <code>is_site_admin</code> false, <code>set_site_admin --revoke</code>)</td>
+<td><code>visiban.authorization.invite_creator_is_valid</code> (the site rule is <code>site_invite_creator_admits</code>, which calls <code>sender_may_admit_accounts</code>: an active site admin) is evaluated at redemption under the row lock, for REST and OAuth signup alike, so a creator deactivated, deleted or demoted by any route stops admitting accounts; <code>revoke_site_invite_links</code> sets <code>revoked_at</code> on the creator's unused links on deactivation (<code>AdminUserDeactivateView.post</code>, <code>AdminUserDetailView.patch</code> with <code>is_active</code> false) and on loss of site admin (<code>AdminUserDetailView.patch</code> with <code>is_site_admin</code> false, <code>set_site_admin --revoke</code>); the Django admin user form revokes on deactivation only (<code>accounts/admin.py</code> <code>VisibanUserAdmin.save_model</code> through <code>accounts/admin_views.py</code> <code>apply_access_loss_revocations</code>), since it carries no site-admin field</td>
 </tr>
 <tr>
 <td>Board invite links</td>
 <td><code>boards/views/invites.py</code> <code>JoinBoardView.get</code>, <code>JoinBoardView.post</code>; <code>boards/invites.py</code> <code>sender_is_board_admin</code></td>
-<td><code>visiban.authorization.invite_creator_is_valid</code> (the board rule is <code>sender_is_board_admin</code>) is evaluated at preview and at join; <code>_revoke_pending_board_invites</code> revokes on deactivation</td>
+<td><code>visiban.authorization.invite_creator_is_valid</code> (the board rule is <code>sender_is_board_admin</code>) is evaluated at preview and at join; <code>_revoke_pending_board_invites</code> revokes on deactivation, including from the Django admin user form (<code>VisibanUserAdmin.save_model</code>)</td>
 </tr>
 <tr>
 <td>Group invite links</td>
 <td><code>groups/invite_registration.py</code> <code>_sender_still_admits</code>; <code>groups/views.py</code> <code>sender_is_group_admin</code>, <code>_revoke_lapsed_admin_invite_links</code>; <code>groups/views.py</code> <code>_revoke_lapsed_subtree_invite_links</code> (re-parent); <code>groups/models.py</code> <code>revoke_invite_links_of_deleted_creator</code> (user delete); <code>accounts/admin_views.py</code> <code>AdminUserDeactivateView._revoke_group_invite_links</code></td>
-<td>Sender standing is evaluated at preview and redemption through <code>visiban.authorization.invite_creator_is_valid</code> (the group rule is <code>sender_is_group_admin</code>), and at registration also <code>sender_may_admit_accounts</code>; links are revoked when the sender is deactivated, deleted, or their admin rights lapse (including by the group being re-parented; links lapsed before #1513 are backfilled by migration <code>groups/0017</code>) (<code>_revoke_lapsed_admin_invite_links</code> is revocation housekeeping, not the access decision; see <a href="../authorization-entry-points/#advisory-copies-of-the-creator-rule">advisory copies</a>)</td>
+<td>Sender standing is evaluated at preview and redemption through <code>visiban.authorization.invite_creator_is_valid</code> (the group rule is <code>sender_is_group_admin</code>), and at registration also <code>sender_may_admit_accounts</code>; links are revoked when the sender is deactivated (including from the Django admin user form, <code>VisibanUserAdmin.save_model</code>), deleted, or their admin rights lapse (including by the group being re-parented; links lapsed before #1513 are backfilled by migration <code>groups/0017</code>) (<code>_revoke_lapsed_admin_invite_links</code> is revocation housekeeping, not the access decision; see <a href="../authorization-entry-points/#advisory-copies-of-the-creator-rule">advisory copies</a>)</td>
 </tr>
 <tr>
 <td>JSON, CSV and Trello import</td>
@@ -4158,6 +4158,11 @@ re-checks.</p>
 <td>Admin API</td>
 <td><code>accounts/admin_views.py</code> <code>AdminUserDetailView.patch</code>, <code>AdminUserDeactivateView.post</code></td>
 <td>Deactivation revokes PATs and pending invites in the same operation</td>
+</tr>
+<tr>
+<td>Django admin</td>
+<td><code>accounts/admin.py</code> <code>VisibanUserAdmin.save_model</code></td>
+<td>Calls <code>accounts/admin_views.py</code> <code>apply_access_loss_revocations</code>, the helper <code>AdminUserDetailView.patch</code> uses, in the same transaction as the save</td>
 </tr>
 </tbody>
 </table>
@@ -4191,7 +4196,7 @@ access described in Rule 2.</p>
 <tr>
 <td>Personal access token</td>
 <td><code>accounts/models.py</code> <code>PersonalAccessToken</code>; <code>accounts/authentication.py</code> <code>resolve_personal_access_token</code></td>
-<td>Explicit delete (<code>PersonalAccessTokenDeleteView</code>), expiry (<code>pat_is_expired</code>), deactivation (<code>_revoke_invite_links</code>), and a password change or reset through the web interface, the API or the Django admin, through the helpers in <code>accounts/credentials.py</code> (see the next three rows), which delete all of the user's PATs</td>
+<td>Explicit delete (<code>PersonalAccessTokenDeleteView</code>), expiry (<code>pat_is_expired</code>), deactivation (<code>_revoke_invite_links</code>, also from <code>VisibanUserAdmin.save_model</code> through <code>apply_access_loss_revocations</code>), and a password change or reset through the web interface, the API or the Django admin, through the helpers in <code>accounts/credentials.py</code> (see the next three rows), which delete all of the user's PATs</td>
 </tr>
 <tr>
 <td>Password change sources</td>

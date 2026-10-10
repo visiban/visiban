@@ -3355,6 +3355,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deactivating-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deactivating users
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-you-can-manage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3916,9 +3927,11 @@ by design — Nginx and the SPA router tell them apart by the trailing slash.</p
 <li><strong>Another user's password</strong> (the user's <strong>Password</strong> form at <code>/admin/accounts/user/&lt;id&gt;/password/</code>): saving a new password, or disabling password sign-in, deletes that user's Personal Access Tokens and API token and ends their sessions. If a new password was set, the user must change it the next time they sign in.</li>
 <li><strong>Adding a user:</strong> a user created here with a password must choose their own password the first time they sign in, the same as one created from the site-admin panel. A user created with password sign-in disabled is not asked to create one.</li>
 </ul>
+<h2 id="deactivating-users">Deactivating users<a class="headerlink" href="#deactivating-users" title="Permanent link">&para;</a></h2>
+<p>Clearing <strong>Active</strong> on a user deletes their Personal Access Tokens and revokes their pending invite links, the same as deactivating them from the site-admin panel.</p>
 <h2 id="what-you-can-manage">What you can manage<a class="headerlink" href="#what-you-can-manage" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Users</strong> — view/edit all user accounts, set <code>is_site_admin</code>, <code>must_change_password</code>, <code>is_staff</code></li>
+<li><strong>Users</strong> — view/edit all user accounts, activate or deactivate accounts, set <code>is_staff</code> and <code>is_superuser</code> (the form does not carry <code>is_site_admin</code> or <code>must_change_password</code>; use the site-admin panel or <code>set_site_admin</code> for those)</li>
 <li><strong>Site settings</strong> — instance-wide configuration (registration mode, file uploads, <a href="../maintenance-mode/">maintenance mode</a>); clicking the entry goes directly to the settings form — there is always exactly one row</li>
 <li><strong>Boards, columns, swimlanes</strong> — direct database access for debugging</li>
 <li><strong>Group memberships</strong> — view and correct membership records</li>
