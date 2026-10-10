@@ -221,7 +221,17 @@ class SameCardMoveRaceTests(TransactionTestCase):
 
 
 class SameCardMoveScopingTests(TransactionTestCase):
-    """The post-lock re-read stays scoped to the caller's board (any database)."""
+    """A move through one board's URL cannot reach another board's card (any database).
+
+    Two filters stand between a foreign card id and the move: ``board=board``
+    on the unlocked read (``_read_card_for_move``, which answers the 404 in
+    practice) and ``board=board`` on the locked statement in
+    ``_lock_move_cells`` (a foreign card that got past the read is not in the
+    locked result, so ``locked is None`` answers 404). Each is a backstop for
+    the other, so this test fails only when both are removed; removing either
+    one alone leaves it green. It pins the board scoping of the move as a
+    whole, not either filter individually.
+    """
 
     def test_move_of_a_card_on_another_board_is_404(self):
         user = User.objects.create_user(username="scoped1523", password="pass")
