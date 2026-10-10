@@ -37,6 +37,7 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 from rest_framework import status
+from rest_framework.exceptions import NotAuthenticated
 from .permissions import TokenHasScope
 from .models import (
     PAT_DEFAULT_SCOPES,
@@ -49,6 +50,7 @@ from .invite_utils import InviteTokenError
 # Defined in accounts.credentials (#1551) so the allauth signal receivers, the
 # REST reset serializer and the Django admin can share it without importing
 # this module; kept importable from here for existing callers.
+from . import credentials
 from .credentials import finalize_password_change
 from .validators import (
     USERNAME_TAKEN_MESSAGE,
@@ -880,12 +882,6 @@ class PersonalAccessTokenListCreateView(APIView):
         responses={201: PersonalAccessTokenCreateResponseSerializer},
     )
     def post(self, request):
-        if request.user.personal_access_tokens.count() >= PAT_MAX_PER_USER:
-            return Response(
-                {"detail": f"Maximum of {PAT_MAX_PER_USER} access tokens allowed per account."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         name = (request.data.get("name") or "").strip()
         if not name:
             return Response({"detail": "Token name is required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -927,7 +923,22 @@ class PersonalAccessTokenListCreateView(APIView):
         validated = scope_serializer.validated_data
         scopes = validated["scopes"] if "scopes" in validated else list(PAT_DEFAULT_SCOPES)
 
-        pat, raw_token = PersonalAccessToken.generate(request.user, name, expires_at, scopes=scopes)
+        # Serialized with credential changes on the user row (#1564); the
+        # request credential is re-read under the lock. A concurrent password
+        # hash upgrade also yields a retryable 401.
+        with transaction.atomic():
+            locked = credentials.lock_user_row(request.user)
+            pat_revoked = isinstance(request.auth, PersonalAccessToken) and not (
+                PersonalAccessToken.objects.filter(pk=request.auth.pk).exists()
+            )
+            if locked.password != request.user.password or not locked.is_active or pat_revoked:
+                raise NotAuthenticated("Credentials are no longer valid.")
+            if locked.personal_access_tokens.count() >= PAT_MAX_PER_USER:
+                return Response(
+                    {"detail": f"Maximum of {PAT_MAX_PER_USER} access tokens allowed per account."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            pat, raw_token = PersonalAccessToken.generate(locked, name, expires_at, scopes=scopes)
         data = PersonalAccessTokenSerializer(pat).data
         # The raw token is included exactly once — in the creation response.
         # It is not persisted and cannot be retrieved again.

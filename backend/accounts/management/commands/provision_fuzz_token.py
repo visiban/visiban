@@ -19,8 +19,10 @@ command's output ever appearing in a pipeline log.
 
 import os
 
+from django.db import transaction
 from django.core.management.base import BaseCommand, CommandError
 
+from accounts import credentials
 from accounts.management._secure_file import write_secret_file
 from accounts.models import PAT_DEFAULT_SCOPES, User
 
@@ -63,11 +65,14 @@ class Command(BaseCommand):
                 "the schema-fuzz job must authenticate as a normal board member."
             )
 
-        _, raw_token = user.personal_access_tokens.model.generate(
-            user=user,
-            name="backend-schema-fuzz (CI)",
-            scopes=list(PAT_DEFAULT_SCOPES),
-        )
+        # Token creation is serialized with credential changes on the user row.
+        with transaction.atomic():
+            locked = credentials.lock_user_row(user)
+            _, raw_token = locked.personal_access_tokens.model.generate(
+                user=locked,
+                name="backend-schema-fuzz (CI)",
+                scopes=list(PAT_DEFAULT_SCOPES),
+            )
 
         token_file = options["token_file"]
         # O_EXCL|O_NOFOLLOW 0600 -- the default path is in shared /tmp (#1379).

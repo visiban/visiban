@@ -16,7 +16,20 @@ any stored row.
 
 from __future__ import annotations
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
+
+
+def lock_user_row(user):
+    """Lock *user*'s row and return the freshly read row.
+
+    Credential issuance (``PersonalAccessToken`` creation) and credential
+    revocation (``finalize_password_change`` and the admin-set variant) take
+    this lock first, so they are serialized per user. Must be called inside
+    ``transaction.atomic()``. SQLite has no row locks, so there it is a plain
+    read.
+    """
+    return get_user_model().objects.select_for_update().get(pk=user.pk)
 
 
 def finalize_password_change(user):
@@ -37,6 +50,7 @@ def finalize_password_change(user):
     a username request. Idempotent, so a second call is harmless.
     """
     with transaction.atomic():
+        lock_user_row(user)
         user.must_change_password = False
         user.save(update_fields=["must_change_password"])
         user.personal_access_tokens.all().delete()
@@ -61,6 +75,7 @@ def finalize_password_reset(user):
     the full self-service finalization plus the DRF ``Token`` revocation.
     """
     with transaction.atomic():
+        lock_user_row(user)
         finalize_password_change(user)
         revoke_auth_token(user)
 
@@ -79,6 +94,7 @@ def require_password_change_after_admin_set(user):
     stored (new) password hash.
     """
     with transaction.atomic():
+        lock_user_row(user)
         if user.has_usable_password():
             user.must_change_password = True
             user.save(update_fields=["must_change_password"])
