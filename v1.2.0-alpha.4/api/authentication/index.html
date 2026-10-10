@@ -4740,7 +4740,7 @@
 </tr>
 <tr>
 <td><code>401 Unauthorized</code></td>
-<td>Request is not authenticated</td>
+<td>Request is not authenticated, or the credential it was authenticated with is no longer valid (for example it was changed or revoked while the request was in flight); a retry with the current credential succeeds</td>
 </tr>
 <tr>
 <td><code>403 Forbidden</code></td>

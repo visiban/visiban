@@ -4199,7 +4199,7 @@ access described in Rule 2.</p>
 <tr>
 <td>Personal access token</td>
 <td><code>accounts/models.py</code> <code>PersonalAccessToken</code>; <code>accounts/authentication.py</code> <code>resolve_personal_access_token</code></td>
-<td>Explicit delete (<code>PersonalAccessTokenDeleteView</code>), expiry (<code>pat_is_expired</code>), deactivation (<code>_revoke_invite_links</code>, also from <code>VisibanUserAdmin.save_model</code> through <code>apply_access_loss_revocations</code>), and a password change or reset through the web interface, the API or the Django admin, through the helpers in <code>accounts/credentials.py</code> (see the next three rows), which delete all of the user's PATs</td>
+<td>Explicit delete (<code>PersonalAccessTokenDeleteView</code>), expiry (<code>pat_is_expired</code>), deactivation (<code>_revoke_invite_links</code>, also from <code>VisibanUserAdmin.save_model</code> through <code>apply_access_loss_revocations</code>), and a password change or reset through the web interface, the API or the Django admin, through the helpers in <code>accounts/credentials.py</code> (see the next three rows), which delete all of the user's PATs. Token creation (<code>PersonalAccessTokenListCreateView.post</code>) and those helpers are serialized on the user row (<code>accounts/credentials.py</code> <code>lock_user_row</code>); creation re-reads its credential under the lock (<code>accounts/tests/test_credential_row_lock.py</code>)</td>
 </tr>
 <tr>
 <td>Password change sources</td>
