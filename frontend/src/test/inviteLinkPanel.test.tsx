@@ -489,6 +489,18 @@ describe('InviteLinkPanel', () => {
     expect(expiredLabels.length).toBeGreaterThanOrEqual(1)
   })
 
+  it('expired badge uses the /20 tint token, not the low-contrast /60', async () => {
+    mockListInviteLinks.mockResolvedValue([fakeExpiredLink])
+    render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
+    await screen.findByText('Expired link')
+    const badge = screen
+      .getAllByText('Expired')
+      .find((el) => el.className.includes('bg-danger'))
+    expect(badge).toBeDefined()
+    expect(badge!.className).toContain('bg-danger/20')
+    expect(badge!.className).not.toContain('bg-danger/60')
+  })
+
   it('expired link shows the Expired status badge in the UI', async () => {
     // An expired link is not terminal (used/revoked), so Revoke may still appear
     // if the link is still active on the server. The key signal is the Expired badge.

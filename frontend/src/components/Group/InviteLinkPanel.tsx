@@ -16,7 +16,7 @@ import type { EmailInviteFormHandle, EmailInvitePayload } from "../Common/EmailI
 import SelectDropdown from "../Common/SelectDropdown";
 import { ToggleField } from "../Common/Toggle";
 import Spinner from "../Common/Spinner";
-import { INVITE_ROLE_LABELS } from "../../constants/invites";
+import { INVITE_ROLE_LABELS, INVITE_STATUS_STYLES } from "../../constants/invites";
 
 /** What the panel manages invites for (#1444): a group, or a board. */
 export interface InviteScope {
@@ -123,11 +123,8 @@ const STATUS_LABELS: Record<string, string> = {
   revoked: "Revoked",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  used: "bg-surface-hover text-fg-tertiary",
-  expired: "bg-danger/60 text-danger",
-  revoked: "bg-surface-hover text-fg-muted",
-};
+// Shared with the admin invite tables so the expired badge keeps the /20 tint (#1501).
+const STATUS_COLORS = INVITE_STATUS_STYLES;
 
 const EXPIRY_OPTIONS = [
   { label: "1 day", value: 1 },
