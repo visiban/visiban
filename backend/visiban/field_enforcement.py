@@ -116,6 +116,7 @@ GROUP_ALLOWED_PRIORITIES = (
 
 GROUP_DEFAULT_BOARD_MEMBER_ROLE = (
     "Enforcement: scaffold -- stored and editable, but no code path reads it. "
-    "Group members' access to the group's boards comes from their group "
-    "membership role, not from this value."
+    "Deprecated (#1430): this field has no effect and is kept only for API "
+    "compatibility. Group members get their group membership role on every "
+    "group board, not this value."
 )

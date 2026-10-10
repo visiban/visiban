@@ -94,6 +94,14 @@ class FieldEnforcementSchemaTests(SimpleTestCase):
                         f"`{component}.{field}` description: {props[field].get('description')!r}",
                     )
 
+    def test_group_default_board_member_role_is_marked_deprecated(self):
+        # #1430: the field stays (1.0 contract) but the schema flags it so
+        # generated clients and MCP agents see it as deprecated.
+        for component in ("Group", "GroupDetail", "GroupRequest", "PatchedGroupRequest"):
+            with self.subTest(component=component):
+                prop = self.components[component]["properties"]["default_board_member_role"]
+                self.assertIs(prop.get("deprecated"), True)
+
     def test_every_description_starts_with_its_class(self):
         # The `Enforcement: <class>` token is the machine-readable half of the
         # contract and must LEAD the description, so a client can classify a

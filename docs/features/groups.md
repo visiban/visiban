@@ -127,11 +127,11 @@ Manage labels from the **Settings** tab on the group detail page.
 
 ## Group board defaults
 
-Group admins can configure defaults for new boards created in the group. Neither setting is enforced yet:
+Group admins can configure defaults for new boards created in the group. The default member role is deprecated and has no effect. Allowed priorities is copied onto new boards but not enforced.
 
 | Setting | Description |
 |---|---|
-| **Default member role** | Intended role for group members on new boards (`admin`, `member`, `collaborator`, `viewer`). Defaults to `member`. **Not yet enforced** — the setting is saved, but group members' access to the group's boards currently comes from their group role. |
+| **Default member role** | **Deprecated (#1430).** Saved for API compatibility but has no effect: group members get their group role on every group board. Values: `admin`, `member`, `collaborator`, `viewer`; defaults to `member`. |
 | **Allowed priorities** | Copied onto new boards created in the group. **Not yet enforced** — cards can still use any priority. An empty list `[]` (default) means all priorities. |
 
 Board defaults are configured from the **Settings** tab on the group detail page.

@@ -70,6 +70,12 @@ For endpoints being retired, return `410 Gone` with a JSON body explaining what 
 }
 ```
 
+## Currently deprecated fields
+
+| Field | Since | Status |
+|---|---|---|
+| `Group.default_board_member_role` (also writable via `PATCH /groups/{id}/board-defaults/`) | 1.2 | No effect: it was never read, and group members get their group role on every group board. Still accepted and returned unchanged, and marked `deprecated: true` in the OpenAPI schema. Tracked in [#1430](https://gitlab.com/visiban/visiban/-/issues/1430). |
+
 ## Future versioning
 
 When a breaking change is unavoidable, a `/api/v2/` prefix will be introduced. Both versions will be served in parallel for at least one minor release cycle to allow integrators to migrate. Until a breaking change is required, only `v1` exists — there is no `/api/v2/` today.

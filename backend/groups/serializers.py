@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 from accounts.serializers import BoardUserSerializer
 from visiban import field_enforcement
@@ -202,6 +202,9 @@ class GroupBriefSerializer(serializers.ModelSerializer):
         return [{"id": g.id, "name": g.name} for g in reversed(obj.ancestors())]
 
 
+# default_board_member_role is deprecated (#1430): kept for API compatibility
+# (1.0 contract forbids removing a serializer field), flagged in the schema.
+@extend_schema_serializer(deprecate_fields=["default_board_member_role"])
 class GroupSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     # A SerializerMethodField, not `CharField(source="parent.name", default=None)`
@@ -339,6 +342,7 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
         fields = ["id", "user", "role", "joined_at", "is_inherited", "inherited_from"]
 
 
+@extend_schema_serializer(deprecate_fields=["default_board_member_role"])
 class GroupDetailSerializer(GroupSerializer):
     """Extended serializer for the group retrieve endpoint.
 

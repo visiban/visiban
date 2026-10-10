@@ -45,7 +45,7 @@ DELETE /api/v1/groups/{group_id}/members/42/
 
 Valid group roles: `admin`, `member`, `collaborator`, `viewer`
 
-Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership, and save a default member role for boards in the group (not yet enforced: group members keep their group role on every group board). See [Groups](../groups.md#invite-links), [Groups — Transferring group ownership](../groups.md#transferring-group-ownership), and [Groups — Group board defaults](../groups.md#group-board-defaults).
+Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership. The default member role setting is deprecated and has no effect (group members keep their group role on every group board). See [Groups](../groups.md#invite-links), [Groups — Transferring group ownership](../groups.md#transferring-group-ownership), and [Groups — Group board defaults](../groups.md#group-board-defaults).
 
 ## Granting site admin
 
