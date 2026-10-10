@@ -2801,6 +2801,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#row-lock-tests-postgresql-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Row-lock tests (PostgreSQL only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#what-not-to-do" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4419,6 +4430,8 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">CardMovement</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">notes</span><span class="o">=</span><span class="s2">"Card created"</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">())</span>
 </code></pre></div>
 <p>Do the same for broadcast events: assert nothing was queued.</p>
+<h3 id="row-lock-tests-postgresql-only">Row-lock tests (PostgreSQL only)<a class="headerlink" href="#row-lock-tests-postgresql-only" title="Permanent link">&para;</a></h3>
+<p>SQLite has no row locks, so a <code>select_for_update()</code> can be deleted without failing the SQLite suite. Test each lock with the hold-the-first-transaction pattern: pause the first request inside its transaction (after it took the lock and wrote, before it commits), start a second request only once the first is paused, and assert both that the second could not finish before the pause ended and that the final state is consistent (distinct positions, caps respected). Decorate the class with <code>@skipUnless(connection.vendor == "postgresql", ...)</code> and use <code>TransactionTestCase</code>. Every thread that touches the ORM must call <code>connections.close_all()</code> in a <code>finally</code>. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See <code>backend/boards/tests/test_concurrent_moves.py</code> (<code>ConcurrentMoveLockTests</code>) and <code>backend/boards/tests/test_concurrent_lock_sites.py</code>.</p>
 <h3 id="what-not-to-do">What not to do<a class="headerlink" href="#what-not-to-do" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Do not write one test per mutant.</strong> Write the smallest assertion that states the behavior; one test often kills several mutants. A suite shaped like the survivor list breaks on every refactor.</li>
