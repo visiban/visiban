@@ -924,8 +924,11 @@ def lock_card_cell_entry(*, card_id, column_ids):
     Order: the card row first, then the columns in one pk-ordered
     ``FOR NO KEY UPDATE`` statement — the same card -> column order as
     ``move_card`` (and ``_lock_move_columns`` itself), so the admin queues
-    behind a move instead of deadlocking with it. ``card_id`` is ``None`` for
-    a card not yet created. Must run inside the transaction that saves the
+    behind a move instead of deadlocking with it. Pass ``card_id=None`` when
+    there is no card row to lock first: either the card is not yet created,
+    or the caller already holds its row because it called ``lock_card_row``
+    to decide which columns to lock (every current caller in ``admin.py``
+    does one or the other). Must run inside the transaction that saves the
     card: the locks protect nothing once it commits.
     """
     if card_id is not None:
