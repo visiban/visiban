@@ -534,7 +534,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        # In development throttling is disabled (effectively unlimited).
+        # In development (DEBUG) most scopes are raised to 9999/hour per scope: a
+        # finite budget, not unlimited (share_link/share_link_token have no bypass).
+        # VISIBAN_DISABLE_THROTTLING (below) is the CI-only full bypass.
         # In production use sane but generous limits; polling endpoints
         # (notifications, version) fire every 15–30 s so a single active
         # user easily makes 500+ authenticated requests per hour.
@@ -1055,7 +1057,9 @@ if VISIBAN_DISABLE_THROTTLING:
     REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
         _scope: "1000000/second" for _scope in REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
     }
-    # allauth's failed-login gate is a separate limiter that also answers 429.
+    # allauth's failed-login lockout is a separate limiter; on the API it answers
+    # 400 (see accounts.serializers.LoginSerializer), which would hide the login
+    # view from the fuzzer once the fuzz account trips it.
     ACCOUNT_RATE_LIMITS = {"login_failed": False}
 
 # Email backend — console in development (prints to stdout), SMTP in production.

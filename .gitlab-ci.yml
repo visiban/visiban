@@ -1059,6 +1059,11 @@ backend-schema-fuzz:
         - backend/**/views/**/*
         - backend/**/serializers.py
         - backend/**/urls.py
+        # Throttle rates and SPECTACULAR_SETTINGS live in settings.py (#1569);
+        # the two hook files shape the schema and the fuzz run itself.
+        - backend/visiban/settings.py
+        - backend/visiban/schema_hooks.py
+        - backend/schemathesis_hooks.py
   services:
     - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres

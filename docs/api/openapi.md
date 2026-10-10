@@ -75,7 +75,8 @@ describes, checking `response_schema_conformance`, `status_code_conformance`, an
 `content_type_conformance`.
 
 Runs on any MR or `main`-branch push that touches `backend/**/views/**`, `**/serializers.py`,
-or `**/urls.py` — no unconditional fallback on `main`, since nothing downstream depends on
+`**/urls.py`, `backend/visiban/settings.py`, `backend/visiban/schema_hooks.py`, or
+`backend/schemathesis_hooks.py` — no unconditional fallback on `main`, since nothing downstream depends on
 this job (#1266). It never runs on a scheduled pipeline.
 
 The job sets `VISIBAN_DISABLE_THROTTLING=True` (#1569). Without it, a ~20k-request run from one

@@ -53,6 +53,12 @@ Add these in **Settings → CI/CD → Variables**. The pipeline will fail or pro
 | `MINIO_SECRET_KEY` | Cache warm jobs | Yes | |
 | `MINIO_BUCKET` | Cache warm jobs | No | |
 
+### Schema-fuzz throttle override
+
+| Variable | Default | Notes |
+|---|---|---|
+| `VISIBAN_DISABLE_THROTTLING` | `false` | CI/test-only; not for production. Set by the `backend-schema-fuzz` job so its ~20k requests are not answered with 429. Lifts every API throttle rate and allauth's failed-login lockout (which answers 400 on the API and would hide the login view from the fuzzer). Requires `DEBUG=True`; the app refuses to start if it is set otherwise. |
+
 ---
 
 ## Production deployment
@@ -302,7 +308,6 @@ Demo mode turns an instance into a public, shared demo: the login page offers a 
 | `DEMO_MEMBER_PASSWORD` | *(empty)* | Password for the two seeded member accounts. Never published. Required by `seed_demo_data --demo-site`. |
 | `DEMO_RESET_SCHEDULE` | `0 * * * *` | Cron expression (UTC) of the reset job. Drives the countdown on the login page and in the app. Only minute and hour fields are evaluated; the other three must be `*`. An expression the backend cannot evaluate refuses to start while `DEMO_MODE` is on. Set but **empty** means no reset is scheduled: the login page and the demo bar then promise no reset and show no countdown. The Helm chart renders it empty when `demo.reset.enabled` is false. |
 | `DEMO_USER_THROTTLE_RATE` | *(empty)* | Replaces the rate of the `user` throttle scope while `DEMO_MODE` is on, e.g. `60000/hour`. Every visitor signs in as the one published account, so this scope is a single budget shared by all of them. Format `<n>/<second\|minute\|hour\|day>`; anything else refuses to start. Ignored when `DEMO_MODE` is off. |
-| `VISIBAN_DISABLE_THROTTLING` | `false` | CI/test-only; not for production. Lifts every API throttle rate and allauth's failed-login limit so the schema-fuzz job is not answered with 429. Requires `DEBUG=True`; the app refuses to start if it is set otherwise. |
 
 If `DEMO_LOGIN_USERNAME` or `DEMO_LOGIN_PASSWORD` is set while `DEMO_MODE` is off, startup logs a warning: nothing is published, but the fence is not armed either.
 
