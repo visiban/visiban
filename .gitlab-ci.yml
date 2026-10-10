@@ -1784,6 +1784,14 @@ helm-template:
     # loudly.
     - name: ${DOCKERHUB_MIRROR}/docker:27-dind
       alias: docker
+      # #1568 / TruePPM !2975: the shared runner host's dockerd defaults new
+      # containers to a 1024-nofile soft limit, and kind never raises it, so
+      # the whole nested control plane shares one 1024-fd budget. Under
+      # concurrent kind-in-dind load kube-proxy crash-loops with "too many
+      # open files" and the drill times out. This sets the default on the
+      # INNER dockerd (the one kind talks to). Only kind drills need it, so
+      # .compose-drill-base is deliberately left alone.
+      command: ["--default-ulimit", "nofile=1048576:1048576"]
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
     DOCKER_HOST: "tcp://docker:2376"
