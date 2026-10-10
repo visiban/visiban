@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { neutralizePerUserBoardFields, stripPerUserBoardFields } from "../utils/boardEventPayload";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
@@ -204,12 +205,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const handleGroupEvent = useCallback((evt: BoardEvent) => {
     const data = evt.data as { id?: number; board_id?: number; board_uid?: string } & Record<string, unknown>;
     if (evt.event === "board.created") {
-      const incoming = data as unknown as Board;
+      // is_starred is the creator's value (#1559); this subscriber has not starred it.
+      const incoming = neutralizePerUserBoardFields(data as unknown as Board);
       if (typeof incoming.id !== "number") return;
       setBoards((prev) => (prev.some((b) => b.id === incoming.id) ? prev : [...prev, incoming]));
       flagAnimate(incoming.id);
     } else if (evt.event === "board.updated") {
-      const incoming = data as unknown as Board;
+      // is_starred is the acting user's value (#1559); keep the local one.
+      const incoming = stripPerUserBoardFields(data as unknown as Board) as Partial<Board> & { id: number };
       if (typeof incoming.id !== "number") return;
       setBoards((prev) => {
         const exists = prev.some((b) => b.id === incoming.id);

@@ -1253,6 +1253,28 @@ describe('GroupDetail', () => {
       expect(screen.queryByText('Sprint Board')).not.toBeInTheDocument()
     })
 
+    it('board.updated carrying the actor is_starred still patches other fields (#1559)', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.updated',
+          data: { ...existingBoard, name: 'Renamed By Starrer', is_starred: true },
+        } as BoardEvent)
+      })
+      expect(await screen.findByText('Renamed By Starrer')).toBeInTheDocument()
+    })
+
+    it('board.created with the creator is_starred still appends the row (#1559)', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.created',
+          data: { ...existingBoard, id: 3, name: 'Starred By Creator', is_starred: true },
+        } as BoardEvent)
+      })
+      expect(screen.getByText('Starred By Creator')).toBeInTheDocument()
+    })
+
     it('board.updated for an unknown board id is a no-op', async () => {
       await loadGroup()
       act(() => {

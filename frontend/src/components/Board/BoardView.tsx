@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { computeAutoSwimlaneWidth } from "../../utils/swimlaneAutoWidth";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
@@ -531,7 +532,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // Another user changed board-level settings — merge the patch into local
       // state without calling the API. The mutation already happened on the
       // server; onUpdateBoardSettings would fire a redundant PATCH request.
-      mergeBoardState(d as Partial<typeof board>);
+      // is_starred in this payload is the ACTING user's value (#1559); drop it
+      // so another user's edit cannot flip this viewer's star.
+      mergeBoardState(stripPerUserBoardFields(d as Partial<typeof board>));
     } else if (event.event === "board.deleted") {
       // Board was deleted by another user — navigate away
       onBoardDeleted?.();
