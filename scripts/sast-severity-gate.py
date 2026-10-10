@@ -20,6 +20,9 @@ import os
 import sys
 import tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _paths import PathEscapeError, cli_roots, resolve_within  # noqa: E402
+
 BLOCKING = {"critical", "high"}
 MAX_DAYS = 90
 
@@ -92,6 +95,13 @@ def is_suppressed(vuln, active):
 
 def main(report_path, supp_path, today=None):
     today = today or datetime.date.today()
+    # Confine CLI-supplied paths to the repo / cwd / temp dir (#1549, S8707).
+    try:
+        supp_path = resolve_within(cli_roots(), supp_path)
+        report_path = resolve_within(cli_roots(), report_path)
+    except PathEscapeError as exc:
+        print(f"sast-severity-gate: ERROR: {exc}", file=sys.stderr)
+        return 2
     try:
         active, errors = load_suppressions(supp_path, today)
     except (OSError, ValueError, AttributeError) as exc:
@@ -190,6 +200,15 @@ def self_test():
         run("empty report", "", [], 1)
         run("non-JSON report", "not json", [], 1)
         run("top-level list report", "[]", [], 1)
+        # Paths outside the allowed roots are rejected before any open() (#1549).
+        outside = "/etc/passwd"
+        for label, args in (("report outside roots", (outside, supp)),
+                            ("suppressions outside roots", (rep, outside))):
+            got = main(*args, today)
+            ok = got == 2
+            failures += not ok
+            print(f"  self-test {'ok  ' if ok else 'FAIL'} {label}: exit {got}, want 2")
+        run("in-repo path still works", json.dumps({"vulnerabilities": []}), [], 0)
     print("sast-severity-gate self-test:", "FAILED" if failures else "passed")
     return 1 if failures else 0
 

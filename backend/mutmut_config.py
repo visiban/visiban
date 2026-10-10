@@ -310,8 +310,28 @@ def _run(node_index: int, node_total: int) -> int:
     return subprocess.run(export, check=False).returncode
 
 
+def _confine_cli_path(path: Path) -> Path:
+    """Resolve a CLI-supplied path inside the allowed roots, or raise PathEscapeError (#1549).
+
+    ``scripts/_paths.py`` is imported lazily, only on the ``--ci-file`` path: mutmut
+    imports this module as a hook, and that import must stay cheap and side-effect-free.
+    """
+    scripts = str(Path(__file__).resolve().parent.parent / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    from _paths import cli_roots, resolve_within
+
+    return resolve_within(cli_roots(), path)
+
+
 def _self_test(ci_file: Path | None) -> int:
     problems: list[str] = []
+    try:
+        _confine_cli_path(Path("/etc/passwd"))
+        problems.append("--ci-file confinement accepted /etc/passwd")
+    except Exception as exc:  # noqa: BLE001 - only PathEscapeError is the expected rejection
+        if type(exc).__name__ != "PathEscapeError":
+            problems.append(f"--ci-file confinement raised {type(exc).__name__}, not PathEscapeError")
     names = [t.name for t in TARGETS]
     if len(set(names)) != len(names):
         problems.append(f"duplicate target names: {names}")
@@ -366,6 +386,11 @@ def _self_test(ci_file: Path | None) -> int:
         except ValueError:
             pass
     if ci_file is not None:
+        try:
+            ci_file = _confine_cli_path(ci_file)
+        except ValueError as exc:  # PathEscapeError is a ValueError
+            print(f"MUTMUT CONFIG: {exc}", file=sys.stderr)
+            return 2
         parallel = _ci_parallel(ci_file)
         if parallel != total_shards():
             problems.append(
