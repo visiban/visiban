@@ -252,7 +252,7 @@ The response includes a one-time `token` field containing the raw `vbn_` value. 
 | `400 Bad Request` | `expires_at` is more than 1 year from now |
 | `400 Bad Request` | User already has 10 active tokens |
 | `400 Bad Request` | `scopes` contains an unrecognized value, or is an empty list |
-| `401 Unauthorized` | Request is not authenticated |
+| `401 Unauthorized` | Request is not authenticated, or the credential it was authenticated with is no longer valid (for example it was changed or revoked while the request was in flight); a retry with the current credential succeeds |
 | `403 Forbidden` | The request was authenticated with a *scoped* PAT — scoped tokens cannot create tokens (see [Scopes](#scopes)) |
 
 ---
