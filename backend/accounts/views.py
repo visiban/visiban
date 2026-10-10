@@ -226,6 +226,17 @@ class VerifyEmailThrottle(AnonRateThrottle):
     scope = "verify_email"
 
 
+class ResendEmailThrottle(AnonRateThrottle):
+    """Rate limit for the resend-verification-email endpoint (#1552).
+
+    The stock dj-rest-auth view is public and otherwise covered only by the
+    global anonymous throttle. A dedicated scope keeps the limit tunable
+    independently, in line with password reset and verify-email.
+    """
+
+    scope = "resend_email"
+
+
 class EmailConfirmRedirectThrottle(AnonRateThrottle):
     """Rate limit for the email-confirm redirect endpoint.
 

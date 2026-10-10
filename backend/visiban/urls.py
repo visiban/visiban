@@ -13,6 +13,7 @@ from accounts.permissions import TokenHasScope
 from accounts.views import (
     EmailConfirmRedirectView,
     InviteRegisterView,
+    ResendEmailThrottle,
     SocialSignupRedirectView,
     ThrottledLoginView,
     ThrottledPasswordResetConfirmView,
@@ -228,7 +229,7 @@ urlpatterns = [
     ),
     re_path(
         r"^api/v1/auth/registration/resend-email/?$",
-        DjRestAuthResendEmailVerificationView.as_view(),
+        DjRestAuthResendEmailVerificationView.as_view(throttle_classes=[ResendEmailThrottle]),
         name="rest_resend_email",
     ),
     # dj-rest-auth's static placeholder, kept only so reverse() of the name

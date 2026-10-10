@@ -578,6 +578,9 @@ REST_FRAMEWORK = {
         # Email verification: HMAC keys are not brute-forceable; scope exists for
         # operator-level observability and consistency with the rest of the auth surface.
         "verify_email": "9999/hour" if DEBUG else "20/hour",
+        # Resend verification email (#1552): each call can send a message, so
+        # the ceiling sits between password_reset and verify_email.
+        "resend_email": "9999/hour" if DEBUG else "10/hour",
         # Login: defense-in-depth ceiling applied alongside the allauth
         # ACCOUNT_RATE_LIMITS gate below — itself two rates: 10 failed
         # attempts/min per IP, and 5 failed attempts/5 min per account (#1199).

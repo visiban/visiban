@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 from django.test import Client, TestCase, RequestFactory, override_settings
 
 from accounts.adapter import RegistrationAdapter
-from accounts.views import EmailConfirmRedirectThrottle, EmailConfirmRedirectView, VerifyEmailThrottle
+from accounts.views import EmailConfirmRedirectThrottle, EmailConfirmRedirectView, ResendEmailThrottle, VerifyEmailThrottle
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +228,59 @@ class VerifyEmailThrottleScopeTests(TestCase):
             "VerifyEmailThrottle must be listed in the throttle_classes kwarg "
             "on the VerifyEmailView registered in urls.py.",
         )
+
+
+# ---------------------------------------------------------------------------
+# ResendEmailThrottle — scope wiring and behavior (#1552)
+# ---------------------------------------------------------------------------
+
+class ResendEmailThrottleTests(TestCase):
+    URL = "/api/v1/auth/registration/resend-email/"
+
+    def test_scope_and_rate_configured(self):
+        from django.conf import settings
+        self.assertEqual(ResendEmailThrottle.scope, "resend_email")
+        self.assertIn("resend_email", settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"])
+
+    def test_route_is_wired_with_throttle(self):
+        from django.urls import resolve
+        for path in (self.URL, self.URL.rstrip("/")):
+            match = resolve(path)
+            self.assertIn(ResendEmailThrottle, match.func.initkwargs.get("throttle_classes", []))
+
+    def test_returns_429_after_rate_exceeded(self):
+        from unittest.mock import patch
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+
+        cache.clear()
+        saved = tuple(getattr(ResendEmailThrottle, a, None) for a in ("rate", "num_requests", "duration"))
+        ResendEmailThrottle.rate = ResendEmailThrottle.num_requests = ResendEmailThrottle.duration = None
+        try:
+            with patch.object(ResendEmailThrottle, "get_rate", return_value="2/hour"):
+                client = APIClient()
+                for _ in range(2):
+                    r = client.post(self.URL, {"email": "nobody@example.com"}, format="json")
+                    self.assertEqual(r.status_code, 200)
+                r = client.post(self.URL, {"email": "nobody@example.com"}, format="json")
+                self.assertEqual(r.status_code, 429)
+        finally:
+            ResendEmailThrottle.rate, ResendEmailThrottle.num_requests, ResendEmailThrottle.duration = saved
+            cache.clear()
+
+    def test_response_is_constant_for_known_and_unknown_addresses(self):
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+        from accounts.models import User
+
+        cache.clear()
+        User.objects.create_user(username="resend_known", email="known@example.com", password="pw-12345-xyz")
+        client = APIClient()
+        known = client.post(self.URL, {"email": "known@example.com"}, format="json")
+        unknown = client.post(self.URL, {"email": "unknown@example.com"}, format="json")
+        self.assertEqual(known.status_code, unknown.status_code)
+        self.assertEqual(known.json(), unknown.json())
+        cache.clear()
 
 
 # ---------------------------------------------------------------------------
