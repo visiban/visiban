@@ -1685,7 +1685,13 @@ class CardViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             if connection.features.has_select_for_update:
                 lock_ids = {card.pk}
-                raw_target = request.data.get("to_card")
+                # A JSON body that is not an object (a bare number, string,
+                # array…) has no `.get()`; skip the target lock and let
+                # `is_valid()` below answer it with the serializer's 400
+                # rather than a 500 (backend-schema-fuzz, same class as move).
+                raw_target = (
+                    request.data.get("to_card") if isinstance(request.data, dict) else None
+                )
                 try:
                     lock_ids.add(int(raw_target))
                 except (TypeError, ValueError):
