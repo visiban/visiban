@@ -234,15 +234,13 @@ class ExtraExemptViewsTests(SimpleTestCase):
     def test_repeating_an_already_exempt_oss_view_is_allowed(self):
         self.assertEqual(check_pending_action_extra_exempt_views_not_oss_gated(None), [])
 
-    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("*", "no_such_view"))
-    def test_gated_name_is_ignored_at_runtime_even_with_check_silenced(self):
-        with override_settings(
-            PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("account_email", "admin:index", "saml_acs"),
-            SILENCED_SYSTEM_CHECKS=["accounts.E007"],
-        ):
-            self.assertFalse(is_pending_action_exempt_view("/accounts/email/"))
-            self.assertFalse(is_pending_action_exempt_view("/admin/"))
-            self.assertTrue(is_pending_action_exempt_view("/sso/acs/", urlconf=__name__))
+    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("account_email", "admin:index", "saml_acs"))
+    def test_gated_name_is_ignored_at_runtime_regardless_of_the_check(self):
+        # The middleware never runs system checks, so this is the enforcement
+        # that holds under gunicorn/ASGI or --skip-checks.
+        self.assertFalse(is_pending_action_exempt_view("/accounts/email/"))
+        self.assertFalse(is_pending_action_exempt_view("/admin/"))
+        self.assertTrue(is_pending_action_exempt_view("/sso/acs/", urlconf=__name__))
 
     def test_view_name_of_handles_unnamed_and_callable_instances(self):
         from django.urls import URLPattern, path
@@ -262,6 +260,7 @@ class ExtraExemptViewsTests(SimpleTestCase):
         names = oss_gated_view_names(f"{__name__}_gated_urls")
         self.assertEqual(names, {"gated:inner", f"{__name__}._saml_acs"})
 
+    @override_settings(PENDING_ACTION_EXTRA_EXEMPT_VIEWS=("*", "no_such_view"))
     def test_malformed_and_unknown_names_are_not_e007(self):
         self.assertEqual(check_pending_action_extra_exempt_views_not_oss_gated(None), [])
 

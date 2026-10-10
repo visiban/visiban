@@ -837,7 +837,10 @@ PENDING_ACTION_EXTRA_GATED_PREFIXES = ()
 # Extra views under a gated prefix that a user with a pending forced change may
 # still reach (#1561), by exact resolved view name (e.g. "saml_acs"). Same
 # extension point; each entry must meet the admission rule in
-# docs/development/authorization-entry-points.md (system check accounts.E006).
+# docs/development/authorization-entry-points.md (system check accounts.E006
+# rejects malformed names). Views under /accounts/ and /admin/ cannot be
+# exempted here: accounts.E007 reports such a name, and the middleware ignores
+# it at runtime (checks do not run under gunicorn/ASGI).
 PENDING_ACTION_EXTRA_EXEMPT_VIEWS = ()
 ACCOUNT_LOGOUT_REDIRECT_URL = FRONTEND_URL
 # Guard against operator misconfiguration: a value like "//evil.com" would produce
