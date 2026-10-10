@@ -3656,6 +3656,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#runner-host-prerequisites-for-kind-helm-drills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runner host prerequisites for kind (helm drills)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#distributed-ci-cache-minio" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4068,6 +4079,30 @@ online <code>arm64</code>-tagged runner, before <code>backend-docker-push-arm64<
 fine-grained PAT with the <code>read_runner</code> permission scoped to the <code>visiban</code> group — the Runners
 API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint set, so a job token can't make this
 call. See <a href="../tokens-and-rotation/#runner_status_token">Tokens and Rotation</a>.</p>
+<h2 id="runner-host-prerequisites-for-kind-helm-drills">Runner host prerequisites for kind (helm drills)<a class="headerlink" href="#runner-host-prerequisites-for-kind-helm-drills" title="Permanent link">&para;</a></h2>
+<p><code>helm-install</code> and <code>helm-netpol</code> (<code>.helm-drill-base</code> in <code>.gitlab-ci.yml</code>) run a kind cluster
+inside a <code>docker:27-dind</code> service. Two host- and daemon-level limits can make them fail
+intermittently with <code>helm install ... context deadline exceeded</code> under concurrent load. The
+runner host <code>gitlab-nuc-03</code> is shared with TruePPM (<code>concurrent = 6</code> across the <code>trueppm</code> and
+<code>visiban</code> runner configs), which traced the failure (<a href="https://gitlab.com/trueppm/trueppm/-/issues/4363">trueppm/trueppm#4363</a>, fixed in <a href="https://gitlab.com/trueppm/trueppm/-/merge_requests/2975">trueppm/trueppm!2975</a>).</p>
+<ul>
+<li><strong>nofile ulimit (in the repo).</strong> The host's dockerd defaults new containers to a 1024-fd soft
+  limit, and kind never raises it, so the kind node container runs the whole nested control
+  plane (kube-apiserver, etcd, containerd, kubelet, kube-proxy) inside one 1024-fd budget.
+  kube-proxy then crash-loops with <code>too many open files</code>, in-cluster DNS degrades, and init
+  containers fail intermittently. <code>.helm-drill-base</code> therefore passes
+  <code>--default-ulimit nofile=1048576:1048576</code> to the dind service's dockerd (#1568). GitLab's
+  <code>services:</code> keyword (as of this writing) has no <code>ulimit:</code> option, so passing the flag via
+  <code>command:</code> is the only lever reachable from the repo. <code>.compose-drill-base</code> does not need it (no nested Kubernetes control plane).</li>
+<li><strong>inotify instances (host-level, not in the repo).</strong> <code>fs.inotify.max_user_instances</code> defaulted
+  to 128 on the host; kind recommends 512 or more. It was raised directly on <code>gitlab-nuc-03</code> via
+  <code>/etc/sysctl.d/99-kind.conf</code>:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>fs.inotify.max_user_instances = 512
+</code></pre></div>
+<p>A rebuilt or newly provisioned runner host that runs these jobs <strong>must</strong> have this sysctl
+  too. Apply it with <code>sudo sysctl --system</code> and verify with
+  <code>sysctl fs.inotify.max_user_instances</code> (expect 512 or more).</p>
 <h2 id="distributed-ci-cache-minio">Distributed CI cache (MinIO)<a class="headerlink" href="#distributed-ci-cache-minio" title="Permanent link">&para;</a></h2>
 <p>The <code>.npm-cache</code> / pip cache templates use a MinIO S3-compatible backend so all runners share
 a warm cache (<code>.gitlab-ci.yml</code>, "Cache templates" section). This requires both:</p>
