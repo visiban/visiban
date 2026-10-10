@@ -2063,6 +2063,26 @@ def _card_movements(card):
     return _parked_or_manager(card, _PARKED_MOVEMENTS, "movements")
 
 
+def _last_move_is_creation(card) -> bool:
+    """True when the newest movement is the card's creation row (#1576).
+
+    Card creation writes a MOVE row with an empty ``from_column_name``. This
+    lets the UI avoid labeling a brand-new card "Just moved" without touching
+    ``last_moved_at`` or the audit trail. ``from_column_name`` is the
+    denormalized write-time copy, so it survives the FK being nulled when a
+    column is deleted. Shared by CardSerializer, PublicCardSerializer and
+    CardQuerySerializer so the three read paths cannot drift.
+    """
+    movements = _card_movements(card)
+    if not movements:
+        return False
+    latest = movements[0]
+    return (
+        latest.movement_type == CardMovement.MovementType.MOVE
+        and latest.from_column_name == ""
+    )
+
+
 def _card_custom_field_values(card):
     return _parked_or_manager(card, _PARKED_CUSTOM_FIELD_VALUES, "custom_field_values")
 
@@ -2446,20 +2466,7 @@ class CardSerializer(serializers.ModelSerializer):
         return movements[0].moved_at if movements else None
 
     def get_last_move_is_creation(self, obj) -> bool:
-        # True when the newest movement is the card's creation row, which
-        # card creation writes with an empty from_column_name. Lets the UI
-        # avoid labeling a brand-new card "Just moved" (#1576) without
-        # touching last_moved_at or the audit trail. from_column_name is the
-        # denormalized write-time copy, so it survives the FK being nulled
-        # when a column is deleted.
-        movements = _card_movements(obj)
-        if not movements:
-            return False
-        latest = movements[0]
-        return (
-            latest.movement_type == CardMovement.MovementType.MOVE
-            and latest.from_column_name == ""
-        )
+        return _last_move_is_creation(obj)
 
     def get_attachment_count(self, obj) -> int:
         # len() on the prefetched rows uses memory; .count() would query.
@@ -3465,20 +3472,7 @@ class PublicCardSerializer(serializers.ModelSerializer):
         return movements[0].moved_at if movements else None
 
     def get_last_move_is_creation(self, obj) -> bool:
-        # True when the newest movement is the card's creation row, which
-        # card creation writes with an empty from_column_name. Lets the UI
-        # avoid labeling a brand-new card "Just moved" (#1576) without
-        # touching last_moved_at or the audit trail. from_column_name is the
-        # denormalized write-time copy, so it survives the FK being nulled
-        # when a column is deleted.
-        movements = _card_movements(obj)
-        if not movements:
-            return False
-        latest = movements[0]
-        return (
-            latest.movement_type == CardMovement.MovementType.MOVE
-            and latest.from_column_name == ""
-        )
+        return _last_move_is_creation(obj)
 
     def get_is_stale(self, obj) -> bool:
         # Read the SQL-level annotation when PublicBoardSerializer.get_cards()

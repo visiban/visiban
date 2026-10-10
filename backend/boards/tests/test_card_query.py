@@ -593,6 +593,45 @@ class CardQueryBlockerCountValueTests(TestCase):
         self.assertEqual(self._row(self.blocked)["blocker_count"], 0)
 
 
+class CardQueryLastMoveIsCreationValueTests(TestCase):
+    """`last_move_is_creation` must be correct here, not merely present (#1576).
+
+    Same reasoning as CardQueryBlockerCountValueTests: parity checks only the
+    field name, and this endpoint keeps its own queryset.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="lmc_owner", password="x")
+        self.board, self.col, self.swim = _make_board(self.owner)
+        self.card = _make_card(self.board, self.col, self.swim, self.owner)
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _row(self):
+        r = self.client.get(URL)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return next(c for c in r.data["results"] if c["id"] == self.card.id)
+
+    def test_false_when_card_has_no_movements(self):
+        self.assertFalse(self._row()["last_move_is_creation"])
+
+    def test_true_when_only_movement_is_creation(self):
+        _make_movement(self.card, self.col, self.swim, self.owner)
+        self.assertTrue(self._row()["last_move_is_creation"])
+
+    def test_false_after_a_real_move_follows_creation(self):
+        _make_movement(self.card, self.col, self.swim, self.owner, days_ago=1)
+        CardMovement.objects.create(
+            card=self.card,
+            from_column=self.col, from_column_name=self.col.name,
+            to_column=self.col, to_column_name=self.col.name,
+            from_swimlane=self.swim, from_swimlane_name=self.swim.name,
+            to_swimlane=self.swim, to_swimlane_name=self.swim.name,
+            moved_by=self.owner,
+        )
+        self.assertFalse(self._row()["last_move_is_creation"])
+
+
 class CardQuerySchemaTypeTests(TestCase):
     """Guards SerializerMethodField return-type hints against schema drift.
 
