@@ -221,6 +221,29 @@ class SetSiteAdminTests(TestCase):
         l1.refresh_from_db()
         self.assertTrue(l1.is_active)
 
+    def test_revoke_still_revokes_site_links_for_already_demoted_user(self):
+        from accounts.models import InviteLink
+
+        User.objects.filter(pk=self.user.pk).update(is_site_admin=False, can_access_all_content=False)
+        link, _ = InviteLink.generate(created_by=self.user)
+        call_command("set_site_admin", "testuser", "--revoke", stdout=StringIO())
+        link.refresh_from_db()
+        self.assertIsNotNone(link.revoked_at)
+
+    def test_revoke_lapses_group_links_for_inactive_user(self):
+        from groups.models import Group, GroupInviteLink
+
+        User.objects.filter(pk=self.user.pk).update(
+            is_active=False, is_site_admin=True, can_access_all_content=True
+        )
+        owner = User.objects.create_user(username="owner2", password="pass")
+        g1 = Group.objects.create(name="G1", owner=owner)
+        l1, _ = GroupInviteLink.generate(g1, self.user)
+        with patch("groups.broadcast.broadcast_group_event"), self.captureOnCommitCallbacks(execute=True):
+            call_command("set_site_admin", "testuser", "--revoke", stdout=StringIO())
+        l1.refresh_from_db()
+        self.assertFalse(l1.is_active)
+
     def test_nonexistent_user_raises_error(self):
         with self.assertRaises(CommandError) as ctx:
             call_command("set_site_admin", "nobody")

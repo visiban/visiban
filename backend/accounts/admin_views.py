@@ -870,7 +870,8 @@ def apply_access_loss_revocations(target, actor, prior):
     *prior* holds the stored ``is_active``, ``is_site_admin`` and
     ``can_access_all_content`` values from before the change; *target* holds
     the saved values. Shared by ``AdminUserDetailView.patch`` and the Django
-    admin user form so the two routes cannot drift apart. Call inside the
+    admin user form so the routes cannot drift apart. ``set_site_admin --revoke`` shares the
+    locked read (:func:`lock_user_row`) but revokes unconditionally. Call inside the
     transaction that saves the change.
     """
     if prior["is_active"] and not target.is_active:

@@ -129,7 +129,7 @@ class DjangoAdminSaveModelTests(TestCase):
 
     def test_stale_form_instance_does_not_undo_concurrent_changes(self):
         User.objects.filter(pk=self.target.pk).update(is_site_admin=True)
-        stale = User.objects.get(pk=self.target.pk)  # loaded when the form rendered
+        stale = User.objects.get(pk=self.target.pk)  # the instance loaded before the lock
         # A concurrent API demotion and pending password change land afterwards.
         User.objects.filter(pk=self.target.pk).update(
             is_site_admin=False, must_change_password=True

@@ -71,7 +71,7 @@ class VisibanUserAdmin(UserAdmin):
         if not change:
             super().save_model(request, obj, form, change)
             return
-        # Deactivating or demoting here applies the same revocation
+        # Deactivating here applies the same revocation
         # housekeeping as the admin API (#1563). The stored values are read
         # under a row lock before the save because the ModelForm has already
         # written the submitted values onto ``obj``.
@@ -83,10 +83,12 @@ class VisibanUserAdmin(UserAdmin):
             except User.DoesNotExist:
                 stored = None
             if stored is not None and form is not None:
-                # The form wrote its values onto an instance loaded when the
-                # page rendered. Fields the form does not carry must come from
-                # the locked row, or this save would undo a concurrent change
-                # to them (a demotion, a pending password-change flag).
+                # The form wrote its values onto the instance Django loaded
+                # earlier in this request. Between that load and the lock
+                # taken above, another request can change a field the form
+                # does not carry (a demotion, a pending password-change
+                # flag); those fields must come from the locked row, or this
+                # save would write the older values back.
                 for field in User._meta.concrete_fields:
                     if field.name not in form.fields:
                         setattr(obj, field.attname, getattr(stored, field.attname))

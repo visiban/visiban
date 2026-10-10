@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from accounts.admin_views import access_state, apply_access_loss_revocations, lock_user_row
+from accounts.admin_views import access_state, lock_user_row
+from accounts.invite_utils import revoke_site_invite_links
 from accounts.models import User
 
 
@@ -26,14 +27,20 @@ class Command(BaseCommand):
             raise CommandError(f'User "{username}" does not exist')
 
         if revoke:
-            # One implementation of the revocation housekeeping, shared with the
-            # admin API and the Django admin user form (#1563).
+            # The locked read keeps the prior flag value consistent with the
+            # save. Revocation here is unconditional, as before: the command
+            # is the break-glass route, so site links are revoked even for an
+            # already-demoted user and group links lapse for an inactive one.
             with transaction.atomic():
                 prior = access_state(lock_user_row(user.pk))
                 user.is_site_admin = False
                 user.can_access_all_content = False
                 user.save(update_fields=["is_site_admin", "can_access_all_content"])
-                apply_access_loss_revocations(user, None, prior)
+                revoke_site_invite_links(user)
+                if prior["can_access_all_content"]:
+                    from groups.views import _revoke_lapsed_admin_invite_links
+
+                    _revoke_lapsed_admin_invite_links(user)
             self.stdout.write(self.style.WARNING(f'Revoked site admin from "{username}"'))
         else:
             user.is_site_admin = True
