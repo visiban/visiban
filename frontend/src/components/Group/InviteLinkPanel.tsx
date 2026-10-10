@@ -688,7 +688,7 @@ export default function InviteLinkPanel({
               {INVITE_ROLE_LABELS[link.role] ?? link.role}
             </span>
             {!pending && (
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${STATUS_COLORS[linkStatus]}`}>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[linkStatus]}`}>
                 {STATUS_LABELS[linkStatus]}
               </span>
             )}
@@ -870,7 +870,7 @@ export default function InviteLinkPanel({
                   {/* Status badge — shown for non-pending states */}
                   {linkStatus !== "pending" && (
                     <span
-                      className={`text-xs font-semibold px-1.5 py-0.5 rounded ${STATUS_COLORS[linkStatus]}`}
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[linkStatus]}`}
                     >
                       {STATUS_LABELS[linkStatus]}
                     </span>
