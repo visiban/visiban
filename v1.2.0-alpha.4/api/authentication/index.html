@@ -4421,6 +4421,10 @@
 <li><strong>Session tokens</strong> — short-lived tokens issued by <code>POST /api/v1/auth/login/</code>. Invalidated on logout or password change.</li>
 <li><strong>Personal Access Tokens (PATs)</strong> — long-lived named tokens created through the API or profile settings. Format: <code>vbn_</code> followed by 40 hex characters (44 chars total). Invalidated individually via <code>DELETE /api/v1/auth/tokens/{id}/</code>, or all at once when the user's password is changed.</li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Trailing slashes on <code>/api/v1/auth/</code> routes</p>
+<p>The dj-rest-auth endpoints — <code>login/</code>, <code>logout/</code>, <code>user/</code>, <code>password/change/</code>, <code>password/reset/</code>, <code>password/reset/confirm/</code>, <code>registration/verify-email/</code> and <code>registration/resend-email/</code> — accept the path with or without the trailing slash, and both forms are served by the same view with the same rate limits, scope checks and side effects.</p>
+</div>
 <hr />
 <h2 id="token-authentication">Token authentication<a class="headerlink" href="#token-authentication" title="Permanent link">&para;</a></h2>
 <h3 id="1-obtain-a-token">1. Obtain a token<a class="headerlink" href="#1-obtain-a-token" title="Permanent link">&para;</a></h3>
@@ -4979,7 +4983,7 @@
 </tr>
 <tr>
 <td><code>invite_invalid</code></td>
-<td>The invite token is malformed or unknown — or <em>(1.2+)</em> a group or board invite that is used, revoked, or whose sender can no longer admit new accounts.</td>
+<td>The invite token is malformed or unknown — or <em>(1.2+)</em> a group or board invite that is used, revoked, or whose sender can no longer admit new accounts, or a site invite whose creator is no longer an active site admin.</td>
 </tr>
 <tr>
 <td><code>invite_expired</code></td>
@@ -5747,7 +5751,7 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td><code>invite_token</code> does not match any known site, group (<code>vbng_</code>) or board (<code>vbnb_</code>) invite, has been revoked, or has already been used (single-use links) — all three return the identical <code>code: "invite_invalid"</code>, <code>"Invalid or expired invite link."</code>, by design, so a caller cannot use the error to distinguish a wrong token from a spent one</td>
+<td><code>invite_token</code> does not match any known site, group (<code>vbng_</code>) or board (<code>vbnb_</code>) invite, has been revoked, or has already been used (single-use links) — or <em>(1.2+)</em> is a site invite whose creator is no longer an active site admin (deactivated, deleted, or no longer a site admin) — all of these return the identical <code>code: "invite_invalid"</code>, <code>"Invalid or expired invite link."</code>, by design, so a caller cannot use the error to distinguish a wrong token from a spent one</td>
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>

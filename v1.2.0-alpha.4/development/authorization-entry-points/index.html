@@ -3963,17 +3963,17 @@ does not.</p>
 <tr>
 <td>Active principal</td>
 <td><code>principal_is_active(user)</code></td>
-<td>Every gate above; the OAuth adapter's existing-account match (<code>_handle_email_collision</code>); the board and group invite creator rules</td>
+<td>Every gate above; the OAuth adapter's existing-account match (<code>_handle_email_collision</code>); the board, group and site invite creator rules (<code>sender_may_admit_accounts</code>)</td>
 </tr>
 <tr>
 <td>Invite creator standing (Rule 2)</td>
 <td><code>invite_creator_is_valid(link, board=None)</code></td>
-<td><code>JoinBoardView.get</code> and <code>.post</code>; <code>JoinGroupView.get</code> and <code>.post</code>; registration through a board or group invite (<code>_sender_still_admits</code> in <code>boards/invites.py</code> and <code>groups/invite_registration.py</code>)</td>
+<td><code>JoinBoardView.get</code> and <code>.post</code>; <code>JoinGroupView.get</code> and <code>.post</code>; registration through a board or group invite (<code>_sender_still_admits</code> in <code>boards/invites.py</code> and <code>groups/invite_registration.py</code>); registration through a site invite (<code>accounts/invite_utils.py</code> <code>validate_invite_token</code>), and the admin site invite list and caps (<code>effective_site_invite_status</code>, <code>live_site_invite_count</code>)</td>
 </tr>
 <tr>
 <td>Who may admit new accounts</td>
 <td><code>sender_may_admit_accounts(sender)</code></td>
-<td>Registration through a board or group invite, before <code>invite_creator_is_valid</code></td>
+<td>Registration through a board or group invite, before <code>invite_creator_is_valid</code>; the site invite creator rule (<code>accounts/invite_utils.py</code> <code>site_invite_creator_admits</code>)</td>
 </tr>
 <tr>
 <td>Current role on a board or group (Rule 2)</td>

@@ -4818,7 +4818,8 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </tr>
 </tbody>
 </table>
-<p><em>(1.2+)</em> Setting <code>is_active: false</code> also deletes the user's personal access tokens (so they do not come back on reactivation) and revokes the user's pending invite links exactly like <a href="#post-apiv1adminusersiddeactivate"><code>POST /api/v1/admin/users/{id}/deactivate/</code></a>: unused site invite links, pending board invites and active, unused group invite links (each affected board and group receives an <code>invite_link.revoked</code> event). Consumed single-use links are left as they are. Clearing <code>can_access_all_content</code> (the only flag that confers group-admin rights; <code>is_site_admin</code> does not) revokes the user's unused group invite links that they can no longer administer (links where they are still a group admin by membership are kept). Previously the links stayed active in the database and in the admin link lists, though they were already refused at preview and join.</p>
+<p><em>(1.2+)</em> Setting <code>is_active: false</code> also deletes the user's personal access tokens (so they do not come back on reactivation) and revokes the user's pending invite links exactly like <a href="#post-apiv1adminusersiddeactivate"><code>POST /api/v1/admin/users/{id}/deactivate/</code></a>: unused site invite links, pending board invites and active, unused group invite links (each affected board and group receives an <code>invite_link.revoked</code> event). Consumed single-use links are left as they are. Clearing <code>can_access_all_content</code> (the only flag that confers group-admin rights; <code>is_site_admin</code> does not) revokes the user's unused group invite links that they can no longer administer (links where they are still a group admin by membership are kept). Previously those board and group links stayed active in the database and in the admin link lists, though they were already refused at preview and join.</p>
+<p><em>(1.2+)</em> Clearing <code>is_site_admin</code> revokes the user's unused site invite links. Site invite links create accounts only while their creator is an active site admin (see <a href="#get-apiv1admininvite-links"><code>GET /api/v1/admin/invite-links/</code></a>).</p>
 <p><strong>Request</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"is_active"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
@@ -4979,7 +4980,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 <a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">    </span><span class="nt">"revoked_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
 <a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-20T10:00:00Z"</span><span class="p">,</span>
 <a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">    </span><span class="nt">"use_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">    </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"active"</span><span class="p">,</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">    </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pending"</span><span class="p">,</span>
 <a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="nt">"created_by_username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"admin"</span><span class="p">,</span>
 <a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">    </span><span class="nt">"delivery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"link"</span>
 <a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">  </span><span class="p">},</span>
@@ -5050,8 +5051,8 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </tr>
 <tr>
 <td><code>status</code></td>
-<td><code>"active"</code> | <code>"expired"</code> | <code>"used"</code> | <code>"revoked"</code></td>
-<td>Computed status of the link.</td>
+<td><code>"pending"</code> | <code>"expired"</code> | <code>"used"</code> | <code>"revoked"</code></td>
+<td>Computed status of the link. Precedence is revoked &gt; used &gt; expired &gt; pending. <em>(1.2+)</em> A link that would otherwise be <code>pending</code> reports <code>revoked</code> when its creator is no longer an active site admin (deactivated, deleted, or no longer a site admin), because registration refuses it; <code>revoked_at</code> stays <code>null</code> in that case until the link is revoked explicitly. Such a link is not permanently revoked: if the creator's standing is restored, it reports <code>pending</code> and works again. To retire it for good, revoke it explicitly with <code>DELETE /api/v1/admin/invite-links/{id}/</code>, which accepts a link in this state.</td>
 </tr>
 <tr>
 <td><code>created_by_username</code></td>
@@ -5127,7 +5128,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td>The active-link cap for the instance (50) has been reached. Emailed links do not count toward it.</td>
+<td>The active-link cap for the instance (50) has been reached. Emailed links do not count toward it, and <em>(1.2+)</em> neither do links reported as <code>revoked</code> because their creator is no longer an active site admin.</td>
 </tr>
 </tbody>
 </table>
@@ -5182,7 +5183,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </tr>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td><code>{"code": "invite_email_cap_reached"}</code> — 200 pending emailed links already exist on the instance</td>
+<td><code>{"code": "invite_email_cap_reached"}</code> — 200 pending emailed links already exist on the instance (<em>(1.2+)</em> links whose creator is no longer an active site admin do not count)</td>
 </tr>
 <tr>
 <td><code>403 Forbidden</code></td>

@@ -3996,7 +3996,7 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <tr>
 <td>REST</td>
 <td><code>visiban/settings.py</code> <code>REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"]</code></td>
-<td><code>visiban.permissions.MustNotHavePendingPasswordChange</code> and <code>MustNotHavePendingUsernameChange</code> come from the defaults; each delegates to its shared gate (<code>visiban.authorization.PENDING_PASSWORD_CHANGE</code>, <code>PENDING_USERNAME_CHANGE</code>). Documented exceptions that declare their own <code>permission_classes</code> so a forced-change user can reach them: <code>CurrentUserView</code>, <code>ChangePasswordView</code>, <code>ChooseUsernameView</code>, <code>/auth/user/</code> and <code>/auth/password/change/</code> (<code>visiban/urls.py</code>). The OpenAPI schema views (<code>visiban/urls.py</code>) declare <code>IsAuthenticated, TokenHasScope</code>. <code>boards/views/boards.py</code> <code>BoardViewSet</code> and <code>accounts/views.py</code> <code>WSTicketView</code> declare an explicit list that includes both gates</td>
+<td><code>visiban.permissions.MustNotHavePendingPasswordChange</code> and <code>MustNotHavePendingUsernameChange</code> come from the defaults; each delegates to its shared gate (<code>visiban.authorization.PENDING_PASSWORD_CHANGE</code>, <code>PENDING_USERNAME_CHANGE</code>). Documented exceptions that declare their own <code>permission_classes</code> so a forced-change user can reach them: <code>CurrentUserView</code>, <code>ChangePasswordView</code>, <code>ChooseUsernameView</code>, <code>/auth/user/</code> and <code>/auth/password/change/</code> (<code>visiban/urls.py</code>). Every <code>/api/v1/auth/</code> route is registered explicitly and anchored in <code>visiban/urls.py</code>, matching both slash forms, so each resolves to an explicitly chosen view (the project's override, or a deliberately kept stock view: logout, resend-email); dj-rest-auth's urlconfs are not included (<code>accounts/tests/test_auth_routes.py</code>). The OpenAPI schema views (<code>visiban/urls.py</code>) declare <code>IsAuthenticated, TokenHasScope</code>. <code>boards/views/boards.py</code> <code>BoardViewSet</code> and <code>accounts/views.py</code> <code>WSTicketView</code> declare an explicit list that includes both gates</td>
 </tr>
 <tr>
 <td>REST authentication</td>
@@ -4119,8 +4119,8 @@ re-checks.</p>
 </tr>
 <tr>
 <td>Site invite links</td>
-<td><code>accounts/admin_views.py</code> <code>AdminUserDeactivateView._revoke_invite_links</code></td>
-<td>Sets <code>revoked_at</code> on the user's unused site links; invoked by <code>AdminUserDeactivateView.post</code> and by <code>AdminUserDetailView.patch</code> when <code>is_active</code> becomes false</td>
+<td><code>accounts/invite_utils.py</code> <code>validate_invite_token</code>, <code>site_invite_creator_admits</code>, <code>revoke_site_invite_links</code></td>
+<td><code>visiban.authorization.invite_creator_is_valid</code> (the site rule is <code>site_invite_creator_admits</code>, which calls <code>sender_may_admit_accounts</code>: an active site admin) is evaluated at redemption under the row lock, for REST and OAuth signup alike, so a creator deactivated, deleted or demoted by any route stops admitting accounts; <code>revoke_site_invite_links</code> sets <code>revoked_at</code> on the creator's unused links on deactivation (<code>AdminUserDeactivateView.post</code>, <code>AdminUserDetailView.patch</code> with <code>is_active</code> false) and on loss of site admin (<code>AdminUserDetailView.patch</code> with <code>is_site_admin</code> false, <code>set_site_admin --revoke</code>)</td>
 </tr>
 <tr>
 <td>Board invite links</td>
@@ -4214,7 +4214,7 @@ access described in Rule 2.</p>
 <tr>
 <td>Site invite link</td>
 <td><code>accounts/invite_utils.py</code> <code>validate_invite_token</code>, <code>consume_invite_token</code></td>
-<td><code>revoked_at</code>, <code>expires_at</code>, <code>used_at</code>, and <code>AdminUserDeactivateView._revoke_invite_links</code> for links the deactivated user created</td>
+<td><code>revoked_at</code>, <code>expires_at</code>, <code>used_at</code>; <code>site_invite_creator_admits</code> re-evaluated at redemption; <code>revoke_site_invite_links</code> for links a deactivated or demoted creator made</td>
 </tr>
 <tr>
 <td>Board invite link</td>
