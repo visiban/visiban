@@ -127,7 +127,7 @@ Manage labels from the **Settings** tab on the group detail page.
 
 ## Group board defaults
 
-Group admins can configure defaults for new boards created in the group. Neither setting is applied today, and the default member role is deprecated:
+Group admins can configure defaults for new boards created in the group. The default member role is deprecated and has no effect. Allowed priorities is copied onto new boards but not enforced.
 
 | Setting | Description |
 |---|---|
