@@ -973,7 +973,9 @@ class SeedDemoSiteShowcaseTests(TestCase):
         field = CustomFieldDefinition.objects.get(board=board)
         self.assertEqual((field.name, field.field_type, field.show_on_card), ("Story Points", "number", True))
         self.assertEqual(CustomFieldValue.objects.filter(field_definition=field).count(), 1)
-        self.assertFalse(CardRelation.objects.filter(from_card__board=board).exists())
+        # Exactly the one member-owned relation seeded for the schema-fuzz (#1570);
+        # the demo-site showcase relations must not leak onto this board.
+        self.assertEqual(CardRelation.objects.filter(from_card__board=board).count(), 1)
         self.assertFalse(CardExternalRef.objects.filter(card__board=board).exists())
 
 

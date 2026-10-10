@@ -30,6 +30,20 @@ CustomFieldDefinition (+ value), SavedFilter, CardAttachment, GroupInviteLink, a
 GroupLabel (#1125), so the corresponding path parameters below are mapped the same
 way as every other board-scoped resource.
 
+#1570 closed the remaining "repeatedly returned 404" gap (43 operations). Root cause of
+the group routes: the fuzz user is a plain board member but was not a *group* member, and
+`GroupViewSet.get_queryset()` only admits groups the caller owns or belongs to, so every
+`/groups/{id}/...` call 404ed whatever id was supplied. `seed_demo_data` now adds the
+board's members to the demo group (as MEMBER). The join/share/media routes had no mapping
+at all: invite tokens are stored hashed, so this module mints fresh links itself
+(`_mint_public_tokens`) and maps the board share token and the seeded attachment's file
+path. Card/relation/checklist-reorder routes were missing from the table below.
+
+Routes that stay unreachable on purpose: `/api/v1/boards/samples/{sample_id}/` (static
+sample slugs, not DB rows), `/accounts/confirm-email/` and the registration confirm-email
+route (excluded in the job, #1321), and `/api/v1/auth/me/connected-accounts/{provider}/`
+(needs a linked social account the seed does not create).
+
 Admin-only endpoints (`/api/v1/admin/...`) are excluded on purpose too: #1080 requires
 `provision_fuzz_token` to refuse an admin/superuser account, so this job's token can
 never reach them regardless of path-parameter seeding (#1120 accepted this as
@@ -100,7 +114,9 @@ def _load_real_ids():
 
 
 def _query_real_ids():
-    from boards.models import Board, BoardMembership, Card
+    from boards.models import Board, BoardMembership, CardAttachment, CardRelation
+
+    from django.db.models import Q
 
     ids = {
         "board_pk": None,
@@ -124,6 +140,13 @@ def _query_real_ids():
         "attachment_id": None,
         "group_invite_link_id": None,
         "group_label_id": None,
+        # #1570 — card relation, and the three public-credential routes
+        # (board/group join token, board share token) plus a media path.
+        "relation_id": None,
+        "board_join_token": None,
+        "group_join_token": None,
+        "share_token": None,
+        "media_path": None,
     }
 
     board = Board.objects.filter(name="Visiban Demo Board").first()
@@ -164,32 +187,6 @@ def _query_real_ids():
     if label is not None:
         ids["label_id"] = label.id
 
-    # Prefer a card that has both a checklist item and a comment so the
-    # checklist/comment detail routes have something real to fetch too.
-    card = (
-        Card.objects.filter(board=board, checklist_items__isnull=False, comments__isnull=False)
-        .distinct()
-        .first()
-        or Card.objects.filter(board=board).order_by("id").first()
-    )
-    if card is not None:
-        ids["card_id"] = card.id
-        item = card.checklist_items.order_by("id").first()
-        if item is not None:
-            ids["checklist_item_id"] = item.id
-        comment = card.comments.order_by("id").first()
-        if comment is not None:
-            ids["comment_id"] = comment.id
-
-    # Independent of `card` above — the seeded attachment (#1125) lives on
-    # whichever card seed_demo_data happened to pick, not necessarily the
-    # checklist+comment card selected above.
-    from boards.models import CardAttachment
-
-    attachment = CardAttachment.objects.filter(card__board=board).order_by("id").first()
-    if attachment is not None:
-        ids["attachment_id"] = attachment.id
-
     member = (
         BoardMembership.objects.filter(board=board)
         .exclude(user_id=board.owner_id)
@@ -198,6 +195,43 @@ def _query_real_ids():
     )
     if member is not None:
         ids["member_user_id"] = member.user_id
+
+    # The user the fuzz job authenticates as (provision_fuzz_token --username
+    # demo2) is the first non-owner member. Card, comment and attachment deletes
+    # are authorship-gated for a plain member, so the card id is chosen to be
+    # one whose sub-resources that user owns (#1570); an arbitrary card made
+    # those operations 403 for a fixture reason rather than a role rule.
+    card = _pick_card(board, member.user_id if member is not None else None)
+    if card is not None:
+        ids["card_id"] = card.id
+        item = card.checklist_items.order_by("id").first()
+        if item is not None:
+            ids["checklist_item_id"] = item.id
+        comments = card.comments.order_by("id")
+        comment = (
+            (comments.filter(author_id=member.user_id).first() if member is not None else None)
+            or comments.first()
+        )
+        if comment is not None:
+            ids["comment_id"] = comment.id
+        relation = (
+            CardRelation.objects.filter(Q(from_card=card) | Q(to_card=card)).order_by("id").first()
+        )
+        if relation is not None:
+            ids["relation_id"] = relation.id
+
+        # Attachment ids must belong to the SAME card as card_id: the view looks
+        # the attachment up with card=card, so an attachment on another card 404s.
+        attachments = CardAttachment.objects.filter(card=card).order_by("id")
+        attachment = (
+            (attachments.filter(uploaded_by_id=member.user_id).first() if member is not None else None)
+            or attachments.first()
+        )
+        if attachment is not None:
+            ids["attachment_id"] = attachment.id
+            ids["media_path"] = attachment.file.name or None
+
+    _mint_public_tokens(board, ids)
 
     # The fuzz job's own PAT (provisioned by provision_fuzz_token for the same
     # user this run authenticates as) — gives GET/DELETE
@@ -213,6 +247,76 @@ def _query_real_ids():
         ids["pat_id"] = pat.id
 
     return ids
+
+
+def _pick_card(board, member_user_id):
+    """Choose the one card id every ``{id}``-on-a-card path will use (#1570).
+
+    Ranked so that the fuzz user (``member_user_id``) can reach success paths:
+    created by that user (card DELETE is authorship-gated), then richest in
+    sub-resources it owns (attachment, comment) and in checklist/relation rows.
+    Archived cards are skipped, as the card endpoints exclude them. Falls back
+    to any card on the board so a board without a member still gets an id.
+    """
+    from boards.models import Card
+
+    cards = (
+        Card.objects.filter(board=board, archived_at__isnull=True)
+        .prefetch_related("checklist_items", "comments", "attachments")
+        .order_by("id")
+    )
+    best, best_score = None, -1
+    for card in cards:
+        score = 0
+        if member_user_id is not None:
+            score += 8 * (card.created_by_id == member_user_id)
+            score += 4 * any(a.uploaded_by_id == member_user_id for a in card.attachments.all())
+            score += 2 * any(c.author_id == member_user_id for c in card.comments.all())
+        score += 1 * bool(card.checklist_items.all())
+        if score > best_score:
+            best, best_score = card, score
+    return best
+
+
+def _mint_public_tokens(board, ids):
+    """Mint the credentials the public join/share routes need (#1570).
+
+    Invite tokens are stored only as hashes, so no seeded row can tell this hook
+    the raw value the URL needs; the only way to hold one is to create the link
+    here and keep the raw string in memory. That is also why it cannot live in
+    ``seed_demo_data``. Everything is generated with ``secrets`` inside the
+    models; nothing is logged or written to disk. This runs only against the
+    throwaway CI fuzz database, once per ``st run`` process.
+
+    Prior fixture links are deleted first so repeated loads do not accumulate
+    rows. A pre-existing board share token is reused, never rotated.
+    """
+    import uuid
+
+    from boards.models import Board, BoardInviteLink
+    from groups.models import GroupInviteLink
+
+    name = "schemathesis fuzz fixture"
+    owner = board.owner
+
+    BoardInviteLink.objects.filter(board=board, name=name).delete()
+    _, ids["board_join_token"] = BoardInviteLink.generate(
+        board=board, created_by=owner, name=name, role=BoardInviteLink.Role.MEMBER,
+    )
+
+    if board.group_id is not None:
+        group = board.group
+        GroupInviteLink.objects.filter(group=group, name=name).delete()
+        # The join preview 404s a link whose creator no longer administers the
+        # group (#1510), so mint it as the group owner.
+        _, ids["group_join_token"] = GroupInviteLink.generate(
+            group=group, created_by=group.owner, name=name, role=GroupInviteLink.Role.MEMBER,
+        )
+
+    if board.share_token is None:
+        Board.objects.filter(pk=board.pk, share_token__isnull=True).update(share_token=uuid.uuid4())
+        board.refresh_from_db(fields=["share_token"])
+    ids["share_token"] = str(board.share_token) if board.share_token else None
 
 
 _IDS = _load_real_ids()
@@ -235,6 +339,16 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/boards/{board_pk}/cards/{id}/checklist/": {"board_pk": "board_pk", "id": "card_id"},
     "/api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/": {
         "board_pk": "board_pk", "id": "card_id", "item_pk": "checklist_item_id",
+    },
+    # #1570: the card collection route and the relation/reorder routes had no
+    # entry at all, so every one fell through to random ids and 404ed.
+    "/api/v1/boards/{board_pk}/cards/": {"board_pk": "board_pk"},
+    "/api/v1/boards/{board_pk}/cards/{id}/checklist/reorder/": {
+        "board_pk": "board_pk", "id": "card_id",
+    },
+    "/api/v1/boards/{board_pk}/cards/{id}/relations/": {"board_pk": "board_pk", "id": "card_id"},
+    "/api/v1/boards/{board_pk}/cards/{id}/relations/{relation_pk}/": {
+        "board_pk": "board_pk", "id": "card_id", "relation_pk": "relation_id",
     },
     "/api/v1/boards/{board_pk}/cards/{id}/comments/": {"board_pk": "board_pk", "id": "card_id"},
     "/api/v1/boards/{board_pk}/cards/{id}/comments/{comment_pk}/": {
@@ -315,6 +429,19 @@ _PATH_PARAM_OVERRIDES = {
     },
     "/api/v1/groups/{id}/subgroups/": {"id": "group_pk"},
     "/api/v1/groups/{id}/star/": {"id": "group_pk"},
+    # #1570 — the remaining group routes. The fuzz user is a plain group MEMBER
+    # (seed_demo_data), so the admin-only ones (send, transfer-ownership, member
+    # PATCH/DELETE) answer a declared 403 rather than mutating anything.
+    "/api/v1/groups/{id}/invite-links/send/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/members/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/members/{user_id}/": {"id": "group_pk", "user_id": "member_user_id"},
+    "/api/v1/groups/{id}/transfer-ownership/": {"id": "group_pk"},
+    # #1570 — public credentials and media. Tokens are minted by
+    # _mint_public_tokens(); the media path is the seeded attachment's file.
+    "/api/v1/boards/join/{token}/": {"token": "board_join_token"},
+    "/api/v1/groups/join/{token}/": {"token": "group_join_token"},
+    "/api/share/{token}/": {"token": "share_token"},
+    "/media/{path}": {"path": "media_path"},
 }
 
 

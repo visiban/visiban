@@ -1064,6 +1064,25 @@ backend-schema-fuzz:
         - backend/visiban/settings.py
         - backend/visiban/schema_hooks.py
         - backend/schemathesis_hooks.py
+        # The hook resolves ids from the seeded rows (#1570).
+        - backend/boards/management/commands/seed_demo_data.py
+  # "Missing valid test data" accounting (#1570). Before it, 43 operations
+  # repeatedly 404ed: the fuzz user (demo2) was not a GROUP member, so
+  # GroupViewSet.get_queryset() hid every /groups/{id}/... route whatever id the
+  # hook supplied; join/share/media had no hook mapping; and the card collection,
+  # relations and checklist-reorder routes were unmapped. seed_demo_data now adds
+  # the board's members to the demo group, and schemathesis_hooks.py mints join
+  # tokens (stored hashed, so only the hook can hold the raw value), maps the
+  # share token and the seeded attachment's media path. Operations expected to
+  # STILL report missing data, and why:
+  #   * GET /api/v1/boards/samples/{sample_id}/  static sample slugs, not DB rows
+  #   * DELETE /api/v1/auth/me/connected-accounts/{provider}/  needs a linked
+  #     social account the seed does not create
+  #   * the two email-confirm routes are excluded above (#1321)
+  #   * /api/v1/admin/... is out of reach for a non-admin token by design (#1080)
+  # 403s that are role rules, not wrong ids: DELETE /auth/tokens/{id}/ (a PAT may
+  # never manage PATs, #1110), group admin-only actions, board-admin-only actions.
+  # Verify the warning count from the job log after changing any of this.
   services:
     - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
