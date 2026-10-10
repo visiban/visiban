@@ -5355,10 +5355,10 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <h3 id="get-apiv1boardsboard_idcardsidcomments"><code>GET /api/v1/boards/{board_id}/cards/{id}/comments/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidcomments" title="Permanent link">&para;</a></h3>
 <p>List comments. Requires board member or above.</p>
 <h3 id="post-apiv1boardsboard_idcardsidcomments"><code>POST /api/v1/boards/{board_id}/cards/{id}/comments/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidcomments" title="Permanent link">&para;</a></h3>
-<p>Add a comment. <strong>Minimum role: Collaborator.</strong></p>
+<p>Add a comment. <strong>Minimum role: Collaborator.</strong> Returns <code>404 Not Found</code> if the card was deleted concurrently; nothing is saved.</p>
 <p><strong>Request</strong> <code>{ "body": "Looking into this now." }</code></p>
 <h3 id="delete-apiv1boardsboard_idcardsidcommentscomment_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/comments/{comment_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidcommentscomment_id" title="Permanent link">&para;</a></h3>
-<p>Delete a comment. <strong>Minimum role: Collaborator.</strong> Collaborators may only delete their own comments. Members with the <code>is_moderator</code> entitlement (or admin role) may delete any comment. Collaborators cannot delete others' comments regardless of <code>is_moderator</code>.</p>
+<p>Delete a comment. <strong>Minimum role: Collaborator.</strong> Collaborators may only delete their own comments. Members with the <code>is_moderator</code> entitlement (or admin role) may delete any comment. Collaborators cannot delete others' comments regardless of <code>is_moderator</code>. Returns <code>404 Not Found</code> if the card was deleted concurrently; the request has no effect.</p>
 <hr />
 <h2 id="attachments">Attachments<a class="headerlink" href="#attachments" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boardsboard_idcardsidattachments"><code>GET /api/v1/boards/{board_id}/cards/{id}/attachments/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidattachments" title="Permanent link">&para;</a></h3>
@@ -5368,7 +5368,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span>
 </code></pre></div>
 <h3 id="post-apiv1boardsboard_idcardsidattachments"><code>POST /api/v1/boards/{board_id}/cards/{id}/attachments/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidattachments" title="Permanent link">&para;</a></h3>
-<p>Upload an attachment (<code>multipart/form-data</code>, field name <code>file</code>). Max size: 10 MB by default, operator-configurable via the <code>MAX_UPLOAD_SIZE_BYTES</code> env var. <strong>Minimum role: Collaborator.</strong></p>
+<p>Upload an attachment (<code>multipart/form-data</code>, field name <code>file</code>). Max size: 10 MB by default, operator-configurable via the <code>MAX_UPLOAD_SIZE_BYTES</code> env var. <strong>Minimum role: Collaborator.</strong> Returns <code>404 Not Found</code> if the card was deleted concurrently; the request has no effect.</p>
 <p><strong>Allowed file types</strong></p>
 <p>The server validates both the declared <code>Content-Type</code> and the file's magic bytes. Uploads with a disallowed type are rejected with <code>HTTP 400</code>.</p>
 <table>
@@ -5420,7 +5420,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"feature_disabled"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File uploads are disabled by the site administrator."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <h3 id="delete-apiv1boardsboard_idcardsidattachmentsattachment_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidattachmentsattachment_id" title="Permanent link">&para;</a></h3>
-<p>Delete an attachment. <strong>Minimum role: Collaborator.</strong> Collaborators may only delete their own attachments. Members with the <code>is_moderator</code> entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of <code>is_moderator</code>.</p>
+<p>Delete an attachment. <strong>Minimum role: Collaborator.</strong> Collaborators may only delete their own attachments. Members with the <code>is_moderator</code> entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of <code>is_moderator</code>. Returns <code>404 Not Found</code> if the card was deleted concurrently; the request has no effect.</p>
 <hr />
 <h2 id="relations-since-12">Relations (since 1.2)<a class="headerlink" href="#relations-since-12" title="Permanent link">&para;</a></h2>
 <p>Typed links between two cards <strong>on the same board</strong>. The board stores one
@@ -5602,19 +5602,20 @@ complete card payload. See <a href="../websockets/">WebSockets</a>.</p>
 <h3 id="get-apiv1boardsboard_idcardsidchecklist"><code>GET /api/v1/boards/{board_id}/cards/{id}/checklist/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidchecklist" title="Permanent link">&para;</a></h3>
 <p>List checklist items.</p>
 <h3 id="post-apiv1boardsboard_idcardsidchecklist"><code>POST /api/v1/boards/{board_id}/cards/{id}/checklist/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchecklist" title="Permanent link">&para;</a></h3>
-<p>Add a checklist item. <strong>Minimum role: Collaborator.</strong></p>
+<p>Add a checklist item. <strong>Minimum role: Collaborator.</strong> Returns <code>404 Not Found</code> if the card was deleted concurrently; nothing is saved.</p>
 <p><strong>Request</strong> <code>{ "text": "Write tests" }</code></p>
 <h3 id="patch-apiv1boardsboard_idcardsidchecklistitem_id"><code>PATCH /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/</code><a class="headerlink" href="#patch-apiv1boardsboard_idcardsidchecklistitem_id" title="Permanent link">&para;</a></h3>
 <p>Update an item (e.g. check/uncheck). <strong>Minimum role: Collaborator.</strong></p>
 <blockquote>
+<p><strong>Concurrent card delete:</strong> if the card is deleted while the request is in flight, the response is <code>404 Not Found</code> and the change is not saved.</p>
 <p><strong>Ownership gate:</strong> Collaborators and members may only edit items they created. Admins and moderators may edit any item. Items created before the <code>created_by</code> field existed (migration 0044) have no recorded creator and are unrestricted. Non-moderator callers who did not create the item receive <code>403 Forbidden</code> with <code>{"detail": "You can only edit checklist items you created."}</code>.</p>
 <p><strong><code>position</code> cannot be changed via PATCH.</strong> The field is present in the response, and echoing back the item's <em>current</em> <code>position</code> value is accepted (so a PUT-style client that round-trips the full representation still works). Submitting a <em>different</em> value is rejected with <code>400</code> and body <code>{"position": ["Changing a checklist item's position via PATCH is not allowed — ..."]}</code>. To reorder checklist items, use <code>POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/</code> (since 1.2, #1292).</p>
 </blockquote>
 <p><strong>Request</strong> <code>{ "is_checked": true }</code></p>
 <h3 id="delete-apiv1boardsboard_idcardsidchecklistitem_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidchecklistitem_id" title="Permanent link">&para;</a></h3>
-<p>Delete a checklist item. <strong>Minimum role: Collaborator.</strong> Same ownership gate as <code>PATCH</code> above.</p>
+<p>Delete a checklist item. <strong>Minimum role: Collaborator.</strong> Same ownership gate as <code>PATCH</code> above. Returns <code>404 Not Found</code> if the card was deleted concurrently; the request has no effect.</p>
 <h3 id="post-apiv1boardsboard_idcardsidchecklistreorder"><code>POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchecklistreorder" title="Permanent link">&para;</a></h3>
-<p>Reorder checklist items on a card. <strong>Minimum role: Collaborator.</strong> Not ownership-gated — unlike <code>PATCH</code>/<code>DELETE</code> on a single item, reordering changes the whole list's display order rather than one item's content, so any collaborator+ may reorder regardless of who created each item. <em>(Since 1.2, #1292.)</em></p>
+<p>Reorder checklist items on a card. <strong>Minimum role: Collaborator.</strong> Not ownership-gated — unlike <code>PATCH</code>/<code>DELETE</code> on a single item, reordering changes the whole list's display order rather than one item's content, so any collaborator+ may reorder regardless of who created each item. <em>(Since 1.2, #1292.)</em> Returns <code>404 Not Found</code> if the card was deleted concurrently; the request has no effect.</p>
 <p><strong>Request</strong> <code>{ "order": [17, 21, 19] }</code> — <code>order</code> must be <strong>exactly</strong> this card's current checklist item IDs: every item once, no duplicates, and no ID from another card. A partial list, a duplicate ID, an ID belonging to a different card, or (on a card that has items) an empty list are all rejected with <code>400</code> and body <code>{"order": ["..."]}</code> rather than partially applied. Returns the reordered list (same shape as <code>GET</code>).</p>
 <p><strong>Checklist item response shape</strong></p>
 <p>All checklist endpoints (<code>GET</code>, <code>POST</code>, <code>PATCH</code>, <code>POST .../reorder/</code>) return checklist item objects with the following fields:</p>
