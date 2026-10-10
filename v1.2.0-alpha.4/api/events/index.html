@@ -4152,6 +4152,9 @@ for both surfaces.</p>
   <code>GET /api/v1/boards/{id}/</code> for the caller's star state. <code>is_starred</code> is deprecated in
   <code>board.created</code> / <code>board.updated</code> payloads (#1559): clients must ignore it and use
   <code>board.star_changed</code> for per-user star state.</li>
+<li><code>share_token</code> and <code>share_token_expires_at</code> are dropped from every payload for
+  every reader, whatever their role. Board admins read them over REST only
+  (<code>GET /api/v1/boards/{id}/full/</code> and the share action response).</li>
 </ul>
 <hr />
 <h2 id="retention">Retention<a class="headerlink" href="#retention" title="Permanent link">&para;</a></h2>

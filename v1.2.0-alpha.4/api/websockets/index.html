@@ -4300,6 +4300,7 @@ build. If you are adding an event, see
 <a href="../../development/websocket-event-contract/">WebSocket event contract</a>.</p>
 </div>
 <h3 id="board-events">Board events<a class="headerlink" href="#board-events" title="Permanent link">&para;</a></h3>
+<p>Board and group <code>board.*</code> event payloads never carry the share-link fields (<code>share_token</code>, <code>share_token_expires_at</code>), and neither does the change feed. Board admins read them over REST from <a href="../boards/"><code>GET /api/v1/boards/{id}/full/</code></a> and from the share action response.</p>
 <table>
 <thead>
 <tr>
