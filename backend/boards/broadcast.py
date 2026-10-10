@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 # ``INTENTIONALLY_UNHANDLED_BOARD_EVENTS`` below giving the reason there is
 # none). That three-way match is the whole point: a name that exists in only
 # two of the three places is an alert that can never fire.
+# DEPRECATED PAYLOAD FIELD (#1559): ``is_starred`` in board.created /
+# board.updated is computed for the ACTING user, not the subscriber. It stays on
+# the wire (1.x contract, no field removal) but clients must ignore it and use
+# board.star_changed for per-user star state.
 EVT_BOARD_CREATED = "board.created"
 EVT_BOARD_UPDATED = "board.updated"
 EVT_BOARD_DELETED = "board.deleted"

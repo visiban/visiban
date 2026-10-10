@@ -479,7 +479,7 @@ Request a password reset email. **No authentication required.**
 - If the email belongs to an **OAuth-only** account (no password set) and the address is verified on that account, the same reset link is emailed; confirming it sets the account's first password. *Changed in 1.2 (#1314).*
 - For an OAuth-only account, the link is valid only while **the address it was sent to** is still verified on the account. If that address has since been unverified or removed, `POST /api/v1/auth/password/reset/confirm/` refuses the link with `400 {"token": ["Invalid value"]}` and no password is set — even if another address on the account is verified. Any change to which of the account's addresses are verified voids its outstanding links; request a new one. Links for accounts that already have a password are unaffected. allauth's own pages at `/accounts/password/reset/` and `/accounts/password/reset/key/<uid>-<token>/` apply the same rules. *Changed in 1.2 (#1337).*
 - If the email belongs to an OAuth-only account whose address was never verified, an alternate email is sent directing the user back to their OAuth provider instead, and no reset token is issued.
-- **Rate limited** — 5 requests per hour per IP in production (unlimited in debug mode). Exceeding the limit returns `429 Too Many Requests`.
+- **Rate limited** — 5 requests per hour per IP in production (raised to 9999/hour in debug mode, a finite budget; `VISIBAN_DISABLE_THROTTLING` is the CI-only full bypass). Exceeding the limit returns `429 Too Many Requests`.
 
 **Response** `200 OK { "detail": "Password reset e-mail has been sent." }`
 

@@ -534,7 +534,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        # In development throttling is disabled (effectively unlimited).
+        # In development (DEBUG) most scopes are raised to 9999/hour per scope: a
+        # finite budget, not unlimited (share_link/share_link_token have no bypass).
+        # VISIBAN_DISABLE_THROTTLING (below) is the CI-only full bypass.
         # In production use sane but generous limits; polling endpoints
         # (notifications, version) fire every 15–30 s so a single active
         # user easily makes 500+ authenticated requests per hour.
@@ -1036,6 +1038,29 @@ from visiban.demo import parse_demo_user_throttle_rate as _parse_demo_user_throt
 _DEMO_USER_THROTTLE_RATE = _parse_demo_user_throttle_rate(os.environ.get("DEMO_USER_THROTTLE_RATE"))
 if DEMO_MODE and _DEMO_USER_THROTTLE_RATE:
     REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["user"] = _DEMO_USER_THROTTLE_RATE
+
+# #1569: CI-only throttle switch for backend-schema-fuzz. The fuzz job runs with
+# DEBUG=True, but the DEBUG bypass above is only "9999/hour", not unlimited, and
+# the share_link/share_link_token scopes have no bypass at all. A 20k-request
+# run from one token/IP exhausts those budgets, after which later cases are
+# answered by the DRF throttle (429) instead of the view under test, which
+# overstates coverage. Off by default and honored ONLY with DEBUG=True so a
+# production install can neither trip it by accident nor be loosened by it; a
+# deliberate misconfiguration fails loudly at startup instead of silently.
+VISIBAN_DISABLE_THROTTLING = env.bool("VISIBAN_DISABLE_THROTTLING", default=False)
+if VISIBAN_DISABLE_THROTTLING:
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "VISIBAN_DISABLE_THROTTLING is only honored with DEBUG=True (it exists for the "
+            "CI schema-fuzz job). Unset it on this install."
+        )
+    REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+        _scope: "1000000/second" for _scope in REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+    }
+    # allauth's failed-login lockout is a separate limiter; on the API it answers
+    # 400 (see accounts.serializers.LoginSerializer), which would hide the login
+    # view from the fuzzer once the fuzz account trips it.
+    ACCOUNT_RATE_LIMITS = {"login_failed": False}
 
 # Email backend — console in development (prints to stdout), SMTP in production.
 # Set EMAIL_BACKEND explicitly to override (e.g. for testing or third-party relay).

@@ -222,7 +222,7 @@ Sends a test email using the configuration currently in effect and reports the r
 supplied in the request body — an admin-gated endpoint that delivered to an arbitrary
 address would be usable as an open relay and as a network probe.
 
-Throttled to **5 requests per hour** per user (unlimited when `DEBUG` is on).
+Throttled to **5 requests per hour** per user (raised to 9999/hour in `DEBUG`, a finite budget; `VISIBAN_DISABLE_THROTTLING` is the CI-only full bypass).
 
 ```json
 { "success": true, "code": null, "sent_to": "admin@example.org" }

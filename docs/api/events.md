@@ -144,7 +144,9 @@ Two consequences worth knowing:
 - `is_starred`, on `board.*` payloads, reflects the **actor's** state at the time
   of the event, not the reader's. This matches the WebSocket surface, where the
   same payload is fanned out to every subscriber. Read a board's own
-  `GET /api/v1/boards/{id}/` for the caller's star state.
+  `GET /api/v1/boards/{id}/` for the caller's star state. `is_starred` is deprecated in
+  `board.created` / `board.updated` payloads (#1559): clients must ignore it and use
+  `board.star_changed` for per-user star state.
 
 ---
 

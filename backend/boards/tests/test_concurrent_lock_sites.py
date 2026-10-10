@@ -22,9 +22,8 @@ Site coverage:
 * ``views/custom_fields.py`` create / update           -> ``BoardRowLockTests``
 * ``views/swimlane_custom_fields.py`` create / update  -> ``BoardRowLockTests``
 * ``views/invites.py`` link cap, emailed-invite cap, revoke -> ``InviteLockTests``
-* ``views/columns.py`` ``reorder`` board lock          -> deliberately NOT here:
-  #1522 is changing the column reorder locking, so a test here would pin the
-  ordering that issue replaces. Covered by #1522.
+* ``views/columns.py`` ``reorder`` board lock          -> ``test_card_create_reorder_race.py``
+  (#1566: reorder vs column create, and reorder vs card create).
 
 Other ``select_for_update`` sites in ``backend/boards`` are covered elsewhere:
 ``services/cards.py`` (``move_card`` card/sibling locks, ``enforce_column_limits``)

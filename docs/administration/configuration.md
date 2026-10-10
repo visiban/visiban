@@ -53,6 +53,12 @@ Add these in **Settings → CI/CD → Variables**. The pipeline will fail or pro
 | `MINIO_SECRET_KEY` | Cache warm jobs | Yes | |
 | `MINIO_BUCKET` | Cache warm jobs | No | |
 
+### Schema-fuzz throttle override
+
+| Variable | Default | Notes |
+|---|---|---|
+| `VISIBAN_DISABLE_THROTTLING` | `false` | CI/test-only; not for production. Set by the `backend-schema-fuzz` job so its ~20k requests are not answered with 429. Lifts every API throttle rate and allauth's failed-login lockout (which answers 400 on the API and would hide the login view from the fuzzer). Requires `DEBUG=True`; the app refuses to start if it is set otherwise. |
+
 ---
 
 ## Production deployment
