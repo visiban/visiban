@@ -710,7 +710,11 @@ class CardViewSet(viewsets.ModelViewSet):
                 ),
                 "version": serializers.IntegerField(
                     required=False, allow_null=True,
-                    help_text="OCC version the client last observed; omit to skip the conflict check.",
+                    help_text=(
+                        "OCC version the client last observed; omit to skip the conflict check. "
+                        "A move without it can still return 409 version_conflict if the card keeps "
+                        "changing concurrently while the server retries its lock."
+                    ),
                 ),
             },
         ),
@@ -771,9 +775,10 @@ class CardViewSet(viewsets.ModelViewSet):
         This method only parses the request body and query string.
 
         Note there is no ``@transaction.atomic`` here any more: the service opens
-        the transaction, and it must be the one to do so because the card row is
-        read under ``select_for_update()`` as its first statement. Nothing in
-        this method may issue a locking or mutating query before the call.
+        the transaction, and it must be the one to do so because the card row is read
+        and then locked, together with its source and target cells, inside that
+        transaction (#1522). Nothing in this method may issue a locking or
+        mutating query before the call.
         """
         # A JSON body that parses to a non-mapping (a bare number/string/array/
         # null/bool — valid JSON, just not a JSON *object*) makes every

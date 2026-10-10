@@ -181,8 +181,8 @@ def _resolve_board_for_card(user, card_id):
 
     Returns ``(board, role, card)`` — the card is already fetched here so
     callers that don't need a row lock (``update_card``, ``archive_card``)
-    never issue a second query for it. ``move_card`` still re-fetches under
-    ``select_for_update()`` inside the service, as it must.
+    never issue a second query for it. ``move_card`` still re-reads the card
+    and locks it inside the service, as it must.
 
     A nonexistent card and a card on a board the caller cannot see return the
     identical error (reusing ``CardNotFound``, whose own docstring states this

@@ -54,7 +54,7 @@ import logging
 from dataclasses import dataclass
 
 from django.db import transaction
-from django.db.models import F, Sum, prefetch_related_objects
+from django.db.models import F, Q, Sum, prefetch_related_objects
 from django.utils import timezone
 
 from .. import broadcast as _broadcast
@@ -348,10 +348,18 @@ def enforce_column_limits(
     for a column that is already over its *WIP* limit.
 
     Locking: when any enforced limit applies, the column row is locked with
-    ``select_for_update()`` before counting, so two concurrent writers into the
-    same column queue instead of both observing room for one more card. Call
-    this inside the caller's transaction, after any card-row lock, to keep the
-    card → column lock order ``move_card`` documents.
+    ``select_for_update(no_key=True)`` before counting, so two concurrent
+    writers into the same column queue instead of both observing room for one
+    more card. Call this inside the caller's transaction, after any card-row
+    lock, to keep the card → column lock order ``move_card`` documents.
+
+    ``FOR NO KEY UPDATE`` rather than ``FOR UPDATE`` (#1522): every insert or
+    update of a row with a foreign key to the column — a ``CardMovement`` naming
+    it as ``from_column``, a card saved into it — takes ``FOR KEY SHARE`` on the
+    column row, which ``FOR UPDATE`` blocks and ``FOR NO KEY UPDATE`` does not.
+    With ``FOR UPDATE``, a move A -> B racing a move B -> A in another swimlane
+    deadlocks: each holds its target column and its audit row needs the other's.
+    Two ``FOR NO KEY UPDATE`` locks still conflict, so limit checks still queue.
 
     Override rules (identical on every path): hard WIP mode is evaluated before
     ``force`` is consulted, so no role can override it; a soft WIP or weight
@@ -371,7 +379,7 @@ def enforce_column_limits(
     # One lock covers WIP and weight; acquiring it twice on the same row would
     # be a redundant round-trip.
     if lock:
-        Column.objects.select_for_update().get(pk=column.pk)
+        Column.objects.select_for_update(no_key=True).get(pk=column.pk)
 
     # Hard mode is independent of soft mode: it activates even when soft
     # enforcement is off, and accepts no override from any role. It is
@@ -452,7 +460,7 @@ def create_card(
         # concurrent creates in the same (column, swimlane) cell cannot both
         # observe the same max position and assign a duplicate. Same column-row
         # lock the move transition takes for its WIP check (#1050).
-        Column.objects.select_for_update().get(pk=column.pk)
+        Column.objects.select_for_update(no_key=True).get(pk=column.pk)
         max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
         card = save(position=max_pos)
         # The column row is already locked above, so the helper does not lock
@@ -707,15 +715,25 @@ def move_card(
 ):
     """Move a card to a column/swimlane/position, writing a ``CardMovement``.
 
-    Takes a ``card_id`` rather than a ``Card`` because the row must be read
-    under ``select_for_update()`` *inside* this function's transaction: a card
-    the caller fetched beforehand is not locked, and re-locking it would mean a
-    second fetch of the same row.
+    Takes a ``card_id`` rather than a ``Card`` because the row must be read and
+    locked *inside* this function's transaction: a card the caller fetched
+    beforehand is not locked and may already be stale.
 
     Lock order, which is the deadlock-avoidance contract and must not change:
-    the card row, then the target column row (only when a limit is enforced),
-    then the source cell's cards ordered by pk, then the target cell's cards
-    ordered by pk. Concurrent moves then queue rather than deadlock.
+    first the moved card together with every card in its source and target
+    cells, in **one** statement ordered by pk; then, when the card changes
+    cell, the source and target column rows, again in one pk-ordered statement
+    (``FOR NO KEY UPDATE``). No card row is locked after a column row, and in
+    the ordinary case no card row is locked outside that single pk-ordered
+    statement, so concurrent moves queue rather than deadlock (#1522: locking
+    the card first and its siblings after deadlocked two moves out of one
+    cell). Known exception, tracked in #1567: a card that a concurrent move
+    commits *into* a locked cell while this move waits is not in the
+    statement's result, so the later compaction or shift UPDATE locks it
+    outside pk order, and a third move can still deadlock against it. Because the source cell is only known once the card is
+    read, the card is read unlocked, then re-checked under the lock; if it
+    changed in between, the attempt rolls back and is retried, and a card that
+    keeps changing ends in ``VersionConflict`` (409), never a 500.
 
     ``force`` only ever relaxes a *soft* limit, and only for a board admin.
     Hard WIP mode is evaluated before ``force`` is consulted at all, so no role
@@ -735,16 +753,111 @@ def move_card(
     role = _resolve_role(actor, board, role)
     _require_mutation_role(role)
 
+    # The card's cell is only known after reading the card, and the cell has to
+    # be locked *with* the card in one pk-ordered statement (see
+    # _lock_move_cells), so the card is read unlocked first and re-validated
+    # under the lock. If a concurrent writer changed it in between, the attempt
+    # is rolled back — releasing its locks — and repeated against the new state.
+    for _attempt in range(_MOVE_LOCK_ATTEMPTS):
+        try:
+            return _move_card_attempt(
+                actor=actor, board=board, card_id=card_id,
+                target_column_id=target_column_id, target_swimlane_id=target_swimlane_id,
+                position=position, render=render, expected_version=expected_version,
+                force=force, role=role,
+            )
+        except _CardChangedBeforeLock as exc:
+            current_version = exc.current_version
+    # Only reachable when the card is rewritten between read and lock on every
+    # attempt — a clean conflict for the caller to retry, never a deadlock.
+    raise VersionConflict(current_version)
+
+
+# How many times move_card re-reads a card that changed between its unlocked
+# read and its row lock. One retry covers the ordinary race; the bound only
+# exists so a card under constant concurrent writes ends in a 409, not a loop.
+_MOVE_LOCK_ATTEMPTS = 3
+
+
+class _CardChangedBeforeLock(Exception):
+    """Internal: the card changed between move_card's read and its lock."""
+
+    def __init__(self, current_version):
+        super().__init__(current_version)
+        self.current_version = current_version
+
+
+def _lock_move_cells(*, board, card_id, cells):
+    """Lock the moved card and every card in ``cells`` in one pk-ordered SELECT.
+
+    This is the whole card-row half of move_card's lock order (#1522). Each
+    move used to lock its own card first and its source/target siblings after,
+    so two moves out of one cell each held one card and waited for the other's,
+    and a move A -> B racing one B -> A took the two cells in opposite orders.
+    Both are deadlocks. One statement ordered by pk acquires every row in the
+    same global order no matter which card is moving, so concurrent moves that
+    share any row queue instead.
+
+    ``of=("self",)`` keeps the lock off the joined column and swimlane rows
+    (there are no joins here, but it pins the intent): a column-row lock taken
+    as a side effect would sit outside the documented order. ``cells`` is a set
+    of ``(column_id, swimlane_id)`` pairs. Returns the locked moved card, or
+    ``None`` when it no longer exists on the board.
+    """
+    cell_filter = Q(pk=card_id)
+    for column_id, swimlane_id in cells:
+        cell_filter |= Q(column_id=column_id, swimlane_id=swimlane_id)
+    locked = list(
+        Card.objects.filter(cell_filter, board=board)
+        .order_by("pk")
+        .select_for_update(of=("self",))
+    )
+    return next((row for row in locked if row.pk == card_id), None)
+
+
+def _move_relevant_state(card):
+    """The fields ``move_card``'s gates and cell lock were decided on."""
+    return (
+        card.version, card.column_id, card.swimlane_id,
+        card.assignee_id, card.created_by_id,
+    )
+
+
+def _lock_move_columns(column_ids):
+    """Lock the move's source and target column rows, pk-ordered, in one SELECT.
+
+    ``FOR NO KEY UPDATE``: it serializes against limit checks and against a
+    column reorder (``FOR UPDATE``) without blocking the ``FOR KEY SHARE``
+    locks that FK inserts referencing the column take — see
+    ``enforce_column_limits``. ColumnViewSet.reorder locks the board's columns
+    in the same pk order.
+    """
+    list(
+        Column.objects.filter(pk__in=sorted(column_ids))
+        .order_by("pk")
+        .select_for_update(no_key=True)
+    )
+
+
+def _read_card_for_move(card_id, board):
+    """The unlocked read that starts each ``move_card`` attempt."""
+    try:
+        return Card.objects.select_related("column", "swimlane").get(pk=card_id, board=board)
+    except Card.DoesNotExist:
+        raise CardNotFound() from None
+
+
+def _move_card_attempt(
+    *, actor, board, card_id, target_column_id, target_swimlane_id, position,
+    render, expected_version, force, role,
+):
+    """One locked attempt at ``move_card``; see its docstring for the contract."""
     board_id = board.id
     with transaction.atomic():
-        try:
-            card = (
-                Card.objects.select_for_update()
-                .select_related("column", "swimlane")
-                .get(pk=card_id, board=board)
-            )
-        except Card.DoesNotExist:
-            raise CardNotFound() from None
+        # Unlocked read: the gates below are evaluated on it so their order —
+        # 404, assignment, version, then target lookups — is unchanged, and it
+        # names the source cell that _lock_move_cells must take.
+        card = _read_card_for_move(card_id, board)
 
         # Ownership/assignment gate: any member may move unassigned cards or
         # cards they created, and the assignee of a card may move it (they own
@@ -777,17 +890,49 @@ def move_card(
         target_column = _board_scoped(Column, target_column_id, board, ColumnNotFound)
         target_swimlane = _board_scoped(Swimlane, target_swimlane_id, board, SwimlaneNotFound)
 
+        locked = _lock_move_cells(
+            board=board, card_id=card.pk,
+            cells={
+                (card.column_id, card.swimlane_id),
+                (target_column.pk, target_swimlane.pk),
+            },
+        )
+        if locked is None:
+            # Deleted between the read and the lock.
+            raise CardNotFound()
+        if _move_relevant_state(locked) != _move_relevant_state(card):
+            # The gates above were judged on the unlocked read, and the cells
+            # locked are the ones that read named. ``version`` alone cannot
+            # vouch for either: not every write bumps it (archive/unarchive and
+            # the ``clear_viewer_assignees`` command do not), so every
+            # field the gates or the lock depend on is compared. If any moved,
+            # start over on the new state.
+            raise _CardChangedBeforeLock(locked.version)
+        # Sibling compaction does not bump ``version``, so the position read
+        # before the lock may be stale; the locked row's is current.
+        card.position = locked.position
+
         column_changed = card.column_id != target_column.pk
         swimlane_changed = card.swimlane_id != target_swimlane.pk
 
+        if column_changed or swimlane_changed:
+            # Column rows, after the card rows (#1522). The CardMovement insert
+            # and the card's column change below take FOR KEY SHARE on the
+            # source and target columns, and a column reorder updates
+            # ``position`` (a unique key) and so holds FOR UPDATE on every
+            # column row. Taking both rows here, in one pk-ordered statement,
+            # before any of those FK checks, gives every move and reorder the
+            # same column order — so they queue instead of deadlocking.
+            _lock_move_columns({card.column_id, target_column.pk})
+
         # WIP and weight enforcement — only when the card enters a different
         # column. Pure position reorders within the same cell, and swimlane-only
-        # moves within one column, are exempt. The helper locks the target
-        # column row (after the card row above, per the lock order) only when a
-        # limit is actually enforced.
+        # moves within one column, are exempt. The target column row is already
+        # locked above, so the helper does not lock it again.
         if column_changed:
             enforce_column_limits(
                 board=board, column=target_column, card=card, role=role, force=force,
+                lock=False,
             )
 
         movement = None
@@ -809,14 +954,11 @@ def move_card(
                 moved_by=actor,
             )
 
-            # Lock the source cell's cards, then compact the gap the moved card
-            # leaves behind. A single bulk UPDATE (decrement every position after
+            # Compact the gap the moved card leaves in its (already locked)
+            # source cell. A single bulk UPDATE (decrement every position after
             # the moved card) rather than a per-row save() loop, so a large
             # source cell does not cost O(N) queries. This endpoint keeps
             # positions compact, so -1 is equivalent to a full renumber.
-            list(Card.objects.filter(
-                board=board, column=card.column, swimlane=card.swimlane
-            ).exclude(pk=card.pk).order_by("pk").select_for_update())
             Card.objects.filter(
                 board=board, column=card.column, swimlane=card.swimlane,
                 archived_at__isnull=True,
@@ -824,10 +966,7 @@ def move_card(
                 position=F("position") - 1
             )
 
-        # Lock the target cell's cards, then shift to make room.
-        list(Card.objects.filter(
-            board=board, column=target_column, swimlane=target_swimlane
-        ).exclude(pk=card.pk).order_by("pk").select_for_update())
+        # Shift the (already locked) target cell to make room.
         Card.objects.filter(
             board=board, column=target_column, swimlane=target_swimlane
         ).exclude(pk=card.pk).filter(position__gte=position).update(

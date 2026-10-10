@@ -162,7 +162,17 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # of column count. `count` is len(order_ints), not a separate query — the
             # full-set check above already guarantees it equals the board's column count.
             count = len(order_ints)
-            cols = list(Column.objects.filter(board=board, pk__in=order_ints).only("id", "position"))
+            # Lock every column row in pk order before the position writes
+            # (#1522). bulk_update locks rows in whatever order its UPDATE scans
+            # them; a card move locks its source and target columns in pk order
+            # (boards.services.cards._lock_move_columns), and the two orders
+            # must agree or a reorder racing a move deadlocks.
+            cols = list(
+                Column.objects.filter(board=board, pk__in=order_ints)
+                .order_by("pk")
+                .select_for_update()
+                .only("id", "position")
+            )
             id_to_col = {c.pk: c for c in cols}
             # The `if col_id in id_to_col` guards below are belt-and-braces, not load-
             # bearing: validate_full_reorder_order already guarantees order_ints is

@@ -15,6 +15,7 @@ suites. Here we assert on the typed errors and on the database.
 """
 from unittest.mock import patch
 
+from django.db.models import F
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -524,6 +525,148 @@ class VersionConflictTests(CardServiceTestBase):
         before = Card.objects.get(pk=self.card.pk).version
         self._move()
         self.assertEqual(Card.objects.get(pk=self.card.pk).version, before + 1)
+
+
+class MoveLockRevalidationTests(CardServiceTestBase):
+    """move_card reads the card unlocked, locks its cells, then re-checks (#1522).
+
+    The real race needs PostgreSQL (``ConcurrentMoveLockTests`` in
+    ``test_concurrent_moves``). Here a concurrent writer is simulated by making
+    the unlocked read return a stale copy (or by changing the card just before
+    ``_lock_move_cells`` runs), which is exactly the window the re-check exists
+    for.
+    """
+
+    _real_lock = staticmethod(svc._lock_move_cells)
+    _real_read = staticmethod(svc._read_card_for_move)
+
+    def _lock_after(self, mutate, times=1):
+        """Patch the cell lock so ``mutate()`` runs before the first ``times`` calls."""
+        calls = []
+
+        def side_effect(**kwargs):
+            calls.append(kwargs)
+            if len(calls) <= times:
+                mutate()
+            return self._real_lock(**kwargs)
+
+        return patch.object(svc, "_lock_move_cells", side_effect=side_effect), calls
+
+    def _stale_reads(self, times, **stale):
+        """Patch the unlocked read to return a stale copy the first ``times`` calls.
+
+        A concurrent change cannot be written from inside the attempt: the retry
+        rolls back the attempt's savepoint, and the change with it. So the
+        "concurrent" state is committed up front and the read is made to lag.
+        """
+        reads = []
+
+        def side_effect(card_id, board):
+            card = self._real_read(card_id, board)
+            reads.append(card)
+            if len(reads) <= times:
+                for field, value in stale.items():
+                    setattr(card, field, value)
+            return card
+
+        return patch.object(svc, "_read_card_for_move", side_effect=side_effect), reads
+
+    def _current(self):
+        return Card.objects.get(pk=self.card.pk)
+
+    def test_a_card_moved_before_the_lock_is_re_read_and_moved_from_its_new_cell(self):
+        col_c = _make_column(self.board, "C", 2)
+        # Another move already took the card A -> C; this one read it in A.
+        Card.objects.filter(pk=self.card.pk).update(column=col_c, version=F("version") + 1)
+        old_version = self._current().version - 1
+
+        patcher, reads = self._stale_reads(1, column=self.col_a, version=old_version)
+        lock_patcher, calls = self._lock_after(lambda: None, times=0)
+        with patcher, lock_patcher:
+            result = self._move()
+        self.assertEqual(len(reads), 2, "the changed card must trigger exactly one retry")
+        # The retry locked the card's *new* cell, not the stale one.
+        self.assertIn((col_c.pk, self.lane.pk), calls[1]["cells"])
+        self.assertEqual(result.movement.from_column_id, col_c.pk)
+        self.assertEqual(result.movement.to_column_id, self.col_b.pk)
+        self.assertEqual(CardMovement.objects.filter(card=self.card).count(), 1)
+
+    def test_a_cell_change_without_a_version_bump_still_retries(self):
+        """A bulk reassignment need not bump version; the cell is compared too."""
+        lane2 = _make_swimlane(self.board, "L2", 1)
+        Card.objects.filter(pk=self.card.pk).update(swimlane=lane2)
+
+        patcher, reads = self._stale_reads(1, swimlane=self.lane)
+        with patcher:
+            result = self._move()
+        self.assertEqual(len(reads), 2)
+        self.assertEqual(result.movement.from_swimlane_id, lane2.pk)
+
+    def test_a_card_that_keeps_changing_ends_in_a_version_conflict(self):
+        Card.objects.filter(pk=self.card.pk).update(version=F("version") + 1)
+        current = self._current()
+
+        patcher, reads = self._stale_reads(
+            svc._MOVE_LOCK_ATTEMPTS, version=current.version - 1,
+        )
+        with patcher, self.assertRaises(VersionConflict) as ctx:
+            self._move()
+        self.assertEqual(len(reads), svc._MOVE_LOCK_ATTEMPTS)
+        self.assertEqual(ctx.exception.current_version, current.version)
+        self.assertEqual(self._current().column_id, self.col_a.pk)
+        self.assertFalse(CardMovement.objects.filter(card=self.card).exists())
+        self.broadcast.assert_not_called()
+
+    def test_gates_are_re_evaluated_on_the_re_read_card(self):
+        """A retry judges the assignment gate on the new state, not the stale read."""
+        # Since the stale read, the card was assigned to someone else.
+        Card.objects.filter(pk=self.card.pk).update(
+            assignee=self.owner, version=F("version") + 1,
+        )
+        stale_version = self._current().version - 1
+
+        patcher, _ = self._stale_reads(1, assignee_id=None, version=stale_version)
+        with patcher, self.assertRaises(MoveNotPermitted):
+            self._move(actor=self.member)
+
+    def test_an_assignee_change_without_a_version_bump_still_retries(self):
+        """Not every write bumps version (``clear_viewer_assignees`` does not),
+        so the gate fields are compared directly."""
+        Card.objects.filter(pk=self.card.pk).update(assignee=self.owner)
+
+        patcher, reads = self._stale_reads(1, assignee_id=None)
+        with patcher, self.assertRaises(MoveNotPermitted):
+            self._move(actor=self.member)
+        self.assertEqual(len(reads), 2)
+
+    def test_a_card_deleted_before_the_lock_is_not_found(self):
+        patcher, _ = self._lock_after(lambda: Card.objects.filter(pk=self.card.pk).delete())
+        with patcher, self.assertRaises(CardNotFound):
+            self._move()
+
+    def test_a_stale_position_is_replaced_by_the_locked_one(self):
+        """Sibling compaction does not bump version, so the read position can lag.
+
+        The card starts at position 1 behind a sibling at 0; the sibling leaves
+        (compacting the card to 0, no version bump) between read and lock. The
+        source-cell compaction must use the locked position 0, or the card left
+        behind at position 1 would not be shifted down.
+        """
+        sibling = _make_card(self.col_a, self.lane, title="Sibling", position=0)
+        Card.objects.filter(pk=self.card.pk).update(position=1)
+        trailing = _make_card(self.col_a, self.lane, title="Trailing", position=2)
+
+        def sibling_leaves():
+            Card.objects.filter(pk=sibling.pk).update(column=self.col_b, position=5)
+            Card.objects.filter(pk=self.card.pk).update(position=0)
+            Card.objects.filter(pk=trailing.pk).update(position=1)
+
+        patcher, calls = self._lock_after(sibling_leaves)
+        with patcher:
+            self._move()
+        self.assertEqual(len(calls), 1, "a position-only change needs no retry")
+        trailing.refresh_from_db()
+        self.assertEqual(trailing.position, 0)
 
 
 class CrossBoardRejectionTests(CardServiceTestBase):
