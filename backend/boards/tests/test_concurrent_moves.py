@@ -359,17 +359,11 @@ class ConcurrentMoveLockTests(TransactionTestCase):
             self._move(card, self.col_c),
         )
         self.assertEqual(results["first"], 200)
-        # The queued move may be answered 200 (it re-read the card after the
-        # first commit) or 404: PostgreSQL re-checks the join that
-        # ``select_related`` adds to the locked SELECT against the pre-commit
-        # column row, so the card can drop out of the result. Either way it ran
-        # strictly after the first move; what must never happen is two 200s
-        # both written from column A.
-        # Since #1522 the card is locked without the join and a move whose card
-        # changed before the lock retries, so this is 200 in practice; the
-        # assertion is tightened under #1523, which owns that contract.
-        # Tighten to == 200 once #1523 (spurious 404 for the queued move) is fixed.
-        self.assertIn(results["second"], (200, 404))
+        # The queued move re-reads the card after the first commit and applies
+        # its move from B, so it is 200 — never a 404 for a card that exists
+        # (#1523; test_same_card_move_race.py owns that contract). What must
+        # never happen is two 200s both written from column A.
+        self.assertEqual(results["second"], 200)
 
         movements = list(CardMovement.objects.filter(card=card).order_by("moved_at", "pk"))
         self.assertEqual(
