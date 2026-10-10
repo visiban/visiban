@@ -77,7 +77,8 @@ with `no signatures found`. GHCR has no cleanup policy, so its copies are unaffe
 Until the policy is extended (tracked in
 [#1541](https://gitlab.com/visiban/visiban/-/issues/1541)), verify against GHCR (see
 [Verifying release images](image-verification.md)). To keep the GitLab copies, a maintainer
-adds the cosign tag shape to `name_regex_keep`:
+adds the cosign tag shape to `name_regex_keep` (the apply command and resulting policy are in
+[#1541 update](#1541-update-cosign-sigatt-tags-added-to-the-keep-regex) below):
 
 ```text
 ^(v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\.(sig|att))\z
@@ -169,6 +170,49 @@ Verified against the same `jq '.container_expiration_policy'` read above — see
 JSON at the top of this section. (Using `\z` rather than `$` anchors the regex to the true end
 of string, not "end of line" — GitLab's cleanup policy regex is a Ruby `Regexp`, where `$`
 also matches before a trailing newline.)
+
+### #1541 update: cosign `.sig`/`.att` tags added to the keep-regex
+
+The target policy that protects signature and SBOM attestation tags (the `sha256-<64 hex>.sig`
+and `.att` tags described above). It is the #1190 policy with one alternative appended; every
+other field is unchanged (the JSON below omits `next_run_at`, which GitLab sets itself).
+A Maintainer applies it (a project setting, not changeable from a branch).
+
+**Status: NOT yet applied as of 2026-10-10** (the live policy is the JSON recorded above). A
+Maintainer must run the command, read it back, and replace this line with the apply date.
+
+```bash
+glab api --method PUT "projects/visiban%2Fvisiban" \
+  -H "Content-Type: application/json" \
+  --input - <<'EOF'
+{"container_expiration_policy_attributes": {"name_regex_keep": "^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\\.(sig|att))\\z"}}
+EOF
+```
+
+Resulting policy (read back with the `jq '.container_expiration_policy'` command at the top of
+this section):
+
+```json
+{
+  "cadence": "1d",
+  "enabled": true,
+  "keep_n": 10,
+  "older_than": "90d",
+  "name_regex": ".*",
+  "name_regex_keep": "^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\\.(sig|att))\\z"
+}
+```
+
+`name_regex_keep` is matched against the whole tag name, so the new alternative only protects
+tags that are exactly `sha256-` plus 64 lowercase hex characters plus `.sig` or `.att`. It does
+not protect other `sha256-*` tags, a bare `sha256-<hex>` tag, or longer or shorter hex strings.
+All tag shapes the previous regex kept (`vX.Y.Z`, `vX.Y.Z-alpha|beta|rc.N`, `latest`) are still
+kept. Per-arch tag cleanup ([#1196](https://gitlab.com/visiban/visiban/-/issues/1196)) must
+leave these tags alone for the same reason as the warning above. Once applied, three passages go
+stale and must be updated in the same change: in this page, "The keep-regex recorded above does
+not match them" and "Until the policy is extended" (both under "Signature and SBOM attestation
+tags"), and in [Verifying release images](image-verification.md), "the current cleanup policy
+can sweep signature and attestation tags". They are correct until the apply.
 
 ## GHCR (GitHub Container Registry)
 
