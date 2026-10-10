@@ -469,7 +469,7 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello 
           {/* Error */}
           {error && (
             <div className="bg-danger/10 border border-danger/30 rounded-lg px-4 py-3">
-              <p className="text-danger text-sm">{error}</p>
+              <p className="text-danger-on-tint text-sm">{error}</p>
             </div>
           )}
         </div>

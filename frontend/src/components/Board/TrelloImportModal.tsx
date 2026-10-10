@@ -365,7 +365,7 @@ export default function TrelloImportModal({ groupId, groupName, onCancel, onImpo
                 error.tone === "warning" ? "bg-warning/10 border-warning/30" : "bg-danger/10 border-danger/30"
               }`}
             >
-              <p className={`text-sm ${error.tone === "warning" ? "text-warning" : "text-danger"}`}>{error.text}</p>
+              <p className={`text-sm ${error.tone === "warning" ? "text-warning-on-tint" : "text-danger-on-tint"}`}>{error.text}</p>
             </div>
           )}
         </div>
