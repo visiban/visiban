@@ -106,6 +106,34 @@ fine-grained PAT with the `read_runner` permission scoped to the `visiban` group
 API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint set, so a job token can't make this
 call. See [Tokens and Rotation](tokens-and-rotation.md#runner_status_token).
 
+## Runner host prerequisites for kind (helm drills)
+
+`helm-install` and `helm-netpol` (`.helm-drill-base` in `.gitlab-ci.yml`) run a kind cluster
+inside a `docker:27-dind` service. Two host- and daemon-level limits can make them fail
+intermittently with `helm install ... context deadline exceeded` under concurrent load. The
+runner host `gitlab-nuc-03` is shared with TruePPM (`concurrent = 6` across the `trueppm` and
+`visiban` runner configs), which traced the failure ([trueppm/trueppm#4363](https://gitlab.com/trueppm/trueppm/-/issues/4363), fixed in [trueppm/trueppm!2975](https://gitlab.com/trueppm/trueppm/-/merge_requests/2975)).
+
+- **nofile ulimit (in the repo).** The host's dockerd defaults new containers to a 1024-fd soft
+  limit, and kind never raises it, so the kind node container runs the whole nested control
+  plane (kube-apiserver, etcd, containerd, kubelet, kube-proxy) inside one 1024-fd budget.
+  kube-proxy then crash-loops with `too many open files`, in-cluster DNS degrades, and init
+  containers fail intermittently. `.helm-drill-base` therefore passes
+  `--default-ulimit nofile=1048576:1048576` to the dind service's dockerd (#1568). GitLab's
+  `services:` keyword (as of this writing) has no `ulimit:` option, so passing the flag via
+  `command:` is the only lever reachable from the repo. `.compose-drill-base` does not need it (no nested Kubernetes control plane).
+- **inotify instances (host-level, not in the repo).** `fs.inotify.max_user_instances` defaulted
+  to 128 on the host; kind recommends 512 or more. It was raised directly on `gitlab-nuc-03` via
+  `/etc/sysctl.d/99-kind.conf`:
+
+  ```
+  fs.inotify.max_user_instances = 512
+  ```
+
+  A rebuilt or newly provisioned runner host that runs these jobs **must** have this sysctl
+  too. Apply it with `sudo sysctl --system` and verify with
+  `sysctl fs.inotify.max_user_instances` (expect 512 or more).
+
 ## Distributed CI cache (MinIO)
 
 The `.npm-cache` / pip cache templates use a MinIO S3-compatible backend so all runners share
