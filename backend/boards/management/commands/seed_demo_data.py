@@ -1691,14 +1691,19 @@ class Command(BaseCommand):
         card = next((c for c in candidates if c.created_by_id == member.id), None)
         if card is None:
             # Authorship is drawn from the shared RNG, so a small or unlucky
-            # corpus may have no card by this user. Reassign the first live card
-            # (UPDATE only: no RNG draw, corpus titles unchanged) rather than
-            # silently skipping the fixture.
-            if not candidates:
+            # corpus may have no card by this user. Create a new one with fixed
+            # literals (no RNG draw) rather than reassigning authorship of a
+            # seeded card, which would rewrite history on the published demo.
+            column = board.columns.order_by("position").first()
+            swimlane = board.swimlanes.order_by("position").first()
+            if column is None or swimlane is None:
                 return None
-            card = candidates[0]
-            Card.objects.filter(pk=card.pk).update(created_by=member)
-            card.created_by = member
+            last = Card.objects.filter(column=column, swimlane=swimlane).order_by("-position").first()
+            card = Card.objects.create(
+                board=board, column=column, swimlane=swimlane,
+                title="Schema-fuzz fixture card", created_by=member,
+                position=(last.position + 1) if last else 0,
+            )
         content = b"Member-owned attachment seeded by seed_demo_data (#1570).\n"
         CardAttachment.objects.create(
             card=card,

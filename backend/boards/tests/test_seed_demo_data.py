@@ -295,7 +295,7 @@ class SeedGroupCustomFieldAndSubResourceTests(TestCase):
         )
 
     def test_fixture_card_is_created_when_member_authored_none(self):
-        """No RNG dependence: falls back deterministically instead of skipping."""
+        """No RNG dependence: creates a new card, never rewrites an existing one's author."""
         from boards.management.commands.seed_demo_data import Command
         from boards.models import Card
 
@@ -304,12 +304,20 @@ class SeedGroupCustomFieldAndSubResourceTests(TestCase):
         member = board.memberships.exclude(user=board.owner).order_by("id").first().user
         CardAttachment.objects.filter(uploaded_by=member).delete()
         Card.objects.filter(board=board, created_by=member).update(created_by=board.owner)
+        before = Card.objects.filter(board=board).count()
+        authors = dict(Card.objects.filter(board=board).values_list("id", "created_by_id"))
 
         card = Command()._create_member_fixture_card(board, member)
 
         self.assertIsNotNone(card)
         card.refresh_from_db()
         self.assertEqual(card.created_by_id, member.id)
+        self.assertEqual(Card.objects.filter(board=board).count(), before + 1)
+        # No pre-existing card changed author.
+        self.assertEqual(
+            {k: v for k, v in Card.objects.filter(board=board).values_list("id", "created_by_id") if k in authors},
+            authors,
+        )
         self.assertTrue(CardAttachment.objects.filter(card=card, uploaded_by=member).exists())
 
     def test_new_fixtures_do_not_change_card_corpus(self):
