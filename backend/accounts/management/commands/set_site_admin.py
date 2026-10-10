@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from accounts.invite_utils import revoke_site_invite_links
+from accounts.admin_views import access_state, apply_access_loss_revocations, lock_user_row
 from accounts.models import User
 
 
@@ -26,21 +26,14 @@ class Command(BaseCommand):
             raise CommandError(f'User "{username}" does not exist')
 
         if revoke:
-            had_all_content = user.can_access_all_content
-            user.is_site_admin = False
-            user.can_access_all_content = False
+            # One implementation of the revocation housekeeping, shared with the
+            # admin API and the Django admin user form (#1563).
             with transaction.atomic():
+                prior = access_state(lock_user_row(user.pk))
+                user.is_site_admin = False
+                user.can_access_all_content = False
                 user.save(update_fields=["is_site_admin", "can_access_all_content"])
-                # Only an active site admin may admit accounts through a site
-                # invite; take this user's pending ones out of circulation.
-                revoke_site_invite_links(user)
-                if had_all_content:
-                    # can_access_all_content conferred group-admin rights
-                    # everywhere; group links held only through it lapse, the
-                    # same as clearing the flag through the admin API.
-                    from groups.views import _revoke_lapsed_admin_invite_links
-
-                    _revoke_lapsed_admin_invite_links(user)
+                apply_access_loss_revocations(user, None, prior)
             self.stdout.write(self.style.WARNING(f'Revoked site admin from "{username}"'))
         else:
             user.is_site_admin = True

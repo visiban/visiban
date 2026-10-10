@@ -1,5 +1,6 @@
 """Django admin applies the same revocation housekeeping as the admin API (#1563)."""
 from django.contrib.admin.sites import site as admin_site
+from types import SimpleNamespace
 from unittest import mock
 
 from django.test import RequestFactory, TestCase, TransactionTestCase
@@ -91,13 +92,32 @@ class DjangoAdminSaveModelTests(TestCase):
         self.request = RequestFactory().post("/")
         self.request.user = self.root
 
-    def test_content_access_loss_runs_lapsed_group_link_revocation(self):
-        User.objects.filter(pk=self.target.pk).update(can_access_all_content=True)
-        self.target.refresh_from_db()
-        self.target.can_access_all_content = False
-        with mock.patch("groups.views._revoke_lapsed_admin_invite_links") as revoke:
-            self.model_admin.save_model(self.request, self.target, form=None, change=True)
-        revoke.assert_called_once()
+    def test_content_access_loss_lapses_real_group_link(self):
+        from groups.models import Group, GroupInviteLink
+
+        owner = User.objects.create_user(username="owner_1563", password="pw123456!x")
+        bystander = User.objects.create_user(username="by_1563", password="pw123456!x")
+        User.objects.filter(pk__in=[self.target.pk, bystander.pk]).update(
+            can_access_all_content=True
+        )
+        group = Group.objects.create(name="G", owner=owner)
+        mine, _ = GroupInviteLink.generate(group, self.target)
+        theirs, _ = GroupInviteLink.generate(group, bystander)
+
+        stale = User.objects.get(pk=self.target.pk)
+        # The stock change form does not carry this flag, so a stub form that
+        # does lets the stale-field copy run while the flag is still saved.
+        form = SimpleNamespace(fields={"can_access_all_content": None})
+        stale.can_access_all_content = False
+        with mock.patch("groups.broadcast.broadcast_group_event"), self.captureOnCommitCallbacks(
+            execute=True
+        ):
+            self.model_admin.save_model(self.request, stale, form=form, change=True)
+
+        mine.refresh_from_db()
+        theirs.refresh_from_db()
+        self.assertFalse(mine.is_active)
+        self.assertTrue(theirs.is_active)
 
     def test_add_path_skips_the_helper(self):
         new = User(username="new_1563")
