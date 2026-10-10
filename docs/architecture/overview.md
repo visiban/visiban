@@ -125,13 +125,13 @@ Key design decisions:
 
 | Job | Checks | Runs on | Blocks an MR? | Blocks the nightly schedule? |
 |---|---|---|---|---|
-| `gitleaks-scan` | Secrets in the whole working tree | MR, `main` | Yes, any finding | n/a (runs on `main` pushes; a schedule on `main` also matches) |
+| `gitleaks-scan` | Secrets in the whole working tree | MR, `main` | Yes, any finding | Yes (the `main` rule matches a schedule on `main`) |
 | `gitleaks-history` | Secrets in full git history | `main` only (post-merge tripwire) | No (not run on MRs) | Yes, on `main` pipelines, including a schedule on `main` |
 | `secret_detection` + `secret-detection-gate` | GitLab secret-detection component | MR, `main` | Yes, via the gate. The component job exits 0 on findings, so `allow_failure: false` on it alone only catches an analyzer crash; `secret-detection-gate` reads its report and fails on any unsuppressed finding | Yes (same rules on `main`) |
 | `semgrep-sast` + `sast-severity-gate` | GitLab SAST component (Python, TypeScript/JavaScript) | MR, `main` | Yes, via the gate, at High/Critical only; Low/Medium/Info stay visible in the MR security widget | Yes (same rules on `main`) |
-| `backend-sast` | bandit, medium+ | MR and `main`, when `backend/**/*.py` changed | Yes | Only when it runs on `main` with matching changes |
-| `frontend-sast` | eslint-plugin-security (`error` rules only; object-injection and timing rules are `warn`) | MR and `main`, when `frontend/src/**/*.{ts,tsx}` changed | Yes | Only when it runs on `main` with matching changes |
-| `trivy-scan` | HIGH/CRITICAL vulnerabilities, Dockerfile/Helm misconfigurations, and secrets in the repo filesystem | MR when Dockerfiles, lockfiles, `helm/`, or the scan's own files changed; nightly (`CVE_SCAN=true`). Not every `main` push | Yes (`--exit-code 1`, no `allow_failure`) | Yes |
+| `backend-sast` | bandit, medium+ | MR and `main`, when `backend/**/*.py` changed | Yes | Yes (`changes:` matches on a schedule) |
+| `frontend-sast` | eslint-plugin-security (`error` rules only; object-injection and timing rules are `warn`) | MR and `main`, when `frontend/src/**/*.{ts,tsx}` changed | Yes | Yes (`changes:` matches on a schedule) |
+| `trivy-scan` | HIGH/CRITICAL vulnerabilities, Dockerfile/Helm misconfigurations, and secrets in the repo filesystem | MR when a Dockerfile, a dependency manifest or lockfile (`requirements.txt`, `requirements.lock`, `requirements-build.lock`, `package-lock.json`), `helm/`, `.gitlab-ci.yml`, `.trivyignore.yaml`, or the expiry script changed; nightly (`CVE_SCAN=true`). Not every `main` push | Yes (`--exit-code 1`, no `allow_failure`) | Yes |
 | `backend-dep-scan` (pip-audit) | CVEs in `backend/requirements.lock` | MR when a backend requirements file changed; nightly (`CVE_SCAN=true`) | No (`allow_failure: true` on MRs) | Yes (`allow_failure: false`) |
 | `frontend-dep-scan` (npm audit) | HIGH/CRITICAL CVEs in `frontend/package-lock.json`, minus expiring accepted risks | MR when `package-lock.json` changed; nightly (`CVE_SCAN=true`) | No (`allow_failure: true` on MRs) | Yes (`allow_failure: false`) |
 | `dep-scan-osv` | OSV advisories for `backend/requirements.txt` and `frontend/package-lock.json` | Every MR, `main`, and nightly (`OSV_SCAN=true`) | Yes for HIGH/CRITICAL (CVSS 7.0 or higher, or a HIGH/CRITICAL advisory label when unscored) and for a missing or unparseable report (exit 1). MEDIUM, LOW, and unscored advisories exit 2, which `allow_failure: exit_codes: [2]` turns into a warning | Same: blocks on HIGH/CRITICAL, warns on the rest |
