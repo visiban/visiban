@@ -159,6 +159,8 @@ failures are auto-retried, by the pipeline-wide `default:` block.)
    `backend-schema-fuzz` at the deep budget. Locally, boot the app against `seed_demo_data`
    and run `st run <url>/api/schema/ --seed <n> ...` with the flags from the job.
 
+   > **Warning: use a throwaway database.** `schemathesis_hooks.py` writes to the database it is loaded against ([#1570](https://gitlab.com/visiban/visiban/-/issues/1570)): it mints non-expiring, multi-use `MEMBER` join links (named "schemathesis fuzz fixture"), sets a public share token on the demo board, and creates a pool of disposable rows for DELETE operations. Replay against a scratch database, not one you keep.
+
 **Path-parameter seeding.** `backend/schemathesis_hooks.py`, loaded via the job's
 `SCHEMATHESIS_HOOKS` variable, substitutes real ids pulled from `seed_demo_data`'s board for
 `board_pk`/`id`/etc. on nested board-resource routes — otherwise a randomly-generated id

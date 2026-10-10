@@ -30,19 +30,25 @@ CustomFieldDefinition (+ value), SavedFilter, CardAttachment, GroupInviteLink, a
 GroupLabel (#1125), so the corresponding path parameters below are mapped the same
 way as every other board-scoped resource.
 
-#1570 closed the remaining "repeatedly returned 404" gap (43 operations). Root cause of
-the group routes: the fuzz user is a plain board member but was not a *group* member, and
-`GroupViewSet.get_queryset()` only admits groups the caller owns or belongs to, so every
-`/groups/{id}/...` call 404ed whatever id was supplied. `seed_demo_data` now adds the
+#1570 targeted the "repeatedly returned 404" warning (43 operations) and measured 43 -> 6
+locally (seed 1, SQLite; the Postgres count must be confirmed from the CI log). Root cause
+of the group routes: the fuzz user is a plain board member but was not a *group* member,
+and `GroupViewSet.get_queryset()` only admits groups the caller owns or belongs to, so
+every `/groups/{id}/...` call 404ed whatever id was supplied. `seed_demo_data` now adds the
 board's members to the demo group (as MEMBER). The join/share/media routes had no mapping
 at all: invite tokens are stored hashed, so this module mints fresh links itself
 (`_mint_public_tokens`) and maps the board share token and the seeded attachment's file
-path. Card/relation/checklist-reorder routes were missing from the table below.
+path. Card/relation/checklist-reorder routes were missing from the table below. DELETE
+operations get a disposable row minted per call (`_mint_disposable`) so they cannot
+destroy the shared fixture other operations rely on.
 
-Routes that stay unreachable on purpose: `/api/v1/boards/samples/{sample_id}/` (static
-sample slugs, not DB rows), `/accounts/confirm-email/` and the registration confirm-email
-route (excluded in the job, #1321), and `/api/v1/auth/me/connected-accounts/{provider}/`
-(needs a linked social account the seed does not create).
+Still 404 on purpose (no seedable id, or the id is in the request body):
+`/auth/me/connected-accounts/{provider}/` (needs a linked social account),
+`/boards/{id}/invite-links/{link_id}/` (unseeded id, and a member fails the admin check
+first), `/auth/me/pending-email/resend/` (needs a pending email change),
+`/auth/registration/verify-email/` (needs a signup key), `/boards/import/trello/` (no
+Trello export), `/cards/{id}/move/` (target ids live in the body). The confirm-email routes
+are excluded in the job (#1321).
 
 Admin-only endpoints (`/api/v1/admin/...`) are excluded on purpose too: #1080 requires
 `provision_fuzz_token` to refuse an admin/superuser account, so this job's token can
@@ -63,6 +69,7 @@ hook against real seeded rows is the mechanism this schemathesis version actuall
 supports for this problem.
 """
 
+import itertools
 import os
 import sys
 
@@ -262,6 +269,7 @@ def _pick_card(board, member_user_id):
 
     cards = (
         Card.objects.filter(board=board, archived_at__isnull=True)
+        .exclude(title=_DISPOSABLE_TITLE)
         .prefetch_related("checklist_items", "comments", "attachments")
         .order_by("id")
     )
@@ -285,8 +293,13 @@ def _mint_public_tokens(board, ids):
     the raw value the URL needs; the only way to hold one is to create the link
     here and keep the raw string in memory. That is also why it cannot live in
     ``seed_demo_data``. Everything is generated with ``secrets`` inside the
-    models; nothing is logged or written to disk. This runs only against the
-    throwaway CI fuzz database, once per ``st run`` process.
+    models; nothing is logged or written to disk. This runs once per ``st run``
+    process and WRITES to whatever database the hook is loaded against: it is
+    meant for the throwaway CI fuzz database. Loading it against a database you
+    care about (a local replay against ``seed_demo_data``) leaves non-expiring,
+    multi-use MEMBER join links and sets a public ``share_token`` on the demo
+    board. The links are named "schemathesis fuzz fixture" so they are easy to
+    revoke afterwards.
 
     Prior fixture links are deleted first so repeated loads do not accumulate
     rows. A pre-existing board share token is reused, never rotated.
@@ -319,7 +332,130 @@ def _mint_public_tokens(board, ids):
     ids["share_token"] = str(board.share_token) if board.share_token else None
 
 
+_DISPOSABLE_TITLE = "schemathesis fuzz disposable"
+
+
+def _load_disposable_context(ids):
+    """Objects needed to mint disposable rows, or None without a member fixture.
+
+    Also clears rows a previous load of this hook left behind, so a reload
+    against the same database does not accumulate them.
+    """
+    from django.db import connection, connections
+
+    from accounts.models import User
+    from boards.models import Card, Column, SavedFilter, Swimlane
+
+    needed = ("board_pk", "card_id", "member_user_id", "column_id", "swimlane_id")
+    if any(ids.get(key) is None for key in needed):
+        return None
+    try:
+        member = User.objects.get(pk=ids["member_user_id"])
+        shared = Card.objects.get(pk=ids["card_id"])
+        Card.objects.filter(board_id=ids["board_pk"], title=_DISPOSABLE_TITLE).delete()
+        shared.attachments.filter(filename__startswith="fuzz-disposable-").delete()
+        shared.comments.filter(body=_DISPOSABLE_TITLE).delete()
+        shared.checklist_items.filter(text=_DISPOSABLE_TITLE).delete()
+        SavedFilter.objects.filter(
+            board_id=ids["board_pk"], user=member, name__startswith="fuzz-disposable-"
+        ).delete()
+        return {
+            "member": member,
+            "shared": shared,
+            "board_id": ids["board_pk"],
+            "column": Column.objects.get(pk=ids["column_id"]),
+            "swimlane": Swimlane.objects.get(pk=ids["swimlane_id"]),
+        }
+    finally:
+        if not connection.in_atomic_block:
+            connections.close_all()
+
+
+def _mint_disposable(kind):
+    """Create one row that only a DELETE operation will touch; return its id.
+
+    Authorship-gated deletes (card, comment, attachment, checklist item,
+    relation, saved filter) really succeed for the fuzz user, and a hard card
+    delete cascades and removes the attachment file. If DELETE shared the one
+    fixture row with every other operation it would destroy it early in the run
+    and every later call on it would 404 (#1570). So each DELETE call gets a
+    freshly minted row instead, owned by the fuzz user and, for sub-resources,
+    attached to the shared card (which therefore stays alive). A prebuilt pool
+    ran dry after ~60 calls per operation (a run makes ~270), so the row is
+    minted on demand. Any failure returns None and the generated id stays: a
+    404, never the shared row and never a crashed run.
+    """
+    from django.core.files.base import ContentFile
+
+    from boards.models import (
+        Card, CardAttachment, CardChecklist, CardComment, CardRelation, SavedFilter,
+    )
+
+    fixture = _DISPOSABLE
+    if fixture is None:
+        return None
+    member, shared = fixture["member"], fixture["shared"]
+    n = next(_DISPOSABLE_COUNTER)
+
+    def card():
+        return Card.objects.create(
+            board_id=fixture["board_id"], column=fixture["column"], swimlane=fixture["swimlane"],
+            title=_DISPOSABLE_TITLE, position=9000 + n, created_by=member,
+        )
+
+    try:
+        if kind == "card":
+            return card().id
+        if kind == "attachment":
+            name = f"fuzz-disposable-{n}.txt"
+            return CardAttachment.objects.create(
+                card=shared, file=ContentFile(b"x", name=name), filename=name, size=1,
+                uploaded_by=member,
+            ).id
+        if kind == "comment":
+            return CardComment.objects.create(card=shared, author=member, body=_DISPOSABLE_TITLE).id
+        if kind == "checklist_item":
+            return CardChecklist.objects.create(
+                card=shared, text=_DISPOSABLE_TITLE, position=900 + n).id
+        if kind == "relation":
+            low, high = sorted((shared, card()), key=lambda c: c.pk)
+            return CardRelation.objects.create(
+                from_card=low, to_card=high, relation_type=CardRelation.Type.RELATES_TO,
+                created_by=member).id
+        if kind == "saved_filter":
+            return SavedFilter.objects.create(
+                user=member, board_id=fixture["board_id"], name=f"fuzz-disposable-{n}",
+                state_json={"search": "", "assigneeIds": [], "labelIds": [], "priorities": [], "dueDate": ""},
+            ).id
+    except Exception:  # noqa: BLE001 -- a fixture hiccup must not abort the fuzz run
+        return None
+    return None
+
+
+def _first_sample_id():
+    """A real sample-board slug for ``/boards/samples/{sample_id}/``."""
+    from boards.services import sample_boards
+
+    try:
+        return sample_boards.list_samples()[0]["id"]
+    except (IndexError, KeyError, TypeError):
+        return None
+
+
 _IDS = _load_real_ids()
+_EXTRA_IDS = {"sample_id": _first_sample_id()}
+_DISPOSABLE = _load_disposable_context(_IDS)
+_DISPOSABLE_COUNTER = itertools.count(1)
+
+# DELETE-only: path template -> {param: disposable kind}. See _mint_disposable.
+_DELETE_POOL_OVERRIDES = {
+    "/api/v1/boards/{board_pk}/cards/{id}/": {"id": "card"},
+    "/api/v1/boards/{board_pk}/cards/{id}/attachments/{attachment_pk}/": {"attachment_pk": "attachment"},
+    "/api/v1/boards/{board_pk}/cards/{id}/comments/{comment_pk}/": {"comment_pk": "comment"},
+    "/api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/": {"item_pk": "checklist_item"},
+    "/api/v1/boards/{board_pk}/cards/{id}/relations/{relation_pk}/": {"relation_pk": "relation"},
+    "/api/v1/boards/{id}/saved-filters/{filter_pk}/": {"filter_pk": "saved_filter"},
+}
 
 # Exact OpenAPI path template -> {path parameter name: key into _IDS}.
 # Keyed by the literal template (not a regex) so a new operation added to the
@@ -442,6 +578,8 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/groups/join/{token}/": {"token": "group_join_token"},
     "/api/share/{token}/": {"token": "share_token"},
     "/media/{path}": {"path": "media_path"},
+    # A real slug from the sample-board manifest (#1570).
+    "/api/v1/boards/samples/{sample_id}/": {"sample_id": "sample_id"},
 }
 
 
@@ -464,9 +602,18 @@ def map_path_parameters(context, path_parameters):
 
     result = dict(path_parameters)
     for param_name, ids_key in overrides.items():
-        real_value = _IDS.get(ids_key)
+        real_value = _IDS.get(ids_key, _EXTRA_IDS.get(ids_key))
         if param_name in result and real_value is not None:
             result[param_name] = real_value
+
+    # DELETE gets a freshly minted disposable row instead of the shared one (#1570); if
+    # minting fails the generated value stays, so the shared row is never deleted.
+    if str(getattr(context.operation, "method", "")).upper() == "DELETE":
+        for param_name, pool_name in _DELETE_POOL_OVERRIDES.get(context.operation.path, {}).items():
+            if param_name not in result:
+                continue
+            minted = _mint_disposable(pool_name)
+            result[param_name] = minted if minted is not None else path_parameters[param_name]
     return result
 
 

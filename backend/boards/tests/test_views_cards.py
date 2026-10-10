@@ -1,4 +1,5 @@
 """Tests for CardViewSet: CRUD, update activity tracking, comments, checklist, movements."""
+import json
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -453,6 +454,18 @@ class CardChecklistTests(TestCase):
         self.assertIn("order", r.json())
         item.refresh_from_db()
         self.assertEqual(item.position, 0)
+
+    @patch(PATCH_BROADCAST)
+    def test_checklist_reorder_endpoint_rejects_non_object_body(self, _):
+        """#1570: a JSON body that is not an object is a 400, not an AttributeError 500."""
+        CardChecklist.objects.create(card=self.card, text="Step 1", position=0)
+        for body in (2.5, "text", [1, 2], None):
+            with self.subTest(body=body):
+                r = self.client.post(
+                    f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/reorder/",
+                    data=json.dumps(body), content_type="application/json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_checklist_reorder_endpoint_denied_for_viewer(self):
         """Viewers are excluded from the allow-list, same as add/edit/delete."""

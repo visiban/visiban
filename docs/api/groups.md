@@ -55,7 +55,7 @@ Update group fields. Both `PUT` and `PATCH` are accepted. Requires group admin.
 Changing `parent` revokes unused invite links in the moved subtree whose creator no longer administers the link's group through the new ancestor chain (see [Invite links](#invite-links)).
 
 ### `DELETE /api/v1/groups/{id}/`
-Delete a group. Requires group owner or site admin.
+Delete a group. Requires group owner or site admin. A group member who is not the owner gets `403 Forbidden` with `{"detail": "Only the group owner can delete this group."}`; a caller who cannot see the group at all gets `404`.
 
 ---
 

@@ -17,6 +17,7 @@ from django.core.files.base import ContentFile
 from accounts.models import PersonalAccessToken
 from boards.models import (
     BoardMembership,
+    Card,
     CardAttachment,
     CardChecklist,
     CardComment,
@@ -29,8 +30,8 @@ from boards.tests.conftest import _make_board, _make_card, _make_column, _make_s
 from groups.models import Group, GroupInviteLink, GroupLabel
 
 
-def _fake_context(path):
-    return SimpleNamespace(operation=SimpleNamespace(path=path))
+def _fake_context(path, method="GET"):
+    return SimpleNamespace(operation=SimpleNamespace(path=path, method=method))
 
 
 def _hooks():
@@ -323,6 +324,61 @@ class PublicTokenAndOwnershipFixtureTests(TestCase):
         self.assertIsNone(ids["attachment_id"])
 
 
+class DisposableRowTests(TestCase):
+    def _fixture(self):
+        owner, member = _make_user(), _make_user()
+        board = _make_board(owner, name="Visiban Demo Board")
+        BoardMembership.objects.create(board=board, user=member, role=BoardMembership.Role.MEMBER)
+        column, lane = _make_column(board), _make_swimlane(board)
+        _make_card(column, lane, created_by=member)
+        hooks = _hooks()
+        ids = hooks._load_real_ids()
+        original = hooks._DISPOSABLE
+        hooks._DISPOSABLE = hooks._load_disposable_context(ids)
+        self.addCleanup(setattr, hooks, "_DISPOSABLE", original)
+        return hooks, ids, member
+
+    def test_each_kind_mints_a_fresh_row_owned_by_the_member_and_distinct_from_shared(self):
+        from boards.models import CardRelation
+
+        hooks, ids, member = self._fixture()
+
+        card_id = hooks._mint_disposable("card")
+        self.assertNotEqual(card_id, ids["card_id"])
+        self.assertEqual(Card.objects.get(pk=card_id).created_by_id, member.id)
+        self.assertNotEqual(hooks._mint_disposable("card"), card_id)  # fresh each call
+
+        for kind, model in (
+            ("attachment", CardAttachment), ("comment", CardComment),
+            ("relation", CardRelation), ("saved_filter", SavedFilter),
+        ):
+            with self.subTest(kind=kind):
+                minted = hooks._mint_disposable(kind)
+                self.assertIsNotNone(minted)
+                self.assertTrue(model.objects.filter(pk=minted).exists())
+        item = hooks._mint_disposable("checklist_item")
+        self.assertTrue(CardChecklist.objects.filter(pk=item, card_id=ids["card_id"]).exists())
+        self.assertIsNone(hooks._mint_disposable("unknown"))
+
+    def test_deleting_a_minted_card_leaves_the_shared_card_and_its_attachment(self):
+        hooks, ids, _member = self._fixture()
+        att = hooks._mint_disposable("attachment")
+        Card.objects.filter(pk=hooks._mint_disposable("card")).delete()
+
+        self.assertTrue(Card.objects.filter(pk=ids["card_id"]).exists())
+        self.assertTrue(CardAttachment.objects.filter(pk=att).exists())
+
+    def test_a_reload_does_not_pick_a_disposable_card_as_the_shared_one(self):
+        hooks, ids, _member = self._fixture()
+        for _ in range(3):
+            hooks._mint_disposable("card")
+
+        self.assertEqual(hooks._load_real_ids()["card_id"], ids["card_id"])
+
+    def test_context_is_none_without_a_member_fixture(self):
+        self.assertIsNone(_hooks()._load_disposable_context({"board_pk": None}))
+
+
 class MapPathParametersTests(TestCase):
     def setUp(self):
         # `_IDS` is computed once at module import time (against an empty DB
@@ -365,13 +421,66 @@ class MapPathParametersTests(TestCase):
         self.assertEqual(result, {})
 
     def test_passes_through_for_an_unmapped_path(self):
-        # Sample slugs are not DB rows, so this route is deliberately unmapped.
-        context = _fake_context("/api/v1/boards/samples/{sample_id}/")
+        context = _fake_context("/api/v1/not-in-the-override-table/{id}/")
         params = {"id": "some-generated-value"}
 
         result = _hooks().map_path_parameters(context, params)
 
         self.assertEqual(result, params)
+
+    def test_sample_route_gets_a_real_manifest_slug(self):
+        hooks = _hooks()
+        self.assertIsNotNone(hooks._EXTRA_IDS["sample_id"])
+        result = hooks.map_path_parameters(
+            _fake_context("/api/v1/boards/samples/{sample_id}/"), {"sample_id": "x"}
+        )
+        self.assertEqual(result, {"sample_id": hooks._EXTRA_IDS["sample_id"]})
+
+    def _stub_mint(self, ids):
+        """Make _mint_disposable hand out ids from `ids` (kind -> list)."""
+        hooks = _hooks()
+        original = hooks._mint_disposable
+        hooks._mint_disposable = lambda kind: ids.get(kind, []).pop(0) if ids.get(kind) else None
+        self.addCleanup(setattr, hooks, "_mint_disposable", original)
+        return hooks
+
+    def test_delete_gets_a_disposable_id_and_other_methods_the_shared_one(self):
+        hooks = self._stub_mint({"card": [101, 102]})
+        hooks._IDS["card_id"] = 31
+        card_path = "/api/v1/boards/{board_pk}/cards/{id}/"
+        params = {"board_pk": "x", "id": "y"}
+
+        deleted = hooks.map_path_parameters(_fake_context(card_path, "DELETE"), params)
+        again = hooks.map_path_parameters(_fake_context(card_path, "delete"), params)
+        read = hooks.map_path_parameters(_fake_context(card_path, "GET"), params)
+        patched = hooks.map_path_parameters(_fake_context(card_path, "PATCH"), params)
+
+        self.assertEqual(deleted, {"board_pk": 7, "id": 101})
+        self.assertEqual(again, {"board_pk": 7, "id": 102})  # one fresh id per call
+        self.assertEqual(read, {"board_pk": 7, "id": 31})
+        self.assertEqual(patched, {"board_pk": 7, "id": 31})
+        self.assertNotEqual(deleted["id"], read["id"])
+
+    def test_delete_keeps_the_shared_parent_and_swaps_only_the_child(self):
+        hooks = self._stub_mint({"attachment": [201]})
+        hooks._IDS["card_id"] = 31
+        path = "/api/v1/boards/{board_pk}/cards/{id}/attachments/{attachment_pk}/"
+
+        result = hooks.map_path_parameters(
+            _fake_context(path, "DELETE"), {"board_pk": "x", "id": "y", "attachment_pk": "z"}
+        )
+
+        self.assertEqual(result, {"board_pk": 7, "id": 31, "attachment_pk": 201})
+
+    def test_delete_that_cannot_mint_never_falls_back_to_the_shared_row(self):
+        hooks = self._stub_mint({})
+        path = "/api/v1/boards/{board_pk}/cards/{id}/comments/{comment_pk}/"
+
+        result = hooks.map_path_parameters(
+            _fake_context(path, "DELETE"), {"board_pk": "x", "id": "y", "comment_pk": "generated"}
+        )
+
+        self.assertEqual(result["comment_pk"], "generated")
 
     def test_overrides_group_pk_and_group_sub_resource_ids(self):
         context = _fake_context("/api/v1/groups/{id}/labels/{label_id}/")
