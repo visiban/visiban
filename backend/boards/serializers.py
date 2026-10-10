@@ -21,6 +21,7 @@ from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_prioritie
 # does, but lazily, inside its methods).
 from groups.serializers import GroupBriefSerializer
 
+from .broadcast import without_admin_only_board_fields
 from .permissions import (
     MODERATOR_BEARING_EVENTS,
     moderator_field_visible,
@@ -174,6 +175,11 @@ class BoardEventSerializer(serializers.ModelSerializer):
         same as an unknown role.
         """
         data = super().to_representation(instance)
+        # Admin-only board fields are dropped for every reader, whatever their
+        # role, matching the socket, which never carries them (#1529). The write
+        # path already omits them; this read-side pass also covers any row that
+        # was stored before that guard existed.
+        data["data"] = without_admin_only_board_fields(data.get("data"))
         if instance.event in MODERATOR_BEARING_EVENTS:
             role = self.context.get("role")
             reader_id = self.context.get("reader_id")

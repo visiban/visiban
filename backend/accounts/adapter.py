@@ -184,6 +184,22 @@ class RegistrationAdapter(DefaultAccountAdapter):
             raise PermissionDenied("Registration is closed.")
         return super().save_user(request, user, form, commit)
 
+    def set_password(self, user, password) -> None:
+        """Set and save the password, then run the shared finalize step.
+
+        allauth's change, set and reset-from-key flows all store the password
+        through this hook. The save and ``finalize_password_change`` share one
+        transaction, so a failure in the finalize step rolls the new password
+        back. Plain ``User.set_password`` is deliberately not wrapped (it also
+        runs for login-timing equalization and hasher upgrades, which must not
+        touch stored tokens or flags); only callers of this hook finalize.
+        """
+        from .credentials import finalize_password_change
+
+        with transaction.atomic():
+            super().set_password(user, password)
+            finalize_password_change(user)
+
     def clean_username(self, username, shallow=False):
         """allauth's checks, plus: not another active account's email (#1221).
 

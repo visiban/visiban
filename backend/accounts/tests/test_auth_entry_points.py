@@ -1451,7 +1451,7 @@ class AllauthAdapterEntryPointTests(SimpleTestCase):
     matches a disabled account) would run instead."""
 
     SOCIAL_HOOKS = ("is_open_for_signup", "pre_social_login", "save_user")
-    ACCOUNT_HOOKS = ("is_open_for_signup", "save_user")
+    ACCOUNT_HOOKS = ("is_open_for_signup", "save_user", "set_password")
 
     def test_configured_adapters_are_the_projects(self):
         from accounts.adapter import RegistrationAdapter, SocialRegistrationAdapter

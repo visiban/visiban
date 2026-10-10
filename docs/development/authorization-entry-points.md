@@ -101,7 +101,9 @@ table), and call `invite_creator_is_valid` at preview and at redemption. Claim t
 **An allauth hook.** Override it on `RegistrationAdapter` or
 `SocialRegistrationAdapter`. Do not rely on allauth's default. The test checks
 that the configured adapters are the project's own classes and that they
-override the signup hooks.
+override the signup hooks. `RegistrationAdapter.set_password` is such a hook: allauth's
+change, set and reset-from-key flows store the password through it, and it saves the
+password and runs `finalize_password_change` in one transaction.
 
 ## How the enforcement test finds entry points
 
