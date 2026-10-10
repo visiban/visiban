@@ -41,12 +41,12 @@ class CredentialRowLockTests(TransactionTestCase):
             format="json",
         )
 
-    def _create_token(self, stale_user):
+    def _create_token(self, earlier_user):
         client = APIClient()
-        client.force_authenticate(stale_user)
+        client.force_authenticate(earlier_user)
         return client.post("/api/v1/auth/tokens/", {"name": "racing"}, format="json")
 
-    def _race(self, first, second, patch_obj, attr):
+    def _run_pair(self, first, second, patch_obj, attr):
         """Run ``first`` paused inside its transaction, then ``second``."""
         paused = threading.Event()
         results, errors, marks = {}, [], {}
@@ -80,10 +80,10 @@ class CredentialRowLockTests(TransactionTestCase):
         return results, marks["hold_ended"]
 
     def test_token_create_after_password_change_is_refused(self):
-        stale_user = User.objects.get(pk=self.user.pk)
-        results, hold_ended = self._race(
+        earlier_user = User.objects.get(pk=self.user.pk)
+        results, hold_ended = self._run_pair(
             self._change_password,
-            lambda: self._create_token(stale_user),
+            lambda: self._create_token(earlier_user),
             credentials,
             "lock_user_row",
         )
@@ -97,9 +97,9 @@ class CredentialRowLockTests(TransactionTestCase):
         self.assertEqual(PersonalAccessToken.objects.filter(user_id=self.user.pk).count(), 0)
 
     def test_password_change_after_token_create_removes_token(self):
-        stale_user = User.objects.get(pk=self.user.pk)
-        results, hold_ended = self._race(
-            lambda: self._create_token(stale_user),
+        earlier_user = User.objects.get(pk=self.user.pk)
+        results, hold_ended = self._run_pair(
+            lambda: self._create_token(earlier_user),
             self._change_password,
             credentials,
             "lock_user_row",
