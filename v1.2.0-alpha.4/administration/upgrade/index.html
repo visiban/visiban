@@ -4393,6 +4393,12 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <hr />
 <h2 id="release-specific-upgrade-notes">Release-specific upgrade notes<a class="headerlink" href="#release-specific-upgrade-notes" title="Permanent link">&para;</a></h2>
 <h3 id="upgrading-to-12x">Upgrading to 1.2.x<a class="headerlink" href="#upgrading-to-12x" title="Permanent link">&para;</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Housekeeping for inactive accounts</p>
+<p><code>manage.py migrate</code> runs a one-time data migration (<code>groups/0018</code>) that removes personal
+access tokens and unused invite links belonging to inactive accounts. No operator action
+is needed; it is idempotent.</p>
+</div>
 <div class="admonition warning">
 <p class="admonition-title">WIP and weight limits now apply to card create, restore, and weight changes</p>
 <p>Before 1.2, a column's <code>wip_limit</code> and <code>weight_limit</code> were checked only when a card was
