@@ -1333,8 +1333,26 @@ class CardViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         with transaction.atomic():
-            attachment.file.delete(save=False)
+            # Storage deletion is irreversible, so defer it to commit: if the
+            # refetch below 404s (card deleted concurrently, #1584) the DB row
+            # rolls back and the file must survive with it. Capture the storage
+            # and name now; the model instance is not touched after commit.
+            file_storage, file_name = attachment.file.storage, attachment.file.name
             attachment.delete()
+            if file_name:
+                def _remove_file():
+                    # Failure-isolated (robust=True): a storage error must not
+                    # drop the deferred card.updated broadcast queued after
+                    # this callback. Log the class only — no paths or PII.
+                    try:
+                        file_storage.delete(file_name)
+                    except Exception as exc:
+                        logger.warning(
+                            "attachment file removal failed after commit: %s",
+                            type(exc).__name__,
+                        )
+
+                transaction.on_commit(_remove_file, robust=True)
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
@@ -1667,7 +1685,13 @@ class CardViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             if connection.features.has_select_for_update:
                 lock_ids = {card.pk}
-                raw_target = request.data.get("to_card")
+                # A JSON body that is not an object (a bare number, string,
+                # array…) has no `.get()`; skip the target lock and let
+                # `is_valid()` below answer it with the serializer's 400
+                # rather than a 500 (backend-schema-fuzz, same class as move).
+                raw_target = (
+                    request.data.get("to_card") if isinstance(request.data, dict) else None
+                )
                 try:
                     lock_ids.add(int(raw_target))
                 except (TypeError, ValueError):

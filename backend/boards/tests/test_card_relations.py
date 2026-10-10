@@ -195,6 +195,23 @@ class CardRelationCrudTests(_RelationTestBase):
 
 
 class CardRelationValidationTests(_RelationTestBase):
+    def test_non_object_json_body_rejected_with_400_on_locking_backend(self):
+        """A bare JSON scalar/array body is a 400, not a 500 (backend-schema-fuzz).
+
+        The lock-id read runs only where the backend has SELECT FOR UPDATE, so
+        on SQLite it never executes. Force that branch, and stub the lock query
+        itself since SQLite cannot parse FOR UPDATE.
+        """
+        with patch.object(connection.features, "has_select_for_update", True), \
+                patch.object(Card.objects, "select_for_update", return_value=Card.objects.all()):
+            for body in ("-3609", '"x"', "[1, 2]", "null", "true"):
+                with self.subTest(body=body):
+                    r = self.client.post(
+                        self._url(self.card_a), body, content_type="application/json",
+                    )
+                    self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(CardRelation.objects.count(), 0)
+
     def test_self_relation_rejected_with_400(self):
         r = self._link(self.card_a, self.card_a)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)

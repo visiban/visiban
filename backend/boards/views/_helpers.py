@@ -26,7 +26,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import Coalesce
 from django_filters import DateTimeFilter, NumberFilter
-from rest_framework.exceptions import PermissionDenied, ValidationError as _DRFValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError as _DRFValidationError
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
 from ..permissions import (
@@ -283,7 +283,16 @@ def _refetched_card_data(card, request, board, *, member_ids=None, assignable_id
         assignable_ids = _get_assignable_member_ids(board)
     if labels_qs is None:
         labels_qs = board.labels.all()
-    refetched = _card_queryset(Card.objects.filter(pk=card.pk)).get()
+    try:
+        refetched = _card_queryset(Card.objects.filter(pk=card.pk)).get()
+    except Card.DoesNotExist:
+        # A concurrent delete of the card committed between this request's
+        # read and its write-then-refetch (#1584). The card is really gone, so
+        # the honest answer is 404. Every caller invokes this inside its
+        # ``transaction.atomic()`` and before ``record_board_event``, so the
+        # raise rolls back the half-applied child write and no broadcast is
+        # recorded for a deleted card.
+        raise NotFound("Card not found.") from None
     return CardSerializer(
         refetched,
         context={
