@@ -8,7 +8,12 @@ from django.conf import settings as django_settings
 from django.http import HttpResponseRedirect
 from rest_framework.exceptions import PermissionDenied
 
-from visiban.authorization import principal_is_active
+from visiban.authorization import (
+    ACCOUNT_GATES,
+    FORCED_CHANGE_GATES,
+    account_state_denial,
+    principal_is_active,
+)
 
 from .invite_utils import InviteTokenError
 from .models import (
@@ -368,9 +373,13 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         Two processes are handled; allauth's ``redirect`` process is left alone:
 
         - ``connect`` (an authenticated user adding a provider from Settings or
-          the post-login prompt): refuse an identity that already belongs to a
-          different account with ``provider_already_connected``. allauth itself
-          would only add an invisible Django message and redirect.
+          the post-login prompt): refuse an account with a forced password or
+          username change pending (registry Rule 1; the forced-change
+          middleware lets the SSO callback through for sign-in, so the
+          connect decision is made here), then refuse an identity that already
+          belongs to a different account with ``provider_already_connected``.
+          allauth itself would only add an invisible Django message and
+          redirect.
         - ``login`` for an identity no account has yet, whose IdP email already
           belongs to one: see ``_handle_email_collision``.
         """
@@ -386,6 +395,14 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
                 # allauth would bounce this to the connect redirect, which
                 # would then claim "Connected." once someone signs in.
                 self._redirect_with_error(request, "oauth_failed")
+            if account_state_denial(
+                request.user, exempt=frozenset(ACCOUNT_GATES) - FORCED_CHANGE_GATES
+            ) is not None:
+                # Adding a sign-in method waits until the pending change is
+                # done. Same answer as the forced-change middleware: back to
+                # the SPA, which walks the user through the change, without
+                # saying which change is pending. Nothing is linked.
+                raise ImmediateHttpResponse(HttpResponseRedirect(django_settings.FRONTEND_URL))
             pending = get_pending_connect_data(request, request.user)
             if pending and pending.get("provider") == provider:
                 # The prompt is answered either way this attempt ends.

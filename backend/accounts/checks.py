@@ -156,3 +156,92 @@ def check_pending_action_extra_gated_prefixes(app_configs, **kwargs):
         for prefix in extra
         if not is_well_formed_gated_prefix(prefix)
     ]
+
+
+_PENDING_ACTION_MIDDLEWARE = "visiban.middleware.PendingAccountActionMiddleware"
+_AUTHENTICATION_MIDDLEWARE = "django.contrib.auth.middleware.AuthenticationMiddleware"
+
+
+def _middleware_index(middleware, target) -> int | None:
+    """Index of *target* in *middleware*, accepting a subclass named by another path.
+
+    An entry that cannot be imported is matched by its dotted name only, so an
+    unusual middleware module yields a check result rather than an exception.
+    """
+    from django.core.exceptions import ImproperlyConfigured
+    from django.utils.module_loading import import_string
+
+    target_class = import_string(target)
+    for index, dotted in enumerate(middleware):
+        if dotted == target:
+            return index
+        try:
+            candidate = import_string(dotted)
+        except (ImportError, ImproperlyConfigured):
+            continue
+        if isinstance(candidate, type) and issubclass(candidate, target_class):
+            return index
+    return None
+
+
+@checks.register(checks.Tags.security)
+def check_pending_action_middleware_installed(app_configs, **kwargs):
+    """Require the forced-change gate in MIDDLEWARE (#1561, registry Rule 1).
+
+    ``visiban/settings.py`` installs ``PendingAccountActionMiddleware``, and a
+    later settings include (the enterprise one) can replace ``MIDDLEWARE``
+    wholesale. This check keeps the gate installed and ordered after
+    ``AuthenticationMiddleware``, which sets the ``request.user`` it reads. A
+    subclass is accepted.
+    """
+    from django.conf import settings
+
+    middleware = list(getattr(settings, "MIDDLEWARE", None) or [])
+    hint = (
+        f'Keep "{_PENDING_ACTION_MIDDLEWARE}" in MIDDLEWARE, after '
+        f'"{_AUTHENTICATION_MIDDLEWARE}". See docs/development/security-invariants.md, Rule 1.'
+    )
+    gate = _middleware_index(middleware, _PENDING_ACTION_MIDDLEWARE)
+    if gate is None:
+        return [
+            checks.Error(
+                "MIDDLEWARE does not include PendingAccountActionMiddleware.",
+                hint=hint,
+                id="accounts.E005",
+            )
+        ]
+    auth = _middleware_index(middleware, _AUTHENTICATION_MIDDLEWARE)
+    if auth is None or gate < auth:
+        return [
+            checks.Error(
+                "PendingAccountActionMiddleware must come after AuthenticationMiddleware in MIDDLEWARE.",
+                hint=hint,
+                id="accounts.E005",
+            )
+        ]
+    return []
+
+
+@checks.register(checks.Tags.security)
+def check_pending_action_extra_exempt_views(app_configs, **kwargs):
+    """Fail on a malformed PENDING_ACTION_EXTRA_EXEMPT_VIEWS entry (#1561).
+
+    Each entry must name exactly one view; the middleware ignores anything
+    else rather than guess, so the extension author has to hear about it here.
+    """
+    from django.conf import settings
+
+    from visiban.middleware import is_well_formed_exempt_view
+
+    extra = getattr(settings, "PENDING_ACTION_EXTRA_EXEMPT_VIEWS", ()) or ()
+    if isinstance(extra, str):
+        extra = (extra,)
+    return [
+        checks.Error(
+            f"PENDING_ACTION_EXTRA_EXEMPT_VIEWS entry {name!r} is not a view name.",
+            hint='Use one exact URL name (for example "saml_acs" or "myapp:callback"), no wildcards or paths.',
+            id="accounts.E006",
+        )
+        for name in extra
+        if not is_well_formed_exempt_view(name)
+    ]

@@ -130,9 +130,12 @@ class VisibanResetPasswordKeyForm(ResetPasswordKeyForm):
 
 
 class VisibanChangePasswordForm(ChangePasswordForm):
-    """allauth's HTML change-password form (``/accounts/password/change/``).
+    """allauth's HTML change-password form.
 
-    ``save`` sets the password and applies the self-service follow-up
+    The project routes ``/accounts/password/change/`` to the SPA (#1561), so
+    this form runs only where allauth's own view is still reached; it stays
+    configured so that any such route finalizes the same way. ``save`` sets
+    the password and applies the self-service follow-up
     (``accounts.credentials.finalize_password_change``) in one transaction
     (#1551), so the two commit or roll back together.
     """
@@ -144,9 +147,10 @@ class VisibanChangePasswordForm(ChangePasswordForm):
 
 
 class VisibanSetPasswordForm(SetPasswordForm):
-    """allauth's HTML set-password form for password-less accounts (``/accounts/password/set/``).
+    """allauth's HTML set-password form for password-less accounts.
 
-    Same transaction rule as ``VisibanChangePasswordForm`` (#1551).
+    ``/accounts/password/set/`` is routed to the SPA too (#1561). Same
+    transaction rule as ``VisibanChangePasswordForm`` (#1551).
     """
 
     def save(self):

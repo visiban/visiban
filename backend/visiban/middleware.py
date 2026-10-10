@@ -1,12 +1,14 @@
 import ipaddress
 import logging
 import os
+import re
 
 from django.conf import settings
 from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse
+from django.urls import Resolver404, resolve
 
 from accounts.models import get_maintenance_message, get_maintenance_state
-from visiban.authorization import has_pending_account_action
+from visiban.authorization import ACCOUNT_GATES, FORCED_CHANGE_GATES, account_state_denial
 from visiban.demo import (
     DEMO_ALLOWED_WRITES,
     DEMO_READ_ONLY_CODE,
@@ -252,9 +254,11 @@ _MAINTENANCE_EXEMPT_PREFIXES = (
 # blanket "/accounts/" prefix would be the exact mistake the enumerated list
 # above exists to avoid: it silently exempts POST /accounts/signup/ (creates a
 # user, bypassing InviteRegisterView), POST /accounts/email/ (adds or removes
-# an email address), POST /accounts/password/change/ and the /accounts/3rdparty/
-# connect and disconnect endpoints. Those are real writes into the very tables
-# an operator is most likely to be migrating.
+# an email address), POST /accounts/password/reset/key/... (sets a password)
+# and the /accounts/3rdparty/ connect and disconnect endpoints. Those are real
+# writes into the very tables an operator is most likely to be migrating.
+# (/accounts/password/change/ and /set/ redirect to the SPA for every method
+# and write nothing, #1561; they are not exempt all the same.)
 #
 # What genuinely must stay reachable is only the SSO login round trip — an
 # SSO-only admin who is signed out has no other way back in to reach the off
@@ -534,7 +538,48 @@ PENDING_ACTION_GATED_PREFIXES = ("/accounts/", "/admin/")
 # be able to sign out, and logging out grants nothing.
 PENDING_ACTION_EXEMPT_PATHS = frozenset({"/accounts/logout/", "/admin/logout/"})
 
+# Views under a gated prefix that an authenticated user with a pending change
+# may still reach, keyed by the RESOLVED view name (the URL name, namespaced
+# for the admin; the dotted view path for an unnamed route). The decision is
+# made on the resolved view so that the decision and the dispatched view are
+# always the same.
+#
+# Admission rule (docs/development/authorization-entry-points.md): a view is
+# listed only when an anonymous visitor reaches it with the same effect, so a
+# pending session gains nothing a signed-out browser does not have, or when it
+# applies the forced-change gate itself. The SSO login and callback views of
+# every installed provider are added by ``pending_action_exempt_views`` and
+# belong to the second kind: a callback that would attach an identity to the
+# signed-in account (``process=connect``) is refused for a pending user by
+# ``accounts.adapter.SocialRegistrationAdapter.pre_social_login``.
+PENDING_ACTION_EXEMPT_VIEWS = frozenset(
+    {
+        # Ending the session.
+        "account_logout",
+        "admin:logout",
+        # Password reset by email: the emailed key is the credential, and a
+        # completed reset clears the forced password change
+        # (accounts.credentials.finalize_password_reset).
+        "account_reset_password",
+        "account_reset_password_done",
+        "account_reset_password_from_key",
+        "account_reset_password_from_key_done",
+        # Email confirmation link: redirects to the SPA with the key and
+        # changes nothing itself (accounts.views.EmailConfirmRedirectView).
+        "accounts.views.EmailConfirmRedirectView",
+        # Static result pages.
+        "account_inactive",
+        "socialaccount_login_cancelled",
+        "socialaccount_login_error",
+        # Generic OIDC nests its apps under one URL name pair.
+        "openid_connect_login",
+        "openid_connect_callback",
+    }
+)
+
 PENDING_ACTION_REFUSAL = "Complete the pending account change in the app before continuing."
+
+_VIEW_NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.:\-]*$")
 
 
 def is_well_formed_gated_prefix(prefix) -> bool:
@@ -576,8 +621,86 @@ def is_pending_action_gated_path(path: str) -> bool:
     return path.startswith(pending_action_gated_prefixes())
 
 
+def is_well_formed_exempt_view(name) -> bool:
+    """True for one exact view name such as ``saml_acs`` or ``admin:logout``.
+
+    Letters, digits, ``_``, ``.``, ``:`` and ``-`` only: no whitespace, no
+    wildcard and no path, so an entry can name exactly one view.
+    """
+    return isinstance(name, str) and bool(_VIEW_NAME_RE.match(name))
+
+
+def _sso_round_trip_views() -> frozenset[str]:
+    """``<provider>_login`` and ``<provider>_callback`` for every installed provider.
+
+    These are the URL names allauth's ``default_urlpatterns`` gives each
+    provider's login and callback views. Derived from the provider registry so
+    a provider added in ``INSTALLED_APPS`` is covered without editing a list.
+    Other per-provider views (Google's ``login/token/``) are not added and stay
+    gated.
+    """
+    try:
+        from allauth.socialaccount.providers import registry
+    except ImportError:  # socialaccount not installed: no SSO round trip
+        return frozenset()
+    names = set()
+    for provider_class in registry.get_class_list():
+        names.add(f"{provider_class.id}_login")
+        names.add(f"{provider_class.id}_callback")
+    return frozenset(names)
+
+
+def pending_action_exempt_views() -> frozenset[str]:
+    """``PENDING_ACTION_EXEMPT_VIEWS``, the SSO round trip, and ``settings.PENDING_ACTION_EXTRA_EXEMPT_VIEWS``.
+
+    The setting (default ``()``) is the extension point for an installed
+    extension package whose own views under a gated prefix meet the admission
+    rule above (for example a SAML assertion consumer). Exact view names only;
+    an entry that is not well formed is left out here and reported by the
+    ``accounts.E006`` system check.
+    """
+    extra = getattr(settings, "PENDING_ACTION_EXTRA_EXEMPT_VIEWS", ()) or ()
+    if isinstance(extra, str):
+        extra = (extra,)
+    return (
+        PENDING_ACTION_EXEMPT_VIEWS
+        | _sso_round_trip_views()
+        | frozenset(name for name in extra if is_well_formed_exempt_view(name))
+    )
+
+
+def resolved_view_name(path: str, urlconf=None) -> str | None:
+    """The view name *path* resolves to, or ``None`` when it resolves to nothing.
+
+    A slashless path that does not resolve is retried with its trailing slash,
+    which is where ``CommonMiddleware`` (``APPEND_SLASH``) would send it; the
+    view at the slashless path never runs in that case.
+    """
+    candidates = (path,) if path.endswith("/") else (path, path + "/")
+    for candidate in candidates:
+        try:
+            return resolve(candidate, urlconf).view_name
+        except Resolver404:
+            continue
+    return None
+
+
+def is_pending_action_exempt_view(path: str, urlconf=None) -> bool:
+    """True when *path* resolves to a view a pending user may still reach."""
+    name = resolved_view_name(path, urlconf)
+    return name is not None and name in pending_action_exempt_views()
+
+
+#: The account gates this middleware applies: the forced-change gates only.
+#: INACTIVE is left to the session layer, where it already holds:
+#: ``AuthenticationMiddleware`` resolves an inactive account's session to
+#: ``AnonymousUser`` (``ModelBackend.get_user`` refuses it), so it never
+#: reaches this check as an authenticated user.
+_NOT_APPLIED_HERE = frozenset(ACCOUNT_GATES) - FORCED_CHANGE_GATES
+
+
 class PendingAccountActionMiddleware:
-    """Apply the forced-change gates to the session-based HTML surfaces (#1551).
+    """Apply the forced-change gates to the session-based HTML surfaces (#1551, #1561).
 
     Registry Rule 1 (``docs/development/security-invariants.md``): an account
     with a forced password or username change pending is refused on every
@@ -585,30 +708,44 @@ class PendingAccountActionMiddleware:
     WebSockets through ``visiban.authorization``. allauth's account pages under
     ``/accounts/`` and the Django admin under ``/admin/`` are plain Django
     views that run no DRF permission class, so the same rule is applied here,
-    at the one layer every one of them passes through.
+    at the one layer every one of them passes through. ``/api/`` is not gated
+    here: its views carry the DRF permission classes and their JSON 403
+    contract.
 
     The gated prefixes are ``/accounts/``, ``/admin/`` and any listed in
-    ``settings.PENDING_ACTION_EXTRA_GATED_PREFIXES``.
+    ``settings.PENDING_ACTION_EXTRA_GATED_PREFIXES``. The views a pending user
+    may still reach are ``pending_action_exempt_views()``, decided on the
+    resolved view (see ``PENDING_ACTION_EXEMPT_VIEWS``).
 
-    The predicate is ``visiban.authorization.has_pending_account_action``, the
-    same definition the other transports use. A gated GET or HEAD is redirected
-    to the SPA (``FRONTEND_URL``), which walks the user through the change; any
-    other method is refused with a plain 403. Neither response says which
-    change is pending or echoes ``next``.
+    The predicate is ``visiban.authorization.account_state_denial`` limited to
+    ``FORCED_CHANGE_GATES``, the same gate objects the other transports
+    evaluate. A gated GET or HEAD is redirected to the SPA (``FRONTEND_URL``),
+    which walks the user through the change; any other method is refused with
+    a plain 403. Neither response says which change is pending or echoes
+    ``next``, and the target comes from settings only, never from the request.
 
     Unauthenticated requests pass, so sign-in (including the SSO round trip)
     works; after sign-in allauth redirects to ``LOGIN_REDIRECT_URL``, which is
     ``FRONTEND_URL`` and outside the gated prefixes (``accounts.checks``
     refuses a configuration where it is not, since that would loop).
 
-    Must sit after ``AuthenticationMiddleware``, which sets ``request.user``.
+    Must sit after ``AuthenticationMiddleware``, which sets ``request.user``;
+    the ``accounts.E005`` system check refuses a ``MIDDLEWARE`` setting that
+    drops it or puts it earlier.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if is_pending_action_gated_path(request.path_info) and self._is_pending(request):
+        path = request.path_info
+        # Cheapest test first; the URL resolution in the exemption test runs
+        # only for a pending user on a gated path.
+        if (
+            is_pending_action_gated_path(path)
+            and self._is_pending(request)
+            and not is_pending_action_exempt_view(path, getattr(request, "urlconf", None))
+        ):
             if request.method in ("GET", "HEAD"):
                 return HttpResponseRedirect(settings.FRONTEND_URL)
             return HttpResponseForbidden(PENDING_ACTION_REFUSAL, content_type="text/plain")
@@ -619,4 +756,4 @@ class PendingAccountActionMiddleware:
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:
             return False
-        return has_pending_account_action(user)
+        return account_state_denial(user, exempt=_NOT_APPLIED_HERE) is not None
