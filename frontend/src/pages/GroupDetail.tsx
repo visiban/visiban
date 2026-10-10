@@ -1007,7 +1007,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <section>
               <h2 className="text-fg font-semibold mb-1">Board defaults</h2>
               <p className="text-fg-muted text-sm mb-4">
-                Defaults for boards created in this group. Settings marked "Not yet enforced" or "Deprecated" are saved but don't take effect.
+                Defaults for boards created in this group. Settings marked "Deprecated" are saved but don't take effect.
               </p>
 
               {/* Default member role */}
