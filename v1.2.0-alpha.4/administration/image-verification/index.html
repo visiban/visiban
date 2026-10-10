@@ -3932,6 +3932,9 @@ carries its own copy. Verify against the registry you actually pull from. GHCR k
 copies indefinitely. On the GitLab registry, the current cleanup policy can sweep signature
 and attestation tags about 90 days after a release, even though the image itself is kept.
 Extending the policy is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1541">#1541</a>.
+A nightly CI job, <code>check-release-attestations</code>, re-verifies the newest releases' signatures and SBOM
+attestations on both registries so a sweep or delete does not go unnoticed. See
+<a href="../../development/ci-gates/">CI gate self-tests</a>.
 See <a href="../container-image-retention/#signature-and-sbom-attestation-tags-1153">Container image retention</a>.</p>
 <p>There is no key to download. A signature is valid when its Sigstore certificate says it was
 issued to Visiban's GitLab CI pipeline. Every command below pins that identity:</p>
