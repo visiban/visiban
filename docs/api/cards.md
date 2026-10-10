@@ -598,7 +598,7 @@ Add a comment. **Minimum role: Collaborator.** Returns `404 Not Found` if the ca
 **Request** `{ "body": "Looking into this now." }`
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/comments/{comment_id}/`
-Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete their own comments. Members with the `is_moderator` entitlement (or admin role) may delete any comment. Collaborators cannot delete others' comments regardless of `is_moderator`.
+Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete their own comments. Members with the `is_moderator` entitlement (or admin role) may delete any comment. Collaborators cannot delete others' comments regardless of `is_moderator`. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 ---
 
@@ -615,7 +615,7 @@ curl -O -J http://localhost:8000/media/attachments/abc123.pdf \
 ```
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/attachments/`
-Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB by default, operator-configurable via the `MAX_UPLOAD_SIZE_BYTES` env var. **Minimum role: Collaborator.**
+Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB by default, operator-configurable via the `MAX_UPLOAD_SIZE_BYTES` env var. **Minimum role: Collaborator.** Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 **Allowed file types**
 
@@ -666,7 +666,7 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 ```
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
-Delete an attachment. **Minimum role: Collaborator.** Collaborators may only delete their own attachments. Members with the `is_moderator` entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of `is_moderator`. Returns `404 Not Found` if the card was deleted concurrently; the attachment and its file are kept.
+Delete an attachment. **Minimum role: Collaborator.** Collaborators may only delete their own attachments. Members with the `is_moderator` entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of `is_moderator`. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 ---
 
@@ -813,10 +813,10 @@ Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 **Request** `{ "is_checked": true }`
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
-Delete a checklist item. **Minimum role: Collaborator.** Same ownership gate as `PATCH` above. Returns `404 Not Found` if the card was deleted concurrently; the item is not removed.
+Delete a checklist item. **Minimum role: Collaborator.** Same ownership gate as `PATCH` above. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/`
-Reorder checklist items on a card. **Minimum role: Collaborator.** Not ownership-gated — unlike `PATCH`/`DELETE` on a single item, reordering changes the whole list's display order rather than one item's content, so any collaborator+ may reorder regardless of who created each item. *(Since 1.2, #1292.)*
+Reorder checklist items on a card. **Minimum role: Collaborator.** Not ownership-gated — unlike `PATCH`/`DELETE` on a single item, reordering changes the whole list's display order rather than one item's content, so any collaborator+ may reorder regardless of who created each item. *(Since 1.2, #1292.)* Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 **Request** `{ "order": [17, 21, 19] }` — `order` must be **exactly** this card's current checklist item IDs: every item once, no duplicates, and no ID from another card. A partial list, a duplicate ID, an ID belonging to a different card, or (on a card that has items) an empty list are all rejected with `400` and body `{"order": ["..."]}` rather than partially applied. Returns the reordered list (same shape as `GET`).
 

@@ -1340,7 +1340,19 @@ class CardViewSet(viewsets.ModelViewSet):
             file_storage, file_name = attachment.file.storage, attachment.file.name
             attachment.delete()
             if file_name:
-                transaction.on_commit(lambda: file_storage.delete(file_name))
+                def _remove_file():
+                    # Failure-isolated (robust=True): a storage error must not
+                    # drop the deferred card.updated broadcast queued after
+                    # this callback. Log the class only — no paths or PII.
+                    try:
+                        file_storage.delete(file_name)
+                    except Exception as exc:
+                        logger.warning(
+                            "attachment file removal failed after commit: %s",
+                            type(exc).__name__,
+                        )
+
+                transaction.on_commit(_remove_file, robust=True)
             card_data = self._refetch_card_data(card)
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)

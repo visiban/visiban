@@ -56,8 +56,9 @@ class CardChildWriteVsDeleteRaceTests(APITestCase):
             )
         self.assertEqual(resp.status_code, 404)
         self.assertEqual(BoardEvent.objects.count(), events_before)
-        # Re-read on a fresh query: the card cascade-deleted the item, so
-        # assert via the (rolled back) state the request itself could not keep.
+        # The simulated card delete ran inside the request's savepoint and is
+        # rolled back with the 404, so the item row is restored and must not
+        # carry the PATCHed value.
         self.assertFalse(
             CardChecklist.objects.filter(pk=self.item.pk, is_checked=True).exists()
         )
@@ -85,8 +86,9 @@ class CardChildWriteVsDeleteRaceTests(APITestCase):
                 resp = self.client.delete(f"{self.base}/attachments/{att.pk}/")
         self.assertEqual(resp.status_code, 404)
         self.assertEqual(BoardEvent.objects.count(), events_before)
-        # The card delete in the interleaving cascades the row, so the storage
-        # file is the rollback signal: it must not be removed on a failed request.
+        # The simulated card delete ran inside the request's savepoint and is
+        # rolled back with the 404. The storage file is the signal that matters:
+        # it is not transactional, so it must survive a failed request.
         self.assertTrue(default_storage.exists(name))
 
     def test_attachment_delete_happy_path_removes_file_after_commit(self):
@@ -116,3 +118,18 @@ class CardChildWriteVsDeleteRaceTests(APITestCase):
             f"{self.base}/checklist/{self.item.pk}/", {"is_checked": True}, format="json",
         )
         self.assertEqual(resp.status_code, 200)
+
+    def test_attachment_delete_survives_storage_failure(self):
+        name = default_storage.save("attachments/fail1584.txt", ContentFile(b"x"))
+        self.addCleanup(lambda: default_storage.exists(name) and default_storage.delete(name))
+        att = CardAttachment.objects.create(
+            card=self.card, file=name, filename="fail1584.txt", size=1,
+            uploaded_by=self.user,
+        )
+        events_before = BoardEvent.objects.count()
+        with patch("django.core.files.storage.FileSystemStorage.delete", side_effect=OSError("boom")):
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.client.delete(f"{self.base}/attachments/{att.pk}/")
+        self.assertEqual(resp.status_code, 204)
+        # The storage failure must not drop the later card.updated broadcast.
+        self.assertEqual(BoardEvent.objects.count(), events_before + 1)
