@@ -159,6 +159,34 @@ INTENTIONALLY_UNHANDLED_BOARD_EVENTS: dict[str, str] = {
 }
 
 
+# Board fields that only board admins may read. ``BoardFullSerializer`` returns
+# them to admins and nulls them for every other role, and the ``share`` action
+# returns them to the admin who called it. Every event payload, by contrast, goes
+# to every subscriber of the board and group channels and is replayed to any
+# reader of the change feed, so no payload may carry them, whatever serializer
+# or request context built it. ``BoardSerializer`` does not declare them today;
+# this list is what keeps a future field addition, or a payload built from a
+# richer serializer, from changing that. Admin clients read these fields over
+# REST (``/full/`` and the ``share`` response), never from a frame.
+ADMIN_ONLY_BOARD_FIELDS = frozenset({"share_token", "share_token_expires_at"})
+
+
+def without_admin_only_board_fields(payload):
+    """Return *payload* without the top-level keys in ``ADMIN_ONLY_BOARD_FIELDS``.
+
+    Applied on both write paths (``broadcast_board_event``,
+    ``persist_board_event``, ``groups.broadcast.broadcast_group_event``) and on
+    the feed read path (``BoardEventSerializer``), so it covers every caller,
+    including ones added later, without each call site having to remember it.
+    The keys are dropped rather than nulled: a client merges a ``board.updated``
+    payload into local state, and a null would overwrite the value an admin
+    client loaded over REST. A non-dict payload is returned unchanged.
+    """
+    if not isinstance(payload, dict) or ADMIN_ONLY_BOARD_FIELDS.isdisjoint(payload):
+        return payload
+    return {k: v for k, v in payload.items() if k not in ADMIN_ONLY_BOARD_FIELDS}
+
+
 def _json_safe(payload: dict) -> dict:
     """Return *payload* with only plain JSON types.
 
@@ -214,7 +242,7 @@ def broadcast_board_event(board_id: int, event_type: str, payload: dict, *, even
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return
-    safe_payload = _json_safe(payload)
+    safe_payload = _json_safe(without_admin_only_board_fields(payload))
     # Use "event"/"data" keys to avoid collision with any serializer field
     # named "type". The outer "type" key is the Django Channels routing key
     # and is distinct from the event schema sent to WebSocket clients.
@@ -270,7 +298,7 @@ def persist_board_event(
     return BoardEvent.objects.create(
         board_id=board_id,
         event=event_type,
-        data=_json_safe(payload),
+        data=_json_safe(without_admin_only_board_fields(payload)),
         actor_id=actor_id,
     ).pk
 
