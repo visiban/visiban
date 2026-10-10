@@ -170,6 +170,43 @@ JSON at the top of this section. (Using `\z` rather than `$` anchors the regex t
 of string, not "end of line" — GitLab's cleanup policy regex is a Ruby `Regexp`, where `$`
 also matches before a trailing newline.)
 
+### #1541 update: cosign `.sig`/`.att` tags added to the keep-regex
+
+The target policy that protects signature and SBOM attestation tags (the `sha256-<64 hex>.sig`
+and `.att` tags described above). It is the #1190 policy with one alternative appended; every
+other field is unchanged. A Maintainer applies it (a project setting, not changeable from a
+branch):
+
+```bash
+glab api --method PUT "projects/visiban%2Fvisiban" \
+  -H "Content-Type: application/json" \
+  --input - <<'EOF'
+{"container_expiration_policy_attributes": {"name_regex_keep": "^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\\.(sig|att))\\z"}}
+EOF
+```
+
+Resulting policy (read back with the `jq '.container_expiration_policy'` command at the top of
+this section):
+
+```json
+{
+  "cadence": "1d",
+  "enabled": true,
+  "keep_n": 10,
+  "older_than": "90d",
+  "name_regex": ".*",
+  "name_regex_keep": "^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\\.(sig|att))\\z"
+}
+```
+
+`name_regex_keep` is matched against the whole tag name, so the new alternative only protects
+tags that are exactly `sha256-` plus 64 lowercase hex characters plus `.sig` or `.att`. It does
+not protect other `sha256-*` tags, a bare `sha256-<hex>` tag, or longer or shorter hex strings.
+All tag shapes the previous regex kept (`vX.Y.Z`, `vX.Y.Z-alpha|beta|rc.N`, `latest`) are still
+kept. Per-arch tag cleanup ([#1196](https://gitlab.com/visiban/visiban/-/issues/1196)) must
+leave these tags alone for the same reason as the warning above. Once applied, replace the
+"until the policy is extended" guidance above with the date it was applied.
+
 ## GHCR (GitHub Container Registry)
 
 GHCR has **no per-package automatic retention/cleanup policy setting** at all, on any GitHub
