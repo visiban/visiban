@@ -6,10 +6,16 @@ reloading settings in-process would re-evaluate DATABASES.
 
 import json
 import os
+import runpy
 import subprocess
 import sys
+from pathlib import Path
+from unittest import mock
 
+from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
+
+from visiban import settings as settings_module
 
 _BASE_ENV = {
     "DJANGO_SECRET_KEY": "test-secret-key-not-change-me-in-production",
@@ -81,3 +87,37 @@ class DisableThrottlingSettingsTests(SimpleTestCase):
         )
         self.assertIsNone(values)
         self.assertIn("VISIBAN_DISABLE_THROTTLING", err)
+
+
+class DisableThrottlingInProcessTests(SimpleTestCase):
+    """Same branches, evaluated in-process so diff-cover can see them.
+
+    Coverage does not follow the subprocess tests above, so the new settings.py
+    lines would read as 0% in CI's backend-diff-coverage. ``runpy.run_path``
+    executes settings.py into a throwaway namespace: it re-creates the dicts but
+    never touches the live ``django.conf.settings`` object or the runner's DB
+    connection (the reason ``importlib.reload`` is avoided in this suite).
+    """
+
+    databases = []
+
+    def _run_settings(self, **overrides):
+        env = {**_BASE_ENV, **overrides}
+        with mock.patch.dict(os.environ, env):
+            return runpy.run_path(str(Path(settings_module.__file__)), run_name="_settings_probe")
+
+    def test_override_with_debug_lifts_every_scope(self):
+        ns = self._run_settings(DEBUG="true", VISIBAN_DISABLE_THROTTLING="true")
+        rates = ns["REST_FRAMEWORK"]["DEFAULT_THROTTLE_RATES"]
+        self.assertTrue(rates)
+        self.assertEqual(set(rates.values()), {"1000000/second"})
+        self.assertEqual(ns["ACCOUNT_RATE_LIMITS"], {"login_failed": False})
+
+    def test_override_without_debug_raises(self):
+        with self.assertRaises(ImproperlyConfigured):
+            self._run_settings(
+                DEBUG="false",
+                VISIBAN_DISABLE_THROTTLING="true",
+                ALLOWED_HOSTS="localhost",
+                CORS_ALLOWED_ORIGINS="https://x.example",
+            )
