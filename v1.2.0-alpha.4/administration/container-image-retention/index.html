@@ -3963,7 +3963,8 @@ with <code>no signatures found</code>. GHCR has no cleanup policy, so its copies
 <p>Until the policy is extended (tracked in
 <a href="https://gitlab.com/visiban/visiban/-/issues/1541">#1541</a>), verify against GHCR (see
 <a href="../image-verification/">Verifying release images</a>). To keep the GitLab copies, a maintainer
-adds the cosign tag shape to <code>name_regex_keep</code>:</p>
+adds the cosign tag shape to <code>name_regex_keep</code> (the apply command and resulting policy are in
+<a href="#1541-update-cosign-sigatt-tags-added-to-the-keep-regex">#1541 update</a> below):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>^(v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\.(sig|att))\z
 </code></pre></div>
 <p>This also keeps signatures for intermediate <code>-amd64</code>/<code>-arm64</code> digests. Those are the same
@@ -4045,6 +4046,40 @@ above, and added <code>latest</code> alongside it):</p>
 JSON at the top of this section. (Using <code>\z</code> rather than <code>$</code> anchors the regex to the true end
 of string, not "end of line" — GitLab's cleanup policy regex is a Ruby <code>Regexp</code>, where <code>$</code>
 also matches before a trailing newline.)</p>
+<h3 id="1541-update-cosign-sigatt-tags-added-to-the-keep-regex">#1541 update: cosign <code>.sig</code>/<code>.att</code> tags added to the keep-regex<a class="headerlink" href="#1541-update-cosign-sigatt-tags-added-to-the-keep-regex" title="Permanent link">&para;</a></h3>
+<p>The target policy that protects signature and SBOM attestation tags (the <code>sha256-&lt;64 hex&gt;.sig</code>
+and <code>.att</code> tags described above). It is the #1190 policy with one alternative appended; every
+other field is unchanged (the JSON below omits <code>next_run_at</code>, which GitLab sets itself).
+A Maintainer applies it (a project setting, not changeable from a branch).</p>
+<p><strong>Status: NOT yet applied as of 2026-10-10</strong> (the live policy is the JSON recorded above). A
+Maintainer must run the command, read it back, and replace this line with the apply date.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>glab<span class="w"> </span>api<span class="w"> </span>--method<span class="w"> </span>PUT<span class="w"> </span><span class="s2">"projects/visiban%2Fvisiban"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--input<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="s">{"container_expiration_policy_attributes": {"name_regex_keep": "^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\\.(sig|att))\\z"}}</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="s">EOF</span>
+</code></pre></div>
+<p>Resulting policy (read back with the <code>jq '.container_expiration_policy'</code> command at the top of
+this section):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">"cadence"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1d"</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">"enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">"keep_n"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">"older_than"</span><span class="p">:</span><span class="w"> </span><span class="s2">"90d"</span><span class="p">,</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">"name_regex"</span><span class="p">:</span><span class="w"> </span><span class="s2">".*"</span><span class="p">,</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">"name_regex_keep"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^(v[0-9]+\\.[0-9]+\\.[0-9]+(-(alpha|beta|rc)\\.[0-9]+)?|latest|sha256-[0-9a-f]{64}\\.(sig|att))\\z"</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>name_regex_keep</code> is matched against the whole tag name, so the new alternative only protects
+tags that are exactly <code>sha256-</code> plus 64 lowercase hex characters plus <code>.sig</code> or <code>.att</code>. It does
+not protect other <code>sha256-*</code> tags, a bare <code>sha256-&lt;hex&gt;</code> tag, or longer or shorter hex strings.
+All tag shapes the previous regex kept (<code>vX.Y.Z</code>, <code>vX.Y.Z-alpha|beta|rc.N</code>, <code>latest</code>) are still
+kept. Per-arch tag cleanup (<a href="https://gitlab.com/visiban/visiban/-/issues/1196">#1196</a>) must
+leave these tags alone for the same reason as the warning above. Once applied, three passages go
+stale and must be updated in the same change: in this page, "The keep-regex recorded above does
+not match them" and "Until the policy is extended" (both under "Signature and SBOM attestation
+tags"), and in <a href="../image-verification/">Verifying release images</a>, "the current cleanup policy
+can sweep signature and attestation tags". They are correct until the apply.</p>
 <h2 id="ghcr-github-container-registry">GHCR (GitHub Container Registry)<a class="headerlink" href="#ghcr-github-container-registry" title="Permanent link">&para;</a></h2>
 <p>GHCR has <strong>no per-package automatic retention/cleanup policy setting</strong> at all, on any GitHub
 plan — unlike GitLab's project-level <code>container_expiration_policy</code>, there is no equivalent
@@ -4062,12 +4097,12 @@ them from, so they accumulate unconditionally until #1196 is addressed.</p>
 scope needed to list package versions directly (<code>gh api orgs/visiban/packages</code> → 403). That
 is a token-scope gap, not a "no packages" result — an operator who wants to confirm GHCR's
 current package list and any manual deletions should do one of:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Re-authenticate gh with package read access, then list:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>gh<span class="w"> </span>auth<span class="w"> </span>refresh<span class="w"> </span>-h<span class="w"> </span>github.com<span class="w"> </span>-s<span class="w"> </span>read:packages
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>gh<span class="w"> </span>api<span class="w"> </span><span class="s2">"orgs/visiban/packages?package_type=container"</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Or check in the browser (no scope needed — it's your own org):</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1"># https://github.com/orgs/visiban/packages</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Re-authenticate gh with package read access, then list:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>gh<span class="w"> </span>auth<span class="w"> </span>refresh<span class="w"> </span>-h<span class="w"> </span>github.com<span class="w"> </span>-s<span class="w"> </span>read:packages
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>gh<span class="w"> </span>api<span class="w"> </span><span class="s2">"orgs/visiban/packages?package_type=container"</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># Or check in the browser (no scope needed — it's your own org):</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># https://github.com/orgs/visiban/packages</span>
 </code></pre></div>
 <p>If a retention workflow is ever added for GHCR, record its keep-rule here in the same shape
 as the GitLab section above, including whether it protects <code>v*</code> tags and <code>latest</code>
@@ -4176,15 +4211,15 @@ multi-arch index digest and each platform digest are signed, and each platform d
 its SBOM — independent of whichever tag currently points at it. See
 <a href="../image-verification/">Verifying release images</a>.</p>
 <h3 id="finding-the-digest-for-a-release">Finding the digest for a release<a class="headerlink" href="#finding-the-digest-for-a-release" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Via crane (no docker pull required):</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>crane<span class="w"> </span>digest<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.1.0
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Via docker, if you already have docker available:</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>docker<span class="w"> </span>buildx<span class="w"> </span>imagetools<span class="w"> </span>inspect<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.1.0<span class="w"> </span>--format<span class="w"> </span><span class="s1">'{{.Manifest.Digest}}'</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Via the GitLab UI: Deploy → Container Registry → backend → the tag's row shows its digest.</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># Via the GitHub UI: the package's page (https://github.com/orgs/visiban/packages/container/visiban%2Fbackend)</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># lists each version's digest.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Via crane (no docker pull required):</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>crane<span class="w"> </span>digest<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.1.0
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Via docker, if you already have docker available:</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>docker<span class="w"> </span>buildx<span class="w"> </span>imagetools<span class="w"> </span>inspect<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.1.0<span class="w"> </span>--format<span class="w"> </span><span class="s1">'{{.Manifest.Digest}}'</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Via the GitLab UI: Deploy → Container Registry → backend → the tag's row shows its digest.</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># Via the GitHub UI: the package's page (https://github.com/orgs/visiban/packages/container/visiban%2Fbackend)</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1"># lists each version's digest.</span>
 </code></pre></div>
 <h3 id="pinning-docker-composeprodyml-by-digest">Pinning <code>docker-compose.prod.yml</code> by digest<a class="headerlink" href="#pinning-docker-composeprodyml-by-digest" title="Permanent link">&para;</a></h3>
 <p>Digest references use <code>@sha256:...</code> instead of (or in addition to) a tag, and — unlike
@@ -4193,10 +4228,10 @@ a single <code>.env</code> variable, since compose does not let you combine a va
 a fixed digest suffix on the same image reference. Pin all three backend-image lines
 (<code>backend-init</code>, <code>backend</code>, <code>scheduler</code>) and the frontend line by editing your local copy of
 <code>docker-compose.prod.yml</code> directly, replacing e.g.:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend:${APP_VERSION:?...}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend:${APP_VERSION:?...}</span>
 </code></pre></div>
 <p>with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend@sha256:&lt;digest&gt;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend@sha256:&lt;digest&gt;</span>
 </code></pre></div>
 <p>This intentionally opts out of <code>APP_VERSION</code> entirely for that service — you are now pinned
 to one specific, immutable artifact until you edit the file again for the next upgrade. Keep
@@ -4207,15 +4242,15 @@ since <code>docker compose ps</code>/<code>images</code> will only show the dige
 <code>digest</code> values key. Docker/OCI image references accept a tag <strong>and</strong> a digest together
 (<code>repo:tag@digest</code>; the digest wins when both are present, and the tag stays as the
 human-readable label), so append the digest directly onto <code>tag</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">backend</span><span class="p">:</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">tag</span><span class="p">:</span><span class="w"> </span><span class="s">"v1.1.0@sha256:&lt;digest&gt;"</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nt">frontend</span><span class="p">:</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/frontend</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="nt">tag</span><span class="p">:</span><span class="w"> </span><span class="s">"v1.1.0@sha256:&lt;digest&gt;"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">tag</span><span class="p">:</span><span class="w"> </span><span class="s">"v1.1.0@sha256:&lt;digest&gt;"</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="nt">frontend</span><span class="p">:</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/frontend</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="nt">tag</span><span class="p">:</span><span class="w"> </span><span class="s">"v1.1.0@sha256:&lt;digest&gt;"</span>
 </code></pre></div>
 <p><code>values.schema.json</code> only rejects the literal value <code>latest</code> for these two <code>tag</code> fields
 (#542 — so an upgrade can never leave replicas on two different builds); a <code>tag@digest</code>
