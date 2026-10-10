@@ -95,9 +95,12 @@ backfill regexp from that page. The GHCR copy is unaffected. Applying the keep-r
 ([#1541](https://gitlab.com/visiban/visiban/-/issues/1541)) avoids this entirely, because the
 original tag-pipeline signatures are then never swept.
 
-Nothing yet checks on a schedule that a release's signatures and attestations are still
-present. Only the images themselves are checked. That check is tracked in
-[#1542](https://gitlab.com/visiban/visiban/-/issues/1542).
+The nightly `check-release-attestations` job
+([#1542](https://gitlab.com/visiban/visiban/-/issues/1542)) checks that the newest releases'
+signatures and SBOM attestations are still present and still verify, on both registries. It
+fails when a sweep or manual delete removes them. See the
+[CI gates runbook](../development/ci-gates.md#self-tested-today) for what a red run means and
+how to re-attach a backfilled release.
 
 !!! warning "Cleaning up per-arch tags (#1196) must keep the platform manifests"
     The `-amd64`/`-arm64` intermediate tags point at the same platform manifests the release

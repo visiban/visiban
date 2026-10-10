@@ -4107,6 +4107,64 @@ check-release-images:
     - bash scripts/check-release-images.sh --self-test
     - bash scripts/check-release-images.sh
 
+# ─── Scheduled — release signature + SBOM survival (#1542) ────────────────────
+#
+# check-release-images (above) proves the released image still exists. It does
+# not look at the `sha256-<digest>.sig` / `.att` tags cosign stores beside it
+# (#1153), so a registry cleanup sweep (the GitLab registry's current policy
+# can delete them ~90 days after a release, #1541) or a manual delete would
+# remove every signature and SBOM with no job going red. This job re-runs
+# `cosign verify` and `cosign verify-attestation --type cyclonedx` for the
+# newest ATTEST_CHECK_COUNT releases (default 3), both images, BOTH registries,
+# the index and each platform digest, with the documented tag-only identity
+# (docs/administration/image-verification.md). Zero attestations is a failure.
+#
+# Gated on the Nightly schedule's existing CVE_SCAN=true variable rather than
+# "any schedule": it spends cosign downloads and Sigstore transparency-log
+# lookups, and the Nightly schedule is already the daily slot for registry-
+# facing checks. No new schedule or schedule variable is needed, and
+# schedule-config-check already sees CVE_SCAN covered. Not allow_failure, for
+# the same reason as check-release-images.
+#
+# Releases signed later by `image-attest-backfill` carry the main-or-tag
+# identity: list each one in ATTEST_BACKFILLED_TAGS (space-separated) with the
+# issue that justified it. A permanent per-reference exception goes in
+# ATTEST_ACCEPTED_GAPS, likewise with a comment. Both are empty on purpose.
+# cosign comes from `.cosign-pin`, shared with image-attest and helm-publish.
+check-release-attestations:
+  extends: .cosign-pin
+  stage: deploy
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CVE_SCAN == "true"'
+  variables:
+    ATTEST_CHECK_COUNT: "3"
+    ATTEST_BACKFILLED_TAGS: ""
+    ATTEST_ACCEPTED_GAPS: ""
+  before_script:
+    - apk add --no-cache bash git curl jq crane
+    - |
+      set -eu
+      curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+      echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+      chmod +x /usr/local/bin/cosign
+      if [ -z "${GHCR_USER:-}" ] || [ -z "${GHCR_TOKEN:-}" ]; then
+        echo "ERROR: GHCR_USER/GHCR_TOKEN not set — cannot verify the GHCR images."
+        exit 1
+      fi
+      mkdir -p "$HOME/.docker"
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS="\"${CI_REGISTRY}\":{\"auth\":\"$(b64 "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}")\"}"
+      AUTHS="${AUTHS},\"ghcr.io\":{\"auth\":\"$(b64 "${GHCR_USER}" "${GHCR_TOKEN}")\"}"
+      printf '{"auths":{%s}}' "${AUTHS}" > "$HOME/.docker/config.json"
+    # Scheduled pipelines clone at the default depth; fetch every tag so the
+    # newest N releases are the real newest N.
+    - git fetch origin --tags --force
+  script:
+    - bash scripts/check-release-attestations.sh --self-test
+    - bash scripts/check-release-attestations.sh
+
 # ─── GitHub Release ────────────────────────────────────────────────────────────
 #
 # Runs only on version tag pipelines, after both images are confirmed pushed
