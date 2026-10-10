@@ -1037,6 +1037,27 @@ _DEMO_USER_THROTTLE_RATE = _parse_demo_user_throttle_rate(os.environ.get("DEMO_U
 if DEMO_MODE and _DEMO_USER_THROTTLE_RATE:
     REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["user"] = _DEMO_USER_THROTTLE_RATE
 
+# #1569: CI-only throttle switch for backend-schema-fuzz. The fuzz job runs with
+# DEBUG=True, but the DEBUG bypass above is only "9999/hour", not unlimited, and
+# the share_link/share_link_token scopes have no bypass at all. A 20k-request
+# run from one token/IP exhausts those budgets, after which later cases are
+# answered by the DRF throttle (429) instead of the view under test, which
+# overstates coverage. Off by default and honored ONLY with DEBUG=True so a
+# production install can neither trip it by accident nor be loosened by it; a
+# deliberate misconfiguration fails loudly at startup instead of silently.
+VISIBAN_DISABLE_THROTTLING = env.bool("VISIBAN_DISABLE_THROTTLING", default=False)
+if VISIBAN_DISABLE_THROTTLING:
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "VISIBAN_DISABLE_THROTTLING is only honored with DEBUG=True (it exists for the "
+            "CI schema-fuzz job). Unset it on this install."
+        )
+    REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+        _scope: "1000000/second" for _scope in REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+    }
+    # allauth's failed-login gate is a separate limiter that also answers 429.
+    ACCOUNT_RATE_LIMITS = {"login_failed": False}
+
 # Email backend — console in development (prints to stdout), SMTP in production.
 # Set EMAIL_BACKEND explicitly to override (e.g. for testing or third-party relay).
 # Whether the operator pinned EMAIL_BACKEND explicitly. Load-bearing for #306:

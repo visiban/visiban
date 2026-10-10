@@ -78,6 +78,13 @@ Runs on any MR or `main`-branch push that touches `backend/**/views/**`, `**/ser
 or `**/urls.py` — no unconditional fallback on `main`, since nothing downstream depends on
 this job (#1266). It never runs on a scheduled pipeline.
 
+The job sets `VISIBAN_DISABLE_THROTTLING=True` (#1569). Without it, a ~20k-request run from one
+token exhausted the DEBUG-time `9999/hour` budgets (and the public share-link scopes, which have
+no DEBUG bypass), so about 23% of responses were `429` from the DRF throttle rather than the view
+under test. The variable defaults to off, lifts every DRF throttle rate plus allauth's
+`login_failed` gate, and `settings.py` refuses to start with it set unless `DEBUG=True`; it is not
+a production setting.
+
 **Deep nightly run (`backend-schema-fuzz-deep`).** The Nightly schedule (`FUZZ_DEEP=true`,
 #1383) runs the same job with a bigger budget: `--max-examples 100` and `--max-time 2400`
 seconds, against the MR job's 10 and 600. Boot, seed, token, checks, and

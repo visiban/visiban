@@ -1074,6 +1074,13 @@ backend-schema-fuzz:
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
+    # Throttle override (#1569): the DEBUG rates are "9999/hour" and the public
+    # share-link scopes have no DEBUG bypass, so a ~20k-request fuzz run was
+    # answered with 429 on ~23% of requests and those cases never reached the
+    # view under test. This lifts every DRF throttle rate and allauth's
+    # login_failed gate for this job only; settings.py refuses the variable
+    # unless DEBUG=True and production defaults are untouched.
+    VISIBAN_DISABLE_THROTTLING: "True"
     # CI-only file; provision_fuzz_token writes the raw PAT here (mode 0600),
     # never to job output — see the command's docstring.
     VISIBAN_FUZZ_TOKEN_FILE: "/tmp/visiban_fuzz_token"
