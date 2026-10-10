@@ -226,6 +226,22 @@ class VerifyEmailThrottle(AnonRateThrottle):
     scope = "verify_email"
 
 
+class ResendEmailThrottle(SimpleRateThrottle):
+    """Scoped rate limit for the resend verification email endpoint (#1552).
+
+    Keyed on client IP for authenticated and anonymous callers alike
+    (AnonRateThrottle would skip authenticated users).
+    """
+
+    scope = "resend_email"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }
+
+
 class EmailConfirmRedirectThrottle(AnonRateThrottle):
     """Rate limit for the email-confirm redirect endpoint.
 

@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 from django.test import Client, TestCase, RequestFactory, override_settings
 
 from accounts.adapter import RegistrationAdapter
-from accounts.views import EmailConfirmRedirectThrottle, EmailConfirmRedirectView, VerifyEmailThrottle
+from accounts.views import EmailConfirmRedirectThrottle, EmailConfirmRedirectView, ResendEmailThrottle, VerifyEmailThrottle
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +228,83 @@ class VerifyEmailThrottleScopeTests(TestCase):
             "VerifyEmailThrottle must be listed in the throttle_classes kwarg "
             "on the VerifyEmailView registered in urls.py.",
         )
+
+
+# ---------------------------------------------------------------------------
+# ResendEmailThrottle — scope wiring and behavior (#1552)
+# ---------------------------------------------------------------------------
+
+class ResendEmailThrottleTests(TestCase):
+    URL = "/api/v1/auth/registration/resend-email/"
+
+    def test_scope_and_rate_configured(self):
+        from django.conf import settings
+        self.assertEqual(ResendEmailThrottle.scope, "resend_email")
+        self.assertIn("resend_email", settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"])
+
+    def test_route_is_wired_with_throttle(self):
+        from django.urls import resolve
+        for path in (self.URL, self.URL.rstrip("/")):
+            match = resolve(path)
+            self.assertIn(ResendEmailThrottle, match.func.initkwargs.get("throttle_classes", []))
+
+    def _assert_429_after_rate(self, client):
+        from unittest.mock import patch
+        from django.core.cache import cache
+
+        cache.clear()
+        with patch.object(ResendEmailThrottle, "get_rate", return_value="2/hour"), \
+                patch.object(ResendEmailThrottle, "rate", None, create=True), \
+                patch.object(ResendEmailThrottle, "num_requests", None, create=True), \
+                patch.object(ResendEmailThrottle, "duration", None, create=True):
+            for _ in range(2):
+                r = client.post(self.URL, {"email": "nobody@example.com"}, format="json")
+                self.assertEqual(r.status_code, 200)
+            r = client.post(self.URL, {"email": "nobody@example.com"}, format="json")
+            self.assertEqual(r.status_code, 429)
+        cache.clear()
+
+    def test_returns_429_after_rate_exceeded(self):
+        from rest_framework.test import APIClient
+
+        self._assert_429_after_rate(APIClient())
+
+    def test_authenticated_caller_is_also_limited(self):
+        from rest_framework.test import APIClient
+        from accounts.models import User
+
+        user = User.objects.create_user(username="resend_auth", email="auth@example.com", password="pw-12345-xyz")
+        client = APIClient()
+        client.force_authenticate(user=user)
+        self._assert_429_after_rate(client)
+
+    def test_invalid_email_format_is_400(self):
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+
+        cache.clear()
+        r = APIClient().post(self.URL, {"email": "not-an-email"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        cache.clear()
+
+    def test_response_is_constant_for_unverified_verified_and_unknown(self):
+        from allauth.account.models import EmailAddress
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+        from accounts.models import User
+
+        cache.clear()
+        for name, verified in (("unverified", False), ("verified", True)):
+            u = User.objects.create_user(username=f"resend_{name}", email=f"{name}@example.com", password="pw-12345-xyz")
+            EmailAddress.objects.create(user=u, email=u.email, verified=verified, primary=True)
+        client = APIClient()
+        responses = [
+            client.post(self.URL, {"email": f"{n}@example.com"}, format="json")
+            for n in ("unverified", "verified", "unknown")
+        ]
+        self.assertEqual({r.status_code for r in responses}, {200})
+        self.assertEqual(len({str(r.json()) for r in responses}), 1)
+        cache.clear()
 
 
 # ---------------------------------------------------------------------------

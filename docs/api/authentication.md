@@ -959,6 +959,23 @@ Confirm an email address from the key in a confirmation link. The link in the em
 
 > **Changed in 1.2** (#1293) — the `409` case used to answer `200 {"detail": "ok"}` without confirming anything. It's only returned to someone holding a valid key, which is only ever emailed to that address, so it reveals nothing the inbox's owner can't already find out. The account that requested the change sees no difference: its `pending_email` stays set either way.
 
+### `POST /api/v1/auth/registration/resend-email/`
+
+Send the confirmation email again for an address awaiting verification.
+
+**Permission:** None — public endpoint. Throttled per IP for both authenticated and anonymous callers (`resend_email` scope, 10 requests per hour by default).
+
+**Request body:** `{ "email": "<address>" }`
+
+**Response** `200 OK` — `{ "detail": "ok" }`. The response is the same whether or not the address belongs to an account.
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | The `email` value is not a valid address |
+| `429 Too Many Requests` | Too many requests from this IP (`resend_email` throttle scope) |
+
+> **Added in 1.3** (#1552) — scoped rate limit for this endpoint.
+
 ---
 
 ## Common errors
