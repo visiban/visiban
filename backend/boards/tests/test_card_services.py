@@ -26,9 +26,9 @@ from boards.permissions import get_board_role, get_board_roles
 from boards.services import cards as svc
 from boards.services.errors import (
     CardCreationNotAllowed, CardNotFound, ColumnNotFound, ForceNotPermitted,
-    InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
-    UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
-    WipLimitExceeded,
+    InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted,
+    SwimlaneNotFound, UseMoveEndpoint, VersionConflict, WeightLimitExceeded,
+    WipHardBlocked, WipLimitExceeded,
 )
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
@@ -527,6 +527,76 @@ class VersionConflictTests(CardServiceTestBase):
         self.assertEqual(Card.objects.get(pk=self.card.pk).version, before + 1)
 
 
+class MovePositionTests(CardServiceTestBase):
+    """``position`` is coerced and clamped into the target cell (#1570).
+
+    schema-fuzz sent ``position=285001418243037`` and Postgres raised "integer
+    out of range" as a 500. SQLite stores the value without complaint, so these
+    tests assert the clamped value rather than the absence of a DB error.
+    """
+
+    def _positions(self, column):
+        return list(
+            Card.objects.filter(column=column, swimlane=self.lane)
+            .order_by("position").values_list("title", "position")
+        )
+
+    def test_a_huge_position_lands_last_in_the_target_cell(self):
+        self._fill(self.col_b, 3)
+        self._move(position=285001418243037)
+        self.assertEqual(
+            self._positions(self.col_b),
+            [("f0", 0), ("f1", 1), ("f2", 2), ("Subject", 3)],
+        )
+
+    def test_a_huge_position_in_an_empty_cell_is_zero(self):
+        self._move(position=2**63)
+        self.assertEqual(self._positions(self.col_b), [("Subject", 0)])
+
+    def test_a_negative_position_lands_first(self):
+        self._fill(self.col_b, 2)
+        self._move(position=-2**40)
+        self.assertEqual(
+            self._positions(self.col_b), [("Subject", 0), ("f0", 1), ("f1", 2)]
+        )
+
+    def test_repeated_moves_cannot_grow_positions_past_the_cell(self):
+        """A fixed cap would not hold: moving to just under it again and again
+        shifts the top sibling up by one each time."""
+        self._fill(self.col_b, 2)
+        for _ in range(3):
+            self._move(position=2**31 - 2, target_column_id=self.col_b.pk)
+        self.assertLessEqual(max(p for _, p in self._positions(self.col_b)), 2)
+
+    def test_an_in_range_position_is_unchanged(self):
+        self._fill(self.col_b, 3)
+        self._move(position=1)
+        self.assertEqual(
+            self._positions(self.col_b),
+            [("f0", 0), ("Subject", 1), ("f1", 2), ("f2", 3)],
+        )
+
+    def test_a_numeric_string_position_is_accepted(self):
+        self._fill(self.col_b, 2)
+        self._move(position="1")
+        self.assertEqual(
+            self._positions(self.col_b), [("f0", 0), ("Subject", 1), ("f1", 2)]
+        )
+
+    def test_a_non_integer_position_is_rejected(self):
+        for bad in ("abc", None, [], {}, float("inf")):
+            with self.subTest(position=bad), self.assertRaises(InvalidPosition):
+                self._move(position=bad)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.col_a.pk)
+
+    def test_role_and_lookup_are_checked_before_the_position_is_coerced(self):
+        with self.assertRaises(NotPermitted):
+            self._move(actor=self.viewer, position="garbage")
+        with self.assertRaises(CardNotFound):
+            self._move(card_id=999999, position="garbage")
+
+
 class MoveLockRevalidationTests(CardServiceTestBase):
     """move_card reads the card unlocked, locks its cells, then re-checks (#1522).
 
@@ -667,6 +737,81 @@ class MoveLockRevalidationTests(CardServiceTestBase):
         self.assertEqual(len(calls), 1, "a position-only change needs no retry")
         trailing.refresh_from_db()
         self.assertEqual(trailing.position, 0)
+
+    # -- a card entering a locked cell (#1567) ------------------------------
+    #
+    # The real race (a card committed into the cell while the lock statement
+    # waited, then a third move) is in test_move_cell_arrival_race.py and needs
+    # PostgreSQL. Here the newcomer is inserted right after the lock, before
+    # the membership re-check, which is the state that race leaves behind.
+
+    _real_lock_columns = staticmethod(svc._lock_move_columns)
+
+    def _arrive_after_lock(self, column, times=1):
+        """Patch the column lock so a card enters ``column`` after the first ``times`` calls."""
+        calls = []
+
+        def side_effect(column_ids):
+            calls.append(column_ids)
+            out = self._real_lock_columns(column_ids)
+            if len(calls) <= times:
+                _make_card(column, self.lane, title=f"Newcomer {len(calls)}", position=9)
+            return out
+
+        return patch.object(svc, "_lock_move_columns", side_effect=side_effect), calls
+
+    def test_a_card_entering_the_source_cell_after_the_lock_forces_a_retry(self):
+        lock_patcher, calls = self._arrive_after_lock(self.col_a)
+        read_patcher, reads = self._stale_reads(0)
+        with lock_patcher, read_patcher:
+            result = self._move()
+        self.assertEqual(len(reads), 2, "an unlocked card in the cell must trigger exactly one retry")
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(result.movement.to_column_id, self.col_b.pk)
+        self.assertEqual(CardMovement.objects.filter(card=self.card).count(), 1)
+
+    def test_a_card_entering_the_target_cell_after_the_lock_forces_a_retry(self):
+        lock_patcher, _ = self._arrive_after_lock(self.col_b)
+        read_patcher, reads = self._stale_reads(0)
+        with lock_patcher, read_patcher:
+            self._move()
+        self.assertEqual(len(reads), 2)
+
+    def test_a_reorder_within_one_cell_also_locks_its_column_and_re_checks(self):
+        """A same-cell reorder changes no column but still takes the column lock,
+        which is what makes the re-check conclusive (#1567)."""
+        lock_patcher, calls = self._arrive_after_lock(self.col_a)
+        read_patcher, reads = self._stale_reads(0)
+        with lock_patcher, read_patcher:
+            result = self._move(target_column_id=self.col_a.pk)
+        self.assertEqual(calls[0], {self.col_a.pk})
+        self.assertEqual(len(reads), 2)
+        self.assertIsNone(result.movement)
+
+    def test_cards_that_keep_entering_the_cell_end_in_a_version_conflict(self):
+        lock_patcher, _ = self._arrive_after_lock(self.col_a, times=svc._MOVE_LOCK_ATTEMPTS)
+        read_patcher, reads = self._stale_reads(0)
+        with lock_patcher, read_patcher, self.assertRaises(VersionConflict) as ctx:
+            self._move()
+        self.assertEqual(len(reads), svc._MOVE_LOCK_ATTEMPTS)
+        self.assertEqual(ctx.exception.current_version, self._current().version)
+        self.assertEqual(self._current().column_id, self.col_a.pk)
+        self.assertFalse(CardMovement.objects.filter(card=self.card).exists())
+        self.broadcast.assert_not_called()
+
+    def test_a_card_leaving_the_cell_after_the_lock_needs_no_retry(self):
+        """Only unlocked members matter; a locked card that left is harmless."""
+        sibling = _make_card(self.col_a, self.lane, title="Leaver", position=1)
+
+        def leave(column_ids):
+            out = self._real_lock_columns(column_ids)
+            Card.objects.filter(pk=sibling.pk).update(column=self.col_b, position=5)
+            return out
+
+        read_patcher, reads = self._stale_reads(0)
+        with patch.object(svc, "_lock_move_columns", side_effect=leave), read_patcher:
+            self._move()
+        self.assertEqual(len(reads), 1)
 
 
 class CrossBoardRejectionTests(CardServiceTestBase):

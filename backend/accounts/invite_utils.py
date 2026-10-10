@@ -94,8 +94,8 @@ def live_site_invite_count(*, delivery: str) -> int:
 def revoke_site_invite_links(creator) -> int:
     """Revoke every pending site invite *creator* made; return how many.
 
-    Called when the creator is deactivated or loses site admin (admin API and
-    ``set_site_admin --revoke``). Redemption re-checks the creator as well
+    Called when the creator is deactivated or loses site admin (admin API, the
+    Django admin user form and ``set_site_admin --revoke``). Redemption re-checks the creator as well
     (:func:`site_invite_creator_admits`), which covers any route that changes
     a user without coming through here.
     """

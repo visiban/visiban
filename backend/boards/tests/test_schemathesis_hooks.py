@@ -17,6 +17,7 @@ from django.core.files.base import ContentFile
 from accounts.models import PersonalAccessToken
 from boards.models import (
     BoardMembership,
+    Card,
     CardAttachment,
     CardChecklist,
     CardComment,
@@ -29,8 +30,8 @@ from boards.tests.conftest import _make_board, _make_card, _make_column, _make_s
 from groups.models import Group, GroupInviteLink, GroupLabel
 
 
-def _fake_context(path):
-    return SimpleNamespace(operation=SimpleNamespace(path=path))
+def _fake_context(path, method="GET"):
+    return SimpleNamespace(operation=SimpleNamespace(path=path, method=method))
 
 
 def _hooks():
@@ -67,6 +68,11 @@ class LoadRealIdsTests(TestCase):
                 "attachment_id": None,
                 "group_invite_link_id": None,
                 "group_label_id": None,
+                "relation_id": None,
+                "board_join_token": None,
+                "group_join_token": None,
+                "share_token": None,
+                "media_path": None,
             },
         )
 
@@ -231,6 +237,148 @@ class LoadRealIdsTests(TestCase):
         self.assertEqual(ids["pat_id"], expected)
 
 
+class PublicTokenAndOwnershipFixtureTests(TestCase):
+    """#1570: tokens are minted usable; ids resolve to rows the fuzz user owns."""
+
+    def _demo(self):
+        owner = _make_user()
+        member = _make_user()
+        group = Group.objects.create(name="Demo Group", owner=owner)
+        board = _make_board(owner, name="Visiban Demo Board", group=group)
+        BoardMembership.objects.create(board=board, user=member, role=BoardMembership.Role.MEMBER)
+        return owner, member, group, board
+
+    def test_minted_join_and_share_tokens_resolve(self):
+        from boards.models import BoardInviteLink
+
+        _owner, _member, group, board = self._demo()
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertEqual(BoardInviteLink.lookup_by_token(ids["board_join_token"]).board_id, board.id)
+        self.assertEqual(GroupInviteLink.lookup_by_token(ids["group_join_token"]).group_id, group.id)
+        board.refresh_from_db()
+        self.assertEqual(ids["share_token"], str(board.share_token))
+
+    def test_reload_does_not_accumulate_fixture_links_or_rotate_share_token(self):
+        from boards.models import BoardInviteLink
+
+        _owner, _member, group, board = self._demo()
+        first = _hooks()._load_real_ids()
+        second = _hooks()._load_real_ids()
+
+        self.assertEqual(first["share_token"], second["share_token"])
+        self.assertEqual(BoardInviteLink.objects.filter(board=board).count(), 1)
+        self.assertEqual(GroupInviteLink.objects.filter(group=group, name="schemathesis fuzz fixture").count(), 1)
+
+    def test_group_token_is_none_when_board_has_no_group(self):
+        owner = _make_user()
+        _make_board(owner, name="Visiban Demo Board")
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertIsNone(ids["group_join_token"])
+        self.assertIsNotNone(ids["board_join_token"])
+
+    def test_card_and_children_prefer_rows_owned_by_the_fuzz_user(self):
+        from boards.models import CardRelation
+
+        owner, member, _group, board = self._demo()
+        column, lane = _make_column(board), _make_swimlane(board)
+        other = _make_card(column, lane, created_by=owner)
+        mine = _make_card(column, lane, created_by=member)
+        CardComment.objects.create(card=mine, author=owner, body="theirs")
+        own_comment = CardComment.objects.create(card=mine, author=member, body="mine")
+        for uploader, name in ((owner, "a.txt"), (member, "b.txt")):
+            CardAttachment.objects.create(
+                card=mine, file=ContentFile(b"x", name=name), filename=name, size=1, uploaded_by=uploader,
+            )
+        mine_attachment = CardAttachment.objects.get(card=mine, uploaded_by=member)
+        relation = CardRelation.objects.create(
+            from_card=other, to_card=mine, relation_type=CardRelation.Type.RELATES_TO, created_by=member,
+        )
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertEqual(ids["card_id"], mine.id)
+        self.assertEqual(ids["comment_id"], own_comment.id)
+        self.assertEqual(ids["attachment_id"], mine_attachment.id)
+        self.assertEqual(ids["media_path"], mine_attachment.file.name)
+        self.assertEqual(ids["relation_id"], relation.id)
+
+    def test_attachment_always_belongs_to_the_chosen_card(self):
+        owner, _member, _group, board = self._demo()
+        column, lane = _make_column(board), _make_swimlane(board)
+        first = _make_card(column, lane, created_by=owner)
+        second = _make_card(column, lane, created_by=owner)
+        CardChecklist.objects.create(card=second, text="t")
+        CardAttachment.objects.create(
+            card=first, file=ContentFile(b"x", name="f.txt"), filename="f.txt", size=1, uploaded_by=owner,
+        )
+
+        ids = _hooks()._load_real_ids()
+
+        # `second` wins (checklist); the attachment lives on `first`, so it must
+        # not be offered — the view 404s an attachment on a different card.
+        self.assertEqual(ids["card_id"], second.id)
+        self.assertIsNone(ids["attachment_id"])
+
+
+class DisposableRowTests(TestCase):
+    def _fixture(self):
+        owner, member = _make_user(), _make_user()
+        board = _make_board(owner, name="Visiban Demo Board")
+        BoardMembership.objects.create(board=board, user=member, role=BoardMembership.Role.MEMBER)
+        column, lane = _make_column(board), _make_swimlane(board)
+        _make_card(column, lane, created_by=member)
+        hooks = _hooks()
+        ids = hooks._load_real_ids()
+        original = hooks._DISPOSABLE
+        hooks._DISPOSABLE = hooks._load_disposable_context(ids)
+        self.addCleanup(setattr, hooks, "_DISPOSABLE", original)
+        return hooks, ids, member
+
+    def test_each_kind_mints_a_fresh_row_owned_by_the_member_and_distinct_from_shared(self):
+        from boards.models import CardRelation
+
+        hooks, ids, member = self._fixture()
+
+        card_id = hooks._mint_disposable("card")
+        self.assertNotEqual(card_id, ids["card_id"])
+        self.assertEqual(Card.objects.get(pk=card_id).created_by_id, member.id)
+        self.assertNotEqual(hooks._mint_disposable("card"), card_id)  # fresh each call
+
+        for kind, model in (
+            ("attachment", CardAttachment), ("comment", CardComment),
+            ("relation", CardRelation), ("saved_filter", SavedFilter),
+        ):
+            with self.subTest(kind=kind):
+                minted = hooks._mint_disposable(kind)
+                self.assertIsNotNone(minted)
+                self.assertTrue(model.objects.filter(pk=minted).exists())
+        item = hooks._mint_disposable("checklist_item")
+        self.assertTrue(CardChecklist.objects.filter(pk=item, card_id=ids["card_id"]).exists())
+        self.assertIsNone(hooks._mint_disposable("unknown"))
+
+    def test_deleting_a_minted_card_leaves_the_shared_card_and_its_attachment(self):
+        hooks, ids, _member = self._fixture()
+        att = hooks._mint_disposable("attachment")
+        Card.objects.filter(pk=hooks._mint_disposable("card")).delete()
+
+        self.assertTrue(Card.objects.filter(pk=ids["card_id"]).exists())
+        self.assertTrue(CardAttachment.objects.filter(pk=att).exists())
+
+    def test_a_reload_does_not_pick_a_disposable_card_as_the_shared_one(self):
+        hooks, ids, _member = self._fixture()
+        for _ in range(3):
+            hooks._mint_disposable("card")
+
+        self.assertEqual(hooks._load_real_ids()["card_id"], ids["card_id"])
+
+    def test_context_is_none_without_a_member_fixture(self):
+        self.assertIsNone(_hooks()._load_disposable_context({"board_pk": None}))
+
+
 class MapPathParametersTests(TestCase):
     def setUp(self):
         # `_IDS` is computed once at module import time (against an empty DB
@@ -239,6 +387,12 @@ class MapPathParametersTests(TestCase):
         hooks = _hooks()
         self._original_ids = hooks._IDS
         hooks._IDS = {
+            "board_join_token": "vbnb_board",
+            "group_join_token": "vbng_group",
+            "share_token": "11111111-2222-3333-4444-555555555555",
+            "media_path": "attachments/2026/10/x.txt",
+            "relation_id": 23,
+            "member_user_id": 5,
             "board_pk": 7,
             "card_id": None,
             "group_pk": 9,
@@ -267,15 +421,66 @@ class MapPathParametersTests(TestCase):
         self.assertEqual(result, {})
 
     def test_passes_through_for_an_unmapped_path(self):
-        # transfer-ownership is a destructive mutation, so it is deliberately
-        # left unmapped (#1125) even though group_pk is now seeded for its
-        # sibling group routes.
-        context = _fake_context("/api/v1/groups/{id}/transfer-ownership/")
+        context = _fake_context("/api/v1/not-in-the-override-table/{id}/")
         params = {"id": "some-generated-value"}
 
         result = _hooks().map_path_parameters(context, params)
 
         self.assertEqual(result, params)
+
+    def test_sample_route_gets_a_real_manifest_slug(self):
+        hooks = _hooks()
+        self.assertIsNotNone(hooks._EXTRA_IDS["sample_id"])
+        result = hooks.map_path_parameters(
+            _fake_context("/api/v1/boards/samples/{sample_id}/"), {"sample_id": "x"}
+        )
+        self.assertEqual(result, {"sample_id": hooks._EXTRA_IDS["sample_id"]})
+
+    def _stub_mint(self, ids):
+        """Make _mint_disposable hand out ids from `ids` (kind -> list)."""
+        hooks = _hooks()
+        original = hooks._mint_disposable
+        hooks._mint_disposable = lambda kind: ids.get(kind, []).pop(0) if ids.get(kind) else None
+        self.addCleanup(setattr, hooks, "_mint_disposable", original)
+        return hooks
+
+    def test_delete_gets_a_disposable_id_and_other_methods_the_shared_one(self):
+        hooks = self._stub_mint({"card": [101, 102]})
+        hooks._IDS["card_id"] = 31
+        card_path = "/api/v1/boards/{board_pk}/cards/{id}/"
+        params = {"board_pk": "x", "id": "y"}
+
+        deleted = hooks.map_path_parameters(_fake_context(card_path, "DELETE"), params)
+        again = hooks.map_path_parameters(_fake_context(card_path, "delete"), params)
+        read = hooks.map_path_parameters(_fake_context(card_path, "GET"), params)
+        patched = hooks.map_path_parameters(_fake_context(card_path, "PATCH"), params)
+
+        self.assertEqual(deleted, {"board_pk": 7, "id": 101})
+        self.assertEqual(again, {"board_pk": 7, "id": 102})  # one fresh id per call
+        self.assertEqual(read, {"board_pk": 7, "id": 31})
+        self.assertEqual(patched, {"board_pk": 7, "id": 31})
+        self.assertNotEqual(deleted["id"], read["id"])
+
+    def test_delete_keeps_the_shared_parent_and_swaps_only_the_child(self):
+        hooks = self._stub_mint({"attachment": [201]})
+        hooks._IDS["card_id"] = 31
+        path = "/api/v1/boards/{board_pk}/cards/{id}/attachments/{attachment_pk}/"
+
+        result = hooks.map_path_parameters(
+            _fake_context(path, "DELETE"), {"board_pk": "x", "id": "y", "attachment_pk": "z"}
+        )
+
+        self.assertEqual(result, {"board_pk": 7, "id": 31, "attachment_pk": 201})
+
+    def test_delete_that_cannot_mint_never_falls_back_to_the_shared_row(self):
+        hooks = self._stub_mint({})
+        path = "/api/v1/boards/{board_pk}/cards/{id}/comments/{comment_pk}/"
+
+        result = hooks.map_path_parameters(
+            _fake_context(path, "DELETE"), {"board_pk": "x", "id": "y", "comment_pk": "generated"}
+        )
+
+        self.assertEqual(result["comment_pk"], "generated")
 
     def test_overrides_group_pk_and_group_sub_resource_ids(self):
         context = _fake_context("/api/v1/groups/{id}/labels/{label_id}/")
@@ -284,6 +489,50 @@ class MapPathParametersTests(TestCase):
         result = _hooks().map_path_parameters(context, params)
 
         self.assertEqual(result, {"id": 9, "label_id": 19})
+
+    def test_group_routes_added_in_1570_get_a_real_group(self):
+        for path, params, expected in (
+            ("/api/v1/groups/{id}/members/", {"id": "g"}, {"id": 9}),
+            ("/api/v1/groups/{id}/members/{user_id}/", {"id": "g", "user_id": "u"}, {"id": 9, "user_id": 5}),
+            ("/api/v1/groups/{id}/transfer-ownership/", {"id": "g"}, {"id": 9}),
+            ("/api/v1/groups/{id}/invite-links/send/", {"id": "g"}, {"id": 9}),
+        ):
+            with self.subTest(path=path):
+                result = _hooks().map_path_parameters(_fake_context(path), params)
+                self.assertEqual(result, expected)
+
+    def test_join_share_and_media_routes_get_minted_credentials(self):
+        for path, params, expected in (
+            ("/api/v1/boards/join/{token}/", {"token": "x"}, {"token": "vbnb_board"}),
+            ("/api/v1/groups/join/{token}/", {"token": "x"}, {"token": "vbng_group"}),
+            ("/api/share/{token}/", {"token": "x"}, {"token": "11111111-2222-3333-4444-555555555555"}),
+            ("/media/{path}", {"path": "x"}, {"path": "attachments/2026/10/x.txt"}),
+        ):
+            with self.subTest(path=path):
+                result = _hooks().map_path_parameters(_fake_context(path), params)
+                self.assertEqual(result, expected)
+
+    def test_card_collection_and_relation_routes_are_mapped(self):
+        hooks = _hooks()
+        hooks._IDS["card_id"] = 31
+        result = hooks.map_path_parameters(
+            _fake_context("/api/v1/boards/{board_pk}/cards/"), {"board_pk": "x"}
+        )
+        self.assertEqual(result, {"board_pk": 7})
+        result = hooks.map_path_parameters(
+            _fake_context("/api/v1/boards/{board_pk}/cards/{id}/relations/{relation_pk}/"),
+            {"board_pk": "x", "id": "y", "relation_pk": "z"},
+        )
+        self.assertEqual(result, {"board_pk": 7, "id": 31, "relation_pk": 23})
+        for path in (
+            "/api/v1/boards/{board_pk}/cards/{id}/relations/",
+            "/api/v1/boards/{board_pk}/cards/{id}/checklist/reorder/",
+        ):
+            with self.subTest(path=path):
+                result = hooks.map_path_parameters(
+                    _fake_context(path), {"board_pk": "x", "id": "y"}
+                )
+                self.assertEqual(result, {"board_pk": 7, "id": 31})
 
     def test_board_invite_paths_get_a_real_board_pk(self):
         """#439: list/create/send must reach the handler, not 404."""

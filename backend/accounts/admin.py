@@ -68,7 +68,33 @@ class VisibanUserAdmin(UserAdmin):
         """
         if not change and obj.has_usable_password():
             obj.must_change_password = True
-        super().save_model(request, obj, form, change)
+        if not change:
+            super().save_model(request, obj, form, change)
+            return
+        # Deactivating here applies the same revocation
+        # housekeeping as the admin API (#1563). The stored values are read
+        # under a row lock before the save because the ModelForm has already
+        # written the submitted values onto ``obj``.
+        from .admin_views import access_state, apply_access_loss_revocations, lock_user_row
+
+        with transaction.atomic():
+            try:
+                stored = lock_user_row(obj.pk)
+            except User.DoesNotExist:
+                stored = None
+            if stored is not None and form is not None:
+                # The form wrote its values onto the instance Django loaded
+                # earlier in this request. Between that load and the lock
+                # taken above, another request can change a field the form
+                # does not carry (a demotion, a pending password-change
+                # flag); those fields must come from the locked row, or this
+                # save would write the older values back.
+                for field in User._meta.concrete_fields:
+                    if field.name not in form.fields:
+                        setattr(obj, field.attname, getattr(stored, field.attname))
+            super().save_model(request, obj, form, change)
+            if stored is not None:
+                apply_access_loss_revocations(obj, request.user, access_state(stored))
 
 
 def _stored_password_hash(pk, *, lock=False):

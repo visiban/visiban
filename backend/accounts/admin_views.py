@@ -846,6 +846,60 @@ class AdminUsersView(APIView):
         return Response(AdminUserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
+def lock_user_row(pk):
+    """Return the stored user row, locked until the surrounding transaction ends.
+
+    Callers read the "before" state of an access change through this so a
+    concurrent change cannot slip between the read and the save (#1563).
+    """
+    return User.objects.select_for_update().get(pk=pk)
+
+
+def access_state(user):
+    """The fields :func:`apply_access_loss_revocations` compares, from *user*."""
+    return {
+        "is_active": user.is_active,
+        "is_site_admin": user.is_site_admin,
+        "can_access_all_content": user.can_access_all_content,
+    }
+
+
+def apply_access_loss_revocations(target, actor, prior):
+    """Revoke what a user's lost access should take with it (#1510, #1563).
+
+    *prior* holds the stored ``is_active``, ``is_site_admin`` and
+    ``can_access_all_content`` values from before the change; *target* holds
+    the saved values. Shared by ``AdminUserDetailView.patch`` and the Django
+    admin user form so the routes cannot drift apart. ``set_site_admin --revoke`` shares the
+    locked read (:func:`lock_user_row`) but revokes unconditionally. Call inside the
+    transaction that saves the change.
+    """
+    if prior["is_active"] and not target.is_active:
+        # Deactivating must revoke the user's invite links exactly like the
+        # dedicated deactivate endpoint (#1510): they were refused at
+        # preview/join already, but stayed is_active=True in the admin lists
+        # and kept counting toward the per-group active-link cap.
+        AdminUserDeactivateView._revoke_invite_links(target, actor)
+        return
+    if prior["is_site_admin"] and not target.is_site_admin:
+        # Only an active site admin may admit accounts through a site invite
+        # (registry Rule 2). Redemption re-checks the creator regardless;
+        # revoking here also takes the links off the admin list and the
+        # active-link cap.
+        revoke_site_invite_links(target)
+    if (
+        target.is_active
+        and prior["can_access_all_content"]
+        and not target.can_access_all_content
+    ):
+        # can_access_all_content is the only flag that confers group-admin
+        # rights (_require_group_admin; is_site_admin is admin-panel access
+        # only): links held only through it lapse (links where the user is
+        # still a group admin by membership are kept).
+        from groups.views import _revoke_lapsed_admin_invite_links
+        _revoke_lapsed_admin_invite_links(target)
+
+
 class AdminUserDetailView(APIView):
     """PATCH /api/admin/users/{id}/ — update is_active, is_site_admin, must_change_password."""
     permission_classes = _ADMIN_PERMISSIONS
@@ -918,35 +972,14 @@ class AdminUserDetailView(APIView):
             # Atomic with the revocations below: a rolled-back deactivation must
             # not leave links revoked (and the on_commit broadcasts never fire).
             with transaction.atomic():
-                prior = User.objects.values("is_active", "is_site_admin", "can_access_all_content").get(pk=target.pk)
-                was_active = prior["is_active"]
+                prior = access_state(lock_user_row(target.pk))
                 target.save(update_fields=update_fields)
                 # Deactivating through PATCH must revoke the user's invite links
                 # exactly like the dedicated deactivate endpoint (#1510): they
                 # were refused at preview/join already, but stayed
                 # is_active=True in the admin lists and kept counting toward
                 # the per-group active-link cap.
-                if was_active and not target.is_active:
-                    AdminUserDeactivateView._revoke_invite_links(target, request.user)
-                else:
-                    if prior["is_site_admin"] and not target.is_site_admin:
-                        # Only an active site admin may admit accounts through
-                        # a site invite (registry Rule 2). Redemption re-checks
-                        # the creator regardless; revoking here also takes the
-                        # links off the admin list and the active-link cap.
-                        revoke_site_invite_links(target)
-                    if (
-                        target.is_active
-                        and prior["can_access_all_content"]
-                        and not target.can_access_all_content
-                    ):
-                        # can_access_all_content is the only flag that confers
-                        # group-admin rights (_require_group_admin; is_site_admin
-                        # is admin-panel access only): links held only through it
-                        # lapse (links where the user is still a group admin by
-                        # membership are kept).
-                        from groups.views import _revoke_lapsed_admin_invite_links
-                        _revoke_lapsed_admin_invite_links(target)
+                apply_access_loss_revocations(target, request.user, prior)
 
         return Response(AdminUserSerializer(target).data)
 

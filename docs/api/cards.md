@@ -374,7 +374,7 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
 |---|---|---|
 | `column_id` | ✓ | ID of the destination column (must belong to this board) |
 | `swimlane_id` | ✓ | ID of the destination swimlane (must belong to this board) |
-| `position` | | Target position within the destination cell (0-based, default: `0`) |
+| `position` | | Target position within the destination cell (0-based, default: `0`). Out-of-range values are clamped: a negative value places the card first, a value past the last card places it last. A value that is not an integer returns `400` with body `{"detail": "position must be an integer."}` (since 1.2, #1570). |
 | `version` | | Optimistic concurrency token. When provided, the server rejects the move with `409 Conflict` (`code: "version_conflict"`) if the card has been modified since the client last fetched it. Omitting this field disables the OCC check. A move without `version` can still get `409 version_conflict` in one rare case: the card is changed by other writers between the server's read and its row lock on several consecutive attempts (the server re-reads and retries before giving up). Re-fetch and retry. |
 
 **Version conflict error**

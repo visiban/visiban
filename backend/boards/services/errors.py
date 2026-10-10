@@ -183,6 +183,20 @@ class InvalidVersion(CardServiceError):
         return {"detail": "version must be an integer."}
 
 
+class InvalidPosition(CardServiceError):
+    """The supplied move ``position`` is not an integer.
+
+    Raised at the same point in the move sequence as :class:`InvalidVersion`,
+    for the same reason. An out-of-range integer is not an error: the service
+    clamps it into the target cell (#1570).
+    """
+
+    status = 400
+
+    def body(self) -> dict:
+        return {"detail": "position must be an integer."}
+
+
 class VersionConflict(CardServiceError):
     """The caller's ``version`` no longer matches the stored row.
 

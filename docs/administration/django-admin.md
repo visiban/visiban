@@ -31,9 +31,13 @@ An account with a forced password or username change pending (`must_change_passw
 - **Another user's password** (the user's **Password** form at `/admin/accounts/user/<id>/password/`): saving a new password, or disabling password sign-in, deletes that user's Personal Access Tokens and API token and ends their sessions. If a new password was set, the user must change it the next time they sign in.
 - **Adding a user:** a user created here with a password must choose their own password the first time they sign in, the same as one created from the site-admin panel. A user created with password sign-in disabled is not asked to create one.
 
+## Deactivating users
+
+Clearing **Active** on a user deletes their Personal Access Tokens and revokes their pending invite links, the same as deactivating them from the site-admin panel.
+
 ## What you can manage
 
-- **Users** — view/edit all user accounts, set `is_site_admin`, `must_change_password`, `is_staff`
+- **Users** — view/edit all user accounts, activate or deactivate accounts, set `is_staff` and `is_superuser` (the form does not carry `is_site_admin` or `must_change_password`; use the site-admin panel or `set_site_admin` for those)
 - **Site settings** — instance-wide configuration (registration mode, file uploads, [maintenance mode](maintenance-mode.md)); clicking the entry goes directly to the settings form — there is always exactly one row
 - **Boards, columns, swimlanes** — direct database access for debugging
 - **Group memberships** — view and correct membership records
