@@ -5021,7 +5021,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <tr>
 <td><code>position</code></td>
 <td></td>
-<td>Target position within the destination cell (0-based, default: <code>0</code>)</td>
+<td>Target position within the destination cell (0-based, default: <code>0</code>). Out-of-range values are clamped: a negative value places the card first, a value past the last card places it last. A value that is not an integer returns <code>400</code> with body <code>{"detail": "position must be an integer."}</code> (since 1.2, #1570).</td>
 </tr>
 <tr>
 <td><code>version</code></td>

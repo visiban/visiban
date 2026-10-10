@@ -4078,7 +4078,7 @@
 <blockquote>
 <p><strong>Changed in 1.2</strong> — the board also belongs to a demo Group, and a custom field value, a file attachment, a <code>SavedFilter</code>, a group invite link, and a group label are now seeded alongside the board and cards.</p>
 </blockquote>
-<p>It creates a "Visiban Demo Board": five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group, and one card carries a custom field value and a file attachment; one <code>SavedFilter</code>, one group invite link, and one group label are seeded as well, so every board- and group-scoped resource family has at least one real row. Use it for:</p>
+<p>It creates a "Visiban Demo Board": five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group, and one card carries a custom field value and a file attachment; one <code>SavedFilter</code>, one group invite link, and one group label are seeded as well, so every board- and group-scoped resource family has at least one real row. The non-owner demo users (<code>demo2</code> to <code>demo5</code>) are <code>MEMBER</code>s of the demo Group (<code>demo1</code> is its admin), and <code>demo2</code> authored one card that carries its own attachment, comment, checklist item, and relation (used by the schema-fuzz CI job). Use it for:</p>
 <ul>
 <li>Local development to have a board ready without manual setup</li>
 <li>Staging environments used for product demos or sales calls</li>

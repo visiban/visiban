@@ -4448,7 +4448,7 @@
 <p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>parent</code>, <code>default_board_member_role</code>, <code>allowed_priorities</code>. The latter two duplicate what <a href="#board-defaults"><code>PATCH /groups/{id}/board-defaults/</code></a> does — either endpoint can set them.</p>
 <p>Changing <code>parent</code> revokes unused invite links in the moved subtree whose creator no longer administers the link's group through the new ancestor chain (see <a href="#invite-links">Invite links</a>).</p>
 <h3 id="delete-apiv1groupsid"><code>DELETE /api/v1/groups/{id}/</code><a class="headerlink" href="#delete-apiv1groupsid" title="Permanent link">&para;</a></h3>
-<p>Delete a group. Requires group owner or site admin.</p>
+<p>Delete a group. Requires group owner or site admin. A group member who is not the owner gets <code>403 Forbidden</code> with <code>{"detail": "Only the group owner can delete this group."}</code>; a caller who cannot see the group at all gets <code>404</code>.</p>
 <hr />
 <h2 id="members">Members<a class="headerlink" href="#members" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsidmembers"><code>GET /api/v1/groups/{id}/members/</code><a class="headerlink" href="#get-apiv1groupsidmembers" title="Permanent link">&para;</a></h3>
