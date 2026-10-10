@@ -134,6 +134,7 @@ The following fields are returned for every card object in this endpoint, `POST 
 | `created_at` | string | yes | no | ISO 8601 creation timestamp |
 | `updated_at` | string | yes | no | ISO 8601 timestamp of last field update |
 | `last_moved_at` | string / null | yes | yes | ISO 8601 timestamp of the card's most recent `CardMovement`; `null` for cards that have never been moved |
+| `last_move_is_creation` | boolean | yes | yes | `true` when the most recent `CardMovement` is the card's creation (empty `from_column_name`, type `move`) rather than a move. Clients use it to avoid labeling a new card "moved"; `last_moved_at` is unchanged |
 | `attachment_count` | integer | yes | no | Number of attachments on this card |
 | `checklist_total` | integer | yes | no | Total number of checklist items |
 | `checklist_done` | integer | yes | no | Number of checked checklist items |
@@ -164,6 +165,7 @@ The following fields are returned for every card object in this endpoint, `POST 
   "created_at": "2026-03-01T10:00:00Z",
   "updated_at": "2026-03-15T09:41:22Z",
   "last_moved_at": "2026-03-15T09:41:22Z",
+  "last_move_is_creation": false,
   "attachment_count": 2,
   "checklist_total": 3,
   "checklist_done": 1,

@@ -38,6 +38,8 @@ interface ClassifyInput {
   due_date: string | null;
   is_stale: boolean;
   last_moved_at: string | null;
+  /** Newest movement is the card's creation, not a move (#1576). */
+  last_move_is_creation?: boolean;
 }
 
 const DUE_SOON_WINDOW_MS = 72 * 60 * 60 * 1000; // 72h
@@ -70,7 +72,9 @@ export function classifyCardUrgency(card: ClassifyInput, now: number = Date.now(
   // Recently-moved is the calmest cue — useful as a "this just changed"
   // heads-up at lower densities where last-moved-text is hidden from the
   // card face. We only surface it for cards moved in the last 24h.
-  if (card.last_moved_at) {
+  // A card's creation is recorded as a movement, but a brand-new card has not
+  // "moved" — suppress the cue until a real move lands (#1576).
+  if (card.last_moved_at && !card.last_move_is_creation) {
     const moved = Date.parse(card.last_moved_at);
     if (!Number.isNaN(moved) && now - moved < RECENT_WINDOW_MS) {
       return { kind: "recent", label: "Just moved", tone: "info" };
