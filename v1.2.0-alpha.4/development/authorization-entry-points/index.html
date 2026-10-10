@@ -4052,7 +4052,9 @@ table), and call <code>invite_creator_is_valid</code> at preview and at redempti
 <p><strong>An allauth hook.</strong> Override it on <code>RegistrationAdapter</code> or
 <code>SocialRegistrationAdapter</code>. Do not rely on allauth's default. The test checks
 that the configured adapters are the project's own classes and that they
-override the signup hooks.</p>
+override the signup hooks. <code>RegistrationAdapter.set_password</code> is such a hook: allauth's
+change, set and reset-from-key flows store the password through it, and it saves the
+password and runs <code>finalize_password_change</code> in one transaction.</p>
 <h2 id="how-the-enforcement-test-finds-entry-points">How the enforcement test finds entry points<a class="headerlink" href="#how-the-enforcement-test-finds-entry-points" title="Permanent link">&para;</a></h2>
 <p>The test discovers entry points from the running configuration. It does not
 keep a list of them, so a new entry point is checked without anyone adding it:</p>
