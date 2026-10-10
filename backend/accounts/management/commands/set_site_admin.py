@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from accounts.admin_views import access_state, lock_user_row
 from accounts.invite_utils import revoke_site_invite_links
 from accounts.models import User
 
@@ -26,18 +27,17 @@ class Command(BaseCommand):
             raise CommandError(f'User "{username}" does not exist')
 
         if revoke:
-            had_all_content = user.can_access_all_content
-            user.is_site_admin = False
-            user.can_access_all_content = False
+            # The locked read keeps the prior flag value consistent with the
+            # save. Revocation here is unconditional, as before: the command
+            # is the break-glass route, so site links are revoked even for an
+            # already-demoted user and group links lapse for an inactive one.
             with transaction.atomic():
+                prior = access_state(lock_user_row(user.pk))
+                user.is_site_admin = False
+                user.can_access_all_content = False
                 user.save(update_fields=["is_site_admin", "can_access_all_content"])
-                # Only an active site admin may admit accounts through a site
-                # invite; take this user's pending ones out of circulation.
                 revoke_site_invite_links(user)
-                if had_all_content:
-                    # can_access_all_content conferred group-admin rights
-                    # everywhere; group links held only through it lapse, the
-                    # same as clearing the flag through the admin API.
+                if prior["can_access_all_content"]:
                     from groups.views import _revoke_lapsed_admin_invite_links
 
                     _revoke_lapsed_admin_invite_links(user)
