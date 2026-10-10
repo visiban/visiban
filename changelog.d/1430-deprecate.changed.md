@@ -1,0 +1,1 @@
+`Group.default_board_member_role` is now deprecated: it was never read, so it has no effect on group members' board access. The field and its API behavior are unchanged for compatibility, the OpenAPI schema marks it `deprecated`, and the group settings hint now says so.

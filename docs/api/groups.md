@@ -1,6 +1,6 @@
 # Groups API
 
-Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and `allowed_priorities` are copied onto boards created in the group; the default member role is saved but not yet enforced.
+Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and `allowed_priorities` are copied onto boards created in the group; the default member role is deprecated and has no effect ([#1430](https://gitlab.com/visiban/visiban/-/issues/1430)).
 
 ## Groups
 
@@ -42,7 +42,7 @@ Get group details.
 | `subgroup_count` | integer | Number of direct subgroups |
 | `is_starred` | boolean | Whether the requesting user has starred this group |
 | `shared_labels` | array | Labels shared across all boards in this group |
-| `default_board_member_role` | string | **Scaffold.** Intended role for group members on new boards. **Not enforced:** stored but not read by any code path; group members' board access comes from their group role (scaffold, see [Field Enforcement](../architecture/field-enforcement.md)) |
+| `default_board_member_role` | string | **Deprecated (#1430).** Has no effect and is kept only for API compatibility; marked `deprecated: true` in the OpenAPI schema. Stored but not read by any code path; group members' board access comes from their group role (scaffold, see [Field Enforcement](../architecture/field-enforcement.md)) |
 | `allowed_priorities` | array | **Advisory.** Copied onto a board's `allowed_priorities` when the board is created through `POST /groups/{id}/boards/`; it does not restrict card priorities, because the board-level field is not enforced either. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
 | `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. **Only present on this single-object retrieve endpoint** — the list endpoint (`GET /api/v1/groups/`) omits `ancestors`. |
 | `created_at` | string | ISO 8601 timestamp |
@@ -318,13 +318,13 @@ Delete a group shared label. Requires group admin. Does **not** remove the label
 ## Board defaults
 
 ### `PATCH /api/v1/groups/{id}/board-defaults/`
-Update the board defaults for this group. `allowed_priorities` is copied onto boards created in the group; `default_board_member_role` is saved but not yet enforced. Requires group admin.
+Update the board defaults for this group. `allowed_priorities` is copied onto boards created in the group; `default_board_member_role` is **deprecated (#1430)**: still accepted and stored, but it has no effect. Requires group admin.
 
 **Patchable fields**
 
 | Field | Type | Description |
 |---|---|---|
-| `default_board_member_role` | string | **Scaffold.** `admin`, `member`, `collaborator`, or `viewer`. Stored but not yet enforced — see the field table above |
+| `default_board_member_role` | string | **Deprecated (#1430).** `admin`, `member`, `collaborator`, or `viewer`. Accepted and stored, but has no effect — see the field table above |
 | `allowed_priorities` | array / null | **Advisory.** Seeds `allowed_priorities` on new boards created in this group (e.g. `["low", "medium", "high"]`); `null` means all. Not enforced on cards — see the field table above |
 
 **Request**

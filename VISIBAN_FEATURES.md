@@ -241,7 +241,7 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 - Inline group rename by clicking the group name heading (admin only)
 - Invite links (shareable URL granting a specified role on redemption)
 - Transfer group ownership
-- Default board member role setting (not yet enforced: saved, but group members' board access comes from their group role)
+- Default board member role setting (deprecated, #1430: saved for API compatibility, no effect; group members' board access comes from their group role)
 - Allowed card priorities setting
 - Sidebar shows groups and boards as a recursive tree in expanded mode; collapsed rail shows a Groups flyout with subgroups nested at correct depth
 

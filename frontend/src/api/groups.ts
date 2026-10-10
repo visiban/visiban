@@ -102,6 +102,7 @@ export const deleteGroupLabel = (groupId: number, labelId: number) =>
 
 export const updateGroupBoardDefaults = (
   id: number,
+  // `default_board_member_role` is deprecated (#1430): accepted and stored, but has no effect.
   data: { default_board_member_role?: "admin" | "member" | "collaborator" | "viewer"; allowed_priorities?: Priority[] },
 ) =>
   client.patch<Group>(`/api/v1/groups/${id}/board-defaults/`, data).then((r) => r.data);

@@ -1007,7 +1007,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <section>
               <h2 className="text-fg font-semibold mb-1">Board defaults</h2>
               <p className="text-fg-muted text-sm mb-4">
-                Defaults for boards created in this group. Settings marked "Not yet enforced" are saved but don't take effect yet.
+                Defaults for boards created in this group. Settings marked "Not yet enforced" or "Deprecated" are saved but don't take effect.
               </p>
 
               {/* Default member role */}
@@ -1030,9 +1030,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   {defaultsSaved && <span className="text-success text-xs">Saved</span>}
                   {defaultsError && <span className="text-danger text-xs">{defaultsError}</span>}
                 </div>
-                {/* #1430: stored but never read; access comes from GroupMembership.role via get_board_role() */}
+                {/* #1430: deprecated; stored but never read. Access comes from GroupMembership.role via get_board_role(). Control kept for API compatibility. */}
                 <p id="group-default-member-role-hint" className="text-fg-muted text-xs mt-2">
-                  Not yet enforced. Group members currently get their group role on every group board.
+                  Deprecated. This setting has no effect: group members get their group role on every group board.
                 </p>
               </div>
 

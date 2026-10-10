@@ -833,6 +833,7 @@ export interface Group {
   board_count: number;
   subgroup_count: number;
   created_at: string;
+  /** @deprecated No effect (#1430); group members get their GroupMembership role on every group board. */
   default_board_member_role: BoardRole;
   allowed_priorities: Priority[];
   shared_labels: GroupLabel[];

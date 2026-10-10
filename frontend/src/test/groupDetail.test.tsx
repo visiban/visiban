@@ -885,16 +885,16 @@ describe('GroupDetail', () => {
       expect(await screen.findByText('Default member role for new boards')).toBeInTheDocument()
     })
 
-    it('flags the default member role as not yet enforced (#1430)', async () => {
+    it('flags the default member role as deprecated (#1430)', async () => {
       await loadAndSwitchToSettings()
       expect(
-        await screen.findByText('Not yet enforced. Group members currently get their group role on every group board.'),
+        await screen.findByText('Deprecated. This setting has no effect: group members get their group role on every group board.'),
       ).toBeInTheDocument()
     })
 
-    it('associates the not-yet-enforced hint with the default role control (#1430)', async () => {
+    it('associates the deprecation hint with the default role control (#1430)', async () => {
       await loadAndSwitchToSettings()
-      const hint = await screen.findByText(/Not yet enforced\. Group members currently/)
+      const hint = await screen.findByText(/Deprecated\. This setting has no effect/)
       const control = screen.getByLabelText('Default member role for new boards')
       expect(control).toHaveAccessibleDescription(hint.textContent ?? '')
     })

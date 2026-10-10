@@ -72,7 +72,7 @@ InviteLink  (accounts app — site-level registration invites)
 Group
  ├── owner → User
  ├── parent → Group (nullable — null = top-level)
- ├── default_board_member_role (str — admin | member | collaborator | viewer; default member)
+ ├── default_board_member_role (str — admin | member | collaborator | viewer; default member; deprecated #1430, no effect)
  ├── allowed_priorities (JSON — empty = all allowed)
  ├── GroupLabel  (name, color — shared label library copied to new boards)
  ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
