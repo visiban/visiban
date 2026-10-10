@@ -3972,7 +3972,10 @@ and 2: it discovers every routed REST and non-DRF view, every routed WebSocket
 consumer, the MCP transport, every invite-link model, and every function that
 looks an invite up by its token, and fails when one skips the shared function.
 It also checks that each top-level path segment with a route is either gated by
-<code>PendingAccountActionMiddleware</code> or recorded as serving no session HTML.
+<code>PendingAccountActionMiddleware</code> or recorded as serving no session HTML, and
+that every route under the gated prefixes, Django admin views included, has a
+recorded forced-change decision (<code>gated</code> or <code>exempt: &lt;reason&gt;</code>) that the
+middleware keeps for each pending flag.
 It also pins the registration and OAuth adapter call sites to the shared
 functions and to <code>registration_token_kind</code> (Rule 4 dispatch). It does not
 enumerate Rule 3 (the revocation table is a review checklist) or Rule 5, and it
@@ -4046,19 +4049,19 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <td>Served by <code>BoardViewSet</code>, so its explicit permission list</td>
 </tr>
 <tr>
-<td>OAuth signup</td>
+<td>OAuth signup and connect</td>
 <td><code>accounts/adapter.py</code> <code>SocialRegistrationAdapter.pre_social_login</code>, <code>save_user</code></td>
-<td>Signup creates the account in the same flow; existing-account matching in <code>_handle_email_collision</code> considers active users only (<code>visiban.authorization.principal_is_active</code>)</td>
+<td>Signup creates the account in the same flow; existing-account matching in <code>_handle_email_collision</code> considers active users only (<code>visiban.authorization.principal_is_active</code>). A <code>process=connect</code> callback for an account with a forced change pending is refused (<code>visiban.authorization.account_state_denial</code> limited to <code>FORCED_CHANGE_GATES</code>) before anything is linked, with a redirect to the SPA</td>
 </tr>
 <tr>
-<td>allauth HTML views</td>
+<td>allauth session views</td>
 <td><code>/accounts/</code> (<code>visiban/urls.py</code>, allauth's urlconf and the project's overrides)</td>
-<td><code>visiban/middleware.py</code> <code>PendingAccountActionMiddleware</code>: an authenticated account with a forced change pending (<code>visiban.authorization.has_pending_account_action</code>) is redirected to the SPA on GET and HEAD and refused with 403 on any other method; <code>/accounts/logout/</code> is the only exception. Prefixes listed in the <code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code> setting (default empty; the extension point for an installed extension package's session-based HTML pages) are gated the same way, and a malformed entry fails the <code>accounts.E004</code> system check. Unauthenticated requests pass, so sign-in works; inactive accounts are refused by the auth backends and allauth's <code>respond_user_inactive</code></td>
+<td><code>visiban/middleware.py</code> <code>PendingAccountActionMiddleware</code>, which evaluates <code>visiban.authorization.account_state_denial</code> limited to <code>FORCED_CHANGE_GATES</code>: an authenticated account with a forced change pending is redirected to <code>FRONTEND_URL</code> on GET and HEAD and refused with 403 on any other method. Exceptions are decided on the resolved view, not the path, and are listed in <code>PENDING_ACTION_EXEMPT_VIEWS</code>: logout, the password-reset pages, the email-confirmation redirect, static result pages, and each installed provider's SSO login and callback (connect is refused by the adapter, row above). Every exception is a view an anonymous visitor reaches with the same effect, or one that applies the gate itself. <code>/accounts/password/change/</code> and <code>/accounts/password/set/</code> redirect to the SPA's Settings page. Prefixes in <code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code> and view names in <code>PENDING_ACTION_EXTRA_EXEMPT_VIEWS</code> (both default empty; the extension point for an installed extension package) extend the gate and its exceptions; malformed entries fail the <code>accounts.E004</code> and <code>accounts.E006</code> system checks, and <code>accounts.E005</code> fails startup if <code>MIDDLEWARE</code> drops the middleware or places it before <code>AuthenticationMiddleware</code>. Unauthenticated requests pass, so sign-in works; inactive accounts are refused by the auth backends and allauth's <code>respond_user_inactive</code></td>
 </tr>
 <tr>
 <td>Django admin</td>
-<td><code>accounts/admin.py</code> <code>VisibanUserAdmin</code>; <code>boards/admin.py</code> <code>BoardMembershipAdmin</code></td>
-<td>Django's <code>AdminSite</code> requires an active staff user for <code>/admin/</code>; <code>PendingAccountActionMiddleware</code> applies the forced-change gates to all of <code>/admin/</code> the same way as for <code>/accounts/</code>, with <code>/admin/logout/</code> the only exception</td>
+<td><code>/admin/</code> (<code>django.contrib.admin.site</code>); <code>accounts/admin.py</code> <code>VisibanUserAdmin</code>; <code>boards/admin.py</code> <code>BoardMembershipAdmin</code></td>
+<td>Django's <code>AdminSite</code> requires an active staff user; <code>PendingAccountActionMiddleware</code> applies the forced-change gates to every admin view the same way as for <code>/accounts/</code>, with <code>/admin/logout/</code> the only exception. <code>/admin/password_change/</code> redirects to the SPA's Settings page</td>
 </tr>
 <tr>
 <td>Admin API</td>
@@ -4200,8 +4203,8 @@ access described in Rule 2.</p>
 </tr>
 <tr>
 <td>Password change sources</td>
-<td><code>accounts/credentials.py</code> <code>finalize_password_change</code>, called by <code>accounts/views.py</code> <code>ChangePasswordView</code> and <code>TokenRevokingPasswordChangeView</code>, by <code>accounts/forms.py</code> <code>VisibanChangePasswordForm</code> and <code>VisibanSetPasswordForm</code> (allauth's <code>/accounts/password/change/</code> and <code>/accounts/password/set/</code>) in the same transaction as the save, with <code>accounts/password_signals.py</code> receivers for allauth's <code>password_changed</code> and <code>password_set</code> signals as an idempotent backstop, and by <code>accounts/adapter.py</code> <code>RegistrationAdapter.set_password</code> (the hook allauth's change, set and reset-from-key flows store the password through; the save and the finalize step share one transaction, so a failed finalize rolls the password back), and by <code>accounts/admin.py</code> <code>VisibanUserAdmin.user_change_password</code> when staff set their own password. Django's <code>check_password</code> hasher upgrade does not call any of these</td>
-<td>Clears <code>must_change_password</code> and deletes the user's PATs. The admin's own <code>/admin/password_change/</code> page redirects to the SPA (<code>AdminPasswordChangeRedirectView</code>)</td>
+<td><code>accounts/credentials.py</code> <code>finalize_password_change</code>, called by <code>accounts/views.py</code> <code>ChangePasswordView</code> and <code>TokenRevokingPasswordChangeView</code>, by <code>accounts/forms.py</code> <code>VisibanChangePasswordForm</code> and <code>VisibanSetPasswordForm</code>, which stay configured as allauth's change and set forms and finalize in the same transaction as the save wherever allauth's own views are mounted (an extension or test URLconf), with <code>accounts/password_signals.py</code> receivers for allauth's <code>password_changed</code> and <code>password_set</code> signals as an idempotent backstop, and by <code>accounts/adapter.py</code> <code>RegistrationAdapter.set_password</code> (the hook allauth's change, set and reset-from-key flows store the password through; the save and the finalize step share one transaction, so a failed finalize rolls the password back), and by <code>accounts/admin.py</code> <code>VisibanUserAdmin.user_change_password</code> when staff set their own password. Django's <code>check_password</code> hasher upgrade does not call any of these</td>
+<td>Clears <code>must_change_password</code> and deletes the user's PATs. The project routes <code>/accounts/password/change/</code>, <code>/accounts/password/set/</code> and the admin's own <code>/admin/password_change/</code> redirect to the SPA's Settings page (<code>AdminPasswordChangeRedirectView</code>)</td>
 </tr>
 <tr>
 <td>Password reset</td>
