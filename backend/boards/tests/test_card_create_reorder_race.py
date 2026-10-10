@@ -48,3 +48,23 @@ class CardCreateVsColumnReorderTests(_LockRaceBase):
             ),
             [self.col2.pk, self.col.pk],
         )
+
+    def test_reorder_board_lock_queues_a_concurrent_column_create(self):
+        """The reorder's board lock (#1302) still serializes against a create.
+
+        ``FOR NO KEY UPDATE`` must keep conflicting with column create's
+        ``FOR UPDATE`` on the board row, so a new column cannot slip in between
+        the reorder's full-set check and its position writes. Without any board
+        lock the create finishes during the pause.
+        """
+        done, hold_ended = self._race(
+            self._request(
+                "post",
+                "/columns/reorder/",
+                {"order": [self.col2.pk, self.col.pk]},
+            ),
+            self._request("post", "/columns/", {"name": "Late"}),
+        )
+        self.assertEqual(done["first"][0].status_code, 200)
+        self.assertEqual(done["second"][0].status_code, 201)
+        self.assertQueued(done, hold_ended)

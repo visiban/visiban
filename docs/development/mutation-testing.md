@@ -197,7 +197,7 @@ Two findings came out of the test design, neither fixed in #1504 because `servic
   - The same-card test now holds on `_lock_move_cells`.
 - **Known gaps (tracked):** a third concurrent move can still deadlock after a card commits into a locked cell (#1567). `create_card` against a column reorder (which predates #1522) was fixed in #1566 and is covered by `test_card_create_reorder_race.py`.
 
-Scope: this covers `move_card` and `enforce_column_limits` only. The other `select_for_update` sites (such as the column lock in `create_card`) are not yet exercised by a PostgreSQL race test; that is tracked in #1524.
+Scope: this covers `move_card` and `enforce_column_limits` only. The other `select_for_update` sites are exercised by PostgreSQL race tests in `test_concurrent_lock_sites.py` (#1524: the column lock in `create_card`, the board-row locks on column/swimlane/custom-field create, the invite caps, the card-relation lock) and `test_card_create_reorder_race.py` (#1566: the column reorder's board lock against a column create, and a card create against a reorder).
 
 With every `update_card` survivor except the #1511 label mutant killed, `cards.py` went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last `update_card` mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. The 6 guard-condition survivors counted in the 15 are killed (#1504, above), which would make it 234 of 243 (96.3%); neither adjustment was re-measured with mutmut. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).
 
