@@ -17,7 +17,7 @@ from .serializers import (
     SwimlaneSerializer,
 )
 from .permissions import SITE_ADMIN
-from .services.cards import enforce_column_limits
+from .services.cards import enforce_column_limits, lock_card_cell_entry
 from .services.errors import WeightLimitExceeded, WipHardBlocked, WipLimitExceeded
 from .views._helpers import _refetched_card_data
 
@@ -85,6 +85,14 @@ class CardAdminForm(forms.ModelForm):
 
     ``changeform_view`` runs validation inside ``transaction.atomic()``, so the
     column row lock the helper takes is held until the save commits.
+
+    Cell entry (#1588): any change of column or swimlane — archived cards
+    included, and creation — locks the card row and then its source and target
+    column rows (``lock_card_cell_entry``) before the limit check, so this edit
+    queues behind a concurrent ``move_card`` that holds those columns rather
+    than committing into its cell behind its membership re-check.
+    ``CardAdmin.save_model`` takes the same locks again in the saving
+    transaction, so the guarantee does not depend on how the form is driven.
     """
 
     class Meta:
@@ -111,6 +119,25 @@ class CardAdminForm(forms.ModelForm):
         if creating and not column.allow_card_creation:
             raise ValidationError({"column": "Card creation is not allowed in this column."})
 
+        swimlane = cleaned.get("swimlane")
+        swimlane_id = swimlane.pk if swimlane is not None else original.swimlane_id
+        # Why lock here and not only in save_model: the limit check below must
+        # count under the column lock, and the lock must come after the card
+        # row lock (move_card's card -> column order). This is deliberately
+        # evaluated before the archived early return: an archived card is
+        # still a member of its cell, so moving one changes a cell's members
+        # just like moving an active card does (#1588).
+        cell_entry = (
+            creating
+            or original.column_id != column.pk
+            or original.swimlane_id != swimlane_id
+        )
+        if cell_entry:
+            lock_card_cell_entry(
+                card_id=original.pk,
+                column_ids={original.column_id, column.pk} - {None},
+            )
+
         archived_at = cleaned.get("archived_at", original.archived_at)
         if archived_at is not None:
             # An archived card does not count toward a column's limits.
@@ -133,6 +160,9 @@ class CardAdminForm(forms.ModelForm):
                 # card count, so it is checked against the weight limit only —
                 # same rule as the PATCH path.
                 check_wip=entering,
+                # Already locked above, after the card row, when the cell
+                # changed; a restore or weight change in place locks here.
+                lock=not cell_entry,
             )
         except (WipHardBlocked, WipLimitExceeded, WeightLimitExceeded) as exc:
             raise ValidationError(_limit_error_message(exc)) from None
@@ -157,12 +187,39 @@ class CardAdmin(admin.ModelAdmin):
     form = CardAdminForm
 
     def save_model(self, request, obj, form, change):
-        super().save_model(request, obj, form, change)
+        with transaction.atomic():
+            self._lock_cell_entry(obj, change)
+            super().save_model(request, obj, form, change)
         board = obj.board
         event = _broadcast.EVT_CARD_UPDATED if change else _broadcast.EVT_CARD_CREATED
         card_data = _refetched_card_data(obj, request, board)
         board_id = board.id
         _broadcast.record_board_event(board_id, event, card_data, actor_id=request.user.pk)
+
+    @staticmethod
+    def _lock_cell_entry(obj, change):
+        """Hold the card's column lock(s) in the transaction that saves it (#1588).
+
+        ``CardAdminForm.clean`` already takes these locks, and in the admin
+        it runs inside the same ``changeform_view`` transaction. Taking them
+        again here (a no-op for rows this transaction already holds) makes
+        the save itself the guarantee: whatever drove the form, the card
+        cannot be committed into a new cell without holding that cell's
+        column row until commit, which ``move_card``'s membership re-check
+        (#1567) relies on. The stored row is read under the card lock, so
+        "did the cell change" is decided on committed state.
+        """
+        if not change:
+            lock_card_cell_entry(card_id=None, column_ids={obj.column_id})
+            return
+        stored = (
+            Card.objects.filter(pk=obj.pk)
+            .select_for_update(of=("self",))
+            .values_list("column_id", "swimlane_id")
+            .first()
+        )
+        if stored is not None and stored != (obj.column_id, obj.swimlane_id):
+            lock_card_cell_entry(card_id=obj.pk, column_ids={stored[0], obj.column_id})
 
     def delete_model(self, request, obj):
         board_id = obj.board_id

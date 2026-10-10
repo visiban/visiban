@@ -864,8 +864,8 @@ def _require_cells_locked(*, board, card_id, cells, locked_pks, current_version)
     once this move holds both columns no further card can enter its cells
     through them, and anything that entered before is committed and visible
     to this fresh read. A newcomer from a service path is therefore either
-    seen here or cannot exist. Django admin card edits are not yet covered
-    (#1588).
+    seen here or cannot exist. Django admin card edits take the same lock
+    through ``lock_card_cell_entry`` (#1588).
 
     The read is a plain SELECT, not a second ``FOR UPDATE``: locking the
     newcomer here would itself be a lock outside pk order and could wait on
@@ -905,6 +905,36 @@ def _lock_move_columns(column_ids):
         .order_by("pk")
         .select_for_update(no_key=True)
     )
+
+
+def lock_card_cell_entry(*, card_id, column_ids):
+    """Lock a card row, then its source and target column rows, for a write
+    that puts the card into a cell outside ``move_card`` (#1588).
+
+    Why: ``move_card``'s membership re-check (``_require_cells_locked``,
+    #1567) is conclusive only if every writer that puts a card into a cell
+    holds that cell's column row until it commits. The Django admin saves the
+    card row directly, and before #1588 it took no column lock for a
+    swimlane-only change within one column or for any cell change on an
+    archived card (archived cards are still cell members — the lock and
+    compaction filters have no ``archived_at`` condition). Such a card could
+    commit into a cell after a concurrent move's re-check and then be locked
+    by that move's compaction or shift ``UPDATE`` outside pk order.
+
+    Order: the card row first, then the columns in one pk-ordered
+    ``FOR NO KEY UPDATE`` statement — the same card -> column order as
+    ``move_card`` (and ``_lock_move_columns`` itself), so the admin queues
+    behind a move instead of deadlocking with it. ``card_id`` is ``None`` for
+    a card not yet created. Must run inside the transaction that saves the
+    card: the locks protect nothing once it commits.
+    """
+    if card_id is not None:
+        list(
+            Card.objects.filter(pk=card_id)
+            .select_for_update(of=("self",))
+            .values_list("pk", flat=True)
+        )
+    _lock_move_columns({pk for pk in column_ids if pk is not None})
 
 
 def _read_card_for_move(card_id, board):
@@ -1002,8 +1032,8 @@ def _move_card_attempt(
         # column (#1567): holding the cell's column is what stops a service
         # path (create_card, move_card) putting another card into the cell
         # before this move commits, which is what makes the membership
-        # re-check below conclusive. Django admin card edits are not yet
-        # covered (#1588).
+        # re-check below conclusive. Django admin card edits take it too, via
+        # lock_card_cell_entry (#1588).
         _lock_move_columns({card.column_id, target_column.pk})
         _require_cells_locked(
             board=board, card_id=card.pk, cells=cells, locked_pks=locked_pks,

@@ -27,7 +27,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -461,6 +461,77 @@ class CardAdminFormEnforcementTests(_LimitFixture):
         card = Card.objects.filter(column=self.limited).first()
         form = self._form(instance=card, title="renamed")
         self.assertTrue(form.is_valid(), form.errors)
+
+
+class CardAdminCellEntryLockTests(_LimitFixture):
+    """Which admin edits take the card -> column cell-entry lock (#1588).
+
+    The race itself is pinned on PostgreSQL by
+    ``test_admin_card_cell_entry_race.py``; these pin the trigger on any
+    backend: every change of column or swimlane, archived cards included.
+    """
+
+    LOCK = "boards.admin.lock_card_cell_entry"
+
+    def setUp(self):
+        super().setUp()
+        self.other_lane = Swimlane.objects.create(board=self.board, name="Other", position=1)
+
+    _form = CardAdminFormEnforcementTests._form
+
+    def _clean_locks(self, instance=None, **overrides):
+        with patch(self.LOCK) as lock:
+            form = self._form(instance=instance, **overrides)
+            self.assertTrue(form.is_valid(), form.errors)
+        return lock
+
+    def test_swimlane_only_change_locks_card_then_column(self):
+        card = self._card(self.free)
+        lock = self._clean_locks(card, column=self.free.pk, swimlane=self.other_lane.pk)
+        lock.assert_called_once_with(card_id=card.pk, column_ids={self.free.pk})
+
+    def test_archived_card_swimlane_change_locks(self):
+        card = self._card(self.free, archived=True)
+        lock = self._clean_locks(card, column=self.free.pk, swimlane=self.other_lane.pk)
+        lock.assert_called_once_with(card_id=card.pk, column_ids={self.free.pk})
+
+    def test_archived_card_column_change_locks_both_columns(self):
+        card = self._card(self.free, archived=True)
+        lock = self._clean_locks(card, column=self.limited.pk)
+        lock.assert_called_once_with(
+            card_id=card.pk, column_ids={self.free.pk, self.limited.pk},
+        )
+
+    def test_create_locks_target_column(self):
+        lock = self._clean_locks(column=self.free.pk)
+        lock.assert_called_once_with(card_id=None, column_ids={self.free.pk})
+
+    def test_edit_in_place_takes_no_cell_lock(self):
+        card = self._card(self.free)
+        lock = self._clean_locks(card, column=self.free.pk, title="renamed")
+        lock.assert_not_called()
+
+    def test_save_model_relocks_from_stored_cell(self):
+        # The save path re-takes the lock in its own transaction, deciding
+        # "did the cell change" from the stored row, not from the form.
+        card = self._card(self.free, archived=True)
+        card.swimlane = self.other_lane
+        request = RequestFactory().post("/")
+        request.user = self.admin
+        with patch(self.LOCK) as lock, patch("boards.admin._refetched_card_data", return_value={}):
+            CardAdmin(Card, AdminSite()).save_model(request, card, form=None, change=True)
+        lock.assert_called_once_with(card_id=card.pk, column_ids={self.free.pk})
+        card.refresh_from_db()
+        self.assertEqual(card.swimlane_id, self.other_lane.pk)
+
+    def test_save_model_unchanged_cell_takes_no_lock(self):
+        card = self._card(self.free)
+        card.title = "renamed"
+        request = RequestFactory().post("/")
+        request.user = self.admin
+        with patch(self.LOCK) as lock, patch("boards.admin._refetched_card_data", return_value={}):
+            CardAdmin(Card, AdminSite()).save_model(request, card, form=None, change=True)
+        lock.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
