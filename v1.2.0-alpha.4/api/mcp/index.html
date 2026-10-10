@@ -4563,6 +4563,10 @@
 <td><code>weight_limit_exceeded</code></td>
 <td>The target column is at its weight limit (<code>move_card</code>, and <code>create_card</code> since 1.2).</td>
 </tr>
+<tr>
+<td><code>version_conflict</code></td>
+<td><code>move_card</code> only. The card kept changing under concurrent writes while the server retried locking it. <code>move_card</code> takes no <code>version</code> argument, so this is the only cause. Re-read the card and retry. Added in 1.2 (#1522).</td>
+</tr>
 </tbody>
 </table>
 <h3 id="list_columns"><code>list_columns</code><a class="headerlink" href="#list_columns" title="Permanent link">&para;</a></h3>
