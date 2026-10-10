@@ -144,7 +144,7 @@ export default function SplitButton({
         aria-label={menuAriaLabel ?? `${primaryLabel} menu`}
         className={`px-1.5 py-1 rounded-r border-l border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed ${
           open
-            ? "text-info bg-info/10"
+            ? "text-info-on-tint bg-info/10"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
         }`}
       >

@@ -1057,7 +1057,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       <button
                         key={p}
                         onClick={() => handleTogglePriority(p)}
-                        className={`px-3 py-1 rounded border text-xs font-medium transition capitalize ${
+                        className={`px-3 py-1 rounded border text-xs font-medium transition capitalize focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                           active
                             ? colorMap[p]
                             : "bg-surface border-line-strong text-fg-muted hover:border-line-emphasis hover:text-fg-tertiary"
@@ -1146,14 +1146,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {group.owner.id === user.id && (
                   <button
                     onClick={() => { setTransferError(null); setShowTransferModal(true); }}
-                    className="text-sm text-danger border border-danger/40 hover:bg-danger/30 px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                    className="text-sm text-danger border border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                   >
                     Transfer ownership
                   </button>
                 )}
                 <button
                   onClick={() => setConfirmDeleteGroup(true)}
-                  className="text-sm text-danger border border-danger/40 hover:bg-danger/30 px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                  className="text-sm text-danger border border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 >
                   Delete group
                 </button>
