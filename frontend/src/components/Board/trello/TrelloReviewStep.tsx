@@ -98,9 +98,9 @@ export default function TrelloReviewStep({
           aria-labelledby="trello-warnings-title"
           className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 flex gap-2.5"
         >
-          <span aria-hidden="true" className="text-base leading-none shrink-0 text-warning">⚠</span>
+          <span aria-hidden="true" className="text-base leading-none shrink-0 text-warning-on-tint">⚠</span>
           <div className="min-w-0">
-            <p id="trello-warnings-title" className="text-sm font-medium text-warning">
+            <p id="trello-warnings-title" className="text-sm font-medium text-warning-on-tint">
               Some Trello data can't be imported
             </p>
             <ul className="text-xs text-fg-secondary space-y-1 mt-1.5 list-disc pl-4">

@@ -531,7 +531,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
         >
           <div className="flex items-center gap-2">
             {tone === "warning" && (
-              <span aria-hidden="true" className="text-base leading-none shrink-0 text-warning">
+              <span aria-hidden="true" className="text-base leading-none shrink-0 text-warning-on-tint">
                 ⚠
               </span>
             )}
@@ -542,7 +542,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
               Currently sending mail
             </p>
           </div>
-          <p className={`text-sm font-medium ${tone === "warning" ? "text-warning" : "text-fg"}`}>
+          <p className={`text-sm font-medium ${tone === "warning" ? "text-warning-on-tint" : "text-fg"}`}>
             {sourceLabel}
           </p>
           {detailLines.map((line) => (

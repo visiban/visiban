@@ -374,7 +374,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={handleArchive}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded text-warning hover:bg-warning/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-xs px-2.5 py-1.5 rounded text-warning hover:bg-warning/20 hover:text-warning-on-tint transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Archive
         </button>
@@ -386,7 +386,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           <button
             onClick={() => setConfirmDelete(true)}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded text-danger hover:bg-danger/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-xs px-2.5 py-1.5 rounded text-danger hover:bg-danger/20 hover:text-danger-on-tint transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Delete
           </button>
