@@ -3994,8 +3994,8 @@
 
 <h1 id="mutation-testing-baseline">Mutation Testing Baseline<a class="headerlink" href="#mutation-testing-baseline" title="Permanent link">&para;</a></h1>
 <div class="admonition note">
-<p class="admonition-title">Baseline is manual; a report-only CI pilot also runs</p>
-<p>The numbers below are a <strong>manual</strong> baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a report-only CI job, <code>backend-mutation</code>, also runs on the Nightly schedule against <code>boards/permissions.py</code> and publishes a score artifact. Nothing here fails a pipeline: the job is <code>allow_failure: true</code> and has no floor yet. See <a href="#ci-pilot-backend-mutation">CI pilot</a>.</p>
+<p class="admonition-title">Baseline is manual; a nightly CI job also runs</p>
+<p>The numbers below are a <strong>manual</strong> baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a CI job, <code>backend-mutation</code>, runs every one of these modules on the Nightly schedule, publishes a score artifact and gates the merged score at 90%. During its observation week it is <code>allow_failure: true</code>, so it does not fail a pipeline yet. See <a href="#nightly-ci-job-backend-mutation">Nightly CI job</a>.</p>
 </div>
 <p>Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong. A tool makes one small change at a time (flip <code>==</code> to <code>!=</code>, change a string, replace a value with <code>None</code>), runs the tests, and counts the change as <strong>killed</strong> if a test fails or <strong>survived</strong> if every test still passes. The kill rate is <code>killed / (killed + survived)</code>.</p>
 <h2 id="what-was-measured">What was measured<a class="headerlink" href="#what-was-measured" title="Permanent link">&para;</a></h2>
@@ -4257,7 +4257,7 @@
 <p><strong>The 33 suspicious mutants.</strong> mutmut 2.5.1 marks a mutant <code>suspicious</code> when a test <em>failed</em> (so it is killed) but the run took more than twice the cached baseline time. The 2026-10-05 run did that on a swapping laptop (load average above 250), which is where the 33 came from. In this run six were suspicious (<code>swimlane["name"]</code> in the custom-field value copy, <code>description</code> and <code>created_at</code> key names, <code>to_column</code> <code>or</code> to <code>and</code>, <code>dry_run = None</code>, <code>event_id = None</code>); re-run alone on a quiet machine each is still <code>suspicious</code>, so they are killed late in the file order, not flaky. They are counted as killed. None survives.</p>
 <p><strong>The 2 timeouts</strong> are the <code>_imported_board_name</code> uniqueness loop (<code>if candidate not in taken</code> inverted, <code>n += 1</code> replaced with <code>n = 1</code>). Both make the loop spin forever, so they are a real kill by timeout, as in the 2026-10-05 run. They are not made faster: the hang is the observable behavior.</p>
 <h4 id="survivors-left-34-32-equivalent-or-redundant-2-tracked-in-1545">Survivors left (34): 32 equivalent or redundant, 2 tracked in #1545<a class="headerlink" href="#survivors-left-34-32-equivalent-or-redundant-2-tracked-in-1545" title="Permanent link">&para;</a></h4>
-<p>The 2 <code>_IMPORT_BACKFILL_BATCH</code> survivors could be killed by a PostgreSQL test (#1545, open), so they stay survivors under the policy below. The other 32 are equivalent or redundant; none of those 32 is a missing assertion. They are listed so the next person does not re-triage them; none is marked with <code># pragma: no mutate</code> yet, because most share a line with mutants that <em>are</em> killed and the policy asks that a pragma cover the equivalent mutant only. Marking the 32 equivalent ones is tracked in #1544 and is the open step before a floor can use the adjusted score. The 2 <code>_IMPORT_BACKFILL_BATCH</code> survivors that a PostgreSQL test could kill are tracked in #1545.</p>
+<p>The 2 <code>_IMPORT_BACKFILL_BATCH</code> survivors could be killed by a PostgreSQL test (#1545, open), so they stay survivors under the policy below. The other 32 are equivalent or redundant; none of those 32 is a missing assertion. They are listed so the next person does not re-triage them; none is marked with <code># pragma: no mutate</code> yet, because most share a line with mutants that <em>are</em> killed and the policy asks that a pragma cover the equivalent mutant only. Marking the 32 equivalent ones is tracked in #1544. It is not needed for the nightly 90% floor: that floor is met with these 32 counted as survivors (see <a href="#expected-score">Expected score</a>); marking them would only make this module's adjusted score exact. The 2 <code>_IMPORT_BACKFILL_BATCH</code> survivors that a PostgreSQL test could kill are tracked in #1545.</p>
 <table>
 <thead>
 <tr>
@@ -4423,7 +4423,7 @@
 </table>
 <ul>
 <li><strong><code>cards.py</code> survivors (8), not yet classified.</strong> They sit on lines 217 and 218 (the <code>CARD_MUTATION_HOOKS</code> failure log's format string and its <code>__qualname__</code> argument), 329 and 330 (<code>check_wip=True</code>, <code>check_weight=True</code> and <code>lock=True</code> in a signature), 364 (<code>weight_enforced = check_weight and board.enforce_weight_limits</code>), 422 and 935 (<code>force=False</code> in two service signatures), and 460 (a call passing <code>lock=False</code>). The <code>lock</code> mutants are the kind the <a href="#postgresql-re-run-of-the-select_for_update-guards-1504">PostgreSQL re-run</a> shows survive on SQLite; the others have not been triaged. The #1511 label mutant is not among them.</li>
-<li><strong><code>permissions.py</code> untested mutant (1).</strong> Mutant 117, on the <code>group_roles = dict(...)</code> statement (line 316, the closing <code>)</code>), was registered in the cache of every shard but never run, and <code>mutmut show 117</code> prints nothing for it. The cause is not known. It is reported as untested rather than as killed, so the raw rate is 116 of 117. The module has 117 mutants here against 118 in the baseline row; the two counts were not reconciled, because the cache omits lines carrying <code># pragma: no mutate</code>.</li>
+<li><strong><code>permissions.py</code> untested mutant (1).</strong> Mutant 117, on the <code>group_roles = dict(...)</code> statement (line 316, the closing <code>)</code>), was registered in the cache of every shard but never run, and <code>mutmut show 117</code> prints nothing for it. It was later explained as a mutmut 2.5.1 <strong>phantom</strong> row (see <a href="#how-it-works">How it works</a> under the nightly job): no such mutant exists, and the export now drops it. Here it was reported as untested rather than as killed, so the raw rate is 116 of 117; without the phantom it is 116 of 116. The module has 117 mutants here against 118 in the baseline row; the two counts were not reconciled, because the cache omits lines carrying <code># pragma: no mutate</code>.</li>
 </ul>
 <h2 id="survivor-classification">Survivor classification<a class="headerlink" href="#survivor-classification" title="Permanent link">&para;</a></h2>
 <p>Every survivor was put in one of three buckets:</p>
@@ -4672,14 +4672,14 @@
 </code></pre></div>
 <ul>
 <li><code>-x</code> stops each mutant's test run at the first failure, which is what makes a kill cheap.</li>
-<li>These are the same four test files the CI pilot runs (<code>[mutmut] runner</code> in <code>backend/setup.cfg</code>).</li>
-<li>mutmut 2.5.1 starts the runner without a shell, resolving the first word through the inherited <code>PATH</code>. The command above calls <code>.venv/bin/python</code> without activating the venv, so the runner names the venv interpreter too; a plain <code>python</code> would resolve to whatever is first on <code>PATH</code> (often none at all on macOS). The committed <code>setup.cfg</code> runner uses plain <code>python</code>, which is right in CI (the job's interpreter is the one with the dependencies) and locally only after <code>source .venv/bin/activate</code>.</li>
+<li>These are the same four test files the nightly job runs for the <code>permissions</code> target (<code>TARGETS</code> in <code>backend/mutmut_config.py</code>; <code>python mutmut_config.py targets</code> prints every target's runner).</li>
+<li>mutmut 2.5.1 starts the runner without a shell, resolving the first word through the inherited <code>PATH</code>. The command above calls <code>.venv/bin/python</code> without activating the venv, so the runner names the venv interpreter too; a plain <code>python</code> would resolve to whatever is first on <code>PATH</code> (often none at all on macOS). The nightly driver avoids this by naming its own interpreter in the runner.</li>
 <li><code>--tests-dir</code> is required even though the runner lists its own files.</li>
 <li>Results are stored in <code>.mutmut-cache</code>. Delete it before changing the test list, or mutmut will reuse stale verdicts.</li>
 </ul>
 <p>For the other modules, swap <code>--paths-to-mutate</code> and the test files using the table above.</p>
 <h3 id="restricting-to-one-class">Restricting to one class<a class="headerlink" href="#restricting-to-one-class" title="Permanent link">&para;</a></h3>
-<p>mutmut imports <code>mutmut_config.py</code> from the working directory automatically. The committed <code>backend/mutmut_config.py</code> is the CI shard hook (it skips nothing when <code>MUTATION_SHARDS</code> is unset). To restrict a run to a line range, overwrite it <strong>in the throwaway copy only</strong>:</p>
+<p>mutmut imports <code>mutmut_config.py</code> from the working directory automatically. The committed <code>backend/mutmut_config.py</code> is the CI hook. With <code>MUTATION_TARGET=card_movement</code> exported it already restricts the run to <code>CardMovement</code> (range computed from the code) and, unless <code>MUTATION_SHARD=k</code> is also set, runs every mutant of that range (the CI driver sets <code>MUTATION_SHARD</code> per job); with no variables set it skips nothing. The variant below is for an arbitrary range. To restrict a run to a line range, overwrite it <strong>in the throwaway copy only</strong>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># mutmut_config.py -- in the throwaway copy only; do not commit over the shard hook</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
@@ -4690,7 +4690,7 @@
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">LO</span> <span class="o">&lt;=</span> <span class="n">context</span><span class="o">.</span><span class="n">current_line_index</span> <span class="o">&lt;=</span> <span class="n">HI</span><span class="p">):</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="n">context</span><span class="o">.</span><span class="n">skip</span> <span class="o">=</span> <span class="kc">True</span>
 </code></pre></div>
-<p>Then export <code>MM_LO=357 MM_HI=423</code> and run with <code>--paths-to-mutate boards/models.py</code> to cover <code>CardMovement</code> only. Check the range against the current file before trusting it; the numbers above were right at the baseline commit.</p>
+<p>Then export <code>MM_LO</code> and <code>MM_HI</code> and run with <code>--paths-to-mutate boards/models.py</code>. The old <code>MM_LO=357 MM_HI=423</code> for <code>CardMovement</code> is stale (the class now starts at 1-based line 551); <code>python mutmut_config.py targets</code> prints the current range.</p>
 <h3 id="parallel-runs">Parallel runs<a class="headerlink" href="#parallel-runs" title="Permanent link">&para;</a></h3>
 <p>mutmut 2.x is single-process. To use many cores, make N copies of the tree (each has its own SQLite file) and give each copy a share of the lines. The committed hook already does this with <code>MUTATION_SHARDS=N MUTATION_SHARD=k</code>; to combine sharding with a line range, use this variant in the copies instead:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># mutmut_config.py -- sharded variant</span>
@@ -4718,7 +4718,7 @@
 <p>Some modules cannot reach the target by tests alone. A survivor that no test can kill is an <strong>equivalent mutant</strong> (bucket two in <a href="#survivor-classification">Survivor classification</a>). Without a rule, a floor either demands brittle tests of Django <code>_meta</code> internals or sits permanently below target. The rule:</p>
 <ul>
 <li><strong>Two numbers per module.</strong> The <strong>adjusted</strong> score leaves out the mutants proven equivalent. The <strong>raw</strong> score keeps them in the denominator, as not detected. Both are printed by <code>scripts/check_mutation_score.py</code> and both are in the <code>mutmut-cicd-stats.json</code> artifact (<code>score_adjusted</code>, <code>score_raw</code>, <code>excluded</code>), so an exclusion is always visible.</li>
-<li><strong>The floor gates the adjusted number.</strong> <code>MUTATION_MIN</code> (<a href="#ci-pilot-backend-mutation">CI pilot</a>) is compared with the adjusted score. A low raw score is reported, never failed.</li>
+<li><strong>The floor gates the adjusted number.</strong> <code>MUTATION_MIN</code> (<a href="#nightly-ci-job-backend-mutation">Nightly CI job</a>) is compared with the merged adjusted score. A low raw score is reported, never failed.</li>
 <li><strong>An exclusion is a comment in the source, with a reason.</strong> Put <code># pragma: no mutate -- &lt;reason&gt;</code> on the line. A pragma with no <code>-- &lt;reason&gt;</code> (at least 10 characters) is rejected by <code>python3 scripts/check_mutation_score.py --check-pragmas backend</code>, which the <code>mutation-score-selftest</code> CI job runs on every MR that touches backend Python.</li>
 <li><strong>A claim that SQLite cannot observe the mutant is excluded only with a PostgreSQL note.</strong> That is a gap in the test setup, not a property of the code, so the reason must also say that a PostgreSQL test could kill it (the checker rejects a reason that names SQLite but not PostgreSQL). The exception is a mutant for which a PostgreSQL test is already <strong>planned or filed</strong>: it is not excluded and stays a survivor until that test lands. The <code>select_for_update</code> guards were that case (#1504, since merged: the guard conditions turned out to be killed on SQLite). One rule, three places: here, the triage question in <a href="#how-to-read-the-results">How to read the results</a>, and the checker.</li>
 <li><strong>"Schema constant guarded by <code>migration-check</code>" is its own category, not an equivalence claim.</strong> A change to <code>max_length</code>, <code>blank</code>, <code>db_index</code> or <code>related_name</code> can be observable (a <code>blank</code> flip changes model validation and the admin change form; <code>max_length</code> changes the form field). It is excluded because CI <code>migration-check</code> fails on any drift from the migrations, which is a stronger guard than a test of Django <code>_meta</code>, not because no caller could see it. The pragma reason says <code>schema constant (migration-check)</code> for exactly this.</li>
@@ -4726,7 +4726,7 @@
 <li><strong>Hand-flipped guards are recorded, not pragma'd.</strong> A guard that is not a mutmut mutant (for example the sibling-row lock added by hand in <code>cards.py</code>, #1504) cannot carry a pragma. If it survives a hand-flip on PostgreSQL and is equivalent by argument, list it by name in the module's survivor table as "proven equivalent by argument, not mutmut-excludable", cite the issue, and leave it out of both the raw and the adjusted numbers: it is not in either denominator because mutmut never counted it.</li>
 <li><strong>Triage first.</strong> An equivalence claim is only made after the three questions in <a href="#how-to-read-the-results">How to read the results</a>; the reason states the answer to the first one.</li>
 </ul>
-<p>The import/export survivor tables above keep their "Equivalent" rows unmarked. #1502 re-measured the head and left its 34 equivalent survivors unmarked too (most share a line with killed mutants); marking them, which splits those lines, is the open step before a floor can use the adjusted score for this module.</p>
+<p>The import/export survivor tables above keep their "Equivalent" rows unmarked. #1502 re-measured the head and left its 34 equivalent survivors unmarked too (most share a line with killed mutants); marking them, which splits those lines, is tracked in #1544. The nightly floor does not wait for it: the merged score clears 90% with them counted as survivors (<a href="#expected-score">Expected score</a>).</p>
 <h3 id="how-mutmut-251-treats-pragma-no-mutate">How mutmut 2.5.1 treats <code># pragma: no mutate</code><a class="headerlink" href="#how-mutmut-251-treats-pragma-no-mutate" title="Permanent link">&para;</a></h3>
 <p>Checked on mutmut 2.5.1 (the CI pin) with a small module, and re-checked by the real-mutmut cases in <code>check_mutation_score.py --self-test</code> whenever mutmut is importable:</p>
 <table>
@@ -4758,9 +4758,9 @@
 <p>So the scope is <strong>one physical line, and the line the mutant is on</strong>. A multi-line field definition needs the pragma on every line that carries a constant, including the closing <code>)</code> or <code>]</code> when mutmut mutates it. Check by comparing the survivor list with and without the pragma, not by eye. There is no block form in 2.5.1.</p>
 <p>Because mutmut's cache is built from the mutants it generates, a pragma'd line has <strong>no row at all</strong> in <code>.mutmut-cache</code>: it is not killed, not survived, not skipped. A score computed from the cache alone would therefore silently shrink its own denominator and the raw number could not be recovered. <code>check_mutation_score.py --export-cache</code> solves this by reading the mutated source files named in the cache's <code>SourceFile</code> table and asking mutmut to enumerate their mutants twice, once as written and once with its pragma set emptied. The difference is <code>excluded</code>. Consequences:</p>
 <ul>
-<li><code>excluded</code> is module-wide, like <code>total</code>. Every shard reports the same value, the shards must agree (exit 2 otherwise), and the merged file carries it once, not N times.</li>
+<li><code>excluded</code> is per target, like <code>total</code>: for a class target such as <code>card_movement</code> it counts only the pragmas inside the class's lines (<code>--line-range</code>). Every shard of a target reports the same value, the shards must agree (exit 2 otherwise), and the merged file carries it once per target, not N times; the merged score sums the targets.</li>
 <li>The export step needs mutmut importable (it is, in the <code>backend-mutation</code> job). If it is not, the export exits 2 (not measured) rather than reporting a raw score equal to the adjusted one.</li>
-<li>The count assumes the run was not restricted to a line range by a <code>pre_mutation</code> hook that changes which lines are <em>generated</em>. The sharding hook only skips mutants after generation, so it is fine. A hand-restricted run (such as the <code>CardMovement</code> line range) can still be read from <code>.mutmut-cache</code> directly.</li>
+<li>The count assumes the run was not restricted by a <code>pre_mutation</code> hook that changes which lines are <em>generated</em>. The committed hook only skips mutants after generation (the shard split and the <code>CardMovement</code> class range alike), and the export applies the same class range with <code>--line-range</code>, so the counts cover exactly the class. A hand run with a different range must pass that range to <code>--line-range</code> too.</li>
 </ul>
 <h2 id="how-to-read-the-results">How to read the results<a class="headerlink" href="#how-to-read-the-results" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>/tmp/mutmut-tools<span class="w"> </span>.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>mutmut<span class="w"> </span>results<span class="w">      </span><span class="c1"># lists survivors by id</span>
@@ -4776,77 +4776,218 @@
 </ol>
 <p>Two patterns recur in this codebase. A string-literal mutant that adds <code>XX</code> around a message survives whenever a test uses <code>assertIn</code> with a fragment of the message, because the fragment is still a substring; assert the full message, or both its start and its end. A <code>&gt;=</code> to <code>&gt;</code> mutant on a limit survives unless a test sits exactly on the limit.</p>
 <p>For the assertion patterns that kill these mutants, with examples, see <a href="../testing/#writing-tests-that-catch-mutations">Writing tests that catch mutations</a>.</p>
-<h2 id="ci-pilot-backend-mutation">CI pilot (<code>backend-mutation</code>)<a class="headerlink" href="#ci-pilot-backend-mutation" title="Permanent link">&para;</a></h2>
-<p>Tracked in #1384, ported from TruePPM's <code>api:mutation</code> and <code>scheduler:mutation</code>. It is a <strong>pilot, not a gate</strong>: it runs on the Nightly schedule only (<code>MUTATION_TEST=true</code>, never on an MR or a <code>main</code> push), both jobs are <code>allow_failure: true</code>, and <code>MUTATION_MIN</code> is unset. The report job prints the score and says the floor is unset. The floor is set later from observed scores, never chosen up front and never set to 0.</p>
-<h3 id="beachhead-boardspermissionspy">Beachhead: <code>boards/permissions.py</code><a class="headerlink" href="#beachhead-boardspermissionspy" title="Permanent link">&para;</a></h3>
+<h2 id="nightly-ci-job-backend-mutation">Nightly CI job (<code>backend-mutation</code>)<a class="headerlink" href="#nightly-ci-job-backend-mutation" title="Permanent link">&para;</a></h2>
+<p>Tracked in #1384, ported from TruePPM's <code>api:mutation</code> and <code>scheduler:mutation</code>. It runs on the Nightly schedule only (<code>MUTATION_TEST=true</code>, never on an MR or a <code>main</code> push) and covers <strong>every module with a manual baseline on this page</strong>. The report job gates the <strong>merged adjusted</strong> score at <strong>90%</strong> (<code>MUTATION_MIN=0.90</code>). For an observation week both jobs stay <code>allow_failure: true</code>, so a score under the floor is a yellow job, not a red pipeline; a follow-up makes <code>backend-mutation-report</code> blocking.</p>
+<p>The job started as a one-module pilot on <code>boards/permissions.py</code> (!1176) and was widened to all baselined modules by #1384.</p>
+<h3 id="targets">Targets<a class="headerlink" href="#targets" title="Permanent link">&para;</a></h3>
+<p>The list lives in one place, <code>TARGETS</code> in <code>backend/mutmut_config.py</code>. Each target names its source file, the test files every mutant runs against, an optional class to restrict the run to, and its shard count. Mutant counts are enumerated with mutmut 2.5.1 on <code>main</code> at <code>e8be1a22f</code> (pragma-excluded mutants are never generated, so they are listed apart).</p>
 <table>
 <thead>
 <tr>
-<th></th>
-<th></th>
+<th>Target</th>
+<th>Code</th>
+<th style="text-align: right;">Mutants scored</th>
+<th style="text-align: right;">Excluded by pragma</th>
+<th>Tests</th>
+<th style="text-align: right;">Shards</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Module</td>
-<td><code>backend/boards/permissions.py</code> (role and permission rule helpers)</td>
-</tr>
-<tr>
-<td>Mutants</td>
-<td>120 (116 scored plus 4 excluded by <code># pragma: no mutate</code>; the nightly artifact reports <code>total</code> 116 and <code>excluded</code> 4; expected after #1503, not re-measured)</td>
-</tr>
-<tr>
-<td>Tests</td>
-<td><code>test_rbac</code>, <code>test_rbac_boundaries</code>, <code>test_explicit_permissions</code>, <code>test_permissions_unit_mutation_gaps</code> (132 tests, 44 s once, SQLite)</td>
-</tr>
-<tr>
-<td>Kill rate</td>
-<td>96.6% raw by the manual baseline above (114 of 118, before the pilot); expected 100% adjusted and 96.7% raw (116 of 120) after #1503, not re-measured</td>
-</tr>
-</tbody>
-</table>
-<p>Why this module: it is pure rule logic with the strongest existing test files and the best baseline, so a nightly score can move because of a real change rather than noise. <code>boards/services/cards.py</code> (246 mutants, ~1.9 CPU-h) is the next candidate once this one has a record. It is not in the pilot because it would need about four times the CI time, and after #1454 and #1505 the 8 dead <code>else ""</code> branches in <code>_archive_movement</code> are deleted, and there are no longer any guard-condition survivors (killed on SQLite, see #1504; the 6 were stale since #1428), and no <code>update_card</code> survivors (the label-diff latent bug was fixed in #1511).</p>
-<p>Runtime evidence, measured 2026-10-04 on a loaded laptop (another mutmut run was using the CPUs), SQLite, mutmut 2.5.1, one process, <code>-x</code> per mutant:</p>
-<table>
-<thead>
-<tr>
-<th>Run</th>
-<th style="text-align: right;">Mutants run</th>
-<th style="text-align: right;">Wall time</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>shard 0 of 16</td>
+<td><code>permissions</code></td>
+<td><code>boards/permissions.py</code></td>
+<td style="text-align: right;">116</td>
 <td style="text-align: right;">4</td>
-<td style="text-align: right;">183 s</td>
+<td>the four RBAC files (<code>test_rbac</code>, <code>test_rbac_boundaries</code>, <code>test_explicit_permissions</code>, <code>test_permissions_unit_mutation_gaps</code>)</td>
+<td style="text-align: right;">2</td>
 </tr>
 <tr>
-<td>shard 3 of 16</td>
-<td style="text-align: right;">9</td>
-<td style="text-align: right;">311 s</td>
+<td><code>cards</code></td>
+<td><code>boards/services/cards.py</code></td>
+<td style="text-align: right;">246</td>
+<td style="text-align: right;">0</td>
+<td>the 13 files of the 2026-10-09 whole-module re-measure (movement suites, view suites, both gap files)</td>
+<td style="text-align: right;">7</td>
 </tr>
 <tr>
-<td>one full test pass, no mutation</td>
-<td style="text-align: right;">n/a</td>
-<td style="text-align: right;">44 s</td>
+<td><code>card_movement</code></td>
+<td><code>CardMovement</code> in <code>boards/models.py</code> only</td>
+<td style="text-align: right;">46</td>
+<td style="text-align: right;">27</td>
+<td>the six movement-record files of the 2026-10-08 re-measure</td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td><code>boards/views/import_export.py</code>, whole module</td>
+<td style="text-align: right;">1780</td>
+<td style="text-align: right;">2</td>
+<td>the 14 import/export files: the nine of the head run (#1502), the remainder run's (#1484), and <code>test_import_csv_custom_fields</code> for the #1449 code</td>
+<td style="text-align: right;">33</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td></td>
+<td style="text-align: right;"><strong>2188</strong></td>
+<td style="text-align: right;"><strong>33</strong></td>
+<td></td>
+<td style="text-align: right;"><strong>44</strong></td>
 </tr>
 </tbody>
 </table>
-<p>Each mutant costs about 25 s, nearly all of it pytest and Django start-up, not the tests themselves. That is consistent with the manual baseline (~0.85 CPU-hours for 118 mutants). A serial run would take about 50 minutes, which is over the 15 to 20 minute target, so CI runs <strong>4 parallel shards</strong> (<code>parallel: 4</code>), each with its own Postgres service, which brings each shard to roughly 14 minutes of mutants plus one baseline run. This is an estimate, not a CI measurement: the first nightlies will give the real number, and <code>timeout: 40m</code> leaves headroom. PostgreSQL start-up and migrations may cost more than SQLite did here.</p>
+<p>The <code>CardMovement</code> range is computed from the code on every run (<code>ast</code>, the class's first to last line), never written down, so it follows the class when <code>models.py</code> changes. The mutants outside the range are registered by mutmut, skipped by the hook, and left out of every count by the export (<code>--line-range</code>).</p>
+<h3 id="shard-arithmetic">Shard arithmetic<a class="headerlink" href="#shard-arithmetic" title="Permanent link">&para;</a></h3>
+<p>Per-mutant cost is almost all the time the target's tests take to reach their first failure (<code>-x</code>); a survivor costs a full pass. Measured 2026-10-09 on an 18-core laptop, SQLite, mutmut 2.5.1, one process per sample, <code>--reuse-db</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">One full test pass</th>
+<th>Sample</th>
+<th style="text-align: right;">Cost per mutant (local)</th>
+<th style="text-align: right;">CI estimate (x2)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td style="text-align: right;">25 s</td>
+<td>2026-10-04 baseline (loaded laptop)</td>
+<td style="text-align: right;">~25 s</td>
+<td style="text-align: right;">~30 s (the 2026-10-04 figure was taken under load)</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td style="text-align: right;">78 s</td>
+<td>12 mutants, 376 s with a 78 s baseline</td>
+<td style="text-align: right;">~25 s</td>
+<td style="text-align: right;">~50 s</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td style="text-align: right;">35 s</td>
+<td>shard 1 of 2 through the CI driver: 15 mutants, 332 s with a 35 s baseline</td>
+<td style="text-align: right;">~20 s</td>
+<td style="text-align: right;">~40 s</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td style="text-align: right;">65 s</td>
+<td>25 mutants, 480 s with a 65 s baseline</td>
+<td style="text-align: right;">~17 s</td>
+<td style="text-align: right;">~33 s</td>
+</tr>
+</tbody>
+</table>
+<p>CI is assumed twice as slow as the laptop (shared self-hosted runners, PostgreSQL instead of in-memory SQLite). A target's mutants are dealt round-robin over its shards, so shard sizes differ by at most one mutant (a split by <code>line_index % N</code>, used at first, left the fullest <code>import_export</code> shard with 75 mutants against an average of 54, because mutants cluster on a few lines). <code>python mutmut_config.py targets</code> prints the current sizes. Each shard is sized to about 30 minutes of mutants:</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">Mutants x CI cost</th>
+<th style="text-align: right;">Shards</th>
+<th style="text-align: right;">Mutants per shard</th>
+<th style="text-align: right;">Slowest shard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td style="text-align: right;">116 x 30 s = 58 min</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">58</td>
+<td style="text-align: right;">~29 min</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td style="text-align: right;">246 x 50 s = 205 min</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">35-36</td>
+<td style="text-align: right;">~30 min</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td style="text-align: right;">46 x 40 s = 31 min</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">~15 min</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td style="text-align: right;">1780 x 33 s = 979 min</td>
+<td style="text-align: right;">33</td>
+<td style="text-align: right;">53-54</td>
+<td style="text-align: right;">~30 min</td>
+</tr>
+</tbody>
+</table>
+<p>On top of the mutants each job spends about 5 minutes on setup: services, <code>pip install</code> of the backend and test requirements, and mutmut's baseline test run (up to ~2.5 min for <code>cards</code> at the CI estimate). So the slowest job is about 35 minutes, and <code>timeout: 60m</code> gives about 1.7x headroom. Survivors cost a full test pass instead of a pass to the first failure; at a 3 to 4% survivor rate that adds about a minute to a shard. These are estimates, not CI measurements: the first nightlies give the real numbers, and a shard that times out makes the report exit 2 (not measured), never a smaller score. If shards run long, raise that target's count (and <code>parallel:</code>) rather than the timeout.</p>
+<p>The shard total is capped at 50: <code>backend-mutation-report</code> <code>needs:</code> every shard, and GitLab allows a job to need at most 50 jobs. <code>mutmut_config.py self-test</code> fails the MR if the total goes over (44 now).</p>
+<h4 id="runner-load">Runner load<a class="headerlink" href="#runner-load" title="Permanent link">&para;</a></h4>
+<p>The run costs about 1270 runner-minutes of mutants plus about 220 of setup (44 x 5), roughly <strong>25 runner-hours a night</strong>. As of 2026-10-08 only three self-hosted runners that take untagged jobs are online (two NUCs and the Dell, <a href="../../maintainers/ci-runners/">CI runners</a>); at, say, two jobs per runner at a time (6 slots) the run takes about 1493 / 6 = 250 minutes, about 4.2 hours, or about 4.7 hours counting 8 waves of the ~35-minute jobs. A run that starts at 05:00 UTC holds the runners until about 09:45 UTC and overlaps the morning's MR and <code>main</code> pipelines, which queue behind it. The jobs carry no <code>tags:</code>: <a href="../../maintainers/ci-runners/">CI runners</a> has no pin convention for heavy scheduled jobs (<code>nuc</code> is reserved for the latency-sensitive load test, and pinning 44 jobs to two NUCs would only lengthen the queue), so like every untagged job they can also be picked up by a GitLab SaaS runner if one is available to the project. Watch the queue during the observation week. If the overlap hurts, the cheapest fix is a separate weekly schedule (for example Saturday 05:00 UTC) carrying <code>MUTATION_TEST=true</code> instead of the Nightly one; that is a schedule change for a maintainer, and <code>schedule-config-check</code> needs the variable on whichever schedule runs it.</p>
+<p><code>--reuse-db</code> keeps pytest-django from creating the PostgreSQL test database and replaying every migration for each mutant. The schema comes from the migration files, which no mutant touches, so reusing it cannot change a verdict.</p>
+<h3 id="expected-score">Expected score<a class="headerlink" href="#expected-score" title="Permanent link">&para;</a></h3>
+<p>From the manual baselines (SQLite; CI runs on PostgreSQL, so the first nightly may differ):</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">Killed / scored (adjusted)</th>
+<th style="text-align: right;">Raw (pragma'd counted as not detected)</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td style="text-align: right;">116 / 116 (100%)</td>
+<td style="text-align: right;">116 / 120 (96.7%)</td>
+<td>2026-10-09 re-measure</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td style="text-align: right;">238 / 246 (96.7%)</td>
+<td style="text-align: right;">238 / 246 (96.7%)</td>
+<td>2026-10-09 re-measure</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td style="text-align: right;">46 / 46 (100%)</td>
+<td style="text-align: right;">46 / 73 (63.0%)</td>
+<td>2026-10-08 re-measure</td>
+</tr>
+<tr>
+<td><code>import_export</code>, measured parts</td>
+<td style="text-align: right;">1576 / 1635 (96.4%)</td>
+<td style="text-align: right;">1576 / 1637 (96.3%)</td>
+<td>head 1111 / 1145 (#1502, at <code>f898bf683</code>) plus remainder 465 / 490 (#1484, the 2 pragma'd 403 mutants removed)</td>
+</tr>
+<tr>
+<td><strong>Merged, measured parts</strong></td>
+<td style="text-align: right;"><strong>1976 / 2043 (96.7%)</strong></td>
+<td style="text-align: right;"><strong>1976 / 2076 (95.2%)</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>About 145 <code>import_export</code> mutants (1780 now against 1635 measured) belong to code added after those runs, mostly #1449's custom-field CSV helpers, and are unmeasured (#1546). Even if every one of them survived, the merged adjusted score would be 1976 / 2188 = 90.3% and the raw one 1976 / 2221 = 89.0%. So the 90% floor holds on the baseline without marking the 32 documented <code>import_export</code> equivalents (#1544), which are counted as survivors in all of the figures above. Two conventions can move the CI number down a little: the checker counts <code>suspicious</code> mutants as not detected (the head run counted its 6 as killed), and a mutant that only a PostgreSQL test can kill, or that only SQLite hides, can go either way.</p>
 <h3 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>backend/setup.cfg</code> <code>[mutmut]</code> holds the scope (<code>paths_to_mutate</code>, the test files). <code>backend/mutmut_config.py</code> gives shard k of N the lines where <code>line_index % N == k</code> (<code>MUTATION_SHARDS</code> and <code>MUTATION_SHARD</code>).</li>
-<li>mutmut is installed <strong>inside the job</strong> with <code>pip install "mutmut==2.5.1"</code>. It stays out of <code>requirements*.txt</code>. Bumping the pin changes the mutants generated and so moves the score; bump it on purpose and re-baseline.</li>
-<li>mutmut 2.5.1 has no <code>export-cicd-stats</code> command (that is 3.x). <code>scripts/check_mutation_score.py --export-cache</code> reads <code>.mutmut-cache</code> instead and writes one stats file per shard.</li>
-<li><code>backend-mutation-report</code> sums the shards, prints the score and writes <code>mutmut-cicd-stats.json</code> (kept 30 days). It is told how many shards to expect (<code>--expect-shards 4</code>, matching <code>parallel: 4</code>) and exits 2 (yellow), even in report-only mode, if fewer stats files arrive (a shard timed out or failed before writing its file), if a file is malformed, or if mutants were left untested. It also checks that the shards are one run: every shard registers the whole module's mutants (other shards' lines as <code>skipped</code>), so every shard's <code>total</code> must be equal, and the shards' non-skipped mutants must add up to exactly that total. A stale or mismatched shard, or a shard hook that covers a line twice or not at all, is exit 2. A run that is incomplete is never summed into a smaller, apparently complete score. The merged file's <code>total</code> is the module's mutant count (not 4 x total), and on a not-measured exit 2 it is still written, with a <code>not_measured</code> key giving the reason. A floor configuration error (for example <code>MUTATION_MIN=95</code>) exits 2 before anything is read, so no merged file is written for that run. Every stats and cache path the script reads or writes goes through the shared <code>scripts/_paths.py</code> containment helper (<code>resolve_within(cli_roots(), path)</code>, #1377): it must resolve under the repo checkout, the working directory or the system temp directory. A path that escapes them (an absolute path elsewhere, a <code>..</code> climb, or a symlink pointing out) is a configuration error: the script prints <code>CONFIG ERROR</code> and exits 2 before it is read or written.</li>
+<li><code>python mutmut_config.py run</code> (from <code>backend/</code>) is the whole job script. It maps <code>CI_NODE_INDEX</code> of <code>CI_NODE_TOTAL</code> to one (target, shard), refuses to run (exit 2) if <code>CI_NODE_TOTAL</code> is not the sum of the shard counts, runs <code>mutmut run --paths-to-mutate &lt;file&gt; --runner "&lt;python&gt; -m pytest -x ... &lt;test files&gt;"</code>, prints <code>mutmut results</code>, and exports <code>mutmut-stats-&lt;index&gt;.json</code> with <code>check_mutation_score.py --export-cache --target &lt;name&gt; [--line-range LO:HI]</code>. Shard k of N of a target mutates the target's mutants whose ordinal, in (line, index) order, is k modulo N; the hook enumerates them with mutmut once per process.</li>
+<li><code>python3 backend/mutmut_config.py self-test --ci-file .gitlab-ci.yml</code> runs in <code>mutation-score-selftest</code> on every MR that touches backend Python or the CI file: every source file, test file and class in <code>TARGETS</code> must exist, a class target's computed range must equal the class's span read independently from the text, the hook's decision run for every shard must run each in-range mutant exactly once and nothing outside the range, shard sizes may differ by at most one, the shard total may not exceed 50, and <code>parallel:</code> on <code>backend-mutation</code> must equal the shard total. A renamed test file fails the MR that renames it, not a night later.</li>
+<li>mutmut is installed <strong>inside the job</strong> with <code>pip install "mutmut==2.5.1"</code>. It stays out of <code>requirements*.txt</code>. Bumping the pin changes the mutants generated and so moves the score; bump it on purpose and re-baseline. <code>backend/setup.cfg</code> <code>[mutmut]</code> now holds only <code>tests_dir</code>; the driver passes the path and runner explicitly.</li>
+<li>mutmut 2.5.1 has no <code>export-cicd-stats</code> command (that is 3.x). <code>--export-cache</code> reads <code>.mutmut-cache</code> instead. It counts only the mutants mutmut generates for the file (inside the line range, for <code>card_movement</code>): a generated mutant with no cache row is <code>untested</code> (so the run is not measured), and a cache row that is no generated mutant is a <strong>phantom</strong>, dropped and reported as <code>phantom</code>. A phantom is never run, so it is always <code>untested</code>; a non-generated row with a verdict (killed, survived, timeout, suspicious, skipped) means the cache does not match the code, and the export exits 2 rather than guess. mutmut 2.5.1 makes one whenever two lines have the same text and both carry mutants (two closing <code>)</code> lines, for example): its status lookup is keyed by line text, so it files the later line's mutant under the earlier line, as a row that is never run. That is the "extra untested mutant" the 2026-10-08 and 2026-10-09 re-measures could not explain (<code>permissions.py</code> line 316, <code>import_export.py</code> line 422). The real mutant is still run and scored correctly. Without the filter every nightly would be "unfinished".</li>
+<li><code>backend-mutation-report</code> groups the stats files by target. <code>--expect-shards</code> gets <code>permissions=2,cards=7,...</code> from <code>python3 backend/mutmut_config.py expect-shards</code>; a missing shard, a missing target or an unexpected one is exit 2. Within a target, every shard registers the whole target's mutants (other shards' lines as <code>skipped</code>), so every shard's <code>total</code> must be equal and the shards' non-skipped mutants must add up to exactly that total; otherwise exit 2. The targets are then summed (each target's <code>total</code>, <code>excluded</code> and <code>phantom</code> once) into the merged score, which <code>MUTATION_MIN</code> gates. The log prints one line per target first, and names any target under the floor on its own (not gated).</li>
+<li>The artifact <code>mutmut-cicd-stats.json</code> (30 days) has the merged counts and <code>score_adjusted</code> / <code>score_raw</code> at the top level, and <code>targets.&lt;name&gt;</code> with each target's counts and scores. On exit 2 it is still written, with a <code>not_measured</code> key giving the reason. A floor configuration error (for example <code>MUTATION_MIN=90</code>) exits 2 before anything is read, so no merged file is written for that run. Every stats and cache path the script reads or writes goes through the shared <code>scripts/_paths.py</code> containment helper (<code>resolve_within(cli_roots(), path)</code>, #1377): it must resolve under the repo checkout, the working directory or the system temp directory, or the script prints <code>CONFIG ERROR</code> and exits 2.</li>
 <li>Dependency review for mutmut 2.5.1: BSD-3-Clause; dependencies click (BSD-3), glob2 (BSD), parso (MIT), pony (Apache-2.0), junit-xml (MIT), toml (MIT); no OSV advisories for any of them on 2026-10-04. 2.x rather than 3.x because 3.x copies the tree into a sandbox (needs <code>also_copy</code> bookkeeping for every file the suite reads), which does not suit a Django suite.</li>
 </ul>
+<h3 id="the-floor-decision-1384">The floor (decision, #1384)<a class="headerlink" href="#the-floor-decision-1384" title="Permanent link">&para;</a></h3>
+<p><code>MUTATION_MIN=0.90</code>, set on <code>backend-mutation-report</code>, applied to the merged adjusted score over all four targets. The maintainer chose 90% up front. That overrides the earlier plan on #1384 of reading the floor off a week of observed nightly scores; the week of observation now decides when the job becomes blocking, not what the floor is. The baseline arithmetic above puts the expected score several points above it. The floor is a fraction (<code>0.90</code>, never <code>90</code>) and is never set to <code>0</code> as a placeholder.</p>
 <h3 id="maintainer-steps-and-what-comes-next">Maintainer steps and what comes next<a class="headerlink" href="#maintainer-steps-and-what-comes-next" title="Permanent link">&para;</a></h3>
 <ol>
-<li>After the pilot MR merges, add <code>MUTATION_TEST=true</code> to the Nightly schedule (4176726). Until then the jobs never run. <code>MUTATION_TEST</code> is in <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> so <code>schedule-config-check</code> does not report it MISSING.</li>
-<li>Remove <code>MUTATION_TEST</code> from <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> in <code>.gitlab-ci.yml</code> once the schedule carries it (not machine-checked).</li>
-<li>After about a week of nightly artifacts, set <code>MUTATION_MIN</code> one point under the lowest observed <strong>adjusted</strong> score (the raw one is reported, not gated, #1503), written as a fraction: a 96% low gives <code>MUTATION_MIN=0.95</code>, not <code>95</code>. The checker rejects <code>0</code> and anything outside (0, 1] (exit 2). Record the decision on #1384. #1384 stays open until then.</li>
+<li>Done: the Nightly schedule (4176726) carries <code>MUTATION_TEST=true</code>, and <code>MUTATION_TEST</code> is no longer in <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> (the list is empty). A nightly that runs before the #1384 nightly-targets MR merges runs <code>main</code>'s old 4-shard <code>permissions.py</code> pilot, which exits 2 (not measured) on the mutmut phantom row described above; that is expected and stops once the MR merges.</li>
+<li>Observation week: read each night's <code>backend-mutation-report</code> log (per-target lines and the merged score) and the shard durations. Resize shards in <code>TARGETS</code> (and <code>parallel:</code>) if any shard runs near the timeout.</li>
+<li>Follow-up MR on #1384, the only remaining step: set <code>allow_failure: false</code> on <code>backend-mutation-report</code> (keep it on the shard jobs, whose verdict the report already judges) and record the observed scores here. #1384 stays open until then.</li>
 <li>Triage survivors as described in <a href="#how-to-read-the-results">How to read the results</a>.</li>
 </ol>
 <h2 id="limits-of-this-baseline">Limits of this baseline<a class="headerlink" href="#limits-of-this-baseline" title="Permanent link">&para;</a></h2>
