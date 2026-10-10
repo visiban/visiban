@@ -4783,7 +4783,7 @@ sees it appear or disappear without a reload.</p>
 </tr>
 <tr>
 <td><code>invite_link.revoked</code></td>
-<td>An invite link for this group was revoked (also delivered to non-admin members; a refetch signal, like <code>invite_link.created</code>) — including an emailed link revoked automatically because its email could not be sent, or because its sender was deactivated (including via <code>PATCH /admin/users/{id}/</code>) or, <em>(1.2+)</em>, lost group admin rights through a demotion, a removal or the clearing of their <code>can_access_all_content</code> flag via <code>PATCH /admin/users/{id}/</code> — fired for each of their unused links in that group and its subgroups they can no longer administer (unused links only; a consumed single-use link is left alone)</td>
+<td>An invite link for this group was revoked (also delivered to non-admin members; a refetch signal, like <code>invite_link.created</code>) — including an emailed link revoked automatically because its email could not be sent, or because its sender was deactivated (including via <code>PATCH /admin/users/{id}/</code>) or, <em>(1.2+)</em>, lost group admin rights through a demotion, a removal or the clearing of their <code>can_access_all_content</code> flag via <code>PATCH /admin/users/{id}/</code> — fired for each of their unused links in that group and its subgroups they can no longer administer. Also fired when the creator's account is deleted, and <em>(1.2+)</em> when a <code>parent</code> change on <code>PATCH /groups/{id}/</code> leaves a link's creator without admin rights over the moved subtree (unused links only; a consumed single-use link is left alone)</td>
 <td><code>{ "id": &lt;int&gt; }</code></td>
 </tr>
 <tr>

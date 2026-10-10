@@ -4446,6 +4446,7 @@
 <h3 id="put-apiv1groupsid-patch-apiv1groupsid"><code>PUT /api/v1/groups/{id}/</code> / <code>PATCH /api/v1/groups/{id}/</code><a class="headerlink" href="#put-apiv1groupsid-patch-apiv1groupsid" title="Permanent link">&para;</a></h3>
 <p>Update group fields. Both <code>PUT</code> and <code>PATCH</code> are accepted. Requires group admin.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>parent</code>, <code>default_board_member_role</code>, <code>allowed_priorities</code>. The latter two duplicate what <a href="#board-defaults"><code>PATCH /groups/{id}/board-defaults/</code></a> does — either endpoint can set them.</p>
+<p>Changing <code>parent</code> revokes unused invite links in the moved subtree whose creator no longer administers the link's group through the new ancestor chain (see <a href="#invite-links">Invite links</a>).</p>
 <h3 id="delete-apiv1groupsid"><code>DELETE /api/v1/groups/{id}/</code><a class="headerlink" href="#delete-apiv1groupsid" title="Permanent link">&para;</a></h3>
 <p>Delete a group. Requires group owner or site admin.</p>
 <hr />
@@ -4551,7 +4552,8 @@
 <hr />
 <h2 id="invite-links">Invite links<a class="headerlink" href="#invite-links" title="Permanent link">&para;</a></h2>
 <p>A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (<code>delivery: "email"</code>, below) are capped separately — up to 50 pending per group — and never count against the 5.</p>
-<p>A link can stay listed as active, and keep holding one of the 5 slots, after its creator is deleted or the group is re-parented so the creator no longer administers it, and links left in that state before upgrading are not backfilled. Join and preview still refuse such a link, so nobody is admitted through it; cleaning up the listing and the slot is tracked in #1513.</p>
+<p>A link is revoked automatically (set inactive, freeing its slot, and announced as <code>invite_link.revoked</code>) when its creator is deactivated or deleted, loses group admin rights, or when a <code>parent</code> change moves the group so the creator no longer administers the link's group. Unused links only; a consumed single-use link is left alone. Join and preview independently refuse any link whose creator no longer qualifies, so nobody is admitted through a stale one.</p>
+<p>Upgrade cleanup: on upgrade, unused links whose creator was already deleted or deactivated are deactivated once. <strong>Not backfilled:</strong> links whose creator still exists and is active but was demoted, removed, or moved out of administering the group before this fix (tracked in #1565). They stay listed as active and hold a slot until revoked manually, but still admit nobody.</p>
 <p>Inherited group-admin rights (which decide whether a link's creator still counts as an admin, and which links are revoked on demotion) are considered only up to 6 ancestor levels; nesting deeper than that is not honored for these checks.</p>
 <h3 id="get-apiv1groupsidinvite-links"><code>GET /api/v1/groups/{id}/invite-links/</code><a class="headerlink" href="#get-apiv1groupsidinvite-links" title="Permanent link">&para;</a></h3>
 <p>List all invite links for this group. Requires group admin.</p>
