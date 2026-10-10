@@ -107,3 +107,47 @@ class BackfillLapsedAdminLinksTests(TestCase):
         self._run()
         self.assertFalse(self._active(link))
         self.assertEqual(GroupInviteLink.objects.filter(group=self.root, is_active=True).count(), 0)
+
+    def test_inactive_creator_link_deactivated(self):
+        u = self._user("inactive")
+        GroupMembership.objects.create(group=self.root, user=u, role="admin")
+        link = self._link(self.root, u)
+        User.objects.filter(pk=u.pk).update(is_active=False)
+        self._run()
+        self.assertFalse(self._active(link))
+
+    def test_depth_limit_boundary(self):
+        u = self._user("deep")
+        chain = [self.root]
+        for i in range(6):
+            chain.append(Group.objects.create(name=f"L{i}", owner=self.owner, parent=chain[-1]))
+        GroupMembership.objects.create(group=chain[0], user=u, role="admin")
+        # chain[5] reaches chain[0] in 6 levels (kept); chain[6] needs 7 (lapsed).
+        at_limit = self._link(chain[5], u)
+        too_deep = self._link(chain[6], u)
+        self._run()
+        self.assertTrue(self._active(at_limit))
+        self.assertFalse(self._active(too_deep))
+
+    def test_backfill_frees_cap_and_hides_stale_links_from_list(self):
+        from rest_framework.test import APIClient
+
+        admin = self._user("capadmin")
+        GroupMembership.objects.create(group=self.root, user=admin, role="admin")
+        stale_creator = self._user("stale")
+        m = GroupMembership.objects.create(group=self.root, user=stale_creator, role="admin")
+        stale = [self._link(self.root, stale_creator) for _ in range(5)]
+        m.role = "member"
+        m.save()
+        client = APIClient()
+        client.force_authenticate(admin)
+        url = f"/api/v1/groups/{self.root.pk}/invite-links/"
+
+        self.assertEqual(client.post(url, {}, format="json").status_code, 400)
+        self._run()
+        self.assertEqual(client.get(url).json(), [])
+        r = client.post(url, {}, format="json")
+        self.assertEqual(r.status_code, 201)
+        listed = {row["id"] for row in client.get(url).json()}
+        self.assertEqual(len(listed), 1)
+        self.assertTrue(listed.isdisjoint({lk.pk for lk in stale}))
