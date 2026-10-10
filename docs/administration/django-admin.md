@@ -12,16 +12,24 @@ by design — Nginx and the SPA router tell them apart by the trailing slash.
 
 ## Access
 
-Log in with any user that has `is_staff = True` or `is_superuser = True`. The site admin account created by `ensure_site_admin` does **not** automatically have `is_staff` — set it manually if you need Django admin access:
+Log in with any user that has `is_staff = True` or `is_superuser = True`. The site admin account created by `ensure_site_admin` has `is_staff` and `is_superuser` set, so it can sign in here once it has changed the generated password (see below). To give another account Django admin access, set `is_staff` on it:
 
 ```bash
 python manage.py shell -c "
 from accounts.models import User
-u = User.objects.get(username='admin')
+u = User.objects.get(username='someone')
 u.is_staff = True
 u.save()
 "
 ```
+
+An account with a forced password or username change pending (`must_change_password` or `must_change_username`) cannot use the Django admin until it completes the change in the web app: `/admin/` redirects it to the app and refuses form submissions. Only **Log out** stays available. The account created by `ensure_site_admin` starts with `must_change_password` set, so it changes its password in the web app before it can use the Django admin.
+
+## Passwords
+
+- **Your own password:** the admin's **Change password** link opens the web app, where you change it like any other user.
+- **Another user's password** (the user's **Password** form at `/admin/accounts/user/<id>/password/`): saving a new password, or disabling password sign-in, deletes that user's Personal Access Tokens and API token and ends their sessions. If a new password was set, the user must change it the next time they sign in.
+- **Adding a user:** a user created here with a password must choose their own password the first time they sign in, the same as one created from the site-admin panel. A user created with password sign-in disabled is not asked to create one.
 
 ## What you can manage
 

@@ -32,3 +32,9 @@ class AccountsConfig(AppConfig):
             apply_confirmed_email_change,
             dispatch_uid="accounts.apply_confirmed_email_change",
         )
+
+        # allauth's HTML password views finalize through the same helpers as
+        # the REST routes (#1551).
+        from .password_signals import connect_password_signals
+
+        connect_password_signals()

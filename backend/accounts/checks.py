@@ -99,3 +99,60 @@ def check_session_engine_supports_ws_revocation(app_configs, **kwargs):
             id="accounts.W001",
         )
     ]
+
+
+@checks.register(checks.Tags.security)
+def check_frontend_url_outside_pending_action_gate(app_configs, **kwargs):
+    """Fail if FRONTEND_URL points under a path the forced-change gate covers (#1551).
+
+    ``visiban.middleware.PendingAccountActionMiddleware`` redirects a pending
+    user on ``/accounts/`` and ``/admin/`` to ``FRONTEND_URL``. If that URL's
+    path were itself under one of those prefixes, the redirect would land back
+    on the gate and loop.
+    """
+    from urllib.parse import urlsplit
+
+    from django.conf import settings
+
+    from visiban.middleware import is_pending_action_gated_path
+
+    frontend_url = getattr(settings, "FRONTEND_URL", "") or ""
+    path = urlsplit(frontend_url).path or "/"
+    if not is_pending_action_gated_path(path):
+        return []
+    return [
+        checks.Error(
+            f"FRONTEND_URL path {path!r} is under a path the forced-change gate redirects away from.",
+            hint=(
+                "Set FRONTEND_URL to the SPA origin (or a path outside /accounts/ and "
+                "/admin/), otherwise a user with a pending password or username change "
+                "is redirected in a loop."
+            ),
+            id="accounts.E003",
+        )
+    ]
+
+
+@checks.register(checks.Tags.security)
+def check_pending_action_extra_gated_prefixes(app_configs, **kwargs):
+    """Fail on a malformed PENDING_ACTION_EXTRA_GATED_PREFIXES entry (#1551).
+
+    The middleware ignores such an entry rather than guess at it, so the
+    operator or extension author has to hear about it here.
+    """
+    from django.conf import settings
+
+    from visiban.middleware import is_well_formed_gated_prefix
+
+    extra = getattr(settings, "PENDING_ACTION_EXTRA_GATED_PREFIXES", ()) or ()
+    if isinstance(extra, str):
+        extra = (extra,)
+    return [
+        checks.Error(
+            f"PENDING_ACTION_EXTRA_GATED_PREFIXES entry {prefix!r} is not a path prefix.",
+            hint='Use a leading and trailing slash, for example "/sso/".',
+            id="accounts.E004",
+        )
+        for prefix in extra
+        if not is_well_formed_gated_prefix(prefix)
+    ]

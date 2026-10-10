@@ -32,6 +32,17 @@ does not.
 | Consume-once registration tokens (Rule 4) | `accounts.registration_tokens.registration_token_kind` (unchanged) | `InviteRegisterView`, `SocialRegistrationAdapter.save_user` |
 | Import user scoping (Rule 5) | `boards/services/trello_import.py` `visible_users` (unchanged); JSON and CSV reach it through `boards/views/import_export.py` `_resolve_import_users` | `BoardImportExportMixin` only. Intentionally outside the enumeration test: it is already one shared function, and every import format enters through the one mixin, so there is no second transport for a copy to drift on. `boards/tests/test_import_user_scope.py` covers it |
 
+The session-based HTML surfaces, allauth's pages under `/accounts/` and the
+Django admin under `/admin/`, run no DRF permission class. For an authenticated
+account they apply the forced-change gates through
+`visiban/middleware.py` `PendingAccountActionMiddleware`, which calls
+`has_pending_account_action(user)`. The enumeration test checks that every
+routed top-level path segment is either one of that middleware's gated prefixes
+or listed in `NOT_SESSION_HTML` with a reason, so a new top-level HTML mount is
+reported until someone decides. An installed extension package gates its own
+session-based HTML prefixes through the setting
+`PENDING_ACTION_EXTRA_GATED_PREFIXES` (see [Enterprise](#enterprise)).
+
 REST keeps DRF permission classes. They evaluate the same gate objects as the
 other transports, one gate per class, so that an endpoint a pending user must
 reach to clear the flag (for example `ChooseUsernameView`) can leave out exactly
@@ -56,6 +67,9 @@ exact or prefixes.
 
 **A non-DRF Django view.** No DRF permission class runs on it. Write a DRF
 view instead, or add it to `NON_DRF_ALLOWLIST` with a reason and its routes.
+Mount it under `/accounts/` or `/admin/` so `PendingAccountActionMiddleware`
+applies the forced-change gates; a new top-level path segment fails the test
+until it is added to the middleware's prefixes or to `NOT_SESSION_HTML`.
 Entries name exact view classes, not modules, so a view that a new allauth
 release adds is reported until someone reviews it. Views served by
 `django.contrib.admin.site` itself are recognized per view (they require an
@@ -162,6 +176,15 @@ when it is installed and skips it when it is not. The module may define:
   (`"module.View"` or `"module.View:GET"`). Each value is a dict
   `{"reason": "...", "routes": ["api/v1/..."], "optional": False}`, so the
   module does not have to import the test.
+- `NOT_SESSION_HTML`: a dict of top-level URL segment to reason, for segments
+  that serve no session-based HTML (for example a DRF-only `scim`). Single
+  segments only, a reason is required, and an OSS segment cannot be redefined.
+- `PENDING_ACTION_EXTRA_GATED_PREFIXES`: the extension's session-based HTML
+  prefixes (for example `("/sso/",)`). This declares them for the test only;
+  the middleware gates a prefix when it is in the Django setting
+  `PENDING_ACTION_EXTRA_GATED_PREFIXES` (default `()`), so the enterprise
+  settings include must set that too. The test fails for a declared prefix the
+  setting does not contain.
 - `ACTIVE_CHECKING_AUTHENTICATORS`: a tuple of additional authenticator classes
   that refuse inactive accounts. Each must be a concrete DRF authenticator:
   `BaseAuthentication` itself, a subclass that does not implement

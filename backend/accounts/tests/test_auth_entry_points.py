@@ -199,9 +199,12 @@ REST_GATE_ALLOWLIST: dict[str, Allow] = {
     "drf_spectacular.views.SpectacularRedocView": _allow(_SCHEMA, "api/schema/redoc/"),
 }
 
-_ALLAUTH_SESSION = "allauth HTML flow (session)."
+_ALLAUTH_SESSION = (
+    "allauth HTML flow (session); forced-change gate via PendingAccountActionMiddleware (checked below)."
+)
 _ALLAUTH_OAUTH = (
-    "allauth OAuth flow (session). Signup goes through SocialRegistrationAdapter, checked below."
+    "allauth OAuth flow (session). Signup goes through SocialRegistrationAdapter, checked below; "
+    "forced-change gate via PendingAccountActionMiddleware."
 )
 
 #: Non-DRF Django views, keyed by view class (or function) dotted path and
@@ -213,6 +216,11 @@ NON_DRF_ALLOWLIST: dict[str, Allow] = {
         "allauth HTML signup; gated by RegistrationAdapter.is_open_for_signup.", "accounts/signup/"
     ),
     "accounts.views.VisibanEmailView": _allow("allauth HTML email management (session).", "accounts/email/"),
+    "accounts.views.AdminPasswordChangeRedirectView": _allow(
+        "Redirect to the SPA for every method, reads nothing (#1551).",
+        "admin/password_change/",
+        "admin/password_change/done/",
+    ),
     "allauth.account.views.AccountInactiveView": _allow(_ALLAUTH_SESSION, "accounts/inactive/"),
     "allauth.account.views.ConfirmEmailView": _allow(_ALLAUTH_SESSION, r"accounts/^confirm-email/(?P<key>[-:\w]+)/$"),
     "allauth.account.views.ConfirmLoginCodeView": _allow(_ALLAUTH_SESSION, "accounts/login/code/confirm/"),
@@ -290,6 +298,12 @@ ACTIVE_CHECKING_AUTHENTICATORS: tuple[type, ...] = (
 #:   (optionally) ``optional`` attributes, or a dict with those keys, so the
 #:   module never has to import this test module.
 #: - ``ACTIVE_CHECKING_AUTHENTICATORS``: a tuple of authenticator classes.
+#: - ``NOT_SESSION_HTML``: a dict of top-level URL segment to reason, for
+#:   segments that serve no session HTML (see ``NOT_SESSION_HTML`` below).
+#: - ``PENDING_ACTION_EXTRA_GATED_PREFIXES``: the extension's session HTML
+#:   prefixes. Declaring one here does not gate it; each must also be in
+#:   ``settings.PENDING_ACTION_EXTRA_GATED_PREFIXES``, which the middleware
+#:   reads, and the test fails when it is not.
 #:
 #: Its entries are merged with the OSS lists and get the same checks, the
 #: stale-entry check included. A key the OSS list already has is an error: an
@@ -802,6 +816,141 @@ class RestEntryPointTests(SimpleTestCase):
         self.assertEqual(
             stale_allowlist_entries(allow, self.rest_points), ["accounts.views.CurrentUserView @ api/v1/gone/"]
         )
+
+
+#: Top-level URL segments that are not session-based HTML surfaces, so the
+#: forced-change middleware (``visiban.middleware.PendingAccountActionMiddleware``)
+#: need not cover them. Every other top-level segment must be one of its gated
+#: prefixes: a non-DRF view runs no DRF permission class, so for a session HTML
+#: page that middleware is the only place registry Rule 1 is applied (#1551).
+NOT_SESSION_HTML: dict[str, str] = {
+    "api": "REST: DRF views carrying the shared gates (checked above); the only non-DRF view is a static template.",
+    "media": "ServeMediaView, a DRF view checked above.",
+}
+
+
+def merge_session_html_lists(module):
+    """``(not_session_html, declared_extra_prefixes)`` with *module*'s additions.
+
+    Same contract as ``merge_allowlists``: additive only, a reason is required,
+    and an entry that redefines an OSS one is an error.
+    """
+    not_session_html = dict(NOT_SESSION_HTML)
+    if module is None:
+        return not_session_html, ()
+    for segment, reason in (getattr(module, "NOT_SESSION_HTML", None) or {}).items():
+        if segment in not_session_html:
+            raise ValueError(f"{module.__name__}.NOT_SESSION_HTML redefines OSS entry {segment!r}")
+        if not str(reason or "").strip():
+            raise ValueError(f"NOT_SESSION_HTML entry {segment!r} has no reason")
+        if not segment or "/" in segment:
+            raise ValueError(f"NOT_SESSION_HTML entry {segment!r} is not a single path segment")
+        not_session_html[segment] = reason
+    declared = tuple(getattr(module, "PENDING_ACTION_EXTRA_GATED_PREFIXES", ()) or ())
+    return not_session_html, declared
+
+
+EFFECTIVE_NOT_SESSION_HTML, DECLARED_EXTRA_GATED_PREFIXES = merge_session_html_lists(load_extension_allowlists())
+
+
+def _top_segment(route: str) -> str:
+    return route.lstrip("^").split("/", 1)[0]
+
+
+def pending_action_coverage_violations(
+    rest_points, non_drf_points, gated_prefixes, not_session_html=None
+) -> list[str]:
+    """Routes whose top-level segment neither the middleware nor NOT_SESSION_HTML covers."""
+    not_session_html = EFFECTIVE_NOT_SESSION_HTML if not_session_html is None else not_session_html
+    gated = {p.strip("/") for p in gated_prefixes}
+    failures = []
+    for point in [*rest_points, *non_drf_points]:
+        segment = _top_segment(point.route)
+        if segment in gated or segment in not_session_html:
+            continue
+        failures.append(
+            f"{point.key} ({point.route}): top-level segment {segment!r} is not gated by "
+            "PendingAccountActionMiddleware. Add it to PENDING_ACTION_GATED_PREFIXES, or to "
+            "NOT_SESSION_HTML with a reason if it serves no session HTML."
+        )
+    return sorted(set(failures))
+
+
+class PendingActionMiddlewareCoverageTests(SimpleTestCase):
+    """Each top-level path segment with a route is gated by the forced-change middleware or recorded (#1551)."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.rest_points, cls.non_drf_points = discover_http_entry_points()
+
+    def test_every_top_level_prefix_is_gated_or_recorded(self):
+        from visiban.middleware import pending_action_gated_prefixes
+
+        failures = pending_action_coverage_violations(
+            self.rest_points, self.non_drf_points, pending_action_gated_prefixes()
+        )
+        self.assertEqual(failures, [], "\n".join(failures))
+
+    def test_gated_prefixes_and_recorded_segments_are_routed(self):
+        """Neither list may name a segment no URL routes to."""
+        from visiban.middleware import PENDING_ACTION_GATED_PREFIXES
+
+        segments = {_top_segment(p.route) for p in [*self.rest_points, *self.non_drf_points]}
+        for prefix in PENDING_ACTION_GATED_PREFIXES:
+            self.assertIn(prefix.strip("/"), segments)
+        for segment in EFFECTIVE_NOT_SESSION_HTML:
+            self.assertIn(segment, segments)
+
+    def test_declared_extension_prefixes_are_enforced(self):
+        """An extension's declared session prefixes must be in the setting the middleware reads."""
+        from visiban.middleware import pending_action_gated_prefixes
+
+        effective = set(pending_action_gated_prefixes())
+        missing = [p for p in DECLARED_EXTRA_GATED_PREFIXES if p not in effective]
+        self.assertEqual(missing, [], "Add these to settings.PENDING_ACTION_EXTRA_GATED_PREFIXES.")
+
+    @override_settings(PENDING_ACTION_EXTRA_GATED_PREFIXES=("/sso/",))
+    def test_an_extra_prefix_from_settings_counts_as_gated(self):
+        from visiban.middleware import pending_action_gated_prefixes
+
+        point = NonDrfEntryPoint("x.SsoView", "sso/start/")
+        self.assertEqual(
+            pending_action_coverage_violations([], [point], pending_action_gated_prefixes()), []
+        )
+
+    def test_extension_session_html_lists_are_merged_and_validated(self):
+        import types
+
+        module = types.SimpleNamespace(
+            __name__="ext",
+            NOT_SESSION_HTML={"scim": "SCIM: DRF views."},
+            PENDING_ACTION_EXTRA_GATED_PREFIXES=("/saml/",),
+        )
+        merged, declared = merge_session_html_lists(module)
+        self.assertIn("scim", merged)
+        self.assertIn("api", merged)
+        self.assertEqual(declared, ("/saml/",))
+        self.assertEqual(merge_session_html_lists(None), (dict(NOT_SESSION_HTML), ()))
+        for bad in ({"api": "x"}, {"scim": ""}, {"a/b": "x"}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                merge_session_html_lists(types.SimpleNamespace(__name__="ext", NOT_SESSION_HTML=bad))
+
+    def test_the_middleware_is_installed(self):
+        self.assertIn("visiban.middleware.PendingAccountActionMiddleware", settings.MIDDLEWARE)
+        auth = settings.MIDDLEWARE.index("django.contrib.auth.middleware.AuthenticationMiddleware")
+        gate = settings.MIDDLEWARE.index("visiban.middleware.PendingAccountActionMiddleware")
+        self.assertGreater(gate, auth)
+
+    def test_negative_an_ungated_session_prefix_is_reported(self):
+        point = NonDrfEntryPoint("x.SomeHtmlView", "portal/settings/")
+        failures = pending_action_coverage_violations([], [point], ("/accounts/", "/admin/"))
+        self.assertEqual(len(failures), 1)
+        self.assertIn("portal", failures[0])
+
+    def test_positive_a_gated_prefix_passes(self):
+        points = [NonDrfEntryPoint("x.View", "^accounts/x/$"), NonDrfEntryPoint("y.View", "admin/y/")]
+        self.assertEqual(pending_action_coverage_violations([], points, ("/accounts/", "/admin/")), [])
 
 
 class ExtensionAllowlistTests(SimpleTestCase):

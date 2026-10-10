@@ -5,10 +5,12 @@ from dj_rest_auth.serializers import PasswordResetConfirmSerializer as DjRestAut
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import EmailValidator
+from django.db import transaction
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .adapter import clear_login_lockout
+from .credentials import finalize_password_reset
 from .models import (
     PAT_SCOPES,
     PersonalAccessToken,
@@ -276,7 +278,17 @@ class VisibanPasswordResetConfirmSerializer(DjRestAuthPasswordResetConfirmSerial
         return attrs
 
     def save(self):
-        result = super().save()
+        """Set the password, apply the reset side effects, then clear the lockout.
+
+        A reset ends with the same state as the other web and API password-setting routes
+        (#1551): ``must_change_password`` cleared, Personal Access Tokens and
+        the DRF auth ``Token`` deleted (``accounts.credentials``). The password
+        save and those writes share one transaction so they commit together;
+        the lockout is cleared only once they have.
+        """
+        with transaction.atomic():
+            result = super().save()
+            finalize_password_reset(self.user)
         clear_login_lockout(self.context["request"], self.user)
         return result
 

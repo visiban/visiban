@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.admin.utils import unquote
 from django.contrib.auth.admin import UserAdmin
 from django.db import transaction
 
@@ -9,8 +10,72 @@ from .models import (
     record_site_setting_changes,
     snapshot_site_setting,
 )
+from .credentials import finalize_password_change, require_password_change_after_admin_set
 
-admin.site.register(User, UserAdmin)
+
+@admin.register(User)
+class VisibanUserAdmin(UserAdmin):
+    """Django's ``UserAdmin`` with the project's password rules applied (#1551).
+
+    A password set through the admin's per-user password form has the same
+    follow-up as every other route (registry Rule 3): see
+    ``user_change_password``. A user created here must choose their own
+    password on first use, as with ``AdminUsersView.post``.
+
+    The admin's own "change my password" page (``/admin/password_change/``) is
+    routed to the SPA in ``visiban/urls.py`` instead.
+    """
+
+    def user_change_password(self, request, id, form_url=""):
+        """Run Django's view, then apply the password follow-up if it set one.
+
+        Django's view is not reimplemented: whether a password was set is
+        decided by comparing the stored hash before and after it runs, not by
+        its (translated) success message. GET, an invalid form and a refused
+        request leave the hash unchanged and so have no side effects.
+
+        - The actor's own account: the self-service follow-up
+          (``finalize_password_change``).
+        - Another account: their tokens are revoked and, if a usable password
+          was set, the owner must choose a new one
+          (``require_password_change_after_admin_set``). Their sessions end
+          because the session auth hash derives from the password hash;
+          Django refreshes only the actor's own session.
+        """
+        if request.method != "POST":
+            return super().user_change_password(request, id, form_url)
+        target = self.get_object(request, unquote(id))
+        if target is None:
+            # Django's view raises the 404 (or 403) itself.
+            return super().user_change_password(request, id, form_url)
+        with transaction.atomic():
+            before = _stored_password_hash(target.pk, lock=True)
+            response = super().user_change_password(request, id, form_url)
+            if _stored_password_hash(target.pk) != before:
+                target.refresh_from_db()
+                if request.user.pk == target.pk:
+                    finalize_password_change(target)
+                else:
+                    require_password_change_after_admin_set(target)
+        return response
+
+    def save_model(self, request, obj, form, change):
+        """A user added here with a password must choose their own on first use.
+
+        An account added with password sign-in disabled is left alone: the flag
+        would make its owner create a password the administrator chose not to
+        give it.
+        """
+        if not change and obj.has_usable_password():
+            obj.must_change_password = True
+        super().save_model(request, obj, form, change)
+
+
+def _stored_password_hash(pk, *, lock=False):
+    qs = User.objects.filter(pk=pk)
+    if lock:
+        qs = qs.select_for_update()
+    return qs.values_list("password", flat=True).first()
 
 
 @admin.register(SiteSetting)
