@@ -1,6 +1,7 @@
 """Tests for InviteLink model, AdminInviteLinkListCreateView,
 AdminInviteLinkRevokeView, and InviteRegisterView."""
 import hashlib
+import io
 import threading
 from datetime import timedelta
 
@@ -706,3 +707,243 @@ class InviteRegisterRaceConditionTests(TransactionTestCase):
         # The token must be marked used exactly once.
         link.refresh_from_db()
         self.assertIsNotNone(link.used_at)
+
+
+# ---------------------------------------------------------------------------
+# Site invites — creator standing at redemption (#1540, registry Rule 2)
+# ---------------------------------------------------------------------------
+
+class SiteInviteCreatorStandingTests(TestCase):
+    """A site invite admits people only while its creator is an active site admin.
+
+    The creator is re-checked at redemption, so a change made outside the
+    admin API (Django admin, a management command, a direct update) is
+    honored as well as one made through it.
+    """
+
+    def setUp(self):
+        set_invite_only()
+        self.creator = make_admin(username="site_inviter")
+        self.other_admin = make_admin(username="other_admin")
+        self.client = APIClient()
+
+    def tearDown(self):
+        set_open()
+
+    def _register(self, email, raw):
+        return self.client.post(
+            "/api/v1/auth/registration/",
+            {"email": email, "password1": "Sup3rS3cr3t!xyz", "password2": "Sup3rS3cr3t!xyz", "invite_token": raw},
+        )
+
+    def _assert_refused(self, raw, email):
+        r = self._register(email, raw)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("invite_token", r.json())
+        self.assertFalse(User.objects.filter(email=email).exists())
+
+    def test_link_from_an_active_site_admin_is_accepted(self):
+        _, raw = InviteLink.generate(created_by=self.creator)
+        r = self._register("ok@example.com", raw)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+
+    def test_creator_no_longer_site_admin_is_refused(self):
+        link, raw = InviteLink.generate(created_by=self.creator, single_use=True)
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        self._assert_refused(raw, "demoted@example.com")
+        link.refresh_from_db()
+        self.assertIsNone(link.used_at)
+        self.assertEqual(link.use_count, 0)
+
+    def test_creator_deactivated_outside_the_admin_api_is_refused(self):
+        _, raw = InviteLink.generate(created_by=self.creator)
+        User.objects.filter(pk=self.creator.pk).update(is_active=False)
+        self._assert_refused(raw, "inactive@example.com")
+
+    def test_creator_deleted_is_refused(self):
+        _, raw = InviteLink.generate(created_by=self.creator)
+        self.creator.delete()
+        self._assert_refused(raw, "deleted@example.com")
+
+    def test_validate_invite_token_raises_invite_invalid(self):
+        from django.db import transaction
+
+        from accounts.invite_utils import InviteTokenError, validate_invite_token
+
+        _, raw = InviteLink.generate(created_by=self.creator)
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        with self.assertRaises(InviteTokenError) as ctx, transaction.atomic():
+            validate_invite_token(raw)
+        self.assertEqual(ctx.exception.code, "invite_invalid")
+
+    def test_admin_api_demotion_revokes_pending_site_invites(self):
+        pending, _ = InviteLink.generate(created_by=self.creator)
+        others, _ = InviteLink.generate(created_by=self.other_admin)
+        self.client.force_authenticate(self.other_admin)
+        r = self.client.patch(f"/api/v1/admin/users/{self.creator.pk}/", {"is_site_admin": False})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        pending.refresh_from_db()
+        others.refresh_from_db()
+        self.assertIsNotNone(pending.revoked_at)
+        self.assertIsNone(others.revoked_at)
+
+    def test_admin_api_change_that_keeps_site_admin_leaves_links_alone(self):
+        pending, _ = InviteLink.generate(created_by=self.creator)
+        self.client.force_authenticate(self.other_admin)
+        r = self.client.patch(f"/api/v1/admin/users/{self.creator.pk}/", {"has_completed_tour": True})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        pending.refresh_from_db()
+        self.assertIsNone(pending.revoked_at)
+
+    def test_set_site_admin_revoke_command_revokes_pending_site_invites(self):
+        from django.core.management import call_command
+
+        pending, _ = InviteLink.generate(created_by=self.creator)
+        call_command("set_site_admin", self.creator.username, "--revoke", stdout=io.StringIO())
+        pending.refresh_from_db()
+        self.assertIsNotNone(pending.revoked_at)
+
+
+class SiteInviteRedemptionLockPostgresTests(TransactionTestCase):
+    """Redemption locks the site invite row on PostgreSQL with a creator set and
+    with ``created_by`` NULL (the creator join is nullable, so the lock must be
+    limited to the invite row itself)."""
+
+    def setUp(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("Row-lock SQL differs on SQLite; this test requires PostgreSQL.")
+        set_invite_only()
+        self.creator = make_admin(username="pg_site_inviter")
+
+    def tearDown(self):
+        set_open()
+
+    def _register(self, email, raw):
+        return APIClient().post(
+            "/api/v1/auth/registration/",
+            {"email": email, "password1": "Sup3rS3cr3t!xyz", "password2": "Sup3rS3cr3t!xyz", "invite_token": raw},
+        )
+
+    def test_link_with_a_creator_is_redeemed(self):
+        link, raw = InviteLink.generate(created_by=self.creator, single_use=True)
+        r = self._register("pg-ok@example.com", raw)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        link.refresh_from_db()
+        self.assertIsNotNone(link.used_at)
+
+    def test_link_without_a_creator_is_refused_cleanly(self):
+        from django.db import transaction
+
+        from accounts.invite_utils import InviteTokenError, validate_invite_token
+
+        _, raw = InviteLink.generate(created_by=None)
+        with self.assertRaises(InviteTokenError) as ctx, transaction.atomic():
+            validate_invite_token(raw)
+        self.assertEqual(ctx.exception.code, "invite_invalid")
+        r = self._register("pg-nocreator@example.com", raw)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertFalse(User.objects.filter(email="pg-nocreator@example.com").exists())
+
+
+class SiteInviteEffectiveStatusAndCapTests(TestCase):
+    """The admin list and the active-link caps apply the redemption creator
+    rule: a pending link whose creator may no longer admit accounts lists as
+    ``revoked`` and frees its cap slot. Nothing is written to the row."""
+
+    LIST_URL = "/api/v1/admin/invite-links/"
+
+    def setUp(self):
+        self.admin = make_admin(username="list_admin")
+        self.creator = make_admin(username="list_creator")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def _statuses(self):
+        r = self.client.get(self.LIST_URL)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return {row["id"]: row["status"] for row in r.json()}
+
+    def _assert_lists_revoked_and_row_untouched(self, link):
+        self.assertEqual(self._statuses()[link.pk], "revoked")
+        link.refresh_from_db()
+        self.assertIsNone(link.revoked_at)
+
+    def test_active_site_admin_creator_lists_pending(self):
+        link, _ = InviteLink.generate(created_by=self.creator)
+        self.assertEqual(self._statuses()[link.pk], "pending")
+
+    def test_deleted_creator_lists_revoked(self):
+        link, _ = InviteLink.generate(created_by=self.creator)
+        self.creator.delete()
+        self._assert_lists_revoked_and_row_untouched(link)
+
+    def test_creator_deactivated_outside_the_admin_api_lists_revoked(self):
+        link, _ = InviteLink.generate(created_by=self.creator)
+        User.objects.filter(pk=self.creator.pk).update(is_active=False)
+        self._assert_lists_revoked_and_row_untouched(link)
+
+    def test_demoted_creator_lists_revoked(self):
+        link, _ = InviteLink.generate(created_by=self.creator)
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        self._assert_lists_revoked_and_row_untouched(link)
+
+    def test_used_and_expired_statuses_are_unchanged(self):
+        used, _ = InviteLink.generate(created_by=self.creator)
+        InviteLink.objects.filter(pk=used.pk).update(used_at=timezone.now())
+        expired, _ = InviteLink.generate(created_by=self.creator, expires_at=timezone.now() - timedelta(days=1))
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        statuses = self._statuses()
+        self.assertEqual(statuses[used.pk], "used")
+        self.assertEqual(statuses[expired.pk], "expired")
+
+    def _fill_cap(self):
+        for _ in range(MAX_ACTIVE_INVITE_LINKS):
+            InviteLink.generate(created_by=self.creator)
+        r = self.client.post(self.LIST_URL, {}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_links_of_a_deleted_creator_free_their_cap_slots(self):
+        self._fill_cap()
+        self.creator.delete()
+        r = self.client.post(self.LIST_URL, {}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+
+    def test_links_of_a_creator_deactivated_outside_the_api_free_their_cap_slots(self):
+        self._fill_cap()
+        User.objects.filter(pk=self.creator.pk).update(is_active=False)
+        r = self.client.post(self.LIST_URL, {}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+
+    def test_links_of_a_demoted_creator_free_their_cap_slots(self):
+        self._fill_cap()
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        r = self.client.post(self.LIST_URL, {}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+
+    def test_emailed_count_skips_links_whose_creator_no_longer_admits(self):
+        from accounts.invite_utils import live_site_invite_count
+
+        expires = timezone.now() + timedelta(days=7)
+        InviteLink.generate(created_by=self.creator, expires_at=expires, single_use=True, delivery="email")
+        InviteLink.generate(created_by=self.admin, expires_at=expires, single_use=True, delivery="email")
+        self.assertEqual(live_site_invite_count(delivery="email"), 2)
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        self.assertEqual(live_site_invite_count(delivery="email"), 1)
+
+    def test_link_listed_revoked_for_creator_standing_can_be_revoked_explicitly(self):
+        link, _ = InviteLink.generate(created_by=self.creator)
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        r = self.client.delete(f"{self.LIST_URL}{link.pk}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        link.refresh_from_db()
+        self.assertIsNotNone(link.revoked_at)
+        # Stays revoked once the creator's standing is restored.
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=True)
+        self.assertEqual(self._statuses()[link.pk], "revoked")
+
+    def test_link_listed_revoked_for_creator_standing_is_pending_again_on_restore(self):
+        link, _ = InviteLink.generate(created_by=self.creator)
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=False)
+        self.assertEqual(self._statuses()[link.pk], "revoked")
+        User.objects.filter(pk=self.creator.pk).update(is_site_admin=True)
+        self.assertEqual(self._statuses()[link.pk], "pending")

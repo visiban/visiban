@@ -179,6 +179,7 @@ def authorize_account(user, *, exempt: Iterable[AccountGate] = ()) -> bool:
 #: A rule is called as ``rule(link)``, or ``rule(link, board)`` when the caller
 #: passes a pre-loaded board (board links only).
 INVITE_CREATOR_RULES: dict[str, str] = {
+    "accounts.InviteLink": "accounts.invite_utils.site_invite_creator_admits",
     "boards.BoardInviteLink": "boards.invites.sender_is_board_admin",
     "groups.GroupInviteLink": "groups.views.sender_is_group_admin",
 }

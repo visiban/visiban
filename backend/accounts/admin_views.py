@@ -48,6 +48,7 @@ from .models import (
     snapshot_email_setting,
     snapshot_site_setting,
 )
+from .invite_utils import effective_site_invite_status, live_site_invite_count, revoke_site_invite_links
 from .permissions import IsSiteAdmin, TokenHasScope
 from .validators import (
     UsernameFormatValidator,
@@ -582,8 +583,10 @@ class InviteLinkSerializer(drf_serializers.Serializer):
     # endpoint, #731). Additive.
     delivery = drf_serializers.CharField(read_only=True)
 
-    def get_status(self, obj):
-        return obj.status
+    def get_status(self, obj) -> str:
+        # The value redemption would act on: a pending link whose creator may
+        # no longer admit accounts reports "revoked" (no new status value).
+        return effective_site_invite_status(obj, self.context.get("creator_memo"))
 
     def get_created_by_username(self, obj) -> str | None:
         return obj.created_by.username if obj.created_by else None
@@ -925,18 +928,25 @@ class AdminUserDetailView(APIView):
                 # the per-group active-link cap.
                 if was_active and not target.is_active:
                     AdminUserDeactivateView._revoke_invite_links(target, request.user)
-                elif (
-                    target.is_active
-                    and prior["can_access_all_content"]
-                    and not target.can_access_all_content
-                ):
-                    # can_access_all_content is the only flag that confers
-                    # group-admin rights (_require_group_admin; is_site_admin
-                    # is admin-panel access only): links held only through it
-                    # lapse (links where the user is still a group admin by
-                    # membership are kept).
-                    from groups.views import _revoke_lapsed_admin_invite_links
-                    _revoke_lapsed_admin_invite_links(target)
+                else:
+                    if prior["is_site_admin"] and not target.is_site_admin:
+                        # Only an active site admin may admit accounts through
+                        # a site invite (registry Rule 2). Redemption re-checks
+                        # the creator regardless; revoking here also takes the
+                        # links off the admin list and the active-link cap.
+                        revoke_site_invite_links(target)
+                    if (
+                        target.is_active
+                        and prior["can_access_all_content"]
+                        and not target.can_access_all_content
+                    ):
+                        # can_access_all_content is the only flag that confers
+                        # group-admin rights (_require_group_admin; is_site_admin
+                        # is admin-panel access only): links held only through it
+                        # lapse (links where the user is still a group admin by
+                        # membership are kept).
+                        from groups.views import _revoke_lapsed_admin_invite_links
+                        _revoke_lapsed_admin_invite_links(target)
 
         return Response(AdminUserSerializer(target).data)
 
@@ -951,7 +961,7 @@ class AdminInviteLinkListCreateView(APIView):
     @extend_schema(responses=InviteLinkSerializer(many=True))
     def get(self, request):
         links = InviteLink.objects.select_related("created_by").all()
-        return Response(InviteLinkSerializer(links, many=True).data)
+        return Response(InviteLinkSerializer(links, many=True, context={"creator_memo": {}}).data)
 
     @extend_schema(request=InviteLinkCreateSerializer, responses={201: InviteLinkCreateResponseSerializer})
     @transaction.atomic
@@ -971,11 +981,8 @@ class AdminInviteLinkListCreateView(APIView):
         # Emailed links (#731) are excluded — they have their own cap in
         # AdminInviteLinkSendView so emailed invites never crowd out the
         # admin's shareable links.
-        active_count = InviteLink.objects.filter(
-            used_at__isnull=True,
-            revoked_at__isnull=True,
-            delivery=InviteLink.Delivery.LINK,
-        ).exclude(expires_at__lt=timezone.now()).count()
+        # A link whose creator may no longer admit accounts does not hold a slot.
+        active_count = live_site_invite_count(delivery=InviteLink.Delivery.LINK)
         if active_count >= MAX_ACTIVE_INVITE_LINKS:
             return Response(
                 {"detail": f"Maximum active invite links ({MAX_ACTIVE_INVITE_LINKS}) reached. Revoke or wait for expiry before creating more."},
@@ -1055,12 +1062,7 @@ class AdminInviteLinkSendView(APIView):
             # read a count below the emailed cap and overshoot it.
             SiteSetting.objects.get_or_create(pk=1)
             SiteSetting.objects.select_for_update().get(pk=1)
-            pending_emailed = InviteLink.objects.filter(
-                delivery=InviteLink.Delivery.EMAIL,
-                used_at__isnull=True,
-                revoked_at__isnull=True,
-                expires_at__gt=timezone.now(),
-            ).count()
+            pending_emailed = live_site_invite_count(delivery=InviteLink.Delivery.EMAIL)
             if pending_emailed >= MAX_PENDING_EMAILED_INVITE_LINKS:
                 return Response(
                     {
@@ -1438,11 +1440,7 @@ class AdminUserDeactivateView(APIView):
         target.personal_access_tokens.all().delete()
 
         # Security: a departing admin's unused invite links must not remain valid.
-        InviteLink.objects.filter(
-            created_by=target,
-            used_at__isnull=True,
-            revoked_at__isnull=True,
-        ).update(revoked_at=timezone.now())
+        revoke_site_invite_links(target)
 
         # Same for the board invites they sent (#1444): a deactivated sender's
         # pending invites must stop working, not merely fail the sender

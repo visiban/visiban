@@ -268,6 +268,16 @@ def _is_exempt_path(path: str) -> bool:
     """True when `path` must keep accepting writes during maintenance."""
     if path.startswith(_MAINTENANCE_EXEMPT_PREFIXES):
         return True
+    # The dj-rest-auth routes resolve with or without the trailing slash
+    # (visiban/urls.py), so an exempt auth route stays exempt in its no-slash
+    # form. Limited to /api/v1/auth/ and to exact entries, so the trailing-slash
+    # guard against lookalike prefixes (see above) still holds elsewhere.
+    if (
+        path.startswith("/api/v1/auth/")
+        and not path.endswith("/")
+        and (path + "/").startswith(_MAINTENANCE_EXEMPT_PREFIXES)
+    ):
+        return True
     return path.startswith(_SSO_LOGIN_PREFIX) and path.endswith(_SSO_LOGIN_SUFFIXES)
 
 

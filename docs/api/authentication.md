@@ -7,6 +7,9 @@ Token authentication covers two token types that share the same `Authorization: 
 - **Session tokens** — short-lived tokens issued by `POST /api/v1/auth/login/`. Invalidated on logout or password change.
 - **Personal Access Tokens (PATs)** — long-lived named tokens created through the API or profile settings. Format: `vbn_` followed by 40 hex characters (44 chars total). Invalidated individually via `DELETE /api/v1/auth/tokens/{id}/`, or all at once when the user's password is changed.
 
+!!! note "Trailing slashes on `/api/v1/auth/` routes"
+    The dj-rest-auth endpoints — `login/`, `logout/`, `user/`, `password/change/`, `password/reset/`, `password/reset/confirm/`, `registration/verify-email/` and `registration/resend-email/` — accept the path with or without the trailing slash, and both forms are served by the same view with the same rate limits, scope checks and side effects.
+
 ---
 
 ## Token authentication
@@ -449,7 +452,7 @@ A failed OAuth (or invite-gated registration) flow redirects the browser back to
 | Code | Meaning |
 |---|---|
 | `invite_required` | Invite-only mode is enabled and no invite token was present. Also sent for any visit or form submission at `/accounts/signup/` in invite-only mode (#1324), since an invite link is the only way to register. |
-| `invite_invalid` | The invite token is malformed or unknown — or *(1.2+)* a group or board invite that is used, revoked, or whose sender can no longer admit new accounts. |
+| `invite_invalid` | The invite token is malformed or unknown — or *(1.2+)* a group or board invite that is used, revoked, or whose sender can no longer admit new accounts, or a site invite whose creator is no longer an active site admin. |
 | `invite_expired` | The invite token has expired. |
 | `invite_not_for_registration` | **Added in 1.2** (#1445, #1444) — in invite-only mode, the invite token is a group or board invite that cannot create accounts: a shareable group or board link, or an emailed group or board invite whose sender is not a site admin. Only site invites and emailed single-use group or board invites sent by a site admin can create an account. |
 | `signup_closed` | Registration is closed for this instance. Emitted when an OAuth signup attempt (#1323), or a visit or form submission at `/accounts/signup/` (#1324), is made while registration mode is `CLOSED` — redirects to the frontend instead of rendering allauth's stock `signup_closed.html` template. |
@@ -930,7 +933,7 @@ When `registration_mode` is `"invite_only"`, an additional `invite_token` field 
 | Status | Reason |
 |---|---|
 | `400 Bad Request` | `invite_token` is missing when the instance is in `invite_only` mode (`code: "invite_missing"`) |
-| `400 Bad Request` | `invite_token` does not match any known site, group (`vbng_`) or board (`vbnb_`) invite, has been revoked, or has already been used (single-use links) — all three return the identical `code: "invite_invalid"`, `"Invalid or expired invite link."`, by design, so a caller cannot use the error to distinguish a wrong token from a spent one |
+| `400 Bad Request` | `invite_token` does not match any known site, group (`vbng_`) or board (`vbnb_`) invite, has been revoked, or has already been used (single-use links) — or *(1.2+)* is a site invite whose creator is no longer an active site admin (deactivated, deleted, or no longer a site admin) — all of these return the identical `code: "invite_invalid"`, `"Invalid or expired invite link."`, by design, so a caller cannot use the error to distinguish a wrong token from a spent one |
 | `400 Bad Request` | The invite link has expired (`code: "invite_expired"`, `"This invite link has expired."`) — the only invite-token failure with its own distinct code |
 | `400 Bad Request` (1.2+) | `invite_token` is a group or board invite that cannot create accounts — a shareable group or board link, or an emailed group or board invite whose sender is not a site admin. Only site invites and emailed single-use group or board invites sent by a site admin can create an account: `{"invite_token": ["This invite link can't be used to create an account on this site. Ask a site admin for an invite."]}`. The OAuth equivalent redirects with `auth_error=invite_not_for_registration` |
 | `400 Bad Request` | Email already registered, passwords do not match, or password too short |

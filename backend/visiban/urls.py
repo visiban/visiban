@@ -1,6 +1,9 @@
 from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include, re_path
+from django.views.generic import TemplateView
+from dj_rest_auth.registration.views import ResendEmailVerificationView as DjRestAuthResendEmailVerificationView
+from dj_rest_auth.views import LogoutView as DjRestAuthLogoutView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -152,23 +155,33 @@ urlpatterns = [
     # method signatures do not need to declare a 'version' parameter.
     # request.version is set to "v1" (the DEFAULT_VERSION) by URLPathVersioning.
     # Requests to any other /api/vN/ prefix are caught by the 406 catch-all below.
-    # Override the default LoginView with our rate-limited subclass — adds a
-    # per-IP ceiling alongside the per-account allauth ACCOUNT_RATE_LIMITS gate
-    # (#924, #1199 — the two are complementary layers, not "primary" + "on top").
-    # Registered before dj_rest_auth.urls so Django's URL resolver picks this
-    # throttled subclass instead of the default LoginView.
-    path("api/v1/auth/login/", ThrottledLoginView.as_view()),
-    # Override the default PasswordResetView with our rate-limited subclass to
-    # prevent the reset flow from being used for bulk email sends.
-    path("api/v1/auth/password/reset/", ThrottledPasswordResetView.as_view()),
-    # Registered before dj_rest_auth.urls so Django's URL resolver picks this
-    # throttled subclass instead of the default PasswordResetConfirmView.
-    path("api/v1/auth/password/reset/confirm/", ThrottledPasswordResetConfirmView.as_view()),
+    #
+    # Auth routes (#1540). dj-rest-auth's own urlconfs are NOT included: they
+    # register every route as ``re_path(r"<name>/?$")``, so a project override
+    # registered only at the trailing-slash form would leave the no-slash form
+    # resolving to the stock view. Instead each route is registered once,
+    # anchored, matching both slash forms (``/?$``), and pointing at the
+    # project's view. Names are kept on the routes that still serve a stock
+    # view (logout, resend-email, the confirm-email placeholders) so reverse()
+    # keeps working; the project overrides stay unnamed, as before, because
+    # the demo-mode fence (visiban/demo.py) matches them by dotted view path.
+    # accounts/tests/test_auth_routes.py pins every route under api/v1/auth/.
+    #
+    # Login: rate-limited subclass — adds a per-IP ceiling alongside the
+    # per-account allauth ACCOUNT_RATE_LIMITS gate (#924, #1199 — the two are
+    # complementary layers, not "primary" + "on top").
+    re_path(r"^api/v1/auth/login/?$", ThrottledLoginView.as_view()),
+    # Password reset: rate-limited subclass so the reset flow cannot be used
+    # for bulk email sends.
+    re_path(r"^api/v1/auth/password/reset/?$", ThrottledPasswordResetView.as_view()),
+    re_path(r"^api/v1/auth/password/reset/confirm/?$", ThrottledPasswordResetConfirmView.as_view()),
+    # dj-rest-auth's stock LogoutView: AllowAny by design, it ends only the
+    # caller's own session or token.
+    re_path(r"^api/v1/auth/logout/?$", DjRestAuthLogoutView.as_view(), name="rest_logout"),
     # dj-rest-auth ships these two with permission_classes = [IsAuthenticated],
     # which drops the global chain — including TokenHasScope (#1110). They are
     # reachable with a personal access token, so re-declare the chain here
-    # rather than exempt them. Registered before the include() so these patterns
-    # win, matching the override style used for login/ and password/reset/ above.
+    # rather than exempt them.
     #
     # BOTH deliberately omit MustNotHavePendingPasswordChange and
     # MustNotHavePendingUsernameChange, exactly like the project's own
@@ -179,43 +192,52 @@ urlpatterns = [
     # LoginPage re-fetches it after login), so gating it on those flags locks the
     # affected user out of the very flow that clears them. Only the scope gate
     # belongs here.
-    path(
-        "api/v1/auth/user/",
+    re_path(
+        r"^api/v1/auth/user/?$",
         UserDetailsView.as_view(
             permission_classes=[IsAuthenticated, TokenHasScope]
         ),
     ),
-    path(
-        "api/v1/auth/password/change/",
+    re_path(
+        r"^api/v1/auth/password/change/?$",
         TokenRevokingPasswordChangeView.as_view(
             permission_classes=[IsAuthenticated, TokenHasScope]
         ),
     ),
-    path("api/v1/auth/", include("dj_rest_auth.urls")),
-    # Override the default RegisterView with InviteRegisterView so that
-    # invite-only mode validates tokens atomically with user creation.
-    # The include() below still handles verify-email/ and resend-email/.
+    # Registration: InviteRegisterView so that invite-only mode validates
+    # tokens atomically with user creation.
     path("api/v1/auth/registration/", InviteRegisterView.as_view()),
     # Safety-net: browsers that navigate directly to the backend confirm-email
     # URL (e.g. stale emails sent before the adapter fix) are redirected to the
-    # SPA /confirm-email/<key> route. Must be registered before the dj_rest_auth
-    # include so this pattern wins over allauth's template-based ConfirmEmailView.
+    # SPA /confirm-email/<key> route, instead of allauth's template-based view.
     # Use a regex pattern instead of <str:key> to bound input length and restrict
     # to the character set allauth actually uses (alphanumeric, hyphen, underscore,
     # colon). This prevents an unbounded path segment from reaching the view.
+    # Named ``account_confirm_email`` like the dj-rest-auth placeholder it
+    # replaces, so reverse() of that name still lands here.
     re_path(
         r"^api/v1/auth/registration/account-confirm-email/(?P<key>[\w:\-]{1,200})/$",
         EmailConfirmRedirectView.as_view(),
+        name="account_confirm_email",
     ),
-    # Override verify-email with a throttled subclass for consistency with the
-    # rest of the anonymous auth surface. The view is our own subclass that
-    # answers 409 instead of a false 200 when confirmation is blocked (#1293). Registered before the include() so
-    # this pattern wins; the include still handles resend-email/.
-    path(
-        "api/v1/auth/registration/verify-email/",
+    # Verify-email: throttled, and the project's subclass answers 409 instead
+    # of a false 200 when confirmation is blocked (#1293).
+    re_path(
+        r"^api/v1/auth/registration/verify-email/?$",
         VerifyEmailView.as_view(throttle_classes=[VerifyEmailThrottle]),
     ),
-    path("api/v1/auth/registration/", include("dj_rest_auth.registration.urls")),
+    re_path(
+        r"^api/v1/auth/registration/resend-email/?$",
+        DjRestAuthResendEmailVerificationView.as_view(),
+        name="rest_resend_email",
+    ),
+    # dj-rest-auth's static placeholder, kept only so reverse() of the name
+    # allauth uses resolves (the SPA handles the real page). No data.
+    re_path(
+        r"^api/v1/auth/registration/account-email-verification-sent/?$",
+        TemplateView.as_view(),
+        name="account_email_verification_sent",
+    ),
     path("api/health/liveness/", LivenessView.as_view()),
     path("api/health/readiness/", ReadinessView.as_view()),
     # Authenticated media serving — all media requests go through ServeMediaView.

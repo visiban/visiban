@@ -649,8 +649,14 @@ class InviteLink(models.Model):
       links may be active at once (enforced at the view layer).
     - single_use links are consumed atomically via select_for_update() at
       registration time to prevent race-condition double-use.
-    - All pending links created by a user are automatically revoked when that
-      user is deactivated (enforced in AdminUserDeactivateView).
+    - A link admits accounts only while its creator is an active site admin:
+      validate_invite_token re-checks the creator at redemption
+      (accounts.invite_utils.site_invite_creator_admits), and the admin list
+      and caps apply the same rule.
+    - A creator's pending links are revoked (revoked_at set) when the creator
+      is deactivated through the admin API, or loses site admin through the
+      admin API or ``set_site_admin --revoke``
+      (accounts.invite_utils.revoke_site_invite_links).
     """
 
     VALID_TTL_DAYS = (1, 7, 30)  # Choices offered in the UI; None = never expires.

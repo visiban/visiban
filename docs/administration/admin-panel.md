@@ -116,7 +116,7 @@ emailed (each board's admins see those invites move to **Revoked**) and their ac
 
 #### Make admin / Remove admin
 
-Grants or revokes site admin status. You cannot change your own admin status — ask another site admin.
+Grants or revokes site admin status. You cannot change your own admin status — ask another site admin. *(1.2+)* **Remove admin** also revokes the unused site invite links that user created; only an active site admin's site invite links create accounts.
 
 The last active site admin on the instance cannot be demoted.
 
