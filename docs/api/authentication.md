@@ -963,7 +963,7 @@ Confirm an email address from the key in a confirmation link. The link in the em
 
 Send the confirmation email again for an address awaiting verification.
 
-**Permission:** None — public endpoint. IP-throttled (`resend_email` scope, 10 requests per hour per IP by default).
+**Permission:** None — public endpoint. Throttled per IP for both authenticated and anonymous callers (`resend_email` scope, 10 requests per hour by default).
 
 **Request body:** `{ "email": "<address>" }`
 
@@ -971,9 +971,10 @@ Send the confirmation email again for an address awaiting verification.
 
 | Status | Reason |
 |---|---|
+| `400 Bad Request` | `email` is missing or not a valid address |
 | `429 Too Many Requests` | Too many requests from this IP (`resend_email` throttle scope) |
 
-> **Changed in 1.2** (#1552) — this endpoint now has its own rate limit instead of sharing only the global anonymous limit.
+> **Added in 1.2** (#1552) — scoped rate limit for this endpoint.
 
 ---
 

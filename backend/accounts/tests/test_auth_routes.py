@@ -25,7 +25,7 @@ from accounts.models import SCOPE_WRITE, PersonalAccessToken, User
 #: Stock dj-rest-auth views that may serve an ``api/v1/auth/`` route, with why.
 APPROVED_STOCK_VIEWS = {
     "dj_rest_auth.views.LogoutView": "AllowAny by design; ends only the caller's own session or token.",
-    "dj_rest_auth.registration.views.ResendEmailVerificationView": "Public resend; no project subclass exists.",
+    "dj_rest_auth.registration.views.ResendEmailVerificationView": "Public resend; no project subclass, scoped throttle applied via the route's throttle_classes kwarg.",
 }
 
 #: Path (without leading slash, with trailing slash) -> the view class it must
