@@ -208,3 +208,24 @@ class BoardEventPayloadHelperTests(TestCase):
         self.assertIs(without_admin_only_board_fields(payload), payload)
         self.assertIsNone(without_admin_only_board_fields(None))
         self.assertEqual(without_admin_only_board_fields([1, 2]), [1, 2])
+
+    def test_helper_is_top_level_only(self):
+        """Nested values pass through unchanged; the guard covers top-level keys only."""
+        from boards.broadcast import without_admin_only_board_fields
+
+        nested = {"id": 1, "board": {"id": 2, "share_token": "nested-value"}}
+        self.assertIs(without_admin_only_board_fields(nested), nested)
+        self.assertEqual(nested["board"]["share_token"], "nested-value")
+
+
+class BoardSerializerFieldSetTests(TestCase):
+    """``BoardSerializer`` builds every board event payload, so it must never
+    declare an admin-only board field (an additive field there would otherwise
+    only be caught by the top-level guard)."""
+
+    def test_board_serializer_declares_no_admin_only_field(self):
+        from boards.broadcast import ADMIN_ONLY_BOARD_FIELDS
+        from boards.serializers import BoardSerializer
+
+        declared = set(BoardSerializer.Meta.fields) | set(BoardSerializer().fields)
+        self.assertEqual(declared & ADMIN_ONLY_BOARD_FIELDS, set())
