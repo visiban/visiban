@@ -147,6 +147,9 @@ Two consequences worth knowing:
   `GET /api/v1/boards/{id}/` for the caller's star state. `is_starred` is deprecated in
   `board.created` / `board.updated` payloads (#1559): clients must ignore it and use
   `board.star_changed` for per-user star state.
+- `share_token` and `share_token_expires_at` are dropped from every payload for
+  every reader, whatever their role. Board admins read them over REST only
+  (`GET /api/v1/boards/{id}/full/` and the share action response).
 
 ---
 
