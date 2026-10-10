@@ -99,6 +99,7 @@ re-checks.
 | OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter` | `_handle_email_collision` considers active users only |
 | Django admin | `boards/admin.py` `BoardMembershipAdmin` | Membership changes made in the admin emit the `EVT_MEMBER_ADDED`, `EVT_MEMBER_UPDATED` and `EVT_MEMBER_REMOVED` board events through `_BoardEventAdminMixin` |
 | Admin API | `accounts/admin_views.py` `AdminUserDetailView.patch`, `AdminUserDeactivateView.post` | Deactivation revokes PATs and pending invites in the same operation |
+| Django admin | `accounts/admin.py` `VisibanUserAdmin.save_model` | Calls `accounts/admin_views.py` `apply_access_loss_revocations`, the helper `AdminUserDetailView.patch` uses, in the same transaction as the save |
 
 ## Rule 3: Anything that grants access declares what revokes it
 

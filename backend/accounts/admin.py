@@ -68,7 +68,25 @@ class VisibanUserAdmin(UserAdmin):
         """
         if not change and obj.has_usable_password():
             obj.must_change_password = True
-        super().save_model(request, obj, form, change)
+        if not change:
+            super().save_model(request, obj, form, change)
+            return
+        # Deactivating or demoting here applies the same revocation
+        # housekeeping as the admin API (#1563). The stored values are read
+        # under a row lock before the save because the ModelForm has already
+        # written the submitted values onto ``obj``.
+        from .admin_views import apply_access_loss_revocations
+
+        with transaction.atomic():
+            prior = (
+                User.objects.select_for_update()
+                .filter(pk=obj.pk)
+                .values("is_active", "is_site_admin", "can_access_all_content")
+                .first()
+            )
+            super().save_model(request, obj, form, change)
+            if prior is not None:
+                apply_access_loss_revocations(obj, request.user, prior)
 
 
 def _stored_password_hash(pk, *, lock=False):
