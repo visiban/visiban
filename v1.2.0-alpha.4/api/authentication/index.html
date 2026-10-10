@@ -4580,7 +4580,7 @@
 <p>Personal Access Tokens (PATs) are named, long-lived tokens tied to a user account. They are intended for scripts, CI pipelines, and third-party integrations where a session login is not practical.</p>
 <p><strong>Token format:</strong> <code>vbn_</code> prefix + 40 hex characters, e.g. <code>vbn_0123456789abcdef0123456789abcdef01234567</code>.</p>
 <p>The raw token value is shown <strong>once</strong> at creation and never again — Visiban stores only a SHA-256 hash.</p>
-<p>All PATs for a user are revoked automatically when that user's password is changed.</p>
+<p>All PATs for a user are revoked automatically when that user's password is changed or reset through the web interface, the API or the Django admin: the REST endpoints, allauth's pages under <code>/accounts/password/</code>, or an administrator setting it in the Django admin.</p>
 <hr />
 <h3 id="get-apiv1authtokens"><code>GET /api/v1/auth/tokens/</code><a class="headerlink" href="#get-apiv1authtokens" title="Permanent link">&para;</a></h3>
 <p>List all Personal Access Tokens for the authenticated user.</p>
@@ -5079,7 +5079,7 @@
 <p><strong>Response</strong> <code>200 OK { "detail": "Password has been reset with the new password." }</code> on success; <code>400 Bad Request</code> on invalid/expired token or mismatched passwords.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Session tokens issued by <code>POST /api/v1/auth/login/</code> are invalidated on the next login with the new password. Personal Access Tokens (PATs) are <strong>not</strong> automatically revoked by a password reset — use <code>DELETE /api/v1/auth/tokens/{id}/</code> to revoke individual PATs, or change the password via <code>POST /api/v1/auth/change-password/</code> (which does revoke all PATs).</p>
+<p><em>Changed in 1.3.</em> A successful reset deletes the API token issued by <code>POST /api/v1/auth/login/</code> and all of the account's Personal Access Tokens, and clears a pending forced password change (<code>must_change_password</code>). Existing sessions end because the password changed. allauth's own reset page at <code>/accounts/password/reset/key/&lt;uid&gt;-&lt;token&gt;/</code> does the same.</p>
 </div>
 <hr />
 <h2 id="change-password">Change password<a class="headerlink" href="#change-password" title="Permanent link">&para;</a></h2>

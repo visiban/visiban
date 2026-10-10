@@ -3992,6 +3992,16 @@ does not.</p>
 </tr>
 </tbody>
 </table>
+<p>The session-based HTML surfaces, allauth's pages under <code>/accounts/</code> and the
+Django admin under <code>/admin/</code>, run no DRF permission class. For an authenticated
+account they apply the forced-change gates through
+<code>visiban/middleware.py</code> <code>PendingAccountActionMiddleware</code>, which calls
+<code>has_pending_account_action(user)</code>. The enumeration test checks that every
+routed top-level path segment is either one of that middleware's gated prefixes
+or listed in <code>NOT_SESSION_HTML</code> with a reason, so a new top-level HTML mount is
+reported until someone decides. An installed extension package gates its own
+session-based HTML prefixes through the setting
+<code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code> (see <a href="#enterprise">Enterprise</a>).</p>
 <p>REST keeps DRF permission classes. They evaluate the same gate objects as the
 other transports, one gate per class, so that an endpoint a pending user must
 reach to clear the flag (for example <code>ChooseUsernameView</code>) can leave out exactly
@@ -4013,6 +4023,9 @@ some configurations; it is never reported as stale, whether its routes are
 exact or prefixes.</p>
 <p><strong>A non-DRF Django view.</strong> No DRF permission class runs on it. Write a DRF
 view instead, or add it to <code>NON_DRF_ALLOWLIST</code> with a reason and its routes.
+Mount it under <code>/accounts/</code> or <code>/admin/</code> so <code>PendingAccountActionMiddleware</code>
+applies the forced-change gates; a new top-level path segment fails the test
+until it is added to the middleware's prefixes or to <code>NOT_SESSION_HTML</code>.
 Entries name exact view classes, not modules, so a view that a new allauth
 release adds is reported until someone reviews it. Views served by
 <code>django.contrib.admin.site</code> itself are recognized per view (they require an
@@ -4125,6 +4138,15 @@ when it is installed and skips it when it is not. The module may define:</p>
   (<code>"module.View"</code> or <code>"module.View:GET"</code>). Each value is a dict
   <code>{"reason": "...", "routes": ["api/v1/..."], "optional": False}</code>, so the
   module does not have to import the test.</li>
+<li><code>NOT_SESSION_HTML</code>: a dict of top-level URL segment to reason, for segments
+  that serve no session-based HTML (for example a DRF-only <code>scim</code>). Single
+  segments only, a reason is required, and an OSS segment cannot be redefined.</li>
+<li><code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code>: the extension's session-based HTML
+  prefixes (for example <code>("/sso/",)</code>). This declares them for the test only;
+  the middleware gates a prefix when it is in the Django setting
+  <code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code> (default <code>()</code>), so the enterprise
+  settings include must set that too. The test fails for a declared prefix the
+  setting does not contain.</li>
 <li><code>ACTIVE_CHECKING_AUTHENTICATORS</code>: a tuple of additional authenticator classes
   that refuse inactive accounts. Each must be a concrete DRF authenticator:
   <code>BaseAuthentication</code> itself, a subclass that does not implement

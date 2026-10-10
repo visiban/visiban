@@ -3971,6 +3971,8 @@ column names it. <code>accounts/tests/test_auth_entry_points.py</code> enforces 
 and 2: it discovers every routed REST and non-DRF view, every routed WebSocket
 consumer, the MCP transport, every invite-link model, and every function that
 looks an invite up by its token, and fails when one skips the shared function.
+It also checks that each top-level path segment with a route is either gated by
+<code>PendingAccountActionMiddleware</code> or recorded as serving no session HTML.
 It also pins the registration and OAuth adapter call sites to the shared
 functions and to <code>registration_token_kind</code> (Rule 4 dispatch). It does not
 enumerate Rule 3 (the revocation table is a review checklist) or Rule 5, and it
@@ -4049,9 +4051,14 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <td>Signup creates the account in the same flow; existing-account matching in <code>_handle_email_collision</code> considers active users only (<code>visiban.authorization.principal_is_active</code>)</td>
 </tr>
 <tr>
+<td>allauth HTML views</td>
+<td><code>/accounts/</code> (<code>visiban/urls.py</code>, allauth's urlconf and the project's overrides)</td>
+<td><code>visiban/middleware.py</code> <code>PendingAccountActionMiddleware</code>: an authenticated account with a forced change pending (<code>visiban.authorization.has_pending_account_action</code>) is redirected to the SPA on GET and HEAD and refused with 403 on any other method; <code>/accounts/logout/</code> is the only exception. Prefixes listed in the <code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code> setting (default empty; the extension point for an installed extension package's session-based HTML pages) are gated the same way, and a malformed entry fails the <code>accounts.E004</code> system check. Unauthenticated requests pass, so sign-in works; inactive accounts are refused by the auth backends and allauth's <code>respond_user_inactive</code></td>
+</tr>
+<tr>
 <td>Django admin</td>
-<td><code>accounts/admin.py</code> <code>UserAdmin</code> registration; <code>boards/admin.py</code> <code>BoardMembershipAdmin</code></td>
-<td>Django's <code>AdminSite</code> requires an active staff user for <code>/admin/</code></td>
+<td><code>accounts/admin.py</code> <code>VisibanUserAdmin</code>; <code>boards/admin.py</code> <code>BoardMembershipAdmin</code></td>
+<td>Django's <code>AdminSite</code> requires an active staff user for <code>/admin/</code>; <code>PendingAccountActionMiddleware</code> applies the forced-change gates to all of <code>/admin/</code> the same way as for <code>/accounts/</code>, with <code>/admin/logout/</code> the only exception</td>
 </tr>
 <tr>
 <td>Admin API</td>
@@ -4179,22 +4186,27 @@ access described in Rule 2.</p>
 <tr>
 <td>DRF auth <code>Token</code></td>
 <td>dj-rest-auth login via <code>accounts/views.py</code> <code>ThrottledLoginView</code>; <code>TokenAuthentication</code></td>
-<td>Logout (dj-rest-auth <code>LogoutView</code> deletes <code>request.user.auth_token</code>); <code>TokenAuthentication</code> checks <code>user.is_active</code> on each request; an open socket minted from it re-checks the key digest in <code>accounts/ws_auth.py</code> <code>_credential_ref_is_live</code></td>
+<td>Logout (dj-rest-auth <code>LogoutView</code> deletes <code>request.user.auth_token</code>); password reset and admin-set password (<code>accounts/credentials.py</code> <code>revoke_auth_token</code>); <code>TokenAuthentication</code> checks <code>user.is_active</code> on each request; an open socket minted from it re-checks the key digest in <code>accounts/ws_auth.py</code> <code>_credential_ref_is_live</code></td>
 </tr>
 <tr>
 <td>Personal access token</td>
 <td><code>accounts/models.py</code> <code>PersonalAccessToken</code>; <code>accounts/authentication.py</code> <code>resolve_personal_access_token</code></td>
-<td>Explicit delete (<code>PersonalAccessTokenDeleteView</code>), expiry (<code>pat_is_expired</code>), deactivation (<code>_revoke_invite_links</code>), and <code>finalize_password_change</code>, which deletes all of the user's PATs</td>
+<td>Explicit delete (<code>PersonalAccessTokenDeleteView</code>), expiry (<code>pat_is_expired</code>), deactivation (<code>_revoke_invite_links</code>), and a password change or reset through the web interface, the API or the Django admin, through the helpers in <code>accounts/credentials.py</code> (see the next three rows), which delete all of the user's PATs</td>
 </tr>
 <tr>
 <td>Password change sources</td>
-<td><code>accounts/views.py</code> <code>finalize_password_change</code>, called by <code>ChangePasswordView</code> and <code>TokenRevokingPasswordChangeView</code></td>
-<td>Clears <code>must_change_password</code> and deletes the user's PATs</td>
+<td><code>accounts/credentials.py</code> <code>finalize_password_change</code>, called by <code>accounts/views.py</code> <code>ChangePasswordView</code> and <code>TokenRevokingPasswordChangeView</code>, by <code>accounts/forms.py</code> <code>VisibanChangePasswordForm</code> and <code>VisibanSetPasswordForm</code> (allauth's <code>/accounts/password/change/</code> and <code>/accounts/password/set/</code>) in the same transaction as the save, with <code>accounts/password_signals.py</code> receivers for allauth's <code>password_changed</code> and <code>password_set</code> signals as an idempotent backstop, and by <code>accounts/admin.py</code> <code>VisibanUserAdmin.user_change_password</code> when staff set their own password</td>
+<td>Clears <code>must_change_password</code> and deletes the user's PATs. The admin's own <code>/admin/password_change/</code> page redirects to the SPA (<code>AdminPasswordChangeRedirectView</code>)</td>
 </tr>
 <tr>
 <td>Password reset</td>
-<td><code>accounts/views.py</code> <code>ThrottledPasswordResetConfirmView</code>; <code>accounts/serializers.py</code> <code>VisibanPasswordResetConfirmSerializer</code></td>
-<td><code>validate</code> refuses a link when the account no longer has a verified address (<code>password_reset_still_allowed</code>); <code>save</code> clears the login lockout; the new password hash changes the session auth hash that sessions and open sockets compare</td>
+<td><code>accounts/views.py</code> <code>ThrottledPasswordResetConfirmView</code>; <code>accounts/serializers.py</code> <code>VisibanPasswordResetConfirmSerializer</code>; allauth's <code>/accounts/password/reset/key/</code> page (<code>accounts/forms.py</code> <code>VisibanResetPasswordKeyForm</code>; <code>password_reset</code> signal receiver as a backstop)</td>
+<td><code>validate</code> refuses a link when the account no longer has a verified address (<code>password_reset_still_allowed</code>); both routes call <code>accounts/credentials.py</code> <code>finalize_password_reset</code> in the same transaction as the password save, which clears <code>must_change_password</code> and deletes the user's PATs and DRF <code>Token</code>; the REST <code>save</code> also clears the login lockout; the new password hash changes the session auth hash that sessions and open sockets compare</td>
+</tr>
+<tr>
+<td>Django admin password</td>
+<td><code>accounts/admin.py</code> <code>VisibanUserAdmin.user_change_password</code> (<code>/admin/accounts/user/&lt;id&gt;/password/</code>)</td>
+<td>When the stored hash changes on another user's account: <code>require_password_change_after_admin_set</code> sets <code>must_change_password</code> (when a usable password was set, not when password sign-in was disabled) and deletes the user's PATs and DRF <code>Token</code>; their sessions end because the session auth hash changes. On the actor's own account: <code>finalize_password_change</code>. A user created through the admin with a usable password is created with <code>must_change_password</code> set (<code>VisibanUserAdmin.save_model</code>)</td>
 </tr>
 <tr>
 <td>WebSocket ticket</td>
