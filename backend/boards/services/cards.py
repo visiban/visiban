@@ -732,8 +732,10 @@ def move_card(
     needs a re-check (#1567): the locking statement's snapshot predates its
     lock wait, so a card a concurrent move commits *into* a locked cell while
     this move waits is not locked by it. Once the column rows are held, no
-    other card can enter either cell until this move commits, so the cells are
-    re-read then and the attempt is retried if any card in them is unlocked.
+    service path (``create_card``, ``move_card`` and the tools that call them)
+    can put another card into either cell until this move commits, so the
+    cells are re-read then and the attempt is retried if any card in them is
+    unlocked. Django admin card edits are not yet covered (#1588).
 
     Because the source cell is only known once the card is read, the card is
     read unlocked, then re-checked under the lock; if it, or the membership of
@@ -856,12 +858,14 @@ def _require_cells_locked(*, board, card_id, cells, locked_pks, current_version)
     move that has meanwhile locked that card and is queued on one this move
     holds then deadlocks with it — a 500 on ``POST /cards/<id>/move/``.
 
-    It runs after ``_lock_move_columns``. Every path that puts a card into a
-    cell (a move, ``create_card``) holds that cell's column row ``FOR NO KEY
-    UPDATE`` until it commits, so once this move holds both columns no further
-    card can enter its cells, and anything that entered before is committed
-    and visible to this fresh read. A newcomer is therefore either seen here
-    or cannot exist.
+    It runs after ``_lock_move_columns``. Every service path that puts a card
+    into a cell (``create_card``, ``move_card`` and the tools that call them)
+    holds that cell's column row ``FOR NO KEY UPDATE`` until it commits, so
+    once this move holds both columns no further card can enter its cells
+    through them, and anything that entered before is committed and visible
+    to this fresh read. A newcomer from a service path is therefore either
+    seen here or cannot exist. Django admin card edits are not yet covered
+    (#1588).
 
     The read is a plain SELECT, not a second ``FOR UPDATE``: locking the
     newcomer here would itself be a lock outside pk order and could wait on
@@ -995,9 +999,11 @@ def _move_card_attempt(
         # same column order — so they queue instead of deadlocking.
         #
         # Taken for a reorder within one cell too, although it changes no
-        # column (#1567): holding the cell's column is what stops another
-        # card entering the cell before this move commits, which is what
-        # makes the membership re-check below conclusive.
+        # column (#1567): holding the cell's column is what stops a service
+        # path (create_card, move_card) putting another card into the cell
+        # before this move commits, which is what makes the membership
+        # re-check below conclusive. Django admin card edits are not yet
+        # covered (#1588).
         _lock_move_columns({card.column_id, target_column.pk})
         _require_cells_locked(
             board=board, card_id=card.pk, cells=cells, locked_pks=locked_pks,
