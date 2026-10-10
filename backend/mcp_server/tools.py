@@ -232,6 +232,7 @@ _ERROR_CODES = {
     "SwimlaneNotFound": "swimlane_not_found",
     "CardCreationNotAllowed": "card_creation_not_allowed",
     "InvalidVersion": "invalid_version",
+    "InvalidPosition": "invalid_position",
     "ForceNotPermitted": "force_not_permitted",
 }
 

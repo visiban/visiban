@@ -706,7 +706,11 @@ class CardViewSet(viewsets.ModelViewSet):
                 "swimlane_id": serializers.IntegerField(),
                 "position": serializers.IntegerField(
                     required=False, default=0,
-                    help_text="Zero-based target index within the destination column/swimlane cell.",
+                    help_text=(
+                        "Zero-based target index within the destination column/swimlane cell. "
+                        "Clamped: a negative value moves the card first, a value past the "
+                        "end moves it last."
+                    ),
                 ),
                 "version": serializers.IntegerField(
                     required=False, allow_null=True,
@@ -727,7 +731,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 },
             ),
             400: OpenApiResponse(
-                description="`version` was supplied but was not an integer.",
+                description="`version` or `position` was supplied but was not an integer.",
                 response=inline_serializer(name="CardMoveVersionTypeError", fields={"detail": serializers.CharField()}),
             ),
             403: OpenApiResponse(

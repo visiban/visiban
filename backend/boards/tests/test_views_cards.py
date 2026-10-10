@@ -1007,6 +1007,13 @@ class CardBoardScopingTests(TestCase):
     def test_move_endpoint_still_changes_position(self, _):
         """The dedicated move endpoint must still be able to change position —
         only the plain PATCH/PUT bypass is closed."""
+        # Siblings so that 3 is a real index: a position past the end of the
+        # cell is clamped to one past the last card (#1570).
+        for i in range(1, 4):
+            Card.objects.create(
+                board=self.board, column=self.col, swimlane=self.swim,
+                title=f"Sibling {i}", created_by=self.owner, position=i,
+            )
         r = self.client.post(
             f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/move/",
             {"column_id": self.col.id, "swimlane_id": self.swim.id, "position": 3},

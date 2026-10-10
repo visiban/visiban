@@ -238,6 +238,10 @@ class CardErrorBodyTests(TestCase):
         resp = self._move(self.owner, version="not-a-number")
         self._assert_body(resp, 400, {"detail": "version must be an integer."})
 
+    def test_move_non_integer_position_body(self):
+        resp = self._move(self.owner, position="not-a-number")
+        self._assert_body(resp, 400, {"detail": "position must be an integer."})
+
     def test_a_malformed_version_does_not_mask_a_403_or_404(self):
         """The version 400 is reported only after the role, lookup and
         assignment checks pass.
