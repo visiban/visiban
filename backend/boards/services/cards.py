@@ -929,12 +929,26 @@ def lock_card_cell_entry(*, card_id, column_ids):
     card: the locks protect nothing once it commits.
     """
     if card_id is not None:
-        list(
-            Card.objects.filter(pk=card_id)
-            .select_for_update(of=("self",))
-            .values_list("pk", flat=True)
-        )
+        lock_card_row(card_id)
     _lock_move_columns({pk for pk in column_ids if pk is not None})
+
+
+def lock_card_row(card_id):
+    """Lock one card row ``FOR UPDATE`` and return its placement fields.
+
+    The first half of ``lock_card_cell_entry``, exposed on its own for a
+    caller that must decide *which* columns to lock from the card's current
+    state (#1588): an unlocked read can be stale by the time the lock is
+    granted — a concurrent move may have committed in between — so the
+    source column is read here, under the lock, and the columns are locked
+    after. Returns ``None`` when the card no longer exists.
+    """
+    return (
+        Card.objects.filter(pk=card_id)
+        .select_for_update(of=("self",))
+        .only("pk", "column_id", "swimlane_id", "archived_at", "weight")
+        .first()
+    )
 
 
 def _read_card_for_move(card_id, board):
