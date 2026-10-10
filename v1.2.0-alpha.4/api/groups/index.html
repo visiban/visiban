@@ -4315,7 +4315,7 @@
 
 
 <h1 id="groups-api">Groups API<a class="headerlink" href="#groups-api" title="Permanent link">&para;</a></h1>
-<p>Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and <code>allowed_priorities</code> are copied onto boards created in the group; the default member role is saved but not yet enforced.</p>
+<p>Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and <code>allowed_priorities</code> are copied onto boards created in the group; the default member role is deprecated and has no effect (<a href="https://gitlab.com/visiban/visiban/-/issues/1430">#1430</a>).</p>
 <h2 id="groups">Groups<a class="headerlink" href="#groups" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groups"><code>GET /api/v1/groups/</code><a class="headerlink" href="#get-apiv1groups" title="Permanent link">&para;</a></h3>
 <p>List all groups accessible to the current user.</p>
@@ -4424,7 +4424,7 @@
 <tr>
 <td><code>default_board_member_role</code></td>
 <td>string</td>
-<td><strong>Scaffold.</strong> Intended role for group members on new boards. <strong>Not enforced:</strong> stored but not read by any code path; group members' board access comes from their group role (scaffold, see <a href="../../architecture/field-enforcement/">Field Enforcement</a>)</td>
+<td><strong>Deprecated (#1430).</strong> Has no effect and is kept only for API compatibility; marked <code>deprecated: true</code> in the OpenAPI schema. Stored but not read by any code path; group members' board access comes from their group role (scaffold, see <a href="../../architecture/field-enforcement/">Field Enforcement</a>)</td>
 </tr>
 <tr>
 <td><code>allowed_priorities</code></td>
@@ -4832,7 +4832,7 @@
 <hr />
 <h2 id="board-defaults">Board defaults<a class="headerlink" href="#board-defaults" title="Permanent link">&para;</a></h2>
 <h3 id="patch-apiv1groupsidboard-defaults"><code>PATCH /api/v1/groups/{id}/board-defaults/</code><a class="headerlink" href="#patch-apiv1groupsidboard-defaults" title="Permanent link">&para;</a></h3>
-<p>Update the board defaults for this group. <code>allowed_priorities</code> is copied onto boards created in the group; <code>default_board_member_role</code> is saved but not yet enforced. Requires group admin.</p>
+<p>Update the board defaults for this group. <code>allowed_priorities</code> is copied onto boards created in the group; <code>default_board_member_role</code> is <strong>deprecated (#1430)</strong>: still accepted and stored, but it has no effect. Requires group admin.</p>
 <p><strong>Patchable fields</strong></p>
 <table>
 <thead>
@@ -4846,7 +4846,7 @@
 <tr>
 <td><code>default_board_member_role</code></td>
 <td>string</td>
-<td><strong>Scaffold.</strong> <code>admin</code>, <code>member</code>, <code>collaborator</code>, or <code>viewer</code>. Stored but not yet enforced — see the field table above</td>
+<td><strong>Deprecated (#1430).</strong> <code>admin</code>, <code>member</code>, <code>collaborator</code>, or <code>viewer</code>. Accepted and stored, but has no effect — see the field table above</td>
 </tr>
 <tr>
 <td><code>allowed_priorities</code></td>

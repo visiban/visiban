@@ -4194,7 +4194,7 @@
 <p><strong>Watch out:</strong> inheritance is a one-time copy at board-creation time, not a live link. Renaming, recoloring, or deleting a group label only changes the group's shared library and future boards — boards that already inherited the label keep their own independent copy, unaffected by later edits or deletion.</p>
 <p><strong>API:</strong> <code>GET/POST /api/v1/groups/{id}/labels/</code>, <code>PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/</code></p>
 <h2 id="group-board-defaults">Group board defaults<a class="headerlink" href="#group-board-defaults" title="Permanent link">&para;</a></h2>
-<p>Group admins can configure defaults for new boards created in the group. Neither setting is enforced yet:</p>
+<p>Group admins can configure defaults for new boards created in the group. The default member role is deprecated and has no effect. Allowed priorities is copied onto new boards but not enforced.</p>
 <table>
 <thead>
 <tr>
@@ -4205,7 +4205,7 @@
 <tbody>
 <tr>
 <td><strong>Default member role</strong></td>
-<td>Intended role for group members on new boards (<code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code>). Defaults to <code>member</code>. <strong>Not yet enforced</strong> — the setting is saved, but group members' access to the group's boards currently comes from their group role.</td>
+<td><strong>Deprecated (#1430).</strong> Saved for API compatibility but has no effect: group members get their group role on every group board. Values: <code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code>; defaults to <code>member</code>.</td>
 </tr>
 <tr>
 <td><strong>Allowed priorities</strong></td>

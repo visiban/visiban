@@ -2545,6 +2545,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#currently-deprecated-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Currently deprecated fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#future-versioning" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3999,6 +4010,23 @@
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"docs"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://docs.visiban.com/api/replacement/"</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span>
 </code></pre></div>
+<h2 id="currently-deprecated-fields">Currently deprecated fields<a class="headerlink" href="#currently-deprecated-fields" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Since</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Group.default_board_member_role</code> (also writable via <code>PATCH /groups/{id}/board-defaults/</code>)</td>
+<td>1.2</td>
+<td>No effect: it was never read, and group members get their group role on every group board. Still accepted and returned unchanged, and marked <code>deprecated: true</code> in the OpenAPI schema. Tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1430">#1430</a>.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="future-versioning">Future versioning<a class="headerlink" href="#future-versioning" title="Permanent link">&para;</a></h2>
 <p>When a breaking change is unavoidable, a <code>/api/v2/</code> prefix will be introduced. Both versions will be served in parallel for at least one minor release cycle to allow integrators to migrate. Until a breaking change is required, only <code>v1</code> exists — there is no <code>/api/v2/</code> today.</p>
 

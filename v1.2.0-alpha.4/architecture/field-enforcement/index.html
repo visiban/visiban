@@ -3994,9 +3994,9 @@
 </tr>
 <tr>
 <td><code>Group.default_board_member_role</code></td>
-<td>Scaffold</td>
+<td>Scaffold, deprecated (#1430)</td>
 <td>Role group members get on new boards</td>
-<td>Stored, editable in the group's Settings tab, never read. Group members' board access comes from their <code>GroupMembership.role</code> through <code>get_board_role()</code></td>
+<td><strong>Deprecated:</strong> kept only for API compatibility, flagged <code>deprecated: true</code> in the schema, and will not be wired. Stored, editable in the group's Settings tab, never read. Group members' board access comes from their <code>GroupMembership.role</code> through <code>get_board_role()</code></td>
 <td>#1430</td>
 </tr>
 <tr>
