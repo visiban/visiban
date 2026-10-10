@@ -340,8 +340,8 @@ class AllauthFinalizationTests(TestCase):
                 {"oldpassword": CURRENT, "password1": NEW, "password2": NEW},
             )
         self.assertEqual(r.status_code, 302)
-        # Once in the form's transaction, once more by the idempotent signal backstop.
-        self.assertEqual(spy.call_count, 2)
+        # Adapter hook, the form, and the idempotent signal backstop.
+        self.assertEqual(spy.call_count, 3)
         user.refresh_from_db()
         self.assertTrue(user.check_password(NEW))
         self.assertEqual(user.personal_access_tokens.count(), 0)
@@ -364,8 +364,8 @@ class AllauthFinalizationTests(TestCase):
                 "/accounts/password/set/", {"password1": NEW, "password2": NEW}
             )
         self.assertEqual(r.status_code, 302)
-        # Once in the form's transaction, once more by the idempotent signal backstop.
-        self.assertEqual(spy.call_count, 2)
+        # Adapter hook, the form, and the idempotent signal backstop.
+        self.assertEqual(spy.call_count, 3)
         user.refresh_from_db()
         self.assertTrue(user.check_password(NEW))
         self.assertEqual(user.personal_access_tokens.count(), 0)
@@ -379,8 +379,8 @@ class AllauthFinalizationTests(TestCase):
         ) as spy:
             r = _redeem_reset_on_allauth_html_page(user)
         self.assertEqual(r.status_code, 302)
-        # Once in the form's transaction, once more by the idempotent signal backstop.
-        self.assertEqual(spy.call_count, 2)
+        # Adapter hook, the form, and the idempotent signal backstop.
+        self.assertEqual(spy.call_count, 3)
         user.refresh_from_db()
         self.assertTrue(user.check_password(NEW))
         self.assertFalse(user.must_change_password)
