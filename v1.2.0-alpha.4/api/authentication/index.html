@@ -2397,6 +2397,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#post-apiv1authregistrationresend-email" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/auth/registration/resend-email/
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5808,6 +5819,32 @@ actually bootstraps from) returns the identical shape — both are served by
 </table>
 <blockquote>
 <p><strong>Changed in 1.2</strong> (#1293) — the <code>409</code> case used to answer <code>200 {"detail": "ok"}</code> without confirming anything. It's only returned to someone holding a valid key, which is only ever emailed to that address, so it reveals nothing the inbox's owner can't already find out. The account that requested the change sees no difference: its <code>pending_email</code> stays set either way.</p>
+</blockquote>
+<h3 id="post-apiv1authregistrationresend-email"><code>POST /api/v1/auth/registration/resend-email/</code><a class="headerlink" href="#post-apiv1authregistrationresend-email" title="Permanent link">&para;</a></h3>
+<p>Send the confirmation email again for an address awaiting verification.</p>
+<p><strong>Permission:</strong> None — public endpoint. Throttled per IP for both authenticated and anonymous callers (<code>resend_email</code> scope, 10 requests per hour by default).</p>
+<p><strong>Request body:</strong> <code>{ "email": "&lt;address&gt;" }</code></p>
+<p><strong>Response</strong> <code>200 OK</code> — <code>{ "detail": "ok" }</code>. The response is the same whether or not the address belongs to an account.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>The <code>email</code> value is not a valid address</td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td>Too many requests from this IP (<code>resend_email</code> throttle scope)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1552) — scoped rate limit for this endpoint.</p>
 </blockquote>
 <hr />
 <h2 id="common-errors">Common errors<a class="headerlink" href="#common-errors" title="Permanent link">&para;</a></h2>
