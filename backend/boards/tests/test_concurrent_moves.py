@@ -530,12 +530,19 @@ class ConcurrentMoveLockTests(TransactionTestCase):
     def test_opposite_moves_between_limited_columns_do_not_deadlock(self):
         """Opposite-direction moves in different swimlanes, both columns limited.
 
-        The cells are disjoint, so only column rows are shared. Each move locks
-        its target column for the WIP count; the ``CardMovement`` insert then
-        needs a key-share lock on its *source* column, which is the other
-        move's target. A plain ``FOR UPDATE`` on the column conflicts with that
-        key-share lock and the two moves deadlock; the column lock is therefore
-        ``FOR NO KEY UPDATE``, which still serializes concurrent limit checks.
+        The cells are disjoint, so only column rows are shared. If a move
+        locks only its *target* column (for the WIP count) and its
+        ``CardMovement`` insert then needs a key-share lock on its *source*
+        column, the other move's target, the two moves deadlock. That is how
+        an intermediate #1522 revision (2b12e2a02, with a ``FOR UPDATE`` column
+        lock) failed this test.
+
+        What this test does *not* guard: the lock mode. It passes on
+        origin/main, where the ``select_related`` join lock serialized the two
+        moves, and it passes on the current code even with plain
+        ``FOR UPDATE``, because both columns are now locked up front in one
+        pk-ordered statement. ``FOR NO KEY UPDATE`` is pinned only by
+        ``test_move_locks_cards_then_columns_in_pk_order``.
         """
         self.board.enforce_wip_limits = True
         self.board.save(update_fields=["enforce_wip_limits"])

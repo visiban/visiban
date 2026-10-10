@@ -723,11 +723,14 @@ def move_card(
     first the moved card together with every card in its source and target
     cells, in **one** statement ordered by pk; then, when the card changes
     cell, the source and target column rows, again in one pk-ordered statement
-    (``FOR NO KEY UPDATE``). No card row is
-    locked after a column row, and no card row is locked outside that single
-    pk-ordered statement, so concurrent moves queue rather than deadlock
-    (#1522: locking the card first and its siblings after deadlocked two moves
-    out of one cell). Because the source cell is only known once the card is
+    (``FOR NO KEY UPDATE``). No card row is locked after a column row, and in
+    the ordinary case no card row is locked outside that single pk-ordered
+    statement, so concurrent moves queue rather than deadlock (#1522: locking
+    the card first and its siblings after deadlocked two moves out of one
+    cell). Known exception, tracked in #1567: a card that a concurrent move
+    commits *into* a locked cell while this move waits is not in the
+    statement's result, so the later compaction or shift UPDATE locks it
+    outside pk order, and a third move can still deadlock against it. Because the source cell is only known once the card is
     read, the card is read unlocked, then re-checked under the lock; if it
     changed in between, the attempt rolls back and is retried, and a card that
     keeps changing ends in ``VersionConflict`` (409), never a 500.
