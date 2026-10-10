@@ -324,10 +324,26 @@ def _confine_cli_path(path: Path) -> Path:
     return resolve_within(cli_roots(), path)
 
 
+def _ci_file_problems(ci_file: Path) -> list[str]:
+    """Check ``parallel:`` in the CI file; raises PathEscapeError if it is outside the roots.
+
+    The real ``--ci-file`` flow and the self-test's escape check both go through here, so
+    dropping the confinement call fails the self-test.
+    """
+    ci_file = _confine_cli_path(ci_file)
+    parallel = _ci_parallel(ci_file)
+    if parallel == total_shards():
+        return []
+    return [
+        f"{ci_file}: backend-mutation has `parallel: {parallel}`, but TARGETS add up "
+        f"to {total_shards()} shards ({expect_spec()})"
+    ]
+
+
 def _self_test(ci_file: Path | None) -> int:
     problems: list[str] = []
     try:
-        _confine_cli_path(Path("/etc/passwd"))
+        _ci_file_problems(Path("/etc/passwd"))
         problems.append("--ci-file confinement accepted /etc/passwd")
     except Exception as exc:  # noqa: BLE001 - only PathEscapeError is the expected rejection
         if type(exc).__name__ != "PathEscapeError":
@@ -387,16 +403,10 @@ def _self_test(ci_file: Path | None) -> int:
             pass
     if ci_file is not None:
         try:
-            ci_file = _confine_cli_path(ci_file)
+            problems += _ci_file_problems(ci_file)
         except ValueError as exc:  # PathEscapeError is a ValueError
             print(f"MUTMUT CONFIG: {exc}", file=sys.stderr)
             return 2
-        parallel = _ci_parallel(ci_file)
-        if parallel != total_shards():
-            problems.append(
-                f"{ci_file}: backend-mutation has `parallel: {parallel}`, but TARGETS add up "
-                f"to {total_shards()} shards ({expect_spec()})"
-            )
     for problem in problems:
         print(f"MUTMUT CONFIG: {problem}", file=sys.stderr)
     if problems:
