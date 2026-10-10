@@ -264,7 +264,7 @@ self_test() {
       else
         echo "  manifest) echo '{\"manifests\":[{\"digest\":\"$AMD\",\"platform\":{\"os\":\"linux\",\"architecture\":\"amd64\"}},{\"digest\":\"$ARM\",\"platform\":{\"os\":\"linux\",\"architecture\":\"arm64\"}}]}' ;;"
       fi
-      echo "  digest) echo '$IDX' ;;"
+      if [ -e "$tmp/no-digest" ]; then echo "  digest) exit 1 ;;"; else echo "  digest) echo '$IDX' ;;"; fi
       echo 'esac'
     } > "$tmp/crane"
     chmod +x "$tmp/crane"
@@ -275,18 +275,24 @@ self_test() {
   cat > "$tmp/cosign" <<STUB
 #!/usr/bin/env bash
 sub="\$1"; shift
-idre=""; ref=""
+idre=""; ref=""; issuer=""; typ=""
 while [ \$# -gt 0 ]; do
   case "\$1" in
     --certificate-identity-regexp) idre="\$2"; shift 2 ;;
-    --certificate-oidc-issuer|--type) shift 2 ;;
+    --certificate-oidc-issuer) issuer="\$2"; shift 2 ;;
+    --type) typ="\$2"; shift 2 ;;
     *) ref="\$1"; shift ;;
   esac
 done
 echo "\$idre" >> "$tmp/identity.log"
+# The documented issuer, and the SBOM predicate type, are part of the contract.
+[ "\$issuer" = "https://gitlab.com" ] || { echo "stub: wrong issuer '\$issuer'" >&2; exit 1; }
 case "\$sub" in
-  verify) [ -e "$tmp/no-sig" ] && exit 1; exit 0 ;;
+  verify) [ -e "$tmp/no-sig" ] && exit 1
+          if [ -e "$tmp/no-platform-sig" ]; then case "\$ref" in *@$AMD|*@$ARM) exit 1 ;; esac; fi
+          exit 0 ;;
   verify-attestation)
+    [ "\$typ" = "cyclonedx" ] || { echo "stub: wrong --type '\$typ'" >&2; exit 1; }
     [ -e "$tmp/no-att" ] && exit 1
     [ -e "$tmp/empty-att" ] && exit 0
     d="\${ref#*@sha256:}"
@@ -297,7 +303,7 @@ esac
 STUB
   chmod +x "$tmp/cosign"
 
-  reset() { rm -f "$tmp"/no-image "$tmp"/no-arm "$tmp"/no-sig "$tmp"/no-att "$tmp"/empty-att "$tmp"/bad-subject "$tmp"/identity.log; write_crane; }
+  reset() { rm -f "$tmp"/no-digest "$tmp"/no-platform-sig "$tmp"/no-image "$tmp"/no-arm "$tmp"/no-sig "$tmp"/no-att "$tmp"/empty-att "$tmp"/bad-subject "$tmp"/identity.log; write_crane; }
   run() { rc=0; out="$(run_checks 2>&1)" || rc=$?; }
 
   CRANE="$tmp/crane"; COSIGN="$tmp/cosign"
@@ -373,6 +379,45 @@ STUB
   ATTEST_TAGS="v1.2.0"
   RELEASE_REGISTRIES=""; run
   check "exits 2 when no registry is configured" "$([ "$rc" -eq 2 ] && echo 0 || echo 1)"
+
+  RELEASE_REGISTRIES="reg.example.com/v/v ghcr.example/v/v"  # restore after the empty-registry case
+  echo "case: only a platform-digest signature is missing"
+  reset; : > "$tmp/no-platform-sig"; run
+  check "exits 1 even though the index signature verifies" \
+    "$([ "$rc" -eq 1 ] && echo "$out" | grep -q "(amd64 of v1.2.0): no verifying signature" && ! echo "$out" | grep -q '(index of' && echo 0 || echo 1)"
+
+  echo "case: index digest cannot be resolved"
+  reset; : > "$tmp/no-digest"; write_crane; run
+  check "exits 1 and says so" \
+    "$([ "$rc" -eq 1 ] && echo "$out" | grep -q 'cannot resolve the index digest' && echo 0 || echo 1)"
+
+  echo "case: ATTEST_CHECK_COUNT bounds the releases checked"
+  reset
+  mkdir "$tmp/repo"
+  ( cd "$tmp/repo" && git init -q . \
+    && git -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m c \
+    && git tag v1.0.0 && git tag v1.1.0 && git tag v1.2.0 )
+  rc=0
+  out="$( cd "$tmp/repo" && ATTEST_TAGS="" && ATTEST_CHECK_COUNT=2 && run_checks 2>&1 )" || rc=$?
+  check "exactly 2 releases are checked, the newest 2" \
+    "$([ "$(echo "$out" | grep -c '^== ')" -eq 2 ] && echo "$out" | grep -q '^== v1.2.0' && echo "$out" | grep -q '^== v1.1.0' && ! echo "$out" | grep -q '^== v1.0.0' && echo 0 || echo 1)"
+
+  echo "case: the real entry point's exit status (subprocess, stubs on PATH)"
+  mkdir "$tmp/bin"; ln -s "$tmp/crane" "$tmp/bin/crane"; ln -s "$tmp/cosign" "$tmp/bin/cosign"
+  entry() { # entry <env assignments...> — runs the script itself, not run_checks
+    rc=0
+    out="$(cd "$tmp/repo" && env -u CRANE -u COSIGN PATH="$tmp/bin:$PATH" "$@" bash "$here/check-release-attestations.sh" 2>&1)" || rc=$?
+  }
+  reset; entry RELEASE_REGISTRIES="reg.example.com/v/v" ATTEST_TAGS="v1.2.0"
+  check "exits 0 when everything verifies" "$([ "$rc" -eq 0 ] && echo 0 || echo 1)"
+  : > "$tmp/no-att"; entry RELEASE_REGISTRIES="reg.example.com/v/v" ATTEST_TAGS="v1.2.0"
+  check "exits 1 on a verify failure" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)"
+  reset; entry RELEASE_REGISTRIES="" ATTEST_TAGS="v1.2.0"
+  check "exits 2 with no registry" "$([ "$rc" -eq 2 ] && echo 0 || echo 1)"
+  mkdir "$tmp/empty" && ( cd "$tmp/empty" && git init -q . )
+  rc=0
+  out="$(cd "$tmp/empty" && env -u ATTEST_TAGS -u CRANE -u COSIGN PATH="$tmp/bin:$PATH" RELEASE_REGISTRIES="reg.example.com/v/v" bash "$here/check-release-attestations.sh" 2>&1)" || rc=$?
+  check "exits 2 with no tag" "$([ "$rc" -eq 2 ] && echo 0 || echo 1)"
 
   echo "case: regexps match the documented ones"
   doc="$here/../docs/administration/image-verification.md"
