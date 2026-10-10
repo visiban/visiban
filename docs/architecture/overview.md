@@ -114,10 +114,34 @@ GitLab CI runs on every push, MR, and version tag. The pipeline validates code q
 Key design decisions:
 
 - **Test and build stages run in parallel** — Docker image builds (kaniko `--no-push` verification) don't depend on test results, so they share the `test` stage to avoid sequential waiting.
-- **Dependency and license scans are non-blocking** (`allow_failure: true`); `dep-scan-osv` is severity-gated instead — only low-severity findings are allowed to fail. SAST, secret detection, and the Bandit/eslint-security jobs block the merge like any other job.
+- **Security scanners: most block, a few deliberately do not** — see [Which security jobs block a merge](#which-security-jobs-block-a-merge) below. A failing blocking job stops the merge because the GitLab project enforces `only_allow_merge_if_pipeline_succeeds`.
 - **Kaniko for amd64 Docker builds** — no Docker-in-Docker or privileged mode needed, runs on any runner. arm64 release images build on a dedicated Apple Silicon runner instead, since kaniko cannot cross-build — see [CI Runners](../maintainers/ci-runners.md).
 - **Auto-retry on infrastructure failures** — runner system failures and stuck pods are retried up to 2 times automatically.
 - **Docs versioned with mike** — each release tag publishes a frozen snapshot to docs.visiban.com; stable releases update the `latest` alias, pre-releases update `next`.
+
+### Which security jobs block a merge
+
+"Blocks" means the job fails the pipeline, and the project setting `only_allow_merge_if_pipeline_succeeds` then prevents the merge. A job with `allow_failure: true` shows a yellow warning instead. Full policy, suppression format, and runbook: [Security Scanners](../maintainers/security-scanners.md).
+
+| Job | Checks | Runs on | Blocks an MR? | Blocks the nightly schedule? |
+|---|---|---|---|---|
+| `gitleaks-scan` | Secrets in the whole working tree | MR, `main` | Yes, any finding | n/a (runs on `main` pushes; a schedule on `main` also matches) |
+| `gitleaks-history` | Secrets in full git history | `main` only (post-merge tripwire) | No (not run on MRs) | Yes, on `main` pipelines, including a schedule on `main` |
+| `secret_detection` + `secret-detection-gate` | GitLab secret-detection component | MR, `main` | Yes, via the gate. The component job exits 0 on findings, so `allow_failure: false` on it alone only catches an analyzer crash; `secret-detection-gate` reads its report and fails on any unsuppressed finding | Yes (same rules on `main`) |
+| `semgrep-sast` + `sast-severity-gate` | GitLab SAST component (Python, TypeScript/JavaScript) | MR, `main` | Yes, via the gate, at High/Critical only; Low/Medium/Info stay visible in the MR security widget | Yes (same rules on `main`) |
+| `backend-sast` | bandit, medium+ | MR and `main`, when `backend/**/*.py` changed | Yes | Only when it runs on `main` with matching changes |
+| `frontend-sast` | eslint-plugin-security (`error` rules only; object-injection and timing rules are `warn`) | MR and `main`, when `frontend/src/**/*.{ts,tsx}` changed | Yes | Only when it runs on `main` with matching changes |
+| `trivy-scan` | HIGH/CRITICAL vulnerabilities, Dockerfile/Helm misconfigurations, and secrets in the repo filesystem | MR when Dockerfiles, lockfiles, `helm/`, or the scan's own files changed; nightly (`CVE_SCAN=true`). Not every `main` push | Yes (`--exit-code 1`, no `allow_failure`) | Yes |
+| `backend-dep-scan` (pip-audit) | CVEs in `backend/requirements.lock` | MR when a backend requirements file changed; nightly (`CVE_SCAN=true`) | No (`allow_failure: true` on MRs) | Yes (`allow_failure: false`) |
+| `frontend-dep-scan` (npm audit) | HIGH/CRITICAL CVEs in `frontend/package-lock.json`, minus expiring accepted risks | MR when `package-lock.json` changed; nightly (`CVE_SCAN=true`) | No (`allow_failure: true` on MRs) | Yes (`allow_failure: false`) |
+| `dep-scan-osv` | OSV advisories for `backend/requirements.txt` and `frontend/package-lock.json` | Every MR, `main`, and nightly (`OSV_SCAN=true`) | Yes for HIGH/CRITICAL (CVSS 7.0 or higher, or a HIGH/CRITICAL advisory label when unscored) and for a missing or unparseable report (exit 1). MEDIUM, LOW, and unscored advisories exit 2, which `allow_failure: exit_codes: [2]` turns into a warning | Same: blocks on HIGH/CRITICAL, warns on the rest |
+| `backend-license-check` / `frontend-license-check` | GPL-2.0 / GPL-3.0 dependencies | MR | No (`allow_failure: true`; warn only) | n/a (MR only) |
+| `sonar:scan` | SonarCloud analysis and coverage import | Nightly (`SONAR_SCHEDULED=true`) only | No | No (`allow_failure: true`, `qualitygate.wait=false`; dashboard refresh, not a gate) |
+
+Notes:
+
+- Because dep-scan-osv warns (exit 2) on MEDIUM/LOW findings, a pipeline can be green while that job shows yellow. Check the job itself, not just the pipeline status.
+- The pip-audit and npm audit jobs are nightly drift detectors on purpose: a new CVE against an unchanged dependency fails the nightly pipeline (and emails maintainers) rather than blocking unrelated MRs.
 
 ## Frontend architecture
 
