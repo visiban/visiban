@@ -4544,7 +4544,7 @@ used the Bitnami Valkey subchart, also needs
 <h2 id="scaling-out">Scaling out<a class="headerlink" href="#scaling-out" title="Permanent link">&para;</a></h2>
 <p>When a single-server deployment starts to show latency under load, see <a href="../scaling/">Scaling</a> for the recommended sequence — worker tuning, S3 for attachments, connection pooling, horizontal replicas, and read replicas — with concrete guidance on when each step is warranted.</p>
 <h2 id="rate-limiting">Rate limiting<a class="headerlink" href="#rate-limiting" title="Permanent link">&para;</a></h2>
-<p>In production (<code>DEBUG=False</code>), the API enforces the following request rate limits per client. In development (<code>DEBUG=True</code>), throttling is effectively disabled (9999/hour for all scopes).</p>
+<p>In production (<code>DEBUG=False</code>), the API enforces the following request rate limits per client. In development (<code>DEBUG=True</code>), most scopes are raised to 9999/hour, which is a finite budget rather than true disabling; the public share-link scopes (<code>share_link</code>, <code>share_link_token</code>) have no development bypass. <code>VISIBAN_DISABLE_THROTTLING=True</code> is a CI-only switch (used by the schema-fuzz job) that lifts every throttle rate; it requires <code>DEBUG=True</code> and the app refuses to start otherwise.</p>
 <table>
 <thead>
 <tr>

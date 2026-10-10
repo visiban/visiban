@@ -4521,7 +4521,7 @@ existing value writes no row.</p>
 <p><strong>The recipient is always the requesting admin's own email address.</strong> It cannot be
 supplied in the request body — an admin-gated endpoint that delivered to an arbitrary
 address would be usable as an open relay and as a network probe.</p>
-<p>Throttled to <strong>5 requests per hour</strong> per user (unlimited when <code>DEBUG</code> is on).</p>
+<p>Throttled to <strong>5 requests per hour</strong> per user (raised to 9999/hour in <code>DEBUG</code>, a finite budget; <code>VISIBAN_DISABLE_THROTTLING</code> is the CI-only full bypass).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"success"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"sent_to"</span><span class="p">:</span><span class="w"> </span><span class="s2">"admin@example.org"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>On failure the endpoint returns <code>400</code> with a code from a fixed taxonomy:</p>

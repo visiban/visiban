@@ -3145,6 +3145,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="GitLab CI pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#schema-fuzz-throttle-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema-fuzz throttle override
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4192,6 +4209,23 @@
 <td>Cache warm jobs</td>
 <td>No</td>
 <td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="schema-fuzz-throttle-override">Schema-fuzz throttle override<a class="headerlink" href="#schema-fuzz-throttle-override" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VISIBAN_DISABLE_THROTTLING</code></td>
+<td><code>false</code></td>
+<td>CI/test-only; not for production. Set by the <code>backend-schema-fuzz</code> job so its ~20k requests are not answered with 429. Lifts every API throttle rate and allauth's failed-login lockout (which answers 400 on the API and would hide the login view from the fuzzer). Requires <code>DEBUG=True</code>; the app refuses to start if it is set otherwise.</td>
 </tr>
 </tbody>
 </table>

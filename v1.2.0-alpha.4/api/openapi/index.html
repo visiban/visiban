@@ -4004,8 +4004,15 @@ superuser/site-admin/<code>can_access_all_content</code> account), and drives
 describes, checking <code>response_schema_conformance</code>, <code>status_code_conformance</code>, and
 <code>content_type_conformance</code>.</p>
 <p>Runs on any MR or <code>main</code>-branch push that touches <code>backend/**/views/**</code>, <code>**/serializers.py</code>,
-or <code>**/urls.py</code> — no unconditional fallback on <code>main</code>, since nothing downstream depends on
+<code>**/urls.py</code>, <code>backend/visiban/settings.py</code>, <code>backend/visiban/schema_hooks.py</code>, or
+<code>backend/schemathesis_hooks.py</code> — no unconditional fallback on <code>main</code>, since nothing downstream depends on
 this job (#1266). It never runs on a scheduled pipeline.</p>
+<p>The job sets <code>VISIBAN_DISABLE_THROTTLING=True</code> (#1569). Without it, a ~20k-request run from one
+token exhausted the DEBUG-time <code>9999/hour</code> budgets (and the public share-link scopes, which have
+no DEBUG bypass), so about 23% of responses were <code>429</code> from the DRF throttle rather than the view
+under test. The variable defaults to off, lifts every DRF throttle rate plus allauth's
+<code>login_failed</code> gate, and <code>settings.py</code> refuses to start with it set unless <code>DEBUG=True</code>; it is not
+a production setting.</p>
 <p><strong>Deep nightly run (<code>backend-schema-fuzz-deep</code>).</strong> The Nightly schedule (<code>FUZZ_DEEP=true</code>,</p>
 <h1 id="1383-runs-the-same-job-with-a-bigger-budget-max-examples-100-and-max-time-2400">1383) runs the same job with a bigger budget: <code>--max-examples 100</code> and <code>--max-time 2400</code><a class="headerlink" href="#1383-runs-the-same-job-with-a-bigger-budget-max-examples-100-and-max-time-2400" title="Permanent link">&para;</a></h1>
 <p>seconds, against the MR job's 10 and 600. Boot, seed, token, checks, and
