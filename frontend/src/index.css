@@ -46,6 +46,14 @@
   --success: 74 222 128;           /* green-400 — text/icon */
   --info: 96 165 250;              /* blue-400 — active filter/selection text */
 
+  /* On-tint text (#1550): text color for a pill/strip filled with `bg-<hue>/20`..`/30`.
+     The -400 text tokens above fall to ~3.3-4.0:1 on those tints; these -300 shades hold >= 4.7:1. */
+  --danger-on-tint: 252 165 165;   /* red-300 */
+  --warning-on-tint: 253 186 116;  /* orange-300 */
+  --success-on-tint: 134 239 172;  /* green-300 */
+  --info-on-tint: 147 197 253;     /* blue-300 */
+  --muted-on-tint: 203 213 225;    /* slate-300 — on `bg-fg-muted/20` */
+
   /* Interactive — primary action (Visiban brand blue).
      The `-bg` variants are the solid button fills; `-emphasis` and `-soft` are
      the focus-ring / border / filter-badge shades. Brand blue is identical in
@@ -115,6 +123,13 @@
   --warning: 234 88 12;            /* orange-600 */
   --success: 22 163 74;            /* green-600 */
   --info: 37 99 235;               /* blue-600 */
+
+  /* On-tint text (#1550) — the -600 text tokens fall to ~2.4-3.9:1 on `/20` tints; -800/-700 hold >= 4.7:1. */
+  --danger-on-tint: 153 27 27;     /* red-800 */
+  --warning-on-tint: 154 52 18;    /* orange-800 */
+  --success-on-tint: 21 101 52;    /* green-800 */
+  --info-on-tint: 30 64 175;       /* blue-800 */
+  --muted-on-tint: 51 65 85;       /* slate-700 — on `bg-fg-muted/20` */
 
   /* Brand-tint surfaces stay on Visiban blue-600 in light mode (avatars, active tabs, toggles). */
   --primary: 37 99 235;

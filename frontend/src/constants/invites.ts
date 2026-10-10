@@ -5,10 +5,11 @@
 
 /** Status pill tones for the admin invite tables (`rounded-full` pills). */
 export const INVITE_STATUS_STYLES: Record<"pending" | "used" | "expired" | "revoked", string> = {
-  pending: "bg-success/20 text-success",
+  pending: "bg-success/20 text-success-on-tint",
   used: "bg-fg-muted/20 text-fg-tertiary",
-  expired: "bg-danger/20 text-danger",
-  revoked: "bg-fg-muted/20 text-fg-muted",
+  expired: "bg-danger/20 text-danger-on-tint",
+  // line-through: revoked and used share a neutral tint, and their text tones are close in light mode
+  revoked: "bg-fg-muted/20 text-muted-on-tint line-through",
 };
 
 /** Display labels for invite roles. Board invites never grant admin; group links can. */

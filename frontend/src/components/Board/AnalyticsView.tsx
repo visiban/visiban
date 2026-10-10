@@ -50,9 +50,9 @@ interface Props {
 
 function cellColor(avg: number | null, threshold: number, warningPct: number): string {
   if (avg === null) return "bg-surface text-fg-muted";
-  if (avg >= threshold) return "bg-danger/40 text-danger font-semibold";
-  if (avg >= threshold * (1 - warningPct / 100)) return "bg-warning/30 text-warning";
-  return "bg-success/30 text-success";
+  if (avg >= threshold) return "bg-danger/30 text-danger-on-tint font-semibold";
+  if (avg >= threshold * (1 - warningPct / 100)) return "bg-warning/20 text-warning-on-tint";
+  return "bg-success/20 text-success-on-tint";
 }
 
 function loadViewMode(boardId: number): ViewMode {

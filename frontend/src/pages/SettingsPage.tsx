@@ -411,7 +411,7 @@ function ConnectedAccountRow({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-fg truncate">{label}</span>
           {connected ? (
-            <span className="px-2 py-0.5 text-xs rounded-full bg-success/20 text-success">Connected</span>
+            <span className="px-2 py-0.5 text-xs rounded-full bg-success/20 text-success-on-tint">Connected</span>
           ) : (
             <span className="px-2 py-0.5 text-xs rounded-full border border-line text-fg-tertiary">Not connected</span>
           )}
