@@ -6,15 +6,36 @@ follow from using mutmut **2.5.1** (see docs/development/mutation-testing.md):
 
 * mutmut 2.x has no ``export-cicd-stats`` command (that is 3.x), so this script
   reads mutmut's ``.mutmut-cache`` SQLite file itself (``--export-cache``).
-* the backend-mutation job runs as N parallel shards, so the checker accepts
-  several stats files and sums them.
+* the backend-mutation job runs several targets (modules, or one class of a
+  module), each as N parallel shards, so the checker accepts many stats files,
+  checks each target's shards form one run, and sums the targets into one
+  merged score. The floor gates the merged score; each target's score is
+  printed beside it so a weak module stays visible.
 
 Usage::
 
-    python scripts/check_mutation_score.py --export-cache backend/.mutmut-cache OUT.json
-    python scripts/check_mutation_score.py STATS.json [STATS2.json ...] [--expect-shards N] [--write-merged OUT.json]
+    python scripts/check_mutation_score.py --export-cache backend/.mutmut-cache [--target NAME]
+        [--line-range LO:HI] OUT.json
+    python scripts/check_mutation_score.py STATS.json [STATS2.json ...]
+        [--expect-shards N | --expect-shards NAME=N,NAME=N] [--write-merged OUT.json] [--min 0.90]
     python scripts/check_mutation_score.py --check-pragmas backend
     python scripts/check_mutation_score.py --self-test
+
+``--target`` tags a shard's stats with its target name; the merge groups by it.
+``--line-range`` (0-based, inclusive) limits the export to a class's lines: the
+mutants outside it belong to no target and are left out of every count.
+
+mutmut 2.5.1 can leave a **phantom** row in ``.mutmut-cache``: it looks up a
+mutant's line by its text, so on a file with two identical lines (two closing
+``    )`` lines, say) it can file the later line's mutant under the earlier one,
+creating a row that is never run and stays ``untested`` forever. Left in, it
+would make every run "unfinished". The export compares the cache with the
+mutants mutmut actually generates for the file and drops any row that is not
+one of them (``phantom`` in the stats). A phantom is never run, so it is always
+``untested``; a non-generated row with any other status means the cache and
+the source disagree, and the export refuses it (exit 2). A generated mutant
+with no row is counted ``untested``, so a run that skipped real work still
+fails closed.
 
 The **adjusted** score (the one ``MUTATION_MIN`` gates, #1503) is
 ``(killed + timeout) / (killed + timeout + survived + suspicious)``.
@@ -38,8 +59,10 @@ Exit codes (same contract as TruePPM, #3216):
 1     measured and BELOW the floor, or ``--check-pragmas`` found a
       ``# pragma: no mutate`` without a valid reason
 2     could not be measured: stats file missing/unparseable/not an
-      object, fewer or more shard files than ``--expect-shards``,
-      shards that are not one consistent run (unequal ``total``, or
+      object, fewer or more shard files than ``--expect-shards`` (per
+      target with the NAME=N form, which also fails on a missing or
+      unexpected target), a target's shards that are not one
+      consistent run (unequal ``total``, or
       non-skipped mutants that do not add up to it), an unfinished
       run (``untested`` mutants left), or zero scoreable mutants. This
       applies in report-only mode too, so a dead run is a yellow job,
@@ -49,21 +72,23 @@ Exit codes (same contract as TruePPM, #3216):
       or written
 ====  =============================================================
 
-``--write-merged`` writes the summed counts (``total`` is the module's mutant
-count, not N x total) on every judged run; a not-measured run (exit 2) gets a
-``not_measured`` key with the reason, so the artifact is never mistaken for a
-complete run. An invalid floor is a config error raised before any stats are
-read, so it writes no merged file.
+``--write-merged`` writes the summed counts on every judged run: each target's
+``total`` counts once (not N x total), the top-level counts are the sum over
+targets, and ``targets`` holds each target's own counts and scores. A
+not-measured run (exit 2) gets a ``not_measured`` key with the reason, so the
+artifact is never mistaken for a complete run. An invalid floor is a config
+error raised before any stats are read, so it writes no merged file.
 
-``MUTATION_MIN`` is deliberately unset in CI during the pilot (report-only). A
-floor is a fraction (``0.95``, not ``95``), read off a week of observed nightlies,
-never chosen up front, and never set to 0 as a placeholder: unset means
-"report-only", and the job says so. ``0`` or anything outside (0, 1] exits 2.
+A floor is a fraction (``0.90``, not ``90``) and is never set to 0 as a
+placeholder: unset or empty means "report-only", and the job says so. ``0`` or
+anything outside (0, 1] exits 2. The nightly job sets ``MUTATION_MIN=0.90``
+(#1384; the job stays ``allow_failure`` for an observation week first).
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -147,7 +172,11 @@ def check_pragmas(paths: list[Path]) -> list[str]:
     return messages
 
 
-class PragmaCountError(RuntimeError):
+class ExportError(RuntimeError):
+    """The cache cannot be turned into trustworthy counts (export exits 2, not measured)."""
+
+
+class PragmaCountError(ExportError):
     """The pragma-excluded mutant count cannot be trusted."""
 
 
@@ -157,52 +186,61 @@ def find_pragma_lines(source: str) -> list[int]:
             if "# pragma:" in line and "no mutate" in line.partition("# pragma:")[-1]]
 
 
-def count_mutants(source: str, filename: str, ignore_pragmas: bool) -> int:
-    """Count the mutants mutmut 2.x generates for ``source``, with or without honoring pragmas.
+LineRange = tuple[int, int]  # 0-based, inclusive, as mutmut numbers lines
+
+# Counts every shard of a target reports for the whole target, not for its own lines.
+_PER_TARGET_KEYS = ("total", "excluded", "phantom")
+
+
+def enumerate_mutants(source: str, filename: str, ignore_pragmas: bool) -> list[tuple[int, int]]:
+    """The ``(0-based line, index)`` of every mutant mutmut 2.x generates for ``source``.
 
     mutmut skips a line carrying ``# pragma: no mutate`` before generating anything,
     so the only way to know how many mutants a pragma removed is to enumerate with
-    that skip turned off. Only the pragma set differs between the two calls.
+    that skip turned off. Only the pragma set differs between the two calls. The
+    pairs are the key mutmut's cache stores (``Line.line_number``, ``Mutant.index``).
     """
     from mutmut import ALL, Context, list_mutations  # imported here: only the mutation job has mutmut
 
     context = Context(source=source, filename=filename, mutation_id=ALL)
     if ignore_pragmas:
         context._pragma_no_mutate_lines = set()  # mutmut 2.5.1 internals; pinned in the job
-    return len(list_mutations(context))
+    return [(m.line_number, m.index) for m in list_mutations(context)]
 
 
-def count_excluded(cache: Path, counter=count_mutants) -> int:
-    """Number of mutants removed by ``# pragma: no mutate`` across the cache's source files."""
-    con = sqlite3.connect(cache.as_uri() + "?mode=ro", uri=True)
-    try:
-        names = [r[0] for r in con.execute('SELECT filename FROM "SourceFile"').fetchall()]
-    except sqlite3.OperationalError:
-        return 0  # a cache with no SourceFile table has no mutated files to scan
-    finally:
-        con.close()
-    excluded = 0
-    for name in names:
-        # mutmut stores the path as given to --paths-to-mutate, relative to the run directory.
-        path = resolve_within(cli_roots(), cache.parent / name)
-        source = path.read_text("utf-8")
-        if "no mutate" not in source:
-            continue
-        diff = counter(source, str(path), True) - counter(source, str(path), False)
-        if diff == 0 and any(find_pragma_lines(source)):
-            # The pragma-honoring switch is mutmut 2.5.1 internals; if it silently stopped working
-            # (or every pragma sits on a line with no mutants) `excluded: 0` would be a false number.
-            raise PragmaCountError(f"{path} has `# pragma: no mutate` lines but mutmut generates the same "
-                                   "number of mutants with and without them; refusing to report excluded=0.")
-        excluded += diff
-    return excluded
+def count_mutants(source: str, filename: str, ignore_pragmas: bool) -> int:
+    """Number of mutants mutmut 2.x generates for ``source`` (see ``enumerate_mutants``)."""
+    return len(enumerate_mutants(source, filename, ignore_pragmas))
 
 
-def export_cache(cache: Path, counter=count_mutants) -> dict[str, int]:
+def _in_range(line: int, line_range: LineRange | None) -> bool:
+    return line_range is None or line_range[0] <= line <= line_range[1]
+
+
+def _status_counts(rows) -> dict[str, int]:
+    stats = {key: 0 for key in STATUS_KEYS.values()}
+    for status, count in rows:
+        key = STATUS_KEYS.get(status, "other")
+        stats[key] = stats.get(key, 0) + count
+    return stats
+
+
+def export_cache(cache: Path, enumerate_fn=enumerate_mutants, line_range: LineRange | None = None,
+                 target: str | None = None, source: str | None = None) -> dict[str, int | str]:
     """Count mutants per verdict from a mutmut 2.x ``.mutmut-cache`` file.
 
-    ``excluded`` is the number of proven-equivalent mutants (``# pragma: no mutate``)
-    that are not in the cache at all, module-wide like ``total``.
+    Only the mutants mutmut generates for the cached source files are counted
+    (inside ``line_range`` when given). A cache row that is not one of them is a
+    phantom of mutmut 2.5.1's line-by-text lookup (see the module docstring) and
+    is reported as ``phantom``, not scored; a generated mutant with no row is
+    ``untested``. ``excluded`` is the number of proven-equivalent mutants
+    (``# pragma: no mutate``) that are not in the cache at all, per target like
+    ``total``.
+
+    A cache that holds no generated mutant at all (or, with ``source``, none for
+    that file) is refused: mutmut registers mutants only after its baseline test
+    run passes, so an empty cache means the run died before mutating anything,
+    and a shard reporting ``total: 0`` would read as a complete, empty target.
     """
     # The resolved path, not the raw argument, is what reaches the sink (#1377).
     cache = resolve_within(cli_roots(), cache)
@@ -212,16 +250,76 @@ def export_cache(cache: Path, counter=count_mutants) -> dict[str, int]:
     # the path, so `?`, `#`, `%` and spaces in it cannot corrupt or extend the URI.
     con = sqlite3.connect(cache.as_uri() + "?mode=ro", uri=True)
     try:
-        rows = con.execute('SELECT status, COUNT(*) FROM "Mutant" GROUP BY status').fetchall()
+        tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        if not {"SourceFile", "Line"} <= tables:
+            # A bare cache (no source file or line rows) can only be counted as stored, and only whole.
+            if line_range is not None:
+                raise PragmaCountError(f"{cache} has no Line table, so --line-range cannot be applied.")
+            stats: dict[str, int | str] = dict(_status_counts(
+                con.execute('SELECT status, COUNT(*) FROM "Mutant" GROUP BY status').fetchall()))
+            stats["total"] = sum(v for v in stats.values() if isinstance(v, int))
+            stats.update(excluded=0, phantom=0)
+            if target:
+                stats["target"] = target
+            return stats
+        files = con.execute('SELECT id, filename FROM "SourceFile"').fetchall()
+        if source is not None and not any(Path(name) == Path(source) for _, name in files):
+            raise ExportError(f"{cache} has no mutants for {source}: mutmut never registered the file, "
+                              "most likely because its baseline test run failed. Check the job log above.")
+        rows = con.execute('SELECT l.sourcefile, l.line_number, m."index", m.status FROM "Mutant" m '
+                           'JOIN "Line" l ON m.line = l.id').fetchall()
     finally:
         con.close()
-    stats = {key: 0 for key in STATUS_KEYS.values()}
-    for status, count in rows:
-        stats[STATUS_KEYS.get(status, "other")] = stats.get(STATUS_KEYS.get(status, "other"), 0) + count
-    stats["total"] = sum(stats.values())
-    # Counted after `total`: excluded mutants are not in the cache, so they must not be in `total`.
-    stats["excluded"] = count_excluded(cache, counter)
+    counts: dict[str, int] = {}
+    excluded = phantom = missing = 0
+    for file_id, name in files:
+        # mutmut stores the path as given to --paths-to-mutate, relative to the run directory.
+        path = resolve_within(cli_roots(), cache.parent / name)
+        source = path.read_text("utf-8")
+        generated = {m for m in enumerate_fn(source, str(path), False) if _in_range(m[0], line_range)}
+        if "no mutate" in source:
+            raw = {m for m in enumerate_fn(source, str(path), True) if _in_range(m[0], line_range)}
+            diff = len(raw) - len(generated)
+            if diff == 0 and any(_in_range(n - 1, line_range) for n in find_pragma_lines(source)):
+                # The pragma-honoring switch is mutmut 2.5.1 internals; if it silently stopped working
+                # (or every pragma sits on a line with no mutants) `excluded: 0` would be a false number.
+                raise PragmaCountError(f"{path} has `# pragma: no mutate` lines but mutmut generates the same "
+                                       "number of mutants with and without them; refusing to report excluded=0.")
+            excluded += diff
+        seen: set[tuple[int, int]] = set()
+        for sourcefile, line, index, status in rows:
+            if sourcefile != file_id or not _in_range(line, line_range):
+                continue
+            if (line, index) not in generated:
+                if status != "untested":
+                    # A phantom is never run. A verdict on a mutant mutmut does not generate means
+                    # the cache describes other source (or another mutmut): do not guess.
+                    raise ExportError(f"{path}: cache row at 0-based line {line}, index {index} has "
+                                      f"status {status!r} but is no mutant mutmut generates for this "
+                                      "source; the cache does not match the code.")
+                phantom += 1
+                continue
+            seen.add((line, index))
+            counts[status] = counts.get(status, 0) + 1
+        missing += len(generated - seen)
+    stats = dict(_status_counts(counts.items()))
+    stats["untested"] += missing
+    stats["total"] = sum(v for v in stats.values() if isinstance(v, int))
+    if stats["total"] == 0:
+        raise ExportError(f"{cache} holds no mutant mutmut generates{' in lines %d-%d' % line_range if line_range else ''}; "
+                          "the run died before mutating anything (a failed baseline test run, most likely).")
+    # Counted after `total`: excluded mutants are not in the cache and phantoms are not mutants.
+    stats.update(excluded=excluded, phantom=phantom)
+    if target:
+        stats["target"] = target
     return stats
+
+
+def _parse_line_range(raw: str) -> LineRange:
+    lo, sep, hi = raw.partition(":")
+    if not sep or not lo.strip().isdigit() or not hi.strip().isdigit() or int(lo) > int(hi):
+        raise ValueError(f"--line-range must be LO:HI with 0 <= LO <= HI (0-based, inclusive); got {raw!r}")
+    return int(lo), int(hi)
 
 
 def compute_score(stats: dict[str, int]) -> float | None:
@@ -243,8 +341,22 @@ def compute_raw_score(stats: dict[str, int]) -> float | None:
     return detected / considered
 
 
-def _format_summary(stats: dict[str, int], score: float | None) -> str:
-    lines = ["Mutation testing summary (backend beachhead: boards/permissions.py)"]
+def _pct(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.1%}"
+
+
+def _format_target_line(name: str, stats: dict[str, int]) -> str:
+    """One line per target, so a weak module is visible next to the merged score."""
+    detected = stats.get("killed", 0) + stats.get("timeout", 0)
+    considered = detected + stats.get("survived", 0) + stats.get("suspicious", 0)
+    return (f"  {name:<16} adjusted {_pct(compute_score(stats)):>6} ({detected}/{considered})  "
+            f"raw {_pct(compute_raw_score(stats)):>6}  survived {stats.get('survived', 0)}  "
+            f"excluded {stats.get('excluded', 0)}  untested {stats.get('untested', 0)}  "
+            f"phantom {stats.get('phantom', 0)}")
+
+
+def _format_summary(stats: dict[str, int], score: float | None, title: str = "merged over all targets") -> str:
+    lines = [f"Mutation testing summary ({title})"]
     for key, note in (
         ("killed", ""),
         ("timeout", "  (counted as killed)"),
@@ -253,6 +365,7 @@ def _format_summary(stats: dict[str, int], score: float | None) -> str:
         ("untested", "  (run did not finish)"),
         ("skipped", "  (other shards' lines, excluded)"),
         ("excluded", "  (# pragma: no mutate, proven equivalent; never generated)"),
+        ("phantom", "  (mutmut 2.5.1 cache rows that are no mutant; dropped)"),
     ):
         lines.append(f"  {key + ':':<12}{stats.get(key, 0)}{note}")
     raw = compute_raw_score(stats)
@@ -263,9 +376,12 @@ def _format_summary(stats: dict[str, int], score: float | None) -> str:
     return "\n".join(lines)
 
 
-def _load(paths: list[Path]) -> tuple[list[dict[str, int]], str | None]:
-    """Load every readable stats file; return them and the first reason one could not be read."""
-    shards: list[dict[str, int]] = []
+def _load(paths: list[Path]) -> tuple[list[dict], str | None]:
+    """Load every readable stats file; return them and the first reason one could not be read.
+
+    A shard keeps its integer counts and, when the export tagged it, its ``target`` name.
+    """
+    shards: list[dict] = []
     for raw in paths:
         # PathEscapeError propagates: main() reports it as a config error, not a measurement.
         path = resolve_within(cli_roots(), raw)
@@ -277,8 +393,57 @@ def _load(paths: list[Path]) -> tuple[list[dict[str, int]], str | None]:
             return shards, f"{raw} is not valid JSON: {exc}"
         if not isinstance(data, dict):
             return shards, f"{raw} holds {type(data).__name__}, expected an object."
-        shards.append({k: v for k, v in data.items() if isinstance(v, int) and not isinstance(v, bool)})
+        shard = {k: v for k, v in data.items() if isinstance(v, int) and not isinstance(v, bool)}
+        if isinstance(data.get("target"), str):
+            shard["target"] = data["target"]
+        shards.append(shard)
     return shards, None
+
+
+def _group(shards: list[dict]) -> dict[str, list[dict[str, int]]]:
+    """Shards by target name, in first-seen order; an untagged shard belongs to target ``""``."""
+    groups: dict[str, list[dict[str, int]]] = {}
+    for shard in shards:
+        counts = {k: v for k, v in shard.items() if k != "target"}
+        groups.setdefault(shard.get("target", ""), []).append(counts)
+    return groups
+
+
+def _parse_expect(raw: str | None) -> int | dict[str, int] | None:
+    """``--expect-shards``: an int (all files, one target) or ``NAME=N,NAME=N`` (per target)."""
+    if raw is None:
+        return None
+    if raw.strip().isdigit():
+        return int(raw)
+    spec: dict[str, int] = {}
+    for part in raw.split(","):
+        name, sep, count = part.strip().partition("=")
+        if not sep or not name or not count.isdigit() or int(count) < 1 or name in spec:
+            raise ValueError(f"--expect-shards must be N or NAME=N,NAME=N with N >= 1 and unique names; got {raw!r}")
+        spec[name] = int(count)
+    return spec
+
+
+def _check_expected(groups: dict[str, list[dict[str, int]]], n_files: int,
+                    expect: int | dict[str, int] | None) -> str | None:
+    """Why the files received are not the shards expected, or None."""
+    if expect is None:
+        return None
+    if isinstance(expect, int):
+        if n_files != expect:
+            return (f"expected {expect} shard stats files, got {n_files}. "
+                    "A shard died or its artifact is missing; summing the rest would read as a complete run.")
+        return None
+    unexpected = sorted(set(groups) - set(expect))
+    if unexpected:
+        return (f"stats files for targets that were not expected: {unexpected} "
+                f"(expected {sorted(expect)}); a stale or foreign artifact must not be summed in.")
+    for name, count in expect.items():
+        got = len(groups.get(name, []))
+        if got != count:
+            return (f"target {name}: expected {count} shard stats files, got {got}. "
+                    "A shard died or its artifact is missing; summing the rest would read as a complete run.")
+    return None
 
 
 def _check_shard_consistency(shards: list[dict[str, int]], expect_shards: int | None) -> str | None:
@@ -306,7 +471,7 @@ def _check_shard_consistency(shards: list[dict[str, int]], expect_shards: int | 
     if len(set(excluded)) != 1:
         return (f"the shards disagree on the module's excluded-mutant count ({excluded}); "
                 "they did not all read the same source.")
-    covered = sum(v for s in shards for k, v in s.items() if k not in ("skipped", "total", "excluded"))
+    covered = sum(v for s in shards for k, v in s.items() if k not in _PER_TARGET_KEYS + ("skipped",))
     if covered != total:
         return (f"the shards' non-skipped mutants add up to {covered}, not the module's {total}; "
                 "some lines were mutated by two shards or by none.")
@@ -314,19 +479,31 @@ def _check_shard_consistency(shards: list[dict[str, int]], expect_shards: int | 
 
 
 def _merge(shards: list[dict[str, int]]) -> dict[str, int | str | list[int]]:
-    """Sum the per-verdict counts. ``total`` and ``excluded`` are the module's counts, never N x."""
+    """Sum one target's per-verdict counts. ``total``, ``excluded`` and ``phantom`` are the
+    target's counts (every shard sees the whole target), never N x."""
     merged: dict[str, int | str | list[int]] = {}
     for shard in shards:
         for key, value in shard.items():
-            if key not in ("total", "excluded"):
+            if key not in _PER_TARGET_KEYS:
                 merged[key] = int(merged.get(key, 0)) + value
     if shards:
         merged["excluded"] = max(s.get("excluded", 0) for s in shards)
+        merged["phantom"] = max(s.get("phantom", 0) for s in shards)
     totals = sorted({s["total"] for s in shards if "total" in s})
     if len(totals) == 1:
         merged["total"] = totals[0]
     elif totals:
         merged["shard_totals"] = [s.get("total", -1) for s in shards]
+    return merged
+
+
+def _merge_targets(per_target: dict[str, dict]) -> dict[str, int]:
+    """Sum the targets' merged counts into the job's merged counts (each target's total once)."""
+    merged: dict[str, int] = {}
+    for counts in per_target.values():
+        for key, value in counts.items():
+            if isinstance(value, int):
+                merged[key] = merged.get(key, 0) + value
     return merged
 
 
@@ -538,6 +715,67 @@ def _self_test() -> int:
               code == 0 and merged is not None and merged.get("excluded") == 3 and merged.get("total") == 6,
               f"exit {code}, wrote {merged}")
 
+        # Several targets (#1384): each target's shards are checked and merged on their own, then the
+        # targets are summed. The floor gates the MERGED adjusted score, never a single target's.
+        def tagged(name: str, **counts: int) -> str:
+            return json.dumps({"target": name, **counts})
+
+        # a: 2 shards, 90/100 killed, 4 excluded; b: 1 shard, 40/50 killed. Merged 130/150 = 86.7%.
+        multi = [write("a0.json", tagged("a", killed=50, survived=5, skipped=45, total=100, excluded=4, phantom=1)),
+                 write("a1.json", tagged("a", killed=40, survived=5, skipped=55, total=100, excluded=4, phantom=1)),
+                 write("b0.json", tagged("b", killed=40, survived=10, total=50))]
+        spec = "a=2,b=1"
+        for name, paths, floor, expect, want in (
+            ("two targets merged, below the floor although target a is above it", multi, "0.9", spec, 1),
+            ("two targets merged, at a floor the merged score meets", multi, "0.86", spec, 0),
+            ("two targets, report-only", multi, None, spec, 0),
+            ("two targets, a target missing", multi[:2], None, spec, 2),
+            ("two targets, a shard of a target missing", [multi[0], multi[2]], None, spec, 2),
+            ("two targets, an unexpected target", multi, None, "a=2", 2),
+            ("two targets, wrong per-target count", multi, None, "a=1,b=2", 2),
+            ("two targets, legacy total count", multi, None, "3", 0),
+            ("--expect-shards that is not N or NAME=N", multi, None, "a=x", 2),
+            ("--expect-shards with a repeated name", multi, None, "a=2,a=2", 2),
+        ):
+            got_rc = _run_real_script(paths, floor, expect)
+            check(name, got_rc == want, f"exited {got_rc}, expected {want}")
+        # A target whose run died: total 0 (or nothing scoreable) is not measured, even though
+        # 0 == 0 passes the shard-consistency check and the other targets are fine.
+        dead_b = write("b0dead.json", tagged("b", total=0))
+        code, err = _run_real_script_full([multi[0], multi[1], dead_b], "0.5", spec)
+        check("a target with total 0 is not measured, not dropped from the merge",
+              code == 2 and "target b:" in err and "no scoreable" in err, f"exit {code}, stderr {err!r}")
+        skipped_b = write("b0skip.json", tagged("b", skipped=50, total=50))
+        code, err = _run_real_script_full([multi[0], multi[1], skipped_b], "0.5", spec)
+        check("a target with nothing scoreable is not measured",
+              code == 2 and "target b:" in err, f"exit {code}, stderr {err!r}")
+        bad_a = write("a1bad.json", tagged("a", killed=41, survived=5, skipped=54, total=100, excluded=4))
+        code, err = _run_real_script_full([multi[0], bad_a, multi[2]], None, spec)
+        check("a target's shards that do not partition its total are named",
+              code == 2 and "target a:" in err, f"exit {code}, stderr {err!r}")
+        code, err = _run_real_script_full([multi[0], multi[1], write("b0bad.json", tagged("b", killed=40, survived=10,
+                                                                                         total=51))], None, spec)
+        check("a single-shard target is still checked against its total",
+              code == 2 and "target b:" in err, f"exit {code}, stderr {err!r}")
+        out = root / "multi.json"
+        code, err = _run_real_script_full(multi, "0.9", spec, extra=["--write-merged", str(out)])
+        both = json.loads(out.read_text("utf-8")) if out.exists() else {}
+        check("--write-merged sums targets and keeps each target's scores",
+              code == 1 and both.get("total") == 150 and both.get("killed") == 130 and both.get("excluded") == 4
+              and both.get("phantom") == 1 and abs(both.get("score_adjusted", 0) - 130 / 150) < 1e-9
+              and abs(both.get("score_raw", 0) - 130 / 154) < 1e-9
+              and both.get("targets", {}).get("a", {}).get("total") == 100
+              and abs(both.get("targets", {}).get("a", {}).get("score_adjusted", 0) - 0.9) < 1e-9
+              and abs(both.get("targets", {}).get("b", {}).get("score_adjusted", 0) - 0.8) < 1e-9,
+              f"exit {code}, wrote {both}")
+        code, stdout = (lambda p: (p.returncode, p.stdout))(subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), *map(str, multi), "--min", "0.85",
+             "--expect-shards", spec], capture_output=True, text=True,
+            env={k: v for k, v in os.environ.items() if k != "MUTATION_MIN"}))
+        check("per-target lines are printed and a target under the floor is named",
+              code == 0 and "  a " in stdout and "  b " in stdout and "below the floor on their own" in stdout
+              and "b" in stdout.split("below the floor on their own")[-1], f"exit {code}, stdout {stdout!r}")
+
         # The pragma reason rule.
         good_reason = "x = 1  # pragma: no mutate -- schema constant, guarded by migration-check\n"
         for name, text, want in (
@@ -579,45 +817,151 @@ def _self_test() -> int:
         (pdir / "bad.py").unlink()
         check("--check-pragmas skips .venv", _run_real_script([], None, extra=["--check-pragmas", str(pdir)]) == 0)
 
-        # count_excluded with a stand-in counter (mutmut is only installed in the mutation job): the
-        # difference between "ignore pragmas" and "honor pragmas" is the number of excluded mutants.
+        # export_cache on a cache in mutmut 2.5.1's real schema (SourceFile, Line, Mutant), with a
+        # stand-in enumerator (mutmut is only installed in the mutation job). The stand-in generates
+        # two mutants (index 0 and 1) on every line holding `=`, none on a pragma'd line unless
+        # pragmas are ignored: the with/without difference is the excluded count.
         src_dir = root / "srcdir"
         src_dir.mkdir()
-        (src_dir / "mod.py").write_text("a = 1  # pragma: no mutate -- schema constant, migration-check\nb = 2\n", "utf-8")
+        mod_lines = ["a = 1  # pragma: no mutate -- schema constant, migration-check",  # line 0
+                     "b = 2",                                                         # line 1
+                     "class C:",                                                      # line 2
+                     "    c = 3",                                                     # line 3
+                     "    d = 4  # pragma: no mutate -- schema constant, migration-check",  # line 4
+                     "e = 5"]                                                         # line 5
+        (src_dir / "mod.py").write_text("\n".join(mod_lines) + "\n", "utf-8")
         (src_dir / "plain.py").write_text("c = 3\n", "utf-8")
-        ccache = src_dir / ".mutmut-cache"
-        con = sqlite3.connect(ccache)
-        con.execute('CREATE TABLE "SourceFile" (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, hash TEXT NOT NULL)')
-        con.execute('CREATE TABLE "Mutant" (id INTEGER PRIMARY KEY, status TEXT NOT NULL)')
-        con.executemany('INSERT INTO "SourceFile" (filename, hash) VALUES (?, ?)', [("mod.py", "h"), ("plain.py", "h")])
-        con.execute('INSERT INTO "Mutant" (status) VALUES (?)', ("ok_killed",))
-        con.commit()
-        con.close()
         calls: list[tuple[str, bool]] = []
 
-        def fake_counter(source: str, filename: str, ignore_pragmas: bool) -> int:
+        def fake_enumerate(source: str, filename: str, ignore_pragmas: bool) -> list[tuple[int, int]]:
             calls.append((Path(filename).name, ignore_pragmas))
-            return source.count("=") * (3 if ignore_pragmas and "no mutate" in source else 2)
+            return [(n, i) for n, text in enumerate(source.splitlines()) if "=" in text
+                    and (ignore_pragmas or "no mutate" not in text) for i in (0, 1)]
 
-        got_stats = export_cache(ccache, fake_counter)
+        def make_cache(path: Path, rows: list[tuple[str, int, int, str]]) -> Path:
+            """rows: (file, 0-based line, index, mutmut status)."""
+            con = sqlite3.connect(path)
+            con.execute('CREATE TABLE "SourceFile" (id INTEGER PRIMARY KEY, filename TEXT NOT NULL, hash TEXT)')
+            con.execute('CREATE TABLE "Line" (id INTEGER PRIMARY KEY, sourcefile INTEGER NOT NULL, '
+                        'line TEXT, line_number INTEGER NOT NULL)')
+            con.execute('CREATE TABLE "Mutant" (id INTEGER PRIMARY KEY, line INTEGER NOT NULL, '
+                        '"index" INTEGER NOT NULL, tested_against_hash TEXT, status TEXT NOT NULL)')
+            file_ids: dict[str, int] = {}
+            line_ids: dict[tuple[str, int], int] = {}
+            for fname, line, index, status in rows:
+                if fname not in file_ids:
+                    file_ids[fname] = con.execute('INSERT INTO "SourceFile" (filename) VALUES (?)', (fname,)).lastrowid
+                if (fname, line) not in line_ids:
+                    line_ids[(fname, line)] = con.execute(
+                        'INSERT INTO "Line" (sourcefile, line, line_number) VALUES (?, ?, ?)',
+                        (file_ids[fname], "", line)).lastrowid
+                con.execute('INSERT INTO "Mutant" (line, "index", status) VALUES (?, ?, ?)',
+                            (line_ids[(fname, line)], index, status))
+            con.commit()
+            con.close()
+            return path
+
+        all_killed = [("mod.py", n, i, "ok_killed") for n in (1, 3, 5) for i in (0, 1)]
+        ccache = make_cache(src_dir / ".mutmut-cache", all_killed + [("plain.py", 0, 0, "ok_killed"),
+                                                                     ("plain.py", 0, 1, "bad_survived")])
+        got_stats = export_cache(ccache, fake_enumerate)
         check("export_cache counts excluded as the with/without-pragma difference",
-              got_stats.get("excluded") == 2 and got_stats.get("killed") == 1
-              and got_stats.get("total") == 1, f"returned {got_stats}")
+              got_stats.get("excluded") == 4 and got_stats.get("killed") == 7 and got_stats.get("survived") == 1
+              and got_stats.get("total") == 8 and got_stats.get("phantom") == 0, f"returned {got_stats}")
+        check("export_cache never scans a source file with no pragma",
+              ("plain.py", True) not in calls, f"calls {calls}")
         try:
-            export_cache(ccache, lambda source, filename, ignore_pragmas: 5)  # same count either way
+            export_cache(ccache, lambda source, filename, ignore_pragmas: [(1, 0)])  # same list either way
             noop_caught = False
         except PragmaCountError:
             noop_caught = True
         check("export_cache refuses excluded=0 when a pragma file yields equal mutant counts", noop_caught)
-        check("export_cache never scans a source file with no pragma",
-              ("plain.py", True) not in calls, f"calls {calls}")
+
+        # The mutmut 2.5.1 phantom: a row filed under the wrong line (here line 1, index 5) is no
+        # mutant mutmut generates. It must be dropped and reported, not left `untested` (which would
+        # make every run "unfinished"). A generated mutant with no row at all is untested.
+        pdir_cache = src_dir / "phantom"
+        pdir_cache.mkdir()
+        (pdir_cache / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
+        got_stats = export_cache(make_cache(pdir_cache / ".mutmut-cache", all_killed + [("mod.py", 1, 5, "untested")]),
+                                 fake_enumerate)
+        check("export_cache drops a phantom row and reports it",
+              got_stats.get("phantom") == 1 and got_stats.get("untested") == 0 and got_stats.get("total") == 6,
+              f"returned {got_stats}")
+        for status in ("ok_killed", "bad_survived", "bad_timeout", "ok_suspicious", "skipped"):
+            vdir = src_dir / f"verdict-{status}"
+            vdir.mkdir()
+            (vdir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
+            try:
+                export_cache(make_cache(vdir / ".mutmut-cache", all_killed + [("mod.py", 1, 5, status)]),
+                             fake_enumerate)
+                refused = False
+            except ExportError:
+                refused = True
+            check(f"export_cache refuses a non-generated row with status {status}", refused)
+        vdir = src_dir / "verdict-cli"
+        vdir.mkdir()
+        (vdir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
+        vcache = make_cache(vdir / ".mutmut-cache", all_killed + [("mod.py", 1, 5, "ok_killed")])
+        # Through the CLI the real enumerator runs, so this needs mutmut (the nightly job has it).
+        if importlib.util.find_spec("mutmut") is not None:
+            code, err = _run_real_script_full([vdir / "out.json"], None, extra=["--export-cache", str(vcache)])
+            check("--export-cache on a non-generated row with a verdict is exit 2 (not measured)",
+                  code == 2 and "NOT MEASURED" in err and "does not match" in err, f"exit {code}, stderr {err!r}")
+        # A run that died before mutmut registered anything: SourceFile/Line/Mutant exist but are
+        # empty, or hold another file. The export must refuse it, never write `total: 0`.
+        edir = src_dir / "empty"
+        edir.mkdir()
+        (edir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
+        for name, rows, source in (("an empty cache", [], None),
+                                   ("a cache without the target's file", [("plain.py", 0, 0, "ok_killed")], "mod.py")):
+            (edir / ".mutmut-cache").unlink(missing_ok=True)
+            if not (edir / "plain.py").exists():
+                (edir / "plain.py").write_text("c = 3\n", "utf-8")
+            try:
+                export_cache(make_cache(edir / ".mutmut-cache", rows), fake_enumerate, source=source)
+                refused = False
+            except ExportError:
+                refused = True
+            check(f"export_cache refuses {name}", refused)
+        code, err = _run_real_script_full([edir / "out.json"], None, extra=["--export-cache", str(edir / ".mutmut-cache"),
+                                                                            "--source", "mod.py"])
+        check("--export-cache --source on a cache without the file is exit 2",
+              code == 2 and "NOT MEASURED" in err and "no mutants for mod.py" in err, f"exit {code}, stderr {err!r}")
+        mdir = src_dir / "missing"
+        mdir.mkdir()
+        (mdir / "mod.py").write_text((src_dir / "mod.py").read_text("utf-8"), "utf-8")
+        got_stats = export_cache(make_cache(mdir / ".mutmut-cache", all_killed[:-1]), fake_enumerate)
+        check("export_cache counts a generated mutant with no cache row as untested",
+              got_stats.get("untested") == 1 and got_stats.get("total") == 6, f"returned {got_stats}")
+
+        # --line-range (a class target): only the lines of the range count, for verdicts and for
+        # excluded alike; a pragma outside the range is not an error and not this target's exclusion.
+        got_stats = export_cache(ccache, fake_enumerate, line_range=(2, 4), target="klass")
+        check("export_cache --line-range counts only the range",
+              got_stats.get("killed") == 2 and got_stats.get("excluded") == 2 and got_stats.get("total") == 2
+              and got_stats.get("target") == "klass", f"returned {got_stats}")
+        got_stats = export_cache(ccache, fake_enumerate, line_range=(5, 5))
+        check("export_cache --line-range with no pragma inside the range excludes nothing",
+              got_stats.get("excluded") == 0 and got_stats.get("total") == 2, f"returned {got_stats}")
+        code, err = _run_real_script_full([root / "lr.json"], None,
+                                          extra=["--export-cache", str(ccache), "--line-range", "9:3"])
+        check("--line-range with LO > HI is a config error", code == 2 and "CONFIG ERROR" in err,
+              f"exit {code}, stderr {err!r}")
+
         bare = root / "bare-cache"
         con = sqlite3.connect(bare)
         con.execute('CREATE TABLE "Mutant" (id INTEGER PRIMARY KEY, status TEXT NOT NULL)')
         con.commit()
         con.close()
         check("a cache with no SourceFile table has nothing excluded",
-              export_cache(bare, fake_counter).get("excluded") == 0)
+              export_cache(bare, fake_enumerate).get("excluded") == 0)
+        try:
+            export_cache(bare, fake_enumerate, line_range=(0, 3))
+            bare_range_caught = False
+        except PragmaCountError:
+            bare_range_caught = True
+        check("a cache with no Line table refuses --line-range", bare_range_caught)
         try:
             from mutmut import ALL as _unused  # noqa: F401
             have_mutmut = True
@@ -739,10 +1083,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--export-cache", type=Path, metavar="CACHE",
                         help="read a .mutmut-cache and write stats JSON to the single positional path")
-    parser.add_argument("--expect-shards", type=int, metavar="N",
-                        help="exit 2 (not measured) unless exactly N stats files are given and they "
-                             "form one consistent run; a shard that never wrote its file must not "
-                             "read as a smaller, complete run")
+    parser.add_argument("--expect-shards", metavar="N|NAME=N,...",
+                        help="exit 2 (not measured) unless exactly N stats files are given (or, per "
+                             "target, exactly the NAME=N files and no other target) and each target's "
+                             "shards form one consistent run; a shard that never wrote its file must "
+                             "not read as a smaller, complete run")
+    parser.add_argument("--target", metavar="NAME",
+                        help="with --export-cache: tag the stats with this target name (the merge groups by it)")
+    parser.add_argument("--source", metavar="PATH",
+                        help="with --export-cache: the file the target mutates, as given to --paths-to-mutate; "
+                             "exit 2 if the cache has no mutants for it")
+    parser.add_argument("--line-range", metavar="LO:HI",
+                        help="with --export-cache: count only mutants on these 0-based lines (inclusive), "
+                             "for a target that is one class of a module")
     parser.add_argument("--write-merged", type=Path, metavar="OUT",
                         help="also write the summed stats JSON to OUT, with a `not_measured` reason "
                              "when the run cannot be judged")
@@ -781,11 +1134,16 @@ def main(argv: list[str] | None = None) -> int:
             print("--export-cache needs exactly one output path", file=sys.stderr)
             return 2
         try:
-            stats = export_cache(args.export_cache)
+            line_range = _parse_line_range(args.line_range) if args.line_range else None
+        except ValueError as exc:
+            print(f"CONFIG ERROR: {exc}", file=sys.stderr)
+            return 2
+        try:
+            stats = export_cache(args.export_cache, line_range=line_range, target=args.target, source=args.source)
         except PathEscapeError as exc:
             print(f"CONFIG ERROR: {exc}", file=sys.stderr)
             return 2
-        except PragmaCountError as exc:
+        except ExportError as exc:
             print(f"NOT MEASURED: {exc}", file=sys.stderr)
             return 2
         except ImportError as exc:
@@ -809,27 +1167,48 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         floor = _parse_floor(args.min if args.min is not None else os.environ.get("MUTATION_MIN"))
+        expect = _parse_expect(args.expect_shards)
     except ValueError as exc:
         print(f"CONFIG ERROR: {exc}", file=sys.stderr)
         return 2
 
     # Every reason the run cannot be judged, first one wins. All shards that can
     # be read are still loaded so --write-merged keeps the evidence.
-    reason = None
-    if args.expect_shards is not None and len(args.stats_paths) != args.expect_shards:
-        reason = (f"expected {args.expect_shards} shard stats files, got {len(args.stats_paths)}. "
-                  "A shard died or its artifact is missing; summing the rest would read as a complete run.")
     try:
         shards, load_error = _load(args.stats_paths)
     except PathEscapeError as exc:
         print(f"CONFIG ERROR: {exc}", file=sys.stderr)
         return 2
-    reason = reason or load_error
-    if reason is None:
-        reason = _check_shard_consistency(shards, args.expect_shards)
-    stats = _merge(shards)
+    groups = _group(shards)
+    reason = _check_expected(groups, len(args.stats_paths), expect) or load_error
+    for name, group in groups.items():
+        if reason is not None:
+            break
+        # A per-target spec always checks a target's shards, even a single one; the
+        # legacy int form keeps its old rule for one untagged target.
+        target_expect = expect.get(name) if isinstance(expect, dict) else expect
+        problem = _check_shard_consistency(group, target_expect)
+        if problem is not None:
+            reason = f"target {name}: {problem}" if name else problem
+    per_target = {name: _merge(group) for name, group in groups.items()}
+    for name, target_stats in per_target.items():
+        if reason is not None or not name:
+            break
+        # Judged per target, not only on the merged score: a target whose run died
+        # (total 0, or nothing scoreable) would otherwise drop out of the merged
+        # denominator and the floor would be judged on the other targets alone.
+        target_counts = {k: v for k, v in target_stats.items() if isinstance(v, int)}
+        if target_counts.get("total", 0) == 0 or compute_score(target_counts) is None:
+            reason = (f"target {name}: no scoreable mutant (total {target_counts.get('total', 0)}); "
+                      "its run died, so the merged score would describe the other targets only.")
+    stats = _merge_targets(per_target) if len(per_target) != 1 else dict(next(iter(per_target.values())))
     counts = {k: v for k, v in stats.items() if isinstance(v, int)}
     score = compute_score(counts)
+    if any(per_target):  # tagged targets: one line each, so a weak module is visible
+        print("Per target (the floor gates the merged score below, not these):")
+        for name, target_stats in per_target.items():
+            print(_format_target_line(name or "(untagged)", {k: v for k, v in target_stats.items()
+                                                             if isinstance(v, int)}))
     print(_format_summary(counts, score))
 
     if reason is None and counts.get("untested", 0) > 0:
@@ -847,6 +1226,12 @@ def main(argv: list[str] | None = None) -> int:
         # Both numbers travel in the artifact so an exclusion stays visible to whoever reads it.
         out["score_adjusted"] = score
         out["score_raw"] = compute_raw_score(counts)
+        if any(per_target):
+            out["targets"] = {
+                name: {**target_stats,
+                       "score_adjusted": compute_score({k: v for k, v in target_stats.items() if isinstance(v, int)}),
+                       "score_raw": compute_raw_score({k: v for k, v in target_stats.items() if isinstance(v, int)})}
+                for name, target_stats in per_target.items()}
         if reason is not None:
             out["not_measured"] = reason
         merged_path.write_text(json.dumps(out, indent=2) + "\n", "utf-8")
@@ -855,13 +1240,18 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if floor is None:
-        print("floor: MUTATION_MIN is unset - report-only, not gating (it will gate the adjusted score). Set it from the observed "
-              "nightly scores as a fraction one point under the low end (e.g. 0.95 for a 96% low), never to 0.")
+        print("floor: MUTATION_MIN is unset - report-only, not gating (it would gate the merged adjusted score). "
+              "A floor is a fraction such as 0.90, never 0.")
         return 0
+    below = [name for name, target_stats in per_target.items() if name
+             and (s := compute_score({k: v for k, v in target_stats.items() if isinstance(v, int)})) is not None
+             and s < floor]
+    if below:
+        print(f"NOTE: below the floor on their own (reported, not gated): {', '.join(below)}")
     if score < floor:
-        print(f"FAIL: adjusted score {score:.1%} is below the floor {floor:.1%}")
+        print(f"FAIL: merged adjusted score {score:.1%} is below the floor {floor:.1%}")
         return 1
-    print(f"OK: score {score:.1%} meets the floor {floor:.1%}")
+    print(f"OK: merged adjusted score {score:.1%} meets the floor {floor:.1%}")
     return 0
 
 

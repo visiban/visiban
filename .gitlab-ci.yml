@@ -486,7 +486,7 @@ security-deferred-verdict-selftest:
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #
-# scripts/check_mutation_score.py judges the nightly backend-mutation pilot, and
+# scripts/check_mutation_score.py judges the nightly backend-mutation job, and
 # that job runs only on the Nightly schedule with MUTATION_TEST=true, so its
 # --self-test there would catch a broken checker a night late, and never while
 # the schedule lacks the variable. This runs the same self-test on MRs that
@@ -509,6 +509,9 @@ mutation-score-selftest:
   script:
     - python3 scripts/check_mutation_score.py --self-test
     - python3 scripts/check_mutation_score.py --check-pragmas backend
+    # The nightly target list (backend/mutmut_config.py TARGETS): every source file, test
+    # file and class it names exists, and backend-mutation's `parallel:` equals its shards.
+    - python3 backend/mutmut_config.py self-test --ci-file .gitlab-ci.yml
 
 # ─── Sonar exclusion-integrity guard (#1380) ─────────────────────────────────
 #
@@ -1210,39 +1213,56 @@ backend-schema-fuzz-deep:
         echo "backend-schema-fuzz-deep failed before the fuzz ran (setup, the filer self-test, or seed resolution); not filing a schema-fuzz issue."
       fi
 
-# ─── Backend mutation-testing pilot (#1384) ──────────────────────────────────
+# ─── Backend mutation testing, nightly (#1384) ───────────────────────────────
 #
 # Coverage proves a line ran under test; mutation testing proves the suite would
 # FAIL if the line were wrong. Ported from TruePPM's `api:mutation` (#4266) /
-# `scheduler:mutation` (#2282), narrowed to one pure-logic beachhead.
+# `scheduler:mutation` (#2282).
 #
-# PILOT, NOT A GATE. Schedule-only (MUTATION_TEST=true on the Nightly schedule,
-# 4176726), `allow_failure: true`, and MUTATION_MIN is deliberately UNSET so the
-# report job prints the score and notes the floor is unset. The floor is read off
-# about a week of observed nightly scores (one point under the low end), never
-# chosen up front and never set to 0 as a placeholder (#1384 steps 4-5).
-# The job cannot run on an MR or main push: its only rule is the schedule rule.
+# Schedule-only (MUTATION_TEST=true on the Nightly schedule, 4176726); it cannot
+# run on an MR or a main push, its only rule is the schedule rule. Targets: every
+# module with a manual baseline in docs/development/mutation-testing.md:
+# boards/permissions.py, boards/services/cards.py, the CardMovement class of
+# boards/models.py, and boards/views/import_export.py (whole module). The list,
+# each target's test files and its shard count live in ONE place,
+# backend/mutmut_config.py (TARGETS); `python mutmut_config.py run` maps this
+# job's CI_NODE_INDEX to one (target, shard), runs mutmut and exports the shard's
+# stats. `parallel:` below must equal the sum of TARGETS' shard counts: the
+# driver refuses to run otherwise, and `mutation-score-selftest` fails the MR
+# that lets them drift. Each shard has its own Postgres service, so shards cannot
+# collide on test data; a target's mutants are dealt round-robin over its shards
+# (sizes differ by at most one). Shard sizes and the per-mutant cost behind them
+# are in the doc ("Shard arithmetic"): about 30 min of mutants plus ~5 min setup
+# per job, so `timeout: 60m` is ~1.7x the slowest estimate. At most 50 shards
+# (GitLab's `needs:` cap for the report; the self-test enforces it).
 #
-# Beachhead: boards/permissions.py (118 mutants, role/permission rule helpers),
-# against the four RBAC test files. Measured per-mutant cost and the sharding
-# arithmetic are in docs/development/mutation-testing.md. CI runs one job per
-# shard (`parallel:`), each with its own Postgres service, so shards cannot
-# collide on test data; backend/mutmut_config.py gives shard k of N the source
-# lines where `line_index % N == k`.
+# LOAD: ~25 runner-hours a night (44 jobs). With three untagged self-hosted
+# runners online (docs/maintainers/ci-runners.md) a 05:00 UTC run holds them
+# until late morning and overlaps MR pipelines; untagged, the jobs can also land
+# on a SaaS runner. No tag pin (none fits; `nuc` is for the load test). If the
+# overlap hurts, move MUTATION_TEST to a separate weekly schedule (a maintainer
+# change); see mutation-testing.md "Runner load".
+#
+# FLOOR: backend-mutation-report fails (exit 1) when the MERGED adjusted score
+# over all targets is under MUTATION_MIN (0.90, #1384, chosen by the maintainer
+# rather than read off observed nightlies). Both jobs stay `allow_failure: true`
+# for an observation week; a follow-up MR on #1384 makes the report blocking
+# once the first week of nightly artifacts is in. Never set the floor to 0.
 #
 # mutmut is pip-installed here, pinned, and stays out of requirements*.txt
 # (mutmut 2.x runs pytest in place, so pytest-django needs no changes; 3.x
 # copies the tree into a sandbox and does not). A pin bump moves the score, so
-# bump it deliberately and re-baseline. `backend-mutation-report` sums the shard
-# stats files into the one `mutmut-cicd-stats.json` artifact (30 days).
+# bump it deliberately and re-baseline. `backend-mutation-report` merges the
+# shard stats files into the one `mutmut-cicd-stats.json` artifact (30 days).
 backend-mutation:
   extends: .pip-cache
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  # Keep in step with --expect-shards in backend-mutation-report.
-  parallel: 4
-  timeout: 40m
+  # = sum of TARGETS' shard counts in backend/mutmut_config.py (checked by
+  # `mutmut_config.py self-test --ci-file`, run in mutation-score-selftest).
+  parallel: 44
+  timeout: 60m
   allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $MUTATION_TEST == "true"'
@@ -1267,29 +1287,28 @@ backend-mutation:
     - pip install --quiet "mutmut==2.5.1"
   script:
     - cd backend
-    # CI_NODE_INDEX is 1-based; the hook's shard index is 0-based.
-    - export MUTATION_SHARDS="$CI_NODE_TOTAL" MUTATION_SHARD="$((CI_NODE_INDEX - 1))"
-    # `|| true`: a non-zero exit only means survivors exist. A run that died is
-    # caught by the report job (untested mutants or no scoreable ones, exit 2).
     # --self-test here (mutmut is installed) also runs the real-mutmut pragma cases that the
     # lint-stage self-test skips (#1503); a mutmut bump that changes pragma behavior fails loudly.
     - python ../scripts/check_mutation_score.py --self-test
-    - mutmut run || true
-    - mutmut results || true
-    - python ../scripts/check_mutation_score.py --export-cache .mutmut-cache "mutmut-stats-${CI_NODE_INDEX}.json"
+    # Picks the (target, shard) for CI_NODE_INDEX of CI_NODE_TOTAL, runs mutmut on it, and
+    # writes mutmut-stats-${CI_NODE_INDEX}.json. Survivors are not a failure here; a run
+    # that died is caught by the export (exit 2) or the report (untested mutants, exit 2).
+    - python mutmut_config.py run
   artifacts:
     paths:
       - backend/mutmut-stats-*.json
     expire_in: 30 days
     when: always
 
-# Sums the backend-mutation shards, prints the score, and writes the single
-# artifact the issue asks for. Report-only: with MUTATION_MIN unset it exits 0
-# on any score, but still exits 2 (yellow) if the run was not measured, so a
-# dead run is never a meaningless green. When the floor is set (a later MR, from
-# observed data) it gates here, on the ADJUSTED score (proven-equivalent mutants
-# marked `# pragma: no mutate -- <reason>` excluded, #1503); the raw score is
-# printed beside it so the exclusions stay visible.
+# Merges the backend-mutation shards per target, then over all targets, prints
+# each target's score and the merged one, and writes the single artifact
+# `mutmut-cicd-stats.json` (merged counts, `targets` per target). The floor
+# gates the MERGED ADJUSTED score (proven-equivalent mutants marked
+# `# pragma: no mutate -- <reason>` excluded, #1503); the raw score and every
+# target's own score are printed beside it so the exclusions and a weak module
+# stay visible. Exit 1 = merged score below MUTATION_MIN; exit 2 = not measured
+# (a shard or target missing, inconsistent shards, untested mutants), which is
+# never a green. `allow_failure: true` during the observation week only.
 backend-mutation-report:
   stage: test
   needs:
@@ -1299,9 +1318,12 @@ backend-mutation-report:
   allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $MUTATION_TEST == "true"'
+  variables:
+    # A fraction, not a percentage (`90` is a config error, exit 2); never 0.
+    MUTATION_MIN: "0.90"
   script:
     - python3 scripts/check_mutation_score.py --self-test
-    - python3 scripts/check_mutation_score.py backend/mutmut-stats-*.json --expect-shards 4 --write-merged mutmut-cicd-stats.json
+    - python3 scripts/check_mutation_score.py backend/mutmut-stats-*.json --expect-shards "$(python3 backend/mutmut_config.py expect-shards)" --min "$MUTATION_MIN" --write-merged mutmut-cicd-stats.json
   artifacts:
     paths:
       - mutmut-cicd-stats.json
@@ -4241,7 +4263,11 @@ docs-deploy:
 #   Target branch: main
 #   Variables   : CVE_SCAN=true OSV_SCAN=true SONAR_SCHEDULED=true
 #                 FUZZ_DEEP=true KAIZEN_YIELD_WATCH=true MUTATION_TEST=true
-#                 (MUTATION_TEST is added by hand after the #1384 pilot MR merges)
+#                 (MUTATION_TEST added by hand for #1384; with the #1384
+#                 nightly-targets MR merged it runs backend-mutation's 44 shards,
+#                 about 25 runner-hours a night by the estimate in
+#                 mutation-testing.md. Before that MR merges it runs main's old
+#                 4-shard permissions pilot, which exits 2 on mutmut's phantom row)
 # nightly-load-test keeps its own 03:00 schedule (LOAD_TEST_SCHEDULE=true):
 # its latency budgets are noisy on a busy runner. The full schedule table, and
 # what red means for each job, is in docs/development/ci-gates.md.
@@ -4477,30 +4503,19 @@ nightly-load-test:
 # only. Before #1383 the script also stopped at the rejected CI_JOB_TOKEN and
 # never tried GITLAB_API_TOKEN at all; it now falls through.
 #
-# SCHEDULE_AUDIT_ACCEPTED_GAPS below lists gaps #1213's own audit already
-# found and filed as #1232 — a documented, temporary exception (same shape as
+# SCHEDULE_AUDIT_ACCEPTED_GAPS (unset here, so empty) once listed gaps #1213's own
+# audit found and filed as #1232 — a documented, temporary exception (same shape as
 # check-release-images' ACCEPTED_GAPS), not a way to quiet this gate
-# permanently. #1232's entries are all resolved. The one entry now is
-# MUTATION_TEST (#1384): the backend-mutation pilot's rules read it, but no
-# schedule can set it until the pilot MR has merged and a maintainer adds it to
-# the Nightly schedule by hand, so without the entry every scheduled pipeline in
-# between would report it MISSING. Remove the entry (the script defaults the list
-# to empty) once the schedule carries the variable; see the comment on the
-# variable below.
+# permanently. #1232's entries are all resolved, and MUTATION_TEST (#1384), the
+# last temporary entry, was removed once the Nightly schedule carried it, so the
+# list is empty (the script's default) and every schedule-gated variable must
+# be on an active schedule.
 schedule-config-check:
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-  variables:
-    # Temporary (tracked in #1384, not machine-checked): MUTATION_TEST gates the
-    # backend-mutation pilot. A maintainer must add MUTATION_TEST=true to the
-    # Nightly schedule (4176726) by hand after the pilot MR merges, then remove
-    # this variable (the script defaults the list to empty). The schedule must
-    # carry the variable BEFORE this entry is removed, or the next scheduled
-    # pipeline reports it MISSING.
-    SCHEDULE_AUDIT_ACCEPTED_GAPS: "MUTATION_TEST"
   before_script:
     - apk add --no-cache bash curl jq
   script:
