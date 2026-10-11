@@ -59,6 +59,13 @@ class VisibanUserAdmin(UserAdmin):
                     require_password_change_after_admin_set(target)
         return response
 
+    def get_readonly_fields(self, request, obj=None):
+        """Only a superuser may change who is a superuser (#1579)."""
+        readonly = tuple(super().get_readonly_fields(request, obj))
+        if not request.user.is_superuser and "is_superuser" not in readonly:
+            readonly += ("is_superuser",)
+        return readonly
+
     def save_model(self, request, obj, form, change):
         """A user added here with a password must choose their own on first use.
 
