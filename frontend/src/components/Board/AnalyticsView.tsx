@@ -48,11 +48,38 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function cellColor(avg: number | null, threshold: number, warningPct: number): string {
-  if (avg === null) return "bg-surface text-fg-muted";
-  if (avg >= threshold) return "bg-danger/30 text-danger-on-tint font-semibold";
-  if (avg >= threshold * (1 - warningPct / 100)) return "bg-warning/20 text-warning-on-tint";
-  return "bg-success/20 text-success-on-tint";
+type HeatLevel = "high" | "warning" | "ok";
+
+// Each level carries a non-color cue (glyph + text) so the threshold is not
+// conveyed by hue alone (WCAG 1.4.1, #1591). Glyphs differ in shape.
+const HEAT_LEVELS: Record<HeatLevel, { glyph: string; label: string; legend: string; cls: string }> = {
+  high: { glyph: "▲\uFE0E", label: "High", legend: "At or over threshold", cls: "bg-danger/30 text-danger-on-tint font-semibold" },
+  warning: { glyph: "◆\uFE0E", label: "Warning", legend: "Approaching threshold", cls: "bg-warning/20 text-warning-on-tint" },
+  ok: { glyph: "●\uFE0E", label: "OK", legend: "Within threshold", cls: "bg-success/20 text-success-on-tint" },
+};
+
+function heatLevel(avg: number, threshold: number, warningPct: number): HeatLevel {
+  if (avg >= threshold) return "high";
+  if (avg >= threshold * (1 - warningPct / 100)) return "warning";
+  return "ok";
+}
+
+function HeatmapLegend() {
+  return (
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted" aria-label="Heatmap legend">
+      {(Object.keys(HEAT_LEVELS) as HeatLevel[]).map(level => (
+        <li key={level} className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] ${HEAT_LEVELS[level].cls}`}
+          >
+            {HEAT_LEVELS[level].glyph}
+          </span>
+          <span>{HEAT_LEVELS[level].label}: {HEAT_LEVELS[level].legend}</span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function loadViewMode(boardId: number): ViewMode {
@@ -275,13 +302,16 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                   {activeCols.map(col => {
                     const avg = getAvg(sw, col);
                     const tooltip = getTooltip(sw, col);
+                    const level = avg !== null ? HEAT_LEVELS[heatLevel(avg, threshold, warningPct)] : null;
                     return (
                       <td
                         key={col}
-                        className={`py-1.5 px-3 text-center rounded text-xs ${cellColor(avg, threshold, warningPct)}`}
+                        className={`py-1.5 px-3 text-center rounded text-xs ${level ? level.cls : "bg-surface text-fg-muted"}`}
                         title={tooltip}
                       >
+                        {level && <span aria-hidden="true" className="mr-1 text-[10px] leading-none align-middle">{level.glyph}</span>}
                         {avg !== null ? `${avg}d` : "—"}
+                        {level && <span className="sr-only"> {level.label}</span>}
                       </td>
                     );
                   })}
@@ -293,6 +323,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
             </tbody>
           </table>
         </div>
+        <HeatmapLegend />
         {doneCols.size > 0 && (
           <p className="text-xs text-fg-muted">
             {doneCols.size} done {doneCols.size === 1 ? "column" : "columns"} not shown

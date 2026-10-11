@@ -49,12 +49,14 @@ The rightmost column of the heatmap shows **Velocity** per swimlane. This is the
 
 Cells are color-coded based on the board's `staleness_threshold_days` setting and its `stale_warning_pct` percentage. The warning boundary is calculated as `threshold * (1 - stale_warning_pct / 100)`. With the defaults of 7 days and 50%, the warning boundary is 3.5 days.
 
-| Color | Condition |
-|---|---|
-| Green | Average dwell time is below the warning boundary |
-| Yellow | Average is at or above the warning boundary but below the full threshold |
-| Red | Average is at or above `staleness_threshold_days` (outlier / bottleneck) |
-| Grey / dash | No data for that swimlane-column combination |
+| Color | Marker | Condition |
+|---|---|---|
+| Green | ● OK | Average dwell time is below the warning boundary |
+| Yellow | ◆ Warning | Average is at or above the warning boundary but below the full threshold |
+| Red | ▲ High | Average is at or above `staleness_threshold_days` (outlier / bottleneck) |
+| Grey / dash | none | No data for that swimlane-column combination |
+
+The level is never conveyed by color alone: each colored cell shows its marker next to the value, screen readers announce the level text ("OK", "Warning", "High") after the value, and a legend below the heatmap maps each marker and color to its level.
 
 !!! tip
     Both `staleness_threshold_days` and `stale_warning_pct` are configurable per board in the board settings modal. Adjusting them changes the heatmap coloring immediately on the next analytics load.
