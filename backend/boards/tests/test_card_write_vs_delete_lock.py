@@ -30,14 +30,16 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection, connections
+from django.db import transaction
 from django.test import TransactionTestCase
+from django.utils import timezone
 from rest_framework.generics import get_object_or_404 as _real_get_object_or_404
 from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import User
 from boards.models import (
     Board, BoardEvent, BoardMembership, Card, CardActivity, CardAttachment, CardChecklist,
-    CardComment, CardRelation, Column, Swimlane,
+    CardComment, CardMovement, CardRelation, Column, Swimlane,
 )
 from boards.services import cards as card_services
 
@@ -90,6 +92,8 @@ def _requests(test):
             {"to_card": test.other.pk, "direction": "blocks"},
             format="json",
         ),
+        "archive": lambda c: c.post(f"{test.base}/archive/"),
+        "unarchive": lambda c: c.post(f"{test.base}/unarchive/"),
     }
 
 
@@ -127,9 +131,15 @@ class CardWriteVsDeleteNotFoundTests(APITestCase):
         self.assertFalse(CardActivity.objects.exists())
 
     def test_child_writes_return_404(self):
+        """The 404 must come from the lock, before anything is written — not
+        from #1584's refetch, which would also 404 but only after the write.
+        The refetch is made to fail the test if it is reached at all."""
         reqs = _requests(self)
+        refetch_reached = AssertionError("write went past the card lock to the refetch")
         for name in ("comment", "checklist_create", "checklist_patch", "checklist_delete", "attachment"):
-            with self.subTest(name), self._delete_before_lock():
+            with self.subTest(name), self._delete_before_lock(), patch(
+                "boards.views._helpers._card_queryset", side_effect=refetch_reached,
+            ):
                 with patch("boards.views.cards._validate_upload_mime", return_value=None):
                     resp = reqs[name](self.client)
                 self._assert_404_and_silent(resp)
@@ -167,6 +177,33 @@ class CardWriteVsDeleteNotFoundTests(APITestCase):
             resp = self.client.delete(f"{self.base}/")
         # No second card.deleted for a card another request already deleted.
         self._assert_404_and_silent(resp)
+
+    def test_delete_of_concurrently_archived_card_returns_404(self):
+        """Archived under the delete's lock, after the view read it active:
+        still refused, as delete_card's docstring promises (#1587)."""
+        real = card_services.lock_card_row
+        pk = self.card.pk
+
+        def racing(card_id):
+            Card.objects.filter(pk=pk).update(archived_at=timezone.now())
+            return real(card_id)
+
+        with patch(f"{SERVICES}.lock_card_row", side_effect=racing):
+            resp = self.client.delete(f"{self.base}/")
+        self._assert_404_and_silent(resp)
+        self.assertTrue(Card.objects.filter(pk=pk).exists())
+
+    def test_archive_and_unarchive_return_404(self):
+        """Without the lock the update_fields save matches no row and raises
+        "did not affect any rows" — a 500."""
+        reqs = _requests(self)
+        for name in ("archive", "unarchive"):
+            if name == "unarchive":
+                Card.objects.filter(pk=self.card.pk).update(archived_at=timezone.now())
+            with self.subTest(name), self._delete_before_lock():
+                resp = reqs[name](self.client)
+            self._assert_404_and_silent(resp)
+            self.assertFalse(CardMovement.objects.filter(card_id=self.card.pk).exists())
 
     def test_unraced_writes_still_succeed(self):
         reqs = _requests(self)
@@ -316,3 +353,79 @@ class CardWriteVsDeleteLockTests(TransactionTestCase):
 
     def test_relation_then_delete(self):
         self._write_then_delete("relation", "boards.views.cards._card_queryset", 201)
+
+    def test_checklist_patch_then_delete(self):
+        self._write_then_delete("checklist_patch", "boards.views._helpers._card_queryset", 200)
+
+    # -- archive / unarchive ------------------------------------------------
+
+    def test_archive_after_delete_returns_404(self):
+        self._delete_then_write("archive")
+
+    def test_archive_then_delete_refuses_archived_card(self):
+        """Write first: the delete waits for the archive, then finds the card
+        archived under its own lock and refuses it — the "archived cards are
+        rejected" rule, not a hard delete of an archived card."""
+        paused, release, results = threading.Event(), threading.Event(), {}
+        with self._pause_in(f"{SERVICES}._archive_movement", "writer", paused, release):
+            writer = self._thread("writer", _requests(self)["archive"], results)
+            self.assertTrue(paused.wait(HOLD_TIMEOUT), "archive never reached its hold point")
+            deleter = self._thread("deleter", lambda c: c.delete(f"{self.base}/"), results)
+            deleter.join(BLOCK_PROBE)
+            self.assertTrue(deleter.is_alive(), "delete did not wait for the archive's card lock")
+            release.set()
+            writer.join(HOLD_TIMEOUT)
+            deleter.join(HOLD_TIMEOUT)
+        self.assertEqual(self._status(results, "writer"), 200)
+        self.assertEqual(self._status(results, "deleter"), 404)
+        self.assertIsNotNone(Card.objects.get(pk=self.card.pk).archived_at)
+
+    # The REST delete refuses an archived card before it locks anything, so
+    # the unarchive races use a deleter that does what any other hard delete
+    # of the row must (#1599): lock the card, then delete it with its cascade.
+
+    def _raw_deleter(self, pause=None):
+        pk = self.card.pk
+
+        def run(_client):
+            with transaction.atomic():
+                card_services.lock_card_row(pk)
+                Card.objects.filter(pk=pk).delete()
+                if pause is not None:
+                    pause[0].set()
+                    pause[1].wait(HOLD_TIMEOUT)
+            return "deleted"
+        return run
+
+    def test_unarchive_after_delete_returns_404(self):
+        Card.objects.filter(pk=self.card.pk).update(archived_at=timezone.now())
+        paused, release, results = threading.Event(), threading.Event(), {}
+        deleter = self._thread("deleter", self._raw_deleter((paused, release)), results)
+        self.assertTrue(paused.wait(HOLD_TIMEOUT), "delete never reached its hold point")
+        writer = self._thread("writer", _requests(self)["unarchive"], results)
+        writer.join(BLOCK_PROBE)
+        self.assertTrue(writer.is_alive(), "unarchive did not wait for the delete's card lock")
+        release.set()
+        deleter.join(HOLD_TIMEOUT)
+        writer.join(HOLD_TIMEOUT)
+        self.assertEqual(results.get("deleter"), "deleted")
+        self.assertEqual(self._status(results, "writer"), 404)
+        self._assert_card_and_children_gone()
+        self.assertFalse(CardMovement.objects.filter(card_id=self.card.pk).exists())
+
+    def test_unarchive_then_delete(self):
+        Card.objects.filter(pk=self.card.pk).update(archived_at=timezone.now())
+        paused, release, results = threading.Event(), threading.Event(), {}
+        with self._pause_in(f"{SERVICES}._archive_movement", "writer", paused, release):
+            writer = self._thread("writer", _requests(self)["unarchive"], results)
+            self.assertTrue(paused.wait(HOLD_TIMEOUT), "unarchive never reached its hold point")
+            deleter = self._thread("deleter", self._raw_deleter(), results)
+            deleter.join(BLOCK_PROBE)
+            self.assertTrue(deleter.is_alive(), "delete did not wait for the unarchive's card lock")
+            release.set()
+            writer.join(HOLD_TIMEOUT)
+            deleter.join(HOLD_TIMEOUT)
+        self.assertEqual(self._status(results, "writer"), 200)
+        self.assertIsInstance(results.get("deleter"), str, results.get("deleter"))
+        self._assert_card_and_children_gone()
+        self.assertFalse(CardMovement.objects.filter(card_id=self.card.pk).exists())

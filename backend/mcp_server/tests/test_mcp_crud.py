@@ -518,6 +518,25 @@ class ArchiveCardTests(CrudToolsTestCase):
         result = self._call("archive_card", self.write_token, card_id=999999)
         self.assertEqual(result["error"]["code"], "card_not_found")
 
+    def test_card_deleted_mid_archive_is_not_found(self):
+        """A delete landing after the service's read must answer
+        card_not_found, not crash on a save that matches no row (#1587).
+        Injected at the service's card lock, so the lock is what answers."""
+        from unittest.mock import patch
+
+        from boards.services import cards as card_services
+
+        card = _make_card(self.column, self.swimlane, title="Doomed")
+        real_lock = card_services.lock_card_for_write
+
+        def delete_then_lock(card_id):
+            Card.objects.filter(pk=card_id).delete()
+            return real_lock(card_id)
+
+        with patch("boards.services.cards.lock_card_for_write", side_effect=delete_then_lock):
+            result = self._call("archive_card", self.write_token, card_id=card.id)
+        self.assertEqual(result["error"]["code"], "card_not_found")
+
 
 class MaintenanceModeTests(CrudToolsTestCase):
     """Maintenance mode must reach MCP writes too (#783).

@@ -1245,6 +1245,10 @@ def archive_card(*, actor, board, card_id, render, role=None, render_many=None):
         card_uid = card.uid
         peer_ids = _blocked_peer_ids(card)
         with transaction.atomic():
+            # Card row first (#1587): a delete committing after
+            # _fetch_for_archive would otherwise make the update_fields save
+            # below match no row and raise "did not affect any rows" (a 500).
+            lock_card_for_write(card.pk)
             card.archived_at = timezone.now()
             card.save(update_fields=["archived_at"])
             _archive_movement(card, actor, CardMovement.MovementType.ARCHIVED)
@@ -1290,10 +1294,15 @@ def unarchive_card(
     board_id = card.board_id
     peer_ids = _blocked_peer_ids(card)
     with transaction.atomic():
+        # Card row first (#1587) — same delete race as archive_card — and
+        # before enforce_column_limits locks the column, keeping the
+        # card -> column order move_card uses.
+        lock_card_for_write(card.pk)
         card.archived_at = None
         card.save(update_fields=["archived_at"])
-        # Checked after the write so the card row is locked before the column
-        # row (move_card's lock order); a refusal rolls the restore back.
+        # Checked after the write, with the card row already locked above, so
+        # the column row comes second (move_card's lock order); a refusal
+        # rolls the restore back.
         enforce_column_limits(
             board=board, column=card.column, card=card, role=role, force=force,
         )
@@ -1344,7 +1353,11 @@ def delete_card(*, actor, board, card, role=None, render=None, render_many=None)
         # collector could DELETE the children, the child insert commit, and
         # this transaction then fail its own deferred FK check at COMMIT.
         # A card already deleted by a concurrent request answers 404.
-        if lock_card_row(card_id) is None:
+        locked = lock_card_row(card_id)
+        # Re-checked under the lock: a concurrent archive that committed after
+        # the caller's read must still get the "archived cards are rejected"
+        # answer above, not a hard delete of the archived card.
+        if locked is None or locked.archived_at is not None:
             raise CardNotFound()
         # Read before the delete: the relation rows CASCADE away with the card, so
         # after it there is nothing left to tell us whose blocker_count moved (#449).
