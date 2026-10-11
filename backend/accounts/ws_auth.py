@@ -339,8 +339,8 @@ def _bind(credential: dict, user) -> dict:
 
     The hash is an HMAC of the password hash, so it changes on every password
     change, whichever endpoint made it. Recording it makes a password change
-    close the socket even for a credential the change does not itself revoke
-    (a DRF token survives it). It never leaves process memory.
+    close the socket whatever credential admitted it, including any the
+    change does not itself revoke. It never leaves process memory.
     """
     return {**credential, "auth_hash": user.get_session_auth_hash()}
 

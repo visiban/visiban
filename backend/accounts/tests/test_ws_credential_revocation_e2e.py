@@ -303,7 +303,7 @@ class _RevocationScenarios:
         self._run(run)
 
     def test_drf_token_ticket_socket_closes_after_a_password_change(self):
-        """The DRF token itself survives a password change; the socket does not."""
+        """A password change closes a socket admitted with a DRF token ticket."""
         token = Token.objects.create(user=self.user)
         token_client = APIClient()
         token_client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")

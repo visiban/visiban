@@ -23,7 +23,8 @@ from django.db import transaction
 def lock_user_row(user):
     """Lock *user*'s row and return the freshly read row.
 
-    Credential issuance (``PersonalAccessToken`` creation) and credential
+    Credential issuance (``PersonalAccessToken`` creation,
+    ``reissue_auth_token``) and credential
     revocation (``finalize_password_change`` and the admin-set variant) take
     this lock first, so they are serialized per user. Must be called inside
     ``transaction.atomic()``. SQLite has no row locks, so there it is a plain
@@ -45,6 +46,12 @@ def finalize_password_change(user):
     - Revokes every Personal Access Token: ``PersonalAccessToken`` documents
       "all tokens are deleted when the password changes", and users are told
       rotating the password is how to cut off a leaked token (#406, #1110).
+    - Revokes the DRF auth ``Token`` (#1553, #1562): a password change revokes
+      every credential issued under the old password. The changer is not
+      logged out: the SPA authenticates with its session cookie, which the
+      REST views and allauth keep alive with ``update_session_auth_hash``, and
+      a REST caller that authenticated with the ``Token`` gets a new one from
+      ``reissue_auth_token`` in the same transaction.
 
     ``must_change_username`` is left alone: a password change does not answer
     a username request. Idempotent, so a second call is harmless.
@@ -54,12 +61,15 @@ def finalize_password_change(user):
         user.must_change_password = False
         user.save(update_fields=["must_change_password"])
         user.personal_access_tokens.all().delete()
+        revoke_auth_token(user)
 
 
 def revoke_auth_token(user):
     """Delete *user*'s DRF auth ``Token`` (the key minted at REST login).
 
-    This helper is called on reset and on admin-set passwords. The SPA
+    Called from ``finalize_password_change`` (and so from
+    ``finalize_password_reset``) and from
+    ``require_password_change_after_admin_set``. The SPA
     authenticates with its session cookie, not this key, and REST login mints a
     fresh one on the next sign-in.
     """
@@ -68,16 +78,35 @@ def revoke_auth_token(user):
     Token.objects.filter(user_id=user.pk).delete()
 
 
+def reissue_auth_token(user) -> str:
+    """Mint a new DRF auth ``Token`` for *user* and return its key.
+
+    Used by the REST password-change views when the request itself was
+    authenticated with the ``Token`` that the change just revoked, so that
+    caller keeps working with the key returned in the response (#1562). The
+    caller runs it after ``finalize_password_change`` in the same transaction;
+    it takes the user-row lock itself so it is serialized with every other
+    credential write for the user even when called on its own. Any existing
+    ``Token`` is replaced, since DRF allows one per user.
+    """
+    from rest_framework.authtoken.models import Token
+
+    with transaction.atomic():
+        lock_user_row(user)
+        Token.objects.filter(user_id=user.pk).delete()
+        return Token.objects.create(user=user).key
+
+
 def finalize_password_reset(user):
     """Side effects of a completed password reset (REST and HTML).
 
     A reset is a password change by whoever holds the reset link, so it gets
-    the full self-service finalization plus the DRF ``Token`` revocation.
+    the full self-service finalization, which includes the DRF ``Token``
+    revocation. No ``Token`` is reissued: the reset caller is not signed in.
     """
     with transaction.atomic():
         lock_user_row(user)
         finalize_password_change(user)
-        revoke_auth_token(user)
 
 
 def require_password_change_after_admin_set(user):

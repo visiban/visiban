@@ -508,7 +508,7 @@ Set a new password using the token from the reset email. **No authentication req
 **Response** `200 OK { "detail": "Password has been reset with the new password." }` on success; `400 Bad Request` on invalid/expired token or mismatched passwords.
 
 !!! note
-    *Changed in 1.3.* A successful reset deletes the API token issued by `POST /api/v1/auth/login/` and all of the account's Personal Access Tokens, and clears a pending forced password change (`must_change_password`). Existing sessions end because the password changed. allauth's own reset page at `/accounts/password/reset/key/<uid>-<token>/` does the same.
+    *Changed in 1.2.* A successful reset deletes the API token issued by `POST /api/v1/auth/login/` and all of the account's Personal Access Tokens, and clears a pending forced password change (`must_change_password`). Existing sessions end because the password changed. allauth's own reset page at `/accounts/password/reset/key/<uid>-<token>/` does the same.
 
 ---
 
@@ -525,8 +525,23 @@ Change the authenticated user's password. Requires authentication.
 - `current_password` is not required for social-only accounts (accounts with no usable password that are setting a password for the first time)
 - Minimum 12 characters; standard Django complexity rules apply
 - If `must_change_password` was set, it is cleared on success
+- The API token issued by `POST /api/v1/auth/login/` is revoked on success; a caller that authenticated with that token receives a replacement in the response's optional `key` field — see [API token on password change](#api-token-on-password-change) below
 
-**Response** `200 OK` on success; `400 Bad Request` with field errors on failure.
+**Response** `200 OK { "detail": "Password changed successfully." }` on success; `400 Bad Request` with field errors on failure. When the request was authenticated with the login API token, the body also carries `key`, the replacement token:
+
+```json
+{ "detail": "Password changed successfully.", "key": "<new-api-token>" }
+```
+
+#### API token on password change
+
+A password change through this endpoint or `POST /api/v1/auth/password/change/` below revokes the account's API token issued by `POST /api/v1/auth/login/`, along with all Personal Access Tokens; a caller authenticated with that token receives a replacement in the optional `key` field. allauth's change and set pages and the Django admin's own-password form do the same.
+
+- **Signed in with a session (the browser SPA):** the session stays signed in. The response has no `key` field. Log in again to get a new API token.
+- **Authenticated with the login API token:** the response's optional `key` field holds a new token. Use it for later requests in place of the token you sent, which is revoked. A client that loses the response (for example, to a dropped connection) must log in again to get a token. The response is sent with `Cache-Control: no-store`.
+- **Authenticated with a Personal Access Token:** that token is revoked with the rest. The response has no `key` field.
+
+Clients that ignore unknown response fields need no change.
 
 ---
 
@@ -571,11 +586,16 @@ not accept the same body — but since 1.2 they enforce the same rules.
 - All of the user's Personal Access Tokens are revoked on success, same as
   `/auth/change-password/` — see [Personal Access Tokens](#personal-access-tokens)
   above.
+- The login API token is revoked on success, and a caller that authenticated
+  with it receives a replacement in the optional `key` field, same as
+  `/auth/change-password/` — see
+  [API token on password change](#api-token-on-password-change).
 - **Clears `must_change_password` on success** (changed in 1.2, #1259), same
   as `/auth/change-password/`. Either endpoint satisfies a forced password
   change.
 
-**Response** `200 OK { "detail": "New password has been saved." }` on success.
+**Response** `200 OK { "detail": "New password has been saved." }` on success,
+plus `key` when the request was authenticated with the login API token.
 
 Validation errors use DRF's per-field shape, not `/auth/change-password/`'s
 `{"detail": ...}` shape:
