@@ -3931,7 +3931,7 @@ by design — Nginx and the SPA router tell them apart by the trailing slash.</p
 <p>Clearing <strong>Active</strong> on a user deletes their Personal Access Tokens and revokes their pending invite links, the same as deactivating them from the site-admin panel.</p>
 <h2 id="what-you-can-manage">What you can manage<a class="headerlink" href="#what-you-can-manage" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Users</strong> — view/edit all user accounts, activate or deactivate accounts, set <code>is_staff</code> and <code>is_superuser</code> (the form does not carry <code>is_site_admin</code> or <code>must_change_password</code>; use the site-admin panel or <code>set_site_admin</code> for those)</li>
+<li><strong>Users</strong> — view/edit all user accounts, activate or deactivate accounts, set <code>is_staff</code> and <code>is_superuser</code> (the form does not carry <code>is_site_admin</code> or <code>must_change_password</code>; use the site-admin panel or <code>set_site_admin</code> for those). Only a superuser can change <code>is_superuser</code>. Removing it also removes the account's site-admin and all-content access; site admin can then be granted again explicitly.</li>
 <li><strong>Site settings</strong> — instance-wide configuration (registration mode, file uploads, <a href="../maintenance-mode/">maintenance mode</a>); clicking the entry goes directly to the settings form — there is always exactly one row</li>
 <li><strong>Boards, columns, swimlanes</strong> — direct database access for debugging</li>
 <li><strong>Group memberships</strong> — view and correct membership records</li>

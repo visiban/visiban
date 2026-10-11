@@ -4130,7 +4130,7 @@ re-checks.</p>
 <tr>
 <td>Site invite links</td>
 <td><code>accounts/invite_utils.py</code> <code>validate_invite_token</code>, <code>site_invite_creator_admits</code>, <code>revoke_site_invite_links</code></td>
-<td><code>visiban.authorization.invite_creator_is_valid</code> (the site rule is <code>site_invite_creator_admits</code>, which calls <code>sender_may_admit_accounts</code>: an active site admin) is evaluated at redemption under the row lock, for REST and OAuth signup alike, so a creator deactivated, deleted or demoted by any route stops admitting accounts; <code>revoke_site_invite_links</code> sets <code>revoked_at</code> on the creator's unused links on deactivation (<code>AdminUserDeactivateView.post</code>, <code>AdminUserDetailView.patch</code> with <code>is_active</code> false) and on loss of site admin (<code>AdminUserDetailView.patch</code> with <code>is_site_admin</code> false, <code>set_site_admin --revoke</code>); the Django admin user form revokes on deactivation only (<code>accounts/admin.py</code> <code>VisibanUserAdmin.save_model</code> through <code>accounts/admin_views.py</code> <code>apply_access_loss_revocations</code>), since it carries no site-admin field</td>
+<td><code>visiban.authorization.invite_creator_is_valid</code> (the site rule is <code>site_invite_creator_admits</code>, which calls <code>sender_may_admit_accounts</code>: an active site admin) is evaluated at redemption under the row lock, for REST and OAuth signup alike, so a creator deactivated, deleted or demoted by any route stops admitting accounts; <code>revoke_site_invite_links</code> sets <code>revoked_at</code> on the creator's unused links on deactivation (<code>AdminUserDeactivateView.post</code>, <code>AdminUserDetailView.patch</code> with <code>is_active</code> false) and on loss of site admin (<code>AdminUserDetailView.patch</code> with <code>is_site_admin</code> false, <code>set_site_admin --revoke</code>, and a superuser-status change that removes the account's site-admin access); the Django admin user form revokes on deactivation (<code>accounts/admin.py</code> <code>VisibanUserAdmin.save_model</code> through <code>accounts/admin_views.py</code> <code>apply_access_loss_revocations</code>) and, because its superuser change keeps <code>is_site_admin</code> and <code>can_access_all_content</code> consistent (<code>accounts/signals.py</code>), on loss of site-admin access</td>
 </tr>
 <tr>
 <td>Board invite links</td>
@@ -4161,6 +4161,11 @@ re-checks.</p>
 <td>Admin API</td>
 <td><code>accounts/admin_views.py</code> <code>AdminUserDetailView.patch</code>, <code>AdminUserDeactivateView.post</code></td>
 <td>Deactivation revokes PATs and pending invites in the same operation</td>
+</tr>
+<tr>
+<td>Superuser status change (model save)</td>
+<td><code>accounts/signals.py</code> <code>capture_prior_superuser_state</code>, <code>ensure_superuser_is_site_admin</code></td>
+<td>Superuser status, <code>is_site_admin</code> and <code>can_access_all_content</code> stay consistent: a stored <code>is_superuser</code> true to false change clears the other two and calls <code>apply_access_loss_revocations</code>; <code>VisibanUserAdmin.get_readonly_fields</code> makes <code>is_superuser</code> read-only for non-superusers (#1579)</td>
 </tr>
 <tr>
 <td>Django admin</td>

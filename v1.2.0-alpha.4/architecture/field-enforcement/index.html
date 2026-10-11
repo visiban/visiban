@@ -4096,7 +4096,7 @@
 <tr>
 <td><code>User.is_superuser</code>, <code>User.is_staff</code></td>
 <td>Django built-ins, not exposed by any API serializer</td>
-<td><code>is_staff</code> gates only the Django admin site. Setting <code>is_superuser</code> also sets <code>is_site_admin</code> (<code>accounts/signals.py</code>)</td>
+<td><code>is_staff</code> gates only the Django admin site. <code>is_superuser</code>, <code>is_site_admin</code> and <code>can_access_all_content</code> are kept consistent when superuser status changes: granting superuser sets both derived flags, and removing it clears both (<code>accounts/signals.py</code>)</td>
 </tr>
 <tr>
 <td><code>User.can_access_all_content</code></td>
