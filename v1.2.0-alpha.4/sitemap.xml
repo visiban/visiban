@@ -2,406 +2,406 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/changelog/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/admin-panel/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/authentication/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/configuration/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/container-image-retention/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/demo-data/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/django-admin/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/image-verification/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/issue-board-lens-usage/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/maintenance-mode/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/media-security/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/scheduled-jobs/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/secret-rotation/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/site-admins/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/upgrade/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/administration/zero-downtime-upgrade/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/admin/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/authentication/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/boards/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/cards/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/events/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/git-lens/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/groups/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/health/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/mcp/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/notifications/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/openapi/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/version/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/api/websockets/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/api-versioning/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/data-model/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/decisions/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/deployment/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/field-enforcement/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/open-core-boundary/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/overview/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/scaling/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/architecture/service-layer/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/authorization-entry-points/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/ci-gates/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/database-migrations/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/dependency-lock/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/kaizen-yield-watch/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/load-test-version-benchmarks/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/mutation-testing/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/nightly-load-test/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/rbac-and-broadcast-gates/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/security-invariants/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/serializer-ts-parity/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/sonarcloud/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/suppressions/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/testing/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/development/websocket-event-contract/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/analytics/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/appearance/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/board/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/card-archiving/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/card-descriptions/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/card-history/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/card-links/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/card-relations/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/custom-fields/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/feature-toggles/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/groups/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/issue-board-lens/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/keyboard-shortcuts/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/mcp-server/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/navigation/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/notifications/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/permissions/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/personal-access-tokens/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/realtime/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/saved-filters/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/stable-uids/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/trello-import/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/rbac/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/rbac/inheritance/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/rbac/managing/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/features/rbac/roles/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/board-setup/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/first-boot/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/installation/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/kubernetes/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/oauth/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/onboarding-tour/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/sample-boards/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/getting-started/why-visiban/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/maintainers/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/maintainers/ci-runners/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/maintainers/demo-deploy/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/maintainers/known-ci-failures/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/maintainers/security-deferred-label/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/maintainers/security-scanners/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/maintainers/sonarcloud/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0-alpha.4/maintainers/tokens-and-rotation/</loc>
-         <lastmod>2026-10-10</lastmod>
+         <lastmod>2026-10-11</lastmod>
     </url>
 </urlset>
