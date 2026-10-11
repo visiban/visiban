@@ -4051,8 +4051,11 @@ next time they change it.</p>
 <p>Changing a password — through either <code>POST /api/v1/auth/change-password/</code> or
 <code>POST /api/v1/auth/password/change/</code> — requires the current password (except for OAuth-only
 accounts setting their first one), revokes all of the user's
-<a href="../../features/personal-access-tokens/">personal access tokens</a>, and clears a pending
-"must change password" flag set by an administrator.</p>
+<a href="../../features/personal-access-tokens/">personal access tokens</a> and the API token issued at
+login (a caller that authenticated with that token receives a replacement in the response; see
+<a href="../../api/authentication/#api-token-on-password-change">API token on password change</a>), and
+clears a pending "must change password" flag set by an administrator. The browser session
+stays signed in.</p>
 <h2 id="forgot-password-self-service-password-reset">Forgot password (self-service password reset)<a class="headerlink" href="#forgot-password-self-service-password-reset" title="Permanent link">&para;</a></h2>
 <p>Users with a password-based account can reset their own password from the login page without administrator intervention.</p>
 <ol>
