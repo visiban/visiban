@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SummaryView from '../components/Board/SummaryView'
 import AnalyticsView from '../components/Board/AnalyticsView'
@@ -360,6 +360,44 @@ describe('AnalyticsView', () => {
     expect(screen.getByText('—')).toBeInTheDocument()
     // Velocity
     expect(screen.getByText('10d')).toBeInTheDocument()
+  })
+
+  it('carries threshold level by icon and text, not color alone (#1591)', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['Backlog', 'In Progress', 'Review', 'Done'],
+      swimlanes: [
+        {
+          id: 1, name: 'Acme Corp',
+          avg_days_per_column: { 'Backlog': 1, 'In Progress': 8, 'Review': 15, 'Done': null },
+          is_outlier: {},
+          age_avg_days_per_column: { 'Backlog': 1, 'In Progress': 8, 'Review': 15, 'Done': null },
+          age_is_outlier: {},
+          deal_velocity_days: 10,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    await screen.findByText('Acme Corp')
+
+    const table = screen.getByRole('table', { name: 'Dwell time heatmap' })
+    const cells = within(table).getAllByRole('cell')
+    const byText = (t: string) => cells.find(c => c.textContent?.includes(t))!
+    expect(byText('1d')).toHaveTextContent('OK')
+    expect(byText('1d')).toHaveTextContent('●')
+    expect(byText('8d')).toHaveTextContent('Warning')
+    expect(byText('8d')).toHaveTextContent('◆')
+    expect(byText('15d')).toHaveTextContent('High')
+    expect(byText('15d')).toHaveTextContent('▲')
+
+    const legend = screen.getByRole('list', { name: 'Heatmap legend' })
+    expect(within(legend).getByText(/High: At or over threshold/)).toBeInTheDocument()
+    expect(within(legend).getByText(/Warning: Approaching threshold/)).toBeInTheDocument()
+    expect(within(legend).getByText(/OK: Within threshold/)).toBeInTheDocument()
   })
 
   it('shows export CSV button for admins', async () => {

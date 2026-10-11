@@ -1162,3 +1162,7 @@ Established by the `url` custom field type. `components/Card/CustomFieldLink.tsx
 - **Unavailable list.** The grid is replaced by the neutral notice banner with **Retry**, the divider reads "Upload your own file" (no "or"), and an empty list counts as unavailable — the section never disappears silently.
 - **Upload notes follow the dropzone.** The size-limit notice and the Trello link moved below the dropzone to pay for the fold budget; both are hidden while a sample is the source.
 - **Next step.** A fetched sample replaces the dropzone with a "From sample: {Title} · ~{n} cards" row and **Change** (no footer Back); the import sends `shift_dates_from` so the board is not mostly overdue, and never a `name`, so "Imported: <title>" numbering still applies.
+
+## Threshold and status encoding (#1591)
+
+- **Level carried by color must also carry a glyph and text (WCAG 1.4.1).** The analytics heatmap (`AnalyticsView`) gives every cell a distinct-shaped `aria-hidden` glyph (`▲` High, `◆` Warning, `●` OK) plus `sr-only` level text, and renders a `Heatmap legend` list under the table. Do not rely on hue or alpha alone for any threshold, health, or status display.
