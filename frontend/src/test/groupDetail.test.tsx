@@ -918,15 +918,45 @@ describe('GroupDetail', () => {
       await loadAndSwitchToSettings()
       await screen.findByText('Board defaults')
       const expected: Record<string, string> = {
-        low: 'text-success-on-tint', medium: 'text-warning-on-tint',
-        high: 'text-warning-on-tint', urgent: 'text-danger-on-tint',
+        low: 'text-info-on-tint', medium: 'text-warning-on-tint',
+        high: 'text-danger-on-tint', urgent: 'text-danger-on-tint',
       }
       for (const [name, textClass] of Object.entries(expected)) {
         const btn = screen.getByRole('button', { name })
         expect(btn).toHaveClass(textClass, 'focus:ring-2')
-        expect(btn.className).toMatch(/bg-(success|warning|danger)\/20/)
-        expect(btn.className).not.toMatch(/bg-(success|warning|danger)\/(50|60)/)
+        expect(btn.className).toMatch(/bg-(info|warning|danger)\/20/)
+        expect(btn.className).not.toMatch(/bg-(info|warning|danger)\/(50|60)/)
       }
+    })
+
+    it('medium, high and urgent toggles are visually distinct (#1592)', async () => {
+      await loadAndSwitchToSettings()
+      await screen.findByText('Board defaults')
+      const medium = screen.getByRole('button', { name: 'medium' })
+      const high = screen.getByRole('button', { name: 'high' })
+      const urgent = screen.getByRole('button', { name: 'urgent' })
+      expect(medium).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'low' })).toHaveClass('bg-info/20', 'border-info/60')
+      expect(medium).toHaveClass('bg-warning/20', 'border-warning/60')
+      expect(high).toHaveClass('bg-danger/20', 'border-danger/60')
+      expect(high).not.toHaveClass('bg-warning/20')
+      expect(urgent).toHaveClass('border-danger', 'font-semibold')
+      expect(urgent).not.toHaveClass('border-danger/60')
+    })
+
+    it('a disabled priority toggle reports aria-pressed=false (#1592)', async () => {
+      mockUpdateGroupBoardDefaults.mockResolvedValue({
+        ...fakeGroup,
+        allowed_priorities: ['medium', 'high', 'urgent'],
+      })
+      await loadAndSwitchToSettings()
+      await screen.findByText('Board defaults')
+      expect(screen.getByRole('button', { name: 'low' })).toHaveAttribute('aria-pressed', 'true')
+      fireEvent.click(screen.getByRole('button', { name: 'low' }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'low' })).toHaveAttribute('aria-pressed', 'false')
+      })
+      expect(screen.getByRole('button', { name: 'low' })).not.toHaveClass('bg-info/20')
     })
 
     it('toggling a priority button calls updateGroupBoardDefaults', async () => {
