@@ -29,7 +29,10 @@ Other ``select_for_update`` sites in ``backend/boards`` are covered elsewhere:
 ``services/cards.py`` (``move_card`` card/sibling locks, ``enforce_column_limits``)
 by ``test_concurrent_moves.py`` (#1504); ``boards/invites.py`` and the join path
 in ``views/invites.py`` (consume-once invite redemption) by
-``test_board_invite_races.py``.
+``test_board_invite_races.py``; ``services/cards.py`` ``lock_card_row`` /
+``lock_card_cell_entry`` and their callers in ``admin.py``
+(``CardAdminForm.clean``, ``CardAdmin.save_model``) by
+``test_admin_card_cell_entry_race.py`` (#1588).
 
 ``ConcurrentCardCreationTests`` in ``test_concurrent_moves.py`` only creates
 cards sequentially and passes even with the ``create_card`` lock removed;

@@ -24,10 +24,10 @@ and ``test_weight_enforcement.py`` and are unchanged by #1428.
 import io
 import json
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.admin.sites import AdminSite
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -461,6 +461,166 @@ class CardAdminFormEnforcementTests(_LimitFixture):
         card = Card.objects.filter(column=self.limited).first()
         form = self._form(instance=card, title="renamed")
         self.assertTrue(form.is_valid(), form.errors)
+
+
+class CardAdminCellEntryLockTests(_LimitFixture):
+    """Which admin edits take the card -> column locks, and in what order (#1588).
+
+    The races themselves are pinned on PostgreSQL by
+    ``test_admin_card_cell_entry_race.py``; these pin the triggers and the
+    order on any backend: the card row is locked and re-read first, then the
+    fresh source and target columns in one call, then the limit check runs
+    without taking its own lock.
+    """
+
+    ROW = "boards.admin.lock_card_row"
+    CELL = "boards.admin.lock_card_cell_entry"
+    LIMITS = "boards.admin.enforce_column_limits"
+
+    def setUp(self):
+        super().setUp()
+        self.other_lane = Swimlane.objects.create(board=self.board, name="Other", position=1)
+
+    _form = CardAdminFormEnforcementTests._form
+
+    def _clean_locks(self, instance=None, **overrides):
+        """Validate the form; return a manager recording every lock call in order."""
+        from boards import admin as admin_module
+
+        manager = Mock()
+        with patch(self.ROW, wraps=admin_module.lock_card_row) as row, \
+                patch(self.CELL, wraps=admin_module.lock_card_cell_entry) as cell, \
+                patch(self.LIMITS, wraps=admin_module.enforce_column_limits) as limits:
+            manager.attach_mock(row, "row")
+            manager.attach_mock(cell, "cell")
+            manager.attach_mock(limits, "limits")
+            form = self._form(instance=instance, **overrides)
+            self.assertTrue(form.is_valid(), form.errors)
+        return manager
+
+    @staticmethod
+    def _keep_archived(card):
+        """POST keys that keep ``card`` archived (the admin splits datetimes)."""
+        local = timezone.localtime(card.archived_at)
+        return {
+            "archived_at_0": local.date().isoformat(),
+            "archived_at_1": local.time().isoformat(),
+        }
+
+    @staticmethod
+    def _names(manager):
+        return [c[0] for c in manager.mock_calls]
+
+    def test_swimlane_only_change_locks_card_then_column(self):
+        card = self._card(self.free)
+        m = self._clean_locks(card, column=self.free.pk, swimlane=self.other_lane.pk)
+        self.assertEqual(self._names(m), ["row", "cell"])
+        m.row.assert_called_once_with(card.pk)
+        m.cell.assert_called_once_with(card_id=None, column_ids={self.free.pk})
+
+    def test_archived_card_swimlane_change_locks(self):
+        card = self._card(self.free, archived=True)
+        m = self._clean_locks(
+            card, column=self.free.pk, swimlane=self.other_lane.pk, **self._keep_archived(card),
+        )
+        self.assertEqual(self._names(m), ["row", "cell"])
+
+    def test_archived_card_column_change_locks_both_columns(self):
+        card = self._card(self.free, archived=True)
+        m = self._clean_locks(card, column=self.limited.pk, **self._keep_archived(card))
+        self.assertEqual(self._names(m), ["row", "cell"])
+        m.cell.assert_called_once_with(
+            card_id=None, column_ids={self.free.pk, self.limited.pk},
+        )
+
+    def test_create_locks_target_column_then_checks_unlocked(self):
+        m = self._clean_locks(column=self.limited.pk)
+        self.assertEqual(self._names(m), ["cell", "limits"])
+        m.cell.assert_called_once_with(card_id=None, column_ids={self.limited.pk})
+        self.assertIs(m.limits.call_args.kwargs["lock"], False)
+
+    def test_restore_in_place_locks_card_then_column(self):
+        # Before the fix this path let enforce_column_limits lock the column
+        # first, with the card row only locked later by the save — the reverse
+        # of move_card's order, so a move of the same card could deadlock it.
+        card = self._card(self.limited, archived=True)
+        m = self._clean_locks(card, archived_at="")
+        self.assertEqual(self._names(m), ["row", "cell", "limits"])
+        m.cell.assert_called_once_with(card_id=None, column_ids={self.limited.pk})
+        self.assertIs(m.limits.call_args.kwargs["lock"], False)
+
+    def test_weight_increase_in_place_locks_card_then_column(self):
+        self._set_weight_limit(self.free, 10)
+        card = self._card(self.free, weight=1)
+        m = self._clean_locks(card, column=self.free.pk, weight=3)
+        self.assertEqual(self._names(m), ["row", "cell", "limits"])
+        m.cell.assert_called_once_with(card_id=None, column_ids={self.free.pk})
+        self.assertIs(m.limits.call_args.kwargs["lock"], False)
+
+    def test_edit_in_place_locks_no_column(self):
+        card = self._card(self.free)
+        m = self._clean_locks(card, column=self.free.pk, title="renamed")
+        self.assertEqual(self._names(m), ["row"])
+
+    def test_stale_instance_uses_fresh_cell_under_the_card_lock(self):
+        # get_object loaded the card in Backlog; a move committed it into Doing
+        # before clean ran. The columns to lock, and whether the cell changes,
+        # are decided on the locked re-read, not on the stale instance.
+        card = self._card(self.free)
+        stale = Card.objects.get(pk=card.pk)
+        Card.objects.filter(pk=card.pk).update(column=self.limited)
+        m = self._clean_locks(stale, column=self.free.pk, swimlane=self.other_lane.pk)
+        # Fresh state: Doing -> Backlog is an entry, so Backlog is checked too.
+        self.assertEqual(self._names(m), ["row", "cell", "limits"])
+        m.cell.assert_called_once_with(
+            card_id=None, column_ids={self.free.pk, self.limited.pk},
+        )
+
+    def test_stale_instance_already_in_target_is_not_treated_as_entering(self):
+        # Fresh state says the card is already in Doing, so the form's
+        # "move to Doing" is an edit in place, not an entry that would be
+        # refused for a column already at its WIP limit.
+        card = self._card(self.free)
+        self._fill(self.limited, 1)
+        stale = Card.objects.get(pk=card.pk)
+        Card.objects.filter(pk=card.pk).update(column=self.limited)
+        m = self._clean_locks(stale, column=self.limited.pk)
+        self.assertEqual(self._names(m), ["row"])
+
+    def test_card_deleted_before_clean_is_a_form_error(self):
+        card = self._card(self.free)
+        stale = Card.objects.get(pk=card.pk)
+        Card.objects.filter(pk=card.pk).delete()
+        form = self._form(instance=stale, column=self.free.pk, title="renamed")
+        self.assertFalse(form.is_valid())
+        self.assertIn("deleted", str(form.non_field_errors()))
+
+    def _save(self, card):
+        request = RequestFactory().post("/")
+        request.user = self.admin
+        with patch(self.ROW, wraps=__import__("boards.admin", fromlist=["x"]).lock_card_row) as row, \
+                patch(self.CELL) as cell, \
+                patch("boards.admin._refetched_card_data", return_value={}):
+            CardAdmin(Card, AdminSite()).save_model(request, card, form=None, change=True)
+        return row, cell
+
+    def test_save_model_relocks_from_stored_cell(self):
+        # The save path re-takes the locks in its own transaction, deciding
+        # "did the cell change" from the stored row, not from the form.
+        card = self._card(self.free, archived=True)
+        card.swimlane = self.other_lane
+        row, cell = self._save(card)
+        row.assert_called_once_with(card.pk)
+        cell.assert_called_once_with(card_id=None, column_ids={self.free.pk})
+        card.refresh_from_db()
+        self.assertEqual(card.swimlane_id, self.other_lane.pk)
+
+    def test_save_model_unchanged_cell_takes_no_column_lock(self):
+        card = self._card(self.free)
+        card.title = "renamed"
+        row, cell = self._save(card)
+        row.assert_called_once_with(card.pk)
+        cell.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

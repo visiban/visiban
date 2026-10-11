@@ -17,7 +17,7 @@ from .serializers import (
     SwimlaneSerializer,
 )
 from .permissions import SITE_ADMIN
-from .services.cards import enforce_column_limits
+from .services.cards import enforce_column_limits, lock_card_cell_entry, lock_card_row
 from .services.errors import WeightLimitExceeded, WipHardBlocked, WipLimitExceeded
 from .views._helpers import _refetched_card_data
 
@@ -84,7 +84,22 @@ class CardAdminForm(forms.ModelForm):
     tool, not the place to bypass board policy silently.
 
     ``changeform_view`` runs validation inside ``transaction.atomic()``, so the
-    column row lock the helper takes is held until the save commits.
+    card and column row locks ``clean()`` takes are held until the save commits.
+
+    Lock order (#1588): every lock this form takes follows ``move_card``'s
+    card -> column order. For an existing card the card row is locked first
+    and its column, swimlane, archive state and weight are re-read under that
+    lock (``lock_card_row``), because ``self.instance`` was read unlocked by
+    ``get_object`` and a move may have committed since. Then, if the cell
+    changes (column or swimlane, archived cards included — they are still
+    cell members) or a limit check runs, the fresh source column and the
+    target column are locked in one pk-ordered statement, and
+    ``enforce_column_limits`` counts under that lock (``lock=False``). A
+    created card has no row yet, so only its target column is locked. The
+    effect: an admin edit queues behind a concurrent ``move_card`` that holds
+    either column instead of committing into its cell behind its membership
+    re-check (#1567), and a restore or weight change cannot deadlock with a
+    move of the same card by taking the column before the card.
     """
 
     class Meta:
@@ -104,25 +119,54 @@ class CardAdminForm(forms.ModelForm):
         # column of a different board is never valid anyway.
         if column.board_id != board.pk:
             raise ValidationError({"column": "Column belongs to a different board."})
-        # Not yet mutated: ModelForm copies cleaned_data onto the instance only
-        # after clean() returns, so self.instance still holds the saved values.
         original = self.instance
         creating = original.pk is None
         if creating and not column.allow_card_creation:
             raise ValidationError({"column": "Card creation is not allowed in this column."})
 
-        archived_at = cleaned.get("archived_at", original.archived_at)
-        if archived_at is not None:
-            # An archived card does not count toward a column's limits.
-            return cleaned
-        weight = cleaned.get("weight", original.weight)
+        if creating:
+            current = None
+            source_column_id = None
+        else:
+            # Card row first, then re-read under the lock: ``self.instance``
+            # was loaded unlocked and may be stale, and the columns to lock
+            # (and whether the card enters a cell at all) must be decided on
+            # the state this transaction will actually overwrite (#1588).
+            current = lock_card_row(original.pk)
+            if current is None:
+                raise ValidationError("This card was deleted while you were editing it.")
+            source_column_id = current.column_id
+
+        swimlane = cleaned.get("swimlane")
+        swimlane_id = swimlane.pk if swimlane is not None else getattr(current, "swimlane_id", None)
+        # Evaluated before the archived early return: an archived card is
+        # still a member of its cell, so moving one changes a cell's members
+        # just like moving an active card does.
+        cell_entry = (
+            creating
+            or current.column_id != column.pk
+            or current.swimlane_id != swimlane_id
+        )
+
+        archived_at = cleaned.get("archived_at", getattr(current, "archived_at", None))
+        weight = cleaned.get("weight", getattr(current, "weight", original.weight))
         entering = (
             creating
-            or original.archived_at is not None  # restore
-            or original.column_id != column.pk  # move
+            or current.archived_at is not None  # restore
+            or current.column_id != column.pk  # move
         )
-        weight_up = not entering and weight > original.weight
-        if not (entering or weight_up):
+        weight_up = not entering and weight > current.weight
+        enforce = archived_at is None and (entering or weight_up)
+
+        if cell_entry or enforce:
+            # Columns after the card row, source and target in one pk-ordered
+            # statement — move_card's order. The card row is already held.
+            lock_card_cell_entry(
+                card_id=None, column_ids={source_column_id, column.pk} - {None},
+            )
+        if not enforce:
+            # An archived card does not count toward a column's limits, and an
+            # edit that neither enters a column nor grows a card is unchecked.
             return cleaned
         try:
             enforce_column_limits(
@@ -133,6 +177,8 @@ class CardAdminForm(forms.ModelForm):
                 # card count, so it is checked against the weight limit only —
                 # same rule as the PATCH path.
                 check_wip=entering,
+                # Locked above, after the card row.
+                lock=False,
             )
         except (WipHardBlocked, WipLimitExceeded, WeightLimitExceeded) as exc:
             raise ValidationError(_limit_error_message(exc)) from None
@@ -157,12 +203,37 @@ class CardAdmin(admin.ModelAdmin):
     form = CardAdminForm
 
     def save_model(self, request, obj, form, change):
-        super().save_model(request, obj, form, change)
+        with transaction.atomic():
+            self._lock_cell_entry(obj, change)
+            super().save_model(request, obj, form, change)
         board = obj.board
         event = _broadcast.EVT_CARD_UPDATED if change else _broadcast.EVT_CARD_CREATED
         card_data = _refetched_card_data(obj, request, board)
         board_id = board.id
         _broadcast.record_board_event(board_id, event, card_data, actor_id=request.user.pk)
+
+    @staticmethod
+    def _lock_cell_entry(obj, change):
+        """Re-take the cell-entry locks in the transaction that saves the card.
+
+        In the admin this is a no-op: ``CardAdminForm.clean`` runs inside the
+        same ``changeform_view`` transaction and already holds the card row
+        and the same columns, decided on the same locked state. It is defense
+        in depth for a save driven some other way (e.g. a form validated in a
+        different transaction): it guarantees only that, when the stored cell
+        differs from ``obj``'s, the card row and then its source and target
+        column rows are held from before the card UPDATE until this
+        transaction commits — which is what ``move_card``'s membership
+        re-check (#1567) relies on. It does not re-run the limit check.
+        """
+        if not change:
+            lock_card_cell_entry(card_id=None, column_ids={obj.column_id})
+            return
+        stored = lock_card_row(obj.pk)
+        if stored is not None and (stored.column_id, stored.swimlane_id) != (
+            obj.column_id, obj.swimlane_id,
+        ):
+            lock_card_cell_entry(card_id=None, column_ids={stored.column_id, obj.column_id})
 
     def delete_model(self, request, obj):
         board_id = obj.board_id
