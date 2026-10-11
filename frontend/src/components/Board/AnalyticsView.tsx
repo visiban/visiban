@@ -53,9 +53,9 @@ type HeatLevel = "high" | "warning" | "ok";
 // Each level carries a non-color cue (glyph + text) so the threshold is not
 // conveyed by hue alone (WCAG 1.4.1, #1591). Glyphs differ in shape.
 const HEAT_LEVELS: Record<HeatLevel, { glyph: string; label: string; legend: string; cls: string }> = {
-  high: { glyph: "▲", label: "High", legend: "At or over threshold", cls: "bg-danger/30 text-danger-on-tint font-semibold" },
-  warning: { glyph: "◆", label: "Warning", legend: "Approaching threshold", cls: "bg-warning/20 text-warning-on-tint" },
-  ok: { glyph: "●", label: "OK", legend: "Within threshold", cls: "bg-success/20 text-success-on-tint" },
+  high: { glyph: "▲\uFE0E", label: "High", legend: "At or over threshold", cls: "bg-danger/30 text-danger-on-tint font-semibold" },
+  warning: { glyph: "◆\uFE0E", label: "Warning", legend: "Approaching threshold", cls: "bg-warning/20 text-warning-on-tint" },
+  ok: { glyph: "●\uFE0E", label: "OK", legend: "Within threshold", cls: "bg-success/20 text-success-on-tint" },
 };
 
 function heatLevel(avg: number, threshold: number, warningPct: number): HeatLevel {
@@ -66,7 +66,7 @@ function heatLevel(avg: number, threshold: number, warningPct: number): HeatLeve
 
 function HeatmapLegend() {
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-tertiary" aria-label="Heatmap legend">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted" aria-label="Heatmap legend">
       {(Object.keys(HEAT_LEVELS) as HeatLevel[]).map(level => (
         <li key={level} className="flex items-center gap-1.5">
           <span
@@ -309,7 +309,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                         className={`py-1.5 px-3 text-center rounded text-xs ${level ? level.cls : "bg-surface text-fg-muted"}`}
                         title={tooltip}
                       >
-                        {level && <span aria-hidden="true" className="mr-1 text-[10px]">{level.glyph}</span>}
+                        {level && <span aria-hidden="true" className="mr-1 text-[10px] leading-none align-middle">{level.glyph}</span>}
                         {avg !== null ? `${avg}d` : "—"}
                         {level && <span className="sr-only"> {level.label}</span>}
                       </td>

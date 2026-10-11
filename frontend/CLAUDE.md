@@ -1163,6 +1163,7 @@ Established by the `url` custom field type. `components/Card/CustomFieldLink.tsx
 - **Upload notes follow the dropzone.** The size-limit notice and the Trello link moved below the dropzone to pay for the fold budget; both are hidden while a sample is the source.
 - **Next step.** A fetched sample replaces the dropzone with a "From sample: {Title} · ~{n} cards" row and **Change** (no footer Back); the import sends `shift_dates_from` so the board is not mostly overdue, and never a `name`, so "Imported: <title>" numbering still applies.
 
-## Threshold and status encoding (#1591)
+## Threshold and status encoding
 
-- **Level carried by color must also carry a glyph and text (WCAG 1.4.1).** The analytics heatmap (`AnalyticsView`) gives every cell a distinct-shaped `aria-hidden` glyph (`▲` High, `◆` Warning, `●` OK) plus `sr-only` level text, and renders a `Heatmap legend` list under the table. Do not rely on hue or alpha alone for any threshold, health, or status display.
+- **Level carried by color must also carry a glyph and text (WCAG 1.4.1).** The analytics heatmap (`AnalyticsView`) gives every cell a distinct-shaped `aria-hidden` glyph (`▲` High, `◆` Warning, `●` OK, each followed by the text variation selector `U+FE0E` so it never renders as emoji) plus `sr-only` level text, and renders a `Heatmap legend` list (`text-xs text-fg-muted`, outside the scroll wrapper, above the footnote). Do not rely on hue or alpha alone for any threshold, health, or status display.
+- **Reconciling with #969 ("none of them a font glyph").** That rule governs magnitude ramps, where glyph advance width and baseline would distort step size. This is a threshold/health display, not a magnitude ramp, so text-variation-selector glyphs paired with text are acceptable here.
