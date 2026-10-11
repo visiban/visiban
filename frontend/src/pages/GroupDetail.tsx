@@ -1051,7 +1051,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     // Only four on-tint families exist, so urgent shares high's red and is set apart
                     // by a full-strength border; the label text carries the rest.
                     const colorMap: Record<Priority, string> = {
-                      low: "bg-success/20 border-success/60 text-success-on-tint",
+                      low: "bg-info/20 border-info/60 text-info-on-tint",
                       medium: "bg-warning/20 border-warning/60 text-warning-on-tint",
                       high: "bg-danger/20 border-danger/60 text-danger-on-tint",
                       urgent: "bg-danger/20 border-danger text-danger-on-tint font-semibold",
@@ -1060,6 +1060,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       <button
                         key={p}
                         onClick={() => handleTogglePriority(p)}
+                        aria-pressed={active}
                         className={`px-3 py-1 rounded border text-xs font-medium transition capitalize focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                           active
                             ? colorMap[p]

@@ -918,14 +918,14 @@ describe('GroupDetail', () => {
       await loadAndSwitchToSettings()
       await screen.findByText('Board defaults')
       const expected: Record<string, string> = {
-        low: 'text-success-on-tint', medium: 'text-warning-on-tint',
+        low: 'text-info-on-tint', medium: 'text-warning-on-tint',
         high: 'text-danger-on-tint', urgent: 'text-danger-on-tint',
       }
       for (const [name, textClass] of Object.entries(expected)) {
         const btn = screen.getByRole('button', { name })
         expect(btn).toHaveClass(textClass, 'focus:ring-2')
-        expect(btn.className).toMatch(/bg-(success|warning|danger)\/20/)
-        expect(btn.className).not.toMatch(/bg-(success|warning|danger)\/(50|60)/)
+        expect(btn.className).toMatch(/bg-(info|warning|danger)\/20/)
+        expect(btn.className).not.toMatch(/bg-(info|warning|danger)\/(50|60)/)
       }
     })
 
@@ -935,6 +935,7 @@ describe('GroupDetail', () => {
       const medium = screen.getByRole('button', { name: 'medium' })
       const high = screen.getByRole('button', { name: 'high' })
       const urgent = screen.getByRole('button', { name: 'urgent' })
+      expect(medium).toHaveAttribute('aria-pressed', 'true')
       expect(medium).toHaveClass('bg-warning/20', 'border-warning/60')
       expect(high).toHaveClass('bg-danger/20', 'border-danger/60')
       expect(high).not.toHaveClass('bg-warning/20')
