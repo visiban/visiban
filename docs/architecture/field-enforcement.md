@@ -52,7 +52,7 @@ Classified from a review of the code on 2026-10-04; see the tracking issues for 
 | `SiteSetting.uploads_enabled` | Card attachment upload (`boards/views/cards.py`) | Scoped to attachments, as its description says. Board import (JSON, CSV, Trello) also takes a multipart file and does not consult it |
 | `SiteSetting.maintenance_mode` | `MaintenanceModeMiddleware`, plus `_require_maintenance_off()` for `/mcp` | — |
 | `User.is_site_admin` | `IsSiteAdmin` in `accounts/permissions.py`, which gates `/api/admin/*`; also exempts the user from the maintenance-mode write block | Binding only for the admin surface. It does **not** grant board or group access (`boards/permissions.py` `get_board_role`); that is `can_access_all_content` |
-| `User.is_superuser`, `User.is_staff` | Django built-ins, not exposed by any API serializer | `is_staff` gates only the Django admin site. Setting `is_superuser` also sets `is_site_admin` (`accounts/signals.py`) |
+| `User.is_superuser`, `User.is_staff` | Django built-ins, not exposed by any API serializer | `is_staff` gates only the Django admin site. `is_superuser`, `is_site_admin` and `can_access_all_content` are kept consistent when superuser status changes: granting superuser sets both derived flags, and removing it clears both (`accounts/signals.py`) |
 | `User.can_access_all_content` | Board and group access helpers, WebSocket consumer, MCP tools | — |
 | `User.notif_*`, `User.email_notif_*` | Notification dispatch (`boards/notifications_email.py`, `boards/signals.py`, the `notify_*` management commands) | — |
 | `InviteLink.expires_at`, `single_use`, `revoked_at` | `accounts/invite_utils.py`, consumed atomically at registration | — |

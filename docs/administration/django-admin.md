@@ -37,7 +37,7 @@ Clearing **Active** on a user deletes their Personal Access Tokens and revokes t
 
 ## What you can manage
 
-- **Users** — view/edit all user accounts, activate or deactivate accounts, set `is_staff` and `is_superuser` (the form does not carry `is_site_admin` or `must_change_password`; use the site-admin panel or `set_site_admin` for those)
+- **Users** — view/edit all user accounts, activate or deactivate accounts, set `is_staff` and `is_superuser` (the form does not carry `is_site_admin` or `must_change_password`; use the site-admin panel or `set_site_admin` for those). Only a superuser can change `is_superuser`. Removing it also removes the account's site-admin and all-content access; site admin can then be granted again explicitly.
 - **Site settings** — instance-wide configuration (registration mode, file uploads, [maintenance mode](maintenance-mode.md)); clicking the entry goes directly to the settings form — there is always exactly one row
 - **Boards, columns, swimlanes** — direct database access for debugging
 - **Group memberships** — view and correct membership records
