@@ -3965,7 +3965,7 @@ pipeline schedule, and what to do when the nightly run breaks), see the
 </tr>
 </tbody>
 </table>
-<p><code>sonar:scan</code> runs on the <strong>Nightly</strong> pipeline schedule (05:00 UTC), never on MR or push
+<p><code>sonar:scan</code> runs on the <strong>Nightly</strong> pipeline schedule (03:00 ET), never on MR or push
 pipelines, so day-to-day pipeline time is unchanged. It is <code>allow_failure: true</code>: a SonarCloud
 or network problem shows as a yellow job in an otherwise green pipeline and does not turn the
 nightly red. It also does not wait for SonarCloud to finish computing the quality gate
