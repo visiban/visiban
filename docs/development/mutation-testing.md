@@ -1,7 +1,7 @@
 # Mutation Testing Baseline
 
-!!! note "Baseline is manual; a nightly CI job also runs"
-    The numbers below are a **manual** baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a CI job, `backend-mutation`, runs every one of these modules on the Nightly schedule, publishes a score artifact and gates the merged score at 90%. During its observation week it is `allow_failure: true`, so it does not fail a pipeline yet. See [Nightly CI job](#nightly-ci-job-backend-mutation).
+!!! note "Baseline is manual; a weekly CI job also runs"
+    The numbers below are a **manual** baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a CI job, `backend-mutation`, runs every one of these modules on the Weekly mutation testing schedule (Sundays, 06:00 ET), publishes a score artifact and gates the merged score at 90%. Until the follow-up on #1384 it is `allow_failure: true`, so it does not fail a pipeline yet. See [Weekly CI job](#weekly-ci-job-backend-mutation).
 
 Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong. A tool makes one small change at a time (flip `==` to `!=`, change a string, replace a value with `None`), runs the tests, and counts the change as **killed** if a test fails or **survived** if every test still passes. The kill rate is `killed / (killed + survived)`.
 
@@ -348,7 +348,7 @@ Sum the survivors over the 8 copies (`select count(*) from Mutant where status='
 Some modules cannot reach the target by tests alone. A survivor that no test can kill is an **equivalent mutant** (bucket two in [Survivor classification](#survivor-classification)). Without a rule, a floor either demands brittle tests of Django `_meta` internals or sits permanently below target. The rule:
 
 - **Two numbers per module.** The **adjusted** score leaves out the mutants proven equivalent. The **raw** score keeps them in the denominator, as not detected. Both are printed by `scripts/check_mutation_score.py` and both are in the `mutmut-cicd-stats.json` artifact (`score_adjusted`, `score_raw`, `excluded`), so an exclusion is always visible.
-- **The floor gates the adjusted number.** `MUTATION_MIN` ([Nightly CI job](#nightly-ci-job-backend-mutation)) is compared with the merged adjusted score. A low raw score is reported, never failed.
+- **The floor gates the adjusted number.** `MUTATION_MIN` ([Weekly CI job](#weekly-ci-job-backend-mutation)) is compared with the merged adjusted score. A low raw score is reported, never failed.
 - **An exclusion is a comment in the source, with a reason.** Put `# pragma: no mutate -- <reason>` on the line. A pragma with no `-- <reason>` (at least 10 characters) is rejected by `python3 scripts/check_mutation_score.py --check-pragmas backend`, which the `mutation-score-selftest` CI job runs on every MR that touches backend Python.
 - **A claim that SQLite cannot observe the mutant is excluded only with a PostgreSQL note.** That is a gap in the test setup, not a property of the code, so the reason must also say that a PostgreSQL test could kill it (the checker rejects a reason that names SQLite but not PostgreSQL). The exception is a mutant for which a PostgreSQL test is already **planned or filed**: it is not excluded and stays a survivor until that test lands. The `select_for_update` guards were that case (#1504, since merged: the guard conditions turned out to be killed on SQLite). One rule, three places: here, the triage question in [How to read the results](#how-to-read-the-results), and the checker.
 - **"Schema constant guarded by `migration-check`" is its own category, not an equivalence claim.** A change to `max_length`, `blank`, `db_index` or `related_name` can be observable (a `blank` flip changes model validation and the admin change form; `max_length` changes the form field). It is excluded because CI `migration-check` fails on any drift from the migrations, which is a stronger guard than a test of Django `_meta`, not because no caller could see it. The pragma reason says `schema constant (migration-check)` for exactly this.
@@ -398,9 +398,9 @@ Two patterns recur in this codebase. A string-literal mutant that adds `XX` arou
 
 For the assertion patterns that kill these mutants, with examples, see [Writing tests that catch mutations](testing.md#writing-tests-that-catch-mutations).
 
-## Nightly CI job (`backend-mutation`)
+## Weekly CI job (`backend-mutation`)
 
-Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`. It runs on the Nightly schedule only (`MUTATION_TEST=true`, never on an MR or a `main` push) and covers **every module with a manual baseline on this page**. The report job gates the **merged adjusted** score at **90%** (`MUTATION_MIN=0.90`). For an observation week both jobs stay `allow_failure: true`, so a score under the floor is a yellow job, not a red pipeline; a follow-up makes `backend-mutation-report` blocking.
+Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`. It runs on the Weekly mutation testing schedule only (`MUTATION_TEST=true`, never on an MR or a `main` push; it started on the Nightly schedule and moved to its own weekly one after a manual run measured the cost, see [Runner load](#runner-load)) and covers **every module with a manual baseline on this page**. The report job gates the **merged adjusted** score at **90%** (`MUTATION_MIN=0.90`). Until the follow-up on #1384 both jobs stay `allow_failure: true`, so a score under the floor is a yellow job, not a red pipeline; a follow-up makes `backend-mutation-report` blocking.
 
 The job started as a one-module pilot on `boards/permissions.py` (!1176) and was widened to all baselined modules by #1384.
 
@@ -444,13 +444,15 @@ The shard total is capped at 50: `backend-mutation-report` `needs:` every shard,
 
 #### Runner load
 
-The run costs about 1270 runner-minutes of mutants plus about 220 of setup (44 x 5), roughly **25 runner-hours a night**. As of 2026-10-08 only three self-hosted runners that take untagged jobs are online (two NUCs and the Dell, [CI runners](../maintainers/ci-runners.md)); at, say, two jobs per runner at a time (6 slots) the run takes about 1493 / 6 = 250 minutes, about 4.2 hours, or about 4.7 hours counting 8 waves of the ~35-minute jobs. A run that starts at 05:00 UTC holds the runners until about 09:45 UTC and overlaps the morning's MR and `main` pipelines, which queue behind it. The jobs carry no `tags:`: [CI runners](../maintainers/ci-runners.md) has no pin convention for heavy scheduled jobs (`nuc` is reserved for the latency-sensitive load test, and pinning 44 jobs to two NUCs would only lengthen the queue), so like every untagged job they can also be picked up by a GitLab SaaS runner if one is available to the project. Watch the queue during the observation week. If the overlap hurts, the cheapest fix is a separate weekly schedule (for example Saturday 05:00 UTC) carrying `MUTATION_TEST=true` instead of the Nightly one; that is a schedule change for a maintainer, and `schedule-config-check` needs the variable on whichever schedule runs it.
+The run costs about 1270 runner-minutes of mutants plus about 220 of setup (44 x 5) by the estimate, roughly 25 runner-hours. **Measured** on 2026-10-10 (a manual play of the mutation schedule, pipeline 2933313351, all 44 shards and the report green): the 44 shards took 1181 runner-minutes in total, between 6.5 and 39.5 minutes each (mean 26.8) on five self-hosted runners, and the whole 100-job pipeline took 1 h 17 min wall clock. The estimate was therefore about 20 percent high, and the slowest shard (39.5 min) is well under `timeout: 60m`. The report job printed a merged adjusted score of 96.1% (raw 94.6%; `import_export` 95.6%, `cards` 96.7%), above the 90% floor.
+
+That is too much to share a night with the other scheduled jobs, so mutation testing has its own **Weekly mutation testing** schedule (4485984, `MUTATION_TEST=true`, Sundays 06:00 `America/New_York`) and the Nightly schedule no longer carries the variable. A scheduled pipeline on `main` runs the whole pipeline, so each weekly run also runs the ordinary `main` jobs; the Nightly jobs (the schedule-gated scans and the deep fuzz) stay on the Nightly schedule. The schedules sit in the 00:00 to 07:00 ET window at least 90 minutes apart, and clear of the TruePPM project's schedules, so the runners they share are not asked for two heavy runs at once. See [CI gates](ci-gates.md) for the full schedule table. The jobs carry no `tags:`: [CI runners](../maintainers/ci-runners.md) has no pin convention for heavy scheduled jobs (`nuc` is reserved for the latency-sensitive load test, and pinning 44 jobs to two NUCs would only lengthen the queue), so like every untagged job they can also be picked up by a GitLab SaaS runner if one is available to the project. `schedule-config-check` needs `MUTATION_TEST=true` on whichever schedule runs the job.
 
 `--reuse-db` keeps pytest-django from creating the PostgreSQL test database and replaying every migration for each mutant. The schema comes from the migration files, which no mutant touches, so reusing it cannot change a verdict.
 
 ### Expected score
 
-From the manual baselines (SQLite; CI runs on PostgreSQL, so the first nightly may differ):
+From the manual baselines (SQLite; CI runs on PostgreSQL, so the first scheduled run may differ):
 
 | Target | Killed / scored (adjusted) | Raw (pragma'd counted as not detected) | Source |
 |---|---:|---:|---|
@@ -478,8 +480,8 @@ About 145 `import_export` mutants (1780 now against 1635 measured) belong to cod
 
 ### Maintainer steps and what comes next
 
-1. Done: the Nightly schedule (4176726) carries `MUTATION_TEST=true`, and `MUTATION_TEST` is no longer in `SCHEDULE_AUDIT_ACCEPTED_GAPS` (the list is empty). A nightly that runs before the #1384 nightly-targets MR merges runs `main`'s old 4-shard `permissions.py` pilot, which exits 2 (not measured) on the mutmut phantom row described above; that is expected and stops once the MR merges.
-2. Observation week: read each night's `backend-mutation-report` log (per-target lines and the merged score) and the shard durations. Resize shards in `TARGETS` (and `parallel:`) if any shard runs near the timeout.
+1. Done: the **Weekly mutation testing** schedule (4485984, Sundays 06:00 ET) carries `MUTATION_TEST=true`, and `MUTATION_TEST` is no longer on the Nightly schedule (4176726) nor in `SCHEDULE_AUDIT_ACCEPTED_GAPS` (the list is empty). It was first proven by a manual play of the schedule on 2026-10-10: all 44 shards and the report passed, merged adjusted score 96.1%. The Nightly run at 05:06 UTC that day, before the nightly-targets MR had merged, ran `main`'s old 4-shard `permissions.py` pilot, whose report exits 2 (not measured) on the mutmut phantom row described above; that was expected and ended when the MR merged.
+2. Observation: read each scheduled run's `backend-mutation-report` log (per-target lines and the merged score) and the shard durations. Resize shards in `TARGETS` (and `parallel:`) if any shard runs near the timeout. The slowest shard in the manual run was 39.5 min.
 3. Follow-up MR on #1384, the only remaining step: set `allow_failure: false` on `backend-mutation-report` (keep it on the shard jobs, whose verdict the report already judges) and record the observed scores here. #1384 stays open until then.
 4. Triage survivors as described in [How to read the results](#how-to-read-the-results).
 
