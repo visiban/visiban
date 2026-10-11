@@ -1165,7 +1165,7 @@ describe('BoardView', () => {
       render(<BoardView {...defaultProps()} />)
       const badge = screen.getByText('Beta')
       expect(badge.className).toContain('bg-warning/20')
-      expect(badge.className).toContain('text-warning')
+      expect(badge.className).toContain('text-warning-on-tint')
     })
 
     it('badge has active amber classes when Analytics IS the active tab', () => {
@@ -1173,7 +1173,7 @@ describe('BoardView', () => {
       render(<BoardView {...defaultProps()} />)
       const badge = screen.getByText('Beta')
       expect(badge.className).toContain('bg-warning/30')
-      expect(badge.className).toContain('text-warning')
+      expect(badge.className).toContain('text-warning-on-tint')
     })
   })
 

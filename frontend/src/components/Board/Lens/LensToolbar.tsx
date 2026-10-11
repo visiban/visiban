@@ -149,7 +149,7 @@ export default function LensToolbar({
           type="button"
           onClick={onToggleFilters}
           className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
+            showFilters ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
           }`}
           aria-pressed={showFilters || activeCount > 0}
           aria-keyshortcuts="f"
@@ -172,7 +172,7 @@ export default function LensToolbar({
           aria-label={layoutLabel}
           aria-keyshortcuts={formatShortcut({ mod: true, shift: true, key: "L" })}
           className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            cardLayout === "compact" ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
+            cardLayout === "compact" ? "text-info-on-tint bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
           }`}
         >
           {cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon}

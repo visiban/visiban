@@ -276,7 +276,7 @@ export default function OverflowMenu({
         title={ariaLabel}
         className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           open
-            ? "text-info bg-info/10"
+            ? "text-info-on-tint bg-info/10"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
         }`}
       >

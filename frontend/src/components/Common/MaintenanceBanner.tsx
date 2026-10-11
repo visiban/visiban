@@ -27,7 +27,7 @@ export function MaintenanceBanner({ message, isSiteAdmin }: MaintenanceBannerPro
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className="bg-warning/10 border-b border-warning/30 px-4 py-2 flex items-center gap-3 text-sm text-warning shrink-0"
+      className="bg-warning/10 border-b border-warning/30 px-4 py-2 flex items-center gap-3 text-sm text-warning-on-tint shrink-0"
     >
       {/* The canonical amber-severity glyph, same as ColumnHeader,
           MoveBlockedToast and LensProvenanceBanner. A bespoke SVG triangle

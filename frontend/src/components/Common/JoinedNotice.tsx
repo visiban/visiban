@@ -7,11 +7,11 @@ import type { ReactNode } from "react";
  */
 export default function JoinedNotice({ children, onDismiss }: { children: ReactNode; onDismiss: () => void }) {
   return (
-    <div role="status" className="flex items-center justify-between gap-3 px-4 py-2.5 bg-success/60 border-b border-success/50 text-success text-sm">
+    <div role="status" className="flex items-center justify-between gap-3 px-4 py-2.5 bg-success/20 border-b border-success/50 text-success-on-tint text-sm">
       <span>{children}</span>
       <button
         onClick={onDismiss}
-        className="text-success hover:text-success transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+        className="text-success-on-tint hover:text-success-on-tint transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
         aria-label="Dismiss notification"
       >
         ×

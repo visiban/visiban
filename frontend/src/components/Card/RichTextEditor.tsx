@@ -578,7 +578,7 @@ export default function RichTextEditor({
           "[&_.tiptap_blockquote]:border-l-2 [&_.tiptap_blockquote]:border-line-strong [&_.tiptap_blockquote]:pl-3 [&_.tiptap_blockquote]:text-fg-tertiary [&_.tiptap_blockquote]:mb-2",
           "[&_.tiptap_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_.is-editor-empty:first-child::before]:text-fg-muted [&_.tiptap_.is-editor-empty:first-child::before]:italic [&_.tiptap_.is-editor-empty:first-child::before]:float-left [&_.tiptap_.is-editor-empty:first-child::before]:pointer-events-none",
           // Mention chips in the editor
-          "[&_.mention]:bg-info/20 [&_.mention]:text-info [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium",
+          "[&_.mention]:bg-info/20 [&_.mention]:text-info-on-tint [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium",
         ].join(" ")}
       />
 

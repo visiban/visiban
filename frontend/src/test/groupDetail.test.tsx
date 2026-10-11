@@ -914,6 +914,21 @@ describe('GroupDetail', () => {
       expect(screen.getByRole('button', { name: /urgent/i })).toBeInTheDocument()
     })
 
+    it('active priority toggles use /20 tints with on-tint text and a focus ring (#1550)', async () => {
+      await loadAndSwitchToSettings()
+      await screen.findByText('Board defaults')
+      const expected: Record<string, string> = {
+        low: 'text-success-on-tint', medium: 'text-warning-on-tint',
+        high: 'text-warning-on-tint', urgent: 'text-danger-on-tint',
+      }
+      for (const [name, textClass] of Object.entries(expected)) {
+        const btn = screen.getByRole('button', { name })
+        expect(btn).toHaveClass(textClass, 'focus:ring-2')
+        expect(btn.className).toMatch(/bg-(success|warning|danger)\/20/)
+        expect(btn.className).not.toMatch(/bg-(success|warning|danger)\/(50|60)/)
+      }
+    })
+
     it('toggling a priority button calls updateGroupBoardDefaults', async () => {
       mockUpdateGroupBoardDefaults.mockResolvedValue({
         ...fakeGroup,
