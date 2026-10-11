@@ -357,6 +357,12 @@ class CardWriteVsDeleteLockTests(TransactionTestCase):
     def test_checklist_patch_then_delete(self):
         self._write_then_delete("checklist_patch", "boards.views._helpers._card_queryset", 200)
 
+    def test_checklist_delete_after_delete_returns_404(self):
+        self._delete_then_write("checklist_delete")
+
+    def test_checklist_delete_then_delete(self):
+        self._write_then_delete("checklist_delete", "boards.views._helpers._card_queryset", 204)
+
     # -- archive / unarchive ------------------------------------------------
 
     def test_archive_after_delete_returns_404(self):

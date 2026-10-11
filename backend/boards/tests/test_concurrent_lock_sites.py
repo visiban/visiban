@@ -32,7 +32,12 @@ in ``views/invites.py`` (consume-once invite redemption) by
 ``test_board_invite_races.py``; ``services/cards.py`` ``lock_card_row`` /
 ``lock_card_cell_entry`` and their callers in ``admin.py``
 (``CardAdminForm.clean``, ``CardAdmin.save_model``) by
-``test_admin_card_cell_entry_race.py`` (#1588).
+``test_admin_card_cell_entry_race.py`` (#1588); ``services/cards.py``
+``lock_card_for_write`` (#1587) and its callers — ``update_card``,
+``archive_card``, ``unarchive_card``, and in ``views/cards.py`` the comment,
+checklist-item and attachment POSTs and checklist-item PATCH/DELETE — plus
+``lock_card_row`` in ``delete_card`` and the URL-card check on the
+``relations`` card-row lock, by ``test_card_write_vs_delete_lock.py``.
 
 ``ConcurrentCardCreationTests`` in ``test_concurrent_moves.py`` only creates
 cards sequentially and passes even with the ``create_card`` lock removed;
