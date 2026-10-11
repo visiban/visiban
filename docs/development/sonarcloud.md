@@ -19,7 +19,7 @@ pipeline schedule, and what to do when the nightly run breaks), see the
 | `lint:sonar-exclusions` | `.gitlab-ci.yml`, `lint` stage | MRs that touch `sonar-project.properties`, `scripts/check-sonar-exclusions.sh`, or the CI file; also `main` |
 | `sonar:rules-check` | `.gitlab-ci.yml`, `security` stage | Scheduled pipelines only, when the schedule sets `SONAR_SCHEDULED=true`; advisory (`allow_failure`) |
 
-`sonar:scan` runs on the **Nightly** pipeline schedule (05:00 UTC), never on MR or push
+`sonar:scan` runs on the **Nightly** pipeline schedule (03:00 ET), never on MR or push
 pipelines, so day-to-day pipeline time is unchanged. It is `allow_failure: true`: a SonarCloud
 or network problem shows as a yellow job in an otherwise green pipeline and does not turn the
 nightly red. It also does not wait for SonarCloud to finish computing the quality gate

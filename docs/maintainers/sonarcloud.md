@@ -13,7 +13,7 @@ SonarCloud organization `visiban`, project key `visiban_visiban`
 |---|---|
 | Job | `sonar:scan` (`.gitlab-ci.yml`, `security` stage), `allow_failure: true` |
 | Trigger | A scheduled pipeline whose variables include `SONAR_SCHEDULED=true` |
-| Schedule | The **Nightly (CVE/OSV, Sonar, deep fuzz, kaizen)** schedule, cron `0 5 * * *` (05:00 UTC), target branch `main` |
+| Schedule | The **Nightly (CVE/OSV, Sonar, deep fuzz, kaizen)** schedule, cron `0 3 * * *` in `America/New_York` (03:00 ET), target branch `main` |
 | Schedule variable | `SONAR_SCHEDULED=true` |
 | Credential | `SONAR_TOKEN`, a masked, protected GitLab CI/CD variable |
 | Token owner | **TBD.** Not recorded anywhere in this repository; see [below](#sonar_token) |
@@ -84,7 +84,7 @@ what each schedule runs is in [CI Gate Self-Tests](../development/ci-gates.md).
 | Field | Value |
 |---|---|
 | Description | `Nightly (CVE/OSV, Sonar, deep fuzz, kaizen)` |
-| Interval pattern | Custom: `0 5 * * *` |
+| Interval pattern | Custom: `0 3 * * *` (time zone `America/New_York`) |
 | Cron timezone | `UTC` |
 | Target branch | `main` |
 | Variables (type: Variable) | `CVE_SCAN=true`, `OSV_SCAN=true`, `SONAR_SCHEDULED=true`, `FUZZ_DEEP=true`, `KAIZEN_YIELD_WATCH=true` |

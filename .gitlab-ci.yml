@@ -486,9 +486,9 @@ security-deferred-verdict-selftest:
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #
-# scripts/check_mutation_score.py judges the nightly backend-mutation job, and
-# that job runs only on the Nightly schedule with MUTATION_TEST=true, so its
-# --self-test there would catch a broken checker a night late, and never while
+# scripts/check_mutation_score.py judges the weekly backend-mutation job, and
+# that job runs only on the Weekly mutation testing schedule with
+# MUTATION_TEST=true, so its --self-test there would catch a broken checker a week late, and never while
 # the schedule lacks the variable. This runs the same self-test on MRs that
 # touch the script or the CI file (#1093 house rule), and on main. It also runs
 # --check-pragmas over backend/ (#1503): a `# pragma: no mutate` with no
@@ -1276,13 +1276,14 @@ backend-schema-fuzz-deep:
         echo "backend-schema-fuzz-deep failed before the fuzz ran (setup, the filer self-test, or seed resolution); not filing a schema-fuzz issue."
       fi
 
-# ─── Backend mutation testing, nightly (#1384) ───────────────────────────────
+# ─── Backend mutation testing, weekly (#1384) ───────────────────────────────
 #
 # Coverage proves a line ran under test; mutation testing proves the suite would
 # FAIL if the line were wrong. Ported from TruePPM's `api:mutation` (#4266) /
 # `scheduler:mutation` (#2282).
 #
-# Schedule-only (MUTATION_TEST=true on the Nightly schedule, 4176726); it cannot
+# Schedule-only (MUTATION_TEST=true on the Weekly mutation testing schedule,
+# 4485984, Sundays 06:00 America/New_York); it cannot
 # run on an MR or a main push, its only rule is the schedule rule. Targets: every
 # module with a manual baseline in docs/development/mutation-testing.md:
 # boards/permissions.py, boards/services/cards.py, the CardMovement class of
@@ -1299,12 +1300,11 @@ backend-schema-fuzz-deep:
 # per job, so `timeout: 60m` is ~1.7x the slowest estimate. At most 50 shards
 # (GitLab's `needs:` cap for the report; the self-test enforces it).
 #
-# LOAD: ~25 runner-hours a night (44 jobs). With three untagged self-hosted
-# runners online (docs/maintainers/ci-runners.md) a 05:00 UTC run holds them
-# until late morning and overlaps MR pipelines; untagged, the jobs can also land
-# on a SaaS runner. No tag pin (none fits; `nuc` is for the load test). If the
-# overlap hurts, move MUTATION_TEST to a separate weekly schedule (a maintainer
-# change); see mutation-testing.md "Runner load".
+# LOAD: measured 2026-10-10 (manual play of the schedule): 44 jobs, 1181
+# runner-minutes, slowest shard 39.5 min, 1 h 17 min wall clock for the whole
+# pipeline. That is too much for the Nightly schedule, so it has its own weekly
+# one; untagged, the jobs can also land on a SaaS runner. No tag pin (none fits;
+# `nuc` is for the load test). See mutation-testing.md "Runner load".
 #
 # FLOOR: backend-mutation-report fails (exit 1) when the MERGED adjusted score
 # over all targets is under MUTATION_MIN (0.90, #1384, chosen by the maintainer
@@ -4388,17 +4388,14 @@ docs-deploy:
 # The schedule itself is configured in GitLab: CI/CD → Schedules (schedule id
 # 4176726, formerly "Weekly CVE scan"):
 #   Description : Nightly (CVE/OSV, Sonar, deep fuzz, kaizen)
-#   Interval    : 0 5 * * *  (daily 05:00 UTC, two hours after the load test)
+#   Interval    : 0 3 * * *  (daily 03:00 America/New_York, three hours after the load test)
 #   Target branch: main
 #   Variables   : CVE_SCAN=true OSV_SCAN=true SONAR_SCHEDULED=true
-#                 FUZZ_DEEP=true KAIZEN_YIELD_WATCH=true MUTATION_TEST=true
-#                 (MUTATION_TEST added by hand for #1384; with the #1384
-#                 nightly-targets MR merged it runs backend-mutation's 44 shards,
-#                 about 25 runner-hours a night by the estimate in
-#                 mutation-testing.md. Before that MR merges it runs main's old
-#                 4-shard permissions pilot, which exits 2 on mutmut's phantom row)
-# nightly-load-test keeps its own 03:00 schedule (LOAD_TEST_SCHEDULE=true):
-# its latency budgets are noisy on a busy runner. The full schedule table, and
+#                 FUZZ_DEEP=true KAIZEN_YIELD_WATCH=true
+# backend-mutation keeps its own weekly schedule (4485984, Sundays 06:00
+# America/New_York, MUTATION_TEST=true): 44 shards are too heavy for the Nightly.
+# nightly-load-test keeps its own 00:00 America/New_York schedule
+# (LOAD_TEST_SCHEDULE=true): its latency budgets are noisy on a busy runner. The full schedule table, and
 # what red means for each job, is in docs/development/ci-gates.md.
 #
 # ─── Scheduled branch cleanup ─────────────────────────────────────────────────
@@ -4636,7 +4633,7 @@ nightly-load-test:
 # audit found and filed as #1232 — a documented, temporary exception (same shape as
 # check-release-images' ACCEPTED_GAPS), not a way to quiet this gate
 # permanently. #1232's entries are all resolved, and MUTATION_TEST (#1384), the
-# last temporary entry, was removed once the Nightly schedule carried it, so the
+# last temporary entry, was removed once a schedule carried it, so the
 # list is empty (the script's default) and every schedule-gated variable must
 # be on an active schedule.
 schedule-config-check:
