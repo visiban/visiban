@@ -365,13 +365,13 @@ describe('AnalyticsView', () => {
   it('carries threshold level by icon and text, not color alone (#1591)', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
-      columns: ['Backlog', 'In Progress', 'Review', 'Done'],
+      columns: ['Backlog', 'In Progress', 'Review', 'Blocked', 'Done'],
       swimlanes: [
         {
           id: 1, name: 'Acme Corp',
-          avg_days_per_column: { 'Backlog': 1, 'In Progress': 8, 'Review': 15, 'Done': null },
+          avg_days_per_column: { 'Backlog': 1, 'In Progress': 8, 'Review': 15, 'Blocked': null, 'Done': null },
           is_outlier: {},
-          age_avg_days_per_column: { 'Backlog': 1, 'In Progress': 8, 'Review': 15, 'Done': null },
+          age_avg_days_per_column: { 'Backlog': 1, 'In Progress': 8, 'Review': 15, 'Blocked': null, 'Done': null },
           age_is_outlier: {},
           deal_velocity_days: 10,
           stalled_cards: [],
@@ -393,6 +393,11 @@ describe('AnalyticsView', () => {
     expect(byText('8d')).toHaveTextContent('◆')
     expect(byText('15d')).toHaveTextContent('High')
     expect(byText('15d')).toHaveTextContent('▲')
+
+    // Null cell in an active (non-done) column: dash only, no marker or level text
+    const nullCells = cells.filter(c => c.textContent === '—')
+    expect(nullCells.length).toBeGreaterThanOrEqual(2)
+    nullCells.forEach(c => expect(c.textContent).not.toMatch(/[▲◆●]|High|Warning|OK/))
 
     const legend = screen.getByRole('list', { name: 'Heatmap legend' })
     expect(within(legend).getByText(/High: At or over threshold/)).toBeInTheDocument()
