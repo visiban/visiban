@@ -77,6 +77,13 @@ def _is_logged_in(client):
     return "_auth_user_id" in client.session
 
 
+def _token_authenticates(key):
+    """True if *key* still authenticates as a DRF auth ``Token``."""
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Token {key}")
+    return client.get("/api/v1/auth/me/").status_code == 200
+
+
 def _session_is_valid(client):
     """True if the client's session still authenticates (password hash unchanged)."""
     return client.get("/api/v1/auth/me/").status_code == 200
@@ -456,8 +463,9 @@ class AllauthFinalizationTests(TestCase):
     def setUp(self):
         cache.clear()
 
-    def test_password_change_revokes_pats_and_keeps_the_session(self):
+    def test_password_change_revokes_pats_and_token_and_keeps_the_session(self):
         user = _with_credentials(_user("changer"))
+        old_key = Token.objects.get(user=user).key
         client = _logged_in(user)
         with mock.patch.object(
             credentials,
@@ -474,15 +482,17 @@ class AllauthFinalizationTests(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.check_password(NEW))
         self.assertEqual(user.personal_access_tokens.count(), 0)
-        # The DRF Token is revoked on reset and admin-set passwords only.
-        self.assertTrue(Token.objects.filter(user=user).exists())
+        # #1553: the DRF Token is revoked; the session keeps the user signed in.
+        self.assertFalse(Token.objects.filter(user=user).exists())
+        self.assertFalse(_token_authenticates(old_key))
         self.assertTrue(_session_is_valid(client))
 
-    def test_password_set_for_a_social_only_account_revokes_pats(self):
+    def test_password_set_for_a_social_only_account_revokes_pats_and_token(self):
         user = _user("social")
         user.set_unusable_password()
         user.save()
         _with_credentials(user)
+        old_key = Token.objects.get(user=user).key
         client = _logged_in(user)
         with mock.patch.object(
             credentials,
@@ -498,6 +508,9 @@ class AllauthFinalizationTests(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.check_password(NEW))
         self.assertEqual(user.personal_access_tokens.count(), 0)
+        self.assertFalse(Token.objects.filter(user=user).exists())
+        self.assertFalse(_token_authenticates(old_key))
+        self.assertTrue(_session_is_valid(client))
 
     def test_reset_by_key_clears_the_flag_and_revokes_pats_and_token(self):
         user = _with_credentials(_user("resetter", must_change_password=True))
@@ -583,7 +596,7 @@ class AllauthFormFinalizationTests(TestCase):
     flag-clearing half of the follow-up is checked on the forms themselves.
     """
 
-    def test_change_form_clears_the_flag_and_revokes_pats(self):
+    def test_change_form_clears_the_flag_and_revokes_pats_and_token(self):
         from accounts.forms import VisibanChangePasswordForm
 
         user = _with_credentials(_user("formchange", must_change_password=True))
@@ -596,8 +609,9 @@ class AllauthFormFinalizationTests(TestCase):
         self.assertTrue(user.check_password(NEW))
         self.assertFalse(user.must_change_password)
         self.assertEqual(user.personal_access_tokens.count(), 0)
+        self.assertFalse(Token.objects.filter(user=user).exists())
 
-    def test_set_form_clears_the_flag_and_revokes_pats(self):
+    def test_set_form_clears_the_flag_and_revokes_pats_and_token(self):
         from accounts.forms import VisibanSetPasswordForm
 
         user = _user("formset", must_change_password=True)
@@ -613,6 +627,7 @@ class AllauthFormFinalizationTests(TestCase):
         self.assertTrue(user.check_password(NEW))
         self.assertFalse(user.must_change_password)
         self.assertEqual(user.personal_access_tokens.count(), 0)
+        self.assertFalse(Token.objects.filter(user=user).exists())
 
 
 class RestResetConfirmFinalizationTests(TestCase):
@@ -801,8 +816,8 @@ class DjangoAdminPasswordTests(TestCase):
         self.staff.refresh_from_db()
         self.assertTrue(self.staff.check_password(NEW))
         self.assertEqual(self.staff.personal_access_tokens.count(), 0)
-        # The DRF Token is revoked on reset and admin-set passwords only.
-        self.assertTrue(Token.objects.filter(user=self.staff).exists())
+        # #1553: a self-service change revokes the DRF Token too.
+        self.assertFalse(Token.objects.filter(user=self.staff).exists())
         self.assertTrue(_session_is_valid(self.client))
 
     def test_get_and_invalid_post_have_no_side_effects(self):

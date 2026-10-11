@@ -71,6 +71,36 @@ class AuthSchemaContractTests(TestCase):
         self.assertEqual(set(body), {"detail"})
         self._assert_valid(body, "/api/v1/auth/password/change/")
 
+    def test_change_password_documents_optional_key(self):
+        """Both password-change routes document `key` as optional (#1562)."""
+        for path in ("/api/v1/auth/change-password/", "/api/v1/auth/password/change/"):
+            with self.subTest(path=path):
+                schema = self.schema["paths"][path]["post"]["responses"]["200"]["content"][
+                    "application/json"
+                ]["schema"]
+                ref = schema["$ref"].rsplit("/", 1)[-1]
+                component = self.schema["components"]["schemas"][ref]
+                self.assertIn("key", component["properties"])
+                self.assertNotIn("key", component.get("required", []))
+                self.assertIn("detail", component.get("required", []))
+
+    def test_change_password_token_caller_response_matches_documented_schema(self):
+        """A Token caller's {"detail", "key"} body validates against the schema."""
+        from rest_framework.authtoken.models import Token
+
+        user = User.objects.create_user(username="tokchanger", password="OldPassword123!")
+        token = Token.objects.create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+
+        resp = self.client.post(
+            "/api/v1/auth/change-password/",
+            {"current_password": "OldPassword123!", "new_password": "BrandNewPassword456!"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        body = resp.json()
+        self.assertEqual(set(body), {"detail", "key"})
+        self._assert_valid(body, "/api/v1/auth/change-password/")
+
     def test_password_reset_response_matches_documented_schema(self):
         """The real response is {"detail": "..."}, never the request's `email`."""
         user = User.objects.create_user(username="pwresetter", email="reset@example.com")

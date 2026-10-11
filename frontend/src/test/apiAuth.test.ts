@@ -76,6 +76,12 @@ describe('auth API', () => {
     expect(result).toEqual({ detail: 'ok' })
   })
 
+  it('changePassword passes through the optional replacement key', async () => {
+    mockPost.mockResolvedValue({ data: { detail: 'ok', key: 'abc' } })
+    const result = await changePassword('old', 'new')
+    expect(result.key).toBe('abc')
+  })
+
   it('getSiteConfig calls GET /api/auth/site-config/', async () => {
     mockGet.mockResolvedValue({ data: { registration_open: false, demo_mode: false, demo_login: null, demo_reset_schedule: null, demo_next_reset_at: null, invite_email_available: false } })
     const result = await getSiteConfig()

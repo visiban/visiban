@@ -222,8 +222,11 @@ class CredentialLivenessTests(TestCase):
         self.assertFalse(ws_credential_is_live(cred, self._fresh()))
 
     def test_drf_token_after_password_change(self):
-        """The token survives a password change on REST, but the socket does not:
-        a password change closes every socket (the recorded auth hash)."""
+        """A password change closes the socket through the recorded auth hash alone.
+
+        ``_change_password`` sets the password directly, without the
+        ``finalize_password_change`` step that revokes the token, so this
+        isolates the auth-hash check from token revocation."""
         token = Token.objects.create(user=self.user)
         cred = _bind(token_credential(token), self.user)
         self._change_password()

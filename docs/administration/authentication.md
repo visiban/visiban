@@ -27,8 +27,11 @@ next time they change it.
 Changing a password — through either `POST /api/v1/auth/change-password/` or
 `POST /api/v1/auth/password/change/` — requires the current password (except for OAuth-only
 accounts setting their first one), revokes all of the user's
-[personal access tokens](../features/personal-access-tokens.md), and clears a pending
-"must change password" flag set by an administrator.
+[personal access tokens](../features/personal-access-tokens.md) and the API token issued at
+login (a caller that authenticated with that token receives a replacement in the response; see
+[API token on password change](../api/authentication.md#api-token-on-password-change)), and
+clears a pending "must change password" flag set by an administrator. The browser session
+stays signed in.
 
 ## Forgot password (self-service password reset)
 

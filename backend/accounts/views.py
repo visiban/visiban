@@ -10,6 +10,8 @@ from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.views import View
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from django.utils.dateparse import parse_datetime
 from allauth.account.adapter import get_adapter
 from allauth.account.app_settings import EMAIL_VERIFICATION, EmailVerificationMethod
@@ -595,6 +597,45 @@ class VerifyEmailView(DjRestAuthVerifyEmailView):
         return super().post(request, *args, **kwargs)
 
 
+def _reissued_auth_token(request) -> dict:
+    """The ``key`` field a REST password change adds for a ``Token`` caller (#1562).
+
+    ``finalize_password_change`` revokes the DRF auth ``Token``. When that
+    ``Token`` is what authenticated this request, the caller would otherwise
+    lose its credential by changing its own password, so a new one is minted
+    in the same transaction and returned as ``key`` (the field name the login
+    response uses). Session and Personal Access Token callers get nothing:
+    the session stays valid through ``update_session_auth_hash``, and a PAT
+    caller's credential is revoked by design. Must run inside the
+    transaction that saved the password.
+    """
+    from rest_framework.authtoken.models import Token
+
+    if isinstance(request.auth, Token):
+        return {"key": credentials.reissue_auth_token(request.user)}
+    return {}
+
+
+# One component shared by both password-change routes so their documented
+# responses cannot drift apart.
+_PASSWORD_CHANGE_RESPONSE = inline_serializer(
+    name="PasswordChangeResponse",
+    fields={
+        "detail": serializers.CharField(),
+        "key": serializers.CharField(
+            required=False,
+            help_text=(
+                "Present only when the request was authenticated with the DRF auth "
+                "token: the replacement token to use from now on."
+            ),
+        ),
+    },
+)
+
+
+# The response can carry a replacement API token (``key``), so it must not be
+# stored by a browser or an intermediate cache (#1562).
+@method_decorator(never_cache, name="dispatch")
 class ChangePasswordView(APIView):
     """Change the authenticated user's password, keeping the session alive afterwards.
 
@@ -604,6 +645,7 @@ class ChangePasswordView(APIView):
 
     permission_classes = [IsAuthenticated, TokenHasScope]
 
+    @extend_schema(responses={200: _PASSWORD_CHANGE_RESPONSE})
     def post(self, request):
         current_password = request.data.get("current_password", "")
         new_password = request.data.get("new_password", "")
@@ -638,10 +680,12 @@ class ChangePasswordView(APIView):
             request.user.set_password(new_password)
             request.user.save(update_fields=["password"])
             finalize_password_change(request.user)
+            body = {"detail": "Password changed successfully."}
+            body.update(_reissued_auth_token(request))
         # Keep the current session alive after the password rotation so the
         # user does not get logged out and left with a broken session state.
         update_session_auth_hash(request, request.user)
-        return Response({"detail": "Password changed successfully."})
+        return Response(body)
 
 
 class ChooseUsernameThrottle(UserRateThrottle):
@@ -969,6 +1013,9 @@ class PersonalAccessTokenDeleteView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+# The response can carry a replacement API token (``key``), so it must not be
+# stored by a browser or an intermediate cache (#1562).
+@method_decorator(never_cache, name="dispatch")
 class TokenRevokingPasswordChangeView(DjRestAuthPasswordChangeView):
     """dj-rest-auth's password change, with the project's token-revocation rule.
 
@@ -992,9 +1039,7 @@ class TokenRevokingPasswordChangeView(DjRestAuthPasswordChangeView):
 
     @extend_schema(
         responses={
-            200: inline_serializer(
-                name="PasswordChangeResponse", fields={"detail": serializers.CharField()}
-            ),
+            200: _PASSWORD_CHANGE_RESPONSE,
         },
     )
     def post(self, request, *args, **kwargs):
@@ -1015,6 +1060,7 @@ class TokenRevokingPasswordChangeView(DjRestAuthPasswordChangeView):
             response = super().post(request, *args, **kwargs)
             if response.status_code == status.HTTP_200_OK:
                 finalize_password_change(request.user)
+                response.data.update(_reissued_auth_token(request))
         return response
 
 
