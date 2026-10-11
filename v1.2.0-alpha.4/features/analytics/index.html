@@ -4042,28 +4042,34 @@
 <thead>
 <tr>
 <th>Color</th>
+<th>Marker</th>
 <th>Condition</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Green</td>
+<td>● OK</td>
 <td>Average dwell time is below the warning boundary</td>
 </tr>
 <tr>
 <td>Yellow</td>
+<td>◆ Warning</td>
 <td>Average is at or above the warning boundary but below the full threshold</td>
 </tr>
 <tr>
 <td>Red</td>
+<td>▲ High</td>
 <td>Average is at or above <code>staleness_threshold_days</code> (outlier / bottleneck)</td>
 </tr>
 <tr>
 <td>Grey / dash</td>
+<td>none</td>
 <td>No data for that swimlane-column combination</td>
 </tr>
 </tbody>
 </table>
+<p>The level is never conveyed by color alone: each colored cell shows its marker next to the value, screen readers announce the level text ("OK", "Warning", "High") after the value, and a legend below the heatmap maps each marker and color to its level.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Both <code>staleness_threshold_days</code> and <code>stale_warning_pct</code> are configurable per board in the board settings modal. Adjusting them changes the heatmap coloring immediately on the next analytics load.</p>
