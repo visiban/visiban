@@ -572,6 +572,12 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None, forc
 
     board_id = card.board_id
     with transaction.atomic():
+        # Card row first (#1587): without it a delete committing between the
+        # caller's read and apply() makes serializer.save()'s UPDATE match no
+        # row, and Django falls back to an INSERT that re-creates the card.
+        # Taken before enforce_column_limits below locks the column, keeping
+        # the card -> column order move_card uses.
+        lock_card_for_write(card.pk)
         # Snapshot before the write so the activity diff can name what changed.
         old_title = card.title
         old_priority = card.priority
@@ -599,7 +605,7 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None, forc
         # a column that is already over its WIP or weight limit — because
         # refusing it would trap a card in a state the edit does not worsen.
         # WIP is not checked: the column holds the same number of cards. The
-        # card row is already locked by the write above, so locking the column
+        # card row is already locked at the top of this block, so locking the column
         # row now keeps the card → column order move_card uses. A refusal
         # raises inside this transaction and rolls the write back.
         if card.weight > old_weight:
@@ -954,6 +960,45 @@ def lock_card_row(card_id):
     )
 
 
+def lock_card_for_write(card_id):
+    """Lock a card row ``FOR NO KEY UPDATE`` for the rest of the caller's
+    transaction, raising ``CardNotFound`` when the row is already gone (#1587).
+
+    Why: a write that targets an existing card — a field update, or a child
+    row (comment, checklist item, attachment, relation, activity) inserted
+    against it — otherwise holds nothing on the card row until commit, so a
+    concurrent hard delete can commit in between:
+
+    * a field update's ``save()`` matches zero rows and Django falls back to
+      an INSERT, re-creating the deleted card under the same pk (minus its
+      children), and clients see ``card.deleted`` then ``card.updated``;
+    * a child insert's foreign key is ``DEFERRABLE INITIALLY DEFERRED`` on
+      PostgreSQL, so the check runs at COMMIT and fails with an
+      ``IntegrityError`` — a 500 after the response had been built.
+
+    Holding the card row closes both: a delete that started first commits
+    before this lock is granted, and the empty result answers 404 before
+    anything is written or broadcast; a delete that starts after waits for
+    this transaction, and its cascade then sees (and removes) the new child
+    rows. ``FOR NO KEY UPDATE`` is enough — DELETE needs ``FOR UPDATE``,
+    which conflicts with it — and it is the mode a plain UPDATE of the row
+    takes anyway.
+
+    Lock order: this is the card row, so it must be taken before any column
+    row the same transaction locks (card -> column, as ``move_card`` and
+    ``lock_card_cell_entry`` do). Must be called inside ``transaction.atomic()``.
+    On SQLite the lock clause is a no-op and only the existence check remains.
+    """
+    found = (
+        Card.objects.filter(pk=card_id)
+        .select_for_update(no_key=True)
+        .values_list("pk", flat=True)
+        .first()
+    )
+    if found is None:
+        raise CardNotFound()
+
+
 def _read_card_for_move(card_id, board):
     """The unlocked read that starts each ``move_card`` attempt."""
     try:
@@ -1272,8 +1317,10 @@ def unarchive_card(
 def delete_card(*, actor, board, card, role=None, render=None, render_many=None):
     """Hard-delete a card.
 
-    Takes the ``Card`` rather than an id because no row lock is needed and the
-    REST adapter already holds the instance.
+    Takes the ``Card`` rather than an id because the REST adapter already holds
+    the instance. The row is still locked (``FOR UPDATE``) inside the
+    transaction before the cascade is collected — see the comment there and
+    ``lock_card_for_write`` (#1587).
 
     Archived cards are rejected, matching the REST behavior (the endpoint's
     queryset excludes them, so it 404s today). A purge path for archived cards
@@ -1290,10 +1337,19 @@ def delete_card(*, actor, board, card, role=None, render=None, render_many=None)
     board_id = card.board_id
     card_uid = card.uid
     card_id = card.pk
-    # Read before the delete: the relation rows CASCADE away with the card, so
-    # after it there is nothing left to tell us whose blocker_count moved (#449).
-    peer_ids = _blocked_peer_ids(card)
     with transaction.atomic():
+        # Lock the card row before collecting its cascade (#1587). A child
+        # writer holding lock_card_for_write() commits first, so the cascade
+        # below sees its new rows and removes them; without the lock the
+        # collector could DELETE the children, the child insert commit, and
+        # this transaction then fail its own deferred FK check at COMMIT.
+        # A card already deleted by a concurrent request answers 404.
+        if lock_card_row(card_id) is None:
+            raise CardNotFound()
+        # Read before the delete: the relation rows CASCADE away with the card, so
+        # after it there is nothing left to tell us whose blocker_count moved (#449).
+        # Read under the lock so a relation committed while we waited counts.
+        peer_ids = _blocked_peer_ids(card)
         card.delete()
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_DELETED, {"card_uid": card_uid}, actor.id)
         _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)

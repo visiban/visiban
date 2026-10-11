@@ -29,7 +29,7 @@ from visiban.permissions import (
 from .. import broadcast as _broadcast
 from ..services import cards as card_services
 from ..services.notifications import card_watcher_ids, create_notifications, quoted_card_verb
-from ..services.errors import CardServiceError
+from ..services.errors import CardNotFound, CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
@@ -1097,6 +1097,9 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer = CardCommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
+            # Hold the card row for the whole write (#1587): a delete that
+            # committed first answers 404 here; one that starts later waits.
+            card_services.lock_card_for_write(card.pk)
             comment = serializer.save(card=card, author=request.user)
             CardActivity.objects.create(
                 card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
@@ -1292,6 +1295,8 @@ class CardViewSet(viewsets.ModelViewSet):
         # default ATOMIC_REQUESTS=False configuration, which can broadcast a
         # partial card state if the serializer raises after the row is saved.
         with transaction.atomic():
+            # Card row lock before the insert (#1587) — see lock_card_for_write.
+            card_services.lock_card_for_write(card.pk)
             attachment = CardAttachment.objects.create(
                 card=card,
                 file=file,
@@ -1410,6 +1415,8 @@ class CardViewSet(viewsets.ModelViewSet):
         # and would defeat the prefetch that was the entire point of the fetch.
         position = len(card.checklist_items.all())
         with transaction.atomic():
+            # Card row lock before the insert (#1587) — see lock_card_for_write.
+            card_services.lock_card_for_write(card.pk)
             item = serializer.save(card=card, position=position, created_by=request.user)
             CardActivity.objects.create(
                 card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
@@ -1448,6 +1455,9 @@ class CardViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You can only edit checklist items you created.")
         if request.method == "DELETE":
             with transaction.atomic():
+                # The activity row is a card-FK insert, same race as a child
+                # create (#1587) — see lock_card_for_write.
+                card_services.lock_card_for_write(card.pk)
                 CardActivity.objects.create(
                     card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DELETED,
                     from_value=item.text, to_value="", actor=request.user,
@@ -1461,6 +1471,8 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer = CardChecklistSerializer(item, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
+            # May insert a card-FK activity row below (#1587).
+            card_services.lock_card_for_write(card.pk)
             serializer.save()
             if "is_checked" in request.data and request.data["is_checked"] != old_checked:
                 checklist_event_type = (
@@ -1698,11 +1710,21 @@ class CardViewSet(viewsets.ModelViewSet):
                     # Not a usable id — the serializer will reject it in a
                     # moment; locking only the card in the URL is enough.
                     pass
-                list(
+                locked_ids = list(
                     Card.objects.select_for_update()
                     .filter(board=board, pk__in=sorted(lock_ids))
                     .order_by("pk")
+                    .values_list("pk", flat=True)
                 )
+                # The card in the URL was deleted after the lookup above
+                # (#1587): answer 404 now rather than insert a relation whose
+                # deferred FK fails at COMMIT. A vanished *target* needs no
+                # check here — the serializer's board-scoped lookup rejects it.
+                if card.pk not in locked_ids:
+                    raise CardNotFound()
+            elif not Card.objects.filter(pk=card.pk).exists():
+                # Same answer on a backend without row locks.
+                raise CardNotFound()
 
             serializer.is_valid(raise_exception=True)
             # from_card/to_card come back resolved and ordered by the

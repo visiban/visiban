@@ -463,6 +463,26 @@ class UpdateCardTests(CrudToolsTestCase):
         card.refresh_from_db()
         self.assertEqual(card.title, "Locked")
 
+    def test_card_deleted_mid_update_is_not_found_not_reinserted(self):
+        """A delete landing between the tool's lookup and the service's write
+        must answer card_not_found, not re-create the card via save()'s
+        INSERT fallback (#1587)."""
+        from unittest.mock import patch
+
+        from boards.services import cards as card_services
+
+        card = _make_card(self.column, self.swimlane, title="Doomed")
+        real_update = card_services.update_card
+
+        def delete_then_update(**kwargs):
+            Card.objects.filter(pk=kwargs["card"].pk).delete()
+            return real_update(**kwargs)
+
+        with patch("mcp_server.tools.card_services.update_card", side_effect=delete_then_update):
+            result = self._call("update_card", self.write_token, card_id=card.id, title="Back?")
+        self.assertEqual(result["error"]["code"], "card_not_found")
+        self.assertFalse(Card.objects.filter(pk=card.pk).exists())
+
 
 class ArchiveCardTests(CrudToolsTestCase):
     def test_archives_card(self):
