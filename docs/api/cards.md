@@ -186,7 +186,7 @@ The following fields are returned for every card object in this endpoint, `POST 
 ```
 
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/`
-Update card fields. Requires member or above.
+Update card fields. Requires member or above. Returns `404 Not Found` if the card was deleted concurrently; nothing is saved.
 
 > **Ownership gate:** Members may only edit cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
@@ -284,7 +284,7 @@ A non-object value (other than `null`) returns
 > `uid` is not patchable — any `uid` value sent in the request body is silently ignored.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/`
-Delete a card. Requires member or above.
+Delete a card. Requires member or above. Returns `404 Not Found` if the card was deleted or archived concurrently; the request has no effect.
 
 > **Ownership gate:** Members may only delete cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
@@ -297,7 +297,7 @@ blocking, whose `blocker_count` drops as a result.
 ## Archive
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/archive/`
-Soft-delete a card. Sets `archived_at` to the current timestamp. The card is removed from the active board view and excluded from WIP/weight counts. **Minimum role: Member.**
+Soft-delete a card. Sets `archived_at` to the current timestamp. The card is removed from the active board view and excluded from WIP/weight counts. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently; nothing is saved.
 
 > **Ownership gate:** Members may only archive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
@@ -308,7 +308,7 @@ If the card is already archived this is a no-op — `200 OK` is returned with th
 Broadcasts `card.archived` to all board WebSocket subscribers. Also broadcasts `card.updated` for every card this one was actively blocking, whose [`blocker_count`](#relations-since-12) changes when it leaves (or rejoins) the board.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/unarchive/`
-Unarchive a card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.**
+Unarchive a card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently; nothing is saved.
 
 > **Ownership gate:** Members may only unarchive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
@@ -733,7 +733,7 @@ blocker does **not** count toward `blocker_count`.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/relations/`
 
-Link this card to another card on the same board. **Minimum role: Member.**
+Link this card to another card on the same board. **Minimum role: Member.** Returns `404 Not Found` if the card in the URL was deleted concurrently; nothing is saved.
 
 One tier stricter than the checklist and comment endpoints, which admit
 collaborators: a relation changes how a *different* card reads for everyone on

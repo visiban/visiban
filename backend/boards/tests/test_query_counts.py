@@ -1557,7 +1557,9 @@ class CardMutationQueryCountTests(TestCase):
     # headroom so the budgets keep catching the *next* regression at the same
     # `measured + 3` tightness.
     BUDGET_CREATE = 39              # measured 36 (was 33 pre-#449, 31 pre-#371)
-    BUDGET_UPDATE = 34              # measured 31 (was 28 pre-#449, 26 pre-#371)
+    # +1 on update (#1587): update_card locks the card row before the write so
+    # a concurrent hard delete cannot be undone by save()'s INSERT fallback.
+    BUDGET_UPDATE = 35              # measured 32 (31 pre-#1587, 28 pre-#449, 26 pre-#371)
     BUDGET_MOVE_COLUMN_CHANGE = 30  # measured 27 (was 25 pre-#449, 24 pre-#371)
     BUDGET_MOVE_REORDER = 25        # measured 22 (was 20 pre-#449, 19 pre-#371)
     # Archive, unarchive and destroy each carry one further query: the lookup
@@ -1687,8 +1689,9 @@ class CardMutationQueryCountTests(TestCase):
             )
         self.assertEqual(r.status_code, 200)
         self.assertEqual(
-            len(ctx), 31,
-            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 31. "
+            # 32 = 31 + the card row lock update_card takes first (#1587).
+            len(ctx), 32,
+            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 32. "
             "If this grew by exactly one, check for a reader that fell back "
             "from a to_attr-parked list to the manager's .all() (#1223); if "
             "it is a legitimate change, re-measure and move this number in "
