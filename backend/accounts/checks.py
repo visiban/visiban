@@ -245,3 +245,47 @@ def check_pending_action_extra_exempt_views(app_configs, **kwargs):
         for name in extra
         if not is_well_formed_exempt_view(name)
     ]
+
+
+@checks.register(checks.Tags.security)
+def check_pending_action_extra_exempt_views_not_oss_gated(app_configs, **kwargs):
+    """Fail on a PENDING_ACTION_EXTRA_EXEMPT_VIEWS entry that names an OSS-gated view (#1589).
+
+    The setting exists for an extension package's OWN views. Exempting an
+    OSS session view (the admin index, allauth's email management) would let
+    an account with a forced change pending bypass the gate, so a trusted
+    operator's typo or a careless extension must fail at startup, not widen
+    the gate silently. Views already exempt in OSS are harmless to repeat and
+    are allowed. Admission rule: a view may be exempt only if anonymous users
+    reach it with the same effect, or it gates itself.
+    """
+    from django.conf import settings
+
+    from visiban.middleware import (
+        PENDING_ACTION_EXEMPT_VIEWS,
+        is_well_formed_exempt_view,
+        oss_gated_view_names,
+    )
+
+    extra = getattr(settings, "PENDING_ACTION_EXTRA_EXEMPT_VIEWS", ()) or ()
+    if isinstance(extra, str):
+        extra = (extra,)
+    # Malformed entries are accounts.E006's business.
+    candidates = [n for n in extra if is_well_formed_exempt_view(n)]
+    if not candidates:
+        return []
+    oss_gated = oss_gated_view_names() - PENDING_ACTION_EXEMPT_VIEWS
+    return [
+        checks.Error(
+            f"PENDING_ACTION_EXTRA_EXEMPT_VIEWS entry {name!r} names a view under an OSS-gated prefix.",
+            hint=(
+                "Only an extension's own views may be exempt, and only if an anonymous visitor "
+                "reaches them with the same effect or they apply the forced-change gate themselves. "
+                "A name shared with an OSS gated view is rejected even when your view is mounted "
+                "elsewhere; rename your URL. See docs/development/authorization-entry-points.md."
+            ),
+            id="accounts.E007",
+        )
+        for name in candidates
+        if name in oss_gated
+    ]
