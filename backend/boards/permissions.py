@@ -4,7 +4,13 @@ from django.conf import settings
 
 from rest_framework.permissions import BasePermission
 
-from .broadcast import EVT_MEMBER_ADDED, EVT_MEMBER_UPDATED
+from .broadcast import (
+    EVT_BOARD_STAR_CHANGED,
+    EVT_MEMBER_ADDED,
+    EVT_MEMBER_UPDATED,
+    EVT_SAVED_FILTER_CREATED,
+    EVT_SAVED_FILTER_DELETED,
+)
 from .models import BoardMembership
 
 logger = logging.getLogger(__name__)
@@ -85,6 +91,54 @@ def site_admin_field_visible(role):
     (``None``) fails closed.
     """
     return role in ROLES_WITH_SITE_ADMIN_FLAG_VISIBILITY
+
+
+# Roles that may see the ``invite`` object on a ``member.added`` payload (#1677).
+ROLES_WITH_INVITE_FIELD_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
+
+
+def invite_field_visible(role):
+    """Return True if a ``member.added`` payload's ``invite`` may be shown (#1677).
+
+    ``invite`` (``{id, created_by_id}``) exists so a board admin's open invite
+    list can refetch when one of its invites is redeemed. The invite list is
+    admin-only over REST, so only board admins and site admins receive the
+    field; every other subscriber and feed reader gets the membership row
+    without it. No self-row exception: the person who joined does not need to
+    know which invite record admitted them. An unknown role (``None``) fails
+    closed.
+
+    Called by the WS consumer (per subscriber) and the change-feed serializer
+    (per reader), the same two broadcast surfaces that apply
+    ``site_admin_field_visible()``.
+    """
+    return role in ROLES_WITH_INVITE_FIELD_VISIBILITY
+
+
+# Event types whose payload is one user's private state, keyed by
+# ``data["user_id"]`` (#1677). They are published on shared channels so the
+# owner's other tabs stay in sync, but only that user's sockets forward them,
+# and the change feed returns them only to that user. Every writer of one of
+# these must persist it with ``actor_id`` = the owning user: the feed's
+# exclusion keys on that column.
+PER_USER_EVENTS = frozenset({
+    EVT_BOARD_STAR_CHANGED,
+    EVT_SAVED_FILTER_CREATED,
+    EVT_SAVED_FILTER_DELETED,
+})
+
+
+def per_user_event_visible(viewer_user_id, data):
+    """Return True if a per-user event (``PER_USER_EVENTS``) may reach this viewer.
+
+    True only when the payload's ``user_id`` is the viewer's own id. A missing
+    or malformed ``user_id``, a non-dict payload, or an unknown viewer fails
+    closed: the frame is not forwarded.
+    """
+    if viewer_user_id is None or not isinstance(data, dict):
+        return False
+    owner_id = data.get("user_id")
+    return owner_id is not None and owner_id == viewer_user_id
 
 # Maximum number of ancestor levels walked during group-based permission checks.
 # The cap exists to prevent unbounded query chains on deeply nested group trees

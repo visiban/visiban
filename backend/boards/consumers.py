@@ -13,8 +13,11 @@ from .models import Board
 from .permissions import (
     GROUP_ANCESTOR_SELECT_RELATED,
     MODERATOR_BEARING_EVENTS,
+    PER_USER_EVENTS,
     get_board_role,
+    invite_field_visible,
     moderator_field_visible,
+    per_user_event_visible,
     site_admin_field_visible,
 )
 
@@ -206,6 +209,14 @@ class BoardConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         data = payload.get("data") or {}
+        # Per-user events (stars, saved filters) are one user's own state: they
+        # go out on the shared board channel so that user's other tabs sync,
+        # and only that user's sockets forward them (#1677). Dropped before the
+        # access re-check because nothing is forwarded on this path.
+        if payload.get("event") in PER_USER_EVENTS and not per_user_event_visible(
+            self.scope["user"].id, data
+        ):
+            return
         moderator_bearing = payload.get("event") in MODERATOR_BEARING_EVENTS
         subject_user_id = None
         if moderator_bearing:
@@ -268,6 +279,10 @@ class BoardConsumer(AsyncWebsocketConsumer):
             # only admin/site_admin subscribers get it, with no self-row case.
             if "is_site_admin" in data and not site_admin_field_visible(self._role):
                 hidden.add("is_site_admin")
+            # `invite` on a member.added from an invite redemption (#1677):
+            # it drives the admin-only invite list, so admin/site_admin only.
+            if "invite" in data and not invite_field_visible(self._role):
+                hidden.add("invite")
             if hidden:
                 payload = {**payload, "data": {k: v for k, v in data.items() if k not in hidden}}
         await self.send(text_data=json.dumps(payload))

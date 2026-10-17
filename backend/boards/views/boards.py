@@ -28,7 +28,7 @@ from .. import broadcast as _broadcast
 from ..models import (
     Board, BoardEvent, BoardFavorite, BoardMembership, Column, Notification, SavedFilter, Swimlane,
 )
-from ..permissions import get_board_role, SITE_ADMIN
+from ..permissions import PER_USER_EVENTS, get_board_role, SITE_ADMIN
 from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer,
@@ -351,7 +351,10 @@ class BoardViewSet(
             board = self.get_queryset().get(pk=board.pk)
             # Star is per-user state, but a user may have multiple tabs open on
             # the same board; broadcast so other sessions of the same user sync
-            # without a full refetch. Clients filter on user_id === me (#814).
+            # without a full refetch (#814). The board and group consumers
+            # forward the frame only to this user's own sockets, and the change
+            # feed returns the row only to this user (#1677) — actor_id below
+            # is what the feed matches on.
             board_uid = board.uid
             board_id = board.pk
             group_id = board.group_id
@@ -631,12 +634,14 @@ class BoardViewSet(
         """Return a page of this board's change feed (#1114).
 
         Access is the board role, resolved by ``get_board_for_user`` — the same
-        gate as ``/full/`` and as the WebSocket handshake. That parity is the
-        point: the feed replays frames the caller could already have streamed, so
-        it must not become a way to read something the socket would not send. The
-        one place the two surfaces could diverge is ``is_moderator`` on
-        ``member.*`` payloads, and ``BoardEventSerializer`` closes it with the
-        same gate the consumer uses.
+        gate as ``/full/`` and as the WebSocket handshake. The page holds every
+        retained row for the board, whenever the caller joined it, bounded by
+        retention. Each row is filtered for the caller by the rules the socket
+        applies per subscriber, so the feed is not a way to read something the
+        socket would not send: per-user rows are excluded in the query below,
+        and ``BoardEventSerializer`` applies the per-reader field rules
+        (``is_moderator``, ``is_site_admin``, ``invite``, admin-only board
+        fields, swimlane custom field values). See security-invariants Rule 8.
 
         Cross-board reads are impossible by construction rather than by check:
         every query is filtered on ``board_id`` first, so an ``after`` cursor
@@ -647,7 +652,15 @@ class BoardViewSet(
         after = _parse_events_cursor(request.query_params.get("after"))
         limit = _parse_events_limit(request.query_params.get("limit"))
 
-        qs = BoardEvent.objects.filter(board_id=board.id)
+        # Per-user rows (PER_USER_EVENTS: stars, saved filters) are returned
+        # only to the user they belong to (#1677), matching the socket, which
+        # forwards them only to that user's own sessions. Filtered in the
+        # query, not after it, so a page stays `limit` rows long. A row with no
+        # actor matches no reader.
+        # Per-user events must be persisted with actor_id = the owning user.
+        qs = BoardEvent.objects.filter(board_id=board.id).exclude(
+            Q(event__in=PER_USER_EVENTS) & ~Q(actor_id=request.user.id)
+        )
         if after:
             qs = qs.filter(pk__gt=after)
         rows = list(qs.order_by("id")[:limit])
@@ -688,6 +701,10 @@ class BoardViewSet(
                     "role": role,
                     "reader_id": request.user.id,
                     "actors": BoardEventSerializer.actor_map(rows),
+                    # One query, only when the page holds swimlane rows (#1677).
+                    "shareable_swimlane_field_ids": (
+                        BoardEventSerializer.shareable_swimlane_field_ids(board.id, rows)
+                    ),
                 },
             ).data,
             "next": next_cursor,

@@ -114,10 +114,10 @@ See [Change Feed](events.md) for the full contract, retention, and the reconnect
 ### `POST /api/v1/boards/{id}/star/`
 Star (favorite) a board. Returns `200 OK` with the updated board object (whether or not the board was already starred).
 
-**Permissions:** requires authentication and board access (any role). Broadcasts `board.star_changed` to all board WebSocket subscribers.
+**Permissions:** requires authentication and board access (any role). Sends `board.star_changed` to the requesting user's own WebSocket sessions only (#1677).
 
 ### `DELETE /api/v1/boards/{id}/star/`
-Unstar a board. Broadcasts `board.star_changed` to all board WebSocket subscribers.
+Unstar a board. Sends `board.star_changed` to the requesting user's own WebSocket sessions only.
 
 **Permissions:** requires authentication and board access (any role).
 
@@ -1325,7 +1325,7 @@ What redeeming does depends on the access you already have, because an explicit 
 - **Only a group-inherited role ranked below the invite's** (for example a group viewer redeeming a member invite) → an explicit membership with the invite's role is created (`created: true`).
 - **An equal or higher inherited role, an explicit board membership of any role, board ownership or all-content access** → nothing changes (`created: false`). A group admin who redeems a viewer invite is **not** downgraded to viewer.
 
-A redeemed single-use invite is consumed either way. Redeeming it again as the person who already has access returns `200` with nothing changed (`created` reports whether this invite created your membership — `true` after signing up from it); anyone else gets `410 {"code": "used"}`. When a membership is created, the board's `member.added` event carries an extra `invite: { "id", "created_by_id" }` key.
+A redeemed single-use invite is consumed either way. Redeeming it again as the person who already has access returns `200` with nothing changed (`created` reports whether this invite created your membership — `true` after signing up from it); anyone else gets `410 {"code": "used"}`. When a membership is created, the board's `member.added` event carries an extra `invite: { "id", "created_by_id" }` key for `admin` and `site_admin` recipients, on the WebSocket and in the [change feed](events.md); other recipients get the event without it.
 
 *(1.2+)* A join that arrives while the board is being deleted waits for the delete to finish and then answers `404`, with nothing written (#1631).
 

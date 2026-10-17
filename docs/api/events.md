@@ -36,8 +36,11 @@ Returns committed events for one board, in ascending `id` order.
 
 **Access** — the requesting user's board role, exactly as for
 `GET /api/v1/boards/{id}/full/` and for the WebSocket handshake. Every board
-role, including `viewer`, may read the feed: it replays frames the same user
-could already have streamed. A non-member gets `403`.
+role, including `viewer`, may read the feed. A non-member gets `403`. The feed
+returns the board's retained rows whenever the reader joined the board, bounded
+by [retention](#retention), and each row is filtered for the reader by the rules
+in [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading),
+which match what the WebSocket sends that reader.
 
 **Query parameters**
 
@@ -157,6 +160,21 @@ Two consequences worth knowing:
 - `share_token` and `share_token_expires_at` are dropped from every payload for
   every reader, whatever their role. Board admins read them over REST only
   (`GET /api/v1/boards/{id}/full/` and the share action response).
+- `board.star_changed`, `saved_filter.created` and `saved_filter.deleted` rows
+  are returned only to the user named in their `user_id`, matching the
+  WebSocket, which delivers those frames only to that user's own sessions (#1677). Other readers' pages simply do not contain them; a page
+  is still filled to `limit` from the remaining rows, and cursors are unaffected.
+- `invite` on an invite-redemption `member.added` row is returned to `admin` /
+  `site_admin` readers only, with no self-row exception, matching the WebSocket
+  consumer (#1677). An unknown reader role strips it.
+- `custom_field_values` on `swimlane.created`, `swimlane.updated` and
+  `swimlane.reordered` rows is re-filtered on every read against the board's
+  **current** swimlane field definitions (#1677). A stored row keeps the values
+  that were shareable when it was written; a field marked `is_admin_only` or
+  deleted since then is omitted from that row for every reader, admins included,
+  because the WebSocket never carries admin-only values to anyone. Stored rows are
+  not rewritten, so a field made shareable again replays again. The
+  `custom_field_values` key itself is always present.
 
 ---
 
@@ -164,7 +182,12 @@ Two consequences worth knowing:
 
 Events are kept for `BOARD_EVENT_RETENTION_DAYS` days (default `30`) and removed
 by a management command. Nothing expires on its own — **an install that never
-runs the pruner grows the `board_events` table forever**:
+runs the pruner grows the `board_events` table forever**. Retention bounds how
+much history the feed returns: any reader with access to the board receives
+every retained row for it, whenever they joined, each filtered for that reader
+by the rules in
+[Fields that depend on who is reading](#fields-that-depend-on-who-is-reading).
+Run the pruner on a schedule:
 
 ```bash
 # See what would go, without deleting anything

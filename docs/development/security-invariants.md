@@ -227,6 +227,51 @@ surface: create in group by `groups/tests/test_groups.py`
 imports by `boards/tests/test_group_placement_roles.py`. The enumeration test
 that checks every surface in this table is tracked in #1693.
 
+## Rule 8: Per-recipient event fields are gated on every broadcast and replay surface
+
+**Rule.** A board event is fanned out to every subscriber and stored once in the
+change feed. The events and fields listed here are filtered per recipient on
+each surface that delivers them:
+
+- per-user events (`boards/permissions.py` `PER_USER_EVENTS`: `board.star_changed`,
+  `saved_filter.created`, `saved_filter.deleted`; plus `group.star_changed` on the
+  group channel) reach only the user named in `data.user_id`
+  (`per_user_event_visible`). Writers persist them with `actor_id` set to that
+  user, which is what the feed filters on;
+- `is_moderator` on `member.added` / `member.updated` is shown to admin and
+  site_admin recipients, and to any recipient on their own row
+  (`moderator_field_visible`);
+- `is_site_admin` on the same events, and `invite` on `member.added`, are shown
+  to admin and site_admin recipients only (`site_admin_field_visible`,
+  `invite_field_visible`);
+- admin-only board fields (`ADMIN_ONLY_BOARD_FIELDS`) are dropped for every
+  recipient (`without_admin_only_board_fields`);
+- admin-only swimlane custom field values are never in a broadcast payload, and
+  change-feed swimlane rows are re-filtered at read time against the board's
+  current shareable definitions.
+
+An unknown recipient role or identity hides the field or the event.
+
+**Why.** The writer has no recipient to filter for, and the change feed replays
+stored payloads, so the gate has to run where the recipient is known. A gate on
+one surface only leaves the same field readable through another.
+
+| Surface | Entry point | Enforced via |
+|---|---|---|
+| Board WebSocket | `boards/consumers.py` `BoardConsumer.board_event` | Per-user drop (`per_user_event_visible`), then `moderator_field_visible`, `site_admin_field_visible`, `invite_field_visible` on `MODERATOR_BEARING_EVENTS`, using the subscriber's re-resolved role |
+| Group WebSocket | `groups/consumers.py` `GroupConsumer.group_event` | Per-user drop only, over `GROUP_PER_USER_EVENTS` (derived from `PER_USER_EVENTS`). There is no `is_moderator`, `is_site_admin` or `invite` strip on this surface: the group channel's `member.added` carries a `GroupMembershipSerializer` row, which has none of those fields |
+| Change feed | `boards/views/boards.py` `BoardViewSet.events`; `boards/serializers.py` `BoardEventSerializer.to_representation` | The view excludes other users' `PER_USER_EVENTS` rows in the page query; the serializer applies the three member-field helpers with the reader's role, `without_admin_only_board_fields`, and the swimlane re-filter (`shareable_swimlane_field_ids`) |
+| Broadcast and persist (write time) | `boards/broadcast.py` `broadcast_board_event`, `persist_board_event`; `groups/broadcast.py` `broadcast_group_event` | `without_admin_only_board_fields`; swimlane payloads built from the public `SwimlaneSerializer` |
+| REST board and members | `boards/serializers.py` `BoardFullSerializer.get_members`, `get_swimlanes`; `BoardMembershipSerializer.to_representation` | `moderator_field_visible`, `site_admin_field_visible`; `SwimlaneAdminSerializer` for admin and site_admin only |
+| Board export | `boards/views/import_export.py` `BoardImportExportMixin.export` | Admin-only swimlane definitions and their values are included for admin exporters only |
+
+Coverage: `boards/tests/test_event_payload_scoping.py` (per-user events on both
+channels and the feed, `invite`, swimlane re-filtering, and a check that every
+`*star_changed` and `saved_filter.*` event is in the per-user sets),
+`boards/tests/test_board_events.py` `ReadSideStrippingTests` (including the
+shared-helper identity check), `boards/tests/test_consumer_role_refresh.py`, and
+`boards/tests/test_member_site_admin_flag.py`.
+
 ## How to add a rule
 
 1. Write the rule as a statement of behavior, not an implementation: what must

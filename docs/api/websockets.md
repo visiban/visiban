@@ -123,9 +123,9 @@ Board and group `board.*` event payloads never carry the share-link fields (`sha
 | `board.created` | New board created (only emitted to subscribers already connected to the board channel) | Full `BoardSerializer` object (`is_starred` is the creator's value and deprecated here; use `board.star_changed`, #1559). On a Visiban JSON/CSV import ([`POST /api/v1/boards/import/`](boards.md#post-apiv1boardsimport)) it also carries `import_options` — all five resolved booleans (`labels`, `cards`, `comments`, `checklist`, `history`; added in 1.2), plus `shift_dates_from` (a `YYYY-MM-DD` string; added in 1.2) when the import sent it. The same payload goes to the group channel when the import sets `group_id`. `import_options` is absent on ordinary board creation, Trello imports, and group-move events. |
 | `board.updated` | Board name, description, or settings changed | Full `BoardSerializer` object. `is_starred` in this payload reflects the user who made the change, not the receiving client, and is deprecated in `board.created` / `board.updated` payloads; clients must ignore it and use `board.star_changed` (#1559). |
 | `board.deleted` | Board was deleted, with everything on it. No `card.deleted` or `column.deleted` frames are sent for the cascade; see [Deleting a container deletes its cards](#deleting-a-container-deletes-its-cards) | `{ "board_uid": <string> }` |
-| `board.star_changed` | Board starred or unstarred. Per-user state; clients should filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
-| `saved_filter.created` | Saved filter created (the private `state_json` is intentionally not broadcast — only the creating user receives the full filter via the REST response) | `{ "filter_id": <int>, "user_id": <int> }` |
-| `saved_filter.deleted` | Saved filter deleted | `{ "filter_id": <int>, "user_id": <int> }` |
+| `board.star_changed` | Board starred or unstarred. Per-user state: delivered only to the sockets of the user in `user_id` (the starring user's other tabs), never to other subscribers (#1677). Clients should still filter on `user_id === me` | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
+| `saved_filter.created` | Saved filter created (the private `state_json` is intentionally not broadcast — only the creating user receives the full filter via the REST response). Per-user state: delivered only to the sockets of the user in `user_id` (#1677) | `{ "filter_id": <int>, "user_id": <int> }` |
+| `saved_filter.deleted` | Saved filter deleted. Per-user state: delivered only to the sockets of the user in `user_id` (#1677) | `{ "filter_id": <int>, "user_id": <int> }` |
 
 ### Column events
 
@@ -194,6 +194,12 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
     rather than replace with it, or an admin's own copy of the row loses its
     admin-only values on any unrelated edit.
 
+    The [change feed](events.md#fields-that-depend-on-who-is-reading) applies the
+    same rule to stored rows at read time: `swimlane.created`, `swimlane.updated`
+    and `swimlane.reordered` rows replay only the values of fields that are
+    shareable **now**. A field marked `is_admin_only` (or deleted) after a row was
+    written is absent from that row on every later read (#1677).
+
 ### Card events
 
 | Event | Trigger | `data` shape |
@@ -253,7 +259,7 @@ owns boards cannot be deleted until its boards are transferred, and a card's
 
 | Event | Trigger | `data` shape |
 |---|---|---|
-| `member.added` | User added to board — by an admin, or by redeeming a [board invite](boards.md#board-invites) (since 1.2) | Full `BoardMembershipSerializer` object. When the member joined through an invite it also carries `"invite": { "id": <int>, "created_by_id": <int or null> }` (additive, since 1.2) |
+| `member.added` | User added to board — by an admin, or by redeeming a [board invite](boards.md#board-invites) (since 1.2) | Full `BoardMembershipSerializer` object. When the member joined through an invite it also carries `"invite": { "id": <int>, "created_by_id": <int or null> }` (additive, since 1.2) — for `admin` / `site_admin` subscribers only (see the note below) |
 | `member.updated` | Member role or moderator flag changed | Full `BoardMembershipSerializer` object |
 | `member.removed` | User removed from board | `{ "user_id": <int> }` |
 
@@ -261,6 +267,8 @@ owns boards cannot be deleted until its boards are transferred, and a card's
     On `member.added` and `member.updated`, the `is_moderator` field is stripped from the broadcast payload for non-`admin` / non-`site_admin` subscribers (consistent with the REST response filtering, #978) — **except on the row that is the subscriber's own membership**, which always carries the field so a member promoted to moderator sees their own entitlement over the socket (#1191, mirroring the `/full/` self-row exception from #1173). Every other row stays stripped for a non-admin subscriber.
 
     `is_site_admin` (since 1.2) is sent only to `admin` / `site_admin` subscribers, with no self-row exception — see [Members](boards.md#members).
+
+    `invite` on an invite-redemption `member.added` (since 1.2) is sent only to `admin` / `site_admin` subscribers, with no self-row exception (#1677). It exists so an admin's open invite list can refetch; other subscribers receive the membership row without it.
 
     The subscriber's role used for this filtering is resolved when the socket connects and re-resolved from the database whenever a `member.added` or `member.updated` frame is about the subscriber themselves (since 1.2, #1332). A board admin demoted to viewer therefore stops receiving `is_moderator` and `is_site_admin` on other members' rows starting with the demotion frame itself, and a promoted subscriber gains them, without reconnecting. If the re-resolved role grants no access to the board, the server closes the socket. Role changes that publish no `member.*` frame on the board channel — a group-membership role change, a board moved to another group, or a change to the user's all-content access — take effect at the server's periodic access re-check (see [Access re-check and eviction](#access-re-check-and-eviction)). They apply to the first frame forwarded after the socket's re-check window lapses, at most about 7 seconds after its last successful check. Before #1477 they took effect only on the next reconnect. Until the re-check runs, a demoted admin can still receive the admin-only fields for up to that window.
 
@@ -334,11 +342,11 @@ Authentication uses the same two mechanisms as the board channel — session coo
 | `board.created` | Board created in this group, imported into it, or moved into it from elsewhere | Full `BoardSerializer` object (`is_starred` is the creator's value and deprecated here; use `board.star_changed`, #1559). A Visiban JSON/CSV import into this group also carries `import_options` (all five resolved booleans, added in 1.2, plus `shift_dates_from` as a `YYYY-MM-DD` string when the import sent it, added in 1.2); it is absent on ordinary creation, Trello imports, and move-in events. |
 | `board.updated` | Board in this group renamed or otherwise edited | Full `BoardSerializer` object. `is_starred` in this payload reflects the user who made the change, not the receiving client, and is deprecated in `board.created` / `board.updated` payloads; clients must ignore it and use `board.star_changed` (#1559). |
 | `board.deleted` | Board deleted, or moved out of this group | `{ "board_uid": <string> }` on outright delete; `{ "board_uid": <string>, "board_id": <int> }` on move-out (the legacy integer is retained on move-out only because clients keyed by `board_id` need to find the row to remove). Treat `board_id` as optional. |
-| `board.star_changed` | A board in this group was starred or unstarred — fires alongside the board-channel `board.star_changed`. Star is per-user state; clients filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
+| `board.star_changed` | A board in this group was starred or unstarred — fires alongside the board-channel `board.star_changed`. Star is per-user state: delivered only to the sockets of the user in `user_id`, never to other subscribers (#1677). Clients should still filter on `user_id === me` | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
 | `group.created` | Subgroup created under this group, or this group itself created (fired on both the new group's channel and the parent's channel) | Full `GroupSerializer` object. `is_starred` in this payload is the acting user's value, not the receiving client's, and is deprecated in `group.created` / `group.updated` payloads; clients must ignore it and use `group.star_changed` for per-user star state (#1559). The Visiban web client is unaffected because it refetches the group on these events. |
 | `group.updated` | Group renamed, board defaults changed, or ownership transferred | Full `GroupSerializer` object. `is_starred` in this payload is the acting user's value, not the receiving client's, and is deprecated in `group.created` / `group.updated` payloads; clients must ignore it and use `group.star_changed` for per-user star state (#1559). The Visiban web client is unaffected because it refetches the group on these events. |
 | `group.deleted` | Group deleted | `{ "id": <int> }` |
-| `group.star_changed` | This group was starred or unstarred. Per-user state; clients should filter on `user_id === me` | `{ "id": <int>, "user_id": <int>, "is_starred": <bool> }` |
+| `group.star_changed` | This group was starred or unstarred. Per-user state: delivered only to the sockets of the user in `user_id` (#1677). Clients should still filter on `user_id === me` | `{ "id": <int>, "user_id": <int>, "is_starred": <bool> }` |
 | `group.label.created` | Group shared label created | Full `GroupLabelSerializer` object |
 | `group.label.updated` | Group shared label renamed or recolored | Full `GroupLabelSerializer` object |
 | `group.label.deleted` | Group shared label deleted | `{ "id": <int> }` |

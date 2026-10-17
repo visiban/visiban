@@ -10,8 +10,16 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user
 from visiban.authorization import authorize_account
 
-from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
+from boards.permissions import PER_USER_EVENTS, per_user_event_visible
+
+from .broadcast import EVT_GROUP_STAR_CHANGED, EVT_MEMBER_REMOVED, EVT_PING
 from .models import Group, user_has_group_access
+
+# Group-channel events whose payload is one user's private state, keyed by
+# ``data["user_id"]`` (#1677): forwarded only to that user's own sockets.
+# Derived from the board channel's set so a new per-user board event is covered
+# here too, plus the group's own star event.
+GROUP_PER_USER_EVENTS = PER_USER_EVENTS | {EVT_GROUP_STAR_CHANGED}
 
 # Mirror BoardConsumer.PING_INTERVAL; NATs and reverse proxies commonly drop idle
 # WebSocket connections after 60–120s of silence, so 30s keeps them warm.
@@ -171,6 +179,13 @@ class GroupConsumer(AsyncWebsocketConsumer):
             and payload.get("data", {}).get("user_id") == self.scope["user"].id
         ):
             await self.close()
+            return
+        # A star belongs to one user (#1677): it is published on the group
+        # channel so that user's other tabs sync, and every other subscriber
+        # drops it here. Before the access re-check: nothing is forwarded.
+        if payload.get("event") in GROUP_PER_USER_EVENTS and not per_user_event_visible(
+            self.scope["user"].id, payload.get("data")
+        ):
             return
         if not await self._verify_access():
             # Lost access with no member.removed frame to say so, or the

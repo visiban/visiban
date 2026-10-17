@@ -22,9 +22,15 @@ from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_prioritie
 # does, but lazily, inside its methods).
 from groups.serializers import GroupBriefSerializer
 
-from .broadcast import without_admin_only_board_fields
+from .broadcast import (
+    EVT_SWIMLANE_CREATED,
+    EVT_SWIMLANE_REORDERED,
+    EVT_SWIMLANE_UPDATED,
+    without_admin_only_board_fields,
+)
 from .permissions import (
     MODERATOR_BEARING_EVENTS,
+    invite_field_visible,
     moderator_field_visible,
     site_admin_field_visible,
 )
@@ -129,6 +135,55 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 
 
 
+# Change-feed event types whose stored payload embeds ``SwimlaneSerializer``
+# output, and so a ``custom_field_values`` list (#1677): one lane for created /
+# updated, ``{"swimlanes": [lane, ...]}`` for reordered.
+SWIMLANE_VALUE_BEARING_EVENTS = frozenset({
+    EVT_SWIMLANE_CREATED, EVT_SWIMLANE_UPDATED, EVT_SWIMLANE_REORDERED,
+})
+
+
+def _is_allowed_definition_id(value, allowed):
+    """True if *value* is an int definition id in *allowed*.
+
+    Stored rows are replayed in whatever shape they were written, so a
+    non-int (including an unhashable list or dict, or a bool) is dropped
+    rather than looked up.
+    """
+    return isinstance(value, int) and not isinstance(value, bool) and value in allowed
+
+
+def _redact_swimlane_values(lane, allowed):
+    """Return *lane* keeping only ``custom_field_values`` entries in *allowed*.
+
+    Any other shape (non-dict lane, non-list values, malformed entry) is
+    returned unchanged or, for an entry, dropped — never raised on, since the
+    feed replays rows of whatever shape was stored at write time.
+    """
+    if not isinstance(lane, dict):
+        return lane
+    values = lane.get("custom_field_values")
+    if not isinstance(values, list):
+        return lane
+    kept = [
+        entry for entry in values
+        if isinstance(entry, dict) and _is_allowed_definition_id(entry.get("field_definition"), allowed)
+    ]
+    if len(kept) == len(values):
+        return lane
+    return {**lane, "custom_field_values": kept}
+
+
+def _redact_swimlane_event_values(payload, allowed):
+    """Apply :func:`_redact_swimlane_values` to a swimlane event payload."""
+    if isinstance(payload, dict) and isinstance(payload.get("swimlanes"), list):
+        return {
+            **payload,
+            "swimlanes": [_redact_swimlane_values(lane, allowed) for lane in payload["swimlanes"]],
+        }
+    return _redact_swimlane_values(payload, allowed)
+
+
 class BoardEventSerializer(serializers.ModelSerializer):
     """One row of a board's change feed (#1114).
 
@@ -183,6 +238,22 @@ class BoardEventSerializer(serializers.ModelSerializer):
         )
         return {u.pk: u for u in users}
 
+    @staticmethod
+    def shareable_swimlane_field_ids(board_id, rows) -> frozenset:
+        """Ids of the board's swimlane field definitions that are NOT admin-only.
+
+        Passed to the serializer as ``context["shareable_swimlane_field_ids"]``
+        so swimlane rows can be re-filtered at read time (#1677). One query per
+        page, and none at all for a page with no swimlane rows.
+        """
+        if not any(row.event in SWIMLANE_VALUE_BEARING_EVENTS for row in rows):
+            return frozenset()
+        return frozenset(
+            SwimlaneCustomFieldDefinition.objects.filter(
+                board_id=board_id, is_admin_only=False,
+            ).values_list("pk", flat=True)
+        )
+
     @extend_schema_field(BoardUserSerializer(allow_null=True))
     def get_actor(self, obj):
         actors = self.context.get("actors")
@@ -208,6 +279,13 @@ class BoardEventSerializer(serializers.ModelSerializer):
         when the role is unknown — it can afford to, because the consumer layer
         is its second line of defense. The feed has no second line, so an
         unknown role here must mean "show less", never "show more".
+
+        Two more read-time rules follow the socket (#1677): ``invite`` on
+        ``member.added`` is kept for admin / site_admin readers only, and
+        swimlane rows are re-filtered against the board's current shareable
+        swimlane field definitions (``context["shareable_swimlane_field_ids"]``).
+        Per-user rows (``PER_USER_EVENTS``) never reach this serializer for
+        another reader: the view excludes them from the page query.
 
         A non-admin reader still sees the flag on the row that is their OWN
         membership (#1191, mirroring the /full/ self-row exception from
@@ -238,7 +316,26 @@ class BoardEventSerializer(serializers.ModelSerializer):
             # site_admin readers only, failing closed on an unknown role.
             if isinstance(payload, dict) and "is_site_admin" in payload:
                 if not site_admin_field_visible(role):
-                    data["data"] = {k: v for k, v in payload.items() if k != "is_site_admin"}
+                    payload = {k: v for k, v in payload.items() if k != "is_site_admin"}
+                    data["data"] = payload
+            # ``invite`` on an invite-redemption ``member.added`` (#1677): the
+            # socket forwards it to admin / site_admin subscribers only, so the
+            # feed does the same, failing closed on an unknown role.
+            if isinstance(payload, dict) and "invite" in payload:
+                if not invite_field_visible(role):
+                    data["data"] = {k: v for k, v in payload.items() if k != "invite"}
+        if instance.event in SWIMLANE_VALUE_BEARING_EVENTS:
+            # Stored swimlane rows hold the custom field values that were
+            # shareable when the row was written. A field an admin has since
+            # marked ``is_admin_only`` (or deleted) must not be replayable from
+            # older rows, so values are re-filtered against the board's CURRENT
+            # shareable definitions on every read (#1677). This applies to every
+            # reader, admins included, because the live socket never carries an
+            # admin-only value to anyone (see SwimlaneSerializer): the feed
+            # replays what the socket would send today. A missing context set
+            # fails closed — every value is dropped, the key is kept.
+            allowed = self.context.get("shareable_swimlane_field_ids") or frozenset()
+            data["data"] = _redact_swimlane_event_values(data.get("data"), allowed)
         return data
 
 
