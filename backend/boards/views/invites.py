@@ -31,6 +31,11 @@ from accounts.permissions import TokenHasScope
 from groups.views import JoinGroupRateThrottle
 from visiban.authorization import invite_creator_is_valid
 from visiban.invite_email import InviteEmailBadRequestSerializer, InviteEmailErrorSerializer
+from visiban.invite_recipient import (
+    MISMATCH_CODE as RECIPIENT_MISMATCH_CODE,
+    MISMATCH_DETAIL as RECIPIENT_MISMATCH_DETAIL,
+    recipient_admits,
+)
 from visiban.permissions import MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange
 from visiban.utils import get_client_ip
 
@@ -241,6 +246,8 @@ class BoardInviteLinksMixin:
                 expires_at=timezone.now() + datetime.timedelta(days=int(validated["expiry_days"])),
                 single_use=True,
                 delivery=BoardInviteLink.Delivery.EMAIL,
+                # Bind the invite to this address (#1678); only a keyed hash is stored.
+                recipient_email=validated["email"],
             )
             # Minimal {id}: non-admin subscribers receive it too, so
             # clients refetch the admin-only list.
@@ -419,6 +426,10 @@ class JoinBoardView(APIView):
                     "created": drf_serializers.BooleanField(),
                 },
             ),
+            403: inline_serializer(
+                name="BoardJoinRecipientMismatch",
+                fields={"code": drf_serializers.CharField(), "detail": drf_serializers.CharField()},
+            ),
             404: inline_serializer(name="BoardJoinPostNotFound", fields={"detail": drf_serializers.CharField()}),
             410: _GoneSerializer,
         },
@@ -482,6 +493,20 @@ class JoinBoardView(APIView):
                 created = bool(prior and prior.membership_created)
                 http_status = status.HTTP_200_OK
             else:
+                # An emailed invite is bound to the address it was sent to
+                # (#1678). Checked here, on the locked row and before anything
+                # is written, so a refusal leaves the invite unconsumed for
+                # the person it was sent to. Unbound invites (shareable
+                # links, emailed invites from before #1678) pass.
+                if not recipient_admits(link, user):
+                    logger.info(
+                        "Board invite redemption refused. token=%s code=%s user_id=%s ip=%s",
+                        link.prefix, RECIPIENT_MISMATCH_CODE, user.pk, ip,
+                    )
+                    return Response(
+                        {"code": RECIPIENT_MISMATCH_CODE, "detail": RECIPIENT_MISMATCH_DETAIL},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
                 created = _invites.redeem(link, user, board, via=BoardInviteRedemption.Via.JOIN)
                 http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
 

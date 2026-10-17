@@ -1142,7 +1142,7 @@ Remove a member. Requires board admin. Cannot remove a site admin.
 
 ## Board invites
 
-*(New in 1.2)* A board admin can email a **single-use invite** to someone who may not have an account yet, or create a **shareable invite link** to paste anywhere. The invite token (`vbnb_` prefix) travels only in the email, or — for a shareable link — in the create response, once; it is never returned again. Only its first 8 characters (`prefix`) are shown. The address it was sent to is not stored. Invites grant `member`, `collaborator` or `viewer` — never `admin`, and never the moderator flag. A board invite never adds anyone to the board's group.
+*(New in 1.2)* A board admin can email a **single-use invite** to someone who may not have an account yet, or create a **shareable invite link** to paste anywhere. The invite token (`vbnb_` prefix) travels only in the email, or — for a shareable link — in the create response, once; it is never returned again. Only its first 8 characters (`prefix`) are shown. The address it was sent to is not stored. *(1.2+, #1678)* An emailed invite stores a keyed fingerprint of that address instead, and redeeming it requires an account with that address (see `POST /api/v1/boards/join/{token}/` below). The fingerprint is never returned by any endpoint or event. Shareable links have no fingerprint. Invites grant `member`, `collaborator` or `viewer` — never `admin`, and never the moderator flag. A board invite never adds anyone to the board's group.
 
 ### `GET /api/v1/boards/{id}/invite-links/`
 List the board's invites, newest first, as a bare array (not paginated). Requires board admin (an admin of the board, the owner, an admin of the board's group, or a site admin with all-content access). Returns **every pending invite plus at most the 50 most recent past ones** (used, expired or revoked); older history is not returned. A caller with no access to the board gets `403`, a board that does not exist `404`, an unauthenticated request `401` — the same as the members endpoints.
@@ -1318,6 +1318,7 @@ Redeem an invite as the signed-in user. Returns `{ "board_id", "board_name", "ro
 |---|---|
 | `401 Unauthorized` | No credentials. |
 | `403 Forbidden` | The account must change its password or username first (`must_change_password` / `must_change_username`), or a personal access token lacks the `write` scope. |
+| `403 Forbidden` | *(1.2+, #1678)* `{"code": "invite_recipient_mismatch", "detail": "This invite was sent to a different email address. ..."}`: an emailed invite, and none of the caller's addresses is the one it was sent to. Under `EMAIL_VERIFICATION=mandatory` only verified addresses count; under `optional` or `none` the account's `email` counts too. Matching ignores case and surrounding spaces. Nothing is written and the invite is not consumed. The response never names the invited address. Shareable links and emailed invites sent before upgrading to this version are not checked. A consumed invite followed again by the person who redeemed it is not checked either. |
 
 What redeeming does depends on the access you already have, because an explicit board membership **replaces** any role you inherit from the board's group rather than adding to it:
 

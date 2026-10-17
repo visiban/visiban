@@ -3838,8 +3838,9 @@ BOARD_INVITE_EXPIRY_DAYS = (1, 7, 30)
 class BoardInviteLinkSerializer(serializers.ModelSerializer):
     """One row of the admin-only ``GET /boards/<id>/invite-links/`` list.
 
-    Never carries the token or the address the invite was emailed to — neither
-    is stored.
+    Never carries the token (only its hash is stored) or anything about the
+    address an invite was emailed to: the address itself is not stored, and its
+    keyed hash (``recipient_hash``, #1678) is deliberately not a field here.
     """
 
     # Effective status: a pending invite whose sender was deleted or is no

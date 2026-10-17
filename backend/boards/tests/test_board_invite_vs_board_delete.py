@@ -32,6 +32,7 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from boards.tests.invite_fixtures import generate_invite
 from accounts.invite_utils import InviteTokenError
 from accounts.models import SiteSetting, User
 from boards import broadcast as _broadcast
@@ -77,8 +78,7 @@ class LockInviteBoardTests(TestCase):
         # to the invite, so the conditional claim alone already refuses it;
         # this does not isolate the lock_invite_board re-check (which is
         # defense in depth, see redeem_board_registration_token).
-        link, _raw = BoardInviteLink.generate(
-            board=self.board,
+        link, _raw = generate_invite(BoardInviteLink, board=self.board,
             created_by=self.sender,
             role="member",
             single_use=True,
@@ -110,8 +110,7 @@ class _InviteDeleteRaceBase(TransactionTestCase):
         self.board_id = self.board.pk
         BoardMembership.objects.create(board=self.board, user=self.owner, role="admin")
         BoardMembership.objects.create(board=self.board, user=self.sender, role="admin")
-        self.link, self.raw = BoardInviteLink.generate(
-            board=self.board,
+        self.link, self.raw = generate_invite(BoardInviteLink, board=self.board,
             created_by=self.sender,
             role="member",
             single_use=True,

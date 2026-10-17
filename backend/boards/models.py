@@ -241,6 +241,11 @@ class BoardInviteLink(models.Model):
 
     ``delivery`` supports ``link`` for the shareable multi-use links of #439;
     #1444 itself only mints ``email`` invites (single-use, one address).
+
+    An emailed invite is bound to the address it was sent to (#1678): only a
+    keyed hash of that address is stored (``recipient_hash``), and redemption
+    compares it with the redeeming account's addresses. Shareable links store
+    NULL and stay usable by whoever holds them.
     """
 
     BOARD_INVITE_PREFIX = "vbnb_"
@@ -284,6 +289,11 @@ class BoardInviteLink(models.Model):
     # Successful redemptions, for audit; a single-use invite stops at 1.
     use_count = models.PositiveIntegerField(default=0)
     delivery = models.CharField(max_length=8, choices=Delivery.choices, default=Delivery.LINK)
+    # Keyed hash of the emailed invite's address (#1678; see
+    # visiban/invite_recipient.py). NULL for shareable links and for emailed
+    # invites minted before #1678, which redeem as they always have. Never
+    # serialized.
+    recipient_hash = models.CharField(max_length=64, null=True, blank=True, editable=False)
 
     class Meta:
         db_table = "board_invite_links"
@@ -324,14 +334,26 @@ class BoardInviteLink(models.Model):
     @classmethod
     def generate(
         cls, board, created_by, *, role=None, expires_at=None, single_use=False,
-        delivery=None, name="",
+        delivery=None, name="", recipient_email=None,
     ):
-        """Create an invite with a hashed token. Returns ``(instance, raw_token)``."""
+        """Create an invite with a hashed token. Returns ``(instance, raw_token)``.
+
+        ``recipient_email`` (the send-invite endpoint's address) binds the
+        invite to that address (#1678); only its keyed hash is stored.
+        """
         import secrets
+
+        from visiban.invite_recipient import hash_recipient
 
         role = role or cls.Role.MEMBER
         if role not in cls.GRANTABLE_ROLES:
             raise ValueError(f"A board invite cannot grant the role {role!r}.")
+        delivery = delivery or cls.Delivery.LINK
+        recipient_hash = hash_recipient(recipient_email)
+        # An emailed invite is always bound to its address (#1678): minting one
+        # without an address would silently create an invite anyone can use.
+        if delivery == cls.Delivery.EMAIL and recipient_hash is None:
+            raise ValueError("An emailed board invite needs a recipient_email.")
         raw = cls.BOARD_INVITE_PREFIX + secrets.token_hex(20)
         instance = cls.objects.create(
             board=board,
@@ -342,7 +364,8 @@ class BoardInviteLink(models.Model):
             role=role,
             expires_at=expires_at,
             single_use=single_use,
-            delivery=delivery or cls.Delivery.LINK,
+            delivery=delivery,
+            recipient_hash=recipient_hash,
         )
         return instance, raw
 

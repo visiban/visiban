@@ -13,6 +13,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from boards.tests.invite_fixtures import generate_invite
 from accounts.models import User
 from groups.models import Group, GroupInviteLink, GroupMembership
 from groups.views import GROUP_MAX_PENDING_EMAILED_INVITES
@@ -91,7 +92,7 @@ class GroupInviteEmailTests(TestCase):
         )
 
     def test_list_serializer_exposes_delivery(self):
-        GroupInviteLink.generate(group=self.group, created_by=self.admin)
+        generate_invite(GroupInviteLink, group=self.group, created_by=self.admin)
         self._send()
         r = self.client.get(f"/api/v1/groups/{self.group.pk}/invite-links/")
         self.assertEqual(sorted(link["delivery"] for link in r.json()), ["email", "link"])
@@ -230,14 +231,13 @@ class GroupInviteEmailTests(TestCase):
 
     def test_full_shareable_slots_do_not_block_email(self):
         for _ in range(5):
-            GroupInviteLink.generate(group=self.group, created_by=self.admin)
+            generate_invite(GroupInviteLink, group=self.group, created_by=self.admin)
         self.assertEqual(self._send().status_code, status.HTTP_202_ACCEPTED)
 
     def test_emailed_cap_enforced(self):
         future = timezone.now() + timedelta(days=7)
         for _ in range(GROUP_MAX_PENDING_EMAILED_INVITES):
-            GroupInviteLink.generate(
-                group=self.group, created_by=self.admin, single_use=True,
+            generate_invite(GroupInviteLink, group=self.group, created_by=self.admin, single_use=True,
                 expires_at=future, delivery="email",
             )
         r = self._send()
@@ -249,8 +249,7 @@ class GroupInviteEmailTests(TestCase):
         past = timezone.now() - timedelta(days=1)
         future = timezone.now() + timedelta(days=7)
         for i in range(GROUP_MAX_PENDING_EMAILED_INVITES):
-            link, _ = GroupInviteLink.generate(
-                group=self.group, created_by=self.admin, single_use=True,
+            link, _ = generate_invite(GroupInviteLink, group=self.group, created_by=self.admin, single_use=True,
                 expires_at=past if i % 3 == 0 else future, delivery="email",
             )
             if i % 3 == 1:
@@ -293,8 +292,7 @@ class GroupInviteEmailTests(TestCase):
     def test_cap_reached_does_not_spend_budget(self):
         future = timezone.now() + timedelta(days=7)
         links = [
-            GroupInviteLink.generate(
-                group=self.group, created_by=self.admin, single_use=True,
+            generate_invite(GroupInviteLink, group=self.group, created_by=self.admin, single_use=True,
                 expires_at=future, delivery="email",
             )[0]
             for _ in range(GROUP_MAX_PENDING_EMAILED_INVITES)
@@ -397,7 +395,7 @@ class GroupInviteEmailTests(TestCase):
     # -- existing endpoint unchanged -----------------------------------------
 
     def test_revoke_route_still_works_and_rejects_non_numeric_id(self):
-        link, _ = GroupInviteLink.generate(group=self.group, created_by=self.admin)
+        link, _ = generate_invite(GroupInviteLink, group=self.group, created_by=self.admin)
         r = self.client.delete(f"/api/v1/groups/{self.group.pk}/invite-links/{link.pk}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         r = self.client.delete(f"/api/v1/groups/{self.group.pk}/invite-links/send/")

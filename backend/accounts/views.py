@@ -1311,6 +1311,10 @@ class InviteRegisterView(RegisterView):
         except InviteTokenError as exc:
             return Response({"invite_token": [exc.detail]}, status=status.HTTP_400_BAD_REQUEST)
 
+        # The emailed-invite address check (#1678) runs in perform_create, after
+        # the form has validated and before the account is created.
+        self._invite = invite
+
         # Registration and redemption share this view's transaction, so a
         # failed registration (400) leaves the invite unconsumed and a refused
         # redemption rolls the new account back.
@@ -1329,6 +1333,22 @@ class InviteRegisterView(RegisterView):
         return response
 
     def perform_create(self, serializer):
+        # An emailed group/board invite is bound to the address it was sent to
+        # (#1678). Checked here — after the serializer has validated the whole
+        # form, so a form error reads the same whatever address was typed, and
+        # before the account exists, so a mismatch is a plain 400 that creates
+        # nothing and leaves the invite usable. The locked check at redemption
+        # re-applies it to the created account. The error is an ``email`` field
+        # error with a ``code``, not an ``invite_token`` one: the invite itself
+        # is still valid and the client should keep it.
+        invite = getattr(self, "_invite", None)
+        if invite is not None:
+            from rest_framework.exceptions import ValidationError as DRFValidationError
+
+            from visiban.invite_recipient import MISMATCH_CODE, REGISTRATION_MISMATCH_DETAIL, signup_address_admits
+
+            if not signup_address_admits(invite, serializer.validated_data.get("email")):
+                raise DRFValidationError({"email": [REGISTRATION_MISMATCH_DETAIL], "code": MISMATCH_CODE})
         # Keep the new account so the invite can be redeemed for it;
         # dj-rest-auth's create() does not hand the user back.
         user = super().perform_create(serializer)

@@ -6,7 +6,7 @@ Rotate Visiban's three most critical secrets — `DJANGO_SECRET_KEY`, `DB_PASSWO
 
 ## DJANGO_SECRET_KEY
 
-Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password reset links. Rotating it immediately invalidates all active sessions (all users are logged out) and any outstanding password reset / email confirmation links.
+Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password reset links. Rotating it immediately invalidates all active sessions (all users are logged out) and any outstanding password reset / email confirmation links. *(1.2+)* It also makes pending **emailed group and board invites** unusable: each stores a fingerprint of its recipient's address keyed from `SECRET_KEY`, and that fingerprint no longer matches after a key change, so resend those invites (see [Site admins](site-admins.md)). Visiban has no environment variable for keeping an old key around. If you set Django's `SECRET_KEY_FALLBACKS` in your own settings override, invites made under a key listed there keep matching. Shareable invite links and site invite links are not affected.
 
 !!! note "Key strength is now a confidentiality control, not only an integrity one"
     Before Visiban stored secrets at rest, `SECRET_KEY` protected session and CSRF

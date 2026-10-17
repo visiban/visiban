@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from boards.tests.invite_fixtures import generate_invite
 from accounts import registration_tokens
 from accounts.adapter import PENDING_INVITE_SESSION_KEY, SocialRegistrationAdapter
 from accounts.middleware import OAuthInviteTokenMiddleware
@@ -45,8 +46,7 @@ class _Fixture:
     def make_invite(self, *, delivery="email", single_use=True, role="collaborator", expires_at="default"):
         if expires_at == "default":
             expires_at = timezone.now() + timedelta(days=7)
-        return BoardInviteLink.generate(
-            board=self.board, created_by=self.sender, role=role,
+        return generate_invite(BoardInviteLink, board=self.board, created_by=self.sender, role=role,
             expires_at=expires_at, single_use=single_use, delivery=delivery,
         )
 

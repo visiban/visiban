@@ -15,6 +15,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from boards.tests.invite_fixtures import generate_invite
 from accounts.adapter import PENDING_INVITE_SESSION_KEY, SocialRegistrationAdapter
 from accounts.invite_utils import InviteTokenError
 from accounts.middleware import OAuthInviteTokenMiddleware
@@ -55,8 +56,7 @@ class _GroupInviteFixture:
                   role=GroupInviteLink.Role.VIEWER, expires_at="default"):
         if expires_at == "default":
             expires_at = timezone.now() + timedelta(days=7)
-        return GroupInviteLink.generate(
-            group=self.group, created_by=self.admin, role=role,
+        return generate_invite(GroupInviteLink, group=self.group, created_by=self.admin, role=role,
             expires_at=expires_at, single_use=single_use, delivery=delivery,
         )
 
@@ -528,8 +528,7 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
         sender.is_site_admin = True
         sender.save(update_fields=["is_site_admin"])
         GroupMembership.objects.create(group=self.group, user=sender, role=GroupMembership.Role.ADMIN)
-        link, raw = GroupInviteLink.generate(
-            group=self.group, created_by=sender, role=GroupInviteLink.Role.VIEWER,
+        link, raw = generate_invite(GroupInviteLink, group=self.group, created_by=sender, role=GroupInviteLink.Role.VIEWER,
             expires_at=timezone.now() + timedelta(days=7), single_use=True,
             delivery=GroupInviteLink.Delivery.EMAIL,
         )

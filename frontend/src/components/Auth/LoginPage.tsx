@@ -20,6 +20,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invite_required: "An invite link is required to create an account.",
   invite_not_for_registration: "This invite link can't be used to create an account on this site. Ask a site admin for an invite.",
   invite_invalid: "This invite link is no longer valid. Please ask your administrator for a new one.",
+  invite_recipient_mismatch: "This invite was sent to a different email address. Sign in with the account that uses that address, or ask for a new invite.",
   signup_closed: "Registration is currently closed.",
   oauth_failed: AUTH_ERROR_FALLBACK,
 };
@@ -196,10 +197,14 @@ export default function LoginPage({ onLogin }: Props) {
       }
     } catch (err: unknown) {
       setError(loginErrorMessage(err));
-      // Any invite_token rejection (invalid, expired, used, or a shareable
+      // An invite_token rejection (invalid, expired, used, or a shareable
       // group link that can't create accounts, #1445) means the stored token
       // is dead: drop it, like the OAuth invite_* errors above, so the form
       // falls back to "An invite link is required" instead of resending it.
+      // An emailed invite sent to a different address (#1678) is reported as
+      // an `email` field error with code invite_recipient_mismatch instead:
+      // the invite is still valid, so the token is kept and the person can
+      // retry with the invited address.
       const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
       if (mode === "register" && data && "invite_token" in data) {
         sessionStorage.removeItem("invite_token");

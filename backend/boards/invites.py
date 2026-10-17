@@ -39,6 +39,7 @@ from django.utils import timezone
 
 from accounts.invite_utils import InviteTokenError
 from visiban.authorization import invite_creator_is_valid, principal_is_active, sender_may_admit_accounts
+from visiban.invite_recipient import require_recipient
 from accounts.models import SiteSetting, get_registration_mode
 
 from . import broadcast as _broadcast
@@ -383,7 +384,8 @@ def redeem_board_registration_token(link: BoardInviteLink, user) -> None:
     conditional update, and the board row is re-locked first, as defense in
     depth for a caller outside a validating transaction: the invite is then
     consumed at most once, and losing that race raises ``invite_invalid`` and
-    grants nothing.
+    grants nothing. An invite bound to another address (#1678) raises
+    ``invite_recipient_mismatch`` before the claim.
     """
     with transaction.atomic():
         # Board row before the claim (#1631). Both current callers validated
@@ -394,6 +396,10 @@ def redeem_board_registration_token(link: BoardInviteLink, user) -> None:
         # invite cascades away, so the conditional claim below matches no row.
         if not lock_invite_board(link.board_id):
             raise InviteTokenError("invite_invalid", "Invalid or expired invite link.")
+        # Bound to the invited address (#1678): the new account's signup
+        # address must match, checked before the claim so a refusal consumes
+        # nothing (the caller rolls the account back).
+        require_recipient(link, user, at_registration=True)
         claimed = BoardInviteLink.objects.filter(
             pk=link.pk, used_at__isnull=True, revoked_at__isnull=True,
         ).update(used_at=timezone.now())

@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from boards.tests.invite_fixtures import generate_invite
 from accounts.models import SiteSetting, User
 from boards import broadcast as board_broadcast
 from boards.models import Board, BoardInviteLink, BoardMembership
@@ -47,8 +48,7 @@ class _Fixture:
         cache.clear()
 
     def make(self, board=None, *, delivery="link", single_use=False, created_by=None, days=7, **state):
-        link, _raw = BoardInviteLink.generate(
-            board=board or self.board, created_by=created_by or self.board_admin,
+        link, _raw = generate_invite(BoardInviteLink, board=board or self.board, created_by=created_by or self.board_admin,
             expires_at=timezone.now() + timedelta(days=days), single_use=single_use, delivery=delivery,
         )
         if state:
@@ -286,8 +286,7 @@ class AdminBoardInviteRevokeTests(_Fixture, TestCase):
         self.assertEqual(self.client.delete(f"{LIST_URL}999999/").status_code, status.HTTP_404_NOT_FOUND)
 
     def test_revoked_link_stops_working(self):
-        link, raw = BoardInviteLink.generate(
-            board=self.board, created_by=self.board_admin, expires_at=timezone.now() + timedelta(days=1),
+        link, raw = generate_invite(BoardInviteLink, board=self.board, created_by=self.board_admin, expires_at=timezone.now() + timedelta(days=1),
         )
         self.client.delete(detail_url(link))
         joiner = User.objects.create_user(username="joiner", password="p")

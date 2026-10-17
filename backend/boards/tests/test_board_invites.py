@@ -17,6 +17,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from boards.tests.invite_fixtures import generate_invite
 from accounts.models import SiteSetting, User
 from boards import broadcast as board_broadcast
 from boards.models import Board, BoardEvent, BoardInviteLink, BoardInviteRedemption, BoardMembership
@@ -64,8 +65,7 @@ class _BoardFixture:
                     expires_at="default"):
         if expires_at == "default":
             expires_at = timezone.now() + timedelta(days=7)
-        return BoardInviteLink.generate(
-            board=self.board, created_by=created_by or self.admin, role=role,
+        return generate_invite(BoardInviteLink, board=self.board, created_by=created_by or self.admin, role=role,
             expires_at=expires_at, single_use=single_use, delivery=delivery,
         )
 
@@ -721,7 +721,7 @@ class BoardInviteRoleEnforcementTests(_BoardFixture, TestCase):
     def test_generate_refuses_non_grantable_roles(self):
         for role in ("admin", "moderator", "site_admin", "owner"):
             with self.subTest(role=role), self.assertRaises(ValueError):
-                BoardInviteLink.generate(board=self.board, created_by=self.admin, role=role)
+                generate_invite(BoardInviteLink, board=self.board, created_by=self.admin, role=role)
         self.assertFalse(BoardInviteLink.objects.exists())
 
     def test_admin_role_written_directly_is_never_honored(self):
@@ -1015,8 +1015,7 @@ class BoardShareableLinkCreateTests(_BoardFixture, TestCase):
     def test_other_boards_links_do_not_count(self):
         other = Board.objects.create(name="Other", owner=self.admin)
         for _ in range(5):
-            BoardInviteLink.generate(
-                board=other, created_by=self.admin, expires_at=timezone.now() + timedelta(days=1),
+            generate_invite(BoardInviteLink, board=other, created_by=self.admin, expires_at=timezone.now() + timedelta(days=1),
             )
         self.assertEqual(self._create().status_code, status.HTTP_201_CREATED)
 

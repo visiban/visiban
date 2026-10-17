@@ -21,6 +21,11 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from visiban.invite_email import InviteEmailBadRequestSerializer, InviteEmailErrorSerializer
+from visiban.invite_recipient import (
+    MISMATCH_CODE as RECIPIENT_MISMATCH_CODE,
+    MISMATCH_DETAIL as RECIPIENT_MISMATCH_DETAIL,
+    recipient_admits,
+)
 from . import broadcast as _group_broadcast
 from .invite_registration import link_can_register
 from .models import (
@@ -1180,6 +1185,8 @@ class GroupViewSet(viewsets.ModelViewSet):
                 expires_at=timezone.now() + datetime.timedelta(days=validated["expiry_days"]),
                 single_use=True,
                 delivery=GroupInviteLink.Delivery.EMAIL,
+                # Bind the invite to this address (#1678); only a keyed hash is stored.
+                recipient_email=validated["email"],
             )
 
             def _broadcast_invite_created(gid=group.pk, lid=link.pk):
@@ -1550,6 +1557,20 @@ class JoinGroupView(APIView):
             "can_register": link_can_register(link),
         })
 
+    @extend_schema(
+        summary="Join a group with an invite link",
+        request=None,
+        responses={
+            200: GroupSerializer,
+            201: GroupSerializer,
+            403: inline_serializer(
+                name="GroupJoinRecipientMismatch",
+                fields={"code": drf_serializers.CharField(), "detail": drf_serializers.CharField()},
+            ),
+            404: inline_serializer(name="GroupJoinPostNotFound", fields={"detail": drf_serializers.CharField()}),
+            410: inline_serializer(name="GroupJoinPostGone", fields={"detail": drf_serializers.CharField()}),
+        },
+    )
     def post(self, request, token):
         token_hint = str(token)[:8]
         ip = get_client_ip(request)
@@ -1615,6 +1636,24 @@ class JoinGroupView(APIView):
                 return Response(
                     {"detail": "This invite link has expired."},
                     status=status.HTTP_410_GONE,
+                )
+
+            # An emailed invite is bound to the address it was sent to
+            # (#1678). Checked on the locked row before anything is written,
+            # so a refusal leaves the invite unconsumed for the person it was
+            # sent to. A consumed invite followed again by its own member is a
+            # no-op and is not re-checked; unbound links (shareable links,
+            # emailed invites from before #1678) pass.
+            if link.used_at is None and not recipient_admits(link, request.user):
+                logger.info(
+                    "Invite token redemption failed: recipient mismatch. token=%s user_id=%s ip=%s outcome=failure",
+                    token_hint,
+                    request.user.pk,
+                    ip,
+                )
+                return Response(
+                    {"code": RECIPIENT_MISMATCH_CODE, "detail": RECIPIENT_MISMATCH_DETAIL},
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
             # get_or_create: if the user is already a member, their existing role is preserved.

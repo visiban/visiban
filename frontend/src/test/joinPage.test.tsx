@@ -230,6 +230,35 @@ describe('JoinPage', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
+  // #1678: an emailed invite bound to another address answers 403 with a
+  // neutral detail; the page shows it instead of "may have expired".
+  const mismatch = (detail?: string) => Object.assign(new Error('Forbidden'), {
+    response: { status: 403, data: { code: 'invite_recipient_mismatch', ...(detail ? { detail } : {}) } },
+  })
+
+  it('shows the server detail when the group invite was sent to another address', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockJoinGroup.mockRejectedValue(mismatch('This invite was sent to a different email address. Sign in with the account that uses that address, or ask for a new invite.'))
+    renderJoinPage(fakeUser)
+    expect(await screen.findByText('This invite was sent to a different email address. Sign in with the account that uses that address, or ask for a new invite.')).toBeInTheDocument()
+    expect(screen.queryByText('Failed to join group. The invite may have expired.')).not.toBeInTheDocument()
+  })
+
+  it('shows the mismatch detail on Try again too, with a fallback when the detail is missing', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockJoinGroup.mockRejectedValueOnce(new Error('Gone')).mockRejectedValueOnce(mismatch())
+    renderJoinPage(fakeUser)
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('This invite was sent to a different email address.')).toBeInTheDocument()
+  })
+
+  it('a 403 without the mismatch code keeps the generic group message', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockJoinGroup.mockRejectedValue(Object.assign(new Error('Forbidden'), { response: { status: 403, data: { detail: 'x' } } }))
+    renderJoinPage(fakeUser)
+    expect(await screen.findByText('Failed to join group. The invite may have expired.')).toBeInTheDocument()
+  })
+
   it('shows SSO button when oidc provider is enabled', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: null })
@@ -468,6 +497,18 @@ describe('JoinPage — board invites (vbnb_, #1444)', () => {
     renderBoardJoin(fakeUser)
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
     expect(await screen.findByTestId('board-page')).toHaveTextContent('"created":false')
+  })
+
+  it('a board invite sent to another address shows the server detail (#1678)', async () => {
+    mockResolveBoard.mockResolvedValue(preview)
+    mockJoinBoard.mockRejectedValue(Object.assign(new Error('Forbidden'), {
+      response: { status: 403, data: { code: 'invite_recipient_mismatch', detail: 'This invite was sent to a different email address. Sign in with the account that uses that address, or ask for a new invite.' } },
+    }))
+    renderBoardJoin(fakeUser)
+    const failure = await screen.findByText('This invite was sent to a different email address. Sign in with the account that uses that address, or ask for a new invite.')
+    expect(failure).toHaveAttribute('role', 'alert')
+    expect(screen.queryByText("Couldn't join Launch Plan. The invite may have expired or been used.")).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
   it('a 410 on the first join goes straight to the invalid view', async () => {

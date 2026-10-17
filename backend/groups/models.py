@@ -332,7 +332,8 @@ class GroupInviteLink(models.Model):
     # How the link reached its recipient (#731). "link" links are copied and
     # shared by an admin and count against the 5-active cap; "email" links are
     # minted by the send-invite endpoint, delivered straight to one address, and
-    # have their own cap. The recipient address itself is never stored.
+    # have their own cap. The plaintext recipient address is never stored; see
+    # recipient_hash below.
     delivery = models.CharField(
         max_length=8, choices=Delivery.choices, default=Delivery.LINK,
         # db_default keeps the column default in the database after AddField
@@ -340,6 +341,11 @@ class GroupInviteLink(models.Model):
         # during a rolling deploy can INSERT without hitting NOT NULL.
         db_default=Delivery.LINK,
     )
+    # Keyed hash of the address an emailed invite was sent to (#1678; see
+    # visiban/invite_recipient.py). Redemption compares it with the redeeming
+    # account's addresses. NULL for shareable links and for emailed invites
+    # minted before #1678, which redeem as they always have. Never serialized.
+    recipient_hash = models.CharField(max_length=64, null=True, blank=True, editable=False)
 
     class Meta:
         db_table = "group_invite_links"
@@ -383,9 +389,21 @@ class GroupInviteLink(models.Model):
     @classmethod
     def generate(
         cls, group, created_by, name="", role=None, expires_at=None, single_use=False,
-        delivery=None,
+        delivery=None, recipient_email=None,
     ):
-        """Create a new invite link with a hashed token. Returns (instance, raw_token)."""
+        """Create a new invite link with a hashed token. Returns (instance, raw_token).
+
+        ``recipient_email`` (the send-invite endpoint's address) binds the
+        invite to that address (#1678); only its keyed hash is stored.
+        """
+        from visiban.invite_recipient import hash_recipient
+
+        delivery = delivery or cls.Delivery.LINK
+        recipient_hash = hash_recipient(recipient_email)
+        # An emailed invite is always bound to its address (#1678): minting one
+        # without an address would silently create an invite anyone can use.
+        if delivery == cls.Delivery.EMAIL and recipient_hash is None:
+            raise ValueError("An emailed group invite needs a recipient_email.")
         raw = cls.GROUP_INVITE_PREFIX + secrets.token_hex(20)
         instance = cls.objects.create(
             group=group,
@@ -397,7 +415,8 @@ class GroupInviteLink(models.Model):
             expires_at=expires_at,
             is_active=True,
             single_use=single_use,
-            delivery=delivery or cls.Delivery.LINK,
+            delivery=delivery,
+            recipient_hash=recipient_hash,
         )
         return instance, raw
 

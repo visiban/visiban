@@ -76,7 +76,7 @@ Group
  ├── allowed_priorities (JSON — empty = all allowed)
  ├── GroupLabel  (name, color — shared label library copied to new boards)
  ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
- ├── GroupInviteLink  (name, token, role, expires_at, single_use, used_at, delivery — link | email)
+ ├── GroupInviteLink  (name, token, role, expires_at, single_use, used_at, delivery — link | email, recipient_hash — nullable keyed hash of an emailed invite's address; 1.2+)
  └── GroupFavorite → User  (unique per user+group)
 
 Board
@@ -104,7 +104,7 @@ Board
  ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required — max 30/board)
  ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 15/board)
  ├── BoardExportLog  (actor, role_at_export, export_format, row_count)
- └── BoardInviteLink  (token_hash, prefix, role — member | collaborator | viewer, expires_at, single_use, used_at, revoked_at/revoked_by, use_count, delivery — link | email; 1.2+)
+ └── BoardInviteLink  (token_hash, prefix, role — member | collaborator | viewer, expires_at, single_use, used_at, revoked_at/revoked_by, use_count, delivery — link | email, recipient_hash — nullable keyed hash of an emailed invite's address; 1.2+)
       └── BoardInviteRedemption → User  (role_granted, membership_created, via — join | registration; unique per invite+user)
 
 Card
@@ -329,7 +329,7 @@ A multi-use link needs its own guard against repeat redemption by the same perso
 
 ### BoardInviteLink *(1.2+)*
 
-Board-scoped invites (`vbnb_` tokens, #1444) live in the boards app beside `BoardMembership`. Like the other two invite kinds, only the SHA-256 of the token is stored, and the address an emailed invite went to is not stored at all. An invite can grant only `member`, `collaborator` or `viewer` (`BoardInviteLink.GRANTABLE_ROLES`, enforced by `generate()` and again at redemption), never `admin` or the moderator flag, and never group membership.
+Board-scoped invites (`vbnb_` tokens, #1444) live in the boards app beside `BoardMembership`. Like the other two invite kinds, only the SHA-256 of the token is stored. The address an emailed invite went to is not stored either. Instead, an emailed board or group invite keeps `recipient_hash`, an HMAC of the normalized address keyed from `SECRET_KEY` (`visiban/invite_recipient.py`, #1678). Every redemption path compares it with the redeeming account's addresses on the locked invite row, before the invite is consumed. It is NULL for shareable links and for emailed invites minted before the column existed, which redeem as before, and it is never serialized. An invite can grant only `member`, `collaborator` or `viewer` (`BoardInviteLink.GRANTABLE_ROLES`, enforced by `generate()` and again at redemption), never `admin` or the moderator flag, and never group membership.
 
 Redemption is serialized by `select_for_update()` on the invite row — in the join view and in the registration validator — and it never edits an existing explicit `BoardMembership`, because an explicit membership overrides an inherited group role rather than adding to it (see [Permissions](../features/permissions.md)). A pending invite whose sender has been deleted or is no longer a board admin is unusable: the join endpoints answer `410 revoked` and the admin list reports it as `revoked`, without writing to the row. Because nothing is written, the state is reversible — if the sender regains board admin the invite is pending and redeemable again until it expires. An admin who wants it gone for good revokes it with `DELETE /boards/{id}/invite-links/{link_id}/`, which accepts it since `revoked_at` is still NULL.
 

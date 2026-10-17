@@ -9,6 +9,7 @@ import jsonschema
 from django.test import TestCase
 from drf_spectacular.generators import SchemaGenerator
 
+from boards.tests.invite_fixtures import generate_invite
 from boards.tests.test_move_schema_contract import _openapi3_nullable_to_jsonschema
 
 SEND_PATHS = (
@@ -117,8 +118,7 @@ class BoardInviteSuccessBodySchemaContractTests(TestCase):
         self.admin_client = APIClient()
         self.admin_client.force_authenticate(self.site_admin)
         # One emailed invite whose sender was deleted (nullable fields exercised).
-        emailed, _ = BoardInviteLink.generate(
-            board=self.board, created_by=self.owner, single_use=True, delivery="email",
+        emailed, _ = generate_invite(BoardInviteLink, board=self.board, created_by=self.owner, single_use=True, delivery="email",
             expires_at=timezone.now() + timedelta(days=7),
         )
         BoardInviteLink.objects.filter(pk=emailed.pk).update(created_by=None)

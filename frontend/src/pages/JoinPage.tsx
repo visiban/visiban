@@ -30,6 +30,18 @@ function goneCode(err: unknown): BoardGoneCode | null {
 }
 
 /**
+ * The server's message when an emailed invite was sent to a different address
+ * than the signed-in account's (#1678): 403 with code
+ * ``invite_recipient_mismatch``. The detail never names the invited address,
+ * so it is shown as-is. Null for any other failure.
+ */
+function recipientMismatchDetail(err: unknown): string | null {
+  const res = (err as { response?: { status?: number; data?: { code?: string; detail?: string } } }).response;
+  if (res?.status !== 403 || res.data?.code !== "invite_recipient_mismatch") return null;
+  return res.data.detail ?? "This invite was sent to a different email address.";
+}
+
+/**
  * The /join/<token> landing page for every invite kind. One component, not a
  * fork per kind: the token's prefix picks the API — ``vbnl_`` (site, straight
  * to registration), ``vbnb_`` (board, #1444), anything else a group invite —
@@ -143,7 +155,10 @@ export default function JoinPage({ user }: Props) {
           setBoardGone(code);
           setInvalid(true);
         } else {
-          setJoinError(`Couldn't join ${groupName}. The invite may have expired or been used.`);
+          setJoinError(
+            recipientMismatchDetail(err)
+              ?? `Couldn't join ${groupName}. The invite may have expired or been used.`,
+          );
         }
         setJoining(false);
       });
@@ -158,8 +173,8 @@ export default function JoinPage({ user }: Props) {
     }
     joinGroup(token)
       .then(() => navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } }))
-      .catch(() => {
-        setJoinError("Failed to join group. The invite may have expired.");
+      .catch((err) => {
+        setJoinError(recipientMismatchDetail(err) ?? "Failed to join group. The invite may have expired.");
         setJoining(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- joinBoardAndGo is recreated each render; the guard ref makes this fire once
@@ -176,8 +191,8 @@ export default function JoinPage({ user }: Props) {
     }
     joinGroup(token)
       .then(() => navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } }))
-      .catch(() => {
-        setJoinError("Failed to join group. The invite may have expired.");
+      .catch((err) => {
+        setJoinError(recipientMismatchDetail(err) ?? "Failed to join group. The invite may have expired.");
         setJoining(false);
       });
   };

@@ -25,6 +25,7 @@ from allauth.socialaccount.models import SocialAccount, SocialLogin
 from accounts.adapter import PENDING_INVITE_SESSION_KEY, SocialRegistrationAdapter
 from accounts.models import InviteLink, SiteSetting, User
 from boards.models import Board, BoardInviteLink, BoardMembership
+from boards.tests.invite_fixtures import generate_invite
 from groups.models import Group, GroupInviteLink, GroupMembership
 
 def _make_sociallogin(email):
@@ -71,15 +72,13 @@ class _Fixture:
         elif kind == "group":
             group = Group.objects.create(name="G", owner=admin)
             GroupMembership.objects.create(group=group, user=admin, role=GroupMembership.Role.ADMIN)
-            link, raw = GroupInviteLink.generate(
-                group=group, created_by=admin, role=GroupInviteLink.Role.VIEWER,
+            link, raw = generate_invite(GroupInviteLink, group=group, created_by=admin, role=GroupInviteLink.Role.VIEWER,
                 expires_at=expires, single_use=True, delivery=GroupInviteLink.Delivery.EMAIL,
             )
         else:
             board = Board.objects.create(name="B", owner=admin)
             BoardMembership.objects.create(board=board, user=admin, role=BoardMembership.Role.ADMIN)
-            link, raw = BoardInviteLink.generate(
-                board=board, created_by=admin, role="viewer",
+            link, raw = generate_invite(BoardInviteLink, board=board, created_by=admin, role="viewer",
                 expires_at=expires, single_use=True, delivery="email",
             )
         self.link = link

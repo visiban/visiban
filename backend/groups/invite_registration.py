@@ -34,6 +34,7 @@ from django.utils import timezone
 
 from accounts.invite_utils import InviteTokenError
 from accounts.models import SiteSetting, get_registration_mode
+from visiban.invite_recipient import require_recipient
 
 from . import broadcast as _group_broadcast
 from .models import GroupInviteLink, GroupMembership
@@ -190,9 +191,14 @@ def redeem_group_registration_token(link: GroupInviteLink, user) -> None:
     a caller that did not hold the row lock — the OAuth ``save_user`` path —
     can consume the invite at most once. Losing that race raises
     ``invite_invalid`` and creates no membership; the caller's transaction
-    decides what happens to the new account.
+    decides what happens to the new account. An invite bound to another
+    address (#1678) raises ``invite_recipient_mismatch`` before the stamp.
     """
     with transaction.atomic():
+        # Bound to the invited address (#1678): the new account's signup
+        # address must match, checked before the stamp so a refusal consumes
+        # nothing (the caller rolls the account back).
+        require_recipient(link, user, at_registration=True)
         stamped = GroupInviteLink.objects.filter(
             pk=link.pk, used_at__isnull=True, is_active=True,
         ).update(used_at=timezone.now())

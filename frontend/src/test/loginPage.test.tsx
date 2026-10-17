@@ -226,6 +226,27 @@ describe('LoginPage', () => {
     expect(sessionStorage.getItem('invite_token')).toBe('vbng_emailed')
   })
 
+  it('keeps the invite and the form when the sign-up address is not the invited one (#1678)', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
+    sessionStorage.setItem('invite_token', 'vbnb_emailed')
+    const detail = 'This invite was sent to a different email address. Sign up with the address the invite was sent to, or ask for a new invite.'
+    mockRegister.mockRejectedValue({
+      response: { status: 400, data: { email: [detail], code: 'invite_recipient_mismatch' } },
+    })
+
+    const user = userEvent.setup({ delay: null })
+    renderLoginPage({ authMode: 'register' })
+    await screen.findByText('Complete your registration')
+    await user.type(screen.getByPlaceholderText('Email address'), 'wrong@example.com')
+    await user.type(screen.getByPlaceholderText('Password'), 'password1234')
+    await user.type(screen.getByPlaceholderText('Confirm password'), 'password1234')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(await screen.findByText(detail)).toBeInTheDocument()
+    expect(sessionStorage.getItem('invite_token')).toBe('vbnb_emailed')
+    expect(screen.getByRole('button', { name: 'Create account' })).not.toBeDisabled()
+  })
+
   it('hides "Create one" and shows invite-only message when registration is closed', async () => {
     mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     renderLoginPage()
@@ -405,6 +426,18 @@ describe('LoginPage', () => {
 
       expect(await screen.findByText(/This invite link can't be used to create an account on this site\. Ask a site admin for an invite\./)).toBeInTheDocument()
       expect(sessionStorage.getItem('invite_token')).toBeNull()
+    })
+
+    it('explains an emailed invite was sent to a different address (#1678)', async () => {
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=invite_recipient_mismatch']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      expect(await screen.findByText(
+        'This invite was sent to a different email address. Sign in with the account that uses that address, or ask for a new invite.',
+      )).toBeInTheDocument()
     })
 
     it('clears invite_token from sessionStorage on invite errors', async () => {

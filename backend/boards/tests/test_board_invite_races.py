@@ -18,6 +18,7 @@ from django.test import TransactionTestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from boards.tests.invite_fixtures import generate_invite
 from accounts.models import SiteSetting, User
 from boards.models import Board, BoardInviteLink, BoardInviteRedemption, BoardMembership
 
@@ -58,8 +59,7 @@ class _RaceFixture(TransactionTestCase):
         self.sender = User.objects.create_user(username="race_sender", password="p", is_site_admin=True)
         self.board = Board.objects.create(name="Race Board", owner=self.owner)
         BoardMembership.objects.create(board=self.board, user=self.sender, role="admin")
-        self.link, self.raw = BoardInviteLink.generate(
-            board=self.board, created_by=self.sender, role="member", single_use=True,
+        self.link, self.raw = generate_invite(BoardInviteLink, board=self.board, created_by=self.sender, role="member", single_use=True,
             delivery="email", expires_at=timezone.now() + timedelta(days=7),
         )
 

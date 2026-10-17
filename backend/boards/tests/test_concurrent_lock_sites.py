@@ -65,6 +65,7 @@ from django.db import connection, connections
 from django.test import TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
+from boards.tests.invite_fixtures import generate_invite
 from accounts.models import User
 from boards.models import (
     Board,
@@ -406,8 +407,7 @@ class InviteLockTests(_LockRaceBase):
         from django.utils import timezone
 
         return [
-            BoardInviteLink.generate(
-                self.board,
+            generate_invite(BoardInviteLink, self.board,
                 self.user,
                 expires_at=timezone.now() + timedelta(days=7),
                 delivery=delivery,

@@ -241,7 +241,7 @@ Email a single-use invite link to one address. Requires group admin. *(Added in 
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `email` | string | Yes | Recipient address. Surrounding spaces are stripped; an address containing a line break is rejected. The address is used for this one send and is **never stored** or logged. |
+| `email` | string | Yes | Recipient address. Surrounding spaces are stripped; an address containing a line break is rejected. The address itself is **never stored** or logged. *(1.2+)* The link keeps only a keyed hash of it, which binds the invite to that address (see `POST /api/v1/groups/join/{token}/`) and is never returned. |
 | `role` | string | No | Role granted on join: `admin` / `member` / `collaborator` / `viewer`. Default `member`. |
 | `expiry_days` | integer | No | Days until the link expires, `1`–`30`. Default `7`. There is no "never expires" option for emailed links. |
 
@@ -386,6 +386,8 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 
 ### `POST /api/v1/groups/join/{token}/`
 Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP, shared with the board join endpoints.
+
+*(1.2+, #1678)* An emailed link (`delivery: "email"`) works only for an account with the address it was sent to. Otherwise the response is `403 {"code": "invite_recipient_mismatch", "detail": "This invite was sent to a different email address. ..."}`, nothing is written, and the link is not consumed. The same address rules apply as for [board invites](boards.md#post-apiv1boardsjointoken): verified addresses, plus the account's `email` unless `EMAIL_VERIFICATION=mandatory`, ignoring case. Shareable links and emailed links sent before upgrading to this version are not checked. Only a keyed fingerprint of the address is stored, and it is never returned.
 
 **Response body** — returns the full group object (same shape as `GET /api/v1/groups/{id}/` but using the list serializer, without `ancestors`):
 
