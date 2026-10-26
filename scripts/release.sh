@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: ./scripts/release.sh <version>
+# Usage: ./scripts/release.sh [-y|--yes] [--summary-file <path>] <version>
 # Example: ./scripts/release.sh 0.2.0-beta.1
 set -euo pipefail
 
@@ -322,6 +322,12 @@ resolve_release_summary() {
       echo "Error: summary file '${file}' is empty. Write the approved roll-up summary into it (see the /release skill, Step 1c)." >&2
       return 1
     fi
+    # A line shaped like a CHANGELOG version heading would end the dated
+    # section early in every extractor (release.sh and the github-release job).
+    if grep -qE '^## \[' <<<"$text"; then
+      echo "Error: summary file '${file}' has a line starting with '## [' — that reads as a CHANGELOG version heading and would truncate the release notes. Use ### or bold headings." >&2
+      return 1
+    fi
     printf '%s\n' "$text"
     return 0
   fi
@@ -360,6 +366,27 @@ insert_release_summary() {
       done = 1
     }
   ' "$1"
+}
+
+# rotate_changelog_with_summary <file> <version> <date> <summary> — the rotated
+# changelog with the summary (if any) opening the dated section; stdout.
+# The release main flow calls this one function, so a self-test of it plus a
+# check that the main flow calls it pins the wiring (#1995).
+rotate_changelog_with_summary() {
+  local f="$1" version="$2" date="$3" summary="$4" rot
+  rot="$(mktemp)"
+  rotate_changelog "$f" "$version" "$date" > "$rot"
+  insert_release_summary "$rot" "$version" "$summary"
+  rm -f "$rot"
+}
+
+# write_release_notes_file <body> <path> — the file glab release create reads.
+write_release_notes_file() {
+  if [[ -z "$1" ]]; then
+    echo "See CHANGELOG.md for details." > "$2"
+  else
+    printf '%s\n' "$1" > "$2"
+  fi
 }
 
 # confirm_release_notes <notes>
@@ -612,7 +639,7 @@ dependencies:
   # Roll-up summary (#1995): resolve_release_summary / combine_release_notes /
   # insert_release_summary. Pre-releases and bug-fix patches without a file
   # behave as before; a stable X.Y.0 refuses without one.
-  printf '%s\n' '## Highlights' '' '- Big thing' > "$tmp/sum.md"
+  printf '%s\n' '### Highlights' '' '- Big thing' > "$tmp/sum.md"
   : > "$tmp/sum-empty.md"; printf '  \n\n' > "$tmp/sum-blank.md"
   _sum_case() { # <label> <want-rc> <want-stdout> <version> <file>
     local out grc=0
@@ -639,18 +666,59 @@ dependencies:
   else echo "SELF-TEST FAILED: summary: no summary must leave notes untouched" >&2; rc=1; fi
   got="$(combine_release_notes "$(cat "$tmp/sum.md")" "### Added
 - n")"
-  if [[ "$got" == "$(printf '## Highlights\n\n- Big thing\n\n### Added\n- n')" ]]; then
+  if [[ "$got" == "$(printf '### Highlights\n\n- Big thing\n\n### Added\n- n')" ]]; then
     echo "SELF-TEST OK: summary precedes the notes in the release body"
   else echo "SELF-TEST FAILED: summary must precede the notes in the release body (got '$got')" >&2; rc=1; fi
   printf '%s\n' '# Changelog' '' '## [Unreleased]' '' '---' '' '## [1.2.0] — 2026-11-01' '' '### Added' '- n' '' '## [1.1.0] — 2026-06-06' '- old' > "$tmp/cl.md"
   got="$(insert_release_summary "$tmp/cl.md" 1.2.0 "$(cat "$tmp/sum.md")")"
-  want="$(printf '%s\n' '# Changelog' '' '## [Unreleased]' '' '---' '' '## [1.2.0] — 2026-11-01' '' '## Highlights' '' '- Big thing' '' '### Added' '- n' '' '## [1.1.0] — 2026-06-06' '- old')"
+  want="$(printf '%s\n' '# Changelog' '' '## [Unreleased]' '' '---' '' '## [1.2.0] — 2026-11-01' '' '### Highlights' '' '- Big thing' '' '### Added' '- n' '' '## [1.1.0] — 2026-06-06' '- old')"
   if [[ "$got" == "$want" ]]; then
     echo "SELF-TEST OK: insert_release_summary opens the dated section ahead of the categories"
   else echo "SELF-TEST FAILED: insert_release_summary placement (got '$got')" >&2; rc=1; fi
   if [[ "$(insert_release_summary "$tmp/cl.md" 1.2.0 "")" == "$(cat "$tmp/cl.md")" ]]; then
     echo "SELF-TEST OK: insert_release_summary with no summary leaves the changelog unchanged"
   else echo "SELF-TEST FAILED: insert_release_summary with no summary must be a no-op" >&2; rc=1; fi
+  # '## [' lines are refused (they would truncate extraction).
+  printf '%s\n' 'intro' '## [9.9.9] — fake' > "$tmp/sum-badhead.md"
+  _sum_case "summary: a line starting '## [' is refused" 1 "" 1.2.0 "$tmp/sum-badhead.md"
+
+  # Wiring (#1995): the rotation function puts the summary in the dated
+  # section, the shared extractor (also used by the github-release job) starts
+  # with it, and the main flow / CI job actually call these.
+  printf '%s\n' '# Changelog' '' '## [Unreleased]' '' '---' '' '### Added' '- n' '' '## [1.1.0] — 2026-06-06' '- old' > "$tmp/cl2.md"
+  rotate_changelog_with_summary "$tmp/cl2.md" 1.2.0 2026-11-01 "$(cat "$tmp/sum.md")" > "$tmp/cl2-out.md"
+  got="$(sh "$(dirname "$0")/extract-release-notes.sh" 1.2.0 "$tmp/cl2-out.md")"
+  want="$(printf '%s\n' '### Highlights' '' '- Big thing' '' '### Added' '- n')"
+  if [[ "$got" == "$want" ]]; then
+    echo "SELF-TEST OK: rotated changelog + extractor yield summary then notes"
+  else echo "SELF-TEST FAILED: rotate+extract end to end (got '$got')" >&2; rc=1; fi
+  rotate_changelog_with_summary "$tmp/cl2.md" 1.2.0 2026-11-01 "" > "$tmp/cl2-nosum.md"
+  got="$(sh "$(dirname "$0")/extract-release-notes.sh" 1.2.0 "$tmp/cl2-nosum.md")"
+  if [[ "$got" == "$(printf '%s\n' '### Added' '- n')" ]]; then
+    echo "SELF-TEST OK: extractor without a summary yields only the notes"
+  else echo "SELF-TEST FAILED: extractor without summary (got '$got')" >&2; rc=1; fi
+  write_release_notes_file "$(combine_release_notes "$(cat "$tmp/sum.md")" "- n")" "$tmp/nf.md"
+  if [[ "$(head -1 "$tmp/nf.md")" == "### Highlights" ]] && grep -qxF -- '- n' "$tmp/nf.md"; then
+    echo "SELF-TEST OK: write_release_notes_file writes summary then notes"
+  else echo "SELF-TEST FAILED: write_release_notes_file body" >&2; rc=1; fi
+  write_release_notes_file "" "$tmp/nf.md"
+  [[ "$(cat "$tmp/nf.md")" == "See CHANGELOG.md for details." ]] \
+    && echo "SELF-TEST OK: write_release_notes_file falls back when the body is empty" \
+    || { echo "SELF-TEST FAILED: write_release_notes_file empty fallback" >&2; rc=1; }
+  _self="$(dirname "$0")/release.sh"
+  _ci="$(dirname "$0")/../.gitlab-ci.yml"
+  _wire() { # <label> <file> <fixed-string>
+    if grep -qF -- "$3" "$2"; then echo "SELF-TEST OK: wiring: $1"
+    else echo "SELF-TEST FAILED: wiring: $1 ('$3' missing from $2)" >&2; rc=1; fi
+  }
+  _wire "main flow rotates via rotate_changelog_with_summary" "$_self" 'rotate_changelog_with_summary CHANGELOG.md "$VERSION" "$TODAY" "$RELEASE_SUMMARY_TEXT"'
+  _wire "main flow resolves the summary file" "$_self" 'resolve_release_summary "$VERSION" "$SUMMARY_FILE"'
+  _wire "main flow confirms the combined body" "$_self" 'confirm_release_notes "$RELEASE_BODY"'
+  _wire "glab release body comes from RELEASE_BODY" "$_self" 'write_release_notes_file "$RELEASE_BODY" "$NOTES_FILE"'
+  if [[ -f "$_ci" ]]; then
+    _wire "github-release job uses the shared extractor" "$_ci" 'sh scripts/extract-release-notes.sh "${VERSION}" CHANGELOG.md'
+  fi
+
   # The summary must reach confirm_release_notes' input: the gate sees the combined body.
   ASSUME_YES=true
   if confirm_release_notes "$(combine_release_notes "$(cat "$tmp/sum.md")" "- n")" < /dev/null 2>/dev/null; then
@@ -934,11 +1002,7 @@ confirm_release_notes "$RELEASE_BODY" || {
 # [Unreleased] — single pass; see rotate_changelog above for why a
 # rename-then-prepend two-step leaves a self-perpetuating orphan divider.
 TMP=$(mktemp)
-rotate_changelog CHANGELOG.md "$VERSION" "$TODAY" > "$TMP" && mv "$TMP" CHANGELOG.md
-if [[ -n "$RELEASE_SUMMARY_TEXT" ]]; then
-  TMP=$(mktemp)
-  insert_release_summary CHANGELOG.md "$VERSION" "$RELEASE_SUMMARY_TEXT" > "$TMP" && mv "$TMP" CHANGELOG.md
-fi
+rotate_changelog_with_summary CHANGELOG.md "$VERSION" "$TODAY" "$RELEASE_SUMMARY_TEXT" > "$TMP" && mv "$TMP" CHANGELOG.md
 
 if ! grep -q "^## \[${VERSION}\] — ${TODAY}$" CHANGELOG.md; then
   echo "Error: CHANGELOG rotation did not produce a [${VERSION}] section" >&2
@@ -1307,11 +1371,7 @@ echo "Pushed tag $TAG"
 
 # Create GitLab release — use --notes-file to avoid shell escaping issues
 NOTES_FILE=$(mktemp)
-if [[ -z "$RELEASE_BODY" ]]; then
-  echo "See CHANGELOG.md for details." > "$NOTES_FILE"
-else
-  echo "$RELEASE_BODY" > "$NOTES_FILE"
-fi
+write_release_notes_file "$RELEASE_BODY" "$NOTES_FILE"
 
 glab release create "$TAG" --name "$TAG" --notes-file "$NOTES_FILE"
 rm -f "$NOTES_FILE"

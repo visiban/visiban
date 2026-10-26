@@ -154,17 +154,37 @@ replace the spreadsheet, see the work, ask your own agent, on the record). It co
 1. **Headline features**, grouped by the release's theme or roadmap headline.
 2. **Action required**: every change an upgrader must act on (renamed config, refused values,
    behavior that stops working, required manual steps). Point at the release's section in
-   `docs/administration/upgrade.md` (for 1.2: `docs/administration/upgrade.md#upgrading-to-12x`;
-   use the equivalent anchor for other releases and verify it exists before linking).
+   `docs/administration/upgrade.md` with an **absolute URL** (for 1.2:
+   `https://docs.visiban.com/latest/administration/upgrade/#upgrading-to-12x`; use the
+   equivalent anchor for other releases and verify it exists in `docs/administration/upgrade.md`
+   before linking). Relative paths do not resolve in a Release body.
 3. **Upgrade urgency**: one line, for example "Recommended: no data migration risk" or
    "Urgent: fixes a security issue; upgrade soon". Base it on the sections you read, and ask if
    unsure.
-4. A link to the full CHANGELOG sections for detail rather than restating them.
+4. An **absolute** link to the full CHANGELOG sections for detail rather than restating them,
+   for example `https://gitlab.com/visiban/visiban/-/blob/main/CHANGELOG.md`.
+
+Example shape:
+
+```markdown
+**Visiban 1.2 in short.** Upgrade urgency: recommended, zero-downtime from 1.1.x.
+
+### Highlights
+- Replace the spreadsheet: ...
+
+### Action required
+- ...; see [Upgrading to 1.2.x](https://docs.visiban.com/latest/administration/upgrade/#upgrading-to-12x).
+
+Full detail: [CHANGELOG.md](https://gitlab.com/visiban/visiban/-/blob/main/CHANGELOG.md).
+```
 
 Leave out the minutiae: per-endpoint contract tweaks, schema component renames, test and
 mutation work, CI and harness changes, small UI fixes, and anything only seen in a pre-release.
 Never name a confidential issue.
-Never start a summary line with `## [` (it would end the CHANGELOG section extraction early); use `## Highlights`-style headings.
+Use `###` or bold headings only inside the summary, never `##`: it lands between the dated
+`## [X.Y.0]` heading and `### Added`, and `docs/changelog.md` includes `CHANGELOG.md` verbatim,
+so an H2 would become a stray top-level docs section. A line starting `## [` is refused by
+`release.sh` outright (it would truncate the notes).
 
 Write the approved text to a file outside the repo tree (scratchpad), for example
 `$TMPDIR/release-summary-{version}.md`. It becomes the opening of the dated `CHANGELOG.md`
