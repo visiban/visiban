@@ -36,6 +36,14 @@ expiry in the inventory table above. The guard sends it as `PRIVATE-TOKEN` and n
 it. Creating it also turns on the other readers in the inventory row
 (`schedule-config-check` stops warning and starts asserting).
 
+**The enterprise mirror needs its own.** `visiban/visiban-enterprise` receives every tag and
+runs the same `.gitlab-ci.yml`, so its `v*` tag pipelines run the guard too, against the
+enterprise project's own API. They refuse to publish until that project also has a masked,
+protected `GITLAB_API_TOKEN` (Reporter, `read_api`, on the enterprise project). They also
+need a green enterprise `main` pipeline at the same commit that contains the
+`ALWAYS_REQUIRED` jobs. Check both on the enterprise project before the first release tag
+after #1154.
+
 Why not something narrower:
 
 - **`CI_JOB_TOKEN`** cannot list pipelines: the endpoint is not on GitLab's job-token
