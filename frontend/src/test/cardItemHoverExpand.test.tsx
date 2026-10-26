@@ -135,6 +135,10 @@ describe('card hover expansion stays an overlay inside its cell', () => {
     act(() => { fireEvent.mouseEnter(card) })
     expect(card.style.top).toBe('-12px')
     expect(card.style.maxHeight).toBe('100px')
+    // The overflow is clipped, not spilled: the card stays inside the cell
+    // even when its content is taller than the cell's content box.
+    expect(card).toHaveClass('overflow-hidden')
+    expect(card).not.toHaveClass('overflow-visible')
   })
 
   it('mouse leave restores the in-flow card and clipped row', () => {
@@ -161,6 +165,27 @@ describe('card hover expansion stays an overlay inside its cell', () => {
     expect(wrapper.style.height).toBe(`${REST_HEIGHT}px`)
 
     act(() => { fireEvent.blur(link, { relatedTarget: screen.getByTestId('other-card') }) })
+    expect(screen.getByTestId('card-metadata-row')).toHaveClass('overflow-hidden')
+    expect(card).toHaveClass('relative')
+    expect(wrapper.style.height).toBe('')
+  })
+
+  it('moving focus to another element inside the row keeps the expansion open', () => {
+    const { card } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 }, true)
+    const row = screen.getByTestId('card-metadata-row')
+    const link = screen.getByRole('link', { name: /#12/ })
+    act(() => { fireEvent.focus(link) })
+    act(() => { fireEvent.blur(link, { relatedTarget: row }) })
+    expect(row).toHaveClass('flex-wrap')
+    expect(card).toHaveClass('absolute')
+  })
+
+  it('a blur with no relatedTarget (the focused chip unmounted) collapses the expansion', () => {
+    const { card, wrapper } = renderInCell({ cellTop: 100, cellBottom: 400, slotTop: 108 }, true)
+    const link = screen.getByRole('link', { name: /#12/ })
+    act(() => { fireEvent.focus(link) })
+    expect(card).toHaveClass('absolute')
+    act(() => { fireEvent.blur(link, { relatedTarget: null }) })
     expect(screen.getByTestId('card-metadata-row')).toHaveClass('overflow-hidden')
     expect(card).toHaveClass('relative')
     expect(wrapper.style.height).toBe('')
