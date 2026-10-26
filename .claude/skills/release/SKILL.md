@@ -111,8 +111,9 @@ Do not proceed to Step 2 until the docs audit is complete. A release with stale 
 
 `scripts/release.sh` assembles `changelog.d/` and extracts the notes under `CHANGELOG.md`'s
 `[Unreleased]` section — the text that becomes both the new dated CHANGELOG entry and the
-GitLab Release page body — immediately after branching, before touching any other file. It
-then gates on human approval (`confirm_release_notes`) before doing anything else, mirroring
+GitLab Release page body — immediately after branching, before touching any other file. On a
+feature release the approved roll-up summary (`--summary-file`, Step 1c-ii) goes ahead of those
+notes in both places. It then gates on human approval (`confirm_release_notes`) before doing anything else, mirroring
 TruePPM's release-summary gate: getting the version number right says nothing about whether
 the prose describing it is still accurate.
 
@@ -140,8 +141,10 @@ the target (`alpha.1` ... `rc.N`) is an input. Say which baseline you chose and 
 **Ask the user, never guess, when:**
 1. you cannot tell whether this is a feature release that needs a roll-up (for example a patch
    with a mix of fixes and small additions);
-2. the baseline is ambiguous (a stable tag whose CHANGELOG section is missing or whose type you
-   cannot classify, or tags that do not line up with the CHANGELOG);
+2. the baseline is ambiguous: a stable tag whose CHANGELOG section is missing or whose type you
+   cannot classify, tags that do not line up with the CHANGELOG, or a previous patch that is
+   mostly fixes plus a small number of `### Added` / `### Changed` entries relative to its
+   `### Fixed` ones (is it bug-fix-only or did it ship features? Do not decide silently);
 3. you are unsure whether an item is a major change or minutiae. Show the draft with each
    borderline item marked `[keep?]` or `[drop?]` and let the user move items.
 
@@ -184,7 +187,8 @@ Never name a confidential issue.
 Use `###` or bold headings only inside the summary, never `##`: it lands between the dated
 `## [X.Y.0]` heading and `### Added`, and `docs/changelog.md` includes `CHANGELOG.md` verbatim,
 so an H2 would become a stray top-level docs section. A line starting `## [` is refused by
-`release.sh` outright (it would truncate the notes).
+`release.sh` outright (it would truncate the notes), and so is a `---` divider line (the release bodies
+would differ).
 
 Write the approved text to a file outside the repo tree (scratchpad), for example
 `$TMPDIR/release-summary-{version}.md`. It becomes the opening of the dated `CHANGELOG.md`
@@ -198,8 +202,9 @@ The script's own prompt reads from a TTY, which the agent driving it does not ha
    `[Unreleased]` section) and show the resulting notes to the user in chat. For a feature
    release, show the roll-up summary first, then these notes, exactly as they will ship.
 2. Wait for explicit approval. If the notes are wrong (a stale bullet, a fragment under the
-   wrong category, something missing), stop here — fix `CHANGELOG.md`/`changelog.d/` first,
-   then re-show the notes. Do not paper over a wrong note by editing only what ships on the
+   wrong category, something missing), stop here — fix `CHANGELOG.md`/`changelog.d/` first
+   (or, if the roll-up summary is what is wrong, edit the summary file), then re-show the
+   notes. Do not paper over a wrong note by editing only what ships on the
    Release page; the same text goes to both places.
 3. Only once approved, invoke the script with `-y` (or `RELEASE_ASSUME_YES=1`) in Step 2 so
    its own confirmation gate doesn't block on a TTY it doesn't have. This is correct *only*

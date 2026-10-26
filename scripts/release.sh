@@ -328,6 +328,12 @@ resolve_release_summary() {
       echo "Error: summary file '${file}' has a line starting with '## [' — that reads as a CHANGELOG version heading and would truncate the release notes. Use ### or bold headings." >&2
       return 1
     fi
+    # A '---' divider line is dropped by the github-release extractor but kept
+    # in the CHANGELOG and GitLab bodies, so the bodies would differ.
+    if grep -qE '^---[[:space:]]*$' <<<"$text"; then
+      echo "Error: summary file '${file}' has a '---' line; the release tooling strips those from some bodies and not others. Remove it (use a blank line or a bold heading instead)." >&2
+      return 1
+    fi
     printf '%s\n' "$text"
     return 0
   fi
@@ -380,6 +386,13 @@ rotate_changelog_with_summary() {
   rm -f "$rot"
 }
 
+# release_body_is_empty <summary> <notes> — true when there is nothing to ship.
+# A non-empty summary is enough: the normal rc -> GA cut has no fragments since
+# the last rc, and its roll-up summary is the whole release text (#1995).
+release_body_is_empty() {
+  [[ -z "$(printf '%s' "$1$2" | tr -d '[:space:]')" ]]
+}
+
 # write_release_notes_file <body> <path> — the file glab release create reads.
 write_release_notes_file() {
   if [[ -z "$1" ]]; then
@@ -391,8 +404,9 @@ write_release_notes_file() {
 
 # confirm_release_notes <notes>
 #
-# Shows the release notes about to ship — verbatim as extracted from
-# CHANGELOG.md's [Unreleased] section — and gates on human approval before
+# Shows the release body about to ship — the roll-up summary (if one was
+# given, #1995) followed by the notes extracted verbatim from CHANGELOG.md's
+# [Unreleased] section — and gates on human approval before
 # the release branch carries any further edit. Mirrors the release-summary
 # gate in TruePPM's scripts/release.sh (release-default-summary.py): getting
 # the version number right says nothing about whether the prose describing
@@ -424,7 +438,11 @@ confirm_release_notes() {
     echo "--------------------------------------------------------------------------------------------------"
     printf '%s\n' "$notes"
     echo "--------------------------------------------------------------------------------------------------"
-    echo "To change them, abort here, edit CHANGELOG.md's [Unreleased] section, and re-run."
+    if [[ -n "${RELEASE_SUMMARY_TEXT:-}" ]]; then
+      echo "To change them, abort here, edit the summary file (the roll-up) or CHANGELOG.md's [Unreleased] section (the notes), and re-run."
+    else
+      echo "To change them, abort here, edit CHANGELOG.md's [Unreleased] section, and re-run."
+    fi
   } >&2
 
   local reply
@@ -705,18 +723,42 @@ dependencies:
   [[ "$(cat "$tmp/nf.md")" == "See CHANGELOG.md for details." ]] \
     && echo "SELF-TEST OK: write_release_notes_file falls back when the body is empty" \
     || { echo "SELF-TEST FAILED: write_release_notes_file empty fallback" >&2; rc=1; }
-  _self="$(dirname "$0")/release.sh"
+  _self="$0"  # the script under test itself (so a mutated copy is judged, not release.sh)
   _ci="$(dirname "$0")/../.gitlab-ci.yml"
-  _wire() { # <label> <file> <fixed-string>
-    if grep -qF -- "$3" "$2"; then echo "SELF-TEST OK: wiring: $1"
-    else echo "SELF-TEST FAILED: wiring: $1 ('$3' missing from $2)" >&2; rc=1; fi
+  # The main flow is everything after the self-test block; matching only there
+  # (and whole lines, -x) means this harness's own text can never satisfy a
+  # check (#1995: the first version grepped the whole file, so its own
+  # arguments always matched and no mutation turned it red).
+  _main="$(awk '/^# -y\/--yes \(also RELEASE_ASSUME_YES/{go=1} go{print}' "$_self")"
+  _wire() { # <label> <exact main-flow line>
+    if grep -qxF -- "$2" <<<"$_main"; then echo "SELF-TEST OK: wiring: $1"
+    else echo "SELF-TEST FAILED: wiring: $1 (main-flow line missing: $2)" >&2; rc=1; fi
   }
-  _wire "main flow rotates via rotate_changelog_with_summary" "$_self" 'rotate_changelog_with_summary CHANGELOG.md "$VERSION" "$TODAY" "$RELEASE_SUMMARY_TEXT"'
-  _wire "main flow resolves the summary file" "$_self" 'resolve_release_summary "$VERSION" "$SUMMARY_FILE"'
-  _wire "main flow confirms the combined body" "$_self" 'confirm_release_notes "$RELEASE_BODY"'
-  _wire "glab release body comes from RELEASE_BODY" "$_self" 'write_release_notes_file "$RELEASE_BODY" "$NOTES_FILE"'
+  _wire "summary is resolved" 'RELEASE_SUMMARY_TEXT="$(resolve_release_summary "$VERSION" "$SUMMARY_FILE")" || exit 1'
+  _wire "body is summary + notes" 'RELEASE_BODY="$(combine_release_notes "$RELEASE_SUMMARY_TEXT" "$RELEASE_NOTES")"'
+  _wire "emptiness guard sees the summary" 'if release_body_is_empty "$RELEASE_SUMMARY_TEXT" "$RELEASE_NOTES"; then'
+  _wire "confirm gate gets the combined body" 'confirm_release_notes "$RELEASE_BODY" || {'
+  _wire "rotation inserts the summary" 'rotate_changelog_with_summary CHANGELOG.md "$VERSION" "$TODAY" "$RELEASE_SUMMARY_TEXT" > "$TMP" && mv "$TMP" CHANGELOG.md'
+  _wire "GitLab release body comes from RELEASE_BODY" 'write_release_notes_file "$RELEASE_BODY" "$NOTES_FILE"'
+  # Order: the summary must be resolved before the release branch exists.
+  _l_res="$(grep -nxF 'RELEASE_SUMMARY_TEXT="$(resolve_release_summary "$VERSION" "$SUMMARY_FILE")" || exit 1' <<<"$_main" | head -1 | cut -d: -f1)"
+  _l_br="$(grep -nxF 'git checkout main' <<<"$_main" | head -1 | cut -d: -f1)"
+  if [[ -n "$_l_res" && -n "$_l_br" && "$_l_res" -lt "$_l_br" ]]; then
+    echo "SELF-TEST OK: wiring: summary is resolved before the release branch is created"
+  else echo "SELF-TEST FAILED: wiring: summary must be resolved before 'git checkout main' (res=$_l_res branch=$_l_br)" >&2; rc=1; fi
+  # release_body_is_empty: summary alone is enough; neither is empty.
+  release_body_is_empty "" "" && _e1=ok || _e1=bad
+  release_body_is_empty "" "  " && _e2=ok || _e2=bad
+  release_body_is_empty "summary" "" && _e3=bad || _e3=ok
+  release_body_is_empty "" "- n" && _e4=bad || _e4=ok
+  if [[ "$_e1$_e2$_e3$_e4" == okokokok ]]; then echo "SELF-TEST OK: release_body_is_empty accepts a summary with no fragments (rc -> GA)"
+  else echo "SELF-TEST FAILED: release_body_is_empty ($_e1 $_e2 $_e3 $_e4)" >&2; rc=1; fi
+  printf '%s\n' 'intro' '---' 'x' > "$tmp/sum-rule.md"
+  _sum_case "summary: a '---' line is refused" 1 "" 1.2.0 "$tmp/sum-rule.md"
   if [[ -f "$_ci" ]]; then
-    _wire "github-release job uses the shared extractor" "$_ci" 'sh scripts/extract-release-notes.sh "${VERSION}" CHANGELOG.md'
+    if grep -qF -- 'sh scripts/extract-release-notes.sh "${VERSION}" CHANGELOG.md' "$_ci"; then
+      echo "SELF-TEST OK: wiring: github-release job uses the shared extractor"
+    else echo "SELF-TEST FAILED: wiring: github-release job must call scripts/extract-release-notes.sh" >&2; rc=1; fi
   fi
 
   # The summary must reach confirm_release_notes' input: the gate sees the combined body.
@@ -982,8 +1024,8 @@ fi
 RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
   | sed '/^[[:space:]]*$/d' | sed '/^---[[:space:]]*$/d')
 
-if [[ -z "$(echo "$RELEASE_NOTES" | tr -d '[:space:]')" ]]; then
-  echo "Error: CHANGELOG.md [Unreleased] section is empty — add release notes before releasing." >&2
+if release_body_is_empty "$RELEASE_SUMMARY_TEXT" "$RELEASE_NOTES"; then
+  echo "Error: CHANGELOG.md [Unreleased] section is empty and there is no roll-up summary — add release notes before releasing." >&2
   abort_release_branch
   exit 1
 fi
