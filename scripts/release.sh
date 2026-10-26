@@ -741,8 +741,10 @@ dependencies:
   _wire "rotation inserts the summary" 'rotate_changelog_with_summary CHANGELOG.md "$VERSION" "$TODAY" "$RELEASE_SUMMARY_TEXT" > "$TMP" && mv "$TMP" CHANGELOG.md'
   _wire "GitLab release body comes from RELEASE_BODY" 'write_release_notes_file "$RELEASE_BODY" "$NOTES_FILE"'
   # Order: the summary must be resolved before the release branch exists.
-  _l_res="$(grep -nxF 'RELEASE_SUMMARY_TEXT="$(resolve_release_summary "$VERSION" "$SUMMARY_FILE")" || exit 1' <<<"$_main" | head -1 | cut -d: -f1)"
-  _l_br="$(grep -nxF 'git checkout main' <<<"$_main" | head -1 | cut -d: -f1)"
+  # grep -m1, not `| head -1`: with several matches head exits early and, under
+  # pipefail, busybox grep dies of SIGPIPE (141) in CI while macOS grep does not.
+  _l_res="$(grep -m1 -nxF 'RELEASE_SUMMARY_TEXT="$(resolve_release_summary "$VERSION" "$SUMMARY_FILE")" || exit 1' <<<"$_main" | cut -d: -f1)"
+  _l_br="$(grep -m1 -nxF 'git checkout main' <<<"$_main" | cut -d: -f1)"
   if [[ -n "$_l_res" && -n "$_l_br" && "$_l_res" -lt "$_l_br" ]]; then
     echo "SELF-TEST OK: wiring: summary is resolved before the release branch is created"
   else echo "SELF-TEST FAILED: wiring: summary must be resolved before 'git checkout main' (res=$_l_res branch=$_l_br)" >&2; rc=1; fi
