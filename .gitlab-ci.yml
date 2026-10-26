@@ -4741,8 +4741,12 @@ github-release:
   script:
     - |
       VERSION="${CI_COMMIT_TAG#v}"
+      # The dated section opens with the approved roll-up summary (stable feature
+      # releases, #1995), so this body is identical to the GitLab Release's. Blank
+      # lines are kept (leading ones trimmed here, trailing ones by $(...)) so the summary's
+      # paragraphs and lists survive.
       NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md \
-              | sed '/^[[:space:]]*$/d' | sed '/^---[[:space:]]*$/d')
+              | sed '/^---[[:space:]]*$/d' | sed -e '/./,$!d')
       if [ -z "$NOTES" ]; then
         NOTES="See [CHANGELOG.md](https://gitlab.com/visiban/visiban/-/blob/main/CHANGELOG.md) for details."
       fi
