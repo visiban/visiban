@@ -3691,6 +3691,74 @@ frontend-docker-build:
   script:
     - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push --snapshot-mode=redo --build-arg NODE_OPTIONS=--max-old-space-size=1024 --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}
 
+# ─── Release guard: the tag's commit must have passed main (#1154) ───────────
+#
+# Pushing `main` and a `v*` tag at one commit starts two pipelines that nothing
+# links. The publish jobs below were gated only on the one test job in their own
+# `needs:`, so a tag could publish while playwright-e2e, migration-check or a
+# security gate was red on that exact commit. scripts/release.sh checks the
+# merge commit's pipeline before tagging, but a hand-pushed tag skips it and it
+# reads the aggregate status, which an `allow_failure: true` failure leaves green.
+#
+# This job resolves the newest `main` pipeline (source push/web) at
+# $CI_COMMIT_SHA and judges it job by job, not by its top-level status (which
+# `docs-deploy` left `manual` keeps unresolved): every job must be `success`
+# unless scripts/wait-for-main-pipeline.py exempts it, allow_failure or not, and
+# a fixed set that runs on every main pipeline must be present. It polls while
+# main is still running, then fails closed: no pipeline, an API error or a
+# timeout all refuse. Every publish job `needs:` this job directly, and
+# `--check-ci-file` fails if one stops doing so. There is no bypass variable.
+#
+# Also runs on main/schedule pipelines, where it exits at once: the docker-push
+# and docs-deploy jobs that need it exist there too, and a strict `needs:` (not
+# `optional: true`) makes GitLab refuse to create a tag pipeline in which the
+# guard is missing, rather than publishing without it.
+#
+# Reads pipelines and jobs with GITLAB_API_TOKEN (project access token,
+# Reporter, read_api; masked + protected) and refuses when it is unset.
+# CI_JOB_TOKEN cannot list pipelines, and anonymous reads share gitlab.com's
+# hourly per-IP limit with every tenant on the runner's IP. Setup:
+# docs/maintainers/tokens-and-rotation.md. Diagnosing a refusal:
+# docs/maintainers/known-ci-failures.md.
+release-main-pipeline-guard:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # The wait is capped at MAIN_PIPELINE_GUARD_TIMEOUT_SECONDS (default 45 min);
+  # a main pipeline takes about 13.
+  timeout: 1h
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - python3 scripts/wait-for-main-pipeline.py --self-test
+    - python3 scripts/wait-for-main-pipeline.py --check-ci-file .gitlab-ci.yml
+    - |
+      if [ -z "${CI_COMMIT_TAG:-}" ]; then
+        echo "Branch pipeline: no release tag to gate, nothing to check."
+        exit 0
+      fi
+      python3 scripts/wait-for-main-pipeline.py --sha "${CI_COMMIT_SHA}"
+
+# MR-time proof of the guard (#1093 house rule): the guard itself only does
+# real work on a release tag, so a broken decision rule or a job list that has
+# drifted from this file would otherwise surface at release time.
+release-main-pipeline-guard-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # No unconditional main fallback (#1266) — nothing needs this job.
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &release-main-pipeline-guard-paths
+        - scripts/wait-for-main-pipeline.py
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *release-main-pipeline-guard-paths
+  script:
+    - python3 scripts/wait-for-main-pipeline.py --self-test
+    - python3 scripts/wait-for-main-pipeline.py --check-ci-file .gitlab-ci.yml
+
 # ─── Docker push (amd64 + arm64) ───────────────────────────────────────────────
 #
 # Builds and pushes images with kaniko — the same daemonless builder the
@@ -3823,7 +3891,7 @@ frontend-docker-build:
 
 backend-docker-push:
   extends: .kaniko-push-common
-  needs: [backend-test-coverage]
+  needs: [release-main-pipeline-guard, backend-test-coverage]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -3839,7 +3907,7 @@ backend-docker-push:
 
 frontend-docker-push:
   extends: .kaniko-push-common
-  needs: [frontend-test]
+  needs: [release-main-pipeline-guard, frontend-test]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -4002,6 +4070,7 @@ arm64-runner-preflight:
 backend-docker-push-arm64:
   extends: .arm64-docker-push-base
   needs:
+    - job: release-main-pipeline-guard
     - job: arm64-runner-preflight
     - job: backend-test-coverage
   script:
@@ -4040,6 +4109,7 @@ backend-docker-push-arm64:
 frontend-docker-push-arm64:
   extends: .arm64-docker-push-base
   needs:
+    - job: release-main-pipeline-guard
     - job: arm64-runner-preflight
     - job: frontend-test
   script:
@@ -4138,6 +4208,7 @@ frontend-docker-push-arm64:
 backend-manifest:
   extends: .manifest-tool-common
   needs:
+    - job: release-main-pipeline-guard
     - job: backend-docker-push
     - job: backend-docker-push-arm64
   script:
@@ -4180,6 +4251,7 @@ backend-manifest:
 frontend-manifest:
   extends: .manifest-tool-common
   needs:
+    - job: release-main-pipeline-guard
     - job: frontend-docker-push
     - job: frontend-docker-push-arm64
   script:
@@ -4297,14 +4369,14 @@ frontend-manifest:
 
 backend-image-attest:
   extends: .image-attest-common
-  needs: [backend-manifest]
+  needs: [release-main-pipeline-guard, backend-manifest]
   script:
     - bash scripts/attest-image-sbom.sh --self-test
     - bash scripts/attest-image-sbom.sh --image backend --tag "${CI_COMMIT_TAG}"
 
 frontend-image-attest:
   extends: .image-attest-common
-  needs: [frontend-manifest]
+  needs: [release-main-pipeline-guard, frontend-manifest]
   script:
     - bash scripts/attest-image-sbom.sh --self-test
     - bash scripts/attest-image-sbom.sh --image frontend --tag "${CI_COMMIT_TAG}"
@@ -4509,7 +4581,7 @@ helm-publish:
   # `*-image-attest` (#1153): a signed chart pointing at unsigned, un-SBOM'd
   # images is the inconsistent trust boundary #1153 was filed about, so the
   # chart is not published until both images verify.
-  needs: [backend-manifest, frontend-manifest, backend-image-attest, frontend-image-attest, docs-version-accuracy]
+  needs: [release-main-pipeline-guard, backend-manifest, frontend-manifest, backend-image-attest, frontend-image-attest, docs-version-accuracy]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   id_tokens:
@@ -4734,7 +4806,7 @@ check-release-attestations:
 github-release:
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  needs: [backend-docker-push, frontend-docker-push, backend-manifest, frontend-manifest]
+  needs: [release-main-pipeline-guard, backend-docker-push, frontend-docker-push, backend-manifest, frontend-manifest]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:
@@ -4802,7 +4874,9 @@ github-release:
 docs-deploy:
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  needs: []
+  # #1154: a release tag's docs publish only once its commit's main pipeline is
+  # green. On main the guard exits at once, so this adds no wait there.
+  needs: [release-main-pipeline-guard]
   variables:
     DOCS_VERSION: ""
   before_script:

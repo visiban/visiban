@@ -57,3 +57,8 @@ re-verify these by hand; run the release and read what the gate says.
 - A failure means fix the page (there is no allowlist). `New in X` labels are provenance and
   are intentionally not flagged.
 
+Publishing is gated too. On a `v*` tag, every publish job (images, manifests, attestations,
+the Helm chart, the GitHub release, the docs) `needs:` `release-main-pipeline-guard`. That
+job refuses unless every check in the tagged commit's own `main` pipeline is green, including
+`allow_failure: true` jobs (#1154). If it refuses, see
+[Known CI Failures](known-ci-failures.md#release-main-pipeline-guard-refuses-to-publish-a-release-tag).

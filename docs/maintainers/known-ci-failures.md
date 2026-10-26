@@ -276,3 +276,42 @@ manual `image-attest-backfill` job on `main` with `BACKFILL_TAG=<tag>`. Its iden
 it, compare the tag's current digests (`scripts/attest-image-sbom.sh --image <img> --tag <tag>
 --dry-run`) with the release pipeline's `*-manifest` log. Then publish the chart by retrying
 `helm-publish`.
+
+## `release-main-pipeline-guard` refuses to publish a release tag
+
+**Signature:** on a `v*` tag pipeline, `release-main-pipeline-guard` (#1154) fails with
+`REFUSED: ...`, and every publish job (`*-docker-push`, `*-docker-push-arm64`,
+`*-manifest`, `*-image-attest`, `helm-publish`, `github-release`, `docs-deploy`) is
+`skipped`. Nothing was published.
+
+**What the guard checks:** it finds the newest `main` pipeline at the tagged commit (source
+`push` or `web`; nightly `schedule` pipelines at the same commit are ignored, they run a
+different job set) and reads its jobs, not its top-level status. Every job must be
+`success` unless `scripts/wait-for-main-pipeline.py` lists it in `EXEMPT_JOBS` (cache
+warmers, the `main` image pushes, `docs-deploy`, and the manual on-demand tools). A failed
+`allow_failure: true` job counts as a failure here: a release does not ship over a red
+`playwright-e2e`, `backend-lint`, `oidc-smoke` or SAST analyzer. The one tolerated failure is
+`dep-scan-osv` exiting 2 (its MEDIUM/LOW warn tier). The jobs in `ALWAYS_REQUIRED` run on
+every `main` pipeline, so a missing one refuses too. A change-conditional job (most lint and
+drill jobs, #1266) may be absent when the merge did not touch its paths.
+
+**Read the refusal line; each has one cause:**
+
+| Refusal | Cause | Fix |
+|---|---|---|
+| `main pipeline N at <sha> is not green:` then a list of jobs | Those jobs failed, were canceled or skipped, or are still `manual` | Retry the failed job in that `main` pipeline (or fix forward and cut a new tag). Once it is green, retry `release-main-pipeline-guard` in the tag pipeline. GitLab re-runs the publish jobs it had skipped. |
+| `<job>: not in the main pipeline, but it runs on every main pipeline` | An `ALWAYS_REQUIRED` job was renamed, removed, or its `rules:` narrowed | Update `ALWAYS_REQUIRED` in the script on a branch. `--check-ci-file` only proves the name exists, not that its `rules:` still match every `main` pipeline. |
+| `no main pipeline for <sha> after Ns` | The tag points at a commit that never had a `main` pipeline, usually a tag on a feature branch or an unmerged commit | Tag the merge commit on `main`. `scripts/release.sh` does this for you. |
+| `still waiting after Ns` | `main`'s pipeline did not finish within `MAIN_PIPELINE_GUARD_TIMEOUT_SECONDS` (default 2700) | Let `main` finish, then retry the guard job. |
+| `GITLAB_API_TOKEN is not set` | The variable is missing, or the tag is not protected, so the protected variable was not injected | Create it (see [Tokens and Rotation](tokens-and-rotation.md#gitlab_api_token-and-the-release-guard)), or protect the `v*` tag pattern. Then retry the guard job. |
+| `could not read the main pipeline ... (a definitive API error)` | A 401/403/404 (any 4xx but 408/429): `GITLAB_API_TOKEN` expired, was revoked, or lacks `read_api`/Reporter. It refuses at once, since retrying cannot change it | Rotate the token (see [Tokens and Rotation](tokens-and-rotation.md#gitlab_api_token-and-the-release-guard)), then retry the guard job. |
+| `could not read the main pipeline ... (N consecutive API failures)` | gitlab.com 5xx, 429 or a network error on `MAIN_PIPELINE_GUARD_MAX_API_ERRORS` (default 5) polls in a row | Retry the guard job. |
+
+**There is no bypass variable, on purpose.** A flaky job is fixed by retrying it in the
+`main` pipeline, which leaves a record of what ran. A variable that skips the check would
+leave no such record. If an exemption is truly warranted (a new job that is not a check on
+the code), add it to `EXEMPT_JOBS` with its reason on a branch, so the change is reviewed.
+
+`scripts/release.sh` still checks the merge commit's pipeline before it tags. That check runs
+on the maintainer's machine and reads the aggregate status. The guard runs in CI, so it also
+covers tags pushed by hand.

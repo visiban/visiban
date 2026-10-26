@@ -17,9 +17,38 @@ describe where it lives instead.
 | MinIO `AccessKey` / `SecretKey` | S3-compatible object storage credentials | Runner infra owner | Each self-hosted runner's local `config.toml` (`[runners.cache.s3]`), referenced via env interpolation; also present as GitLab CI/CD variables `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (masked, protected) alongside `MINIO_ENDPOINT` / `MINIO_BUCKET` | Distributed CI cache shared across runners (`.npm-cache`, pip cache templates in `.gitlab-ci.yml`) | Not tracked here — internal-only MinIO instance, not internet-exposed (per issue #141) |
 | `RUNNER_STATUS_TOKEN` | GitLab fine-grained PAT, `read_runner` permission, scoped to the `visiban` group (id 126306686) | `kellyhair` | GitLab CI/CD variable (masked, protected, description "ARM64") | `arm64-runner-preflight` job (#1084) — queries `GET /groups/visiban/runners?scope=online&tag_list=arm64` to fail loud before scheduling the arm64 Docker push legs, instead of letting them hang `pending` with no matching runner | **2027-09-26** |
 | Docker Hub PAT (`DOCKERHUB_TOKEN`) | Docker Hub personal access token, "Public Repo Read-only" scope (view/search/pull public images only — no push access) | TBD — confirm current owner before rotating | GitLab CI/CD variables `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` (masked, protected — only injected on `main` and `v*` tag pipelines) | `backend-docker-build` / `frontend-docker-build` (MR-time, `--no-push` build verification) and `.kaniko-push-common` / `backend-docker-push`, `frontend-docker-push` (main/tag pushes) — populates kaniko's `/kaniko/.docker/config.json` so Docker Hub `FROM` base-image pulls (`python:3.12-slim`, `node:20-alpine`, `nginx:1.27-alpine`) use the authenticated 200-pulls/hour tier instead of the 100/hour anonymous tier shared across the runner's IP (#1198). Being `protected`, it does **not** reach MR pipelines from unprotected branches — those still pull anonymously. | TBD — confirm expiry set on Docker Hub |
-| `GITLAB_API_TOKEN` (optional — **not yet created**) | GitLab project access token, Reporter role, `read_api` scope | TBD | GitLab CI/CD variable (protected, masked) | `schedule-config-check` (reads pipeline schedules; `CI_JOB_TOKEN` cannot) and `suppressions-check` / `kaizen-yield-watch` as a read fallback. Without it, `schedule-config-check` warns and passes — see [Scheduled pipelines](../development/ci-gates.md#scheduled-pipelines) | n/a until created |
+| `GITLAB_API_TOKEN` (**not yet created** — required for release tags since #1154) | GitLab project access token, Reporter role, `read_api` scope | TBD | GitLab CI/CD variable (protected, masked) | `schedule-config-check` (reads pipeline schedules; `CI_JOB_TOKEN` cannot) and `suppressions-check` / `kaizen-yield-watch` as a read fallback. Without it, `schedule-config-check` warns and passes — see [Scheduled pipelines](../development/ci-gates.md#scheduled-pipelines). **Required by `release-main-pipeline-guard` (#1154): until it exists, every `v*` tag pipeline refuses to publish.** Create it before the next release tag — see [below](#gitlab_api_token-and-the-release-guard) | n/a until created |
 | `FUZZ_DEEP_API_TOKEN` (optional — **not yet created**) | GitLab project access token, Reporter role, `api` scope (Reporter is enough to create issues and comment) | TBD | GitLab CI/CD variable (protected, masked) | `backend-schema-fuzz-deep` `after_script` (`scripts/fuzz_deep_file_issue.py`) — files or comments on the deep-fuzz tracking issue. Falls back to `KAIZEN_API_TOKEN`; see [below](#deep-fuzz-and-kaizen-issue-filing-tokens) | n/a until created |
 | `KAIZEN_API_TOKEN` (optional — **not yet created**) | GitLab project access token, Reporter role, `api` scope | TBD | GitLab CI/CD variable (protected, masked) | `kaizen-yield-watch` issue filing (only with `KAIZEN_FILE_ISSUES=true`); also the fallback filer token for `backend-schema-fuzz-deep` | n/a until created |
+
+## `GITLAB_API_TOKEN` and the release guard
+
+`release-main-pipeline-guard` (#1154) reads the `main` pipeline and its jobs at a release
+tag's commit before anything is published (see
+[Known CI Failures](known-ci-failures.md#release-main-pipeline-guard-refuses-to-publish-a-release-tag)).
+It needs `GITLAB_API_TOKEN` and **refuses every release tag while the variable is unset**.
+It never falls back to an unauthenticated read.
+
+**Create it before the next `v*` tag:** a project access token on `visiban/visiban` with role
+**Reporter** and scope **`read_api`**, stored as a CI/CD variable named `GITLAB_API_TOKEN`,
+**masked** and **protected**. `v*` tags are protected, so it reaches tag pipelines. Record its
+expiry in the inventory table above. The guard sends it as `PRIVATE-TOKEN` and never prints
+it. Creating it also turns on the other readers in the inventory row
+(`schedule-config-check` stops warning and starts asserting).
+
+Why not something narrower:
+
+- **`CI_JOB_TOKEN`** cannot list pipelines: the endpoint is not on GitLab's job-token
+  allowlist, and a rejected `JOB-TOKEN` header turns even a public read into a 401 (TruePPM
+  #4040, Visiban #1694). The guard never sends it.
+- **No token.** The project and its pipelines are public, and anonymous reads of the
+  pipelines and jobs endpoints did work on 2026-10-26. But gitlab.com rate-limits
+  unauthenticated API traffic per IP, per hour (`ratelimit-name:
+  unauthenticated_traffic_per_ip`). About 60 reads from one workstation that afternoon drew
+  429s with `retry-after` near an hour. The guard may poll for up to 45 minutes from a shared
+  runner IP. On that IP it would compete with every other tenant's anonymous traffic, and
+  a refusal caused by someone else's traffic is noise. The private enterprise mirror, which
+  receives every tag, has no anonymous option at all.
 
 ## `RUNNER_STATUS_TOKEN`
 
