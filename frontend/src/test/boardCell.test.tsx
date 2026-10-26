@@ -20,8 +20,11 @@ vi.mock('@dnd-kit/sortable', () => ({
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
 
 vi.mock('../components/Card/CardItem', () => ({
-  default: ({ card, onClick, compact, inDoneColumn, current, onSelect, peekSuppressed }: { card: Card; peekSuppressed?: boolean; onClick?: () => void; compact?: boolean; inDoneColumn?: boolean; current?: boolean; onSelect?: () => void }) => (
-    <div data-testid={`card-${card.id}`} data-compact={String(compact ?? false)} data-in-done-column={String(inDoneColumn ?? false)} data-current={String(current ?? false)} data-selectable={String(!!onSelect)} data-peek-suppressed={String(peekSuppressed ?? false)} onClick={onClick}>{card.title}{onSelect && <button data-testid={`select-${card.id}`} onClick={(e) => { e.stopPropagation(); onSelect() }} />}</div>
+  default: ({ card, onClick, compact, inDoneColumn, current, onSelect, peekSuppressed, dimmed, onExpandChange }: { card: Card; peekSuppressed?: boolean; onClick?: () => void; compact?: boolean; inDoneColumn?: boolean; current?: boolean; onSelect?: () => void; dimmed?: boolean; onExpandChange?: (id: number, expanded: boolean) => void }) => (
+    <div data-testid={`card-${card.id}`} data-compact={String(compact ?? false)} data-in-done-column={String(inDoneColumn ?? false)} data-current={String(current ?? false)} data-selectable={String(!!onSelect)} data-peek-suppressed={String(peekSuppressed ?? false)} data-dimmed={String(dimmed ?? false)} onClick={onClick}>{card.title}{onSelect && <button data-testid={`select-${card.id}`} onClick={(e) => { e.stopPropagation(); onSelect() }} />}
+      <button data-testid={`expand-${card.id}`} onClick={(e) => { e.stopPropagation(); onExpandChange?.(card.id, true) }} />
+      <button data-testid={`collapse-${card.id}`} onClick={(e) => { e.stopPropagation(); onExpandChange?.(card.id, false) }} />
+    </div>
   ),
 }))
 
@@ -58,6 +61,37 @@ const defaultProps = () => ({
 })
 
 describe('BoardCell', () => {
+  // While one card is expanded over the cell (hover / focus in its metadata
+  // row), the cell dims every other card so the expanded one reads as the
+  // cell's only content.
+  it('dims the other cards while one reports itself expanded, and clears when it ends', () => {
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1, title: 'A' }), makeCard({ id: 2, title: 'B' }), makeCard({ id: 3, title: 'C' })]
+    render(<BoardCell {...props} />)
+    expect(screen.getByTestId('card-1')).toHaveAttribute('data-dimmed', 'false')
+
+    fireEvent.click(screen.getByTestId('expand-2'))
+    expect(screen.getByTestId('card-1')).toHaveAttribute('data-dimmed', 'true')
+    expect(screen.getByTestId('card-2')).toHaveAttribute('data-dimmed', 'false')
+    expect(screen.getByTestId('card-3')).toHaveAttribute('data-dimmed', 'true')
+
+    fireEvent.click(screen.getByTestId('collapse-2'))
+    expect(screen.getByTestId('card-1')).toHaveAttribute('data-dimmed', 'false')
+    expect(screen.getByTestId('card-3')).toHaveAttribute('data-dimmed', 'false')
+  })
+
+  it('a stale "ended" report from the previous card does not clear the neighbor that took over', () => {
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1, title: 'A' }), makeCard({ id: 2, title: 'B' })]
+    render(<BoardCell {...props} />)
+    fireEvent.click(screen.getByTestId('expand-1'))
+    // The pointer slides onto card 2: it starts before card 1's end lands.
+    fireEvent.click(screen.getByTestId('expand-2'))
+    fireEvent.click(screen.getByTestId('collapse-1'))
+    expect(screen.getByTestId('card-1')).toHaveAttribute('data-dimmed', 'true')
+    expect(screen.getByTestId('card-2')).toHaveAttribute('data-dimmed', 'false')
+  })
+
   // #1841: a done column's cards never age; BoardCell forwards column.is_done
   // to CardItem, which then skips the tint, aging tooltip and Stale badge
   // (CardItem's own behavior is covered in componentRendering.test.tsx).

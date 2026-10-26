@@ -101,8 +101,8 @@ export const CARD = {
   description: 'This is the card description.',
   priority: 'medium' as const,
   assignee: null,
-  labels: [],
-  due_date: null,
+  labels: [] as { id: number; name: string; color: string }[],
+  due_date: null as string | null,
   weight: 1,
   position: 0,
   created_by: BOARD_USER,
@@ -132,6 +132,27 @@ export const CARD_STALE = {
   position: 1,
   is_stale: true,
   last_moved_at: '2026-04-01T00:00:00Z',
+}
+
+// A card whose dense-density metadata row (three labels, checklist, weight,
+// attachments, due date) is wider than a 220px cell, so it clips at rest and
+// wraps on hover. Used by e2e/card-hover-expand.spec.ts.
+export const CARD_BUSY = {
+  ...CARD,
+  id: 3,
+  uid: 'card000003b',
+  title: 'Busy task',
+  position: 1,
+  labels: [
+    LABEL_BUG,
+    { id: 2, name: 'frontend', color: '#3B82F6' },
+    { id: 3, name: 'needs-review', color: '#10B981' },
+  ],
+  weight: 5,
+  attachment_count: 2,
+  checklist_total: 4,
+  checklist_done: 1,
+  due_date: '2030-01-01',
 }
 
 export const BOARD_LIST_ITEM = {
@@ -195,6 +216,20 @@ export const BOARD_FULL = {
   capabilities: { movement_export: true },
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
+}
+
+// Dense density with a wide-metadata card sharing a cell with CARD, for the
+// hover-expansion spec: the card must expand over its cell-mate, never grow
+// the cell. `card_density` is left off BOARD_FULL on purpose (comfortable by
+// default); this is the one board that sets it.
+export const BOARD_DENSE = {
+  ...BOARD_FULL,
+  id: 2,
+  uid: 'board00002d',
+  name: 'Dense Board',
+  card_density: 'dense' as const,
+  labels: [...CARD_BUSY.labels],
+  cards: [CARD, CARD_BUSY],
 }
 
 export const SITE_CONFIG = {

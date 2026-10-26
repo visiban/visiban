@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useState, useCallback, memo } from "react";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
@@ -49,6 +49,12 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   const { active } = useDndContext();
   const isDraggingCard = active != null && !String(active.id).startsWith("swim:") && !String(active.id).startsWith("col:");
   const [adding, setAdding] = useState(false);
+  // The card currently expanded over this cell, if any (see the CardItem
+  // dimming note in the render below).
+  const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
+  const handleExpandChange = useCallback((cardId: number, expanded: boolean) => {
+    setExpandedCardId((prev) => (expanded ? cardId : prev === cardId ? null : prev));
+  }, []);
   const [title, setTitle] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
 
@@ -137,6 +143,12 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         </span>
       )}
       <SortableContext items={cards.map((c) => c.id)} strategy={compact ? rectSortingStrategy : verticalListSortingStrategy}>
+        {/* While one card is expanded over the cell (hover or focus in its
+            metadata row), every other card in the cell is dimmed to near-
+            invisible, so the expanded card reads as the cell's only content.
+            The id is compared on the way out so a stale "ended" report from a
+            card that just lost the expansion to its neighbor cannot clear the
+            neighbor's. */}
         {/* `relative` so the card stack paints above the overlay tint layer, which is
             absolutely positioned and would otherwise cover in-flow siblings. */}
         <div className={`relative ${compact ? "grid grid-cols-2 gap-1.5" : "flex flex-col gap-1.5"}`}>
@@ -163,6 +175,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               inDoneColumn={column.is_done}
               customFieldDefinitions={customFieldDefinitions}
               boardId={boardId}
+              dimmed={expandedCardId !== null && expandedCardId !== card.id}
+              onExpandChange={handleExpandChange}
               onCardUpdated={canEdit ? onCardUpdated : undefined}
             />
           ))}

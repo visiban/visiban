@@ -585,10 +585,10 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(avatarStub.className).toMatch(/\bbottom-1\.5\b/);
     expect(avatarStub.className).toMatch(/\bright-1\.5\b/);
 
-    // The row (identified by its overflow-hidden/group-hover:overflow-visible
-    // classes) must not contain the avatar — it is now a sibling of the row,
+    // The row (identified by its data-testid)
+    // must not contain the avatar — it is now a sibling of the row,
     // positioned against the content wrapper instead.
-    const row = container.querySelector(".overflow-hidden.group-hover\\:overflow-visible")!;
+    const row = container.querySelector('[data-testid="card-metadata-row"]')!;
     expect(row).not.toBeNull();
     expect(row.querySelector('[data-testid="avatar-stub"]')).toBeNull();
     expect(avatarStub.parentElement).not.toBe(row);
@@ -612,7 +612,7 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     );
 
     expect(screen.getByTestId("avatar-stub")).toBeInTheDocument();
-    const row = container.querySelector(".overflow-hidden.group-hover\\:overflow-visible");
+    const row = container.querySelector('[data-testid="card-metadata-row"]');
     expect(row).not.toBeNull();
     expect(row).toHaveClass("min-h-5");
     expect(row).toHaveClass("pr-7");
@@ -626,7 +626,7 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
       />
     );
 
-    const row = container.querySelector(".overflow-hidden.group-hover\\:overflow-visible");
+    const row = container.querySelector('[data-testid="card-metadata-row"]');
     expect(row).not.toBeNull();
     expect(row).not.toHaveClass("min-h-5");
     expect(row).not.toHaveClass("pr-7");

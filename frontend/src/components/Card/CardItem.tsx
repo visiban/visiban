@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, memo } from "react";
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
 import type { Card, CardDensity, CustomFieldDefinition } from "../../types";
@@ -65,6 +65,13 @@ interface Props {
    *  ones. */
   customFieldDefinitions?: CustomFieldDefinition[];
   boardId?: number;
+  /** Another card in the same cell is expanded (hovered or focused): this one
+   *  is blurred and faded to near-invisible so the expanded card reads as the
+   *  cell's only content. Driven by BoardCell from `onExpandChange`. */
+  dimmed?: boolean;
+  /** Reports the in-place expansion starting or ending, with the card id, so
+   *  the cell can dim its other cards. One stable callback per cell. */
+  onExpandChange?: (cardId: number, expanded: boolean) => void;
   /**
    * Called after a quick-edit write succeeds, with the full updated card —
    * same shape as the WS `card.updated` → `onCardUpdated` path in
@@ -155,11 +162,13 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.inDoneColumn === next.inDoneColumn &&
     prev.customFieldDefinitions === next.customFieldDefinitions &&
     prev.boardId === next.boardId &&
+    prev.dimmed === next.dimmed &&
+    prev.onExpandChange === next.onExpandChange &&
     prev.onCardUpdated === next.onCardUpdated
   );
 }
 
-const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, onCardUpdated }: Props) {
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, dimmed = false, onExpandChange, onCardUpdated }: Props) {
   // Per-density visibility booleans (#961). The decision tree:
   //   comfortable → one urgency badge, one primary label, checklist, assignee
   //   standard    → adds due date (when not in urgency), weight (>1), attachments, second label
@@ -204,6 +213,25 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // Ref to the peek timer so we can clear it on mouseleave / drag start.
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- In-place hover expansion ---
+  // On hover (or keyboard focus inside the metadata row) the row stops
+  // clipping and wraps so every chip is readable. That used to happen in
+  // flow: the card grew, the cell grew with it, and so did every cell in the
+  // swimlane row, so the whole board jumped under the pointer. The expansion
+  // is now an overlay: the wrapper div freezes at the card's at-rest height
+  // (`expandBase`) and the card itself goes `absolute`, so nothing around it
+  // moves. `expandClamp` then keeps the overlay inside its cell: the card is
+  // shifted up when it would run past the cell's bottom edge, and capped at
+  // the cell's inner height. Covering the sibling cards in the same cell is
+  // the intent; growing or leaving the cell is not.
+  // `rowFocused` tracks focus inside the metadata row (a chip's quick-edit
+  // button, the MR/PR link), the former `focus-within:` case.
+  const [rowFocused, setRowFocused] = useState(false);
+  const [expandBase, setExpandBase] = useState<number | null>(null);
+  const [expandClamp, setExpandClamp] = useState<{ top: number; maxHeight: number } | null>(null);
+  const wantExpand = (hovered || rowFocused) && !isDragging && !overlay;
+  const expanded = wantExpand && expandBase !== null;
+
   // #1305 — mouseleave/drag-start already clear this timer during normal
   // interaction, but a card can also unmount directly out from under a
   // pending hover (e.g. a WebSocket move/delete broadcast while the pointer
@@ -223,6 +251,51 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     },
     [setNodeRef],
   );
+
+  // Both effects are layout effects so the measure → re-render happens before
+  // the browser paints: the card is never painted in flow and wrapped (the
+  // old layout jump) on its way to being an overlay.
+  useLayoutEffect(() => {
+    if (!wantExpand) {
+      setExpandBase(null);
+      setExpandClamp(null);
+      return;
+    }
+    // Still in flow at this point (expandBase is null), so the wrapper's
+    // height is the card's at-rest footprint. The fractional rect height,
+    // not offsetHeight: a rounded value would still nudge the cell by a
+    // sub-pixel.
+    const wrapper = cardRef.current?.parentElement;
+    if (wrapper) setExpandBase(wrapper.getBoundingClientRect().height);
+  }, [wantExpand]);
+
+  useLayoutEffect(() => {
+    if (expandBase === null) return;
+    const el = cardRef.current;
+    const cell = el?.closest<HTMLElement>("[data-board-cell]");
+    const wrapper = el?.parentElement;
+    if (!el || !cell || !wrapper) return;
+    // The card is now absolute and wrapped, so offsetHeight is its full
+    // expanded height. Clamp it to the cell's content box.
+    const cs = getComputedStyle(cell);
+    const cellRect = cell.getBoundingClientRect();
+    const cellTop = cellRect.top + (parseFloat(cs.paddingTop) || 0);
+    const cellBottom = cellRect.bottom - (parseFloat(cs.paddingBottom) || 0);
+    const slotTop = wrapper.getBoundingClientRect().top;
+    const roomBelow = cellBottom - slotTop;
+    const overflow = el.offsetHeight - roomBelow;
+    const shift = overflow > 0 ? Math.max(0, Math.min(overflow, slotTop - cellTop)) : 0;
+    setExpandClamp({ top: -shift, maxHeight: Math.max(0, cellBottom - cellTop) });
+  }, [expandBase]);
+
+  // Tell the cell when this card's expansion starts and ends, so it can dim
+  // the others. Also reports the end on unmount (a card moved or deleted out
+  // from under the pointer), or the cell would stay dimmed.
+  useEffect(() => {
+    if (!onExpandChange || !expanded) return;
+    onExpandChange(card.id, true);
+    return () => onExpandChange(card.id, false);
+  }, [expanded, onExpandChange, card.id]);
 
   const handleMouseEnter = () => {
     setHovered(true);
@@ -392,7 +465,13 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
   return (
     <>
-    <div className="relative">
+    {/* While expanded, this wrapper holds the card's at-rest height so the
+        overlay below it never changes the cell's layout. */}
+    <div
+      className={`relative transition-[opacity,filter] duration-150 ${dimmed ? "opacity-[0.08] blur-[2px]" : ""}`}
+      data-dimmed={dimmed ? "true" : undefined}
+      style={expanded ? { height: expandBase } : undefined}
+    >
       {/* Sibling tooltip — rendered as an absolutely-positioned overlay so we
           never need to wrap the card root div in cloneElement-based <Tooltip>,
           which would clobber ref={setNodeRef} from useDraggable. */}
@@ -423,7 +502,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       // A selected card drops its bg-info/20 fill while an aging tint is shown:
       // the fill under the tint pulled the badge to 3.7:1 (#1841). The
       // selection ring alone still marks it.
-      className={`group bg-surface rounded-md select-none transition-all border relative z-0
+      className={`group bg-surface rounded-md select-none transition-all border z-0
+        ${expanded ? "absolute left-0 right-0 overflow-hidden" : "relative"}
         ${readOnly ? "cursor-default" : "cursor-pointer hover:-translate-y-0.5 hover:z-20"}
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-2 focus-visible:ring-offset-sunken
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
@@ -440,6 +520,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         // The open card's border is the primary-emphasis class above; the
         // -m-px offsets its extra pixel so the card stack does not shift.
         borderColor: current ? undefined : priorityColor,
+        // Overlay clamp: shifted up when the expansion would run past the
+        // cell's bottom edge, never taller than the cell's content box.
+        top: expanded && expandClamp ? expandClamp.top : undefined,
+        maxHeight: expanded && expandClamp ? expandClamp.maxHeight : undefined,
         boxShadow: isDragging && !overlay
           ? "none"
           : overlay
@@ -488,7 +572,15 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           // metaClass (#1844): on a tinted card, `card-aging-meta` rescopes every
           // metadata text token in this row to its on-tint value, so the row
           // clears 4.5:1 on every aging stage. Empty on an untinted card.
-          <div className={`flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap focus-within:overflow-visible focus-within:flex-wrap ${card.assignee ? "min-h-5 pr-7" : ""}${metaClass ? ` ${metaClass}` : ""}`}>
+          <div
+            data-testid="card-metadata-row"
+            className={`flex items-center gap-1 mt-1.5 ${expanded ? "flex-wrap overflow-visible" : "overflow-hidden"} ${card.assignee ? "min-h-5 pr-7" : ""}${metaClass ? ` ${metaClass}` : ""}`}
+            // Keyboard path to the expansion: focus on a chip's quick-edit
+            // button or the MR/PR link inside the row (React's onFocus/onBlur
+            // bubble). Blur to another element inside the row keeps it open.
+            onFocus={() => setRowFocused(true)}
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setRowFocused(false); }}
+          >
             {/* Blocked indicator (#449) — FIRST in the row, and deliberately
                 outside the `!compact` branch and every density gate.
 
