@@ -63,14 +63,26 @@ Usage
 
 `--check-ci-file` fails when a name in any list below is not a job in the CI
 file, when a job sits in two lists that contradict each other, or when a
-PUBLISH_JOBS entry does not list the guard in its `needs:`. It is how these
-lists stay in step with `.gitlab-ci.yml`.
+PUBLISH_JOBS entry does not list the guard in its `needs:`. It also discovers
+publish jobs nobody listed: any job that can run on a tag pipeline (read from
+its `rules:`, following `extends:`, first match wins) and either sits in the
+`deploy` stage or `needs:` a publish job must be in PUBLISH_JOBS or
+TAG_READONLY. The reader is line-based and errs toward "runs on a tag": rules
+it cannot read (a YAML `<<:` merge, an `if:` it cannot classify) count as
+tag-runnable, so the failure mode is a loud false positive, never a silent
+miss. A publishing job placed in another stage that needs no publish job is
+the one shape it cannot see. These checks keep the lists in step with
+`.gitlab-ci.yml`.
 
 Environment
 -----------
   CI_API_V4_URL, CI_PROJECT_ID, CI_COMMIT_SHA, CI_DEFAULT_BRANCH: supplied by GitLab CI.
-  GITLAB_API_TOKEN (required): project access token, Reporter role, `read_api`
-      scope, masked + protected. Sent as PRIVATE-TOKEN and never printed.
+  GITLAB_API_TOKEN (required): a personal access token with the `read_api`
+      scope, owned by an account with Reporter role or higher on the project
+      (a dedicated bot user, not a maintainer's own account), stored masked +
+      protected. Not a project or group access token: on GitLab.com those
+      need Premium, and the `visiban` group is on the Free plan. Sent as
+      PRIVATE-TOKEN and never printed.
       Unset = refuse, before any request is made. Why a token at all:
       * CI_JOB_TOKEN cannot do this. The pipelines list is not in GitLab's
         job-token endpoint allowlist, and a rejected JOB-TOKEN header turns
@@ -184,6 +196,14 @@ PUBLISH_JOBS = (
     "github-release",
     "docs-deploy",
 )
+
+# Jobs that run on a release tag in the deploy stage (or after a publish job)
+# but write nothing anywhere, so they need no guard. --check-ci-file fails on
+# any tag-runnable deploy-stage job that is in neither this nor PUBLISH_JOBS.
+TAG_READONLY = {
+    "arm64-runner-preflight": "reads the Runners API so the arm64 legs fail fast instead of hanging",
+    "latest-tag-stability-check": "reads the registries to check :latest after the manifests",
+}
 
 ACCEPTED_SOURCES = ("push", "web")
 IN_PROGRESS = frozenset(
@@ -410,7 +430,8 @@ def wait_for_main(
 _TOP_KEY = re.compile(r"^([^\s#][^#]*?):\s*(?:#.*)?$")
 
 
-def _job_blocks(text: str) -> dict[str, list[str]]:
+def _all_blocks(text: str) -> dict[str, list[str]]:
+    """Top-level key -> its indented lines, hidden templates (`.name`) included."""
     blocks: dict[str, list[str]] = {}
     current: str | None = None
     for line in text.splitlines():
@@ -422,24 +443,95 @@ def _job_blocks(text: str) -> dict[str, list[str]]:
             continue
         if current is not None:
             blocks[current].append(line)
-    return {k: v for k, v in blocks.items() if not k.startswith(".")}
+    return blocks
 
 
-def _needs_text(block: list[str]) -> str:
+def _job_blocks(text: str) -> dict[str, list[str]]:
+    return {k: v for k, v in _all_blocks(text).items() if not k.startswith(".")}
+
+
+_NOT_JOBS = frozenset({"stages", "workflow", "variables", "default", "include", "image", "services", "cache"})
+
+
+def _section(block: list[str], key: str) -> list[str] | None:
+    """The job-level `key:` (two-space indent) as [inline value, child lines...], or None."""
     for i, line in enumerate(block):
-        m = re.match(r"^(\s+)needs:(.*)$", line)
+        m = re.match(rf"^  {re.escape(key)}:(.*)$", line)
         if not m:
             continue
-        indent = len(m.group(1))
-        parts = [m.group(2).split("#", 1)[0]]
+        out = [m.group(1).split("#", 1)[0]]
         for nxt in block[i + 1 :]:
             if not nxt.strip() or nxt.lstrip().startswith("#"):
                 continue
-            if len(nxt) - len(nxt.lstrip()) <= indent:
+            if len(nxt) - len(nxt.lstrip()) <= 2:
                 break
-            parts.append(nxt.split("#", 1)[0])
-        return " ".join(parts)
-    return ""
+            out.append(nxt.split("#", 1)[0])
+        return out
+    return None
+
+
+def _needs_text(block: list[str]) -> str:
+    sec = _section(block, "needs")
+    return " ".join(sec) if sec else ""
+
+
+def _effective(blocks: dict[str, list[str]], name: str, key: str, seen: frozenset = frozenset()) -> list[str] | None:
+    """`key` for a job, following `extends:` (own value first, then the last template that sets it)."""
+    if name in seen or name not in blocks:
+        return None
+    own = _section(blocks[name], key)
+    if own is not None:
+        return own
+    ext = _section(blocks[name], "extends")
+    parents = re.findall(r"[.\w][\w.:-]*", " ".join(ext)) if ext else []
+    for parent in reversed(parents):
+        found = _effective(blocks, parent, key, seen | {name})
+        if found is not None:
+            return found
+    return None
+
+
+# An `if:` that cannot be true on a tag pipeline: CI_COMMIT_BRANCH is unset
+# there, and the pipeline source is `push`, never an MR event or a schedule.
+_TAG_FALSE = re.compile(
+    r"\$CI_COMMIT_BRANCH\s*==|\$CI_MERGE_REQUEST|merge_request_event|\$CI_PIPELINE_SOURCE\s*==\s*[\"']schedule"
+)
+
+
+def _runs_on_tag(rules: list[str] | None) -> bool:
+    """Can a job with these `rules:` run in a `v*` tag pipeline? Errs toward yes.
+
+    GitLab takes the first matching rule. A rule item whose `if:` mentions
+    $CI_COMMIT_TAG decides it (`when: never` = no); one whose `if:` can only
+    match branch, MR or schedule pipelines is skipped; any other item, including
+    one with no `if:` at all (a bare `changes:` is true on a tag pipeline) or an
+    `if:` this reader cannot classify, counts as yes. No `rules:` = yes.
+    """
+    if rules is None:
+        return True
+    items: list[str] = []
+    item_indent: int | None = None
+    for line in rules[1:]:
+        m = re.match(r"^(\s*)- ", line)
+        if m and (item_indent is None or len(m.group(1)) == item_indent):
+            item_indent = len(m.group(1))
+            items.append(line)
+        elif items:
+            items[-1] += "\n" + line
+    if not items and rules[0].strip():
+        return True  # an inline or anchored rules value this reader cannot split
+    for item in items:
+        cond = re.search(r"\bif:\s*(.+)", item)
+        never = re.search(r"\bwhen:\s*never\b", item) is not None
+        if cond is None:
+            return not never
+        text = cond.group(1)
+        if "CI_COMMIT_TAG" in text:
+            return not never
+        if _TAG_FALSE.search(text):
+            continue
+        return not never
+    return False
 
 
 def check_ci_file(
@@ -449,16 +541,20 @@ def check_ci_file(
     warn: dict = WARN_TOLERATED,
     exempt: dict = EXEMPT_JOBS,
     publish: tuple = PUBLISH_JOBS,
+    readonly: dict | None = None,
     guard: str = GUARD_JOB,
 ) -> list[str]:
+    readonly = TAG_READONLY if readonly is None else readonly
     with open(path, encoding="utf-8") as fh:
-        blocks = _job_blocks(fh.read())
+        everything = _all_blocks(fh.read())
+    blocks = {k: v for k, v in everything.items() if not k.startswith(".")}
     problems = []
     for label, names in (
         ("ALWAYS_REQUIRED", always),
         ("WARN_TOLERATED", warn),
         ("EXEMPT_JOBS", exempt),
         ("PUBLISH_JOBS", publish),
+        ("TAG_READONLY", readonly),
         ("GUARD_JOB", (guard,)),
     ):
         for name in names:
@@ -468,10 +564,28 @@ def check_ci_file(
         problems.append(f"{name!r} is both ALWAYS_REQUIRED and EXEMPT_JOBS")
     for name in sorted(set(warn) & set(exempt)):
         problems.append(f"{name!r} is both WARN_TOLERATED and EXEMPT_JOBS")
+    for name in sorted(set(publish) & set(readonly)):
+        problems.append(f"{name!r} is both PUBLISH_JOBS and TAG_READONLY")
     guard_re = re.compile(rf"(?<![\w.-]){re.escape(guard)}(?![\w.-])")
     for name in publish:
         if name in blocks and not guard_re.search(_needs_text(blocks[name])):
             problems.append(f"PUBLISH_JOBS: {name!r} does not list {guard!r} in its needs:")
+    # Discovery, so a new publish job cannot be forgotten: every job that can
+    # run on a tag pipeline and either sits in the `deploy` stage or needs a
+    # publish job must be classified as PUBLISH_JOBS (gated) or TAG_READONLY.
+    publish_re = re.compile(r"(?<![\w.-])(?:" + "|".join(map(re.escape, publish)) + r")(?![\w.-])") if publish else None
+    for name, block in sorted(blocks.items()):
+        if name in _NOT_JOBS or name == guard or name in publish or name in readonly:
+            continue
+        if not _runs_on_tag(_effective(everything, name, "rules")):
+            continue
+        stage = " ".join(_effective(everything, name, "stage") or ["test"]).strip() or "test"
+        needs = " ".join(_effective(everything, name, "needs") or [])
+        if stage == "deploy" or (publish_re and publish_re.search(needs)):
+            problems.append(
+                f"{name!r} can run on a release tag (stage {stage}) but is in neither PUBLISH_JOBS "
+                f"(gated on {guard}) nor TAG_READONLY"
+            )
     return problems
 
 
@@ -565,6 +679,16 @@ def _self_test() -> int:
     # 1. all green
     rc, log, _ = run(Fake(push, {900: green_jobs()}))
     check("all required jobs green -> publish allowed", rc == 0, log)
+
+    # 1b. the verdict is the jobs', never the pipeline's top-level status: a
+    # main pipeline stays `manual`/`running` (docs-deploy waiting) or reads
+    # `failed`/`blocked` for an exempt job while every required job is green.
+    for top in ("manual", "running", "failed", "blocked", "canceled", "skipped"):
+        rc, log, _ = run(Fake([dict(push[0], status=top)], {900: green_jobs()}))
+        check(f"top-level status {top!r} with every required job green -> allowed", rc == 0, log)
+    rc, log, _ = run(Fake(push, {900: replace(green_jobs(), "frontend-test", status="failed")}))
+    check("top-level status 'success' with a required job failed -> refused",
+          rc == 1 and "frontend-test: failed" in log, log)
 
     # 2. allow_failure job failed
     rc, log, _ = run(Fake(push, {900: replace(green_jobs(), "playwright-e2e", status="failed")}))
@@ -730,7 +854,7 @@ def _self_test() -> int:
                 "pub-list:\n  needs:\n    # why\n    - job: guard\n    - job: always-a\n  script: [x]\n"
             )
         kw = dict(always=("always-a", "lint:colon-name"), warn={"warn-a": ""}, exempt={"exempt-a": ""},
-                  publish=("pub-inline", "pub-list"), guard="guard")
+                  publish=("pub-inline", "pub-list"), readonly={}, guard="guard")
         check("--check-ci-file passes a consistent fixture", check_ci_file(good, **kw) == [], check_ci_file(good, **kw))
         p = check_ci_file(good, **dict(kw, always=("always-a", "renamed-job")))
         check("--check-ci-file flags a listed job missing from the CI file", any("renamed-job" in x for x in p), p)
@@ -747,6 +871,38 @@ def _self_test() -> int:
         p = check_ci_file(bad, **kw)
         check("--check-ci-file: a similarly named need or a mention outside needs does not count",
               sum("does not list" in x for x in p) == 2, p)
+
+        # Discovery: a tag-runnable deploy-stage job (or one that needs a publish
+        # job) must be classified, so a new publish job cannot skip the guard.
+        disc = os.path.join(tmp, "disc.yml")
+        tag = "    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+/'\n"
+        main_only = "    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'\n"
+        with open(disc, "w", encoding="utf-8") as fh:
+            fh.write(
+                "guard:\n  stage: lint\n"
+                ".deploy-tpl:\n  stage: deploy\n  rules:\n" + tag +
+                "pub:\n  extends: .deploy-tpl\n  needs: [guard]\n"
+                "ro-check:\n  extends: .deploy-tpl\n  needs: [pub]\n"
+                "main-only:\n  stage: deploy\n  rules:\n" + main_only +
+                "    - if: '$CI_PIPELINE_SOURCE == \"schedule\"'\n"
+                "never-on-tag:\n  stage: deploy\n  rules:\n    - if: '$CI_COMMIT_TAG'\n      when: never\n"
+                "    - when: manual\n"
+                "test-on-tag:\n  stage: test\n  rules:\n    - changes:\n        - x/**/*\n" + main_only +
+                "new-publish:\n  extends: .deploy-tpl\n  needs: []\n"
+                "bare-changes-deploy:\n  stage: deploy\n  rules:\n    - changes:\n        - y/*\n"
+                "after-pub:\n  rules:\n" + tag + "  needs:\n    - job: pub\n"
+            )
+        dkw = dict(always=(), warn={}, exempt={}, publish=("pub",), readonly={"ro-check": ""}, guard="guard")
+        p = check_ci_file(disc, **dkw)
+        flagged = sorted(n for n in ("new-publish", "bare-changes-deploy", "after-pub", "main-only",
+                                     "never-on-tag", "test-on-tag", "ro-check", "pub")
+                         if any(f"'{n}' can run on a release tag" in x for x in p))
+        check("--check-ci-file flags unclassified tag-runnable deploy jobs and jobs after a publish job, "
+              "following extends: and first-match rules",
+              flagged == ["after-pub", "bare-changes-deploy", "new-publish"] and len(p) == 3, p)
+        p = check_ci_file(disc, **dict(dkw, readonly={}))
+        check("--check-ci-file flags a read-only tag job once it leaves TAG_READONLY",
+              any("'ro-check' can run" in x for x in p), p)
 
     print()
     if failures:
@@ -805,8 +961,9 @@ def run_guard(
     if not token:
         print(
             "REFUSED: GITLAB_API_TOKEN is not set, so this commit's main pipeline cannot be read "
-            "reliably and the release cannot be shown to have passed. Create a project access token "
-            "(Reporter, read_api) as a masked, protected CI/CD variable named GITLAB_API_TOKEN. "
+            "reliably and the release cannot be shown to have passed. Create a personal access token "
+            "with read_api, owned by an account with Reporter or higher on this project, as a masked, "
+            "protected CI/CD variable named GITLAB_API_TOKEN. "
             "See docs/maintainers/tokens-and-rotation.md.",
             file=sys.stderr,
         )

@@ -282,7 +282,32 @@ it, compare the tag's current digests (`scripts/attest-image-sbom.sh --image <im
 **Signature:** on a `v*` tag pipeline, `release-main-pipeline-guard` (#1154) fails with
 `REFUSED: ...`, and every publish job (`*-docker-push`, `*-docker-push-arm64`,
 `*-manifest`, `*-image-attest`, `helm-publish`, `github-release`, `docs-deploy`) is
-`skipped`. Nothing was published.
+`skipped`.
+
+**What already happened, and what did not.** The guard gates only the tag pipeline's own
+jobs. For a tag cut by `scripts/release.sh`, these happened before or beside the tag pipeline
+and are **not** undone by a refusal:
+
+- The git tag exists on GitLab, and the push mirrors have already copied it to GitHub and to
+  the enterprise repository.
+- `release.sh` created the **GitLab Release** for the tag, with its notes, right after pushing
+  the tag.
+- For a stable (non-pre-release) tag, `release.sh` closed the milestone's remaining open
+  issues.
+- `release.sh` printed `Release <tag> is live`. That message only means it finished. It does
+  not wait for the tag pipeline.
+
+What the refusal **did** stop: the backend and frontend images on both the GitLab registry
+and GHCR, the multi-arch manifests, the `:latest`/`:MAJOR.MINOR` aliases, the image signatures
+and SBOM attestations, the Helm chart, the **GitHub** Release, and the versioned docs. So the
+GitLab Release page names a version whose images cannot be pulled yet. Treat the refusal as
+an open incident, not a quiet failure.
+
+**What to do:** fix the cause from the table below, then retry the guard job in the same tag
+pipeline. GitLab re-runs the publish jobs it skipped, under the same tag, and nothing needs
+re-tagging. If the release has to be abandoned instead, delete the GitLab Release and the tag
+(the mirrors carry the deletion), reopen the milestone if it was closed, and cut a new
+version once `main` is green.
 
 **What the guard checks:** it finds the newest `main` pipeline at the tagged commit (source
 `push` or `web`; nightly `schedule` pipelines at the same commit are ignored, they run a
