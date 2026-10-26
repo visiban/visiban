@@ -164,6 +164,7 @@ replace the spreadsheet, see the work, ask your own agent, on the record). It co
 Leave out the minutiae: per-endpoint contract tweaks, schema component renames, test and
 mutation work, CI and harness changes, small UI fixes, and anything only seen in a pre-release.
 Never name a confidential issue.
+Never start a summary line with `## [` (it would end the CHANGELOG section extraction early); use `## Highlights`-style headings.
 
 Write the approved text to a file outside the repo tree (scratchpad), for example
 `$TMPDIR/release-summary-{version}.md`. It becomes the opening of the dated `CHANGELOG.md`
