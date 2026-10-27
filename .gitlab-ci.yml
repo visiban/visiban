@@ -4875,8 +4875,10 @@ github-release:
 docs-deploy:
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  # #1154: a release tag's docs publish only once its commit's main pipeline is
-  # green. On main the guard exits at once, so this adds no wait there.
+  # #1154: the tag-pipeline run waits for the guard. On main the guard exits at
+  # once, so the main run is NOT gated, and the release merge's main pipeline
+  # (APP_VERSION=<tag> in .env.example, docs/ edited) deploys the new version's
+  # docs before the tag exists. Gating that run is a separate, deferred change.
   needs: [release-main-pipeline-guard]
   variables:
     DOCS_VERSION: ""

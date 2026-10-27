@@ -57,8 +57,10 @@ re-verify these by hand; run the release and read what the gate says.
 - A failure means fix the page (there is no allowlist). `New in X` labels are provenance and
   are intentionally not flagged.
 
-Publishing is gated too. On a `v*` tag, every publish job (images, manifests, attestations,
-the Helm chart, the GitHub release, the docs) `needs:` `release-main-pipeline-guard`. That
-job refuses unless every check in the tagged commit's own `main` pipeline is green, including
-`allow_failure: true` jobs (#1154). If it refuses, see
+Publishing is gated too, with one exception. On a `v*` tag, every publish job `needs:`
+`release-main-pipeline-guard`: images, manifests, attestations, the Helm chart and the GitHub
+release. That job refuses unless every check in the tagged commit's own `main` pipeline is
+green, including `allow_failure: true` jobs (#1154). The exception is the versioned docs:
+`main`'s `docs-deploy` publishes them when the release merge lands, before the tag exists,
+and the guard does not gate that run. If it refuses, see
 [Known CI Failures](known-ci-failures.md#release-main-pipeline-guard-refuses-to-publish-a-release-tag).

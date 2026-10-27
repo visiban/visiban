@@ -50,7 +50,12 @@ Fail closed
 No main pipeline, an API error, a non-JSON or wrongly shaped response, an
 unknown job status, a missing required job, or a pipeline still running when
 the timeout expires all refuse to publish. Nothing here ever reads "cannot
-see" as "fine". There is no bypass variable. To get past a refusal, fix the
+see" as "fine". There is no bypass variable, and the commit judged is the
+one the job checked out: a CI_COMMIT_SHA or --sha pointing anywhere else
+(a pipeline variable can override CI_COMMIT_SHA) refuses. Known gap: the
+guard gates only the tag pipeline. `main`'s own docs-deploy publishes a
+release's versioned docs when the release merge lands, before any tag
+exists. To get past a refusal, fix the
 main pipeline: retry the failed job there (or fix forward and re-tag), then
 retry `release-main-pipeline-guard` in the tag pipeline. See
 docs/maintainers/known-ci-failures.md.
@@ -61,18 +66,33 @@ Usage
   python3 scripts/wait-for-main-pipeline.py --check-ci-file .gitlab-ci.yml
   python3 scripts/wait-for-main-pipeline.py --self-test
 
-`--check-ci-file` fails when a name in any list below is not a job in the CI
-file, when a job sits in two lists that contradict each other, or when a
-PUBLISH_JOBS entry does not list the guard in its `needs:`. It also discovers
-publish jobs nobody listed: any job that can run on a tag pipeline (read from
-its `rules:`, following `extends:`, first match wins) and either sits in the
-`deploy` stage or `needs:` a publish job must be in PUBLISH_JOBS or
-TAG_READONLY. The reader is line-based and errs toward "runs on a tag": rules
-it cannot read (a YAML `<<:` merge, an `if:` it cannot classify) count as
-tag-runnable, so the failure mode is a loud false positive, never a silent
-miss. A publishing job placed in another stage that needs no publish job is
-the one shape it cannot see. These checks keep the lists in step with
-`.gitlab-ci.yml`.
+`--check-ci-file` keeps the lists below in step with `.gitlab-ci.yml`. Each
+of these fails it:
+  * a listed name that is not a job, or a job in two contradictory lists
+  * a PUBLISH_JOBS entry whose `needs:` lacks the guard, or has it with
+    `optional: true`
+  * an ALWAYS_REQUIRED job that does not run automatically on every main
+    pipeline, for example because its main rule gained `changes:` or
+    `when: manual`
+  * a job outside EXEMPT_JOBS that can be `manual` on main
+  * an unlisted job that can run on a tag pipeline and either sits in the
+    `deploy` stage or `needs:` a publish job; it must be in PUBLISH_JOBS or
+    TAG_READONLY
+The two list assumptions matter because a drift there would surface only at
+tag time, and the guard reads its lists from the tagged commit, so that tag
+could never pass.
+
+How it reads `rules:`: line by line, through `extends:` and resolved `<<:`
+anchors, first match wins. Each `if:` is evaluated as `||` of `&&` of
+comparisons on CI_PIPELINE_SOURCE, CI_COMMIT_TAG, CI_COMMIT_BRANCH and
+CI_MERGE_REQUEST_*. Anything else (another variable, parentheses, an
+unresolvable merge, an inline or !reference rules value) is "unknown", and
+unknown always resolves toward a failure: tag-runnable for discovery, and not
+"always" or possibly-manual for the list checks. It does not model `exists:`
+or `changes:` contents.
+
+One shape it still cannot see, and does not claim to: a job that publishes
+from a non-deploy stage and needs no publish job.
 
 Environment
 -----------
@@ -427,12 +447,14 @@ def wait_for_main(
 
 # ─── --check-ci-file ──────────────────────────────────────────────────────────
 
-_TOP_KEY = re.compile(r"^([^\s#][^#]*?):\s*(?:#.*)?$")
+_TOP_KEY = re.compile(r"^([^\s#][^#]*?):\s*(?:&([\w.-]+))?\s*(?:#.*)?$")
+_ANCHORS = "\0anchors"  # pseudo-block: anchor name -> top-level key that defines it
 
 
 def _all_blocks(text: str) -> dict[str, list[str]]:
     """Top-level key -> its indented lines, hidden templates (`.name`) included."""
     blocks: dict[str, list[str]] = {}
+    anchors: list[str] = []
     current: str | None = None
     for line in text.splitlines():
         if line and not line[0].isspace() and not line.startswith("#"):
@@ -440,14 +462,38 @@ def _all_blocks(text: str) -> dict[str, list[str]]:
             current = m.group(1).strip().strip("'\"") if m else None
             if current is not None:
                 blocks[current] = []
+                if m.group(2):
+                    anchors.append(f"{m.group(2)}={current}")
             continue
         if current is not None:
             blocks[current].append(line)
+    blocks[_ANCHORS] = anchors
     return blocks
 
 
 def _job_blocks(text: str) -> dict[str, list[str]]:
-    return {k: v for k, v in _all_blocks(text).items() if not k.startswith(".")}
+    return {k: v for k, v in _all_blocks(text).items() if not k.startswith((".", "\0"))}
+
+
+def _parents(blocks: dict[str, list[str]], name: str) -> tuple[list[str], bool]:
+    """(keys to inherit from, in lookup order; whether a `<<:` merge could not be resolved).
+
+    A YAML `<<: *anchor` merge is applied before `extends:`, so its keys rank
+    above every extended template; among extended templates the last wins."""
+    anchors = dict(a.split("=", 1) for a in blocks.get(_ANCHORS, []))
+    merged, unresolved = [], False
+    for line in blocks[name]:
+        m = re.match(r"^  <<:\s*\*([\w.-]+)\s*$", line)
+        if m:
+            if m.group(1) in anchors:
+                merged.append(anchors[m.group(1)])
+            else:
+                unresolved = True
+        elif re.match(r"^  <<:", line):
+            unresolved = True
+    ext = _section(blocks[name], "extends")
+    extended = re.findall(r"[.\w][\w.:-]*", " ".join(ext)) if ext else []
+    return merged + list(reversed(extended)), unresolved
 
 
 _NOT_JOBS = frozenset({"stages", "workflow", "variables", "default", "include", "image", "services", "cache"})
@@ -482,33 +528,23 @@ def _effective(blocks: dict[str, list[str]], name: str, key: str, seen: frozense
     own = _section(blocks[name], key)
     if own is not None:
         return own
-    ext = _section(blocks[name], "extends")
-    parents = re.findall(r"[.\w][\w.:-]*", " ".join(ext)) if ext else []
-    for parent in reversed(parents):
+    for parent in _parents(blocks, name)[0]:
         found = _effective(blocks, parent, key, seen | {name})
         if found is not None:
             return found
     return None
 
 
-# An `if:` that cannot be true on a tag pipeline: CI_COMMIT_BRANCH is unset
-# there, and the pipeline source is `push`, never an MR event or a schedule.
-_TAG_FALSE = re.compile(
-    r"\$CI_COMMIT_BRANCH\s*==|\$CI_MERGE_REQUEST|merge_request_event|\$CI_PIPELINE_SOURCE\s*==\s*[\"']schedule"
-)
+def _has_merge_key(blocks: dict[str, list[str]], name: str, seen: frozenset = frozenset()) -> bool:
+    """True if the job or anything it inherits from has a `<<:` merge this reader cannot resolve."""
+    if name in seen or name not in blocks:
+        return False
+    parents, unresolved = _parents(blocks, name)
+    return unresolved or any(_has_merge_key(blocks, p, seen | {name}) for p in parents)
 
 
-def _runs_on_tag(rules: list[str] | None) -> bool:
-    """Can a job with these `rules:` run in a `v*` tag pipeline? Errs toward yes.
-
-    GitLab takes the first matching rule. A rule item whose `if:` mentions
-    $CI_COMMIT_TAG decides it (`when: never` = no); one whose `if:` can only
-    match branch, MR or schedule pipelines is skipped; any other item, including
-    one with no `if:` at all (a bare `changes:` is true on a tag pipeline) or an
-    `if:` this reader cannot classify, counts as yes. No `rules:` = yes.
-    """
-    if rules is None:
-        return True
+def _rule_items(rules: list[str]) -> list[str] | None:
+    """Split a `rules:` section into its list items; None when it cannot be split."""
     items: list[str] = []
     item_indent: int | None = None
     for line in rules[1:]:
@@ -519,19 +555,149 @@ def _runs_on_tag(rules: list[str] | None) -> bool:
         elif items:
             items[-1] += "\n" + line
     if not items and rules[0].strip():
-        return True  # an inline or anchored rules value this reader cannot split
+        return None  # an inline, anchored or !reference rules value
+    return items
+
+
+_ATOM_EQ = re.compile(r"""^\$(\w+)\s*(==|!=|=~|!~)\s*(.+)$""")
+
+
+def _atom(atom: str, ctx: str) -> bool | None:
+    """Can one `if:` comparison be true in a `ctx` pipeline ("tag": a v* tag push;
+    "main": a push to the default branch)? None = this reader cannot tell."""
+    atom = atom.strip().strip("()").strip()
+    m = _ATOM_EQ.match(atom)
+    if m:
+        var, op, val = m.group(1), m.group(2), m.group(3).strip().strip("'\"")
+    elif re.fullmatch(r"\$\w+", atom):
+        var, op, val = atom[1:], "set", ""
+    else:
+        return None
+    if var == "CI_PIPELINE_SOURCE" and op in ("==", "!="):
+        return (val == "push") == (op == "==")
+    if var == "CI_COMMIT_TAG":
+        if ctx == "tag":
+            return None if op in ("!=", "!~") else True
+        return op in ("!=", "!~")  # unset on a branch pipeline
+    if var == "CI_COMMIT_BRANCH":
+        if ctx == "tag":
+            return op in ("!=", "!~")  # unset on a tag pipeline
+        if op == "set":
+            return True
+        if val in ("$CI_DEFAULT_BRANCH", "main"):
+            return op == "=="
+        if op == "==" and val.startswith("$") is False:
+            return False
+        return None
+    if var.startswith("CI_MERGE_REQUEST") or var == "CI_OPEN_MERGE_REQUESTS":
+        return op in ("!=", "!~")
+    return None
+
+
+def _cond(text: str, ctx: str) -> bool | None:
+    """Evaluate an `if:` expression: `||` of `&&` of atoms; None when unknown."""
+    text = text.split("#", 1)[0].strip().strip("'\"")
+    if "(" in text:
+        return None
+    ors = []
+    for part in text.split("||"):
+        ands = [_atom(a, ctx) for a in part.split("&&")]
+        if any(a is False for a in ands):
+            ors.append(False)
+        elif all(a is True for a in ands):
+            ors.append(True)
+        else:
+            ors.append(None)
+    if any(o is True for o in ors):
+        return True
+    if all(o is False for o in ors):
+        return False
+    return None
+
+
+def _item_parts(item: str) -> tuple[str | None, str | None, bool]:
+    cond = re.search(r"\bif:\s*(.+)", item)
+    when = re.search(r"\bwhen:\s*(\w+)", item)
+    conditional = re.search(r"\b(changes|exists):", item) is not None
+    return (cond.group(1) if cond else None, when.group(1) if when else None, conditional)
+
+
+def _runs_on_tag(blocks: dict[str, list[str]], name: str) -> bool:
+    """Can this job run in a `v*` tag pipeline? Errs toward yes.
+
+    First matching rule wins. On a tag pipeline `changes:` is always true, so it
+    is ignored. An item whose `if:` is certainly true decides it (`when: never`
+    = no); certainly false is skipped; unknown counts as yes unless it is a
+    `when: never`, which is then skipped. No rules, or rules this reader cannot
+    see (`<<:` merge, an inline or !reference value) = yes.
+    """
+    rules = _effective(blocks, name, "rules")
+    if rules is None:
+        return True
+    items = _rule_items(rules)
+    if items is None:
+        return True
     for item in items:
-        cond = re.search(r"\bif:\s*(.+)", item)
-        never = re.search(r"\bwhen:\s*never\b", item) is not None
-        if cond is None:
-            return not never
-        text = cond.group(1)
-        if "CI_COMMIT_TAG" in text:
-            return not never
-        if _TAG_FALSE.search(text):
+        cond, when, _ = _item_parts(item)
+        c = True if cond is None else _cond(cond, "tag")
+        if c is False:
             continue
-        return not never
+        if when == "never":
+            if c is True:
+                return False
+            continue
+        return True
     return False
+
+
+def _main_outcome(blocks: dict[str, list[str]], name: str) -> str:
+    """How a job behaves on every push to main: "always" (runs, automatically,
+    whatever the merge touched), "manual-possible", "conditional", or "unknown".
+    Used to check the list assumptions, so unknown never reads as "always"."""
+    job_when = " ".join(_effective(blocks, name, "when") or []).strip()
+    rules = _effective(blocks, name, "rules")
+    if rules is None:
+        if _has_merge_key(blocks, name):
+            return "unknown"
+        return "manual-possible" if job_when == "manual" else "always"
+    items = _rule_items(rules)
+    if items is None:
+        return "unknown"
+    manual = False
+    for item in items:
+        cond, when, conditional = _item_parts(item)
+        c = True if cond is None else _cond(cond, "main")
+        if c is False:
+            continue
+        effective_when = when or job_when or "on_success"
+        if effective_when == "manual":
+            manual = True
+        if c is None:
+            return "manual-possible" if manual else "unknown"
+        if conditional:
+            continue
+        if effective_when == "never":
+            return "manual-possible" if manual else "conditional"
+        if manual:
+            return "manual-possible"
+        return "always"
+    return "manual-possible" if manual else "conditional"
+
+
+def _guard_need_problem(block: list[str], guard: str) -> str | None:
+    """None if the job hard-needs the guard; else why not (missing, or `optional: true`)."""
+    sec = _section(block, "needs")
+    if not sec:
+        return "does not list it in its needs:"
+    guard_re = re.compile(rf"(?<![\w.-]){re.escape(guard)}(?![\w.-])")
+    text = " ".join(sec)
+    if not guard_re.search(text):
+        return "does not list it in its needs:"
+    # Flow form: [a, {job: guard, optional: true}]; block form: "- job: guard\n  optional: true".
+    for chunk in re.findall(r"\{[^}]*\}", sec[0]) + (_rule_items(sec) or []):
+        if guard_re.search(chunk) and re.search(r"\boptional:\s*true\b", chunk):
+            return "needs it with `optional: true`, which would let it publish without the guard"
+    return None
 
 
 def check_ci_file(
@@ -547,7 +713,7 @@ def check_ci_file(
     readonly = TAG_READONLY if readonly is None else readonly
     with open(path, encoding="utf-8") as fh:
         everything = _all_blocks(fh.read())
-    blocks = {k: v for k, v in everything.items() if not k.startswith(".")}
+    blocks = {k: v for k, v in everything.items() if not k.startswith((".", "\0")) and k not in _NOT_JOBS}
     problems = []
     for label, names in (
         ("ALWAYS_REQUIRED", always),
@@ -566,18 +732,45 @@ def check_ci_file(
         problems.append(f"{name!r} is both WARN_TOLERATED and EXEMPT_JOBS")
     for name in sorted(set(publish) & set(readonly)):
         problems.append(f"{name!r} is both PUBLISH_JOBS and TAG_READONLY")
-    guard_re = re.compile(rf"(?<![\w.-]){re.escape(guard)}(?![\w.-])")
     for name in publish:
-        if name in blocks and not guard_re.search(_needs_text(blocks[name])):
-            problems.append(f"PUBLISH_JOBS: {name!r} does not list {guard!r} in its needs:")
+        if name in blocks:
+            why = _guard_need_problem(blocks[name], guard)
+            if why:
+                problems.append(f"PUBLISH_JOBS: {name!r} {why} ({guard!r})")
+    # The list assumptions the runtime verdict rests on. A drift here would only
+    # surface at tag time, and since the guard re-reads these lists from the
+    # tagged commit, that tag could then never pass: catch it on the MR instead.
+    for name in always:
+        if name in blocks:
+            outcome = _main_outcome(everything, name)
+            if outcome != "always":
+                problems.append(
+                    f"ALWAYS_REQUIRED: {name!r} must run automatically on every main pipeline, "
+                    f"but its rules read as {outcome!r} (a `changes:`/manual rule, or rules this "
+                    "check cannot read); move it out of ALWAYS_REQUIRED or restore an unconditional main rule"
+                )
+    for name in sorted(blocks):
+        if name in exempt or name == guard:
+            continue
+        outcome = _main_outcome(everything, name)
+        if outcome == "manual-possible":
+            problems.append(
+                f"{name!r} can be `manual` on a main pipeline, where an un-played manual job refuses "
+                "every release; add it to EXEMPT_JOBS with a reason, or make it automatic"
+            )
+        elif outcome == "unknown":
+            problems.append(
+                f"{name!r}: this check cannot read its rules, so it cannot rule out a `manual` job on "
+                "main; simplify the rules or add it to EXEMPT_JOBS with a reason"
+            )
     # Discovery, so a new publish job cannot be forgotten: every job that can
     # run on a tag pipeline and either sits in the `deploy` stage or needs a
     # publish job must be classified as PUBLISH_JOBS (gated) or TAG_READONLY.
     publish_re = re.compile(r"(?<![\w.-])(?:" + "|".join(map(re.escape, publish)) + r")(?![\w.-])") if publish else None
-    for name, block in sorted(blocks.items()):
-        if name in _NOT_JOBS or name == guard or name in publish or name in readonly:
+    for name in sorted(blocks):
+        if name == guard or name in publish or name in readonly:
             continue
-        if not _runs_on_tag(_effective(everything, name, "rules")):
+        if not _runs_on_tag(everything, name):
             continue
         stage = " ".join(_effective(everything, name, "stage") or ["test"]).strip() or "test"
         needs = " ".join(_effective(everything, name, "needs") or [])
@@ -797,25 +990,41 @@ def _self_test() -> int:
     rc, log, _ = run(Fake(push, {900: jobs}))
     check("no parallel instances of an always-required job -> refused", rc == 1 and "backend-test: not in" in log, log)
 
+    # 13b. a pipeline that never gets any jobs is not a pass
+    rc, log, _ = run(Fake(push, {900: []}), timeout=120, poll=30)
+    check("main pipeline with no jobs -> refused at the timeout", rc == 1 and "no jobs yet" in log, log)
+
     # 14. unknown status
     rc, log, _ = run(Fake(push, {900: green_jobs() + [job("helm-lint", "frobnicated")]}))
     check("unknown job status -> refused", rc == 1 and "unknown status" in log, log)
 
     # 15. auth, through the real entry point (run_guard): GITLAB_API_TOKEN is
     # required, sent only as PRIVATE-TOKEN, never JOB-TOKEN, never printed.
+    sha40 = "c0ffee" + "1" * 34
+    push40 = [dict(push[0], sha=sha40)]
     env = {
-        "CI_API_V4_URL": api, "CI_PROJECT_ID": "42", "CI_COMMIT_SHA": "abc123", "CI_DEFAULT_BRANCH": "main",
+        "CI_API_V4_URL": api, "CI_PROJECT_ID": "42", "CI_COMMIT_SHA": sha40, "CI_DEFAULT_BRANCH": "main",
         "CI_JOB_TOKEN": "glcbt-must-never-be-sent", "GITLAB_API_TOKEN": token,
         "MAIN_PIPELINE_GUARD_POLL_SECONDS": "10",
     }
+    repo_tmp = tempfile.TemporaryDirectory(prefix="wfmp-1154-repo-")
+    repo = repo_tmp.name
+    os.makedirs(os.path.join(repo, ".git", "refs", "heads"))
 
-    def guard(env, fake):
+    def set_head(content):
+        with open(os.path.join(repo, ".git", "HEAD"), "w", encoding="utf-8") as fh:
+            fh.write(content + "\n")
+
+    set_head(sha40)  # a CI checkout is a detached HEAD
+
+    def guard(env, fake, repo_dir=repo):
         clock = Clock()
         out = io.StringIO()
         with redirect_stdout(out), redirect_stderr(out):
-            rc = run_guard(env, [], fetch=fake, sleep=clock.sleep, clock=clock)
+            rc = run_guard(env, [], fetch=fake, sleep=clock.sleep, clock=clock, repo_dir=repo_dir)
         return rc, out.getvalue()
 
+    push = push40  # the remaining run_guard cases use the full SHA
     fake = Fake(push, {900: green_jobs()})
     rc, log = guard(env, fake)
     hdrs = [h for _, h in fake.calls]
@@ -824,7 +1033,7 @@ def _self_test() -> int:
     check("JOB-TOKEN never sent", not any("JOB-TOKEN" in h or "glcbt" in str(h) for h in hdrs))
     check("token value never printed", token not in log)
     check("pipelines query is scoped to ref=main and the SHA",
-          "ref=main" in fake.calls[0][0] and "sha=abc123" in fake.calls[0][0])
+          "ref=main" in fake.calls[0][0] and f"sha={sha40}" in fake.calls[0][0])
     for unset in ("", "  ", None):
         e = {k: v for k, v in env.items() if k != "GITLAB_API_TOKEN"}
         if unset is not None:
@@ -838,6 +1047,29 @@ def _self_test() -> int:
     check("missing CI environment -> invocation error, no API call", rc == 2 and not fake.calls, log)
     rc, log = guard(dict(env, MAIN_PIPELINE_GUARD_POLL_SECONDS="0"), Fake(push, {900: green_jobs()}))
     check("an out-of-range knob -> invocation error", rc == 2, log)
+
+    # 15b. the guard vouches only for the commit actually checked out: an
+    # overridden CI_COMMIT_SHA (or --sha) pointing at another, green commit refuses.
+    older = "0ld" + "2" * 37
+    fake = Fake([dict(push[0], sha=older)], {900: green_jobs()})
+    rc, log = guard(dict(env, CI_COMMIT_SHA=older), fake)
+    check("CI_COMMIT_SHA overridden to another (green) commit -> refused before any API call",
+          rc == 1 and not fake.calls and "checked out here is" in log, log)
+    fake = Fake(push, {900: green_jobs()})
+    rc, log = guard(env, fake, repo_dir=os.path.join(repo, "no-such-dir"))
+    check("no readable checkout (GIT_STRATEGY: none) -> refused", rc == 1 and not fake.calls, log)
+    set_head("ref: refs/heads/main")
+    with open(os.path.join(repo, ".git", "refs", "heads", "main"), "w", encoding="utf-8") as fh:
+        fh.write(sha40 + "\n")
+    rc, log = guard(env, Fake(push, {900: green_jobs()}))
+    check("HEAD as a symbolic ref resolves through refs/", rc == 0, log)
+    os.remove(os.path.join(repo, ".git", "refs", "heads", "main"))
+    with open(os.path.join(repo, ".git", "packed-refs"), "w", encoding="utf-8") as fh:
+        fh.write(f"# pack-refs\n{sha40} refs/heads/main\n")
+    rc, log = guard(env, Fake(push, {900: green_jobs()}))
+    check("HEAD as a symbolic ref resolves through packed-refs", rc == 0, log)
+    set_head(sha40)
+    repo_tmp.cleanup()
 
     # 16. --check-ci-file on fixtures
     with tempfile.TemporaryDirectory(prefix="wfmp-1154-") as tmp:
@@ -899,10 +1131,69 @@ def _self_test() -> int:
                          if any(f"'{n}' can run on a release tag" in x for x in p))
         check("--check-ci-file flags unclassified tag-runnable deploy jobs and jobs after a publish job, "
               "following extends: and first-match rules",
-              flagged == ["after-pub", "bare-changes-deploy", "new-publish"] and len(p) == 3, p)
+              flagged == ["after-pub", "bare-changes-deploy", "new-publish"]
+              and sum("can run on a release tag" in x for x in p) == 3, p)
         p = check_ci_file(disc, **dict(dkw, readonly={}))
         check("--check-ci-file flags a read-only tag job once it leaves TAG_READONLY",
               any("'ro-check' can run" in x for x in p), p)
+
+        # Rules the old reader read as tag-false: `!=` on the MR source, and `||`.
+        disc2 = os.path.join(tmp, "disc2.yml")
+        with open(disc2, "w", encoding="utf-8") as fh:
+            fh.write(
+                "guard:\n  stage: lint\n"
+                "not-mr:\n  stage: deploy\n  rules:\n    - if: '$CI_PIPELINE_SOURCE != \"merge_request_event\"'\n"
+                "or-tag:\n  stage: deploy\n  rules:\n    - if: '$CI_COMMIT_BRANCH == \"x\" || $CI_COMMIT_TAG'\n"
+                "odd-var:\n  stage: deploy\n  rules:\n    - if: '$SOME_FLAG == \"true\"'\n"
+                "sched-only:\n  stage: deploy\n  rules:\n    - if: '$CI_PIPELINE_SOURCE == \"schedule\" && $X == \"1\"'\n"
+                "branch-and-push:\n  stage: deploy\n  rules:\n"
+                "    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == \"push\"'\n"
+                "pub-opt:\n  stage: deploy\n  needs:\n    - job: guard\n      optional: true\n"
+                "pub-opt-flow:\n  stage: deploy\n  needs: [{job: guard, optional: true}]\n"
+                "pub-ok:\n  stage: deploy\n  needs:\n    - job: guard\n      optional: false\n"
+            )
+        p = check_ci_file(disc2, always=(), warn={}, exempt={}, publish=("pub-opt", "pub-opt-flow", "pub-ok"),
+                          readonly={}, guard="guard")
+        flagged = sorted(n for n in ("not-mr", "or-tag", "odd-var", "sched-only", "branch-and-push")
+                         if any(f"'{n}' can run on a release tag" in x for x in p))
+        check("discovery: `!= merge_request_event`, `||` with the tag, and unknown variables count as "
+              "tag-runnable; schedule-only and branch-only rules do not",
+              flagged == ["not-mr", "odd-var", "or-tag"], p)
+        check("a guard need marked `optional: true` (block or flow form) is flagged; `optional: false` is not",
+              sum("optional: true" in x for x in p) == 2 and not any("'pub-ok'" in x for x in p), p)
+
+        # The list assumptions: ALWAYS_REQUIRED really runs on every main
+        # pipeline, and no un-exempted job can sit `manual` on main.
+        lists = os.path.join(tmp, "lists.yml")
+        with open(lists, "w", encoding="utf-8") as fh:
+            fh.write(
+                "guard:\n  stage: lint\n"
+                ".r-anchor: &r-anchor\n  rules:\n    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'\n"
+                "plain:\n  script: [x]\n"
+                "main-rule:\n  rules:\n    - changes: [a/*]\n    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'\n"
+                "via-anchor:\n  <<: *r-anchor\n"
+                "narrowed:\n  rules:\n    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'\n      changes: [b/*]\n"
+                "bad-anchor:\n  <<: *missing\n"
+                "manual-main:\n  rules:\n    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'\n      when: manual\n"
+                "manual-catchall:\n  rules:\n    - if: '$CI_PIPELINE_SOURCE == \"schedule\"'\n      when: never\n"
+                "    - when: manual\n"
+                "manual-job-level:\n  when: manual\n"
+                "manual-mr-only:\n  rules:\n    - if: '$CI_PIPELINE_SOURCE == \"merge_request_event\"'\n      when: manual\n"
+                "manual-exempt:\n  when: manual\n"
+            )
+        lkw = dict(warn={}, publish=(), readonly={}, guard="guard", exempt={"manual-exempt": ""})
+        p = check_ci_file(lists, always=("plain", "main-rule", "via-anchor"), **lkw)
+        check("ALWAYS_REQUIRED jobs with an unconditional main rule (direct, after a changes: rule, "
+              "or through a `<<:` anchor) pass", not any("ALWAYS_REQUIRED" in x for x in p), p)
+        p = check_ci_file(lists, always=("narrowed", "bad-anchor", "manual-main"), **lkw)
+        check("ALWAYS_REQUIRED job narrowed by changes:, behind an unresolvable merge, or manual -> flagged",
+              sum("ALWAYS_REQUIRED" in x for x in p) == 3, p)
+        manual = sorted(n for n in ("manual-main", "manual-catchall", "manual-job-level", "manual-mr-only",
+                                    "manual-exempt", "plain", "bad-anchor")
+                        if any(x.startswith(f"'{n}'") and ("manual" in x or "cannot read" in x) for x in p))
+        check("a job that can be manual on main and is not exempt is flagged (and an unreadable one); "
+              "MR-only manual and exempt jobs are not",
+              manual == ["bad-anchor", "manual-catchall", "manual-job-level", "manual-main"], p)
 
     print()
     if failures:
@@ -929,6 +1220,46 @@ def _int_env(env: dict, name: str, default: int, minimum: int) -> int:
     return value
 
 
+def checked_out_sha(repo_dir: str) -> str | None:
+    """The commit checked out in repo_dir, read from .git without a git binary
+    (the guard's python:3.12-slim image has none). None if it cannot be read."""
+    git = os.path.join(repo_dir, ".git")
+    try:
+        if os.path.isfile(git):  # a worktree or submodule: "gitdir: <path>"
+            with open(git, encoding="utf-8") as fh:
+                line = fh.read().strip()
+            if not line.startswith("gitdir:"):
+                return None
+            git = os.path.join(repo_dir, line.split(":", 1)[1].strip())
+        common = git
+        if os.path.isfile(os.path.join(git, "commondir")):
+            with open(os.path.join(git, "commondir"), encoding="utf-8") as fh:
+                common = os.path.join(git, fh.read().strip())
+        with open(os.path.join(git, "HEAD"), encoding="utf-8") as fh:
+            head = fh.read().strip()
+        if re.fullmatch(r"[0-9a-f]{40}", head):
+            return head
+        if not head.startswith("ref:"):
+            return None
+        ref = head.split(":", 1)[1].strip()
+        for base in (git, common):
+            path = os.path.join(base, ref)
+            if os.path.isfile(path):
+                with open(path, encoding="utf-8") as fh:
+                    value = fh.read().strip()
+                return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
+        packed = os.path.join(common, "packed-refs")
+        if os.path.isfile(packed):
+            with open(packed, encoding="utf-8") as fh:
+                for line in fh:
+                    parts = line.split()
+                    if len(parts) == 2 and parts[1] == ref and re.fullmatch(r"[0-9a-f]{40}", parts[0]):
+                        return parts[0]
+    except OSError:
+        return None
+    return None
+
+
 def run_guard(
     env: dict,
     argv: list[str],
@@ -936,6 +1267,7 @@ def run_guard(
     fetch: Fetch = _urllib_fetch,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
+    repo_dir: str | None = None,
 ) -> int:
     sha = env.get("CI_COMMIT_SHA", "")
     if argv[:1] == ["--sha"] and len(argv) == 2:
@@ -965,6 +1297,20 @@ def run_guard(
             "with read_api, owned by an account with Reporter or higher on this project, as a masked, "
             "protected CI/CD variable named GITLAB_API_TOKEN. "
             "See docs/maintainers/tokens-and-rotation.md.",
+            file=sys.stderr,
+        )
+        return 1
+    # CI_COMMIT_SHA is an ordinary variable, and a pipeline variable can
+    # override it (this project lets Developers set pipeline variables). The
+    # checkout is not overridable that way: the runner checks out the job's own
+    # commit. So the guard only vouches for the commit actually checked out, and
+    # refuses to judge any other one.
+    head = checked_out_sha(repo_dir or os.getcwd())
+    if head is None or head.lower() != sha.lower():
+        print(
+            f"REFUSED: asked to check {sha}, but the commit checked out here is "
+            f"{head or 'unreadable (no .git, or GIT_STRATEGY: none?)'}. The guard only vouches for the "
+            "commit this pipeline is building; a SHA from a variable or an argument is not enough.",
             file=sys.stderr,
         )
         return 1

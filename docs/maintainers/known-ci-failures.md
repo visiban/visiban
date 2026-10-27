@@ -220,8 +220,8 @@ dropped in a later edit to the job.
 The multi-arch images are already live under their real tags on both registries. What is
 missing is some or all of their signatures and SBOM attestations. `helm-publish` needs both
 attest jobs, so **the chart is not published** for this release until they pass.
-`github-release` needs only the push and manifest jobs, so the GitHub Release is **not**
-blocked and may already exist.
+`github-release` needs only the guard and the push and manifest jobs, not the attest jobs, so
+the GitHub Release is **not** blocked and may already exist.
 
 **Read the log first.** `scripts/attest-image-sbom.sh` names the failing registry, digest and
 check. Common causes:
@@ -296,18 +296,46 @@ and are **not** undone by a refusal:
   issues.
 - `release.sh` printed `Release <tag> is live`. That message only means it finished. It does
   not wait for the tag pipeline.
+- **The versioned docs are already live.** `release.sh` sets `APP_VERSION=<tag>` in
+  `.env.example` and edits `docs/`, so the release merge's own `main` pipeline runs
+  `docs-deploy`. That job resolves the version from `.env.example` and runs `mike deploy` for
+  it: `<tag> <MAJOR.MINOR> latest` plus `set-default` for a stable tag, or `<tag> next` for a
+  pre-release. All of this happens before the tag exists. On `main` the guard exits at once,
+  so it does not gate that job, and the tag pipeline's own `docs-deploy` only redeploys the
+  same version.
 
-What the refusal **did** stop: the backend and frontend images on both the GitLab registry
-and GHCR, the multi-arch manifests, the `:latest`/`:MAJOR.MINOR` aliases, the image signatures
-and SBOM attestations, the Helm chart, the **GitHub** Release, and the versioned docs. So the
-GitLab Release page names a version whose images cannot be pulled yet. Treat the refusal as
-an open incident, not a quiet failure.
+What the refusal **did** stop, one tag-pipeline job each:
+
+| Job | What it would have published |
+|---|---|
+| `backend-docker-push`, `frontend-docker-push` | `<tag>-amd64` images on the GitLab registry and GHCR (intermediate tags) |
+| `backend-docker-push-arm64`, `frontend-docker-push-arm64` | `<tag>-arm64` images on both registries (intermediate tags) |
+| `backend-manifest`, `frontend-manifest` | the real `:<tag>` multi-arch images on both registries, plus `:latest` and `:MAJOR.MINOR` for a stable tag |
+| `backend-image-attest`, `frontend-image-attest` | the cosign signatures and SBOM attestations |
+| `helm-publish` | the signed Helm chart |
+| `github-release` | the **GitHub** Release |
+| `docs-deploy` | nothing new: it redeploys the docs version `main` already published |
+
+So the GitLab Release page and the docs name a version whose images cannot be pulled yet.
+Treat the refusal as an open incident, not a quiet failure.
 
 **What to do:** fix the cause from the table below, then retry the guard job in the same tag
 pipeline. GitLab re-runs the publish jobs it skipped, under the same tag, and nothing needs
-re-tagging. If the release has to be abandoned instead, delete the GitLab Release and the tag
-(the mirrors carry the deletion), reopen the milestone if it was closed, and cut a new
-version once `main` is green.
+re-tagging. If the release has to be abandoned instead:
+
+1. Delete the GitLab Release and the tag. The mirrors carry the deletion.
+2. Reopen the milestone if it was closed.
+3. Roll back the docs that `main` already deployed. From a checkout with
+   `docs/requirements.txt` installed and push access to `gh-pages`, run
+   `mike delete --push <tag>`, which also drops the aliases that version held.
+   - For a stable tag, point the aliases back at the previous stable version:
+     `mike alias --push --update-aliases <previous-tag> latest <previous MAJOR.MINOR>`, then
+     `mike set-default --push <previous MAJOR.MINOR>`.
+   - For a pre-release, re-point `next` the same way, or leave it unset if there is no
+     earlier pre-release.
+
+   The `pages` job republishes docs.visiban.com from `gh-pages`.
+4. Cut a new version once `main` is green.
 
 **What the guard checks:** it finds the newest `main` pipeline at the tagged commit (source
 `push` or `web`; nightly `schedule` pipelines at the same commit are ignored, they run a
@@ -325,9 +353,10 @@ drill jobs, #1266) may be absent when the merge did not touch its paths.
 | Refusal | Cause | Fix |
 |---|---|---|
 | `main pipeline N at <sha> is not green:` then a list of jobs | Those jobs failed, were canceled or skipped, or are still `manual` | Retry the failed job in that `main` pipeline (or fix forward and cut a new tag). Once it is green, retry `release-main-pipeline-guard` in the tag pipeline. GitLab re-runs the publish jobs it had skipped. |
-| `<job>: not in the main pipeline, but it runs on every main pipeline` | An `ALWAYS_REQUIRED` job was renamed, removed, or its `rules:` narrowed | Update `ALWAYS_REQUIRED` in the script on a branch. `--check-ci-file` only proves the name exists, not that its `rules:` still match every `main` pipeline. |
+| `<job>: not in the main pipeline, but it runs on every main pipeline` | An `ALWAYS_REQUIRED` job was renamed or removed, or its `rules:` were narrowed in a way `--check-ci-file` could not detect | Fix the list in `scripts/wait-for-main-pipeline.py` on a branch, and **cut a new tag** once it merges. The guard reads its lists from the tagged commit, so retrying it on the old tag can never pass. The same applies to a refusal over a new `manual` job missing from `EXEMPT_JOBS`. On an MR, `--check-ci-file` catches both drifts: a renamed `ALWAYS_REQUIRED` job, or one whose main rule gained `changes:` or `when: manual`, and a job that can be `manual` on main without being exempt. |
 | `no main pipeline for <sha> after Ns` | The tag points at a commit that never had a `main` pipeline, usually a tag on a feature branch or an unmerged commit | Tag the merge commit on `main`. `scripts/release.sh` does this for you. |
 | `still waiting after Ns` | `main`'s pipeline did not finish within `MAIN_PIPELINE_GUARD_TIMEOUT_SECONDS` (default 2700) | Let `main` finish, then retry the guard job. |
+| `asked to check <sha>, but the commit checked out here is <other>` | `CI_COMMIT_SHA` (or `--sha`) was overridden, for example by a pipeline variable, to point at a different commit. The guard only vouches for the commit the job checked out | Run the tag pipeline without overriding `CI_COMMIT_SHA`. A missing `.git` (`GIT_STRATEGY: none`) refuses the same way. |
 | `GITLAB_API_TOKEN is not set` | The variable is missing (in this project; the enterprise mirror needs its own), or the tag is not protected, so the protected variable was not injected | Create it (see [Tokens and Rotation](tokens-and-rotation.md#gitlab_api_token-and-the-release-guard)), or protect the `v*` tag pattern. Then retry the guard job. |
 | `could not read the main pipeline ... (a definitive API error)` | A 401/403/404 (any 4xx but 408/429): `GITLAB_API_TOKEN` expired, was revoked, or lacks `read_api`/Reporter. It refuses at once, since retrying cannot change it | Rotate the token (see [Tokens and Rotation](tokens-and-rotation.md#gitlab_api_token-and-the-release-guard)), then retry the guard job. |
 | `could not read the main pipeline ... (N consecutive API failures)` | gitlab.com 5xx, 429 or a network error on `MAIN_PIPELINE_GUARD_MAX_API_ERRORS` (default 5) polls in a row | Retry the guard job. |

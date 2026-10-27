@@ -119,8 +119,10 @@ probe_with_header() {
 }
 
 # default_schedule_probe — the real GitLab API lookup. Tries CI_JOB_TOKEN
-# first, then GITLAB_API_TOKEN (a stored project access token, Reporter role
-# or above). #1383: CI_JOB_TOKEN is always set inside a job but cannot read
+# first, then GITLAB_API_TOKEN (a personal access token with read_api; its owner
+# must be Maintainer, or own the schedules, because the API returns a schedule's
+# `variables` only to them; project access tokens need Premium on GitLab.com,
+# and this project is on Free). #1383: CI_JOB_TOKEN is always set inside a job but cannot read
 # pipeline schedules (the API answers 401/403/404), and this used to return
 # on that first failure, so the GITLAB_API_TOKEN fallback was never reached
 # and the check failed open on every run. A failed CI_JOB_TOKEN lookup now
