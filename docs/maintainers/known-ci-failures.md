@@ -299,7 +299,7 @@ and are **not** undone by a refusal:
 - **The versioned docs are already live.** `release.sh` sets `APP_VERSION=<tag>` in
   `.env.example` and edits `docs/`, so the release merge's own `main` pipeline runs
   `docs-deploy`. That job resolves the version from `.env.example` and runs `mike deploy` for
-  it: `<tag> <MAJOR.MINOR> latest` plus `set-default` for a stable tag, or `<tag> next` for a
+  it: `<tag> v<MAJOR.MINOR> latest` (for example `v1.1`) plus `set-default` for a stable tag, or `<tag> next` for a
   pre-release. All of this happens before the tag exists. On `main` the guard exits at once,
   so it does not gate that job, and the tag pipeline's own `docs-deploy` only redeploys the
   same version.
@@ -329,8 +329,10 @@ re-tagging. If the release has to be abandoned instead:
    `docs/requirements.txt` installed and push access to `gh-pages`, run
    `mike delete --push <tag>`, which also drops the aliases that version held.
    - For a stable tag, point the aliases back at the previous stable version:
-     `mike alias --push --update-aliases <previous-tag> latest <previous MAJOR.MINOR>`, then
-     `mike set-default --push <previous MAJOR.MINOR>`.
+     `mike alias --push --update-aliases <previous-tag> latest v<previous MAJOR.MINOR>`, then
+     `mike set-default --push v<previous MAJOR.MINOR>`. Docs versions and aliases are always
+     `v`-prefixed (for example `v1.1.0` and `v1.1`); an unprefixed alias creates a stray
+     duplicate entry (#1270).
    - For a pre-release, re-point `next` the same way, or leave it unset if there is no
      earlier pre-release.
 

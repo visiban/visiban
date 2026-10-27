@@ -574,7 +574,11 @@ def _atom(atom: str, ctx: str) -> bool | None:
     else:
         return None
     if var == "CI_PIPELINE_SOURCE" and op in ("==", "!="):
-        return (val == "push") == (op == "==")
+        # A tag pipeline's source is `push`. A main pipeline the guard may judge
+        # is `push` or `web` (ACCEPTED_SOURCES): true for both is True, for
+        # neither is False, and for only one is "possibly" (None).
+        results = {(src == val) == (op == "==") for src in (("push",) if ctx == "tag" else ACCEPTED_SOURCES)}
+        return results.pop() if len(results) == 1 else None
     if var == "CI_COMMIT_TAG":
         if ctx == "tag":
             return None if op in ("!=", "!~") else True
@@ -1179,21 +1183,24 @@ def _self_test() -> int:
                 "    - when: manual\n"
                 "manual-job-level:\n  when: manual\n"
                 "manual-mr-only:\n  rules:\n    - if: '$CI_PIPELINE_SOURCE == \"merge_request_event\"'\n      when: manual\n"
+                "manual-web:\n  rules:\n    - if: '$CI_PIPELINE_SOURCE == \"web\"'\n      when: manual\n"
+                "push-only:\n  rules:\n    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == \"push\"'\n"
                 "manual-exempt:\n  when: manual\n"
             )
         lkw = dict(warn={}, publish=(), readonly={}, guard="guard", exempt={"manual-exempt": ""})
         p = check_ci_file(lists, always=("plain", "main-rule", "via-anchor"), **lkw)
         check("ALWAYS_REQUIRED jobs with an unconditional main rule (direct, after a changes: rule, "
               "or through a `<<:` anchor) pass", not any("ALWAYS_REQUIRED" in x for x in p), p)
-        p = check_ci_file(lists, always=("narrowed", "bad-anchor", "manual-main"), **lkw)
-        check("ALWAYS_REQUIRED job narrowed by changes:, behind an unresolvable merge, or manual -> flagged",
-              sum("ALWAYS_REQUIRED" in x for x in p) == 3, p)
+        p = check_ci_file(lists, always=("narrowed", "bad-anchor", "manual-main", "push-only"), **lkw)
+        check("ALWAYS_REQUIRED job narrowed by changes:, behind an unresolvable merge, manual, or "
+              "push-only (a web-triggered main pipeline, which the guard also judges, lacks it) -> flagged",
+              sum("ALWAYS_REQUIRED" in x for x in p) == 4, p)
         manual = sorted(n for n in ("manual-main", "manual-catchall", "manual-job-level", "manual-mr-only",
-                                    "manual-exempt", "plain", "bad-anchor")
+                                    "manual-web", "manual-exempt", "plain", "bad-anchor")
                         if any(x.startswith(f"'{n}'") and ("manual" in x or "cannot read" in x) for x in p))
         check("a job that can be manual on main and is not exempt is flagged (and an unreadable one); "
               "MR-only manual and exempt jobs are not",
-              manual == ["bad-anchor", "manual-catchall", "manual-job-level", "manual-main"], p)
+              manual == ["bad-anchor", "manual-catchall", "manual-job-level", "manual-main", "manual-web"], p)
 
     print()
     if failures:
