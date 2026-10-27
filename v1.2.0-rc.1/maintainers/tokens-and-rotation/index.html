@@ -3776,6 +3776,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gitlab_api_token-and-the-release-guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GITLAB_API_TOKEN and the release guard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#runner_status_token" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4138,16 +4149,16 @@ describe where it lives instead.</p>
 <td>TBD — confirm expiry set on Docker Hub</td>
 </tr>
 <tr>
-<td><code>GITLAB_API_TOKEN</code> (optional — <strong>not yet created</strong>)</td>
-<td>GitLab project access token, Reporter role, <code>read_api</code> scope</td>
+<td><code>GITLAB_API_TOKEN</code> (<strong>not yet created</strong> — required for release tags since #1154)</td>
+<td>GitLab personal access token, <code>read_api</code> scope, owned by an account with Reporter role or higher on <code>visiban/visiban</code> (Maintainer for <code>schedule-config-check</code>, which reads schedule variables); project access tokens need Premium on GitLab.com and the <code>visiban</code> group is on Free</td>
 <td>TBD</td>
 <td>GitLab CI/CD variable (protected, masked)</td>
-<td><code>schedule-config-check</code> (reads pipeline schedules; <code>CI_JOB_TOKEN</code> cannot) and <code>suppressions-check</code> / <code>kaizen-yield-watch</code> as a read fallback. Without it, <code>schedule-config-check</code> warns and passes — see <a href="../../development/ci-gates/#scheduled-pipelines">Scheduled pipelines</a></td>
+<td><code>schedule-config-check</code> (reads pipeline schedules; <code>CI_JOB_TOKEN</code> cannot) and <code>suppressions-check</code> / <code>kaizen-yield-watch</code> as a read fallback. Without it, <code>schedule-config-check</code> warns and passes — see <a href="../../development/ci-gates/#scheduled-pipelines">Scheduled pipelines</a>. <strong>Required by <code>release-main-pipeline-guard</code> (#1154): until it exists, every <code>v*</code> tag pipeline refuses to publish.</strong> Create it before the next release tag — see <a href="#gitlab_api_token-and-the-release-guard">below</a></td>
 <td>n/a until created</td>
 </tr>
 <tr>
 <td><code>FUZZ_DEEP_API_TOKEN</code> (optional — <strong>not yet created</strong>)</td>
-<td>GitLab project access token, Reporter role, <code>api</code> scope (Reporter is enough to create issues and comment)</td>
+<td>GitLab personal access token, <code>api</code> scope, owner Reporter or higher (enough to create issues and comment; project access tokens need Premium on GitLab.com)</td>
 <td>TBD</td>
 <td>GitLab CI/CD variable (protected, masked)</td>
 <td><code>backend-schema-fuzz-deep</code> <code>after_script</code> (<code>scripts/fuzz_deep_file_issue.py</code>) — files or comments on the deep-fuzz tracking issue. Falls back to <code>KAIZEN_API_TOKEN</code>; see <a href="#deep-fuzz-and-kaizen-issue-filing-tokens">below</a></td>
@@ -4155,7 +4166,7 @@ describe where it lives instead.</p>
 </tr>
 <tr>
 <td><code>KAIZEN_API_TOKEN</code> (optional — <strong>not yet created</strong>)</td>
-<td>GitLab project access token, Reporter role, <code>api</code> scope</td>
+<td>GitLab personal access token, <code>api</code> scope, owner Reporter or higher</td>
 <td>TBD</td>
 <td>GitLab CI/CD variable (protected, masked)</td>
 <td><code>kaizen-yield-watch</code> issue filing (only with <code>KAIZEN_FILE_ISSUES=true</code>); also the fallback filer token for <code>backend-schema-fuzz-deep</code></td>
@@ -4163,6 +4174,53 @@ describe where it lives instead.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="gitlab_api_token-and-the-release-guard"><code>GITLAB_API_TOKEN</code> and the release guard<a class="headerlink" href="#gitlab_api_token-and-the-release-guard" title="Permanent link">&para;</a></h2>
+<p><code>release-main-pipeline-guard</code> (#1154) reads the <code>main</code> pipeline and its jobs at a release
+tag's commit before anything is published (see
+<a href="../known-ci-failures/#release-main-pipeline-guard-refuses-to-publish-a-release-tag">Known CI Failures</a>).
+It needs <code>GITLAB_API_TOKEN</code> and <strong>refuses every release tag while the variable is unset</strong>.
+It never falls back to an unauthenticated read.</p>
+<p><strong>Create it before the next <code>v*</code> tag.</strong> Use a <strong>personal access token</strong> with the
+<strong><code>read_api</code></strong> scope. Its owner needs <strong>Reporter role or higher</strong> on <code>visiban/visiban</code>, so the
+token can still read pipelines if they ever stop being public. Prefer a dedicated bot user,
+like <code>visiban-mirror-bot</code>, over a maintainer's own account: the token reads with its owner's
+permissions and stops working when that account loses access.</p>
+<p>Project and group access tokens and service accounts are not options here. On GitLab.com
+they need Premium or Ultimate, and the <code>visiban</code> group is on the Free plan (checked
+2026-10-26 via <code>GET /namespaces/visiban</code>: <code>plan: free</code>). <code>RUNNER_STATUS_TOKEN</code> is a personal
+token for the same reason.</p>
+<p><strong>Minimum role depends on the reader.</strong> The guard needs Reporter. <code>schedule-config-check</code>
+needs <strong>Maintainer</strong>, or the token's owner must own the schedules. GitLab's pipeline
+schedules API returns a schedule's <code>variables</code> only to Maintainers, Owners and the schedule's
+owner, and that check reads the variables. With a Reporter-owned token it would see every
+schedule with no variables at all. The <code>read_api</code> scope keeps the token read-only whatever
+its owner's role, so a Maintainer bot account with a <code>read_api</code> token serves both.</p>
+<p>Store it as a CI/CD variable named <code>GITLAB_API_TOKEN</code>, <strong>masked</strong> and <strong>protected</strong>. <code>v*</code> tags
+are protected, so it reaches tag pipelines. A GitLab.com personal access token expires within
+365 days, so record its expiry in the inventory table above. The guard sends it as <code>PRIVATE-TOKEN</code> and never prints
+it. Creating it also turns on the other readers in the inventory row
+(<code>schedule-config-check</code> stops warning and starts asserting).</p>
+<p><strong>The enterprise mirror needs its own.</strong> <code>visiban/visiban-enterprise</code> receives every tag and
+runs the same <code>.gitlab-ci.yml</code>, so its <code>v*</code> tag pipelines run the guard too, against the
+enterprise project's own API. They refuse to publish until that project also has a masked,
+protected <code>GITLAB_API_TOKEN</code>: a personal access token with <code>read_api</code>, whose owner has Reporter or higher on the enterprise project. They also
+need a green enterprise <code>main</code> pipeline at the same commit that contains the
+<code>ALWAYS_REQUIRED</code> jobs. Check both on the enterprise project before the first release tag
+after #1154.</p>
+<p>Why not something narrower:</p>
+<ul>
+<li><strong><code>CI_JOB_TOKEN</code></strong> cannot list pipelines: the endpoint is not on GitLab's job-token
+  allowlist, and a rejected <code>JOB-TOKEN</code> header turns even a public read into a 401 (TruePPM
+  #4040, Visiban #1694). The guard never sends it.</li>
+<li><strong>No token.</strong> The project and its pipelines are public, and anonymous reads of the
+  pipelines and jobs endpoints did work on 2026-10-26. But gitlab.com rate-limits
+  unauthenticated API traffic per IP, per hour (<code>ratelimit-name:
+  unauthenticated_traffic_per_ip</code>). About 60 reads from one workstation that afternoon drew
+  429s with <code>retry-after</code> near an hour. The guard may poll for up to 45 minutes from a shared
+  runner IP. On that IP it would compete with every other tenant's anonymous traffic, and
+  a refusal caused by someone else's traffic is noise. The private enterprise mirror, which
+  receives every tag, has no anonymous option at all.</li>
+</ul>
 <h2 id="runner_status_token"><code>RUNNER_STATUS_TOKEN</code><a class="headerlink" href="#runner_status_token" title="Permanent link">&para;</a></h2>
 <p>Added in <strong>#1084</strong> for <code>arm64-runner-preflight</code>. The GitLab Runners API is not part of the
 CI_JOB_TOKEN-allowed endpoint set, so this job cannot authenticate with the ambient
@@ -4222,8 +4280,10 @@ long as the two memory notes below did (~5 months pending).</p>
 <h2 id="deep-fuzz-and-kaizen-issue-filing-tokens">Deep-fuzz and kaizen issue-filing tokens<a class="headerlink" href="#deep-fuzz-and-kaizen-issue-filing-tokens" title="Permanent link">&para;</a></h2>
 <p><code>scripts/fuzz_deep_file_issue.py</code> (#1383) uses <code>FUZZ_DEEP_API_TOKEN</code> and falls back to
 <code>KAIZEN_API_TOKEN</code> when that is unset, so a project can run on one issue-filing token.
-A project access token with <strong>Reporter</strong> role and <code>api</code> scope is enough: Reporter can create
-issues and comment, and nothing here needs a higher role. Neither token exists yet. Until one
+A personal access token with the <code>api</code> scope, whose owner has <strong>Reporter</strong> role, is enough:
+Reporter can create issues and comment, and nothing here needs a higher role. It has to be a
+personal token, ideally a bot user's. Project access tokens need Premium on GitLab.com, and
+the <code>visiban</code> group is on Free (see <a href="#gitlab_api_token-and-the-release-guard">above</a>). Neither token exists yet. Until one
 does, both jobs only report what they would have filed.</p>
 <p>The fallback <strong>ties the two tokens' rotation together</strong>. If only <code>KAIZEN_API_TOKEN</code> is
 configured, it is also the deep-fuzz filer, so revoking or rotating it silently stops deep-fuzz

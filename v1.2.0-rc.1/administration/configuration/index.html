@@ -4329,6 +4329,12 @@
 <td>GitLab project access token, <code>write_repository</code> scope</td>
 </tr>
 <tr>
+<td><code>GITLAB_API_TOKEN</code></td>
+<td><code>release-main-pipeline-guard</code> (release tags; <strong>required</strong>, every <code>v*</code> tag pipeline refuses to publish without it), <code>schedule-config-check</code>, <code>suppressions-check</code></td>
+<td>Yes</td>
+<td>GitLab personal access token, <code>read_api</code> scope, owner Reporter or higher (Maintainer for <code>schedule-config-check</code>). Mark it <strong>protected</strong>. See <a href="../../maintainers/tokens-and-rotation/#gitlab_api_token-and-the-release-guard">Tokens and Rotation</a></td>
+</tr>
+<tr>
 <td><code>MINIO_ENDPOINT</code></td>
 <td>Cache warm jobs</td>
 <td>No</td>

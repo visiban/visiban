@@ -4363,6 +4363,11 @@ own header — is never mistaken for a real exemption.</p>
 <td><code>lint:sonar-exclusions</code> (MRs touching <code>sonar-project.properties</code>, the script, or the CI file; also main)</td>
 <td>#1380, ported from TruePPM's <code>check-sonar-exclusions.sh</code>: a <code>sonar.issue.ignore.multicriteria</code> glob that matches no tracked file is dead or has silently drifted (a rename un-suppresses findings with nothing going red). Pure <code>git ls-files</code> matching, no network or <code>SONAR_TOKEN</code>. Globs use real Ant semantics (<code>**/est/**</code> is dead). Self-test plants a dead glob, an Ant-dead glob, <code>*.ts</code> globs (literal, <code>**/</code> and mid-<code>**</code> spellings) over a directory that also holds <code>.tsx</code>, an unlisted criterion, an orphan <code>.resourceKey</code>, an indexed criterion with no <code>.resourceKey</code>, and a ghost index id; each case must fail with its own check's message, and the real file must pass. #1425 added check 4b (each criterion's own comment must name its rule by S-number or RULE_TITLES title; self-test: rule not named, wrong rule named, title accepted) and an opt-in <code>--online</code> check 5 (every <code>ruleKey</code> is active in the SonarCloud quality profile) run nightly by <code>sonar:rules-check</code>, never on MRs; it fails open on no token, network error or unparseable or empty response, and its self-test drives it from fixture JSON (<code>SONAR_API_FIXTURE_DIR</code>) for rule-inactive, no-token, API-error, unparseable, zero-rules and token-not-leaked cases.</td>
 </tr>
+<tr>
+<td><code>scripts/wait-for-main-pipeline.py</code></td>
+<td><code>release-main-pipeline-guard</code> (release tags; on <code>main</code> it runs the self-test and <code>--check-ci-file</code>, then exits) and <code>release-main-pipeline-guard-selftest</code> (MRs touching the script or the CI file; also main)</td>
+<td>#1154: every tag-pipeline publish job <code>needs:</code> the guard, which refuses unless the tagged commit's own <code>main</code> pipeline is green job by job, <code>allow_failure</code> jobs included. The self-test stubs the GitLab API and covers: green, any top-level pipeline status (<code>manual</code>, <code>running</code>, <code>failed</code>, ...) when every required job is green, top-level <code>success</code> with a required job failed, a failed <code>allow_failure</code> job, a missing always-required job, a legitimately absent change-conditional job, skipped/manual/canceled, no pipeline, HTTP/non-JSON/wrong-shape errors, newest push pipeline over a schedule one, a failure on the second jobs page, retried jobs in either order, running then timeout, the <code>dep-scan-osv</code> warn exit, parallel instances, an unknown status, an unset <code>GITLAB_API_TOKEN</code> (refused before any request), 401/403/404 refusing at once while 429/5xx are retried, and the token never being sent as <code>JOB-TOKEN</code> or printed. <code>--check-ci-file</code> fails when a listed job is not in <code>.gitlab-ci.yml</code> or a publish job does not list the guard in its <code>needs:</code>. It also fails when a publish job needs the guard only with <code>optional: true</code>, when an <code>ALWAYS_REQUIRED</code> job no longer runs automatically on every <code>main</code> pipeline (<code>changes:</code> or <code>when: manual</code> on its main rule), when a job outside <code>EXEMPT_JOBS</code> can be <code>manual</code> on <code>main</code>, and when an unlisted job that can run on a tag pipeline sits in the <code>deploy</code> stage or <code>needs:</code> a publish job without being in <code>PUBLISH_JOBS</code> or <code>TAG_READONLY</code>. Rules are read through <code>extends:</code> and <code>&lt;&lt;:</code> anchors, first match wins. Each <code>if:</code> is evaluated (<code>||</code>, <code>&amp;&amp;</code>, <code>==</code>/<code>!=</code>), and an unknown condition always counts against the job. The one shape it does not claim to catch is a job that publishes from a non-deploy stage and needs no publish job. The self-test also covers a pipeline with no jobs, and a <code>CI_COMMIT_SHA</code> overridden to a commit other than the checked-out one. Both refuse.</td>
+</tr>
 </tbody>
 </table>
 <p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,
@@ -4461,12 +4466,16 @@ active schedule setting <code>VAR=true</code>, unless the variable is listed in
 <div class="admonition warning">
 <p class="admonition-title">The check only asserts anything when <code>GITLAB_API_TOKEN</code> is configured</p>
 <p>A job's <code>CI_JOB_TOKEN</code> cannot read pipeline schedules. Without a <code>GITLAB_API_TOKEN</code> CI
-variable (project access token, Reporter role or above, <code>read_api</code> scope), the lookup is
+variable, the lookup is
 inconclusive and the job <strong>warns and passes</strong>. As of #1383 no such variable exists on the
 project or the group, so the check is currently a warning only. Until it is configured, a
 schedule missing a variable goes unreported, which is the gap #1213 was filed over. Before</p>
 <h1 id="1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying">1383 the script also stopped at the rejected job token instead of trying<a class="headerlink" href="#1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying" title="Permanent link">&para;</a></h1>
-<p><code>GITLAB_API_TOKEN</code>. It now falls through to it.</p>
+<p><code>GITLAB_API_TOKEN</code>. It now falls through to it. The variable is a personal access token
+with <code>read_api</code> scope. For this check its owner needs <strong>Maintainer</strong>, or must own the
+schedules, because GitLab returns schedule <code>variables</code> only to them. Project access tokens
+need Premium on GitLab.com, and the <code>visiban</code> group is on Free. See
+<a href="../../maintainers/tokens-and-rotation/#gitlab_api_token-and-the-release-guard">Tokens and Rotation</a>.</p>
 </div>
 <p>Once <code>GITLAB_API_TOKEN</code> is configured, the order of a change matters:</p>
 <ul>
