@@ -111,18 +111,100 @@ Do not proceed to Step 2 until the docs audit is complete. A release with stale 
 
 `scripts/release.sh` assembles `changelog.d/` and extracts the notes under `CHANGELOG.md`'s
 `[Unreleased]` section — the text that becomes both the new dated CHANGELOG entry and the
-GitLab Release page body — immediately after branching, before touching any other file. It
-then gates on human approval (`confirm_release_notes`) before doing anything else, mirroring
+GitLab Release page body — immediately after branching, before touching any other file. On a
+feature release the approved roll-up summary (`--summary-file`, Step 1c-ii) goes ahead of those
+notes in both places. It then gates on human approval (`confirm_release_notes`) before doing anything else, mirroring
 TruePPM's release-summary gate: getting the version number right says nothing about whether
 the prose describing it is still accurate.
+
+### Step 1c-i — Classify the target and choose the baseline (before drafting anything)
+
+A stable release's notes say what changed since the last *real* release, not just since the
+last tag. After an alpha/beta/rc series, `[Unreleased]` holds only what merged since the final
+rc, so a 1.1 operator would otherwise have to read every pre-release section to learn what the
+new minor is (#1995). Classify the target from Step 0's version and state the result, with the
+reason, to the user **before** drafting:
+
+| Class | Test | Notes |
+|---|---|---|
+| Pre-release | version has `-alpha.N` / `-beta.N` / `-rc.N` | No roll-up. Notes cover what is new since the previous tag, exactly as before. Do not pass a summary file (the script refuses one). |
+| Bug-fix-only patch | stable `X.Y.Z`, `Z > 0`, every change since the previous stable is `### Fixed` / `### Security` | No roll-up. Normal notes, exactly as before. |
+| Feature release | stable and anything else: any minor/major (`X.Y.0`), or a patch that shipped `### Added` / `### Changed` features | Roll-up summary required. |
+
+**Baseline** (feature release only): the most recent earlier *stable* release that was not
+bug-fix-only. Read `git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname` (stable tags
+only; skip anything with a `-` suffix) and each candidate's CHANGELOG section. Examples:
+`1.2.0` after `1.1.0` and a bug-fix-only `1.1.1` has baseline `1.1.0`; `1.2.0` after a `1.1.1`
+that shipped features has baseline `1.1.1`. Every CHANGELOG section between the baseline and
+the target (`alpha.1` ... `rc.N`) is an input. Say which baseline you chose and why.
+
+**Ask the user, never guess, when:**
+1. you cannot tell whether this is a feature release that needs a roll-up (for example a patch
+   with a mix of fixes and small additions);
+2. the baseline is ambiguous: a stable tag whose CHANGELOG section is missing or whose type you
+   cannot classify, tags that do not line up with the CHANGELOG, or a previous patch that is
+   mostly fixes plus a small number of `### Added` / `### Changed` entries relative to its
+   `### Fixed` ones (is it bug-fix-only or did it ship features? Do not decide silently);
+3. you are unsure whether an item is a major change or minutiae. Show the draft with each
+   borderline item marked `[keep?]` or `[drop?]` and let the user move items.
+
+### Step 1c-ii — Draft the roll-up summary (feature release only)
+
+Build it from every CHANGELOG section between the baseline and the target, plus the
+milestone or roadmap headline (`glab api` the milestone description; for 1.2 the themes are
+replace the spreadsheet, see the work, ask your own agent, on the record). It contains only:
+
+1. **Headline features**, grouped by the release's theme or roadmap headline.
+2. **Action required**: every change an upgrader must act on (renamed config, refused values,
+   behavior that stops working, required manual steps). Point at the release's section in
+   `docs/administration/upgrade.md` with an **absolute URL** (for 1.2:
+   `https://docs.visiban.com/latest/administration/upgrade/#upgrading-to-12x`; use the
+   equivalent anchor for other releases and verify it exists in `docs/administration/upgrade.md`
+   before linking). Relative paths do not resolve in a Release body.
+3. **Upgrade urgency**: one line, for example "Recommended: no data migration risk" or
+   "Urgent: fixes a security issue; upgrade soon". Base it on the sections you read, and ask if
+   unsure.
+4. An **absolute** link to the full CHANGELOG sections for detail rather than restating them,
+   for example `https://gitlab.com/visiban/visiban/-/blob/main/CHANGELOG.md`.
+
+Example shape:
+
+```markdown
+**Visiban 1.2 in short.** Upgrade urgency: recommended, zero-downtime from 1.1.x.
+
+### Highlights
+- Replace the spreadsheet: ...
+
+### Action required
+- ...; see [Upgrading to 1.2.x](https://docs.visiban.com/latest/administration/upgrade/#upgrading-to-12x).
+
+Full detail: [CHANGELOG.md](https://gitlab.com/visiban/visiban/-/blob/main/CHANGELOG.md).
+```
+
+Leave out the minutiae: per-endpoint contract tweaks, schema component renames, test and
+mutation work, CI and harness changes, small UI fixes, and anything only seen in a pre-release.
+Never name a confidential issue.
+Use `###` or bold headings only inside the summary, never `##`: it lands between the dated
+`## [X.Y.0]` heading and `### Added`, and `docs/changelog.md` includes `CHANGELOG.md` verbatim,
+so an H2 would become a stray top-level docs section. A line starting `## [` is refused by
+`release.sh` outright (it would truncate the notes), and so is a `---` divider line (the release bodies
+would differ).
+
+Write the approved text to a file outside the repo tree (scratchpad), for example
+`$TMPDIR/release-summary-{version}.md`. It becomes the opening of the dated `CHANGELOG.md`
+section and of the GitLab and GitHub Release bodies, ahead of the assembled fragment notes.
+
+### Step 1c-iii — Show the notes and get approval
 
 The script's own prompt reads from a TTY, which the agent driving it does not have. So:
 
 1. Run `scripts/assemble-changelog.sh --dry-run` (or read `changelog.d/*.md` plus the current
-   `[Unreleased]` section) and show the resulting notes to the user in chat.
+   `[Unreleased]` section) and show the resulting notes to the user in chat. For a feature
+   release, show the roll-up summary first, then these notes, exactly as they will ship.
 2. Wait for explicit approval. If the notes are wrong (a stale bullet, a fragment under the
-   wrong category, something missing), stop here — fix `CHANGELOG.md`/`changelog.d/` first,
-   then re-show the notes. Do not paper over a wrong note by editing only what ships on the
+   wrong category, something missing), stop here — fix `CHANGELOG.md`/`changelog.d/` first
+   (or, if the roll-up summary is what is wrong, edit the summary file), then re-show the
+   notes. Do not paper over a wrong note by editing only what ships on the
    Release page; the same text goes to both places.
 3. Only once approved, invoke the script with `-y` (or `RELEASE_ASSUME_YES=1`) in Step 2 so
    its own confirmation gate doesn't block on a TTY it doesn't have. This is correct *only*
@@ -136,14 +218,22 @@ step — the script's own prompt is the gate.
 
 ```bash
 RELEASE_ASSUME_YES=1 ./scripts/release.sh {version}
+# feature release: pass the approved roll-up summary (Step 1c-ii)
+RELEASE_ASSUME_YES=1 ./scripts/release.sh --summary-file "$TMPDIR/release-summary-{version}.md" {version}
 ```
+
+`--summary-file <path>` (or `RELEASE_SUMMARY_FILE`) is refused for a pre-release, and refused
+when the file is missing or blank. A stable `X.Y.0` with no summary file is refused before the
+script branches; `RELEASE_SKIP_SUMMARY=1` bypasses that deliberately (note it inline if used).
+A bug-fix patch or pre-release with no file behaves exactly as it always did.
 
 The script will automatically:
 1. Refuse if the tag already exists locally, on the remote (`git ls-remote`, `origin` unless
    `RELEASE_REMOTE` overrides it), or the local tag-listing check itself was ambiguous —
    fails closed rather than proceeding as if the tag were absent
 2. Create a `chore/release-{version}` branch from `main`
-3. Assemble `changelog.d/` fragments, extract the release notes, and gate on approval
+3. Assemble `changelog.d/` fragments, extract the release notes, prepend the roll-up summary
+   (if one was given), and gate on approval
    (`confirm_release_notes` — see Step 1c) before touching any other file. On abort, it
    leaves the tree exactly as it was: `git reset --hard`, checkout `main`, delete the release
    branch.
@@ -183,7 +273,9 @@ The script will automatically:
 11. Tag the MR's merge commit (its `merge_commit_sha`, falling back to `squash_commit_sha`;
    the script fails closed if neither is set or the commit is not in local `main`) and push
    the tag — not whatever `HEAD` is after the pull
-12. Create a GitLab release with notes from the CHANGELOG (the same notes approved in Step 1c)
+12. Create a GitLab release with notes from the CHANGELOG (the same summary and notes approved in
+   Step 1c). The tag pipeline's `github-release` job reads the same dated CHANGELOG section, so
+   the GitHub Release carries the identical body
 
 Do not interrupt the script. If it fails, read the error output before taking any action —
 each failure mode above prints what to check or do manually. The tag pipeline itself (not

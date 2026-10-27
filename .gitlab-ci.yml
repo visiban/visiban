@@ -499,12 +499,14 @@ security-deferred-verdict-selftest:
         - scripts/security-deferred-verdict.sh
         - scripts/check-security-deferred.sh
         - scripts/release.sh
+        - scripts/extract-release-notes.sh
         - scripts/tests/release.test.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *security-deferred-verdict-selftest-paths
   script:
     - sh scripts/security-deferred-verdict.sh --self-test
+    - sh scripts/extract-release-notes.sh --self-test
     - apk add --no-cache bash jq git coreutils python3
     - git config --global --add safe.directory '*'
     - bash scripts/check-security-deferred.sh --self-test
@@ -4741,8 +4743,12 @@ github-release:
   script:
     - |
       VERSION="${CI_COMMIT_TAG#v}"
-      NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md \
-              | sed '/^[[:space:]]*$/d' | sed '/^---[[:space:]]*$/d')
+      # The dated section opens with the approved roll-up summary (stable feature
+      # releases, #1995), so this body carries the same content as the GitLab
+      # Release's (whitespace between fragment bullets may differ; a summary cannot contain
+      # `---` lines, release.sh refuses them). The extraction
+      # lives in a script that release.sh --self-test also exercises.
+      NOTES=$(sh scripts/extract-release-notes.sh "${VERSION}" CHANGELOG.md)
       if [ -z "$NOTES" ]; then
         NOTES="See [CHANGELOG.md](https://gitlab.com/visiban/visiban/-/blob/main/CHANGELOG.md) for details."
       fi

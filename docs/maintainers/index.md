@@ -31,6 +31,17 @@ re-verify these by hand; run the release and read what the gate says.
   `docker-compose.prod.yml`, and the Helm chart — and **aborts the release** (rolling the
   branch back to `main`, no partial commit) if any of them fail, rather than merely warning
   (#1269).
+- Roll-up summary for stable feature releases (#1995): a stable `X.Y.0` must open its notes with
+  a summary of everything since the last non-bug-fix stable release, not just since the last
+  tag. The `/release` skill drafts it (headline features, action-required changes with a link to
+  `docs/administration/upgrade.md`, an upgrade-urgency line), gets it approved, and passes it as
+  `scripts/release.sh --summary-file <path>` (or `RELEASE_SUMMARY_FILE`). The script refuses a
+  stable `X.Y.0` with no file (`RELEASE_SKIP_SUMMARY=1` bypasses it), refuses a missing or
+  blank file, and refuses a file for a pre-release. The approved text opens the dated
+  `CHANGELOG.md` section and the GitLab Release body ahead of the assembled fragment notes, goes
+  through the same `confirm_release_notes` gate, and reaches the GitHub Release through the
+  `github-release` job, which reads that dated section. Pre-releases and bug-fix patches are
+  unchanged.
 - `helm/visiban/Chart.yaml`: `release.sh` rewrites and stages `appVersion` (bare version, e.g.
   `1.2.0-rc.1`) — you do not bump it by hand, and the `helm-publish` tag job hard-fails if it
   ever differs from the tag. The chart's own `version:` does **not** move with a release: it is

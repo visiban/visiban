@@ -50,6 +50,16 @@ if [ "$RC" -ne 0 ] && grep -qi "usage" <<<"$OUT"; then pass=$((pass + 1)); else
   fail=$((fail + 1))
 fi
 
+# --summary-file with no path is a usage error before anything mutates (#1995).
+set +e
+OUT="$(cd "$REPO_ROOT" && bash "$SCRIPT" 1.2.0 --summary-file 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -ne 0 ] && grep -q "needs a path" <<<"$OUT"; then pass=$((pass + 1)); else
+  echo "  FAIL: --summary-file without a path should be rejected (rc=$RC)"
+  fail=$((fail + 1))
+fi
+
 # Invalid semver is rejected before anything mutates the working tree.
 set +e
 OUT="$(cd "$REPO_ROOT" && bash "$SCRIPT" not-a-version 2>&1)"
