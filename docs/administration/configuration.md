@@ -48,6 +48,7 @@ Add these in **Settings → CI/CD → Variables**. The pipeline will fail or pro
 | `GHCR_USER` | Same | No | `visiban` |
 | `GITHUB_TOKEN` | `github-release` | Yes | GitHub PAT, `repo` scope |
 | `DOCS_DEPLOY_TOKEN` | `docs-deploy` | Yes | GitLab project access token, `write_repository` scope |
+| `GITLAB_API_TOKEN` | `release-main-pipeline-guard` (release tags; **required**, every `v*` tag pipeline refuses to publish without it), `schedule-config-check`, `suppressions-check` | Yes | GitLab personal access token, `read_api` scope, owner Reporter or higher (Maintainer for `schedule-config-check`). Mark it **protected**. See [Tokens and Rotation](../maintainers/tokens-and-rotation.md#gitlab_api_token-and-the-release-guard) |
 | `MINIO_ENDPOINT` | Cache warm jobs | No | MinIO S3-compatible cache endpoint |
 | `MINIO_ACCESS_KEY` | Cache warm jobs | Yes | |
 | `MINIO_SECRET_KEY` | Cache warm jobs | Yes | |
