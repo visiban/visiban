@@ -78,6 +78,12 @@ paths = [
 # database, never a real credential. A commit pin is invalidated by a rebase:
 # these were first pinned as b6227a808/b458d83a6, and rebasing the branch onto
 # main turned gitleaks-commits red until they were re-pinned.
+#
+# One more (#1154): 645398860 added a glpat-shaped placeholder as the --self-test
+# fixture token in scripts/wait-for-main-pipeline.py. It is an opaque string that
+# only has to round-trip through a fake fetch, never a credential; the current
+# tree uses a non-PAT-shaped value, so this exists only in history. Re-pin it if
+# the branch is rebased.
 commits = [
   "8079469d92fca8989e37ac7427a51d7c8c1b9249",
   "e45b56374107d5a46b74fc67f1d51fb2921d5f73",
@@ -89,4 +95,5 @@ commits = [
   "721177740bbad794e21f718ba0c8be45e284f21f",
   "4c818710d7ba98a748980c5c9e3f7374747a7d7a",
   "d133b8317ee35a2f6cd3d4f66fb5dd78bab239b8",
+  "64539886042e3b0522ce8dce3f7caef08091e7c1",
 ]

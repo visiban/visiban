@@ -792,7 +792,9 @@ def check_ci_file(
 def _self_test() -> int:
     failures: list[str] = []
     api = "https://gitlab.example/api/v4"
-    token = "glpat-selftest-secret-value"
+    # Opaque fixture, deliberately not glpat-shaped: the value only has to round-trip
+    # through the PRIVATE-TOKEN header, and a PAT-shaped literal trips gitleaks/trivy.
+    token = "self-test-opaque-token-not-a-credential"
 
     ids = iter(range(10, 10**6))
 
