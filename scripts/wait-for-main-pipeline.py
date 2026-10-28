@@ -147,6 +147,8 @@ import urllib.request
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Callable
 
+from _paths import PathEscapeError, cli_roots, resolve_within
+
 GUARD_JOB = "release-main-pipeline-guard"
 
 # Present in every main push pipeline (unconditional `$CI_COMMIT_BRANCH ==
@@ -715,7 +717,9 @@ def check_ci_file(
     guard: str = GUARD_JOB,
 ) -> list[str]:
     readonly = TAG_READONLY if readonly is None else readonly
-    with open(path, encoding="utf-8") as fh:
+    # path is the --check-ci-file CLI argument: confine it to the repo/cwd/temp
+    # roots (S8707, #1999). An escape raises PathEscapeError; main() reports it.
+    with open(resolve_within(cli_roots(), path), encoding="utf-8") as fh:
         everything = _all_blocks(fh.read())
     blocks = {k: v for k, v in everything.items() if not k.startswith((".", "\0")) and k not in _NOT_JOBS}
     problems = []
@@ -1102,6 +1106,19 @@ def _self_test() -> int:
         check("--check-ci-file flags a publish job without the guard in needs", any("'always-a' does not list" in x for x in p), p)
         p = check_ci_file(good, **dict(kw, exempt={".hidden": ""}))
         check("--check-ci-file does not accept a hidden template as a job", bool(p), p)
+        # A --check-ci-file path outside the allowed roots is rejected (#1999).
+        outside = os.path.realpath(os.path.join(os.path.sep, "etc", "hosts"))
+        try:
+            check_ci_file(outside, **kw)
+            escaped = False
+        except PathEscapeError:
+            escaped = True
+        check("--check-ci-file rejects a path outside the allowed roots", escaped)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            rc = main(["--check-ci-file", outside])
+        check("--check-ci-file main() exits 1 with an error on an escaping path",
+              rc == 1 and "escapes" in err.getvalue(), err.getvalue())
         bad = os.path.join(tmp, "bad.yml")
         with open(bad, "w", encoding="utf-8") as fh:
             fh.write("guard:\n  needs: []\npub-inline:\n  needs: [guard-selftest]\npub-list:\n  script:\n    - echo guard\n"
@@ -1335,7 +1352,11 @@ def main(argv: list[str]) -> int:
     if argv[:1] == ["--self-test"]:
         return _self_test()
     if argv[:1] == ["--check-ci-file"] and len(argv) == 2:
-        problems = check_ci_file(argv[1])
+        try:
+            problems = check_ci_file(argv[1])
+        except (PathEscapeError, OSError) as exc:
+            print(f"ERROR: cannot read {argv[1]}: {exc}", file=sys.stderr)
+            return 1
         for p in problems:
             print(f"ERROR: {p}", file=sys.stderr)
         if problems:
