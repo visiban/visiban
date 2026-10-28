@@ -58,3 +58,16 @@ reason = "Twisted IMAP4 server DoS; fixed only in 26.10.0rc1; Visiban never serv
 id = "GHSA-q7qq-6mhp-9rc4"
 ignoreUntil = 2026-11-23
 reason = "Twisted web header CR/LF smuggling; fixed only in 26.10.0rc1; daphne sits behind a reverse proxy; stopgap until stable 26.10.0"
+
+# GHSA-jj36-9pvh-vj5r / CVE-2026-83813 (published 2026-10-27, LOW): twisted
+# <= 26.4.0 twisted.names.dns.DNSDatagramProtocol accepts a UDP DNS response on
+# transaction-ID match alone, with no source-address check, enabling off-path
+# spoofing. Fixed only in 26.10.0rc1 (a prerelease). Visiban never uses the
+# twisted.names DNS client: twisted's default reactor resolves hostnames with
+# getaddrinfo in a threadpool, and the codebase has no twisted.names or
+# installResolver reference. Re-check PyPI for a stable 26.10.0, then bump
+# twisted and drop this entry together with the five twisted entries above.
+[[IgnoredVulns]]
+id = "GHSA-jj36-9pvh-vj5r"
+ignoreUntil = 2026-11-23
+reason = "Twisted names DNS client UDP response spoofing; fixed only in 26.10.0rc1; Visiban never uses twisted.names (default reactor resolves via getaddrinfo)"
