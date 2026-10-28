@@ -62,8 +62,8 @@ reason = "Twisted words domish XML stream DoS; fixed only in 26.10.0rc1; Visiban
 # reached without nginx in front. Dev compose publishes 8000; Helm
 # backend.service.type is ClusterIP by default but can be changed; and
 # networkPolicy.enabled is false by default, so any pod in the cluster can
-# reach <release>-backend:8000 directly. Re-check PyPI for a stable 26.10.0
-# and bump twisted instead of renewing these.
+# reach <fullname>-backend on the backend service port directly. Re-check
+# PyPI for a stable 26.10.0 and bump twisted instead of renewing these.
 [[IgnoredVulns]]
 id = "GHSA-2qrf-pqgx-qh9v"
 ignoreUntil = 2026-11-23
