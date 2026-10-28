@@ -3753,6 +3753,7 @@ release-main-pipeline-guard-selftest:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes: &release-main-pipeline-guard-paths
         - scripts/wait-for-main-pipeline.py
+        - scripts/_paths.py
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *release-main-pipeline-guard-paths
