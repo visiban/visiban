@@ -45,10 +45,20 @@ reason = "Twisted words domish XML stream DoS; fixed only in 26.10.0rc1; Visiban
 # same reason as GHSA-8pqf above. GHSA-q7qq is HTTP request smuggling via a bare
 # CR/LF in a header value in twisted.web; daphne does build on twisted.web.http,
 # so this one is reachable in principle. It is accepted as a stopgap because
-# production deployments put daphne behind a reverse proxy (Helm ingress, the
-# Compose nginx), which limits smuggling to what that proxy forwards; the proxy's
-# handling of bare CR/LF in header values has not been verified. Re-check PyPI for
-# a stable 26.10.0 and bump twisted instead of renewing these.
+# production deployments put daphne behind nginx, which re-parses and re-frames
+# every request. Verified 2026-10-28 (#2000) with raw-socket requests against a
+# byte-logging upstream: nginx 1.27.5 (the Compose nginx and the Helm frontend
+# nginx, both nginx:1.27-alpine) and nginx 1.25.5 (ingress-nginx controller
+# v1.12.1, the Helm default className "nginx"; run as a plain nginx with
+# equivalent proxy directives, not the full controller) did not forward a bare CR
+# or LF in any tested case. A bare CR in a header value gets 400. A bare LF is read as a line end
+# and re-sent as CRLF, so it reaches daphne as an ordinary extra header
+# (nothing the client could not send directly), and "\n\n" is read as end of
+# headers with the next bytes parsed by nginx as its own request. Residual
+# exposure: any daphne port reached without nginx in front (dev compose
+# publishes 8000; Helm backend.service.type is ClusterIP by default but can be
+# changed). Re-check PyPI for a stable 26.10.0 and bump twisted instead of
+# renewing these.
 [[IgnoredVulns]]
 id = "GHSA-2qrf-pqgx-qh9v"
 ignoreUntil = 2026-11-23
@@ -57,7 +67,7 @@ reason = "Twisted IMAP4 server DoS; fixed only in 26.10.0rc1; Visiban never serv
 [[IgnoredVulns]]
 id = "GHSA-q7qq-6mhp-9rc4"
 ignoreUntil = 2026-11-23
-reason = "Twisted web header CR/LF smuggling; fixed only in 26.10.0rc1; daphne sits behind a reverse proxy; stopgap until stable 26.10.0"
+reason = "Twisted web header CR/LF smuggling; fixed only in 26.10.0rc1; daphne sits behind nginx, which did not forward bare CR/LF when tested (2026-10-28, #2000); stopgap until stable 26.10.0"
 
 # GHSA-jj36-9pvh-vj5r / CVE-2026-83813 (published 2026-10-27, LOW): twisted
 # <= 26.4.0 twisted.names.dns.DNSDatagramProtocol accepts a UDP DNS response on
