@@ -45,20 +45,25 @@ reason = "Twisted words domish XML stream DoS; fixed only in 26.10.0rc1; Visiban
 # same reason as GHSA-8pqf above. GHSA-q7qq is HTTP request smuggling via a bare
 # CR/LF in a header value in twisted.web; daphne does build on twisted.web.http,
 # so this one is reachable in principle. It is accepted as a stopgap because
-# production deployments put daphne behind nginx, which re-parses and re-frames
-# every request. Verified 2026-10-28 (#2000) with raw-socket requests against a
-# byte-logging upstream: nginx 1.27.5 (the Compose nginx and the Helm frontend
-# nginx, both nginx:1.27-alpine) and nginx 1.25.5 (ingress-nginx controller
-# v1.12.1, the Helm default className "nginx"; run as a plain nginx with
-# equivalent proxy directives, not the full controller) did not forward a bare CR
-# or LF in any tested case. A bare CR in a header value gets 400. A bare LF is read as a line end
-# and re-sent as CRLF, so it reaches daphne as an ordinary extra header
-# (nothing the client could not send directly), and "\n\n" is read as end of
-# headers with the next bytes parsed by nginx as its own request. Residual
-# exposure: any daphne port reached without nginx in front (dev compose
-# publishes 8000; Helm backend.service.type is ClusterIP by default but can be
-# changed). Re-check PyPI for a stable 26.10.0 and bump twisted instead of
-# renewing these.
+# production deployments put daphne behind nginx, which re-parses and
+# re-frames every request. Verified 2026-10-28 (#2000) with raw HTTP/1.1
+# sockets against a byte-logging upstream. nginx 1.27.5 (nginx:1.27-alpine,
+# the Compose nginx and the Helm frontend nginx) and nginx 1.25.5 (ingress-nginx
+# v1.12.1, run as a plain nginx with equivalent proxy directives, not the full
+# controller) did not forward a bare CR or LF in any tested case. A bare CR in
+# a header value gets 400. A bare LF is read as a line end and re-sent as CRLF,
+# so it reaches daphne as an ordinary extra header (nothing the client could
+# not send directly), and "\n\n" is read as end of headers with the next bytes
+# parsed by nginx as its own request. In Helm the ingress has a single "/" rule
+# to the frontend Service (ingress.yaml), so every request also crosses the
+# frontend nginx 1.27.5 before daphne. The chart pins no controller version
+# (values.yaml sets only className "nginx"). Not tested: other controllers or
+# versions, and HTTP/2 from a TLS ingress. Residual exposure: any daphne port
+# reached without nginx in front. Dev compose publishes 8000; Helm
+# backend.service.type is ClusterIP by default but can be changed; and
+# networkPolicy.enabled is false by default, so any pod in the cluster can
+# reach <release>-backend:8000 directly. Re-check PyPI for a stable 26.10.0
+# and bump twisted instead of renewing these.
 [[IgnoredVulns]]
 id = "GHSA-2qrf-pqgx-qh9v"
 ignoreUntil = 2026-11-23
