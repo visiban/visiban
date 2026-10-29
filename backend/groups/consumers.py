@@ -11,6 +11,7 @@ from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user
 from visiban.authorization import authorize_account
 
 from boards.broadcast import EVT_BOARD_CREATED, EVT_BOARD_UPDATED
+from boards.consumers import CLOSE_ACCESS_CHECK_FAILED, CLOSE_ACCESS_DENIED
 from boards.consumers import _lookup_role as _board_role
 from boards.permissions import PER_USER_EVENTS, per_user_event_visible, without_actor_scoped_fields
 
@@ -207,12 +208,14 @@ class GroupConsumer(AsyncWebsocketConsumer):
             self.scope["user"].id, payload.get("data")
         ):
             return
-        if not await self._verify_access():
-            # Lost access with no member.removed frame to say so, or the
-            # check itself failed (see _verify_access). 4003, the
+        close_code = await self._access_close_code()
+        if close_code is not None:
+            # Lost access with no member.removed frame to say so (4003, the
             # code connect() uses for the same condition, so the client stops
-            # rather than reconnecting into a 4003 anyway.
-            await self.close(code=4003)
+            # rather than reconnecting into a 4003 anyway), or the check
+            # itself failed (1011, see _access_close_code). Either way this
+            # frame is not forwarded.
+            await self.close(code=close_code)
             return
         # The acting user's own per-user fields (``is_starred`` on board.* and
         # group.created / group.updated) go to the actor's sockets only (#1705).
@@ -269,21 +272,22 @@ class GroupConsumer(AsyncWebsocketConsumer):
         user = self._live_user or self.scope["user"]
         return _board_role(user, board_id) is not None
 
-    async def _verify_access(self):
-        """True if the subscriber may still receive this group's frames (#1477).
+    async def _access_close_code(self):
+        """None if the subscriber may still receive this group's frames (#1477),
+        otherwise the code to close the socket with.
 
         Answered from the cache while the last successful check is younger
         than this socket's window (ACCESS_RECHECK_SECONDS plus jitter);
         otherwise re-evaluated with the predicate connect() used. A failed
         check is never cached: the caller closes the socket.
 
-        A check that raises (a DB outage, say) counts as failed, closing with
-        4003 rather than letting the exception tear the consumer down into a
-        client reconnect loop — same reasoning as
-        ``BoardConsumer._verify_access``.
+        A definitive denial returns CLOSE_ACCESS_DENIED (4003); a check that
+        raises (a DB outage, say) returns CLOSE_ACCESS_CHECK_FAILED (1011),
+        which the client reconnects on (#2003) — same reasoning as
+        ``BoardConsumer._access_close_code``.
         """
         try:
-            return await self._check_access()
+            allowed = await self._check_access()
         except Exception as exc:  # noqa: BLE001 — fail closed on any check failure, see docstring
             # Class name only: the message can carry DB connection details.
             logger.warning(
@@ -291,10 +295,11 @@ class GroupConsumer(AsyncWebsocketConsumer):
                 self.group_id,
                 type(exc).__name__,
             )
-            return False
+            return CLOSE_ACCESS_CHECK_FAILED
+        return None if allowed else CLOSE_ACCESS_DENIED
 
     async def _check_access(self):
-        """The throttled check behind _verify_access, with errors left raised.
+        """The throttled check behind _access_close_code, with errors left raised.
 
         True: access confirmed (cached, or re-evaluated with a new window
         drawn). False: a definitive denial. Raises if the check itself fails,

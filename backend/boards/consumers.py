@@ -61,6 +61,18 @@ ACCESS_RECHECK_SECONDS = 5
 # ACCESS_RECHECK_JITTER_SECONDS (about 7 s) after its last successful check.
 ACCESS_RECHECK_JITTER_SECONDS = 2
 
+# Close codes for a frame-path access re-check (docs/api/websockets.md). 4003
+# means the check completed and found no access: the client treats it as final.
+# 1011 (the standard "internal error" code) means the check itself raised, a
+# database outage for example: the client reconnects (the web app after its
+# fixed 3 s reconnect delay; exponential backoff is tracked in #606).
+# Why two codes (#2003): a single 4003 for both told a user who still has
+# access that they had lost it, and kept their tab offline until a reload.
+# Daphne also sends 1011 when a consumer raises after accept, so the code
+# already means "server error, retry" on this channel. Shared with GroupConsumer.
+CLOSE_ACCESS_DENIED = 4003
+CLOSE_ACCESS_CHECK_FAILED = 1011
+
 # SystemRandom (from secrets), not the random module, so bandit has nothing to
 # flag. This is load spreading, not a security value.
 _rng = secrets.SystemRandom()
@@ -167,9 +179,10 @@ class BoardConsumer(AsyncWebsocketConsumer):
         Only a definitive denial closes the socket here. A check that raises
         (a DB outage, say) is logged and skipped, the ping is still sent, and
         the next ping retries: nothing is forwarded on this path, so there is
-        nothing to protect by closing, and a 4003 is final for the client, so
-        a brief outage would otherwise take every idle tab offline until
-        reload. The frame path (board_event) still fails closed on an error.
+        nothing to protect by closing, and even a reconnectable close would
+        put every idle tab into a reconnect loop against the same outage.
+        The frame path (board_event) still fails closed on an error, with
+        CLOSE_ACCESS_CHECK_FAILED (#2003).
         """
         try:
             while True:
@@ -251,15 +264,16 @@ class BoardConsumer(AsyncWebsocketConsumer):
         # pre-joined in _lookup_role so the count does not grow with nesting
         # depth.
         is_self_subject = subject_user_id is not None and subject_user_id == self.scope["user"].id
-        if not await self._verify_access(force=is_self_subject):
-            # No effective access any more: a removal whose member.removed
-            # frame was lost, or one that committed after this frame was
-            # queued — or the check itself failed (see _verify_access). Close
-            # with 4003, the code connect() uses for the same
+        close_code = await self._access_close_code(force=is_self_subject)
+        if close_code is not None:
+            # No effective access any more (4003: a removal whose
+            # member.removed frame was lost, or one that committed after this
+            # frame was queued — the code connect() uses for the same
             # condition, so the client stops rather than reconnecting into a
-            # 4003 anyway.
+            # 4003 anyway), or the check itself failed (1011, see
+            # _access_close_code). Either way this frame is not forwarded.
             self._role = None
-            await self.close(code=4003)
+            await self.close(code=close_code)
             return
         # Strip `is_moderator` from member.added/member.updated payloads when
         # the subscriber is below admin role (#978).  REST responses already
@@ -297,8 +311,9 @@ class BoardConsumer(AsyncWebsocketConsumer):
             payload = {**payload, "data": scoped}
         await self.send(text_data=json.dumps(payload))
 
-    async def _verify_access(self, *, force=False):
-        """True if the subscriber may still receive this board's frames (#1477).
+    async def _access_close_code(self, *, force=False):
+        """None if the subscriber may still receive this board's frames (#1477),
+        otherwise the code to close the socket with.
 
         Answered from the cache while the last successful check is younger
         than this socket's window (ACCESS_RECHECK_SECONDS plus jitter);
@@ -308,17 +323,22 @@ class BoardConsumer(AsyncWebsocketConsumer):
         successful check also refreshes ``self._role`` and draws a new
         window. A failed one is never cached: the caller closes the socket.
 
-        A check that raises (a DB outage, say) counts as failed. Why fail
-        closed: forwarding would send board data on an unverified grant, and
-        letting the exception escape tears the consumer down with an abnormal
-        close that the client answers with a reconnect loop against the same
-        outage. Returning False makes the caller close with 4003, so the
-        client stops; a reload reconnects once the DB is back. 1011 would let
-        the client retry by itself, but it would retry every 3 s for as long
-        as the outage lasts, and the handshake would fail the same way.
+        A definitive denial returns CLOSE_ACCESS_DENIED (4003). A check that
+        raises (a DB outage, say) returns CLOSE_ACCESS_CHECK_FAILED (1011).
+        Why fail closed on an error at all: forwarding would send board data
+        on an unverified grant. Why not 4003 (#2003): the client treats 4003
+        as final, so a brief outage would tell users who still have access
+        that they lost it and keep their tabs offline until a reload. With
+        1011 the client reconnects (the web app after its fixed 3 s delay;
+        backoff is #606); while the outage
+        lasts the handshake fails too and the client keeps retrying, and once
+        the DB is back the reconnect re-runs connect()'s full access check.
+        Why not let the exception escape: Daphne would also send 1011, but
+        the log line would carry the exception message, which can include
+        DB connection details.
         """
         try:
-            return await self._check_access(force=force)
+            allowed = await self._check_access(force=force)
         except Exception as exc:  # noqa: BLE001 — fail closed on any check failure, see docstring
             # Class name only: the message can carry DB connection details.
             logger.warning(
@@ -326,16 +346,17 @@ class BoardConsumer(AsyncWebsocketConsumer):
                 self.board_id,
                 type(exc).__name__,
             )
-            return False
+            return CLOSE_ACCESS_CHECK_FAILED
+        return None if allowed else CLOSE_ACCESS_DENIED
 
     async def _check_access(self, *, force=False):
-        """The throttled check behind _verify_access, with errors left raised.
+        """The throttled check behind _access_close_code, with errors left raised.
 
         True: access confirmed (from the cache, or re-resolved — which also
         refreshes ``self._role`` and draws a new window). False: a definitive
         denial. Raises if the check itself fails. Split out so the keepalive
-        path can tell a denial from an error (#1483); _verify_access folds
-        the error into False for the frame path.
+        path can tell a denial from an error (#1483); _access_close_code maps
+        the two to different close codes for the frame path (#2003).
         """
         verified_at = self._access_verified_at
         if not force and verified_at is not None and _now() - verified_at < self._access_window:

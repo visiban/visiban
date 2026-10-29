@@ -44,6 +44,12 @@ const PING_TIMEOUT_MS = 45_000;
  *     the session cookie is invalid or the user is no longer a board member.
  *     Reconnecting would loop indefinitely in those cases.
  *
+ * Code 1011 is deliberately NOT in that list: the server sends it when its
+ * mid-stream access re-check could not complete (a database outage, say), or
+ * when it fails unexpectedly after the handshake. The user has not lost
+ * access, so it takes the normal reconnect path; the reconnect re-runs the
+ * server's full access check (#2003).
+ *
  * Keepalive: the server sends `{"event":"ping"}` every 30 seconds.  If no
  * message arrives within `PING_TIMEOUT_MS` (45 s), the client treats the
  * connection as dead, closes the socket, and triggers a reconnect.  Ping
@@ -152,7 +158,8 @@ export function useBoardSocket(
         }
         // Normal unmount close — status stays as-is; component is gone
         if (e.code === 1000) return;
-        // Unexpected close (including ping timeout 4002) — schedule reconnect
+        // Unexpected close (including ping timeout 4002 and the server's
+        // transient re-check failure 1011, #2003) — schedule reconnect
         setStatus("reconnecting");
         setReconnectAttempt((n) => n + 1);
         reconnectTimer = setTimeout(connect, 3000);

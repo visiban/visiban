@@ -189,8 +189,9 @@ class GroupConsumerAccessRecheckUnitTests(TransactionTestCase):
         for _ in range(200):
             self.assertTrue(0 <= consumers_module._jitter() <= ACCESS_RECHECK_JITTER_SECONDS)
 
-    def test_recheck_exception_fails_closed_and_logs(self):
-        """A DB outage during the re-check drops the frame and closes with 4003."""
+    def test_recheck_exception_fails_closed_with_1011_and_logs(self):
+        """A DB outage during the re-check drops the frame and closes with the
+        reconnectable 1011, not the final 4003 (#2003)."""
         consumer = self._consumer()
         verified_at = consumer._access_verified_at
         consumer._refresh_access = AsyncMock(side_effect=OperationalError("db host secret-detail"))
@@ -198,12 +199,32 @@ class GroupConsumerAccessRecheckUnitTests(TransactionTestCase):
 
         with self.assertLogs("groups.consumers", level="WARNING") as logs:
             self.assertIsNone(self._deliver(consumer, _board_frame(self.board.id)))
-        consumer.close.assert_called_once_with(code=4003)
+        consumer.send.assert_not_called()
+        consumer.close.assert_called_once_with(code=1011)
         output = "\n".join(logs.output)
         self.assertIn("group access re-check failed", output)
         self.assertIn("OperationalError", output)
         self.assertNotIn("secret-detail", output)  # class name only, never the message
         self.assertEqual(consumer._access_verified_at, verified_at)  # not cached
+
+    def test_access_lookup_error_closes_with_1011_and_denial_with_4003(self):
+        """The split is decided by the access lookup itself (#2003): the same
+        frame closes with 1011 when the membership lookup raises, and with 4003
+        once the lookup completes and finds no access."""
+        consumer = self._consumer()
+        self.clock.advance(ACCESS_RECHECK_SECONDS)
+        with patch(
+            "groups.consumers._user_can_access_group_id",
+            side_effect=OperationalError("db host secret-detail"),
+        ), self.assertLogs("groups.consumers", level="WARNING"):
+            self.assertIsNone(self._deliver(consumer, _board_frame(self.board.id)))
+        consumer.close.assert_called_once_with(code=1011)
+
+        consumer = self._consumer()
+        self.membership.delete()
+        self.clock.advance(ACCESS_RECHECK_SECONDS)
+        self.assertIsNone(self._deliver(consumer, _board_frame(self.board.id)))
+        consumer.close.assert_called_once_with(code=4003)
 
     def test_never_verified_consumer_fails_closed(self):
         self.membership.delete()

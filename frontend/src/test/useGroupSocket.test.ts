@@ -76,6 +76,19 @@ describe('useGroupSocket', () => {
     expect(instances).toHaveLength(1)
   })
 
+  it('reconnects on a transient server re-check failure (code 1011), not failed (#2003)', () => {
+    const onReconnected = vi.fn()
+    const { result } = renderHook(() => useGroupSocket(1, vi.fn(), { onReconnected }))
+    act(() => { latestWS().onopen?.() })
+    act(() => { latestWS().onclose?.({ code: 1011 }) })
+    expect(result.current.status).toBe('reconnecting')
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(instances).toHaveLength(2)
+    act(() => { latestWS().onopen?.() })
+    expect(result.current.status).toBe('connected')
+    expect(onReconnected).toHaveBeenCalledTimes(1)
+  })
+
   it('reconnects 3 s after an unexpected close', () => {
     const { result } = renderHook(() => useGroupSocket(1, vi.fn()))
     act(() => { latestWS().onopen?.() })
