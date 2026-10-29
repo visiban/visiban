@@ -81,8 +81,8 @@ interface Props {
    *  On an invite-only site only a site admin's emailed invite lets a new
    *  person create an account (#1445). */
   senderIsSiteAdmin?: boolean;
-  /** Role choices; defaults to all four. The board passes Member/Collaborator/
-   *  Viewer — an invite can never grant Admin. */
+  /** Role choices; defaults to all four (the site surface). The board and group
+   *  surfaces pass Member/Collaborator/Viewer — a board or group invite never grants Admin. */
   roleOptions?: { value: Role; label: string }[];
   /** The "or create a shareable link" divider under the form. Hosts pass
    *  their `allowShareableLinks`, so it shows only where links can be created
