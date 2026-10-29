@@ -86,3 +86,12 @@ reason = "Twisted web header CR/LF smuggling; fixed only in 26.10.0rc1; daphne s
 id = "GHSA-jj36-9pvh-vj5r"
 ignoreUntil = 2026-11-23
 reason = "Twisted names DNS client UDP response spoofing; fixed only in 26.10.0rc1; Visiban never uses twisted.names (default reactor resolves via getaddrinfo)"
+
+# GHSA-vpp8: HTTP/2 Rapid Reset in twisted.web's HTTP/2 server, fixed only in the
+# 26.10.0rc1 prerelease. twisted.web negotiates HTTP/2 only when the optional `h2`
+# package is importable; requirements.txt installs daphne without twisted[http2],
+# so no h2 is present and daphne serves HTTP/1.1 only (TLS terminates at the proxy).
+[[IgnoredVulns]]
+id = "GHSA-vpp8-g58w-m8mp"
+ignoreUntil = 2026-11-23
+reason = "Twisted HTTP/2 Rapid Reset; fixed only in 26.10.0rc1; h2 not installed so HTTP/2 is never served; stopgap until stable 26.10.0"
