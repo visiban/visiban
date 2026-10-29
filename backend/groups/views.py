@@ -1995,11 +1995,9 @@ class JoinGroupView(APIView):
         # A shareable admin link no longer redeems (#1727, #1940), so the
         # preview answers like a revoked link rather than offering a join that
         # the POST would refuse.
-        if (
-            link.delivery == GroupInviteLink.Delivery.LINK
-            and link.role == GroupInviteLink.Role.ADMIN
-        ):
-            logger.info("Invite token lookup failed: shareable admin link. token=%s ip=%s", token_hint, ip)
+        # An emailed admin invite minted before #2006 is refused the same way.
+        if link.role == GroupInviteLink.Role.ADMIN:
+            logger.info("Invite token lookup failed: admin invite. token=%s ip=%s", token_hint, ip)
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         # Residual distinction accepted: with a live creator an expired or
         # consumed link still answers 410, so "creator gone" (404) is
@@ -2140,12 +2138,11 @@ class JoinGroupView(APIView):
             # revokes the ones minted before that (#1940). Refusing here as
             # well keeps one that is reactivated or written by a script from
             # redeeming. Same 404 as a revoked link, so it leaks nothing.
-            if (
-                link.delivery == GroupInviteLink.Delivery.LINK
-                and link.role == GroupInviteLink.Role.ADMIN
-            ):
+            # An emailed admin invite minted before #2006 is refused too: no
+            # invite grants admin.
+            if link.role == GroupInviteLink.Role.ADMIN:
                 logger.info(
-                    "Invite token redemption failed: shareable admin link. token=%s user_id=%s ip=%s outcome=failure",
+                    "Invite token redemption failed: admin invite. token=%s user_id=%s ip=%s outcome=failure",
                     token_hint,
                     request.user.pk,
                     ip,

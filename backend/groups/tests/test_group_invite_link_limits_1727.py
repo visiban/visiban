@@ -4,7 +4,7 @@ A shareable link is a bearer credential: whoever holds it gets its grant. A
 group admin inherits board admin on every board in the subtree, so the link
 create endpoint refuses ``admin`` and refuses a never-expiring lifetime, the
 same rule board invite links follow. Emailed invites, which are bound to one
-recipient address (#1678), still grant admin. Validation is at creation only:
+recipient address (#1678), are capped the same way (#2006). Validation is at creation only:
 links minted before the change are revoked or capped by migration 0023 (#1940).
 """
 import re
@@ -210,41 +210,78 @@ class PreExistingGroupInviteLinkTests(_Fixture, TestCase):
     FRONTEND_URL="https://kanban.acme.test",
     DEFAULT_FROM_EMAIL="invites@acme.test",
 )
-class EmailedGroupInviteStillGrantsAdminTests(_Fixture, TestCase):
-    """The email channel is unchanged and remains the way to grant admin."""
+class EmailedGroupInviteAdminCapTests(_Fixture, TestCase):
+    """An emailed group invite is capped at member like a shareable link (#2006)."""
 
-    INVITED = "new.admin@example.org"
+    INVITED = "new.person@example.org"
 
     def setUp(self):
         self.make_group()
-        self.invitee = User.objects.create_user(username="newadmin", password="p", email=self.INVITED)
+        self.invitee = User.objects.create_user(username="newperson", password="p", email=self.INVITED)
 
     def tearDown(self):
         cache.clear()
 
-    def test_emailed_invite_grants_admin(self):
-        r = self.client.post(
-            f"{self.url}send/", {"email": self.INVITED, "role": "admin"}, format="json",
-        )
-        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.content)
-        link = GroupInviteLink.objects.get(group=self.group, delivery=GroupInviteLink.Delivery.EMAIL)
-        self.assertEqual(link.role, GroupInviteLink.Role.ADMIN)
-        self.assert_days_from_now(link.expires_at, 7)
+    def send(self, **body):
+        return self.client.post(f"{self.url}send/", {"email": self.INVITED, **body}, format="json")
 
-        self.assertEqual(len(mail.outbox), 1)
+    def test_admin_role_is_refused_on_send_and_nothing_is_minted_or_sent(self):
+        r = self.send(role="admin")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertIn("role", r.json())
+        self.assertFalse(GroupInviteLink.objects.filter(group=self.group).exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_serializer_role_choices_match_the_shareable_link(self):
+        from groups.serializers import GroupInviteLinkEmailSerializer
+
+        self.assertEqual(
+            set(GroupInviteLinkEmailSerializer().fields["role"].choices),
+            set(GroupInviteLinkCreateSerializer().fields["role"].choices),
+        )
+
+    def test_generate_refuses_an_emailed_admin_invite(self):
+        with self.assertRaises(ValueError):
+            GroupInviteLink.generate(
+                group=self.group, created_by=self.admin, role=GroupInviteLink.Role.ADMIN,
+                single_use=True, delivery=GroupInviteLink.Delivery.EMAIL, recipient_email=self.INVITED,
+            )
+
+    def test_emailed_member_invite_still_works(self):
+        r = self.send(role="member")
+        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.content)
         raw = TOKEN_RE.search(mail.outbox[0].body).group(0)
         joined = self.join(raw, self.invitee)
         self.assertEqual(joined.status_code, status.HTTP_201_CREATED, joined.content)
         membership = GroupMembership.objects.get(group=self.group, user=self.invitee)
-        self.assertEqual(membership.role, GroupMembership.Role.ADMIN)
+        self.assertEqual(membership.role, GroupMembership.Role.MEMBER)
 
-    def test_emailed_admin_invite_still_previews(self):
-        # The #1940 preview refusal is for shareable links only (delivery=link).
-        r = self.client.post(
-            f"{self.url}send/", {"email": self.INVITED, "role": "admin"}, format="json",
+    def legacy_emailed_admin_invite(self):
+        # generate() now refuses admin, so write the role the way a pre-#2006
+        # row carries it.
+        link, raw = GroupInviteLink.generate(
+            group=self.group, created_by=self.admin, role=GroupInviteLink.Role.MEMBER,
+            single_use=True, delivery=GroupInviteLink.Delivery.EMAIL, recipient_email=self.INVITED,
+            expires_at=timezone.now() + timedelta(days=3),
         )
-        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.content)
-        raw = TOKEN_RE.search(mail.outbox[0].body).group(0)
-        preview = APIClient().get(f"/api/v1/groups/join/{raw}/")
-        self.assertEqual(preview.status_code, status.HTTP_200_OK, preview.content)
-        self.assertEqual(preview.json()["role"], "admin")
+        GroupInviteLink.objects.filter(pk=link.pk).update(role=GroupInviteLink.Role.ADMIN)
+        return link, raw
+
+    def test_pre_existing_emailed_admin_invite_is_refused_at_join(self):
+        link, raw = self.legacy_emailed_admin_invite()
+        r = self.join(raw, self.invitee)
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND, r.content)
+        self.assertFalse(GroupMembership.objects.filter(group=self.group, user=self.invitee).exists())
+        link.refresh_from_db()
+        self.assertIsNone(link.used_at)
+
+    def test_pre_existing_emailed_admin_invite_previews_as_not_found(self):
+        _link, raw = self.legacy_emailed_admin_invite()
+        self.assertEqual(APIClient().get(f"/api/v1/groups/join/{raw}/").status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_pre_existing_emailed_admin_invite_does_not_admit_a_registration(self):
+        from groups.invite_registration import group_link_registration_refusal
+
+        link, _raw = self.legacy_emailed_admin_invite()
+        link.refresh_from_db()
+        self.assertEqual(group_link_registration_refusal(link), "invite_invalid")

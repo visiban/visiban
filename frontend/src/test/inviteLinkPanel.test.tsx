@@ -482,7 +482,7 @@ describe('InviteLinkPanel', () => {
     const expiryCombo = screen.getByRole('combobox', { name: 'Expires: 7 days' })
 
     expect(screen.getByText(
-      "Invite links can't grant Admin. To make someone an admin, email them an invite or change their role after they join."
+      "Invites can't grant Admin. To make someone an admin, change their role after they join."
     )).toBeInTheDocument()
 
     await user.click(roleCombo)
@@ -504,14 +504,14 @@ describe('InviteLinkPanel', () => {
     )
   })
 
-  it('the Admin hint does not point at the email form when email is unavailable (#1727)', async () => {
+  it('the Admin hint never points at the email form (#1727, #2006)', async () => {
     mockGetSiteConfig.mockResolvedValue({ ...siteConfig, invite_email_available: false })
     const user = userEvent.setup()
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('No invite links.')
     await user.click(await screen.findByRole('button', { name: 'New link' }))
     expect(await screen.findByText(
-      "Invite links can't grant Admin. To make someone an admin, change their role after they join."
+      "Invites can't grant Admin. To make someone an admin, change their role after they join."
     )).toBeInTheDocument()
     expect(screen.queryByText(/email them an invite/)).not.toBeInTheDocument()
   })
@@ -535,13 +535,14 @@ describe('InviteLinkPanel', () => {
     expect(screen.getByText(/Never/)).toBeInTheDocument()
   })
 
-  it('the group email invite still offers Admin (#1727 narrows links only)', async () => {
+  it('the group email invite offers no Admin role (#2006)', async () => {
     const user = userEvent.setup()
     render(<InviteLinkPanel scope={{ kind: "group", id: 7 }} />)
     await screen.findByRole('textbox', { name: 'Email address' })
     // The email form's picker is a SingleSelectDropdown button, not a combobox.
     await user.click(screen.getByRole('button', { name: 'Role: Member' }))
-    expect(await screen.findByText('Admin')).toBeInTheDocument()
+    expect(await screen.findByText('Collaborator')).toBeInTheDocument()
+    expect(screen.queryByText('Admin')).not.toBeInTheDocument()
   })
 
   it('expiry dropdown in creation form renders correctly', async () => {

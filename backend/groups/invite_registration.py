@@ -89,6 +89,10 @@ def group_link_registration_refusal(link: GroupInviteLink, *, reserved_for=None)
         return "invite_invalid"
     if link.role not in GroupMembership.Role.values:
         return "invite_invalid"
+    if link.role == GroupMembership.Role.ADMIN:
+        # No invite grants admin (#2006); an emailed admin invite minted before
+        # that is refused rather than honored.
+        return "invite_invalid"
     if not (link.single_use and link.delivery == GroupInviteLink.Delivery.EMAIL):
         return "invite_not_for_registration"
     sender = link.created_by

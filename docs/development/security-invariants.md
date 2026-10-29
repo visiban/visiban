@@ -552,24 +552,25 @@ roles, non-member `404`, unset and invalid `min_role`, and
 `AnalyticsExtensionsEntryPointTests`, which scans the backend for any reference
 to `ANALYTICS_EXTENSIONS` outside `boards/hooks.py` and `boards/permissions.py`).
 
-## Rule 13: A shareable invite link never grants admin and always expires
+## Rule 13: An invite link never grants group admin and always expires
 
-**Rule.** An invite link that is shared rather than sent to one address, on a
-board or a group, cannot grant the `admin` role and has an expiry of at most 30
-days. A request for `admin` or for no expiry is refused with `400`, not
-narrowed. An emailed invite also always expires (at most 30 days); on a group
-it may grant `admin`, because it is bound to one recipient address (#1678). The
+**Rule.** An invite link, shared or emailed, on a board or a group, cannot grant
+the `admin` role and has an expiry of at most 30 days. A request for `admin` or
+for no expiry is refused with `400`, not narrowed. Binding an emailed invite to
+one address (#1678) does not make admin acceptable: a forwarded or misdirected
+email still mints a group admin (#2006). The
 limits are checked when a link is created. Group links created before the limits
 applied were handled once by migration `groups/0023` (#1940): unused shareable
 admin links were revoked and unused never-expiring ones were given a 7-day
 expiry. A legacy link already expiring more than 30 days out keeps its expiry,
-and `JoinGroupView` refuses any shareable admin link (#1727, #1940).
+and `JoinGroupView` refuses any shareable admin link (#1727, #1940). An emailed
+group admin invite minted before #2006 is not revoked by a migration; it is
+refused at preview, join and registration instead (it expires within 30 days).
 
 **Why.** A shareable link is a bearer credential: it can be forwarded or pasted
 anywhere, and whoever holds it gets its grant. A group admin is board admin on
 every board in the group's subtree, so an admin link that never expires is a
-standing, transferable grant of that whole subtree. Binding to an address
-(emailed invites) is what makes an admin grant by invite acceptable; expiry
+standing, transferable grant of that whole subtree. Group admin is granted by changing a member's role, never by invite; expiry
 bounds how long a leaked link is useful.
 
 | Surface | Entry point | Enforced via |
@@ -577,8 +578,9 @@ bounds how long a leaked link is useful.
 | Board invite link create (REST) | `boards/views/invites.py` `BoardInviteLinksMixin.invite_links` (POST) | `boards/serializers.py` `BoardInviteLinkCreateSerializer`: `role` is a `ChoiceField` without `admin`, `expiry_days` is a required `ChoiceField` over `BOARD_INVITE_EXPIRY_DAYS` (1, 7, 30); `boards/models.py` `BoardInviteLink.generate` repeats the role check against `GRANTABLE_ROLES` |
 | Board emailed invite (REST) | `boards/views/invites.py` `BoardInviteLinksMixin.invite_link_send` | `boards/serializers.py` `BoardInviteLinkEmailSerializer`: no `admin`; `expiry_days` over `BOARD_INVITE_EXPIRY_DAYS`, default 7 |
 | Group invite link create (REST) | `groups/views.py` `GroupViewSet.invite_links` (POST) | `groups/serializers.py` `GroupInviteLinkCreateSerializer`: `role` over `GROUP_INVITE_LINK_ROLE_CHOICES` (no `admin`); `expiry_days` an integer from 1 to `GROUP_INVITE_LINK_MAX_EXPIRY_DAYS` (30), default `GROUP_INVITE_LINK_DEFAULT_EXPIRY_DAYS` (7), `null` refused; the view always sets `expires_at`; `groups/models.py` `GroupInviteLink.generate` refuses `admin` on a shareable link (`delivery` `link`) for any other caller |
-| Group emailed invite (REST) | `groups/views.py` `GroupViewSet.invite_link_send` | `groups/serializers.py` `GroupInviteLinkEmailSerializer`: `expiry_days` from 1 to `GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS` (30), default 7; `admin` allowed, the invite being bound to its recipient (`GroupInviteLink.generate` refuses an emailed invite without an address) |
-| Group shareable admin link redemption (REST) | `groups/views.py` `JoinGroupView.get` (preview), `JoinGroupView.post` (join) | Both refuse a link with `delivery` `link` and role `admin` with `404`, the same as a revoked link, so one reactivated or written by a script grants nothing (#1940); an emailed admin invite still previews and joins. Migration `groups/0023` revokes the ones that existed at upgrade |
+| Group emailed invite (REST) | `groups/views.py` `GroupViewSet.invite_link_send` | `groups/serializers.py` `GroupInviteLinkEmailSerializer`: `role` over `GROUP_INVITE_LINK_ROLE_CHOICES` (no `admin`, #2006); `expiry_days` from 1 to `GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS` (30), default 7; `groups/models.py` `GroupInviteLink.generate` refuses `admin` for any delivery, and an emailed invite without an address |
+| Group admin invite redemption (REST) | `groups/views.py` `JoinGroupView.get` (preview), `JoinGroupView.post` (join) | Both refuse any link with role `admin`, shareable or emailed, with `404`, the same as a revoked link, so one reactivated, written by a script or emailed before #2006 grants nothing (#1940, #2006). Migration `groups/0023` revokes the shareable ones that existed at upgrade |
+| Group admin invite redemption (registration) | `groups/invite_registration.py` `group_link_registration_refusal` (validation, and the grant at email confirmation) | An `admin` role answers `invite_invalid`, so a pre-#2006 emailed admin invite cannot create an account into the group either (#2006) |
 | Changing an existing link | none | No route updates a board or group invite link: the group routes are `GET`/`POST` `invite-links/` and `DELETE` `invite-links/{link_id}/`, and the board routes are the same; `PATCH` and `PUT` answer `405`. Neither model is registered in the Django admin |
 | Seeded data | `boards/management/commands/seed_demo_data.py` (the demo group's link) | Created with the `member` role and a 30-day expiry |
 | MCP, WebSocket, import | none | No tool, consumer or import format creates an invite link |
@@ -588,11 +590,10 @@ not covered: they grant no board or group role, only registration, and only a
 site admin creates them.
 
 Coverage: `groups/tests/test_group_invite_link_limits_1727.py` (admin refused on
-a shareable group link and in `generate`, emailed invite still grants admin, explicit `null`,
+a shareable group link and in `generate`, emailed `admin` refused with `400` and nothing minted or sent, member still works, a pre-#2006 emailed admin invite refused at join, preview and registration, explicit `null`,
 over-30, zero and negative expiry refused, omitted expiry defaults to 7 days,
 `PATCH`/`PUT` answer `405`, a pre-existing shareable admin link is refused at
-join and preview with `404`, and an emailed admin invite still previews and
-joins), `groups/tests/test_group_invite_legacy_link_revoke_1940.py` and
+join and preview with `404`), `groups/tests/test_group_invite_legacy_link_revoke_1940.py` and
 `groups/tests/test_group_invite_legacy_link_revoke_executor_1940.py` (migration
 `groups/0023` revokes unused shareable admin links and caps never-expiring
 ones, directly and under `migrate`), `groups/tests/test_groups.py`

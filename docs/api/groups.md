@@ -318,7 +318,7 @@ All fields are optional. `single_use` (boolean, default `false`) creates a link 
 
 | Field | Values |
 |---|---|
-| `role` | `member` (default), `collaborator` or `viewer`. *(1.2+)* `admin` is refused with `400`: a shareable link is a bearer credential, so admin is granted only by an [emailed invite](#post-apiv1groupsidinvite-linkssend), which is bound to one address. |
+| `role` | `member` (default), `collaborator` or `viewer`. *(1.2+)* `admin` is refused with `400`: a shareable link is a bearer credential. An [emailed invite](#post-apiv1groupsidinvite-linkssend) is capped the same way. |
 | `expiry_days` | *(1.2+)* An integer from `1` to `30`; defaults to `7` when omitted. `null` and values over `30` are refused with `400`: a shareable link always expires. Before 1.2 any positive integer or `null` (never expires) was accepted. |
 
 Upgrading to 1.2 revokes unused shareable links that had the `admin` role and gives unused links with no expiry an expiry 7 days after the upgrade (#1940). Revoked links no longer appear in this list. A legacy non-admin link (member, collaborator or viewer) that already expires more than 30 days out keeps that expiry.
@@ -376,7 +376,7 @@ A create that arrives while the group is being deleted waits for the delete to f
 | `token` | string | Raw token — present **only** in the create response. The full token can never be retrieved later; admins identify links by `prefix`. |
 | `prefix` | string | First 8 characters of the token, shown in the admin UI for audit. |
 | `name` | string | Admin-assigned label for the link (e.g. "Engineering Slack"). |
-| `role` | string | Role granted on redemption: `admin` / `member` / `collaborator` / `viewer`. `admin` appears only on emailed links: a shareable link never grants admin (*(1.2+)* upgrade revokes the ones created earlier, #1940). |
+| `role` | string | Role granted on redemption: `admin` / `member` / `collaborator` / `viewer`. *(1.2+)* No new invite grants `admin`, shareable or emailed. An `admin` value can appear only on a link created before the cap; such a link grants nothing (shareable ones are revoked on upgrade, #1940; emailed ones are refused at preview and join with `404`, and cannot register an account). |
 | `is_active` | boolean | `true` until revoked. A consumed single-use link still shows `is_active: true` but cannot be redeemed again — see `status`. |
 | `is_expired` | boolean | `true` once `expires_at` has passed. |
 | `expires_at` | string / null | ISO 8601 expiry; `null` means never expires. Every link created in 1.2+ has an expiry, and upgrade gives unused legacy links one (#1940). |
@@ -403,7 +403,7 @@ Email a single-use invite link to one address. Requires group admin.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `email` | string | Yes | Recipient address. Surrounding spaces are stripped; an address containing a line break is rejected. The address itself is **never stored** or logged. *(1.2+)* The link keeps only a keyed hash of it, which binds the invite to that address (see `POST /api/v1/groups/join/{token}/`) and is never returned. |
-| `role` | string | No | Role granted on join: `admin` / `member` / `collaborator` / `viewer`. Default `member`. |
+| `role` | string | No | Role granted on join: `member` (default), `collaborator` or `viewer`. *(1.2+)* `admin` is refused with `400` and `{"role": ["\"admin\" is not a valid choice."]}`, nothing is minted and no email is sent: a forwarded or misdirected email must not mint a group admin. Make someone an admin by changing their role after they join. |
 | `expiry_days` | integer | No | Days until the link expires, `1`–`30`. Default `7`. There is no "never expires" option for emailed links. |
 
 The server mints a link with `single_use: true` and `delivery: "email"`, then sends a plain-text email naming the group, the join link (`<FRONTEND_URL>/join/<token>`) and the expiry date. There is no free-text message field.
