@@ -317,26 +317,32 @@ _ASSIGNEE_NOT_FOUND = "No assignable board member has this username."
 
 
 # Arguments a tool used to take and no longer declares, with the message a
-# caller that still sends one gets back. `assignee_email` was the
-# `create_card`/`update_card` assignee argument in the 1.2 pre-releases.
-# It is gone from the input schema (#2004), but the SDK ignores an argument a
-# tool does not declare, so without this check a stale client's call would
-# succeed and silently drop the assignment. server.py passes the raw argument
-# names (which still include undeclared ones) to `reject_removed_arguments`.
+# caller that still sends one gets back. `assignee_email` was the working
+# `create_card`/`update_card` assignee argument in v1.2.0-beta.1; #1671
+# replaced it with `assignee` (a username), and later pre-releases kept it
+# declared only to reject it. It is gone from the input schema (#2004), but
+# the SDK ignores an argument a tool does not declare, so without this check
+# a stale client's call would succeed and silently drop the assignment.
+# server.py passes the raw arguments mapping (which still includes undeclared
+# keys) to `reject_removed_arguments`.
 _REMOVED_ARGUMENTS = {
     "assignee_email": "This argument was replaced by `assignee` (a username).",
 }
 
 
-def reject_removed_arguments(argument_names):
-    """Return a ``validation_error`` payload if any removed argument was sent, else None.
+def reject_removed_arguments(arguments):
+    """Return a ``validation_error`` payload if a removed argument was sent with a value, else None.
 
-    Any value counts, including ``""`` and ``null``: the point is that the
-    caller still speaks the old vocabulary, not what it asked for.
+    Any non-null value is refused, including ``""``. An explicit ``null`` is
+    ignored, exactly as the pre-releases that still declared the argument
+    ignored it (``if assignee_email is not None``): a client that sends every
+    optional field as ``null`` asked for nothing, so its call must not start
+    failing.
     """
     errors = {
         name: [_REMOVED_ARGUMENTS[name]]
-        for name in sorted(argument_names) if name in _REMOVED_ARGUMENTS
+        for name in sorted(arguments)
+        if name in _REMOVED_ARGUMENTS and arguments[name] is not None
     }
     if not errors:
         return None

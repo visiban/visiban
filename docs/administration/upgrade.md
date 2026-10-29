@@ -910,9 +910,12 @@ The Deployment is named `<fullname>-backend`; `<fullname>` is the release name (
       `{"error": {...}}` payload is unchanged and still in `structuredContent.result` and the text
       block. An agent framework that checks `isError` now sees these as failures. See
       [Result envelope](../api/mcp.md#result-envelope).
-    - `create_card` and `update_card` no longer list `assignee_email` in their input schema. A call
-      that still sends it is still rejected with a `validation_error`, now as an `isError: true`
-      result. Use `assignee` (a username).
+    - `create_card` and `update_card` no longer list `assignee_email` in their input schema.
+      Coming from v1.2.0-beta.2 through rc.1, nothing else changes: a non-null value (including
+      `""`) is still rejected with a `validation_error`, now as an `isError: true` result, and an
+      explicit `null` is still ignored. Coming from v1.2.0-beta.1 or earlier, where
+      `assignee_email` looked up the assignee by email, that lookup is gone: a non-null value is
+      rejected and nothing is written. Send `assignee` (a username) instead.
 
 !!! note "Board import default name changed"
     `POST /api/v1/boards/import/` called without a `name` field now names the new board

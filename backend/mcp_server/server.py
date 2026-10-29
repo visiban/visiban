@@ -211,8 +211,8 @@ async def _deny_write():
     return await sync_to_async(_require_maintenance_off, thread_sensitive=True)()
 
 
-def _sent_argument_names(ctx):
-    """Return the argument names the client actually sent, undeclared ones included.
+def _sent_arguments(ctx):
+    """Return the raw arguments mapping the client sent, undeclared ones included.
 
     The SDK validates ``tools/call`` arguments into a pydantic model that
     ignores keys the tool does not declare (mcp 2.3.0), so a tool function
@@ -229,9 +229,9 @@ def _sent_argument_names(ctx):
     except ValueError:
         # No request context: the tool was invoked outside a client request
         # (MCPServer.call_tool called directly), so there is no raw input.
-        return ()
+        return {}
     arguments = params.get("arguments") or {}
-    return tuple(arguments) if isinstance(arguments, Mapping) else ()
+    return arguments if isinstance(arguments, Mapping) else {}
 
 
 def _throttled(*, compute=False, as_resource=False):
@@ -528,8 +528,8 @@ def build_mcp_server():
         position: int | None = None,
     ) -> _TOOL_RESULT:
         # ctx is injected by the SDK and is not part of the input schema;
-        # it is only here to see undeclared arguments (_sent_argument_names).
-        denial = await _deny_write() or tools.reject_removed_arguments(_sent_argument_names(ctx))
+        # it is only here to see undeclared arguments (_sent_arguments).
+        denial = await _deny_write() or tools.reject_removed_arguments(_sent_arguments(ctx))
         if denial is not None:
             return denial
         return await sync_to_async(tools.create_card, thread_sensitive=True)(
@@ -582,7 +582,7 @@ def build_mcp_server():
         due_date: str | None = None,
     ) -> _TOOL_RESULT:
         # See create_card for ctx.
-        denial = await _deny_write() or tools.reject_removed_arguments(_sent_argument_names(ctx))
+        denial = await _deny_write() or tools.reject_removed_arguments(_sent_arguments(ctx))
         if denial is not None:
             return denial
         return await sync_to_async(tools.update_card, thread_sensitive=True)(

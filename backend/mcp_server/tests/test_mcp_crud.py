@@ -544,10 +544,10 @@ class CreateCardTests(CrudToolsTestCase):
         # the input schema, and mcp 2.3.0 would silently drop it (its argument
         # model ignores undeclared keys). server.py reads the raw arguments
         # and refuses the call instead, so a stale client cannot get an
-        # unassigned card it did not ask for. Any value counts.
+        # unassigned card it did not ask for. Any non-null value counts.
         member = _make_user("email-arg-member", email="email-arg@example.com")
         _make_membership(self.board, member, role=BoardMembership.Role.MEMBER)
-        for value in ("email-arg@example.com", "", None):
+        for value in ("email-arg@example.com", ""):
             with self.subTest(value=value):
                 # _call asserts isError is true for an error payload.
                 result = self._call(
@@ -562,6 +562,21 @@ class CreateCardTests(CrudToolsTestCase):
                     ]},
                 }})
         self.assertFalse(Card.objects.filter(title="Old argument").exists())
+
+    def test_removed_assignee_email_null_is_ignored(self):
+        # An explicit null asked for nothing and was a no-op in every
+        # pre-release that declared the argument; it stays one (#2004), so
+        # the call creates exactly what it would without the argument.
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id,
+            title="Null argument", assignee_email=None,
+        )
+        self.assertNotIn("error", result)
+        self.assertIsNone(result["assignee"])
+        card = Card.objects.get(title="Null argument")
+        self.assertIsNone(card.assignee_id)
+        self.assertEqual(card.column_id, self.column.id)
 
     def test_unknown_label_is_a_validation_error(self):
         result = self._call(
@@ -971,7 +986,7 @@ class UpdateCardTests(CrudToolsTestCase):
         _make_membership(self.board, member, role=BoardMembership.Role.MEMBER)
         card = _make_card(self.column, self.swimlane, title="Keep", assignee=self.user)
         activity_before = CardActivity.objects.filter(card=card).count()
-        for value in ("update-email-arg@example.com", "", None):
+        for value in ("update-email-arg@example.com", ""):
             with self.subTest(value=value):
                 result = self._call(
                     "update_card", self.write_token, card_id=card.id, title="Changed",
@@ -987,6 +1002,20 @@ class UpdateCardTests(CrudToolsTestCase):
         self.assertEqual(card.title, "Keep")
         self.assertEqual(card.assignee_id, self.user.id)
         self.assertEqual(CardActivity.objects.filter(card=card).count(), activity_before)
+
+    def test_removed_assignee_email_null_is_ignored(self):
+        # See CreateCardTests' test of the same name: the other fields are
+        # applied and the assignee is left as it was.
+        card = _make_card(self.column, self.swimlane, title="Keep", assignee=self.user)
+        result = self._call(
+            "update_card", self.write_token, card_id=card.id, title="Changed",
+            assignee_email=None,
+        )
+        self.assertNotIn("error", result)
+        self.assertEqual(result["assignee"]["username"], self.user.username)
+        card.refresh_from_db()
+        self.assertEqual(card.title, "Changed")
+        self.assertEqual(card.assignee_id, self.user.id)
 
     def test_non_writer_roles_denied_before_assignee_lookup(self):
         assignable = _make_user("update-assignable", email="update-assignable@example.com")
@@ -1515,7 +1544,7 @@ class ToolResultEnvelopeTests(CrudToolsTestCase):
 
     def test_removed_assignee_email_is_not_in_the_input_schema(self):
         # create_card/update_card take an SDK-injected `ctx: Context` only
-        # to see the raw arguments (server._sent_argument_names). It must not
+        # to see the raw arguments (server._sent_arguments). It must not
         # leak into any tool's advertised schema, and the declared argument
         # set is pinned so the #2004 change is visible here if it drifts.
         status, body = self.client_.post(
