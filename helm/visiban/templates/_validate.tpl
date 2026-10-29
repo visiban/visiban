@@ -113,8 +113,8 @@ subchart under `redis:`; 1.2 renamed it `valkey:`. Two cases:
   - Any other `redis.*` key (auth, image, master, commonConfiguration,
     architecture, ...) configured the old subchart and nothing reads it now.
     Ignoring it would silently drop a password or a pinned image, so it fails
-    the render and names the rename. Under `helm upgrade --reuse-values` the
-    keys come from the previous release, so the message says how to drop them.
+    the render and says how each key maps (or that it must be dropped): a blind
+    rename is wrong, e.g. a Redis image tag is not a Valkey tag.
   - redis.enabled=true with an explicit valkey.enabled=false is a contradiction
     (valkey.enabled defaults to true, so only an explicit setting yields it).
 */}}
@@ -125,10 +125,10 @@ subchart under `redis:`; 1.2 renamed it `valkey:`. Two cases:
 {{- if ne $k "enabled" -}}{{- $extra = append $extra $k -}}{{- end -}}
 {{- end -}}
 {{- if $extra -}}
-{{- fail (printf "\n\nVisiban: the top-level `redis:` values block was renamed to `valkey:` in Visiban 1.2 and these `redis` keys are no longer read: %s.\nIgnoring them would silently drop settings such as a password or image pin, so the render refuses.\n\nMove them under `valkey:` (only the keys the bundled Valkey supports; see helm/visiban/values.yaml), and use `externalRedis` for an external instance.\n\nRename `redis:` to `valkey:` in your values file and upgrade with that file, without --reuse-values:\n    helm upgrade <release> <chart> -f <your-values>.yaml\n`helm upgrade --reuse-values` cannot fix this: it keeps the previous release's stored values, including the old `redis` keys. `--reset-then-reuse-values` (Helm 3.14+) starts from this chart's defaults but re-applies the previous release's own values, so those `redis` keys can still reach this check; if it still fails, use the -f route above.\nSee \"Helm: values key redis renamed to valkey\" in docs/administration/upgrade.md.\n" (join ", " $extra)) -}}
+{{- fail (printf "\n\nVisiban: the top-level `redis:` values block was renamed to `valkey:` in Visiban 1.2 and these `redis` keys are no longer read: %s.\nIgnoring them would silently drop settings such as a password or image pin, so the render refuses.\n\nDo NOT just rename `redis:` to `valkey:`; the keys differ:\n  - redis.enabled: valkey.enabled (for an external instance: valkey.enabled=false with externalRedis.url and externalRedis.cacheUrl).\n  - redis.image.*: DROP. A Redis tag such as 7.4.3 is not a Valkey tag (valkey/valkey:7.4.3 does not exist); the default is valkey/valkey:8-alpine.\n  - redis.master.persistence.*: valkey.primary.persistence.* (valkey.master.* is accepted but ignored).\n  - redis.auth.*: valkey.auth.*; to keep an existing Secret also set valkey.auth.existingSecretPasswordKey to redis-password (the Bitnami key; the default here is valkey-password).\n  - redis.architecture, redis.commonConfiguration: drop unless you customized them.\n\nUpgrade with your edited values file:\n    helm upgrade <release> <chart> -f <your-values>.yaml\n`helm upgrade --reuse-values` from a 1.1 release does not work with this chart version: the previous release's values lack keys that the 1.2 templates read.\nSee \"Helm: values key redis renamed to valkey\" in docs/administration/upgrade.md.\n" (join ", " $extra)) -}}
 {{- end -}}
 {{- if and (hasKey $r "enabled") (not (kindIs "invalid" $r.enabled)) $r.enabled (not .Values.valkey.enabled) -}}
-{{- fail "\n\nVisiban: redis.enabled is true but valkey.enabled is false. The deprecated `redis.enabled` alias and `valkey.enabled` disagree.\nUse only valkey.enabled (true for the bundled Valkey, false with externalRedis.url and externalRedis.cacheUrl) and remove redis.enabled from your values file. Under `helm upgrade --reuse-values` the old key comes from the previous release's stored values, so upgrade with your edited values file instead (-f <your-values>.yaml, no --reuse-values).\nSee \"Helm: values key redis renamed to valkey\" in docs/administration/upgrade.md.\n" -}}
+{{- fail "\n\nVisiban: redis.enabled is true but valkey.enabled is false. The deprecated `redis.enabled` alias and `valkey.enabled` disagree.\nUse only valkey.enabled (true for the bundled Valkey, false with externalRedis.url and externalRedis.cacheUrl) and remove redis.enabled from your values file, then upgrade with it: helm upgrade <release> <chart> -f <your-values>.yaml (not --reuse-values).\nSee \"Helm: values key redis renamed to valkey\" in docs/administration/upgrade.md.\n" -}}
 {{- end -}}
 {{- end -}}
 

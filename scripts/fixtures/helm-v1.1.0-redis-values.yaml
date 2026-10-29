@@ -1,0 +1,30 @@
+# Verbatim copy of the redis: and externalRedis: blocks of helm/visiban/values.yaml
+# at v1.1.0 (git show v1.1.0:helm/visiban/values.yaml, lines 178-202), kept here
+# because CI clones do not carry the tag. scripts/helm-structure-check.sh
+# section 11d translates it by the documented 1.1 to 1.2 instructions
+# (docs/administration/upgrade.md) and proves the result renders (#2002).
+# Built-in Redis subchart (bitnami/redis).
+# Set enabled: false and supply externalRedis.url to use an existing instance.
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  image:
+    tag: "7.4.3"
+  master:
+    persistence:
+      enabled: false
+  # Override the subchart default which tries to load modules not present
+  # in the standard Bitnami Redis image (redisearch, rejson).
+  commonConfiguration: |-
+    # Enable AOF https://redis.io/topics/persistence#append-only-file
+    appendonly yes
+    # Disable RDB persistence, AOF persistence already enabled.
+    save ""
+
+# External Redis — used only when redis.enabled is false.
+# You must set both url and cacheUrl to valid Redis connection strings.
+externalRedis:
+  url: ""
+  cacheUrl: ""

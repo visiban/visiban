@@ -346,10 +346,11 @@ one) must change the database role's password and set `postgresql.auth.password`
 first, or the render fails. See the
 [upgrade guide](../administration/upgrade.md#upgrading-to-12x).
 
-Coming from the 1.1 chart, rename the `redis:` block in your values file to
-`valkey:` and upgrade with `-f my-values.yaml` instead of `--reuse-values`: the
-reused values of a subchart-era release carry the old `redis` keys and the
-subchart's `bitnami/valkey:latest` image, and both stop the render. The 1.1
+Coming from the 1.1 chart, translate the `redis:` block in your values file to
+`valkey:` (it is not a plain rename: drop `redis.image.tag`, and
+`master.persistence` becomes `primary.persistence`) and upgrade with
+`-f my-values.yaml` instead of `--reuse-values`: the previous release's stored
+values lack the keys 1.2 added, so the render fails. The 1.1
 `redis.enabled` key is still honored as a deprecated alias for `valkey.enabled`
 (removed no earlier than 1.3). See the
 [upgrade guide](../administration/upgrade.md#upgrading-to-12x).
@@ -373,7 +374,7 @@ The bundled PostgreSQL subchart does not perform in-place major version upgrades
    new data directory takes its password from `postgresql.auth.password`, which must
    be your own value (the placeholder fails the render):
    ```bash
-   helm upgrade visiban helm/visiban --reuse-values \
+   helm upgrade visiban helm/visiban -f my-values.yaml \
      --set-string postgresql.auth.password="$PG_PASSWORD"
    ```
 

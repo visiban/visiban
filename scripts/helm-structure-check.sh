@@ -1507,16 +1507,60 @@ check_legacy_redis_alias() {
     fail "NOTES.txt warns about the deprecated redis key although redis is not set"
     bad=1
   fi
-  # The fix the guard PRINTS (rename redis: to valkey: in the values file, then
-  # upgrade with -f) must clear it. A values file stands in for -f.
+  # The 1.1 to 1.2 route the guard and docs/administration/upgrade.md describe,
+  # run on the REAL 1.1 block (scripts/fixtures/helm-v1.1.0-redis-values.yaml,
+  # verbatim from v1.1.0 because CI clones lack the tag). A blind rename is
+  # wrong: redis.image.tag 7.4.3 would become the nonexistent
+  # valkey/valkey:7.4.3 and valkey.master.* would be silently ignored, so the
+  # documented translation drops image/architecture/commonConfiguration and maps
+  # master to primary. Each assertion below is one way the blind rename broke.
+  local v11="$REPO_ROOT/scripts/fixtures/helm-v1.1.0-redis-values.yaml"
   local fixvals="$RUN_TMP/2002-renamed-values.yaml"
-  printf 'valkey:\n  enabled: false\nexternalRedis:\n  url: "redis://sc-alias.example:6379/0"\n  cacheUrl: "redis://sc-alias.example:6379/1"\n' > "$fixvals"
-  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$fixvals" > "$out" 2>"$err"; then
-    fail "the renamed values file the redis guard tells users to write does not render: $(grep -m1 'Visiban:' "$err")"
+  if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$v11" > /dev/null 2>"$err"; then
+    fail "the untranslated v1.1.0 redis block renders: the leftover keys must fail the render"
+    bad=1
+  elif ! grep -qF 'no longer read' "$err"; then
+    fail "the untranslated v1.1.0 redis block fails, but not with the redis guard's message: $(grep -m1 -v '^$' "$err")"
     bad=1
   fi
+  yq '{"valkey": (.redis | del(.image) | del(.architecture) | del(.commonConfiguration) | .primary = .master | del(.master)), "externalRedis": .externalRedis}' "$v11" > "$fixvals"
+  if [ "$(yq '.valkey | has("master") or has("image")' "$fixvals")" != "false" ]; then
+    fail "the translated v1.1.0 values still carry valkey.master or valkey.image"
+    bad=1
+  fi
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$fixvals" > "$out" 2>"$err"; then
+    fail "the translated v1.1.0 redis block does not render: $(grep -m1 'Visiban:' "$err")"
+    bad=1
+  else
+    local vimg vpvc
+    vimg="$(yq 'select(.kind == "StatefulSet" and (.metadata.name | test("-valkey$"))) | .spec.template.spec.containers[0].image' "$out" | grep -vE '^(---)?$')"
+    if [ "$vimg" != "valkey/valkey:8-alpine" ]; then
+      fail "the translated v1.1.0 block yields Valkey image '$vimg', want the pullable default valkey/valkey:8-alpine"
+      bad=1
+    fi
+    vpvc="$(yq 'select(.kind == "StatefulSet" and (.metadata.name | test("-valkey$"))) | (.spec.volumeClaimTemplates // []) | length' "$out" | grep -vE '^(---)?$')"
+    if [ "$vpvc" != "0" ]; then
+      fail "the translated v1.1.0 block (master.persistence.enabled: false) rendered $vpvc Valkey volumeClaimTemplates: the persistence setting was not carried over"
+      bad=1
+    fi
+  fi
+  # An existing Bitnami Secret keeps its key (redis-password) when the documented
+  # existingSecretPasswordKey mapping is applied; the default would be valkey-password.
+  yq '.valkey.auth = {"enabled": true, "existingSecret": "sc-old-redis", "existingSecretPasswordKey": "redis-password"}' "$fixvals" > "$RUN_TMP/2002-renamed-auth-values.yaml"
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$RUN_TMP/2002-renamed-auth-values.yaml" > "$out" 2>"$err"; then
+    fail "the translated v1.1.0 block with an existing auth Secret does not render: $(grep -m1 'Visiban:' "$err")"
+    bad=1
+  else
+    local refs
+    refs="$(yq '.. | select(tag == "!!map" and has("secretKeyRef")) | .secretKeyRef | .name + "/" + .key' "$out" | grep -vE '^(---)?$' | sort -u)"
+    if ! grep -qx 'sc-old-redis/redis-password' <<< "$refs" || grep -q 'sc-old-redis/valkey-password' <<< "$refs"; then
+      fail "an existing redis Secret does not keep its redis-password key after translation; secretKeyRefs: $(tr '\n' ' ' <<< "$refs")"
+      bad=1
+    fi
+  fi
+  rm -f "$RUN_TMP/2002-renamed-auth-values.yaml"
   rm -f "$out" "$err" "$fixvals"
-  [ "$bad" -eq 0 ] && pass "redis.enabled=false drops bundled Valkey and uses externalRedis; defaults unchanged; NOTES.txt warns; the printed fix (renamed values file) clears the guard"
+  [ "$bad" -eq 0 ] && pass "redis.enabled=false drops bundled Valkey and uses externalRedis; defaults unchanged; NOTES.txt warns; the real v1.1.0 redis block fails untranslated and renders (pullable image, persistence carried, Secret key kept) once translated"
 }
 
 # ---------------------------------------------------------------------------
@@ -1970,7 +2014,14 @@ self_test() {
   echo "helm-structure-check.sh --self-test: proving each section can still fail"
   echo
 
-  local tmp passes=0 selftest_failures=0
+  # SELF_TEST_ONLY is a local-iteration aid. CI must never run a partial
+  # self-test, so refuse it there rather than let it quietly disarm the gate.
+  if [ -n "${SELF_TEST_ONLY:-}" ] && [ -n "${CI:-}" ]; then
+    echo "SELF_TEST_ONLY is not allowed when CI is set: CI must run every fixture and control" >&2
+    exit 2
+  fi
+
+  local tmp passes=0 selftest_failures=0 matched=0
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
 
@@ -2116,6 +2167,7 @@ self_test() {
     # controls below) so a new fixture can be proven without the 30+ minute
     # full run. CI never sets it.
     if [ -n "${SELF_TEST_ONLY:-}" ] && ! [[ "$name" =~ $SELF_TEST_ONLY ]]; then continue; fi
+    matched=$((matched + 1))
     file="$(cut -d'|' -f2 <<< "$fixture")"
     prog="$(cut -d'|' -f3- <<< "$fixture")"
 
@@ -2162,6 +2214,10 @@ self_test() {
   done
 
   if [ -n "${SELF_TEST_ONLY:-}" ]; then
+    if [ "$matched" -eq 0 ]; then
+      echo "SELF_TEST_ONLY=$SELF_TEST_ONLY matched no fixture: nothing was tested" >&2
+      exit 1
+    fi
     echo
     echo "SELF_TEST_ONLY=$SELF_TEST_ONLY: controls skipped; $passes passed, $selftest_failures failed (partial run, not a CI result)"
     [ "$selftest_failures" -eq 0 ] || exit 1

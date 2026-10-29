@@ -289,7 +289,7 @@
       }
     },
     "redis": {
-      "description": "DEPRECATED (#2002): the 1.1 name of the `valkey` block. Present in the schema only so a 1.1 values file (or the stored values of a 1.1 release) reaches templates/_validate.tpl and gets its clear message instead of 'Additional property redis is not allowed'. `redis.enabled` is honored as an alias for valkey.enabled, and wins over it whenever redis.enabled is false (deprecated in 1.2, removed no earlier than 1.3); any other redis.* key fails the render. Do not set it in new values files and do not give it defaults in values.yaml.",
+      "description": "DEPRECATED (#2002): the 1.1 name of the `valkey` block. Present in the schema only so a 1.1 values file passed with -f reaches templates/_validate.tpl and gets its clear message instead of 'Additional property redis is not allowed'. `redis.enabled` is honored as an alias for valkey.enabled, and wins over it whenever redis.enabled is false (deprecated in 1.2, removed no earlier than 1.3); any other redis.* key fails the render. Do not set it in new values files and do not give it defaults in values.yaml.",
       "type": ["object", "null"],
       "deprecated": true,
       "properties": {
