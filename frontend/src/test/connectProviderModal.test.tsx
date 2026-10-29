@@ -19,7 +19,7 @@ vi.mock('../utils/oauth', () => ({
 describe('ConnectProviderModal (#1314)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockDismissPendingConnect.mockResolvedValue({})
+    mockDismissPendingConnect.mockResolvedValue(undefined) // 204, no body (#2005)
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: 'Okta' })
   })
 

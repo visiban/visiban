@@ -66,9 +66,9 @@ class CancelPendingEmailTests(PendingEmailActionTestBase):
     def test_cancel_deletes_the_pending_row_and_clears_the_field(self):
         pending = self._request_change()
         r = self.client.delete(CANCEL_URL)
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertIsNone(r.json()["pending_email"])
-        self.assertEqual(r.json()["email"], "erin@old.example")
+        # #2005: the 1.2 revoke convention, 204 with no body; the SPA refetches.
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(r.content, b"")
         self.assertFalse(EmailAddress.objects.filter(pk=pending.pk).exists())
         self.user.refresh_from_db()
         self.assertIsNone(self.user.pending_email_address_id)
@@ -84,10 +84,11 @@ class CancelPendingEmailTests(PendingEmailActionTestBase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "erin@old.example")
 
-    def test_cancel_with_nothing_pending_is_an_idempotent_200(self):
+    def test_cancel_with_nothing_pending_is_an_idempotent_204(self):
         r = self.client.delete(CANCEL_URL)
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertIsNone(r.json()["pending_email"])
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(r.content, b"")
+        self.assertIsNone(self.client.get("/api/v1/auth/me/").json()["pending_email"])
         # The current, verified address is never touched.
         self.assertEqual(EmailAddress.objects.filter(user=self.user).count(), 1)
 
@@ -107,7 +108,7 @@ class CancelPendingEmailTests(PendingEmailActionTestBase):
         other_client = APIClient()
         other_client.force_login(mallory)
         r = other_client.delete(CANCEL_URL)
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertTrue(EmailAddress.objects.filter(pk=pending.pk).exists())
         self.assertEqual(
             self.client.get("/api/v1/auth/me/").json()["pending_email"], "erin@new.example"
@@ -236,8 +237,8 @@ class BlockedConfirmationTests(PendingEmailActionTestBase):
         pending = self._request_change("frank@example.com")
         self._confirm(pending)
         r = self.client.delete(CANCEL_URL)
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertIsNone(r.json()["pending_email"])
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNone(self.client.get("/api/v1/auth/me/").json()["pending_email"])
         self.assertFalse(EmailAddress.objects.filter(pk=pending.pk).exists())
 
     def test_signup_confirmation_for_an_address_verified_elsewhere_is_409(self):
@@ -311,4 +312,4 @@ class PendingEmailSessionOnlyTests(PendingEmailActionTestBase):
     def test_session_still_cancels_and_resends(self):
         self._request_change()
         self.assertEqual(self.client.post(RESEND_URL).status_code, status.HTTP_200_OK)
-        self.assertEqual(self.client.delete(CANCEL_URL).status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.delete(CANCEL_URL).status_code, status.HTTP_204_NO_CONTENT)

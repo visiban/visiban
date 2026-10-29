@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
 import type { Location } from "react-router-dom";
-import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation, getAuthProviders, listConnectedAccounts, disconnectAccount } from "../api/auth";
+import { getCurrentUser, updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation, getAuthProviders, listConnectedAccounts, disconnectAccount } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
 import type { User, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount, ProviderId } from "../types";
 import { ProviderIcon, providerLabel } from "../components/Common/ProviderIcons";
@@ -206,7 +206,11 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
   const handleCancelChange = async () => {
     startEmailAction("cancel");
     try {
-      const updated = await cancelPendingEmailChange();
+      await cancelPendingEmailChange();
+      // 204, no body (#2005): refetch the profile. The cancel has already
+      // succeeded, so a failed refetch must not report it as failed; fall back
+      // to the one field the cancel is documented to change.
+      const updated = await getCurrentUser().catch((): User => ({ ...user, pending_email: null }));
       onUserUpdated(updated);
       setPendingEmail(updated.pending_email ?? null);
       setForm((f) => ({ ...f, email: updated.email ?? "" }));
@@ -629,7 +633,14 @@ function ConnectedAccountsSection({
     setDisconnectingId(id);
     setRowStatus(null);
     try {
-      setAccounts(await disconnectAccount(id));
+      await disconnectAccount(id);
+      // 204, no body (#2005): refetch the list. The disconnect has already
+      // succeeded, so a failed refetch must not report it as failed; mark just
+      // this provider's row disconnected, which the server has confirmed.
+      const rows = await listConnectedAccounts().catch((): ConnectedAccount[] =>
+        (accounts ?? []).map((a) => (a.provider === id ? { ...a, connected: false, email: null, connected_at: null } : a)),
+      );
+      setAccounts(rows);
       setConfirmingId(null);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;

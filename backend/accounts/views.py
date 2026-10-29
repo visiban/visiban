@@ -421,7 +421,11 @@ class PendingEmailView(APIView):
     ``DELETE /auth/me/pending-email/``. The same effect as PATCHing ``email``
     back to the current address (#1273), as an explicit action the Settings
     page can offer. Idempotent: with nothing pending it is a no-op, so a
-    double-click or a retry after a lost response still answers 200.
+    double-click or a retry after a lost response still answers 204.
+
+    Answers ``204 No Content`` (#2005), the 1.2 convention for a revoke-style
+    DELETE; the SPA refetches ``/auth/user/`` for the new state. Only the 1.1
+    site invite-link revoke keeps its shipped ``200``-with-body contract.
 
     Acts only on ``request.user`` — there is no address or id in the request —
     so there is no object to look up and nothing to IDOR. Keeps the default
@@ -438,7 +442,7 @@ class PendingEmailView(APIView):
         # Session only: advertise the cookie scheme, not tokenAuth.
         auth=[{"cookieAuth": []}],
         responses={
-            200: CurrentUserSerializer,
+            204: OpenApiResponse(description="Withdrawn, or nothing was pending. No body."),
             403: OpenApiResponse(
                 description="Authenticated with a token rather than an interactive session."
             ),
@@ -453,7 +457,7 @@ class PendingEmailView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         cancel_email_change(request.user)
-        return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PendingEmailResendView(APIView):
@@ -515,14 +519,18 @@ class PendingConnectView(APIView):
     ``/auth/user/`` — a GET that mutates would dismiss the prompt on a
     background refetch the user never saw. Idempotent, acts only on the
     requesting session, so there is nothing to look up and nothing to IDOR.
+    Answers ``204 No Content`` (#2005), like ``PendingEmailView``.
     """
 
-    @extend_schema(request=None, responses={200: CurrentUserSerializer})
+    @extend_schema(
+        request=None,
+        responses={204: OpenApiResponse(description="Dismissed, or nothing was pending. No body.")},
+    )
     def delete(self, request):
         from .social_connect import clear_pending_connect
 
         clear_pending_connect(request)
-        return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 DISCONNECT_NOT_CONNECTED_MESSAGE = "That account isn't connected."
@@ -557,7 +565,8 @@ class ConnectedAccountDetailView(APIView):
 
     The queryset is ``DisconnectForm``'s own (``SocialAccount`` rows of
     ``request.user`` only), so another user's account can never be named.
-    Answers the refreshed list, so the client needs no second round trip.
+    Answers ``204 No Content`` (#2005), the 1.2 convention for a revoke-style
+    DELETE; the client refetches ``GET /auth/me/connected-accounts/``.
 
     Interactive session only (#1794): removing a sign-in method is an
     account-security mutation, so a request authenticated with any token
@@ -571,7 +580,7 @@ class ConnectedAccountDetailView(APIView):
         # Session only (#1794): advertise the cookie scheme, not tokenAuth.
         auth=[{"cookieAuth": []}],
         responses={
-            200: ConnectedAccountSerializer(many=True),
+            204: OpenApiResponse(description="Disconnected. No body."),
             400: OpenApiResponse(description="Disconnecting would leave no way to sign in."),
             403: OpenApiResponse(
                 description="Authenticated with a token rather than an interactive session."
@@ -581,8 +590,6 @@ class ConnectedAccountDetailView(APIView):
     )
     def delete(self, request, provider):
         from allauth.socialaccount.forms import DisconnectForm
-
-        from .social_connect import connected_accounts_status
 
         # Checked first so a token caller gets the same 403 whether or not the
         # provider is connected (no 404-vs-403 probe of the account's providers).
@@ -619,8 +626,7 @@ class ConnectedAccountDetailView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 form.save()
-        rows = connected_accounts_status(request.user)
-        return Response(ConnectedAccountSerializer(rows, many=True).data)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 EMAIL_IN_USE_MESSAGE = (

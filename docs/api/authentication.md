@@ -822,9 +822,9 @@ Only the address the pending change tracks is removed. In the rare case where tw
 
 **Request body:** none.
 
-**Response** `200 OK` — the updated profile, the same shape as [`GET /api/v1/auth/me/`](#get-apiv1authme), with `pending_email: null`.
+**Response** `204 No Content` — no body. Re-fetch the profile with [`GET /api/v1/auth/me/`](#get-apiv1authme) or `GET /api/v1/auth/user/`, or set `pending_email` to `null`, to show the new state. Before 1.2.0 GA this returned `200` with the updated profile; it was changed to `204` to match the other 1.2 revoke endpoints (#2005).
 
-Idempotent: with no change pending it changes nothing and still returns `200`. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never removed.
+Idempotent: with no change pending it changes nothing and still returns `204`. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never removed.
 
 | Status | Reason |
 |---|---|
@@ -840,7 +840,7 @@ Dismiss the one-time "Connect {Provider}?" prompt: clears `pending_connect_provi
 
 **Request body:** none.
 
-**Response** `200 OK` — the updated profile, the same shape as [`GET /api/v1/auth/me/`](#get-apiv1authme), with `pending_connect_provider: null`. Idempotent.
+**Response** `204 No Content` — no body. Re-fetch the profile with [`GET /api/v1/auth/me/`](#get-apiv1authme) or `GET /api/v1/auth/user/`, or set both `pending_connect_provider` and `pending_connect_identity` to `null`, to show the new state. Idempotent. Before 1.2.0 GA this returned `200` with the updated profile; it was changed to `204` to match the other 1.2 revoke endpoints (#2005).
 
 <a id="connected-accounts"></a>
 
@@ -878,7 +878,7 @@ Disconnect a provider from the caller's account. Added in 1.2 (#1314).
 
 **Request body:** none.
 
-**Response** `200 OK` — the refreshed list, same shape as `GET /api/v1/auth/me/connected-accounts/`.
+**Response** `204 No Content` — no body. Re-fetch [`GET /api/v1/auth/me/connected-accounts/`](#connected-accounts) to show the new state. Before 1.2.0 GA this returned `200` with the refreshed list; it was changed to `204` to match the other 1.2 revoke endpoints (#2005).
 
 | Status | Reason |
 |---|---|
