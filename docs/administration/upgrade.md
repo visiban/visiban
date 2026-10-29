@@ -1312,54 +1312,64 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
         ```bash
         helm repo update
         helm dependency update helm/visiban
-        helm upgrade visiban helm/visiban --reuse-values \
-          --set valkey.image.repository=valkey/valkey \
-          --set valkey.image.tag=8-alpine
+        helm upgrade visiban helm/visiban -f my-values.yaml
         ```
 
-        The two `--set` flags are needed only with `--reuse-values`; see
-        "Helm: bundled Valkey is no longer the Bitnami subchart" below.
+        From a 1.1 release, upgrade with your values file rather than
+        `--reuse-values`, and rename the `redis:` block in it to `valkey:`.
+        `--reuse-values` starts from the previous release's stored values, which
+        have none of the keys 1.2 added and still carry the old `redis:` block, so
+        it cannot be relied on for this upgrade. See "Helm: values key `redis`
+        renamed to `valkey`" and "Helm: bundled Valkey is no longer the Bitnami
+        subchart" below.
 
         If you previously set `redis.enabled: false` and pointed `externalRedis.url` at an external Redis instance, the `externalRedis` key is unchanged, but the switch that turns the bundled cache off was renamed: it is now `valkey.enabled: false`. See "Helm: values key `redis` renamed to `valkey`" below.
 
         If you used the bundled subchart, the in-cluster service DNS changes from `<release>-redis-master:6379` to `<release>-valkey-primary:6379`. The Helm chart sets `REDIS_URL` automatically from the new service name — no manual update is required unless you overrode `REDIS_URL` in your values file.
 
-#### Helm: values key `redis` renamed to `valkey`
+!!! note "Helm: values key redis renamed to valkey"
+    Chart 1.1 configured its bundled cache under a top-level `redis:` block
+    (`enabled`, `auth`, `image`, `master`, `commonConfiguration`). Chart 1.2
+    renamed the block to `valkey:`. What this means for a 1.1 values file:
 
-Chart 1.1 configured its bundled cache under a top-level `redis:` block
-(`enabled`, `auth`, `image`, `master`, `commonConfiguration`). Chart 1.2 renamed
-the block to `valkey:`. What this means for a 1.1 values file:
+    - **`redis.enabled` still works, as a deprecated alias.** Setting
+      `redis.enabled: false` turns the bundled Valkey off, and the backend uses
+      `externalRedis.url` and `externalRedis.cacheUrl`, exactly as in 1.1.
+      `redis.enabled: true` keeps the bundled Valkey. The `NOTES.txt` printed by
+      `helm install` and `helm upgrade` carries a deprecation warning while
+      `redis` is set. The alias is **deprecated in 1.2 and removed no earlier
+      than 1.3**; switch to `valkey.enabled` now.
+    - **Any other `redis.*` key fails the render** (`auth`, `image`, `master`,
+      `architecture`, `commonConfiguration`, and so on). They configured the old
+      Redis subchart and nothing reads them now, so ignoring them would silently
+      drop a password or an image pin. The error names the rename. Move the
+      settings you still need under `valkey:` (see `helm/visiban/values.yaml` for
+      the supported keys); an external instance is configured with
+      `externalRedis`.
+    - **`redis.enabled: true` together with an explicit `valkey.enabled: false`
+      fails the render** as a contradiction. Remove `redis.enabled`.
+    - **`redis.enabled: false` wins over `valkey.enabled`**, both when
+      `valkey.enabled` is left at its default and when you set it to `true`
+      explicitly (as `values-prod.yaml` does). The chart cannot tell an untouched
+      default from an explicit `true`, so check that a values file that sets both
+      means what it says.
 
-- **`redis.enabled` still works, as a deprecated alias.** Setting
-  `redis.enabled: false` turns the bundled Valkey off, and the backend uses
-  `externalRedis.url` and `externalRedis.cacheUrl`, exactly as in 1.1.
-  `redis.enabled: true` keeps the bundled Valkey. The `NOTES.txt` printed by
-  `helm install` and `helm upgrade` carries a deprecation warning while
-  `redis` is set. The alias is **deprecated in 1.2 and removed no earlier than
-  1.3**; switch to `valkey.enabled` now.
-- **Any other `redis.*` key fails the render** (`auth`, `image`, `master`,
-  `architecture`, `commonConfiguration`, and so on). They configured the old
-  Redis subchart and nothing reads them now, so ignoring them would silently
-  drop a password or an image pin. The error names the rename. Move the
-  settings you still need under `valkey:` (see `helm/visiban/values.yaml` for
-  the supported keys); an external instance is configured with `externalRedis`.
-- **`redis.enabled: true` together with `valkey.enabled: false` fails the
-  render** as a contradiction. Remove `redis.enabled`.
-- When `redis.enabled: false` is set and `valkey.enabled` is left at its
-  default, the alias wins: the chart cannot tell an untouched default from an
-  explicit `true`.
+    **How to upgrade from 1.1.** Rename `redis:` to `valkey:` in your values file
+    (for an external instance: `valkey.enabled: false` plus your `externalRedis`
+    keys), then upgrade with that file and without `--reuse-values`:
 
-With `helm upgrade --reuse-values`, the `redis` keys come from the previous
-release's stored values, so they reach the chart even though your values file no
-longer has them. Either upgrade with `--reset-then-reuse-values` (Helm 3.14+),
-or drop the block explicitly, and for an external instance turn the bundled
-Valkey off:
+    ```bash
+    helm upgrade visiban helm/visiban -f my-values.yaml
+    ```
 
-```bash
-helm upgrade visiban helm/visiban --reuse-values \
-  --set redis=null \
-  --set valkey.enabled=false
-```
+    `--reuse-values` is the wrong tool here. It starts from the previous
+    release's stored values instead of this chart's defaults, so 1.2-only keys
+    are missing, and the old `redis` keys stay in the merged values. On Helm 3.14
+    or later, `--reset-then-reuse-values` starts from this chart's defaults and
+    re-applies the previous release's own values; those still include the old
+    `redis` keys, so if the render still reports them, use the values-file route
+    above. We have not tested a real `helm upgrade` from a 1.1 release for
+    either flag; the chart's render checks cover the values-file route.
 
 !!! note "Helm: optional password for the bundled Valkey"
     The bundled Valkey can now require a password (#1211). **Nothing changes

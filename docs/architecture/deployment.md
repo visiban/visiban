@@ -239,6 +239,7 @@ helm install visiban helm/visiban \
 | `valkey.auth.existingSecret` / `valkey.auth.existingSecretPasswordKey` | `""` / `valkey-password` | A Secret you manage instead, and the key holding the password |
 | `externalRedis.url` | `""` | External Valkey (or Redis-compatible) DSN (used when `valkey.enabled: false`) — **must be set** when using an external instance |
 | `externalRedis.existingSecret` / `externalRedis.existingSecretPasswordKey` | `""` / `redis-password` | Secret holding the external instance's password, instead of in the URL (#1361). Leave the password out of `url`/`cacheUrl` |
+| `redis.enabled` | unset | **Deprecated** 1.1 alias for `valkey.enabled`; `false` wins over `valkey.enabled`. Any other `redis.*` key fails the render. Not in `values.yaml`; removed no earlier than 1.3 |
 | `networkPolicy.enabled` | `false` | Create NetworkPolicy resources restricting pod-to-pod traffic |
 
 On Helm installs the frontend's Content-Security-Policy names `ingress.host` for WebSocket connections (`wss://`, plus `ws://` when `ingress.tls.enabled` is `false`), and nothing is added when the ingress is disabled or no host is set, so WebSocket connections then rely on `'self'` (as does reaching the app through a different host name or `kubectl port-forward`); set `ingress.host` if your browser does not map `'self'` to `ws`/`wss`; the frame policy is `X-Frame-Options: DENY`, matching the Compose templates.
@@ -333,19 +334,24 @@ kubectl port-forward -n visiban svc/<release-name>-backend 8000:8000
 ### Upgrade
 
 ```bash
-helm upgrade visiban helm/visiban --reuse-values
+helm upgrade visiban helm/visiban -f my-values.yaml
 ```
+
+Pass your values file on each upgrade. `--reuse-values` starts from the previous
+release's stored values, so keys that a newer chart added are missing, and it
+cannot be used to move from the 1.1 chart (see below).
 
 An install that still uses the default PostgreSQL password (`visiban`, or an empty
 one) must change the database role's password and set `postgresql.auth.password`
 first, or the render fails. See the
 [upgrade guide](../administration/upgrade.md#upgrading-to-12x).
 
-The first `--reuse-values` upgrade onto chart 0.5.0 or later, from a release that
-used the Bitnami Valkey subchart, also needs
-`--set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine`
-(or `--reset-then-reuse-values` on Helm 3.14+). Otherwise the subchart's reused
-`bitnami/valkey:latest` defaults stop the render. See the
+Coming from the 1.1 chart, rename the `redis:` block in your values file to
+`valkey:` and upgrade with `-f my-values.yaml` instead of `--reuse-values`: the
+reused values of a subchart-era release carry the old `redis` keys and the
+subchart's `bitnami/valkey:latest` image, and both stop the render. The 1.1
+`redis.enabled` key is still honored as a deprecated alias for `valkey.enabled`
+(removed no earlier than 1.3). See the
 [upgrade guide](../administration/upgrade.md#upgrading-to-12x).
 
 ### Upgrading PostgreSQL major versions

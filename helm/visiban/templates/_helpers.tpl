@@ -503,9 +503,11 @@ by this chart's own templates (templates/valkey.yaml), not a subchart, so there
 is no Chart.yaml `condition:` that would also need to honor the alias.
 
 values.yaml defines no `redis` key on purpose: the alias applies only when a
-user set it. valkey.enabled defaults to true, so "redis.enabled=false with the
-valkey.enabled default" cannot be told from "both set to disagree"; the alias
-wins there. The one disagreement that IS detectable (redis.enabled=true but
+user set it. valkey.enabled defaults to true, so an untouched default cannot be
+told from an explicit `valkey.enabled: true` (values-prod.yaml sets it
+explicitly). Whenever redis.enabled is set to false, the alias therefore wins
+over valkey.enabled, whether valkey.enabled is the default or an explicit true.
+The one disagreement that IS detectable (redis.enabled=true but
 valkey.enabled=false, which only an explicit setting can produce) fails in
 visiban.legacyRedisGuards. Nil-safe (`dig`): `redis: null` or an absent key is
 the normal case.

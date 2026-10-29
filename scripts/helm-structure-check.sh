@@ -30,7 +30,7 @@
 # and asserts the corresponding section rejects it.
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
-# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11,
+# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11 (incl. 11d),
 # 12, 13, 15 and 16. Section 5 (probe paths) is asserted against the real chart only,
 # and section 7 (NetworkPolicy client coverage) is fixture-covered only
 # through the demo render in section 9 — see the notes on those sections.
@@ -1496,8 +1496,27 @@ check_legacy_redis_alias() {
     fail "values.yaml defines a top-level redis key; the alias must apply only when a user sets it"
     bad=1
   fi
-  rm -f "$out" "$err"
-  [ "$bad" -eq 0 ] && pass "redis.enabled=false drops bundled Valkey and uses externalRedis; defaults unchanged"
+  # NOTES.txt warns while redis is set, and only then.
+  local notes
+  if ! notes="$(render_notes "$CHART_UNDER_TEST" --set redis.enabled=false "${ext[@]}" 2>"$err")" \
+     || ! grep -qF 'key is deprecated' <<< "$notes"; then
+    fail "NOTES.txt does not warn that the top-level redis key is deprecated when redis.enabled is set"
+    bad=1
+  fi
+  if notes="$(render_notes "$CHART_UNDER_TEST" 2>"$err")" && grep -qF 'key is deprecated' <<< "$notes"; then
+    fail "NOTES.txt warns about the deprecated redis key although redis is not set"
+    bad=1
+  fi
+  # The fix the guard PRINTS (rename redis: to valkey: in the values file, then
+  # upgrade with -f) must clear it. A values file stands in for -f.
+  local fixvals="$RUN_TMP/2002-renamed-values.yaml"
+  printf 'valkey:\n  enabled: false\nexternalRedis:\n  url: "redis://sc-alias.example:6379/0"\n  cacheUrl: "redis://sc-alias.example:6379/1"\n' > "$fixvals"
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$fixvals" > "$out" 2>"$err"; then
+    fail "the renamed values file the redis guard tells users to write does not render: $(grep -m1 'Visiban:' "$err")"
+    bad=1
+  fi
+  rm -f "$out" "$err" "$fixvals"
+  [ "$bad" -eq 0 ] && pass "redis.enabled=false drops bundled Valkey and uses externalRedis; defaults unchanged; NOTES.txt warns; the printed fix (renamed values file) clears the guard"
 }
 
 # ---------------------------------------------------------------------------
@@ -2047,6 +2066,15 @@ self_test() {
     "11c URL-password-plus-existingSecret guard removed|templates/_validate.tpl|s/{{- if contains \":\" \$userinfo -}}/{{- if false -}}/"
     # 11c: the bundled-Valkey-plus-existingSecret guard stops firing.
     "11c existingSecret-with-bundled-Valkey guard removed|templates/_validate.tpl|/externalRedis.existingSecret is set, but valkey.enabled is true/d"
+    # 11d (#2002): the redis.enabled alias is no longer read, so a 1.1 external-Redis
+    # upgrade silently deploys the bundled Valkey again.
+    "11d redis.enabled alias ignored|templates/_helpers.tpl|s/dig \"enabled\" nil (.Values.redis/dig \"enabledX\" nil (.Values.redis/"
+    # 11d (#2002): the NOTES.txt deprecation warning disappears.
+    "11d NOTES redis deprecation warning removed|templates/NOTES.txt|s/{{- if .Values.redis }}/{{- if false }}/"
+    # 11d (#2002): leftover redis.* keys (auth, image, ...) are ignored again.
+    "11d legacy redis keys guard removed|templates/_validate.tpl|s/{{- if \$extra -}}/{{- if false -}}/"
+    # 11d (#2002): redis.enabled=true with valkey.enabled=false stops failing.
+    "11d redis-vs-valkey contradiction guard removed|templates/_validate.tpl|s/\$r.enabled (not .Values.valkey.enabled) -}}/false -}}/"
     # 16 (#1951): the ingress-enabled default stops being 2.
     "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
@@ -2084,6 +2112,10 @@ self_test() {
   for fixture in "${fixtures[@]}"; do
     local name file prog broken
     name="${fixture%%|*}"
+    # SELF_TEST_ONLY=<regex> runs only the matching fixtures (and skips the
+    # controls below) so a new fixture can be proven without the 30+ minute
+    # full run. CI never sets it.
+    if [ -n "${SELF_TEST_ONLY:-}" ] && ! [[ "$name" =~ $SELF_TEST_ONLY ]]; then continue; fi
     file="$(cut -d'|' -f2 <<< "$fixture")"
     prog="$(cut -d'|' -f3- <<< "$fixture")"
 
@@ -2128,6 +2160,13 @@ self_test() {
       passes=$((passes + 1))
     fi
   done
+
+  if [ -n "${SELF_TEST_ONLY:-}" ]; then
+    echo
+    echo "SELF_TEST_ONLY=$SELF_TEST_ONLY: controls skipped; $passes passed, $selftest_failures failed (partial run, not a CI result)"
+    [ "$selftest_failures" -eq 0 ] || exit 1
+    return 0
+  fi
 
   # Control: the UNDAMAGED chart (minus subcharts) must pass. Without this, a
   # check that fails on everything would score a perfect self-test.
