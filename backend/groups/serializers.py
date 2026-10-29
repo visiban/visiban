@@ -847,8 +847,10 @@ GROUP_INVITE_LINK_MAX_EXPIRY_DAYS = 30
 
 # The roles a shareable group link may grant (#1727): every group role except
 # admin. A group admin inherits board admin on every board in the subtree, and
-# whoever holds a shareable link holds that grant, so admin is granted only by
-# an emailed invite, which is bound to one recipient address (#1678).
+# whoever holds a shareable link holds that grant. An emailed invite is capped
+# the same way (#2006): a forwarded or misdirected email would otherwise mint a
+# group admin, and binding to one address (#1678) does not stop a mistyped or
+# compromised mailbox. Group admin is granted by changing a member's role.
 GROUP_INVITE_LINK_ROLE_CHOICES = [
     (value, label) for value, label in GroupInviteLink.Role.choices
     if value != GroupInviteLink.Role.ADMIN
@@ -897,8 +899,9 @@ class GroupInviteLinkEmailSerializer(serializers.Serializer):
     """
 
     email = InviteEmailField()
+    # No admin (#2006), the same choices as a shareable link (#1727).
     role = serializers.ChoiceField(
-        choices=GroupInviteLink.Role.choices,
+        choices=GROUP_INVITE_LINK_ROLE_CHOICES,
         required=False,
         default=GroupInviteLink.Role.MEMBER,
     )

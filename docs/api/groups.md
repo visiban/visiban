@@ -318,7 +318,7 @@ All fields are optional. `single_use` (boolean, default `false`) creates a link 
 
 | Field | Values |
 |---|---|
-| `role` | `member` (default), `collaborator` or `viewer`. *(1.2+)* `admin` is refused with `400`: a shareable link is a bearer credential, so admin is granted only by an [emailed invite](#post-apiv1groupsidinvite-linkssend), which is bound to one address. |
+| `role` | `member` (default), `collaborator` or `viewer`. *(1.2+)* `admin` is refused with `400`: a shareable link is a bearer credential. An [emailed invite](#post-apiv1groupsidinvite-linkssend) is capped the same way. |
 | `expiry_days` | *(1.2+)* An integer from `1` to `30`; defaults to `7` when omitted. `null` and values over `30` are refused with `400`: a shareable link always expires. Before 1.2 any positive integer or `null` (never expires) was accepted. |
 
 Upgrading to 1.2 revokes unused shareable links that had the `admin` role and gives unused links with no expiry an expiry 7 days after the upgrade (#1940). Revoked links no longer appear in this list. A legacy non-admin link (member, collaborator or viewer) that already expires more than 30 days out keeps that expiry.
@@ -376,7 +376,7 @@ A create that arrives while the group is being deleted waits for the delete to f
 | `token` | string | Raw token — present **only** in the create response. The full token can never be retrieved later; admins identify links by `prefix`. |
 | `prefix` | string | First 8 characters of the token, shown in the admin UI for audit. |
 | `name` | string | Admin-assigned label for the link (e.g. "Engineering Slack"). |
-| `role` | string | Role granted on redemption: `admin` / `member` / `collaborator` / `viewer`. `admin` appears only on emailed links: a shareable link never grants admin (*(1.2+)* upgrade revokes the ones created earlier, #1940). |
+| `role` | string | Role granted on redemption: `admin` / `member` / `collaborator` / `viewer`. *(1.2+)* No new invite grants `admin`, shareable or emailed. An `admin` value can appear only on a link created before the cap; such a link grants nothing (shareable ones are revoked on upgrade, #1940; emailed ones are refused at preview and join with `404`, and cannot register an account). |
 | `is_active` | boolean | `true` until revoked. A consumed single-use link still shows `is_active: true` but cannot be redeemed again — see `status`. |
 | `is_expired` | boolean | `true` once `expires_at` has passed. |
 | `expires_at` | string / null | ISO 8601 expiry; `null` means never expires. Every link created in 1.2+ has an expiry, and upgrade gives unused legacy links one (#1940). |
@@ -384,11 +384,11 @@ A create that arrives while the group is being deleted waits for the delete to f
 | `created_by_username` | string / null | Username of the admin who created the link (#1008). `null` if the creator's account has since been anonymized. |
 | `single_use` | boolean | `true` if the link is consumed by the first redemption (cannot be reused). |
 | `used_at` | string / null | ISO 8601 timestamp of consumption (single-use links only); `null` for multi-use or unredeemed. |
-| `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). |
+| `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). *(#2006)* An unused link with the `admin` role also reports `revoked`: it was minted before invites were capped below admin and can never be redeemed. |
 | `delivery` | string | `link` (created here and shared by an admin) or `email` (sent to one address by `POST …/invite-links/send/`). Added in 1.2. |
 
 !!! note
-    `revoked` is a real status value, but `GET /invite-links/` cannot return a link in that state — a revoked link's `is_active` is cleared and it is filtered out of the list. Once a link is revoked, it is gone from this endpoint entirely rather than kept around showing `status: "revoked"`.
+    `revoked` is a real status value, but `GET /invite-links/` cannot return a link revoked by an admin — a revoked link's `is_active` is cleared and it is filtered out of the list. Once a link is revoked, it is gone from this endpoint entirely rather than kept around showing `status: "revoked"`.
 
 ### `POST /api/v1/groups/{id}/invite-links/send/`
 > **Added in 1.2**
@@ -403,7 +403,7 @@ Email a single-use invite link to one address. Requires group admin.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `email` | string | Yes | Recipient address. Surrounding spaces are stripped; an address containing a line break is rejected. The address itself is **never stored** or logged. *(1.2+)* The link keeps only a keyed hash of it, which binds the invite to that address (see `POST /api/v1/groups/join/{token}/`) and is never returned. |
-| `role` | string | No | Role granted on join: `admin` / `member` / `collaborator` / `viewer`. Default `member`. |
+| `role` | string | No | Role granted on join: `member` (default), `collaborator` or `viewer`. *(1.2+)* `admin` is refused with `400` and `{"role": ["\"admin\" is not a valid choice."]}`, nothing is minted and no email is sent: a forwarded or misdirected email must not mint a group admin. Make someone an admin by changing their role after they join. |
 | `expiry_days` | integer | No | Days until the link expires, `1`–`30`. Default `7`. There is no "never expires" option for emailed links. |
 
 The server mints a link with `single_use: true` and `delivery: "email"`, then sends a plain-text email naming the group, the join link (`<FRONTEND_URL>/join/<token>`) and the expiry date. There is no free-text message field.
@@ -420,7 +420,7 @@ The response is identical whether the address belongs to an existing member, an 
 | Status | Body | Reason |
 |---|---|---|
 | `400 Bad Request` | field errors | Invalid or missing `email`, address with a line break, `expiry_days` outside `1`–`30` or `null` |
-| `400 Bad Request` | `{"code": "invite_email_cap_reached", ...}` | The group already has 50 pending emailed links (active, unexpired, unused) |
+| `400 Bad Request` | `{"code": "invite_email_cap_reached", ...}` | The group already has 50 pending emailed links (active, unexpired, unused; *(#2006)* an unusable `admin` invite does not count) |
 | `403 Forbidden` | — | Caller is not a group admin |
 | `403 Forbidden` | `{"code": "invite_email_disabled", ...}` | `INVITE_EMAIL_ENABLED=false`, or the instance runs in demo mode |
 | `429 Too Many Requests` | — | Rate limit: 10 sends/hour per user, 30/day per group (shared by all its admins), 200/day instance-wide for group invites. Requests refused for another reason, and sends the mail server rejected, don't count |
@@ -570,7 +570,7 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 
 **Errors:** `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is `404` even if it is also expired or consumed. A link with a live creator still answers `410` for expired or consumed, so the two cases remain distinguishable to a token holder), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed)
 
-*(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404`, the same as a revoked link, and never previews or grants admin. Upgrade revokes the ones created before 1.2; this also covers one reactivated afterward. Emailed admin invites are unaffected.
+*(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404`, the same as a revoked link, and never previews or grants admin. Upgrade revokes the ones created before 1.2; this also covers one reactivated afterward. *(#2006)* An emailed `admin` invite sent before the cap answers `404` too; no invite grants admin.
 
 > **Added in 1.2**
 
@@ -610,7 +610,7 @@ An emailed link (`delivery: "email"`) works only for an account with the address
 
 **Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is `404` even if it is also expired or consumed. A link with a live creator still answers `410` for expired or consumed, so the two cases remain distinguishable to a token holder), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed by someone who is not a member)
 
-*(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404` and nothing is written, the same as a revoked link. Emailed admin invites are unaffected.
+*(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404` and nothing is written, the same as a revoked link. *(#2006)* An emailed `admin` invite sent before the cap is refused the same way.
 
 > **Added in 1.2**
 

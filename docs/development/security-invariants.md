@@ -114,7 +114,7 @@ re-checks.
 | Site invite links | `accounts/invite_utils.py` `validate_invite_token`, `site_invite_creator_admits`, `revoke_site_invite_links` | `visiban.authorization.invite_creator_is_valid` (the site rule is `site_invite_creator_admits`, which calls `sender_may_admit_accounts`: an active site admin) is evaluated at redemption under the row lock, for REST and OAuth signup alike, so a creator deactivated, deleted or demoted by any route stops admitting accounts; `revoke_site_invite_links` sets `revoked_at` on the creator's unused links on deactivation (`AdminUserDeactivateView.post`, `AdminUserDetailView.patch` with `is_active` false) on user deletion (`accounts/signals.py` `revoke_site_invites_of_deleted_creator`, a `pre_delete` receiver covering every deletion path), and on loss of site admin (`AdminUserDetailView.patch` with `is_site_admin` false, `set_site_admin --revoke` (both refuse an account that is still a superuser, since superuser status implies site admin), and a superuser-status change that removes the account's site-admin access); the Django admin user form revokes on deactivation (`accounts/admin.py` `VisibanUserAdmin.save_model` through `accounts/admin_views.py` `apply_access_loss_revocations`) and, because its superuser change keeps `is_site_admin` and `can_access_all_content` consistent (`accounts/signals.py`), on loss of site-admin access |
 | Public board share link | `boards/views/share.py` `ShareBoardView.get`; `boards/services/share_links.py` `share_enabler_has_standing`, `revoke_lapsed_share_links` | The enabler recorded in `Board.share_enabled_by` must still be active and a board `admin` or `site_admin` on the board, re-derived on every public read; a link with no recorded enabler fails that check (#1939); the link is cleared on deactivation, deletion, demotion or removal of the enabler on the routes listed in Rule 3 (#1865) |
 | Board invite links | `boards/views/invites.py` `JoinBoardView.get`, `JoinBoardView.post`; `boards/invites.py` `sender_is_board_admin` | `visiban.authorization.invite_creator_is_valid` (the board rule is `sender_is_board_admin`) is evaluated at preview and at join; `_revoke_pending_board_invites` revokes on deactivation, including from the Django admin user form (`VisibanUserAdmin.save_model`); `boards/models.py` `revoke_board_invite_links_of_deleted_creator` (a `pre_delete` receiver covering every deletion path) revokes on user delete |
-| Group invite links | `groups/invite_registration.py` `_sender_still_admits`; `groups/views.py` `sender_is_group_admin`, `_revoke_lapsed_admin_invite_links`; `groups/views.py` `_revoke_lapsed_subtree_invite_links` (re-parent); `groups/models.py` `revoke_invite_links_of_deleted_creator` (user delete); `accounts/admin_views.py` `AdminUserDeactivateView._revoke_group_invite_links` | Sender standing is evaluated at preview and redemption through `visiban.authorization.invite_creator_is_valid` (the group rule is `sender_is_group_admin`), and at registration also `sender_may_admit_accounts`; links are revoked when the sender is deactivated (including from the Django admin user form, `VisibanUserAdmin.save_model`), deleted, or their admin rights lapse (including by the group being re-parented; links lapsed before #1513 are backfilled by migration `groups/0017`; shareable admin links minted before #1727 are revoked by migration `groups/0023`, and `JoinGroupView` refuses any shareable admin link, #1940) (`_revoke_lapsed_admin_invite_links` is revocation housekeeping, not the access decision; see [advisory copies](authorization-entry-points.md#advisory-copies-of-the-creator-rule)) |
+| Group invite links | `groups/invite_registration.py` `_sender_still_admits`; `groups/views.py` `sender_is_group_admin`, `_revoke_lapsed_admin_invite_links`; `groups/views.py` `_revoke_lapsed_subtree_invite_links` (re-parent); `groups/models.py` `revoke_invite_links_of_deleted_creator` (user delete); `accounts/admin_views.py` `AdminUserDeactivateView._revoke_group_invite_links` | Sender standing is evaluated at preview and redemption through `visiban.authorization.invite_creator_is_valid` (the group rule is `sender_is_group_admin`), and at registration also `sender_may_admit_accounts`; links are revoked when the sender is deactivated (including from the Django admin user form, `VisibanUserAdmin.save_model`), deleted, or their admin rights lapse (including by the group being re-parented; links lapsed before #1513 are backfilled by migration `groups/0017`; shareable admin links minted before #1727 are revoked by migration `groups/0023`, and `JoinGroupView` refuses any admin link, #1940, #2006) (`_revoke_lapsed_admin_invite_links` is revocation housekeeping, not the access decision; see [advisory copies](authorization-entry-points.md#advisory-copies-of-the-creator-rule)) |
 | JSON, CSV and Trello import | `boards/views/import_export.py` `BoardImportExportMixin` | Runs as an authenticated REST request, so role is read from current state |
 | OAuth signup | `accounts/adapter.py` `SocialRegistrationAdapter` | `_handle_email_collision` considers active users only |
 | Django admin | `boards/admin.py` `BoardMembershipAdmin` | Membership changes made in the admin emit the `EVT_MEMBER_ADDED`, `EVT_MEMBER_UPDATED` and `EVT_MEMBER_REMOVED` board events through `_BoardEventAdminMixin`; a save writes only the fields the administrator changed and is refused when the form was rendered against an older state of the membership (see the Django admin change forms row below) |
@@ -406,7 +406,7 @@ arrives by any other route, any non-API write.
 | Board member add or role change (REST) | `boards/views/boards.py` `BoardViewSet.members` | The submitted `role` must be a string within `BoardMembership.Role.values`, else `400`, before any row is written |
 | Group member role change (REST) | `groups/views.py` `GroupViewSet.update_member` (PATCH) | The submitted `role` must be within `GroupMembership.Role.values`, else `400` |
 | Board invite links, link and email (REST) | `boards/serializers.py` `BoardInviteLinkCreateSerializer`, `BoardInviteLinkEmailSerializer`; `boards/models.py` `BoardInviteLink.generate` | A `ChoiceField` limited to the roles an invite may grant; `generate` repeats the check against `GRANTABLE_ROLES` (a subset of `Role.values`) |
-| Group invite links, link and email (REST) | `groups/serializers.py` `GroupInviteLinkCreateSerializer`, `GroupInviteLinkEmailSerializer` | A `ChoiceField`: over `GroupInviteLink.Role.choices` for an emailed invite, and over `GROUP_INVITE_LINK_ROLE_CHOICES` (every role but `admin`, Rule 13) for a shareable link |
+| Group invite links, link and email (REST) | `groups/serializers.py` `GroupInviteLinkCreateSerializer`, `GroupInviteLinkEmailSerializer` | A `ChoiceField` over `GROUP_INVITE_LINK_ROLE_CHOICES` (every role but `admin`, Rule 13) in both serializers, for a shareable link and for an emailed invite (#2006) |
 | Invite redemption at registration | `boards/invites.py` `role_is_grantable`, `_would_create_membership`; `groups/invite_registration.py` `group_link_registration_refusal` | The stored link role must be in the grantable set (`GRANTABLE_ROLES`) or `GroupMembership.Role.values`, else the invite is refused as invalid |
 | Assignable and notification member sets | `boards/utils.py` `_get_effective_member_ids`, `_get_assignable_member_ids` | Follow the `get_board_role` ladder: an explicit row is judged by that row alone, so a row outside `BoardMembership.Role.values` grants nothing and group membership does not re-admit it; a group role outside `GroupMembership.Role.values` is skipped and the nearest ancestor group decides. Pinned by `boards/tests/test_viewer_assignee.py` `MemberSetLadderTests` (#1866) |
 | Board roster on `/full/` | `boards/serializers.py` `BoardFullSerializer.get_members` | Group-inherited roles use the same nearest-ancestor rule and skip out-of-enum group roles. Explicit rows are listed as stored, including out-of-enum ones, so admins can see and remove them; those display differences are tracked in #1905. Pinned by `FullRosterLadderTests` |
@@ -552,24 +552,25 @@ roles, non-member `404`, unset and invalid `min_role`, and
 `AnalyticsExtensionsEntryPointTests`, which scans the backend for any reference
 to `ANALYTICS_EXTENSIONS` outside `boards/hooks.py` and `boards/permissions.py`).
 
-## Rule 13: A shareable invite link never grants admin and always expires
+## Rule 13: An invite never grants admin, and a shared link always expires
 
-**Rule.** An invite link that is shared rather than sent to one address, on a
-board or a group, cannot grant the `admin` role and has an expiry of at most 30
-days. A request for `admin` or for no expiry is refused with `400`, not
-narrowed. An emailed invite also always expires (at most 30 days); on a group
-it may grant `admin`, because it is bound to one recipient address (#1678). The
+**Rule.** An invite link, shared or emailed, on a board or a group, cannot grant
+the `admin` role and has an expiry of at most 30 days. A request for `admin` or
+for no expiry is refused with `400`, not narrowed. Binding an emailed invite to
+one address (#1678) does not make admin acceptable: a forwarded or misdirected
+email still mints a group admin (#2006). The
 limits are checked when a link is created. Group links created before the limits
 applied were handled once by migration `groups/0023` (#1940): unused shareable
 admin links were revoked and unused never-expiring ones were given a 7-day
 expiry. A legacy link already expiring more than 30 days out keeps its expiry,
-and `JoinGroupView` refuses any shareable admin link (#1727, #1940).
+and `JoinGroupView` refuses any shareable admin link (#1727, #1940). An emailed
+group admin invite minted before #2006 is not revoked by a migration; it is
+refused at preview, join and registration instead (it expires within 30 days).
 
 **Why.** A shareable link is a bearer credential: it can be forwarded or pasted
 anywhere, and whoever holds it gets its grant. A group admin is board admin on
 every board in the group's subtree, so an admin link that never expires is a
-standing, transferable grant of that whole subtree. Binding to an address
-(emailed invites) is what makes an admin grant by invite acceptable; expiry
+standing, transferable grant of that whole subtree. Group admin is granted by changing a member's role, never by invite; expiry
 bounds how long a leaked link is useful.
 
 | Surface | Entry point | Enforced via |
@@ -577,8 +578,9 @@ bounds how long a leaked link is useful.
 | Board invite link create (REST) | `boards/views/invites.py` `BoardInviteLinksMixin.invite_links` (POST) | `boards/serializers.py` `BoardInviteLinkCreateSerializer`: `role` is a `ChoiceField` without `admin`, `expiry_days` is a required `ChoiceField` over `BOARD_INVITE_EXPIRY_DAYS` (1, 7, 30); `boards/models.py` `BoardInviteLink.generate` repeats the role check against `GRANTABLE_ROLES` |
 | Board emailed invite (REST) | `boards/views/invites.py` `BoardInviteLinksMixin.invite_link_send` | `boards/serializers.py` `BoardInviteLinkEmailSerializer`: no `admin`; `expiry_days` over `BOARD_INVITE_EXPIRY_DAYS`, default 7 |
 | Group invite link create (REST) | `groups/views.py` `GroupViewSet.invite_links` (POST) | `groups/serializers.py` `GroupInviteLinkCreateSerializer`: `role` over `GROUP_INVITE_LINK_ROLE_CHOICES` (no `admin`); `expiry_days` an integer from 1 to `GROUP_INVITE_LINK_MAX_EXPIRY_DAYS` (30), default `GROUP_INVITE_LINK_DEFAULT_EXPIRY_DAYS` (7), `null` refused; the view always sets `expires_at`; `groups/models.py` `GroupInviteLink.generate` refuses `admin` on a shareable link (`delivery` `link`) for any other caller |
-| Group emailed invite (REST) | `groups/views.py` `GroupViewSet.invite_link_send` | `groups/serializers.py` `GroupInviteLinkEmailSerializer`: `expiry_days` from 1 to `GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS` (30), default 7; `admin` allowed, the invite being bound to its recipient (`GroupInviteLink.generate` refuses an emailed invite without an address) |
-| Group shareable admin link redemption (REST) | `groups/views.py` `JoinGroupView.get` (preview), `JoinGroupView.post` (join) | Both refuse a link with `delivery` `link` and role `admin` with `404`, the same as a revoked link, so one reactivated or written by a script grants nothing (#1940); an emailed admin invite still previews and joins. Migration `groups/0023` revokes the ones that existed at upgrade |
+| Group emailed invite (REST) | `groups/views.py` `GroupViewSet.invite_link_send` | `groups/serializers.py` `GroupInviteLinkEmailSerializer`: `role` over `GROUP_INVITE_LINK_ROLE_CHOICES` (no `admin`, #2006); `expiry_days` from 1 to `GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS` (30), default 7; `groups/models.py` `GroupInviteLink.generate` refuses `admin` for any delivery, and an emailed invite without an address |
+| Group admin invite redemption (REST) | `groups/views.py` `JoinGroupView.get` (preview), `JoinGroupView.post` (join) | Both refuse any link with role `admin`, shareable or emailed, with `404`, the same as a revoked link, so one reactivated, written by a script or emailed before #2006 grants nothing (#1940, #2006). Migration `groups/0023` revokes the shareable ones that existed at upgrade |
+| Group admin invite redemption (registration) | `groups/invite_registration.py` `group_link_registration_refusal` (validation, and the grant at email confirmation) | An `admin` role answers `invite_invalid`, so a pre-#2006 emailed admin invite cannot create an account into the group either (#2006) |
 | Changing an existing link | none | No route updates a board or group invite link: the group routes are `GET`/`POST` `invite-links/` and `DELETE` `invite-links/{link_id}/`, and the board routes are the same; `PATCH` and `PUT` answer `405`. Neither model is registered in the Django admin |
 | Seeded data | `boards/management/commands/seed_demo_data.py` (the demo group's link) | Created with the `member` role and a 30-day expiry |
 | MCP, WebSocket, import | none | No tool, consumer or import format creates an invite link |
@@ -588,11 +590,10 @@ not covered: they grant no board or group role, only registration, and only a
 site admin creates them.
 
 Coverage: `groups/tests/test_group_invite_link_limits_1727.py` (admin refused on
-a shareable group link and in `generate`, emailed invite still grants admin, explicit `null`,
+a shareable group link and in `generate`, emailed `admin` refused with `400` and nothing minted or sent, member still works, a pre-#2006 emailed admin invite refused at join, preview and registration, explicit `null`,
 over-30, zero and negative expiry refused, omitted expiry defaults to 7 days,
 `PATCH`/`PUT` answer `405`, a pre-existing shareable admin link is refused at
-join and preview with `404`, and an emailed admin invite still previews and
-joins), `groups/tests/test_group_invite_legacy_link_revoke_1940.py` and
+join and preview with `404`), `groups/tests/test_group_invite_legacy_link_revoke_1940.py` and
 `groups/tests/test_group_invite_legacy_link_revoke_executor_1940.py` (migration
 `groups/0023` revokes unused shareable admin links and caps never-expiring
 ones, directly and under `migrate`), `groups/tests/test_groups.py`

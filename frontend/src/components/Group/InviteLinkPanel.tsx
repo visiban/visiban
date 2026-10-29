@@ -81,7 +81,12 @@ const INVITE_API: Record<InviteScope["kind"], InviteApi> = {
     list: (id) => listInviteLinks(id),
     create: (id, payload) => createInviteLink(id, payload),
     revoke: (id, linkId) => revokeInviteLink(id, linkId),
-    send: (id, payload) => sendInviteLinkEmail(id, { email: payload.email, role: payload.role }),
+    // Emailed group invites are capped at member server-side (#2006), so the
+    // API type excludes admin; drop it rather than send a role the server refuses.
+    send: (id, payload) => sendInviteLinkEmail(id, {
+      email: payload.email,
+      role: payload.role === "admin" ? undefined : payload.role,
+    }),
   },
   board: {
     list: (id) => listBoardInviteLinks(id),
@@ -98,8 +103,7 @@ const INVITE_API: Record<InviteScope["kind"], InviteApi> = {
 type LinkRole = "member" | "collaborator" | "viewer";
 type LinkExpiryDays = 1 | 7 | 30;
 
-// Roles a shareable link may grant (#439 board, #1727 group): never admin.
-// The group email form keeps its own role list, which still offers admin.
+// Roles an invite may grant (#439 board, #1727 group link, #2006 group email): never admin.
 const LINK_ROLE_OPTIONS: { value: LinkRole; label: string }[] = [
   { value: "member", label: "Member" },
   { value: "collaborator", label: "Collaborator" },
@@ -109,12 +113,9 @@ const LINK_ROLE_OPTIONS: { value: LinkRole; label: string }[] = [
 const ALREADY_USED_REVOKE_ERROR = "This invite was already used, so it can't be revoked.";
 const GENERIC_REVOKE_ERROR = "Could not revoke invite.";
 
-// The group email form above still offers Admin; say why the link form doesn't (#1727).
-// The email route is named only while that form is shown (emailAvailable !== false).
+// No invite grants Admin, shareable or emailed (#1727, #2006); say how to make an admin.
 const GROUP_LINK_ADMIN_HINT =
-  "Invite links can't grant Admin. To make someone an admin, email them an invite or change their role after they join.";
-const GROUP_LINK_ADMIN_HINT_NO_EMAIL =
-  "Invite links can't grant Admin. To make someone an admin, change their role after they join.";
+  "Invites can't grant Admin. To make someone an admin, change their role after they join.";
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-palette-purple text-palette-purple-pale",
@@ -550,7 +551,7 @@ export default function InviteLinkPanel({
       send={(payload) => api.send(scopeId, payload)}
       onSent={() => void fetchLinks()}
       senderIsSiteAdmin={isSiteAdmin}
-      roleOptions={isBoard ? LINK_ROLE_OPTIONS : undefined}
+      roleOptions={LINK_ROLE_OPTIONS}
       showLinkDivider={allowShareableLinks}
       onAvailabilityChange={(available) => {
         setEmailAvailable(available);
@@ -615,7 +616,7 @@ export default function InviteLinkPanel({
 
       {!isBoard && (
         <p className="text-xs text-fg-muted">
-          {emailAvailable === false ? GROUP_LINK_ADMIN_HINT_NO_EMAIL : GROUP_LINK_ADMIN_HINT}
+          {GROUP_LINK_ADMIN_HINT}
         </p>
       )}
 

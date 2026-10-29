@@ -164,6 +164,8 @@ _PINNED_ENUMS = {
     # choice set narrower than the response's ``role``, which would otherwise
     # hash-rename RoleEnum too.
     ("GroupInviteLinkCreateRequest", "role"): "GroupInviteLinkRoleEnum",
+    # Emailed group invites are capped the same way (#2006): same choice set.
+    ("GroupInviteLinkEmailRequest", "role"): "GroupInviteLinkRoleEnum",
     # ``Board.export_min_role`` declares ``choices`` (#1725) with the same four
     # values as ``BoardMembership.role``; left alone it would be named after
     # one of the two and rename the published ``RoleEnum``.
