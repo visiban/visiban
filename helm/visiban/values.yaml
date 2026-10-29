@@ -261,7 +261,8 @@ secret:
   # gitlab-client-id, gitlab-client-secret. Add oidc-client-id and oidc-client-secret
   # if OIDC is enabled (OIDC_SERVER_URL is read from values, not the Secret). Add
   # email-password if backend.email.backend is "smtp" (or empty with
-  # backend.email.host set) and backend.email.existingSecret is empty. Keys for unused providers can be empty strings.
+  # backend.email.host set) and backend.email.existingSecret is empty. Keys for
+  # unused providers can be empty strings.
   existingSecret: ""
   # Django SECRET_KEY — only used when existingSecret is empty.
   # Generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"

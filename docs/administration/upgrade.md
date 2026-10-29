@@ -1396,7 +1396,8 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     `user` and `password` but not `backend`, the chart still wires
     `EMAIL_HOST_PASSWORD` (from the `email-password` key, or from
     `backend.email.existingSecret`), so SMTP authentication continues after
-    `helm upgrade`. No change is needed. If you supply your own `secret.existingSecret`, it must contain an
+    `helm upgrade`. No change is needed.
+    If you supply your own `secret.existingSecret`, it must contain an
     `email-password` key (or the key named by `backend.email.passwordKey`)
     whenever `host` is set, as it already did for `backend: smtp`.
 
