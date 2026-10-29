@@ -539,24 +539,29 @@ class CreateCardTests(CrudToolsTestCase):
             self.assertEqual(results[0]["error"]["code"], "permission_denied", role)
         self.assertFalse(Card.objects.filter(title__startswith="Denied").exists())
 
-    def test_removed_assignee_email_argument_is_silently_ignored(self):
-        # #2004: `assignee_email` (a 1.2 pre-release argument) is no longer
-        # in the input schema. mcp 2.3.0 builds the argument model with
-        # pydantic's default extra="ignore", so an unknown argument is
-        # dropped, not rejected: the card is written WITHOUT an assignee.
-        # docs/api/mcp.md (User fields) documents this; if an SDK bump starts
-        # rejecting unknown arguments, this test fails and the doc must change.
+    def test_removed_assignee_email_argument_is_rejected(self):
+        # #2004: `assignee_email` (a 1.2 pre-release argument) is no longer in
+        # the input schema, and mcp 2.3.0 would silently drop it (its argument
+        # model ignores undeclared keys). server.py reads the raw arguments
+        # and refuses the call instead, so a stale client cannot get an
+        # unassigned card it did not ask for. Any value counts.
         member = _make_user("email-arg-member", email="email-arg@example.com")
         _make_membership(self.board, member, role=BoardMembership.Role.MEMBER)
-        result = self._call(
-            "create_card", self.write_token, board_id=self.board.id,
-            column_id=self.column.id, swimlane_id=self.swimlane.id,
-            title="Old argument", assignee_email="email-arg@example.com",
-        )
-        self.assertNotIn("error", result)
-        self.assertIsNone(result["assignee"])
-        card = Card.objects.get(title="Old argument")
-        self.assertIsNone(card.assignee_id)
+        for value in ("email-arg@example.com", "", None):
+            with self.subTest(value=value):
+                # _call asserts isError is true for an error payload.
+                result = self._call(
+                    "create_card", self.write_token, board_id=self.board.id,
+                    column_id=self.column.id, swimlane_id=self.swimlane.id,
+                    title="Old argument", assignee_email=value,
+                )
+                self.assertEqual(result, {"error": {
+                    "code": "validation_error",
+                    "errors": {"assignee_email": [
+                        "This argument was replaced by `assignee` (a username).",
+                    ]},
+                }})
+        self.assertFalse(Card.objects.filter(title="Old argument").exists())
 
     def test_unknown_label_is_a_validation_error(self):
         result = self._call(
@@ -959,24 +964,29 @@ class UpdateCardTests(CrudToolsTestCase):
         result = self._call("update_card", self.write_token, card_id=card.id, assignee="")
         self.assertIsNone(result["assignee"])
 
-    def test_removed_assignee_email_argument_is_silently_ignored(self):
-        # #2004: see CreateCardTests' test of the same name. The other fields
-        # are applied and the assignee is left untouched, even for "" (which
-        # `assignee` would treat as "unassign").
+    def test_removed_assignee_email_argument_is_rejected(self):
+        # #2004: see CreateCardTests' test of the same name. Nothing is
+        # changed: not the assignee, and not the other fields sent alongside.
         member = _make_user("update-email-arg", email="update-email-arg@example.com")
         _make_membership(self.board, member, role=BoardMembership.Role.MEMBER)
         card = _make_card(self.column, self.swimlane, title="Keep", assignee=self.user)
-        for i, value in enumerate(("update-email-arg@example.com", "")):
+        activity_before = CardActivity.objects.filter(card=card).count()
+        for value in ("update-email-arg@example.com", "", None):
             with self.subTest(value=value):
                 result = self._call(
-                    "update_card", self.write_token, card_id=card.id, title=f"Changed {i}",
+                    "update_card", self.write_token, card_id=card.id, title="Changed",
                     assignee_email=value,
                 )
-                self.assertNotIn("error", result)
-                self.assertEqual(result["assignee"]["username"], self.user.username)
-                card.refresh_from_db()
-                self.assertEqual(card.title, f"Changed {i}")
-                self.assertEqual(card.assignee_id, self.user.id)
+                self.assertEqual(result, {"error": {
+                    "code": "validation_error",
+                    "errors": {"assignee_email": [
+                        "This argument was replaced by `assignee` (a username).",
+                    ]},
+                }})
+        card.refresh_from_db()
+        self.assertEqual(card.title, "Keep")
+        self.assertEqual(card.assignee_id, self.user.id)
+        self.assertEqual(CardActivity.objects.filter(card=card).count(), activity_before)
 
     def test_non_writer_roles_denied_before_assignee_lookup(self):
         assignable = _make_user("update-assignable", email="update-assignable@example.com")
@@ -1504,18 +1514,36 @@ class ToolResultEnvelopeTests(CrudToolsTestCase):
                 self.assertEqual(schema, expected)
 
     def test_removed_assignee_email_is_not_in_the_input_schema(self):
+        # create_card/update_card take an SDK-injected `ctx: Context` only
+        # to see the raw arguments (server._sent_argument_names). It must not
+        # leak into any tool's advertised schema, and the declared argument
+        # set is pinned so the #2004 change is visible here if it drifts.
         status, body = self.client_.post(
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, token=self.raw_token,
         )
         self.assertEqual(status, 200)
-        schemas = {t["name"]: t["inputSchema"] for t in _parse_sse(body)["result"]["tools"]}
-        for name in ("create_card", "update_card"):
-            with self.subTest(tool=name):
-                self.assertIn("assignee", schemas[name]["properties"])
-                self.assertNotIn("assignee_email", schemas[name]["properties"])
-                # No additionalProperties: false, which is why the SDK
-                # ignores an unknown argument rather than rejecting it.
-                self.assertNotIn("additionalProperties", schemas[name])
+        tools_ = _parse_sse(body)["result"]["tools"]
+        schemas = {t["name"]: t["inputSchema"] for t in tools_}
+        self.assertEqual(set(schemas["create_card"]["properties"]), {
+            "board_id", "column_id", "swimlane_id", "title", "description",
+            "priority", "assignee", "labels", "due_date", "position",
+        })
+        self.assertEqual(
+            schemas["create_card"]["required"], ["board_id", "column_id", "swimlane_id", "title"],
+        )
+        self.assertEqual(set(schemas["update_card"]["properties"]), {
+            "card_id", "title", "description", "priority", "assignee", "labels", "due_date",
+        })
+        self.assertEqual(schemas["update_card"]["required"], ["card_id"])
+        for tool in tools_:
+            with self.subTest(tool=tool["name"]):
+                text = json.dumps(tool).lower()
+                self.assertNotIn("ctx", text)
+                self.assertNotIn("context", text)
+                self.assertNotIn("assignee_email", text)
+                # No additionalProperties: false; undeclared arguments reach
+                # the server and only removed names are refused.
+                self.assertNotIn("additionalProperties", tool["inputSchema"])
 
     def test_sdk_client_sees_is_error_and_structured_content(self):
         """Drive the server with the SDK's own client, as an agent would.

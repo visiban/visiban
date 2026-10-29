@@ -316,6 +316,33 @@ def _error_payload(exc):
 _ASSIGNEE_NOT_FOUND = "No assignable board member has this username."
 
 
+# Arguments a tool used to take and no longer declares, with the message a
+# caller that still sends one gets back. `assignee_email` was the
+# `create_card`/`update_card` assignee argument in the 1.2 pre-releases.
+# It is gone from the input schema (#2004), but the SDK ignores an argument a
+# tool does not declare, so without this check a stale client's call would
+# succeed and silently drop the assignment. server.py passes the raw argument
+# names (which still include undeclared ones) to `reject_removed_arguments`.
+_REMOVED_ARGUMENTS = {
+    "assignee_email": "This argument was replaced by `assignee` (a username).",
+}
+
+
+def reject_removed_arguments(argument_names):
+    """Return a ``validation_error`` payload if any removed argument was sent, else None.
+
+    Any value counts, including ``""`` and ``null``: the point is that the
+    caller still speaks the old vocabulary, not what it asked for.
+    """
+    errors = {
+        name: [_REMOVED_ARGUMENTS[name]]
+        for name in sorted(argument_names) if name in _REMOVED_ARGUMENTS
+    }
+    if not errors:
+        return None
+    return _error_payload(ValidationFailed(errors))
+
+
 def _translate_card_fields(board, *, title=None, description=None, priority=None,
                             assignee=None, labels=None, due_date=None):
     """Build a CardSerializer-shaped dict from MCP-facing arguments.

@@ -901,6 +901,19 @@ The Deployment is named `<fullname>-backend`; `<fullname>` is the release name (
 
     The main changes are listed in the [MCP API reference](../api/mcp.md#protocol-errors-and-limits).
 
+!!! note "MCP tool errors now set `isError`, and `assignee_email` left the schema"
+    Both changes are new since v1.2.0-beta.1, so clients written against any 1.2 pre-release see
+    them (#2004):
+
+    - A tool error (a WIP limit, a permission or scope denial, a not-found id, a validation
+      error, a throttle denial) now comes back with `isError: true`. It was `isError: false`. The
+      `{"error": {...}}` payload is unchanged and still in `structuredContent.result` and the text
+      block. An agent framework that checks `isError` now sees these as failures. See
+      [Result envelope](../api/mcp.md#result-envelope).
+    - `create_card` and `update_card` no longer list `assignee_email` in their input schema. A call
+      that still sends it is still rejected with a `validation_error`, now as an `isError: true`
+      result. Use `assignee` (a username).
+
 !!! note "Board import default name changed"
     `POST /api/v1/boards/import/` called without a `name` field now names the new board
     `Imported: <name>` — the `name` in a JSON file, or the filename without its extension

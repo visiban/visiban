@@ -323,11 +323,16 @@ A failed call is a `CallToolResult` with `isError: true`. The error payload abov
 }
 ```
 
-A successful call has `isError: false` and its payload in `structuredContent.result`. So `isError` is `true` exactly when `structuredContent.result` has an `error` key. Clients that check `isError` see every Visiban failure as a failure, and clients that read `structuredContent` get every field (`code`, counters, `retry_after`, ...) on success and failure alike. The advertised `outputSchema` is unchanged, and an error result still conforms to it (its `result` is an object). The MCP Python SDK's client checks `structuredContent` against `outputSchema` only when `isError` is `false`.
+A successful call has `isError: false` and its payload in `structuredContent.result`. Clients that check `isError` see every Visiban failure as a failure, and on a tool error clients that read `structuredContent` get every field (`code`, counters, `retry_after`, ...) just as they get the payload on success. The advertised `outputSchema` is unchanged, and an error result still conforms to it (its `result` is an object). The MCP Python SDK's client checks `structuredContent` against `outputSchema` only when `isError` is `false`.
 
 *Changed in 1.2 (before GA, #2004): the 1.2 pre-releases returned these errors with `isError: false`. The payload, its location and its text block did not change; only `isError` did. Verified against the MCP Python SDK `mcp` 2.3.0, which passes a tool's error result through with its `structuredContent` intact.*
 
-One kind of failure has no `code`: arguments that do not match a tool's input schema (a missing required argument, or a string where an integer is expected). The SDK rejects these before any Visiban code runs, as an `isError: true` result whose only content is a text message naming the argument, with no `structuredContent`.
+`isError: true` does not always come with a structured payload. There are two kinds of failure result:
+
+- **Tool errors** (everything in the table below): `isError: true`, with the `{"error": {...}}` payload in `structuredContent.result` and in the text block.
+- **Failures outside Visiban's tool code**: arguments that do not match a tool's input schema (a missing required argument, or a string where an integer is expected), which the SDK rejects before any Visiban code runs, and an unexpected server-side exception. Both are `isError: true` with a single text message and **no** `structuredContent`, so no `code`.
+
+A client must check that `structuredContent` is present before reading an error `code` from it, and treat an `isError: true` result without one as a generic failure.
 
 Every error has a `code` your agent can branch on, and the table below is the complete set. Codes are never removed; new ones may be added in a minor release, so treat an unrecognized `code` as a generic failure rather than crashing. Most errors also carry a human-readable `detail`. Exactly four codes do not: `wip_limit_exceeded` and `weight_limit_exceeded` carry only their own fields (`column_name` and the counters), `validation_error` carries an `errors` object, and `card_creation_not_allowed` carries a `column` message. `internal_error` carries `code` plus whatever fields the underlying error has, normally `detail`. Branch on `code`, never on `detail`.
 
@@ -363,7 +368,7 @@ The `assignee` argument of `list_cards`, `create_card`, and `update_card` takes 
 
 *Changed in 1.2 (before GA, #1671): the 1.2 pre-releases reported these fields as email address strings and took the `create_card`/`update_card` assignee as `assignee_email`; that argument is now `assignee`. The `list_cards` `assignee` filter kept its name but now matches a username instead of an email address, so an email value returns no cards rather than an error.*
 
-*Changed in 1.2 (before GA, #2004): `assignee_email` is no longer part of the `create_card`/`update_card` input schema. Earlier 1.2 pre-releases kept it only to reject it with a `validation_error`. The MCP SDK (`mcp` 2.3.0) ignores arguments a tool does not declare, so a call that still passes `assignee_email` is not rejected: the argument is dropped and the rest of the call runs. `create_card` creates the card with no assignee, and `update_card` applies the other fields and leaves the assignee unchanged. Send `assignee` (a username) instead.*
+*Changed in 1.2 (before GA, #2004): `assignee_email` is no longer listed in the `create_card`/`update_card` input schema, but a call that still passes it (any value, including an empty string or `null`) is still rejected, as in the pre-releases: an `isError: true` [tool error](#tool-errors) with code `validation_error` and `errors` `` {"assignee_email": ["This argument was replaced by `assignee` (a username)."]} ``. Nothing is created or changed. Send `assignee` (a username) instead. Other arguments a tool does not declare are ignored by the MCP SDK (`mcp` 2.3.0), not rejected.*
 
 ### `list_columns`
 

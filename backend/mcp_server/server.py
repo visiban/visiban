@@ -32,12 +32,13 @@ Later waves register their tools here too:
 """
 import functools
 import logging
+from collections.abc import Mapping
 from typing import Annotated
 
 import pydantic_core
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ResourceError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp_types import CallToolResult, TextContent
@@ -208,6 +209,29 @@ async def _deny_write():
     if denial is not None:
         return denial
     return await sync_to_async(_require_maintenance_off, thread_sensitive=True)()
+
+
+def _sent_argument_names(ctx):
+    """Return the argument names the client actually sent, undeclared ones included.
+
+    The SDK validates ``tools/call`` arguments into a pydantic model that
+    ignores keys the tool does not declare (mcp 2.3.0), so a tool function
+    never sees them. ``ServerRequestContext.params`` is the raw request
+    params mapping, a public field, so a tool can still tell that a removed
+    argument such as ``assignee_email`` was sent and refuse the call (#2004)
+    instead of dropping it. Deliberately NOT a ServerMiddleware rejecting
+    every undeclared argument: the SDK documents that middleware shape as
+    subject to change within 2.x, and rejecting all unknown arguments would
+    be a much wider contract than the one removed name needs.
+    """
+    try:
+        params = ctx.request_context.params or {}
+    except ValueError:
+        # No request context: the tool was invoked outside a client request
+        # (MCPServer.call_tool called directly), so there is no raw input.
+        return ()
+    arguments = params.get("arguments") or {}
+    return tuple(arguments) if isinstance(arguments, Mapping) else ()
 
 
 def _throttled(*, compute=False, as_resource=False):
@@ -491,6 +515,7 @@ def build_mcp_server():
     )
     @_throttled()
     async def create_card(
+        ctx: Context,
         board_id: int,
         column_id: int,
         swimlane_id: int,
@@ -502,7 +527,9 @@ def build_mcp_server():
         due_date: str | None = None,
         position: int | None = None,
     ) -> _TOOL_RESULT:
-        denial = await _deny_write()
+        # ctx is injected by the SDK and is not part of the input schema;
+        # it is only here to see undeclared arguments (_sent_argument_names).
+        denial = await _deny_write() or tools.reject_removed_arguments(_sent_argument_names(ctx))
         if denial is not None:
             return denial
         return await sync_to_async(tools.create_card, thread_sensitive=True)(
@@ -545,6 +572,7 @@ def build_mcp_server():
     )
     @_throttled()
     async def update_card(
+        ctx: Context,
         card_id: int,
         title: str | None = None,
         description: str | None = None,
@@ -553,7 +581,8 @@ def build_mcp_server():
         labels: list[str] | None = None,
         due_date: str | None = None,
     ) -> _TOOL_RESULT:
-        denial = await _deny_write()
+        # See create_card for ctx.
+        denial = await _deny_write() or tools.reject_removed_arguments(_sent_argument_names(ctx))
         if denial is not None:
             return denial
         return await sync_to_async(tools.update_card, thread_sensitive=True)(
