@@ -5712,8 +5712,8 @@ actually bootstraps from) returns the identical shape — both are served by
 <p>Only the address the pending change tracks is removed. In the rare case where two <code>PATCH</code> requests raced (see above), the losing request's unconfirmed address is indistinguishable from other unconfirmed addresses on the account, such as ones imported by a social login, so it is left in place. Its link can still verify it as an additional address, but it never changes <code>email</code>.</p>
 <p><strong>Permission:</strong> Requires authentication, from an interactive session only (changed in 1.2, #1838): a request authenticated with a token (a personal access token or the login API token) answers <code>403 Forbidden</code> and nothing is changed, the same rule as changing <code>email</code> itself. Acts only on the caller's own pending change; the request takes no address or id. Blocked while the account has a forced password or username change pending, like other profile endpoints except <code>GET</code>/<code>PATCH /api/v1/auth/me/</code>.</p>
 <p><strong>Request body:</strong> none.</p>
-<p><strong>Response</strong> <code>200 OK</code> — the updated profile, the same shape as <a href="#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a>, with <code>pending_email: null</code>.</p>
-<p>Idempotent: with no change pending it changes nothing and still returns <code>200</code>. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never removed.</p>
+<p><strong>Response</strong> <code>204 No Content</code> — no body. Re-fetch the profile with <a href="#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a> or <code>GET /api/v1/auth/user/</code>, or set <code>pending_email</code> to <code>null</code>, to show the new state. Before 1.2.0 GA this returned <code>200</code> with the updated profile; it was changed to <code>204</code> to match the other 1.2 revoke endpoints (#2005).</p>
+<p>Idempotent: with no change pending it changes nothing and still returns <code>204</code>. Other unconfirmed addresses on the account (for example, ones imported by a social login) are never removed.</p>
 <table>
 <thead>
 <tr>
@@ -5740,7 +5740,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <p>Dismiss the one-time "Connect {Provider}?" prompt: clears <code>pending_connect_provider</code> for this session. Added in 1.2 (#1314).</p>
 <p><strong>Permission:</strong> Requires authentication. Acts only on the caller's own session.</p>
 <p><strong>Request body:</strong> none.</p>
-<p><strong>Response</strong> <code>200 OK</code> — the updated profile, the same shape as <a href="#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a>, with <code>pending_connect_provider: null</code>. Idempotent.</p>
+<p><strong>Response</strong> <code>204 No Content</code> — no body. Re-fetch the profile with <a href="#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a> or <code>GET /api/v1/auth/user/</code>, or set both <code>pending_connect_provider</code> and <code>pending_connect_identity</code> to <code>null</code>, to show the new state. Idempotent. Before 1.2.0 GA this returned <code>200</code> with the updated profile; it was changed to <code>204</code> to match the other 1.2 revoke endpoints (#2005).</p>
 <p><a id="connected-accounts"></a></p>
 <h3 id="get-apiv1authmeconnected-accounts"><code>GET /api/v1/auth/me/connected-accounts/</code><a class="headerlink" href="#get-apiv1authmeconnected-accounts" title="Permanent link">&para;</a></h3>
 <p>List the sign-in providers the caller has connected. One row per provider configured on the instance, plus any provider the caller is still connected to that the operator has since removed. Added in 1.2 (#1314).</p>
@@ -5788,7 +5788,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <p>Disconnect a provider from the caller's account. Added in 1.2 (#1314).</p>
 <p><strong>Permission:</strong> Requires authentication. Only the caller's own accounts can be named. <strong>Interactive session only</strong> (1.2, #1794): a request authenticated with a token (a personal access token, whatever its scopes, or the login API token) is refused with <code>403 Forbidden</code>, so a leaked token cannot remove a way to sign in.</p>
 <p><strong>Request body:</strong> none.</p>
-<p><strong>Response</strong> <code>200 OK</code> — the refreshed list, same shape as <code>GET /api/v1/auth/me/connected-accounts/</code>.</p>
+<p><strong>Response</strong> <code>204 No Content</code> — no body. Re-fetch <a href="#connected-accounts"><code>GET /api/v1/auth/me/connected-accounts/</code></a> to show the new state. Before 1.2.0 GA this returned <code>200</code> with the refreshed list; it was changed to <code>204</code> to match the other 1.2 revoke endpoints (#2005).</p>
 <table>
 <thead>
 <tr>
