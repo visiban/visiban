@@ -4686,10 +4686,11 @@ unable to connect. Work in this order:</p>
 </li>
 <li>
 <p>Prove the new render passes <strong>before</strong> touching the database. Use the new
-   password and every other flag this section lists (for example the Valkey
-   flags with <code>--reuse-values</code>, below):</p>
+   password and every other change this section lists (for example the
+   <code>redis:</code> to <code>valkey:</code> translation, below). Use your values file with
+   <code>-f</code>, not <code>--reuse-values</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nv">NEW_PW</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">24</span><span class="k">)</span><span class="s2">"</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>&lt;release&gt;<span class="w"> </span>helm/visiban<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>--reuse-values<span class="w"> </span>--dry-run<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>&lt;release&gt;<span class="w"> </span>helm/visiban<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span>--dry-run<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span>--set-string<span class="w"> </span>postgresql.auth.password<span class="o">=</span><span class="s2">"</span><span class="nv">$NEW_PW</span><span class="s2">"</span><span class="w"> </span>&lt;your<span class="w"> </span>other<span class="w"> </span>flags&gt;
 </code></pre></div>
 </li>
@@ -4699,7 +4700,7 @@ unable to connect. Work in this order:</p>
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>-d<span class="w"> </span>visiban<span class="w"> </span>-v<span class="w"> </span><span class="nv">pw</span><span class="o">=</span><span class="s2">"</span><span class="nv">$NEW_PW</span><span class="s2">"</span><span class="w"> </span><span class="s">&lt;&lt;'SQL'</span>
 <a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="s">ALTER ROLE visiban PASSWORD :'pw';</span>
 <a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="s">SQL</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>&lt;release&gt;<span class="w"> </span>helm/visiban<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>&lt;release&gt;<span class="w"> </span>helm/visiban<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span>--set-string<span class="w"> </span>postgresql.auth.password<span class="o">=</span><span class="s2">"</span><span class="nv">$NEW_PW</span><span class="s2">"</span><span class="w"> </span>&lt;your<span class="w"> </span>other<span class="w"> </span>flags&gt;
 </code></pre></div>
 </li>
@@ -5594,17 +5595,109 @@ least 35 MB for Trello imports to work — see
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>helm<span class="w"> </span>dependency<span class="w"> </span>update<span class="w"> </span>helm/visiban
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span>--set<span class="w"> </span>valkey.image.repository<span class="o">=</span>valkey/valkey<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span>--set<span class="w"> </span>valkey.image.tag<span class="o">=</span><span class="m">8</span>-alpine
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml
 </code></pre></div>
-<p>The two <code>--set</code> flags are needed only with <code>--reuse-values</code>; see
-"Helm: bundled Valkey is no longer the Bitnami subchart" below.</p>
-<p>If you previously set <code>redis.enabled: false</code> and pointed <code>externalRedis.url</code> at an external Redis instance, no change is needed — the <code>externalRedis</code> key is unchanged and your external instance continues to work.</p>
+<p>From a 1.1 release, upgrade with your values file rather than
+<code>--reuse-values</code>, after translating its <code>redis:</code> block as described
+below (it is not a plain rename). <code>--reuse-values</code> starts from the
+previous release's stored values, which have none of the keys 1.2 added;
+the 1.2 templates fail to render against them (a <code>nil pointer</code> error). See "Helm: values key <code>redis</code>
+renamed to <code>valkey</code>" and "Helm: bundled Valkey is no longer the Bitnami
+subchart" below.</p>
+<p>If you previously set <code>redis.enabled: false</code> and pointed <code>externalRedis.url</code> at an external Redis instance, the <code>externalRedis</code> key is unchanged, but the switch that turns the bundled cache off was renamed: set <code>valkey.enabled: false</code> (leaving <code>redis.enabled: false</code> also works, as a deprecated alias). See "Helm: values key <code>redis</code> renamed to <code>valkey</code>" below.</p>
 <p>If you used the bundled subchart, the in-cluster service DNS changes from <code>&lt;release&gt;-redis-master:6379</code> to <code>&lt;release&gt;-valkey-primary:6379</code>. The Helm chart sets <code>REDIS_URL</code> automatically from the new service name — no manual update is required unless you overrode <code>REDIS_URL</code> in your values file.</p>
 </div>
 </div>
 </div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Helm: values key redis renamed to valkey</p>
+<p>Chart 1.1 configured its bundled cache under a top-level <code>redis:</code> block
+(<code>enabled</code>, <code>auth</code>, <code>image</code>, <code>master</code>, <code>commonConfiguration</code>). Chart 1.2
+renamed the block to <code>valkey:</code>. What this means for a 1.1 values file:</p>
+<ul>
+<li><strong><code>redis.enabled</code> still works, as a deprecated alias.</strong> Setting
+  <code>redis.enabled: false</code> turns the bundled Valkey off, and the backend uses
+  <code>externalRedis.url</code> and <code>externalRedis.cacheUrl</code>, exactly as in 1.1.
+  <code>redis.enabled: true</code> keeps the bundled Valkey. The <code>NOTES.txt</code> printed by
+  <code>helm install</code> and <code>helm upgrade</code> carries a deprecation warning while
+  <code>redis</code> is set. The alias is <strong>deprecated in 1.2 and removed no earlier
+  than 1.3</strong>; switch to <code>valkey.enabled</code> now.</li>
+<li><strong>Any other <code>redis.*</code> key fails the render</strong> (<code>auth</code>, <code>image</code>, <code>master</code>,
+  <code>architecture</code>, <code>commonConfiguration</code>, and so on). They configured the old
+  Redis subchart and nothing reads them now, so ignoring them would silently
+  drop a password or an image pin. The error names the rename. Move the
+  settings you still need under <code>valkey:</code> (see <code>helm/visiban/values.yaml</code> for
+  the supported keys); an external instance is configured with
+  <code>externalRedis</code>.</li>
+<li><strong><code>redis.enabled: true</code> together with an explicit <code>valkey.enabled: false</code>
+  fails the render</strong> as a contradiction. Remove <code>redis.enabled</code>.</li>
+<li><strong><code>redis.enabled: false</code> wins over <code>valkey.enabled</code></strong>, both when
+  <code>valkey.enabled</code> is left at its default and when you set it to <code>true</code>
+  explicitly (as <code>values-prod.yaml</code> does). The chart cannot tell an untouched
+  default from an explicit <code>true</code>, so check that a values file that sets both
+  means what it says.</li>
+</ul>
+<p><strong>How to upgrade from 1.1.</strong> Do not copy the <code>redis:</code> block over as
+<code>valkey:</code>. The keys differ, and a blind rename breaks the bundled Valkey. The
+mapping, derived from the 1.1 <code>values.yaml</code> and this chart's templates:</p>
+<table>
+<thead>
+<tr>
+<th>1.1 <code>redis.</code> key</th>
+<th>What to do in 1.2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code></td>
+<td><code>valkey.enabled</code>, same meaning. With an external instance: <code>valkey.enabled: false</code> plus <code>externalRedis.url</code> and <code>externalRedis.cacheUrl</code>. If that is all you set, leaving <code>redis.enabled: false</code> also works (deprecated alias)</td>
+</tr>
+<tr>
+<td><code>image.tag</code> (for example <code>"7.4.3"</code>)</td>
+<td><strong>Drop it.</strong> It is a Redis tag. <code>valkey/valkey:7.4.3</code> does not exist, so the pod would sit in <code>ImagePullBackOff</code>. The default is <code>valkey/valkey:8-alpine</code>; set <code>valkey.image.*</code> only to mirror or pin an official Valkey tag</td>
+</tr>
+<tr>
+<td><code>master.persistence.enabled</code>, <code>.size</code>, <code>.storageClass</code></td>
+<td><code>valkey.primary.persistence.*</code>. The name changed from <code>master</code> to <code>primary</code>; <code>valkey.master.*</code> is accepted by the schema and silently ignored</td>
+</tr>
+<tr>
+<td><code>master.resources</code></td>
+<td><code>valkey.primary.resources</code></td>
+</tr>
+<tr>
+<td><code>auth.enabled</code>, <code>auth.password</code></td>
+<td><code>valkey.auth.enabled</code>, <code>valkey.auth.password</code>; turning auth on needs exactly one password source</td>
+</tr>
+<tr>
+<td><code>auth.existingSecret</code>, <code>auth.existingSecretPasswordKey</code></td>
+<td><code>valkey.auth.existingSecret</code>, <code>valkey.auth.existingSecretPasswordKey</code>. The Bitnami default key was <code>redis-password</code> and this chart's default is <code>valkey-password</code>, so when you keep an existing Secret set <code>valkey.auth.existingSecretPasswordKey: redis-password</code></td>
+</tr>
+<tr>
+<td><code>architecture</code></td>
+<td>Drop it (<code>standalone</code> is the only supported value; <code>replication</code> fails the render)</td>
+</tr>
+<tr>
+<td><code>commonConfiguration</code></td>
+<td>Drop it unless you customized it; the default in <code>valkey.commonConfiguration</code> already enables AOF and disables RDB</td>
+</tr>
+<tr>
+<td>any other key</td>
+<td>No equivalent. Drop it</td>
+</tr>
+</tbody>
+</table>
+<p>Then upgrade with the edited file, without <code>--reuse-values</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml
+</code></pre></div>
+<p><code>--reuse-values</code> does not work for this upgrade. It starts from the previous
+release's stored values instead of this chart's defaults, so keys that 1.2
+added are missing and the render fails with a <code>nil pointer</code> error before the
+chart's own checks run. On Helm 3.14 or later, <code>--reset-then-reuse-values</code>
+starts from this chart's defaults and re-applies the previous release's own
+values, which still include the old <code>redis</code> keys. We have not run a real
+<code>helm upgrade</code> from a 1.1 release for either flag; the chart's render checks
+cover the values-file route.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Helm: optional password for the bundled Valkey</p>
@@ -5664,8 +5757,8 @@ Valkey pod restart). No backup or migration step is needed.</p>
 <p><strong>If you enabled Valkey (or Redis) persistence</strong>, the old claim is left
 behind, as Kubernetes does for every StatefulSet volume. It holds only
 rebuildable data; delete it once the upgrade is healthy:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>get<span class="w"> </span>pvc<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">'valkey-data|redis-data'</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>valkey-data-&lt;release&gt;-valkey-primary-0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>get<span class="w"> </span>pvc<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">'valkey-data|redis-data'</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>valkey-data-&lt;release&gt;-valkey-primary-0
 </code></pre></div>
 <p><strong>Values that no longer apply.</strong> The chart now reads <code>valkey.enabled</code>,
 <code>valkey.image.repository</code>, <code>valkey.image.tag</code>, <code>valkey.image.pullPolicy</code>,
@@ -5706,23 +5799,20 @@ upgrade <strong>fails with an explanation</strong> instead:</p>
 </table>
 <p>A Docker Hub <code>valkey.image.registry</code> (<code>docker.io</code>, <code>registry-1.docker.io</code>)
 is accepted and ignored, because the official image lives there too.</p>
-<p><strong><code>helm upgrade --reuse-values</code> needs two extra flags.</strong> <code>--reuse-values</code>
+<p><strong>Upgrade with your values file, not <code>--reuse-values</code>.</strong> <code>--reuse-values</code>
 carries the previous release's values forward, and for a release made with
-the subchart those include the subchart's own image defaults
-(<code>bitnami/valkey</code>, tag <code>latest</code>). The upgrade therefore stops at the image
-check above. Either pass the official image explicitly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span>--set<span class="w"> </span>valkey.image.repository<span class="o">=</span>valkey/valkey<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span>--set<span class="w"> </span>valkey.image.tag<span class="o">=</span><span class="m">8</span>-alpine
+an earlier chart those include that chart's own image defaults and lack the
+keys this chart added, so the render stops. Pass your values file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml
 </code></pre></div>
-<p>or, on Helm 3.14 or later, use <code>--reset-then-reuse-values</code> instead of
-<code>--reuse-values</code>. It starts from this chart's defaults and re-applies only
-the values you set yourself. An upgrade that passes <code>-f my-values.yaml</code>
-without <code>--reuse-values</code> needs neither.</p>
+<p>On Helm 3.14 or later, <code>--reset-then-reuse-values</code> starts from this chart's
+defaults and re-applies the values you set yourself. We did not test it
+against a live release. If you set <code>valkey.image.*</code> yourself, keep it on an
+official <code>valkey/valkey</code> tag, as in the table above.</p>
 <p>Every other Bitnami-only key (for example <code>valkey.primary.resourcesPreset</code>,
 <code>valkey.primary.podLabels</code>, <code>valkey.networkPolicy.*</code>, <code>valkey.metrics.*</code>) is
 accepted and ignored. Check what your values file sets before upgrading:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>helm<span class="w"> </span>get<span class="w"> </span>values<span class="w"> </span>&lt;release&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>yq<span class="w"> </span><span class="s1">'.valkey'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>get<span class="w"> </span>values<span class="w"> </span>&lt;release&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>yq<span class="w"> </span><span class="s1">'.valkey'</span>
 </code></pre></div>
 <p><strong>Rolling back</strong> with <code>helm rollback</code> to a pre-0.5.0 revision recreates the
 subchart's StatefulSet; a persistence claim you have not deleted is
@@ -5755,8 +5845,8 @@ against a staging release first.</p>
 <p><strong>If your image cannot run under this hardening</strong>, relax just the field
 that conflicts rather than disabling the whole block — for example, to
 keep a writable root filesystem on a custom PostgreSQL image:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.securityContext.container.readOnlyRootFilesystem<span class="o">=</span><span class="nb">false</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.securityContext.container.readOnlyRootFilesystem<span class="o">=</span><span class="nb">false</span>
 </code></pre></div>
 <p>Helm deep-merges nested maps, so a single-leaf <code>--set</code> like the one above
 (or a <code>-f</code> file that sets only <code>readOnlyRootFilesystem</code>) keeps the chart's
@@ -5803,8 +5893,8 @@ release first.</p>
 <p><strong>If your image cannot run under this hardening</strong>, relax just the field
 that conflicts — for example, to keep a writable root filesystem on a
 custom frontend image:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span>--set<span class="w"> </span>frontend.securityContext.container.readOnlyRootFilesystem<span class="o">=</span><span class="nb">false</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span>--set<span class="w"> </span>frontend.securityContext.container.readOnlyRootFilesystem<span class="o">=</span><span class="nb">false</span>
 </code></pre></div>
 <p>As with <code>backend.securityContext</code> and <code>postgresql.securityContext</code>, Helm
 deep-merges nested maps, so a single-leaf <code>--set</code> keeps the chart's other
@@ -5860,8 +5950,8 @@ with <code>400</code>, but rows written by a client that exploited this before u
 fixed automatically.</p>
 <p>Run the new read-only management command after upgrading to find any already-corrupted
 cards:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>find_cross_board_cards
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>find_cross_board_cards
 </code></pre></div>
 <p>It lists every card whose <code>column.board_id</code> or <code>swimlane.board_id</code> does not match the
 card's own <code>board_id</code>. It makes no changes — repair each reported card manually (move it
@@ -5890,7 +5980,7 @@ endpoint's response to <code>$APP_VERSION</code> should strip a leading <code>v<
 or one where it was later removed), <code>docker compose pull</code>/<code>up -d</code> and <code>init-prod.sh</code> now
 fail immediately with a message telling you to set it, instead of silently resolving to
 whatever <code>latest</code> currently points at. Add the line before upgrading:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"APP_VERSION=v1.2.0"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env<span class="w">   </span><span class="c1"># pin to the release you are deploying</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"APP_VERSION=v1.2.0"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env<span class="w">   </span><span class="c1"># pin to the release you are deploying</span>
 </code></pre></div>
 <p>A scheduled CI job (<code>check-release-images</code>) now also runs on every scheduled CI pipeline
 to verify that the newest released <code>backend</code>/<code>frontend</code> image tag is still pullable from
@@ -6022,13 +6112,13 @@ tab offers it only for an active link, which such a board does not have.) API cl
 re-enables during a rolling upgrade: it records no admin, so turn it on again once every
 pod runs 1.2.</p>
 <p>To list the boards whose link has no recorded admin (after migrating):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
-<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="s2">from boards.models import Board</span>
-<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="s2">boards = Board.objects.filter(share_token__isnull=False, share_enabled_by__isnull=True)</span>
-<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="s2">for pk, name in boards.order_by('pk').values_list('pk', 'name'):</span>
-<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="s2">    print(pk, name)</span>
-<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="s2">"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="s2">from boards.models import Board</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="s2">boards = Board.objects.filter(share_token__isnull=False, share_enabled_by__isnull=True)</span>
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a><span class="s2">for pk, name in boards.order_by('pk').values_list('pk', 'name'):</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a><span class="s2">    print(pk, name)</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="s2">"</span>
 </code></pre></div>
 </div>
 <div class="admonition note">
@@ -6092,13 +6182,13 @@ instead, and use the new <code>share_link_active</code> field to tell whether a 
 <p class="admonition-title">Breaking change — Valkey authentication is now required in production</p>
 <p><code>docker-compose.prod.yml</code> now starts Valkey with <code>--requirepass</code> and constructs <code>REDIS_URL</code> and <code>REDIS_CACHE_URL</code> using the password. <strong>The stack will fail to start if <code>REDIS_PASSWORD</code> is not set in your <code>.env</code>.</strong></p>
 <p>Before running <code>docker compose -f docker-compose.prod.yml up</code>, add <code>REDIS_PASSWORD</code> to your <code>.env</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="c1"># Generate a strong random password and insert it into .env</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">"s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|"</span><span class="w"> </span>.env
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="c1"># Generate a strong random password and insert it into .env</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">"s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|"</span><span class="w"> </span>.env
 </code></pre></div>
 <p>Or generate a value manually and add it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="w">   </span><span class="c1"># hex, not base64: a "/" in the password breaks the redis:// URL</span>
-<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="c1"># Copy the output, then add to .env:</span>
-<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;generated<span class="w"> </span>value&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="w">   </span><span class="c1"># hex, not base64: a "/" in the password breaks the redis:// URL</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="c1"># Copy the output, then add to .env:</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;generated<span class="w"> </span>value&gt;
 </code></pre></div>
 <p>Existing deployments that used the default unauthenticated Valkey (or Redis) will continue to work after setting this variable — Valkey data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of data is required.</p>
 </div>
@@ -6107,10 +6197,10 @@ instead, and use the new <code>share_link_active</code> field to tell whether a 
 <p>Migration <code>boards/0030</code> creates full-text GIN indexes on the <code>cards</code> table using <code>CREATE INDEX</code> (not <code>CREATE INDEX CONCURRENTLY</code>). On PostgreSQL, a standard index build holds an <code>AccessShareLock</code> on the table for the duration of the build, blocking writes to <code>cards</code>.</p>
 <p>For most self-hosted deployments the index build completes in seconds and is not noticeable. For installations with <strong>millions of cards</strong>, this may cause a brief write outage on board operations during the migration window.</p>
 <p><strong>If you have a large <code>cards</code> table and need zero-downtime index creation</strong>, pre-create the indexes manually before running <code>migrate</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_title_trgm</span>
-<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">title</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
-<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_description_trgm</span>
-<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">description</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_title_trgm</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">title</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_description_trgm</span>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">description</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
 </code></pre></div>
 <p>Then run <code>python manage.py migrate</code> as normal — the migration's <code>CREATE INDEX IF NOT EXISTS</code> will detect the indexes exist and skip creation.</p>
 </div>
@@ -6118,8 +6208,8 @@ instead, and use the new <code>share_link_active</code> field to tell whether a 
 <p class="admonition-title">Pre-1.0 installs upgrading directly to 1.1 — <code>groups/0003_placeholder</code></p>
 <p>If your database was created from any pre-1.0 release <strong>and you are upgrading directly to 1.1.x without first running 1.0.x</strong>, you must apply the same <code>groups/0003_placeholder</code> reconciliation step described under <a href="#upgrading-to-100">Upgrading to 1.0.0</a> below before running <code>manage.py migrate</code>. Without it, Django's <code>InconsistentMigrationHistory</code> check aborts the upgrade and the schema is not advanced.</p>
 <p>Equivalent management-command form (run inside the backend container):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>groups<span class="w"> </span>0003_placeholder<span class="w"> </span>--fake
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>groups<span class="w"> </span>0003_placeholder<span class="w"> </span>--fake
 </code></pre></div>
 <p>Instances that already ran 1.0.x are unaffected — the reconciliation row is already present in <code>django_migrations</code>.</p>
 </div>
@@ -6133,22 +6223,22 @@ instead, and use the new <code>share_link_active</code> field to tell whether a 
 <p>Migration <code>boards/0043</code> adds a unique constraint on <code>(board, name)</code> for columns. Before applying the constraint, it runs a Python loop to deduplicate any existing column names within the same board (e.g. renaming a second "Done" column to "Done (2)").</p>
 <p>For deployments with a very large number of boards and columns, this deduplication loop may take several seconds. The subsequent <code>ADD CONSTRAINT</code> then issues a brief table lock to build the unique index.</p>
 <p><strong>If you have many thousands of columns</strong>, you can run the deduplication ahead of the migration window by executing it as a one-off management command before upgrading:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
-<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="s2">from boards.models import Column</span>
-<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="s2">from django.db.models import Count</span>
-<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a><span class="s2">for board_id in Column.objects.values_list('board_id', flat=True).distinct():</span>
-<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a><span class="s2">    seen = {}</span>
-<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a><span class="s2">    for col in Column.objects.filter(board_id=board_id).order_by('position'):</span>
-<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="s2">        base = col.name</span>
-<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a><span class="s2">        if base in seen:</span>
-<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a><span class="s2">            seen[base] += 1</span>
-<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a><span class="s2">            col.name = f'{base} ({seen[base]})'</span>
-<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a><span class="s2">            col.save(update_fields=['name'])</span>
-<a id="__codelineno-34-13" name="__codelineno-34-13" href="#__codelineno-34-13"></a><span class="s2">        else:</span>
-<a id="__codelineno-34-14" name="__codelineno-34-14" href="#__codelineno-34-14"></a><span class="s2">            seen[base] = 1</span>
-<a id="__codelineno-34-15" name="__codelineno-34-15" href="#__codelineno-34-15"></a><span class="s2">print('Done')</span>
-<a id="__codelineno-34-16" name="__codelineno-34-16" href="#__codelineno-34-16"></a><span class="s2">"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="s2">from boards.models import Column</span>
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a><span class="s2">from django.db.models import Count</span>
+<a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a><span class="s2">for board_id in Column.objects.values_list('board_id', flat=True).distinct():</span>
+<a id="__codelineno-35-6" name="__codelineno-35-6" href="#__codelineno-35-6"></a><span class="s2">    seen = {}</span>
+<a id="__codelineno-35-7" name="__codelineno-35-7" href="#__codelineno-35-7"></a><span class="s2">    for col in Column.objects.filter(board_id=board_id).order_by('position'):</span>
+<a id="__codelineno-35-8" name="__codelineno-35-8" href="#__codelineno-35-8"></a><span class="s2">        base = col.name</span>
+<a id="__codelineno-35-9" name="__codelineno-35-9" href="#__codelineno-35-9"></a><span class="s2">        if base in seen:</span>
+<a id="__codelineno-35-10" name="__codelineno-35-10" href="#__codelineno-35-10"></a><span class="s2">            seen[base] += 1</span>
+<a id="__codelineno-35-11" name="__codelineno-35-11" href="#__codelineno-35-11"></a><span class="s2">            col.name = f'{base} ({seen[base]})'</span>
+<a id="__codelineno-35-12" name="__codelineno-35-12" href="#__codelineno-35-12"></a><span class="s2">            col.save(update_fields=['name'])</span>
+<a id="__codelineno-35-13" name="__codelineno-35-13" href="#__codelineno-35-13"></a><span class="s2">        else:</span>
+<a id="__codelineno-35-14" name="__codelineno-35-14" href="#__codelineno-35-14"></a><span class="s2">            seen[base] = 1</span>
+<a id="__codelineno-35-15" name="__codelineno-35-15" href="#__codelineno-35-15"></a><span class="s2">print('Done')</span>
+<a id="__codelineno-35-16" name="__codelineno-35-16" href="#__codelineno-35-16"></a><span class="s2">"</span>
 </code></pre></div>
 <p>After this runs, <code>boards/0043</code> will find no duplicates and the constraint add will complete quickly.</p>
 </div>
@@ -6156,9 +6246,9 @@ instead, and use the new <code>share_link_active</code> field to tell whether a 
 <div class="admonition warning">
 <p class="admonition-title">Required pre-deploy step for any instance that ran a pre-1.0 beta</p>
 <p>If your database was created from any pre-1.0 release (including any release candidate), you <strong>must</strong> run the following SQL against your database <strong>before</strong> running <code>manage.py migrate</code> or starting the 1.0 backend container:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">django_migrations</span><span class="w"> </span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">applied</span><span class="p">)</span>
-<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">'groups'</span><span class="p">,</span><span class="w"> </span><span class="s1">'0003_placeholder'</span><span class="p">,</span><span class="w"> </span><span class="n">NOW</span><span class="p">())</span>
-<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="k">ON</span><span class="w"> </span><span class="n">CONFLICT</span><span class="w"> </span><span class="k">DO</span><span class="w"> </span><span class="k">NOTHING</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">django_migrations</span><span class="w"> </span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">applied</span><span class="p">)</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">'groups'</span><span class="p">,</span><span class="w"> </span><span class="s1">'0003_placeholder'</span><span class="p">,</span><span class="w"> </span><span class="n">NOW</span><span class="p">())</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="k">ON</span><span class="w"> </span><span class="n">CONFLICT</span><span class="w"> </span><span class="k">DO</span><span class="w"> </span><span class="k">NOTHING</span><span class="p">;</span>
 </code></pre></div>
 <p><strong>Why:</strong> Migration <code>groups/0003_placeholder</code> was added to the 1.0 release to fill a gap in the <code>groups</code> migration sequence. Because <code>groups/0004</code> was already applied in pre-1.0 releases, Django's startup check (<code>InconsistentMigrationHistory</code>) will prevent <code>manage.py migrate</code> from running if <code>0003</code> is not already marked applied. The SQL above registers it as applied so Django accepts the history as consistent. The migration itself is a no-op — it contains no schema changes.</p>
 <p>Fresh installs (where no pre-1.0 migrations have ever been applied) are not affected.</p>
@@ -6189,8 +6279,8 @@ instead, and use the new <code>share_link_active</code> field to tell whether a 
 <hr />
 <h2 id="checking-migration-status">Checking migration status<a class="headerlink" href="#checking-migration-status" title="Permanent link">&para;</a></h2>
 <p>At any time you can inspect which migrations have been applied:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
 </code></pre></div>
 <p><code>[X]</code> means applied. <code>[ ]</code> means pending. A pending migration after a deployment indicates the migration step was skipped or failed silently — run <code>migrate</code> manually and check the output for errors before serving traffic.</p>
 
