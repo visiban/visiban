@@ -21,7 +21,7 @@ The top-right corner of the board toolbar shows the connection state via the **C
 - 🟡 **Connecting…** — initial connection attempt in progress; amber pill
 - 🔴 **Offline** — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect
 
-The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**.
+The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**. If the server cannot confirm your access because of a temporary server problem, such as the database being briefly unreachable, it closes the connection with code `1011` instead, and the client keeps reconnecting until the server recovers (since 1.2).
 
 After you log out or change your password, open board and group tabs show the connection indicator as **Offline** within about 30–40 seconds. Reload the page to reconnect. This includes the tab you changed your password in. Logging out in one browser does not affect tabs signed in through another session. See [Credential revocation](../api/websockets.md#credential-revocation-since-12).
 

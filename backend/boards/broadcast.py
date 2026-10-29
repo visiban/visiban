@@ -252,7 +252,7 @@ def broadcast_board_event(
     only forwarding, and the one such frame, ``member.removed``, closes a
     removed user's socket. Eviction therefore does not depend on it: the
     consumer re-checks access before it forwards any frame and closes the
-    socket when access is gone (``BoardConsumer._verify_access``, #1477). A
+    socket when access is gone (``BoardConsumer._access_close_code``, #1477). A
     lost ``member.removed`` therefore delays the close by at most the re-check
     window (``ACCESS_RECHECK_SECONDS`` plus jitter, about 7 s) after the
     socket's last successful check; the socket is closed before the first

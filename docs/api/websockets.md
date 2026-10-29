@@ -29,12 +29,13 @@ There are two ways to authenticate the handshake:
 
 When a handshake carries an `Origin` header (browsers always send one), it must match a configured origin: an entry in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, or an origin whose host equals an exact (non-pattern) `ALLOWED_HOSTS` entry. A handshake whose `Origin` matches none of these is refused before authentication. Clients that send no `Origin` header (CLI, native, and agent clients using a ticket) are not affected. The exact-host match ignores both the scheme and the port (an `http` origin matches an `https` host). `ALLOWED_HOSTS` entries that are `*` or start with a dot (such as `.example.com`) are not applied to this match: an install that uses them must list its public origin (for example `https://boards.example.com`) in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, otherwise browser WebSocket connections are refused. An `Origin` that includes credentials, a path, a query, or a fragment, or more than one `Origin` header, is refused. `manage.py check` and `check --deploy` emit system-check warning `accounts.W002` when `DEBUG` is off, `ALLOWED_HOSTS` contains `*` or a leading-dot entry, no non-loopback origin is listed in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, and no exact public host is listed in `ALLOWED_HOSTS`. Listing a public origin clears it. To accept the configuration deliberately, add `"accounts.W002"` to `SILENCED_SYSTEM_CHECKS`.
 
-The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails:
+The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails. The table also lists `1011`, which the server sends on an open connection when its access re-check cannot complete:
 
 | Close code | Meaning |
 |---|---|
 | `4001` | Unauthenticated — no valid session cookie, and no valid ticket. The client must log in (or obtain a fresh ticket) before reconnecting. |
-| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help for a non-member. The same account-state checks as REST and MCP apply: an account with a pending password or username change is also closed with `4003`, at connect and on the access re-check, and once the pending change is completed a later reconnect can succeed. An account deactivated while a connection is open is closed with `4003` at the next access re-check; a reconnect attempt by an inactive account is refused at authentication with `4001`. Since 1.2, `4003` can also arrive **mid-stream** on an open connection, when the user loses access, when the credential it connected with is revoked (logout, password change, revoked session or token), or when the server's access re-check fails, for example during a database outage. In the re-check-failure case a later reconnect can succeed. See [Access re-check and eviction](#access-re-check-and-eviction). |
+| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help for a non-member. The same account-state checks as REST and MCP apply: an account with a pending password or username change is also closed with `4003`, at connect and on the access re-check, and once the pending change is completed a later reconnect can succeed. An account deactivated while a connection is open is closed with `4003` at the next access re-check; a reconnect attempt by an inactive account is refused at authentication with `4001`. Since 1.2, `4003` can also arrive **mid-stream** on an open connection, when the user loses access or when the credential it connected with is revoked (logout, password change, revoked session or token). `4003` always means the server completed the check and found no access; it is never sent for a server-side failure. See [Access re-check and eviction](#access-re-check-and-eviction). |
+| `1011` | Internal error (standard code, since 1.2 for this case) — the server could not complete the mid-stream access re-check, for example during a database outage. The frame that triggered the check is not delivered. This is not a loss of access: reconnect with your normal backoff. Until the server recovers the reconnect handshake can fail too, so keep retrying. The server also sends `1011` if it fails unexpectedly after the handshake. |
 
 Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnormal) may also be observed for transport-level disconnects.
 
@@ -412,7 +413,7 @@ A user who loses access to a board or group stops receiving its frames even if t
 - Each keepalive ping (every 30 seconds) runs the same check first, so a socket on a quiet channel is re-checked even when no frames are published.
 - The re-check also applies the same account-state checks as the REST API: an account with a pending password or username change has no access to the channel, at the handshake and on every re-check. Completing the pending change allows a later reconnect.
 - If the re-check finds no access, the server closes the socket with close code `4003` and does not forward the frame that triggered the check. The client treats `4003` as final and does not reconnect.
-- If the re-check itself fails while a frame is being forwarded, for example because the database is unreachable, the server handles it the same way. It drops the frame, logs a `WARNING` (`board access re-check failed` or `group access re-check failed`), and closes with `4003`. Reload the page to reconnect once the database is back.
+- If the re-check itself fails while a frame is being forwarded, for example because the database is unreachable, the server still does not forward the frame. It logs a `WARNING` (`board access re-check failed` or `group access re-check failed`) and closes with `1011`, not `4003`, because the user has not been shown to lack access (since 1.2, #2003). The client reconnects with its normal backoff. The reconnect runs the full handshake access check, so it succeeds once the database is back if the user still has access, and is closed with `4003` if they do not. The Visiban web app shows the reconnecting state meanwhile and does not need a reload.
 - If the re-check fails during a keepalive ping, the socket stays open. The server logs a `WARNING` (`… re-check failed during keepalive`), sends the ping, and retries at the next ping. Nothing is forwarded on that path, and only a definitive denial closes the socket.
 
 The same window applies to the other changes the re-check picks up. A role change that sends no `member.*` frame on the board channel (a group role change, a board moved to another group, a change to all-content access) and the deactivation of a user's account both take effect within it.
@@ -503,11 +504,11 @@ ws.onclose = (event) => {
     // not authenticated — redirect to login
   } else if (event.code === 4003) {
     // no access to this board — at the handshake, or mid-stream after access
-    // was lost or the server's access re-check failed (see "Access re-check
-    // and eviction"). Do not auto-retry. A later, user-initiated reconnect can
-    // succeed if the cause was a failed re-check.
+    // was lost or the credential was revoked (see "Access re-check and
+    // eviction"). Do not auto-retry.
   }
-  // otherwise: reconnect logic and re-fetch full board state
+  // otherwise (including 1011, a failed server-side access re-check):
+  // reconnect logic and re-fetch full board state
 };
 ```
 

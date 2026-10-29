@@ -71,6 +71,8 @@ export function useGroupSocket(
         if (canceled) return;
         if (e.code === 4001 || e.code === 4003) { setStatus("failed"); return; }
         if (e.code === 1000) return;
+        // Anything else reconnects, including 1011 (the server could not
+        // complete its access re-check; not a loss of access, #2003).
         setStatus("reconnecting");
         setReconnectAttempt((n) => n + 1);
         reconnectTimer = setTimeout(connect, 3000);

@@ -185,6 +185,26 @@ describe('useBoardSocket', () => {
     expect(instances).toHaveLength(1)
   })
 
+  it('reconnects on a transient server re-check failure (code 1011), not failed (#2003)', () => {
+    const onReconnected = vi.fn()
+    const sessionExpired = vi.fn()
+    window.addEventListener('auth:sessionExpired', sessionExpired)
+    const { result } = renderHook(() => useBoardSocket(1, vi.fn(), { onReconnected }))
+
+    act(() => { latestWS().onopen?.() })
+    act(() => { latestWS().onclose?.({ code: 1011 }) })
+
+    expect(result.current.status).toBe('reconnecting')
+    expect(result.current.reconnectAttempt).toBe(1)
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(instances).toHaveLength(2)
+    act(() => { latestWS().onopen?.() })
+    expect(result.current.status).toBe('connected')
+    expect(onReconnected).toHaveBeenCalledTimes(1)
+    expect(sessionExpired).not.toHaveBeenCalled()
+    window.removeEventListener('auth:sessionExpired', sessionExpired)
+  })
+
   it('cleans up on unmount — closes socket and cancels reconnect', () => {
     const onEvent = vi.fn()
     const { unmount } = renderHook(() => useBoardSocket(1, onEvent))
