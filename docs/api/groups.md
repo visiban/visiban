@@ -384,11 +384,11 @@ A create that arrives while the group is being deleted waits for the delete to f
 | `created_by_username` | string / null | Username of the admin who created the link (#1008). `null` if the creator's account has since been anonymized. |
 | `single_use` | boolean | `true` if the link is consumed by the first redemption (cannot be reused). |
 | `used_at` | string / null | ISO 8601 timestamp of consumption (single-use links only); `null` for multi-use or unredeemed. |
-| `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). |
+| `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). *(#2006)* An unused link with the `admin` role also reports `revoked`: it was minted before invites were capped below admin and can never be redeemed. |
 | `delivery` | string | `link` (created here and shared by an admin) or `email` (sent to one address by `POST …/invite-links/send/`). Added in 1.2. |
 
 !!! note
-    `revoked` is a real status value, but `GET /invite-links/` cannot return a link in that state — a revoked link's `is_active` is cleared and it is filtered out of the list. Once a link is revoked, it is gone from this endpoint entirely rather than kept around showing `status: "revoked"`.
+    `revoked` is a real status value, but `GET /invite-links/` cannot return a link revoked by an admin — a revoked link's `is_active` is cleared and it is filtered out of the list. Once a link is revoked, it is gone from this endpoint entirely rather than kept around showing `status: "revoked"`.
 
 ### `POST /api/v1/groups/{id}/invite-links/send/`
 > **Added in 1.2**
@@ -420,7 +420,7 @@ The response is identical whether the address belongs to an existing member, an 
 | Status | Body | Reason |
 |---|---|---|
 | `400 Bad Request` | field errors | Invalid or missing `email`, address with a line break, `expiry_days` outside `1`–`30` or `null` |
-| `400 Bad Request` | `{"code": "invite_email_cap_reached", ...}` | The group already has 50 pending emailed links (active, unexpired, unused) |
+| `400 Bad Request` | `{"code": "invite_email_cap_reached", ...}` | The group already has 50 pending emailed links (active, unexpired, unused; *(#2006)* an unusable `admin` invite does not count) |
 | `403 Forbidden` | — | Caller is not a group admin |
 | `403 Forbidden` | `{"code": "invite_email_disabled", ...}` | `INVITE_EMAIL_ENABLED=false`, or the instance runs in demo mode |
 | `429 Too Many Requests` | — | Rate limit: 10 sends/hour per user, 30/day per group (shared by all its admins), 200/day instance-wide for group invites. Requests refused for another reason, and sends the mail server rejected, don't count |

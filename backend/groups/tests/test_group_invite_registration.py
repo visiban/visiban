@@ -210,6 +210,16 @@ class GroupInviteRegistrationTests(_GroupInviteFixture, TestCase):
         self.assertIn(r.status_code, (201, 204), r.content)
         self.assertTrue(GroupMembership.objects.filter(group=self.group, user__email="ancestor@example.com").exists())
 
+    def test_pre_cap_emailed_admin_invite_is_refused_at_registration(self):
+        # The sender is a site admin on an INVITE_ONLY site with email invites
+        # on, so the admin role is the only reason to refuse (#2006).
+        link, raw = self.make_link()
+        GroupInviteLink.objects.filter(pk=link.pk).update(role=GroupInviteLink.Role.ADMIN)
+        r = self._register("adm@example.com", raw)
+        link = self._assert_refused(r, "adm@example.com", link)
+        self.assertIsNone(link.used_at)
+        self.assertEqual(r.json(), {"invite_token": ["Invalid or expired invite link."]})
+
     def test_non_string_invite_token_is_refused_as_missing(self):
         r = self.client.post(REGISTER_URL, {
             "email": "num@example.com", "password1": PASSWORD, "password2": PASSWORD, "invite_token": 12345,
@@ -679,3 +689,34 @@ class GroupJoinPreviewCanRegisterTests(_GroupInviteFixture, TestCase):
                 except InviteTokenError:
                     accepted = False
                 self.assertEqual(preview, accepted)
+
+
+class ReservedAdminInviteConfirmationTests(_GroupInviteFixture, TestCase):
+    """A reserved pre-cap admin invite grants nothing at email confirmation (#2006)."""
+
+    INVITED = "reserved.admin@example.org"
+
+    def setUp(self):
+        cache.clear()
+        self.make_group()
+
+    def test_reserved_admin_invite_is_released_not_granted(self):
+        from allauth.account.models import EmailAddress
+
+        from groups.invite_registration import redeem_reserved_group_invites
+
+        link, _raw = GroupInviteLink.generate(
+            group=self.group, created_by=self.admin, role=GroupInviteLink.Role.MEMBER,
+            expires_at=timezone.now() + timedelta(days=7), single_use=True,
+            delivery=GroupInviteLink.Delivery.EMAIL, recipient_email=self.INVITED,
+        )
+        user = User.objects.create_user(username="resadmin", password="p", email=self.INVITED)
+        address = EmailAddress.objects.create(user=user, email=self.INVITED, verified=True, primary=True)
+        GroupInviteLink.objects.filter(pk=link.pk).update(role=GroupInviteLink.Role.ADMIN, reserved_for=user)
+        with override_settings(INVITE_EMAIL_ENABLED=True):
+            granted = redeem_reserved_group_invites(user, address)
+        self.assertEqual(granted, 0)
+        self.assertFalse(GroupMembership.objects.filter(group=self.group, user=user).exists())
+        link.refresh_from_db()
+        self.assertIsNone(link.used_at)
+        self.assertIsNone(link.reserved_for_id)

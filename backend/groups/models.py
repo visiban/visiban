@@ -512,8 +512,15 @@ class GroupInviteLink(models.Model):
         GroupInviteLink uses is_active=False for revocation (no revoked_at
         timestamp), unlike the site InviteLink model which has revoked_at.
         Precedence: revoked > used > expired > pending.
+
+        An unused admin-role link reports ``revoked`` (#2006): no invite
+        grants admin any more, so one minted before the cap can never redeem
+        and must not look pending. A used one keeps ``used``: it did join
+        someone, and the audit trail should say so.
         """
         if not self.is_active:
+            return "revoked"
+        if self.role == self.Role.ADMIN and not self.used_at:
             return "revoked"
         if self.used_at:
             return "used"

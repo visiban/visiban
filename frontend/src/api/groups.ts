@@ -41,8 +41,8 @@ export const listInviteLinks = (groupId: number) =>
   client.get<GroupInviteLink[]>(`/api/v1/groups/${groupId}/invite-links/`).then((r) => r.data);
 
 /** A shareable group link never grants admin and always expires (#1727):
- *  `expiry_days` is 1-30, default 7, and `null` is refused. Admin is granted
- *  only by an emailed invite (`sendInviteLinkEmail`). */
+ *  `expiry_days` is 1-30, default 7, and `null` is refused. No invite,
+ *  shareable or emailed, grants admin (#2006). */
 export const createInviteLink = (
   groupId: number,
   data: { name?: string; role?: "member" | "collaborator" | "viewer"; expiry_days?: number; single_use?: boolean },
@@ -53,7 +53,7 @@ export const createInviteLink = (
 
 export const sendInviteLinkEmail = (
   groupId: number,
-  data: { email: string; role?: "admin" | "member" | "collaborator" | "viewer" },
+  data: { email: string; role?: "member" | "collaborator" | "viewer" },
 ) =>
   client
     .post<InviteEmailSent>(`/api/v1/groups/${groupId}/invite-links/send/`, data)

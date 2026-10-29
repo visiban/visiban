@@ -1560,7 +1560,8 @@ class GroupViewSet(viewsets.ModelViewSet):
                 is_active=True,
                 used_at__isnull=True,
                 expires_at__gt=timezone.now(),
-            ).count()
+            # A pre-#2006 admin invite can never redeem, so it holds no slot.
+            ).exclude(role=GroupInviteLink.Role.ADMIN).count()
             if pending_emailed >= GROUP_MAX_PENDING_EMAILED_INVITES:
                 return Response(
                     {

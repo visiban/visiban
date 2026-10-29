@@ -16,7 +16,6 @@ type Role = "admin" | "member" | "collaborator" | "viewer";
 type ExpiryDays = 1 | 7 | 30;
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: "admin", label: "Admin" },
   { value: "member", label: "Member" },
   { value: "collaborator", label: "Collaborator" },
   { value: "viewer", label: "Viewer" },
@@ -81,8 +80,8 @@ interface Props {
    *  On an invite-only site only a site admin's emailed invite lets a new
    *  person create an account (#1445). */
   senderIsSiteAdmin?: boolean;
-  /** Role choices; defaults to all four (the site surface). The board and group
-   *  surfaces pass Member/Collaborator/Viewer — a board or group invite never grants Admin. */
+  /** Role choices; defaults to Member/Collaborator/Viewer: no invite grants Admin
+   *  (#2006), so the default is safe for every surface. */
   roleOptions?: { value: Role; label: string }[];
   /** The "or create a shareable link" divider under the form. Hosts pass
    *  their `allowShareableLinks`, so it shows only where links can be created

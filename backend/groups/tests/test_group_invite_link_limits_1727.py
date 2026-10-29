@@ -4,11 +4,12 @@ A shareable link is a bearer credential: whoever holds it gets its grant. A
 group admin inherits board admin on every board in the subtree, so the link
 create endpoint refuses ``admin`` and refuses a never-expiring lifetime, the
 same rule board invite links follow. Emailed invites, which are bound to one
-recipient address (#1678), are capped the same way (#2006). Validation is at creation only:
-links minted before the change are revoked or capped by migration 0023 (#1940).
+recipient address (#1678), are capped the same way (#2006). Validation is at creation; redemption also refuses an admin invite (#2006).
+Shareable links minted before the cap are revoked or capped by migration 0023 (#1940).
 """
 import re
 from datetime import timedelta
+from unittest import mock
 
 from django.core import mail
 from django.core.cache import cache
@@ -201,7 +202,8 @@ class PreExistingGroupInviteLinkTests(_Fixture, TestCase):
         row = next(item for item in r.json() if item["id"] == link.pk)
         self.assertEqual(row["role"], "admin")
         self.assertIsNone(row["expires_at"])
-        self.assertEqual(row["status"], "pending")
+        # It can never redeem, so it no longer looks pending (#2006).
+        self.assertEqual(row["status"], "revoked")
 
 
 @override_settings(
@@ -285,3 +287,19 @@ class EmailedGroupInviteAdminCapTests(_Fixture, TestCase):
         link, _raw = self.legacy_emailed_admin_invite()
         link.refresh_from_db()
         self.assertEqual(group_link_registration_refusal(link), "invite_invalid")
+
+    def test_pre_cap_emailed_admin_invite_reports_revoked_and_holds_no_cap_slot(self):
+        link, _raw = self.legacy_emailed_admin_invite()
+        link.refresh_from_db()
+        self.assertEqual(link.status, "revoked")
+        listed = {row["id"]: row["status"] for row in self.client.get(self.url).json()}
+        self.assertEqual(listed[link.pk], "revoked")
+        with mock.patch("groups.views.GROUP_MAX_PENDING_EMAILED_INVITES", 1):
+            r = self.send(role="member")
+        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.content)
+
+    def test_used_admin_invite_keeps_used_status(self):
+        link, _raw = self.legacy_emailed_admin_invite()
+        GroupInviteLink.objects.filter(pk=link.pk).update(used_at=timezone.now())
+        link.refresh_from_db()
+        self.assertEqual(link.status, "used")
