@@ -3014,10 +3014,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rule-13-a-shareable-invite-link-never-grants-admin-and-always-expires" class="md-nav__link">
+  <a href="#rule-13-an-invite-never-grants-admin-and-a-shared-link-always-expires" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rule 13: A shareable invite link never grants admin and always expires
+        Rule 13: An invite never grants admin, and a shared link always expires
       
     </span>
   </a>
@@ -4385,7 +4385,7 @@ re-checks.</p>
 <tr>
 <td>Group invite links</td>
 <td><code>groups/invite_registration.py</code> <code>_sender_still_admits</code>; <code>groups/views.py</code> <code>sender_is_group_admin</code>, <code>_revoke_lapsed_admin_invite_links</code>; <code>groups/views.py</code> <code>_revoke_lapsed_subtree_invite_links</code> (re-parent); <code>groups/models.py</code> <code>revoke_invite_links_of_deleted_creator</code> (user delete); <code>accounts/admin_views.py</code> <code>AdminUserDeactivateView._revoke_group_invite_links</code></td>
-<td>Sender standing is evaluated at preview and redemption through <code>visiban.authorization.invite_creator_is_valid</code> (the group rule is <code>sender_is_group_admin</code>), and at registration also <code>sender_may_admit_accounts</code>; links are revoked when the sender is deactivated (including from the Django admin user form, <code>VisibanUserAdmin.save_model</code>), deleted, or their admin rights lapse (including by the group being re-parented; links lapsed before #1513 are backfilled by migration <code>groups/0017</code>; shareable admin links minted before #1727 are revoked by migration <code>groups/0023</code>, and <code>JoinGroupView</code> refuses any shareable admin link, #1940) (<code>_revoke_lapsed_admin_invite_links</code> is revocation housekeeping, not the access decision; see <a href="../authorization-entry-points/#advisory-copies-of-the-creator-rule">advisory copies</a>)</td>
+<td>Sender standing is evaluated at preview and redemption through <code>visiban.authorization.invite_creator_is_valid</code> (the group rule is <code>sender_is_group_admin</code>), and at registration also <code>sender_may_admit_accounts</code>; links are revoked when the sender is deactivated (including from the Django admin user form, <code>VisibanUserAdmin.save_model</code>), deleted, or their admin rights lapse (including by the group being re-parented; links lapsed before #1513 are backfilled by migration <code>groups/0017</code>; shareable admin links minted before #1727 are revoked by migration <code>groups/0023</code>, and <code>JoinGroupView</code> refuses any admin link, #1940, #2006) (<code>_revoke_lapsed_admin_invite_links</code> is revocation housekeeping, not the access decision; see <a href="../authorization-entry-points/#advisory-copies-of-the-creator-rule">advisory copies</a>)</td>
 </tr>
 <tr>
 <td>JSON, CSV and Trello import</td>
@@ -5034,7 +5034,7 @@ arrives by any other route, any non-API write.</p>
 <tr>
 <td>Group invite links, link and email (REST)</td>
 <td><code>groups/serializers.py</code> <code>GroupInviteLinkCreateSerializer</code>, <code>GroupInviteLinkEmailSerializer</code></td>
-<td>A <code>ChoiceField</code>: over <code>GroupInviteLink.Role.choices</code> for an emailed invite, and over <code>GROUP_INVITE_LINK_ROLE_CHOICES</code> (every role but <code>admin</code>, Rule 13) for a shareable link</td>
+<td>A <code>ChoiceField</code> over <code>GROUP_INVITE_LINK_ROLE_CHOICES</code> (every role but <code>admin</code>, Rule 13) in both serializers, for a shareable link and for an emailed invite (#2006)</td>
 </tr>
 <tr>
 <td>Invite redemption at registration</td>
@@ -5292,22 +5292,23 @@ with call counts, owner, all-content access, group-inherited and overridden
 roles, non-member <code>404</code>, unset and invalid <code>min_role</code>, and
 <code>AnalyticsExtensionsEntryPointTests</code>, which scans the backend for any reference
 to <code>ANALYTICS_EXTENSIONS</code> outside <code>boards/hooks.py</code> and <code>boards/permissions.py</code>).</p>
-<h2 id="rule-13-a-shareable-invite-link-never-grants-admin-and-always-expires">Rule 13: A shareable invite link never grants admin and always expires<a class="headerlink" href="#rule-13-a-shareable-invite-link-never-grants-admin-and-always-expires" title="Permanent link">&para;</a></h2>
-<p><strong>Rule.</strong> An invite link that is shared rather than sent to one address, on a
-board or a group, cannot grant the <code>admin</code> role and has an expiry of at most 30
-days. A request for <code>admin</code> or for no expiry is refused with <code>400</code>, not
-narrowed. An emailed invite also always expires (at most 30 days); on a group
-it may grant <code>admin</code>, because it is bound to one recipient address (#1678). The
+<h2 id="rule-13-an-invite-never-grants-admin-and-a-shared-link-always-expires">Rule 13: An invite never grants admin, and a shared link always expires<a class="headerlink" href="#rule-13-an-invite-never-grants-admin-and-a-shared-link-always-expires" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> An invite link, shared or emailed, on a board or a group, cannot grant
+the <code>admin</code> role and has an expiry of at most 30 days. A request for <code>admin</code> or
+for no expiry is refused with <code>400</code>, not narrowed. Binding an emailed invite to
+one address (#1678) does not make admin acceptable: a forwarded or misdirected
+email still mints a group admin (#2006). The
 limits are checked when a link is created. Group links created before the limits
 applied were handled once by migration <code>groups/0023</code> (#1940): unused shareable
 admin links were revoked and unused never-expiring ones were given a 7-day
 expiry. A legacy link already expiring more than 30 days out keeps its expiry,
-and <code>JoinGroupView</code> refuses any shareable admin link (#1727, #1940).</p>
+and <code>JoinGroupView</code> refuses any shareable admin link (#1727, #1940). An emailed
+group admin invite minted before #2006 is not revoked by a migration; it is
+refused at preview, join and registration instead (it expires within 30 days).</p>
 <p><strong>Why.</strong> A shareable link is a bearer credential: it can be forwarded or pasted
 anywhere, and whoever holds it gets its grant. A group admin is board admin on
 every board in the group's subtree, so an admin link that never expires is a
-standing, transferable grant of that whole subtree. Binding to an address
-(emailed invites) is what makes an admin grant by invite acceptable; expiry
+standing, transferable grant of that whole subtree. Group admin is granted by changing a member's role, never by invite; expiry
 bounds how long a leaked link is useful.</p>
 <table>
 <thead>
@@ -5336,12 +5337,17 @@ bounds how long a leaked link is useful.</p>
 <tr>
 <td>Group emailed invite (REST)</td>
 <td><code>groups/views.py</code> <code>GroupViewSet.invite_link_send</code></td>
-<td><code>groups/serializers.py</code> <code>GroupInviteLinkEmailSerializer</code>: <code>expiry_days</code> from 1 to <code>GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS</code> (30), default 7; <code>admin</code> allowed, the invite being bound to its recipient (<code>GroupInviteLink.generate</code> refuses an emailed invite without an address)</td>
+<td><code>groups/serializers.py</code> <code>GroupInviteLinkEmailSerializer</code>: <code>role</code> over <code>GROUP_INVITE_LINK_ROLE_CHOICES</code> (no <code>admin</code>, #2006); <code>expiry_days</code> from 1 to <code>GROUP_INVITE_EMAIL_MAX_EXPIRY_DAYS</code> (30), default 7; <code>groups/models.py</code> <code>GroupInviteLink.generate</code> refuses <code>admin</code> for any delivery, and an emailed invite without an address</td>
 </tr>
 <tr>
-<td>Group shareable admin link redemption (REST)</td>
+<td>Group admin invite redemption (REST)</td>
 <td><code>groups/views.py</code> <code>JoinGroupView.get</code> (preview), <code>JoinGroupView.post</code> (join)</td>
-<td>Both refuse a link with <code>delivery</code> <code>link</code> and role <code>admin</code> with <code>404</code>, the same as a revoked link, so one reactivated or written by a script grants nothing (#1940); an emailed admin invite still previews and joins. Migration <code>groups/0023</code> revokes the ones that existed at upgrade</td>
+<td>Both refuse any link with role <code>admin</code>, shareable or emailed, with <code>404</code>, the same as a revoked link, so one reactivated, written by a script or emailed before #2006 grants nothing (#1940, #2006). Migration <code>groups/0023</code> revokes the shareable ones that existed at upgrade</td>
+</tr>
+<tr>
+<td>Group admin invite redemption (registration)</td>
+<td><code>groups/invite_registration.py</code> <code>group_link_registration_refusal</code> (validation, and the grant at email confirmation)</td>
+<td>An <code>admin</code> role answers <code>invite_invalid</code>, so a pre-#2006 emailed admin invite cannot create an account into the group either (#2006)</td>
 </tr>
 <tr>
 <td>Changing an existing link</td>
@@ -5364,11 +5370,10 @@ bounds how long a leaked link is useful.</p>
 not covered: they grant no board or group role, only registration, and only a
 site admin creates them.</p>
 <p>Coverage: <code>groups/tests/test_group_invite_link_limits_1727.py</code> (admin refused on
-a shareable group link and in <code>generate</code>, emailed invite still grants admin, explicit <code>null</code>,
+a shareable group link and in <code>generate</code>, emailed <code>admin</code> refused with <code>400</code> and nothing minted or sent, member still works, a pre-#2006 emailed admin invite refused at join, preview and registration, explicit <code>null</code>,
 over-30, zero and negative expiry refused, omitted expiry defaults to 7 days,
 <code>PATCH</code>/<code>PUT</code> answer <code>405</code>, a pre-existing shareable admin link is refused at
-join and preview with <code>404</code>, and an emailed admin invite still previews and
-joins), <code>groups/tests/test_group_invite_legacy_link_revoke_1940.py</code> and
+join and preview with <code>404</code>), <code>groups/tests/test_group_invite_legacy_link_revoke_1940.py</code> and
 <code>groups/tests/test_group_invite_legacy_link_revoke_executor_1940.py</code> (migration
 <code>groups/0023</code> revokes unused shareable admin links and caps never-expiring
 ones, directly and under <code>migrate</code>), <code>groups/tests/test_groups.py</code>

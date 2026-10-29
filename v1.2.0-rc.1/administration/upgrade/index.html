@@ -4863,20 +4863,21 @@ role. Creating one (<code>POST /api/v1/groups/{id}/invite-links/</code> and the 
 follows the same rule as board invite links:</p>
 <ul>
 <li><strong><code>role: "admin"</code> is refused</strong> with <code>400</code>. A group admin is board admin on every board in
-  the group and its subgroups, so admin is now granted only by an
-  <a href="../../features/groups/#emailing-an-invite-link">emailed invite</a>, which works only for the
-  address it was sent to, or by changing a member's role.</li>
+  the group and its subgroups, so no invite grants admin any more, shareable or
+  <a href="../../features/groups/#emailing-an-invite-link">emailed</a>. Change a member's role after they
+  join.</li>
 <li><strong>Every new link expires.</strong> <code>expiry_days</code> is 1 to 30 and defaults to 7 when omitted;
   <code>null</code> (never expires) and values over 30 are refused with <code>400</code>. The form offers 1, 7 or
   30 days and no longer offers <strong>Never</strong>.</li>
 </ul>
-<p>Emailed invites are unchanged. <strong>Upgrading also cleans up links created earlier</strong>
+<p>Emailed invites cannot grant admin either. An emailed invite with the <code>admin</code> role that was
+sent before the upgrade is not revoked by the migration but is refused when opened, joined or
+used to register; send a new one as a member. Group admins who joined through an emailed admin invite before the upgrade keep their role; review your group admins if that matters to you. <strong>Upgrading also cleans up links created earlier</strong>
 (migration <code>groups.0023</code>, #1940), so no operator step is needed. Only shareable links that are
 still active and have not been used are touched:</p>
 <ul>
 <li>An existing <strong>admin</strong> link is <strong>revoked</strong>. It is not downgraded to member. To give someone
-  admin, <a href="../../features/groups/#emailing-an-invite-link">email them an invite</a> or change
-  their role.</li>
+  admin, change their role after they join.</li>
 <li>An existing link with <strong>no expiry</strong> now expires <strong>7 days after the upgrade</strong>. Create a
   fresh link if you need one beyond that, up to 30 days.</li>
 </ul>
