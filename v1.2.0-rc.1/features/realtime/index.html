@@ -4155,7 +4155,7 @@
 <li>🟡 <strong>Connecting…</strong> — initial connection attempt in progress; amber pill</li>
 <li>🔴 <strong>Offline</strong> — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect</li>
 </ul>
-<p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Offline</strong>.</p>
+<p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Offline</strong>. If the server cannot confirm your access because of a temporary server problem, such as the database being briefly unreachable, it closes the connection with code <code>1011</code> instead, and the client keeps reconnecting until the server recovers (since 1.2).</p>
 <p>After you log out or change your password, open board and group tabs show the connection indicator as <strong>Offline</strong> within about 30–40 seconds. Reload the page to reconnect. This includes the tab you changed your password in. Logging out in one browser does not affect tabs signed in through another session. See <a href="../../api/websockets/#credential-revocation-since-12">Credential revocation</a>.</p>
 <h2 id="event-types">Event types<a class="headerlink" href="#event-types" title="Permanent link">&para;</a></h2>
 <p>Board-channel events fall into a few categories:</p>

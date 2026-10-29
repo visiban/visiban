@@ -4131,10 +4131,13 @@ client resyncs or replays the change feed. A lost frame that the <strong>consume
 not, because no client-side resync runs consumer code. <code>member.removed</code> is that kind of
 frame: it closes the removed user's own socket. So it is only the fast path for
 eviction. <code>BoardConsumer</code> and <code>GroupConsumer</code> also re-check access before they forward
-any frame (<code>_verify_access</code>, cached per socket for <code>ACCESS_RECHECK_SECONDS</code> plus up to
-<code>ACCESS_RECHECK_JITTER_SECONDS</code> of jitter, so about 7 s at most). A check that raises
-fails closed. They use the same
-predicate as <code>connect()</code>, and they close with <code>4003</code> when access is gone (#1477). See
+any frame (<code>_access_close_code</code>, cached per socket for <code>ACCESS_RECHECK_SECONDS</code> plus up to
+<code>ACCESS_RECHECK_JITTER_SECONDS</code> of jitter, so about 7 s at most). They use the same
+predicate as <code>connect()</code>, and they close with <code>4003</code> when access is gone (#1477). A check
+that raises fails closed too: the frame is dropped and the socket closes with <code>1011</code>,
+which clients reconnect on, so with database-backed sessions (the default) <code>4003</code> means a
+definitive denial (#2003). Cache-only session backends are a known exception: a cache
+outage reads as a revoked session and closes with <code>4003</code> (#2014). See
 <a href="../../api/websockets/#access-re-check-and-eviction">Access re-check and eviction</a>.</p>
 <p>If you add an event that the consumer acts on, and especially one that revokes
 something, it needs the same backstop. Make sure the consumer reaches a correct state on

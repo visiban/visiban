@@ -4360,12 +4360,12 @@ re-checks.</p>
 <tr>
 <td>WebSocket (board)</td>
 <td><code>boards/consumers.py</code> <code>BoardConsumer</code></td>
-<td>Periodic and per-frame re-check: <code>_refresh_role</code> calls <code>load_live_ws_user</code> (<code>authorize_account</code> on a fresh row, live credential) and <code>_lookup_role</code> resolves the current role with <code>get_board_role</code>; a failed check closes with 4003</td>
+<td>Periodic and per-frame re-check: <code>_refresh_role</code> calls <code>load_live_ws_user</code> (<code>authorize_account</code> on a fresh row, live credential) and <code>_lookup_role</code> resolves the current role with <code>get_board_role</code>; a denial closes with 4003, a check that raises drops the frame and closes with 1011 (reconnectable)</td>
 </tr>
 <tr>
 <td>WebSocket (group)</td>
 <td><code>groups/consumers.py</code> <code>GroupConsumer</code></td>
-<td>Periodic re-check: <code>_refresh_access</code> calls <code>load_live_ws_user</code>; <code>_has_access</code> uses <code>user_has_group_access</code>, the predicate REST group endpoints gate through</td>
+<td>Periodic re-check: <code>_refresh_access</code> calls <code>load_live_ws_user</code>; <code>_has_access</code> uses <code>user_has_group_access</code>, the predicate REST group endpoints gate through; a denial closes with 4003, a check that raises drops the frame and closes with 1011 (reconnectable)</td>
 </tr>
 <tr>
 <td>Site invite links</td>
