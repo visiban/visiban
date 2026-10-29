@@ -73,8 +73,12 @@ class CrudToolsTestCase(McpTestCase):
         payload = _parse_sse(body)
         self.assertNotIn("error", payload, payload)
         result = payload["result"]
-        self.assertFalse(result["isError"], result)
-        return result["structuredContent"]["result"]
+        structured = result["structuredContent"]["result"]
+        # The envelope contract (#2004), checked on every call any test makes:
+        # isError is true exactly when the payload is a tool-domain error.
+        is_domain_error = isinstance(structured, dict) and "error" in structured
+        self.assertIs(result["isError"], is_domain_error, result)
+        return structured
 
     def _add_member(self, role):
         user = _make_user(f"{role}-user")
@@ -535,21 +539,24 @@ class CreateCardTests(CrudToolsTestCase):
             self.assertEqual(results[0]["error"]["code"], "permission_denied", role)
         self.assertFalse(Card.objects.filter(title__startswith="Denied").exists())
 
-    def test_assignee_email_argument_is_rejected(self):
+    def test_removed_assignee_email_argument_is_silently_ignored(self):
+        # #2004: `assignee_email` (a 1.2 pre-release argument) is no longer
+        # in the input schema. mcp 2.3.0 builds the argument model with
+        # pydantic's default extra="ignore", so an unknown argument is
+        # dropped, not rejected: the card is written WITHOUT an assignee.
+        # docs/api/mcp.md (User fields) documents this; if an SDK bump starts
+        # rejecting unknown arguments, this test fails and the doc must change.
         member = _make_user("email-arg-member", email="email-arg@example.com")
         _make_membership(self.board, member, role=BoardMembership.Role.MEMBER)
-        for value in ("email-arg@example.com", ""):
-            result = self._call(
-                "create_card", self.write_token, board_id=self.board.id,
-                column_id=self.column.id, swimlane_id=self.swimlane.id,
-                title="Old argument", assignee_email=value,
-            )
-            self.assertEqual(result["error"]["code"], "validation_error", value)
-            self.assertEqual(
-                result["error"]["errors"],
-                {"assignee_email": ["This argument was replaced by `assignee` (a username)."]},
-            )
-        self.assertFalse(Card.objects.filter(title="Old argument").exists())
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id,
+            title="Old argument", assignee_email="email-arg@example.com",
+        )
+        self.assertNotIn("error", result)
+        self.assertIsNone(result["assignee"])
+        card = Card.objects.get(title="Old argument")
+        self.assertIsNone(card.assignee_id)
 
     def test_unknown_label_is_a_validation_error(self):
         result = self._call(
@@ -952,27 +959,24 @@ class UpdateCardTests(CrudToolsTestCase):
         result = self._call("update_card", self.write_token, card_id=card.id, assignee="")
         self.assertIsNone(result["assignee"])
 
-    def test_assignee_email_argument_is_rejected(self):
+    def test_removed_assignee_email_argument_is_silently_ignored(self):
+        # #2004: see CreateCardTests' test of the same name. The other fields
+        # are applied and the assignee is left untouched, even for "" (which
+        # `assignee` would treat as "unassign").
         member = _make_user("update-email-arg", email="update-email-arg@example.com")
         _make_membership(self.board, member, role=BoardMembership.Role.MEMBER)
         card = _make_card(self.column, self.swimlane, title="Keep", assignee=self.user)
-        for value in ("update-email-arg@example.com", ""):
-            result = self._call(
-                "update_card", self.write_token, card_id=card.id, title="Changed",
-                assignee_email=value,
-            )
-            self.assertEqual(
-                result["error"],
-                {
-                    "code": "validation_error",
-                    "errors": {
-                        "assignee_email": ["This argument was replaced by `assignee` (a username)."],
-                    },
-                },
-            )
-        card.refresh_from_db()
-        self.assertEqual(card.title, "Keep")
-        self.assertEqual(card.assignee_id, self.user.id)
+        for i, value in enumerate(("update-email-arg@example.com", "")):
+            with self.subTest(value=value):
+                result = self._call(
+                    "update_card", self.write_token, card_id=card.id, title=f"Changed {i}",
+                    assignee_email=value,
+                )
+                self.assertNotIn("error", result)
+                self.assertEqual(result["assignee"]["username"], self.user.username)
+                card.refresh_from_db()
+                self.assertEqual(card.title, f"Changed {i}")
+                self.assertEqual(card.assignee_id, self.user.id)
 
     def test_non_writer_roles_denied_before_assignee_lookup(self):
         assignable = _make_user("update-assignable", email="update-assignable@example.com")
@@ -1369,3 +1373,181 @@ class DemoModeTests(CrudToolsTestCase):
         self.assertEqual(card.title, "Untouched")
         self.assertIsNone(card.archived_at)
         self.assertFalse(Card.objects.filter(title="Nope").exists())
+
+
+class ToolResultEnvelopeTests(CrudToolsTestCase):
+    """Pins the wire envelope of a tool result on the pinned SDK (#2004).
+
+    A tool-domain failure is ``isError: true`` with the ``{"error": {...}}``
+    payload under ``structuredContent.result`` and as the one JSON text block;
+    a success is ``isError: false``. Before #2004 a failure was
+    ``isError: false``. An SDK bump that changes any part of this (drops the
+    structured payload from an error result, re-renders the text block,
+    changes the advertised output schema) must fail here, not in a client.
+    """
+
+    def _wire(self, name, token, **arguments):
+        status, body = self._tools_call(name, token, arguments)
+        self.assertEqual(status, 200, body)
+        payload = _parse_sse(body)
+        self.assertNotIn("error", payload, payload)
+        return payload["result"]
+
+    def _assert_error_envelope(self, result, code):
+        from mcp.server.mcpserver.utilities.func_metadata import _convert_to_content
+
+        self.assertIs(result["isError"], True, result)
+        error = result["structuredContent"]["result"]
+        self.assertEqual(set(result["structuredContent"]), {"result"})
+        self.assertEqual(set(error), {"error"})
+        self.assertEqual(error["error"]["code"], code)
+        # Exactly one text block, byte-identical to what the SDK renders for
+        # the same dict returned as a success, so a client parsing the text
+        # sees the same JSON it saw before the isError flip.
+        self.assertEqual(len(result["content"]), 1, result)
+        self.assertEqual(result["content"][0]["type"], "text")
+        self.assertEqual(result["content"][0]["text"], _convert_to_content(error)[0].text)
+        self.assertEqual(json.loads(result["content"][0]["text"]), error)
+
+    def test_domain_error_is_is_error_true_with_structured_payload(self):
+        result = self._wire("list_columns", self.raw_token, board_id=999999)
+        self._assert_error_envelope(result, "board_not_found")
+        self.assertEqual(
+            result["structuredContent"]["result"]["error"],
+            {"code": "board_not_found", "detail": "No Board matches the given query."},
+        )
+
+    def test_structured_fields_survive_on_a_wip_limit_error(self):
+        # The fields an agent acts on (counters, column name) must not be
+        # lost to the isError flip: the reason tools return rather than raise.
+        self.column.wip_limit = 1
+        self.column.save(update_fields=["wip_limit"])
+        _make_card(self.column, self.swimlane, title="Fills it")
+        result = self._wire(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="Over",
+        )
+        self._assert_error_envelope(result, "wip_limit_exceeded")
+        error = result["structuredContent"]["result"]["error"]
+        self.assertEqual(error["wip_limit"], 1)
+        self.assertEqual(error["current_count"], 1)
+        self.assertEqual(error["column_name"], "Backlog")
+
+    def test_gate_denials_use_the_same_envelope(self):
+        # missing_scope comes from server.py's write gate, not tools.py.
+        read_only = self._pat(self.user, scopes=(SCOPE_MCP_READ,))
+        result = self._wire(
+            "create_card", read_only, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="No scope",
+        )
+        self._assert_error_envelope(result, "missing_scope")
+
+    def test_validation_error_uses_the_same_envelope(self):
+        result = self._wire(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="Bad label",
+            labels=["does-not-exist"],
+        )
+        self._assert_error_envelope(result, "validation_error")
+
+    def test_list_cards_error_uses_the_same_envelope(self):
+        # list_cards builds its own CallToolResult on the truncated path; its
+        # error path must still go through the envelope.
+        result = self._wire("list_cards", self.raw_token, board_id=999999)
+        self._assert_error_envelope(result, "board_not_found")
+
+    def test_success_is_is_error_false(self):
+        for name, arguments in (
+            ("list_boards", {}),
+            ("list_columns", {"board_id": self.board.id}),
+            ("list_cards", {"board_id": self.board.id, "include_meta": True}),
+        ):
+            with self.subTest(tool=name):
+                result = self._wire(name, self.raw_token, **arguments)
+                self.assertIs(result["isError"], False, result)
+                self.assertNotIn(
+                    "error",
+                    result["structuredContent"]["result"]
+                    if isinstance(result["structuredContent"]["result"], dict) else {},
+                )
+
+    def test_schema_level_argument_failure_is_unstructured(self):
+        # A mistyped argument is rejected by the SDK before any Visiban code
+        # runs: isError true, text only, no structuredContent. Documented in
+        # docs/api/mcp.md (Tool errors) so clients do not expect a `code`.
+        result = self._wire("list_columns", self.raw_token, board_id="not-a-number")
+        self.assertIs(result["isError"], True)
+        self.assertIsNone(result.get("structuredContent"))
+        self.assertIn("board_id", result["content"][0]["text"])
+
+    def test_advertised_output_schema_is_unchanged(self):
+        # Registering tools as Annotated[CallToolResult, list[dict] | dict]
+        # must advertise exactly the schema a plain `-> list[dict] | dict`
+        # tool does, so the #2004 change is invisible in tools/list.
+        from mcp.server.mcpserver.utilities.func_metadata import func_metadata
+
+        def plain() -> list[dict] | dict:  # pragma: no cover - never called
+            return {}
+
+        expected = {k: v for k, v in func_metadata(plain).output_schema.items() if k != "title"}
+        status, body = self.client_.post(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, token=self.raw_token,
+        )
+        self.assertEqual(status, 200)
+        tools_ = _parse_sse(body)["result"]["tools"]
+        self.assertTrue(tools_)
+        for tool in tools_:
+            with self.subTest(tool=tool["name"]):
+                schema = dict(tool["outputSchema"])
+                # The title is derived from the function name, as before.
+                self.assertEqual(schema.pop("title"), f"{tool['name']}Output")
+                self.assertEqual(schema, expected)
+
+    def test_removed_assignee_email_is_not_in_the_input_schema(self):
+        status, body = self.client_.post(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, token=self.raw_token,
+        )
+        self.assertEqual(status, 200)
+        schemas = {t["name"]: t["inputSchema"] for t in _parse_sse(body)["result"]["tools"]}
+        for name in ("create_card", "update_card"):
+            with self.subTest(tool=name):
+                self.assertIn("assignee", schemas[name]["properties"])
+                self.assertNotIn("assignee_email", schemas[name]["properties"])
+                # No additionalProperties: false, which is why the SDK
+                # ignores an unknown argument rather than rejecting it.
+                self.assertNotIn("additionalProperties", schemas[name])
+
+    def test_sdk_client_sees_is_error_and_structured_content(self):
+        """Drive the server with the SDK's own client, as an agent would.
+
+        The raw JSON-RPC tests above pin the wire; this pins what the SDK's
+        ``Client`` hands its caller, including that its client-side output
+        schema validation does not reject an error result.
+        """
+        import httpx2
+        from asgiref.sync import async_to_sync
+        from mcp import Client
+        from mcp.client.streamable_http import streamable_http_client
+
+        app = self.client_.app
+        token = self.raw_token
+
+        async def run():
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app),
+                base_url="http://localhost",
+                headers={"authorization": f"Bearer {token}"},
+            ) as http:
+                async with Client(
+                    streamable_http_client("http://localhost/mcp", http_client=http),
+                ) as client:
+                    failed = await client.call_tool("list_columns", {"board_id": 999999})
+                    ok = await client.call_tool("list_columns", {"board_id": self.board.id})
+            return failed, ok
+
+        failed, ok = async_to_sync(run)()
+        self.assertIs(failed.is_error, True)
+        self.assertEqual(failed.structured_content["result"]["error"]["code"], "board_not_found")
+        self.assertEqual(json.loads(failed.content[0].text), failed.structured_content["result"])
+        self.assertIs(ok.is_error, False)
+        self.assertEqual(len(ok.structured_content["result"]), 2)
