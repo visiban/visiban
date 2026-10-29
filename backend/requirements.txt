@@ -6,6 +6,10 @@ daphne==4.2.2
 # ujson>=4.0.2 (unbounded), so without a floor the OSV scanner resolves the vulnerable
 # 5.9.0. autobahn imposes no upper bound, so >=5.13.0 is safe.
 ujson>=5.13.0
+# Floor autobahn to clear CVE-2026-116579 / GHSA-pjh6-c8mg-3x7m (fixed in 26.10.1). Pulled
+# transitively via daphne, which does not constrain it, so without a floor the lock resolves
+# the vulnerable 26.7.1. No upper bound is needed: daphne imposes none.
+autobahn>=26.10.1
 channels==4.3.2
 channels-redis==4.3.0
 # Pin redis-py below 6: redis-py 8.0.0 enforces a 5s socket read timeout on
