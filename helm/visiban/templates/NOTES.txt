@@ -131,3 +131,12 @@ Scheduled jobs (CronJobs, times in {{ .Values.scheduledJobs.timeZone | default "
 {{- end }}
   List them: kubectl get cronjobs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=scheduler
 {{- end }}
+
+{{- if .Values.redis }}
+
+WARNING: the top-level `redis:` values key is deprecated (#2002). Chart 1.1 used
+it for the Redis subchart; 1.2 renamed the block to `valkey:`. `redis.enabled` is
+still honored as an alias ({{ if include "visiban.valkeyEnabled" . }}bundled Valkey is ON{{ else }}bundled Valkey is OFF, using externalRedis{{ end }}),
+but it will be removed in 1.3 or later. Replace it with `valkey.enabled`.
+See "Helm: values key redis renamed to valkey" in docs/administration/upgrade.md.
+{{- end }}

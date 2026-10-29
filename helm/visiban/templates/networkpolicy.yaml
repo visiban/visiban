@@ -120,7 +120,7 @@ spec:
         - port: 5432
           protocol: TCP
 {{- end }}
-{{- if .Values.valkey.enabled }}
+{{- if include "visiban.valkeyEnabled" . }}
 ---
 # Allow the backend pod (app container and its migrate init container) → Valkey
 apiVersion: networking.k8s.io/v1
@@ -224,7 +224,7 @@ spec:
         - port: 5432
           protocol: TCP
     {{- end }}
-    {{- if .Values.valkey.enabled }}
+    {{- if include "visiban.valkeyEnabled" . }}
     - to:
         - podSelector:
             matchLabels:

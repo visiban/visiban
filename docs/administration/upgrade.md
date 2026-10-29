@@ -1320,9 +1320,46 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
         The two `--set` flags are needed only with `--reuse-values`; see
         "Helm: bundled Valkey is no longer the Bitnami subchart" below.
 
-        If you previously set `redis.enabled: false` and pointed `externalRedis.url` at an external Redis instance, no change is needed — the `externalRedis` key is unchanged and your external instance continues to work.
+        If you previously set `redis.enabled: false` and pointed `externalRedis.url` at an external Redis instance, the `externalRedis` key is unchanged, but the switch that turns the bundled cache off was renamed: it is now `valkey.enabled: false`. See "Helm: values key `redis` renamed to `valkey`" below.
 
         If you used the bundled subchart, the in-cluster service DNS changes from `<release>-redis-master:6379` to `<release>-valkey-primary:6379`. The Helm chart sets `REDIS_URL` automatically from the new service name — no manual update is required unless you overrode `REDIS_URL` in your values file.
+
+#### Helm: values key `redis` renamed to `valkey`
+
+Chart 1.1 configured its bundled cache under a top-level `redis:` block
+(`enabled`, `auth`, `image`, `master`, `commonConfiguration`). Chart 1.2 renamed
+the block to `valkey:`. What this means for a 1.1 values file:
+
+- **`redis.enabled` still works, as a deprecated alias.** Setting
+  `redis.enabled: false` turns the bundled Valkey off, and the backend uses
+  `externalRedis.url` and `externalRedis.cacheUrl`, exactly as in 1.1.
+  `redis.enabled: true` keeps the bundled Valkey. The `NOTES.txt` printed by
+  `helm install` and `helm upgrade` carries a deprecation warning while
+  `redis` is set. The alias is **deprecated in 1.2 and removed no earlier than
+  1.3**; switch to `valkey.enabled` now.
+- **Any other `redis.*` key fails the render** (`auth`, `image`, `master`,
+  `architecture`, `commonConfiguration`, and so on). They configured the old
+  Redis subchart and nothing reads them now, so ignoring them would silently
+  drop a password or an image pin. The error names the rename. Move the
+  settings you still need under `valkey:` (see `helm/visiban/values.yaml` for
+  the supported keys); an external instance is configured with `externalRedis`.
+- **`redis.enabled: true` together with `valkey.enabled: false` fails the
+  render** as a contradiction. Remove `redis.enabled`.
+- When `redis.enabled: false` is set and `valkey.enabled` is left at its
+  default, the alias wins: the chart cannot tell an untouched default from an
+  explicit `true`.
+
+With `helm upgrade --reuse-values`, the `redis` keys come from the previous
+release's stored values, so they reach the chart even though your values file no
+longer has them. Either upgrade with `--reset-then-reuse-values` (Helm 3.14+),
+or drop the block explicitly, and for an external instance turn the bundled
+Valkey off:
+
+```bash
+helm upgrade visiban helm/visiban --reuse-values \
+  --set redis=null \
+  --set valkey.enabled=false
+```
 
 !!! note "Helm: optional password for the bundled Valkey"
     The bundled Valkey can now require a password (#1211). **Nothing changes

@@ -98,10 +98,39 @@ manage the Secret in that case and cannot inspect its contents.
 {{- fail "\n\nVisiban: postgresql.auth.password is empty or set to the chart's placeholder \"visiban\".\nThe placeholder is the literal default in values.yaml, so it is not a secret.\n\nGenerate a strong password and pass it via:\n    --set-string postgresql.auth.password=<password>\nor in your values.secret.yaml file.\n\npostgresql.auth.existingSecret clears this check only together with secret.existingSecret supplying a matching database-url (tracked in #1910).\n\nExisting installs: set the password BEFORE upgrading. See \"Helm: the placeholder PostgreSQL password fails the render\" in docs/administration/upgrade.md.\n" -}}
 {{- end }}
 {{- end }}
+{{- include "visiban.legacyRedisGuards" . }}
 {{- include "visiban.valkeyGuards" . }}
 {{- include "visiban.externalRedisGuards" . }}
 {{- include "visiban.demoGuards" . }}
 {{- end }}
+
+{{/*
+Deprecated 1.1 `redis:` values block (#2002). Chart 1.1 configured a bitnami/redis
+subchart under `redis:`; 1.2 renamed it `valkey:`. Two cases:
+  - `redis.enabled` alone is honored as a deprecated alias (visiban.valkeyEnabled),
+    so the common external-Redis upgrade (`redis.enabled: false` +
+    externalRedis.url) keeps working. Deprecated in 1.2, removed no earlier than 1.3.
+  - Any other `redis.*` key (auth, image, master, commonConfiguration,
+    architecture, ...) configured the old subchart and nothing reads it now.
+    Ignoring it would silently drop a password or a pinned image, so it fails
+    the render and names the rename. Under `helm upgrade --reuse-values` the
+    keys come from the previous release, so the message says how to drop them.
+  - redis.enabled=true with an explicit valkey.enabled=false is a contradiction
+    (valkey.enabled defaults to true, so only an explicit setting yields it).
+*/}}
+{{- define "visiban.legacyRedisGuards" -}}
+{{- $r := .Values.redis | default dict -}}
+{{- $extra := list -}}
+{{- range $k := keys $r | sortAlpha -}}
+{{- if ne $k "enabled" -}}{{- $extra = append $extra $k -}}{{- end -}}
+{{- end -}}
+{{- if $extra -}}
+{{- fail (printf "\n\nVisiban: the top-level `redis:` values block was renamed to `valkey:` in Visiban 1.2 and these `redis` keys are no longer read: %s.\nIgnoring them would silently drop settings such as a password or image pin, so the render refuses.\n\nMove them under `valkey:` (only the keys the bundled Valkey supports; see helm/visiban/values.yaml), and use `externalRedis` for an external instance.\n\nIf this is `helm upgrade --reuse-values` from 1.1, the `redis` keys come from the previous release. Either upgrade with --reset-then-reuse-values (Helm 3.14+), or remove the block explicitly:\n    --set redis=null\nand, for an external instance, add:\n    --set valkey.enabled=false\nSee \"Helm: values key redis renamed to valkey\" in docs/administration/upgrade.md.\n" (join ", " $extra)) -}}
+{{- end -}}
+{{- if and (hasKey $r "enabled") (not (kindIs "invalid" $r.enabled)) $r.enabled (not .Values.valkey.enabled) -}}
+{{- fail "\n\nVisiban: redis.enabled is true but valkey.enabled is false. The deprecated `redis.enabled` alias and `valkey.enabled` disagree.\nUse only valkey.enabled (true for the bundled Valkey, false with externalRedis.url and externalRedis.cacheUrl) and remove redis.enabled:\n    --set redis=null\nSee \"Helm: values key redis renamed to valkey\" in docs/administration/upgrade.md.\n" -}}
+{{- end -}}
+{{- end -}}
 
 {{/*
 Bundled Valkey guards (#1200). Until chart 0.5.0 the `valkey` block configured
@@ -112,7 +141,7 @@ Bitnami image must not quietly get something else. A password is supported
 since #1211, and refused only when it has no source.
 */}}
 {{- define "visiban.valkeyGuards" -}}
-{{- if .Values.valkey.enabled -}}
+{{- if include "visiban.valkeyEnabled" . -}}
 {{- $v := .Values.valkey -}}
 {{- if ne (toString ($v.architecture | default "standalone")) "standalone" -}}
 {{- fail (printf "\n\nVisiban: valkey.architecture is %q, but the bundled Valkey is standalone only (chart 0.5.0+, #1200).\nThe backend only ever connected to the primary, so the old subchart's replicas were never used.\n\nRemove the override:\n    --set valkey.architecture=standalone\nor point externalRedis at a replicated instance with --set valkey.enabled=false.\n" (toString $v.architecture)) -}}
@@ -189,7 +218,7 @@ existingSecret is never refused: that is how pre-#1361 installs connect.
 {{- $er := .Values.externalRedis | default dict -}}
 {{- $es := toString (dig "existingSecret" "" $er) -}}
 {{- if ne $es "" -}}
-{{- if .Values.valkey.enabled -}}
+{{- if include "visiban.valkeyEnabled" . -}}
 {{- fail "\n\nVisiban: externalRedis.existingSecret is set, but valkey.enabled is true, so the backend uses the bundled Valkey and would ignore it.\nFor the bundled Valkey's password use valkey.auth.existingSecret instead; to use an external instance:\n    --set valkey.enabled=false\n" -}}
 {{- end -}}
 {{- if not (regexMatch "^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$" $es) -}}
@@ -294,7 +323,7 @@ refused here rather than escaped wherever it is used.
 {{- if not .Values.networkPolicy.enabled -}}
 {{- fail "\n\nVisiban: demo.enabled is true but networkPolicy.enabled is false.\nPublic demo mode renders an EGRESS policy that limits the backend, seed and reset pods to DNS and the release's own datastores (TruePPM ADR-1197 D7); it lives in the NetworkPolicy template.\n    --set networkPolicy.enabled=true\n" -}}
 {{- end -}}
-{{- if or (not .Values.postgresql.enabled) (not .Values.valkey.enabled) -}}
+{{- if or (not .Values.postgresql.enabled) (not (include "visiban.valkeyEnabled" .)) -}}
 {{- fail "\n\nVisiban: demo.enabled is true but postgresql.enabled and/or valkey.enabled is false.\nThe demo egress policy allows only DNS and the release's OWN bundled PostgreSQL and Valkey pods; it has no rule for an external database, so rendering it would cut the backend off from its datastore. Use the bundled datastores for a demo.\n" -}}
 {{- end -}}
 {{- if kindIs "invalid" .Values.backend.settings.numProxies -}}

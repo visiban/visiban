@@ -1103,6 +1103,9 @@ VALKEY_GUARD_CASES=(
   "latest tag|valkey.image must name a repository and a pinned tag|--set=valkey.image.tag=latest"
   "empty tag|valkey.image must name a repository and a pinned tag|--set-string=valkey.image.tag="
   "null tag|valkey.image must name a repository and a pinned tag|--set-json=valkey.image.tag=null"
+  "legacy redis.auth (#2002)|values block was renamed to|--set=redis.auth.enabled=false"
+  "legacy redis.image (#2002)|no longer read: image|--set=redis.image.tag=7.4.3"
+  "redis.enabled=true vs valkey.enabled=false (#2002)|redis.enabled is true but valkey.enabled is false|--set=redis.enabled=true|--set=valkey.enabled=false"
   "reuse-values from a subchart release|a Bitnami image|--set=valkey.image.registry=registry-1.docker.io|--set=valkey.image.repository=bitnami/valkey|--set=valkey.image.tag=latest"
 )
 
@@ -1453,6 +1456,48 @@ check_external_redis_auth() {
 
   rm -f "$out" "$err"
   [ "$bad" -eq 0 ] && pass "externalRedis: the password reaches every client only via existingSecret; URL-embedded passwords still render unchanged; both misconfigurations fail the render"
+}
+
+# ---------------------------------------------------------------------------
+# 11d. The deprecated 1.1 `redis.enabled` alias (#2002).
+# ---------------------------------------------------------------------------
+# 1.1 gated the bundled cache on `redis.enabled`; 1.2 renamed the block to
+# `valkey`. The alias must (a) turn the bundled Valkey off and route the backend
+# to externalRedis when `redis.enabled=false`, (b) leave the defaults untouched
+# (values.yaml must not define `redis`), and (c) warn in NOTES.txt. The failing
+# half (other redis.* keys, contradictions) is in VALKEY_GUARD_CASES above.
+check_legacy_redis_alias() {
+  section "11d. Deprecated redis.enabled alias selects externalRedis (#2002)"
+  local out err bad=0
+  out="$(mktemp)"; err="$(mktemp)"
+  local ext=(--set-string 'externalRedis.url=redis://sc-alias.example:6379/0'
+             --set-string 'externalRedis.cacheUrl=redis://sc-alias.example:6379/1')
+
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set redis.enabled=false "${ext[@]}" \
+        > "$out" 2>"$err"; then
+    fail "redis.enabled=false with externalRedis no longer renders: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  else
+    if grep -q -- '-valkey' "$out"; then
+      fail "redis.enabled=false still renders bundled Valkey resources"
+      bad=1
+    fi
+    if ! grep -qF 'redis://sc-alias.example:6379/0' "$out" || grep -q 'valkey-primary' "$out"; then
+      fail "redis.enabled=false: the backend does not use externalRedis.url"
+      bad=1
+    fi
+  fi
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" > "$out" 2>"$err" \
+     || ! grep -q 'valkey-primary:6379/0' "$out"; then
+    fail "the defaults no longer render the bundled Valkey (a stray default redis key?)"
+    bad=1
+  fi
+  if yq -e '.redis' "$CHART_UNDER_TEST/values.yaml" > /dev/null 2>&1; then
+    fail "values.yaml defines a top-level redis key; the alias must apply only when a user sets it"
+    bad=1
+  fi
+  rm -f "$out" "$err"
+  [ "$bad" -eq 0 ] && pass "redis.enabled=false drops bundled Valkey and uses externalRedis; defaults unchanged"
 }
 
 # ---------------------------------------------------------------------------
@@ -1891,6 +1936,7 @@ run_all_checks() {
   check_image_pins
   check_valkey_auth
   check_external_redis_auth
+  check_legacy_redis_alias
   check_pod_hardening
   check_database_url_encoding
   check_allowed_hosts_not_widened
