@@ -88,7 +88,7 @@ Since 1.2, `backend.email.backend` defaults to `""` (unset) rather than `"smtp"`
 
 Set `backend.email.*` explicitly only if you want env-only email configuration — doing so pins the backend and **disables** the Admin → Settings → Email UI.
 
-- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`, and set `backend.email.backend: "smtp"`. Use `backend.email.useSsl` instead of `useTls` for implicit TLS (port 465).
+- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`. With `backend.email.backend` left empty the password is still passed to the backend (and **Admin → Settings → Email** stays available); set `backend.email.backend: "smtp"` to pin env-only configuration instead. Use `backend.email.useSsl` instead of `useTls` for implicit TLS (port 465).
 - **Console (no SMTP):** set `backend.email.backend=console` and leave the other fields blank — emails log to stdout.
 
 !!! warning "Never commit `values.secret.yaml`"

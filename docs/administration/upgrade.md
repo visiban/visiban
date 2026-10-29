@@ -1386,6 +1386,23 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     `helm upgrade` from a 1.1 release for either flag; the chart's render checks
     cover the values-file route.
 
+!!! note "Helm: backend.email.backend now defaults to empty"
+    Chart 1.1 defaulted `backend.email.backend` to `"smtp"`. Chart 1.2 defaults it
+    to `""`, which leaves `EMAIL_BACKEND` unset so the backend reads email
+    settings from the `EMAIL_*` variables **or** from **Admin → Settings →
+    Email**, whichever the admin selects.
+
+    **A 1.1 values file keeps working.** If it sets `backend.email.host`,
+    `user` and `password` but not `backend`, the chart still wires
+    `EMAIL_HOST_PASSWORD` (from the `email-password` key, or from
+    `backend.email.existingSecret`), so SMTP authentication continues after
+    `helm upgrade`. No change is needed.
+
+    **Pinning is optional.** Set `backend.email.backend: smtp` explicitly only if
+    you want env-only email: it sets `EMAIL_BACKEND`, which **disables** the
+    Admin → Settings → Email page. With `backend` empty and `host` empty, no SMTP
+    password is rendered and email is configured from the admin page.
+
 !!! note "Helm: optional password for the bundled Valkey"
     The bundled Valkey can now require a password (#1211). **Nothing changes
     unless you turn it on**: `valkey.auth.enabled` stays `false` by default, so
