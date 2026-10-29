@@ -28,6 +28,7 @@ const mockUpdateCurrentUser = vi.fn()
 const mockChangePassword = vi.fn()
 const mockResetTour = vi.fn()
 const mockCancelPendingEmailChange = vi.fn()
+const mockGetCurrentUser = vi.fn()
 const mockResendPendingEmailConfirmation = vi.fn()
 const NO_PROVIDERS = { google: false, github: false, gitlab: false, oidc: false, oidc_name: null }
 const mockGetAuthProviders = vi.fn(() => Promise.resolve(NO_PROVIDERS))
@@ -40,6 +41,7 @@ vi.mock('../api/auth', () => ({
   changePassword: (...args: unknown[]) => mockChangePassword(...args),
   resetTour: (...args: unknown[]) => mockResetTour(...args),
   cancelPendingEmailChange: (...args: unknown[]) => mockCancelPendingEmailChange(...args),
+  getCurrentUser: (...args: unknown[]) => mockGetCurrentUser(...args),
   resendPendingEmailConfirmation: (...args: unknown[]) => mockResendPendingEmailConfirmation(...args),
   getAuthProviders: () => mockGetAuthProviders(),
   listConnectedAccounts: () => mockListConnectedAccounts(),
@@ -673,11 +675,14 @@ describe('ProfileTab — pending email actions', () => {
   })
 
   it('Cancel change withdraws the change, clears the note and moves focus to the field', async () => {
-    mockCancelPendingEmailChange.mockResolvedValueOnce({ ...fakeUser, pending_email: null })
+    // #2005: the DELETE answers 204 with no body; the page refetches the user.
+    mockCancelPendingEmailChange.mockResolvedValueOnce(undefined)
+    mockGetCurrentUser.mockResolvedValueOnce({ ...fakeUser, pending_email: null })
     const user = userEvent.setup()
     const onUserUpdated = renderPending()
     await user.click(screen.getByRole('button', { name: 'Cancel change' }))
     expect(mockCancelPendingEmailChange).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(mockGetCurrentUser).toHaveBeenCalledTimes(1))
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
         "Email change canceled. Your email address hasn't changed.",
@@ -691,6 +696,26 @@ describe('ProfileTab — pending email actions', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  it('still reports a successful cancel when the follow-up profile refetch fails', async () => {
+    // The 204 means the change is withdrawn; a lost refetch must not claim
+    // otherwise. The page clears pending_email locally instead (#2005).
+    mockCancelPendingEmailChange.mockResolvedValueOnce(undefined)
+    mockGetCurrentUser.mockRejectedValueOnce(new Error('network'))
+    const user = userEvent.setup()
+    const onUserUpdated = renderPending()
+    await user.click(screen.getByRole('button', { name: 'Cancel change' }))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        "Email change canceled. Your email address hasn't changed.",
+      ),
+    )
+    expect(onUserUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({ email: fakeUser.email, pending_email: null }),
+    )
+    expect(screen.getByTestId('pending-email-note')).toBeEmptyDOMElement()
+    expect(screen.queryByRole('button', { name: 'Cancel change' })).not.toBeInTheDocument()
+  })
+
   it('keeps the pending change and shows an error when cancel fails', async () => {
     mockCancelPendingEmailChange.mockRejectedValueOnce(new Error('network'))
     const user = userEvent.setup()
@@ -699,6 +724,7 @@ describe('ProfileTab — pending email actions', () => {
     await waitFor(() =>
       expect(screen.getByText("Couldn't cancel the email change. Please try again.")).toHaveClass('text-danger'),
     )
+    expect(mockGetCurrentUser).not.toHaveBeenCalled()
     expect(screen.getByTestId('pending-email-note')).toHaveTextContent(/new@example\.com/)
     expect(screen.getByRole('button', { name: 'Cancel change' })).toBeEnabled()
   })

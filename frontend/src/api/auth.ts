@@ -62,8 +62,10 @@ export const verifyEmail = (key: string): Promise<void> =>
 
 // #1293: act on a pending email change (EMAIL_VERIFICATION=mandatory). Both
 // act only on the signed-in user's own pending address; neither takes one.
-export const cancelPendingEmailChange = () =>
-  client.delete<User>("/api/v1/auth/me/pending-email/").then((r) => r.data);
+// The cancel answers 204 with no body (#2005): refetch getCurrentUser() for
+// the new state.
+export const cancelPendingEmailChange = (): Promise<void> =>
+  client.delete("/api/v1/auth/me/pending-email/").then(() => undefined);
 
 export const resendPendingEmailConfirmation = () =>
   client.post<{ detail: string }>("/api/v1/auth/me/pending-email/resend/").then((r) => r.data);
@@ -130,8 +132,9 @@ export const disconnectAccount = (provider: string) =>
     .then((r) => r.data);
 
 // "Not now" on the post-login connect prompt — clears pending_connect_provider.
-export const dismissPendingConnect = () =>
-  client.delete<User>("/api/v1/auth/me/pending-connect/").then((r) => r.data);
+// Answers 204 with no body (#2005).
+export const dismissPendingConnect = (): Promise<void> =>
+  client.delete("/api/v1/auth/me/pending-connect/").then(() => undefined);
 
 // Admin API
 

@@ -522,12 +522,13 @@ class PendingConnectProviderFieldTests(TestCase):
     def test_dismiss_clears_it(self):
         self._stash()
         response = self.client.delete(PENDING_URL)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsNone(response.json()["pending_connect_provider"])
+        # #2005: the 1.2 revoke convention, 204 with no body; the SPA refetches.
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.content, b"")
         self.assertIsNone(self._field())
 
     def test_dismiss_is_idempotent(self):
-        self.assertEqual(self.client.delete(PENDING_URL).status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.delete(PENDING_URL).status_code, status.HTTP_204_NO_CONTENT)
 
     def test_dismiss_requires_authentication(self):
         self.assertEqual(APIClient().delete(PENDING_URL).status_code, status.HTTP_401_UNAUTHORIZED)

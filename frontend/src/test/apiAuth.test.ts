@@ -139,12 +139,11 @@ describe('auth API', () => {
 describe('pending email change API (#1293)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('cancelPendingEmailChange calls DELETE /api/v1/auth/me/pending-email/ and returns the user', async () => {
-    const user = { id: 1, username: 'jdoe', pending_email: null }
-    mockDelete.mockResolvedValue({ data: user })
+  it('cancelPendingEmailChange calls DELETE /api/v1/auth/me/pending-email/ and resolves with no body (204, #2005)', async () => {
+    mockDelete.mockResolvedValue({ status: 204, data: '' })
     const result = await cancelPendingEmailChange()
     expect(mockDelete).toHaveBeenCalledWith('/api/v1/auth/me/pending-email/')
-    expect(result).toEqual(user)
+    expect(result).toBeUndefined()
   })
 
   it('listConnectedAccounts calls GET /api/v1/auth/me/connected-accounts/', async () => {
@@ -163,12 +162,11 @@ describe('pending email change API (#1293)', () => {
     expect(result).toEqual(rows)
   })
 
-  it('dismissPendingConnect calls DELETE /api/v1/auth/me/pending-connect/ and returns the user', async () => {
-    const user = { id: 1, username: 'jdoe', pending_connect_provider: null }
-    mockDelete.mockResolvedValue({ data: user })
+  it('dismissPendingConnect calls DELETE /api/v1/auth/me/pending-connect/ and resolves with no body (204, #2005)', async () => {
+    mockDelete.mockResolvedValue({ status: 204, data: '' })
     const result = await dismissPendingConnect()
     expect(mockDelete).toHaveBeenCalledWith('/api/v1/auth/me/pending-connect/')
-    expect(result).toEqual(user)
+    expect(result).toBeUndefined()
   })
 
   it('resendPendingEmailConfirmation calls POST /api/v1/auth/me/pending-email/resend/ with no body', async () => {
