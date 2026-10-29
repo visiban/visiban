@@ -61,9 +61,9 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
   backend could never reach Valkey: the readiness probe failed forever and
   `helm upgrade --wait` timed out (#1116 deploy-testing gap).
   */}}
-  value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/0" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.url | quote }}{{ end }}
+  value: {{ if (include "visiban.valkeyEnabled" $ctx) }}{{ printf "redis://%s-valkey-primary:6379/0" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.url | quote }}{{ end }}
 - name: REDIS_CACHE_URL
-  value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/1" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.cacheUrl | quote }}{{ end }}
+  value: {{ if (include "visiban.valkeyEnabled" $ctx) }}{{ printf "redis://%s-valkey-primary:6379/1" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.cacheUrl | quote }}{{ end }}
 {{- /*
   Bundled Valkey password (#1211), only with valkey.auth.enabled. REDIS_URL and
   REDIS_CACHE_URL above stay the plain, password-free URLs; settings.py

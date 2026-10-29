@@ -30,7 +30,7 @@
 # and asserts the corresponding section rejects it.
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
-# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11,
+# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11 (incl. 11d),
 # 12, 13, 15 and 16. Section 5 (probe paths) is asserted against the real chart only,
 # and section 7 (NetworkPolicy client coverage) is fixture-covered only
 # through the demo render in section 9 — see the notes on those sections.
@@ -1103,6 +1103,9 @@ VALKEY_GUARD_CASES=(
   "latest tag|valkey.image must name a repository and a pinned tag|--set=valkey.image.tag=latest"
   "empty tag|valkey.image must name a repository and a pinned tag|--set-string=valkey.image.tag="
   "null tag|valkey.image must name a repository and a pinned tag|--set-json=valkey.image.tag=null"
+  "legacy redis.auth (#2002)|values block was renamed to|--set=redis.auth.enabled=false"
+  "legacy redis.image (#2002)|no longer read: image|--set=redis.image.tag=7.4.3"
+  "redis.enabled=true vs valkey.enabled=false (#2002)|redis.enabled is true but valkey.enabled is false|--set=redis.enabled=true|--set=valkey.enabled=false"
   "reuse-values from a subchart release|a Bitnami image|--set=valkey.image.registry=registry-1.docker.io|--set=valkey.image.repository=bitnami/valkey|--set=valkey.image.tag=latest"
 )
 
@@ -1453,6 +1456,111 @@ check_external_redis_auth() {
 
   rm -f "$out" "$err"
   [ "$bad" -eq 0 ] && pass "externalRedis: the password reaches every client only via existingSecret; URL-embedded passwords still render unchanged; both misconfigurations fail the render"
+}
+
+# ---------------------------------------------------------------------------
+# 11d. The deprecated 1.1 `redis.enabled` alias (#2002).
+# ---------------------------------------------------------------------------
+# 1.1 gated the bundled cache on `redis.enabled`; 1.2 renamed the block to
+# `valkey`. The alias must (a) turn the bundled Valkey off and route the backend
+# to externalRedis when `redis.enabled=false`, (b) leave the defaults untouched
+# (values.yaml must not define `redis`), and (c) warn in NOTES.txt. The failing
+# half (other redis.* keys, contradictions) is in VALKEY_GUARD_CASES above.
+check_legacy_redis_alias() {
+  section "11d. Deprecated redis.enabled alias selects externalRedis (#2002)"
+  local out err bad=0
+  out="$(mktemp)"; err="$(mktemp)"
+  local ext=(--set-string 'externalRedis.url=redis://sc-alias.example:6379/0'
+             --set-string 'externalRedis.cacheUrl=redis://sc-alias.example:6379/1')
+
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set redis.enabled=false "${ext[@]}" \
+        > "$out" 2>"$err"; then
+    fail "redis.enabled=false with externalRedis no longer renders: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  else
+    if grep -q -- '-valkey' "$out"; then
+      fail "redis.enabled=false still renders bundled Valkey resources"
+      bad=1
+    fi
+    if ! grep -qF 'redis://sc-alias.example:6379/0' "$out" || grep -q 'valkey-primary' "$out"; then
+      fail "redis.enabled=false: the backend does not use externalRedis.url"
+      bad=1
+    fi
+  fi
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" > "$out" 2>"$err" \
+     || ! grep -q 'valkey-primary:6379/0' "$out"; then
+    fail "the defaults no longer render the bundled Valkey (a stray default redis key?)"
+    bad=1
+  fi
+  if yq -e '.redis' "$CHART_UNDER_TEST/values.yaml" > /dev/null 2>&1; then
+    fail "values.yaml defines a top-level redis key; the alias must apply only when a user sets it"
+    bad=1
+  fi
+  # NOTES.txt warns while redis is set, and only then.
+  local notes
+  if ! notes="$(render_notes "$CHART_UNDER_TEST" --set redis.enabled=false "${ext[@]}" 2>"$err")" \
+     || ! grep -qF 'key is deprecated' <<< "$notes"; then
+    fail "NOTES.txt does not warn that the top-level redis key is deprecated when redis.enabled is set"
+    bad=1
+  fi
+  if notes="$(render_notes "$CHART_UNDER_TEST" 2>"$err")" && grep -qF 'key is deprecated' <<< "$notes"; then
+    fail "NOTES.txt warns about the deprecated redis key although redis is not set"
+    bad=1
+  fi
+  # The 1.1 to 1.2 route the guard and docs/administration/upgrade.md describe,
+  # run on the REAL 1.1 block (scripts/fixtures/helm-v1.1.0-redis-values.yaml,
+  # verbatim from v1.1.0 because CI clones lack the tag). A blind rename is
+  # wrong: redis.image.tag 7.4.3 would become the nonexistent
+  # valkey/valkey:7.4.3 and valkey.master.* would be silently ignored, so the
+  # documented translation drops image/architecture/commonConfiguration and maps
+  # master to primary. Each assertion below is one way the blind rename broke.
+  local v11="$REPO_ROOT/scripts/fixtures/helm-v1.1.0-redis-values.yaml"
+  local fixvals="$RUN_TMP/2002-renamed-values.yaml"
+  if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$v11" > /dev/null 2>"$err"; then
+    fail "the untranslated v1.1.0 redis block renders: the leftover keys must fail the render"
+    bad=1
+  elif ! grep -qF 'no longer read' "$err"; then
+    fail "the untranslated v1.1.0 redis block fails, but not with the redis guard's message: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  fi
+  yq '{"valkey": (.redis | del(.image) | del(.architecture) | del(.commonConfiguration) | .primary = .master | del(.master)), "externalRedis": .externalRedis}' "$v11" > "$fixvals"
+  if [ "$(yq '.valkey | has("master") or has("image")' "$fixvals")" != "false" ]; then
+    fail "the translated v1.1.0 values still carry valkey.master or valkey.image"
+    bad=1
+  fi
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$fixvals" > "$out" 2>"$err"; then
+    fail "the translated v1.1.0 redis block does not render: $(grep -m1 'Visiban:' "$err")"
+    bad=1
+  else
+    local vimg vpvc
+    vimg="$(yq 'select(.kind == "StatefulSet" and (.metadata.name | test("-valkey$"))) | .spec.template.spec.containers[0].image' "$out" | grep -vE '^(---)?$' || true)"
+    if [ "$vimg" != "valkey/valkey:8-alpine" ]; then
+      fail "the translated v1.1.0 block yields Valkey image '$vimg', want the pullable default valkey/valkey:8-alpine"
+      bad=1
+    fi
+    vpvc="$(yq 'select(.kind == "StatefulSet" and (.metadata.name | test("-valkey$"))) | (.spec.volumeClaimTemplates // []) | length' "$out" | grep -vE '^(---)?$' || true)"
+    if [ "$vpvc" != "0" ]; then
+      fail "the translated v1.1.0 block (master.persistence.enabled: false) rendered $vpvc Valkey volumeClaimTemplates: the persistence setting was not carried over"
+      bad=1
+    fi
+  fi
+  # An existing Bitnami Secret keeps its key (redis-password) when the documented
+  # existingSecretPasswordKey mapping is applied; the default would be valkey-password.
+  yq '.valkey.auth = {"enabled": true, "existingSecret": "sc-old-redis", "existingSecretPasswordKey": "redis-password"}' "$fixvals" > "$RUN_TMP/2002-renamed-auth-values.yaml"
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$RUN_TMP/2002-renamed-auth-values.yaml" > "$out" 2>"$err"; then
+    fail "the translated v1.1.0 block with an existing auth Secret does not render: $(grep -m1 'Visiban:' "$err")"
+    bad=1
+  else
+    local refs
+    refs="$(yq '.. | select(tag == "!!map" and has("secretKeyRef")) | .secretKeyRef | .name + "/" + .key' "$out" | grep -vE '^(---)?$' | sort -u || true)"
+    if ! grep -qx 'sc-old-redis/redis-password' <<< "$refs" || grep -q 'sc-old-redis/valkey-password' <<< "$refs"; then
+      fail "an existing redis Secret does not keep its redis-password key after translation; secretKeyRefs: $(tr '\n' ' ' <<< "$refs")"
+      bad=1
+    fi
+  fi
+  rm -f "$RUN_TMP/2002-renamed-auth-values.yaml"
+  rm -f "$out" "$err" "$fixvals"
+  [ "$bad" -eq 0 ] && pass "redis.enabled=false drops bundled Valkey and uses externalRedis; defaults unchanged; NOTES.txt warns; the real v1.1.0 redis block fails untranslated and renders (pullable image, persistence carried, Secret key kept) once translated"
 }
 
 # ---------------------------------------------------------------------------
@@ -1891,6 +1999,7 @@ run_all_checks() {
   check_image_pins
   check_valkey_auth
   check_external_redis_auth
+  check_legacy_redis_alias
   check_pod_hardening
   check_database_url_encoding
   check_allowed_hosts_not_widened
@@ -1905,7 +2014,14 @@ self_test() {
   echo "helm-structure-check.sh --self-test: proving each section can still fail"
   echo
 
-  local tmp passes=0 selftest_failures=0
+  # SELF_TEST_ONLY is a local-iteration aid. CI must never run a partial
+  # self-test, so refuse it there rather than let it quietly disarm the gate.
+  if [ -n "${SELF_TEST_ONLY:-}" ] && [ -n "${CI:-}" ]; then
+    echo "SELF_TEST_ONLY is not allowed when CI is set: CI must run every fixture and control" >&2
+    exit 2
+  fi
+
+  local tmp passes=0 selftest_failures=0 matched=0
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
 
@@ -2001,6 +2117,15 @@ self_test() {
     "11c URL-password-plus-existingSecret guard removed|templates/_validate.tpl|s/{{- if contains \":\" \$userinfo -}}/{{- if false -}}/"
     # 11c: the bundled-Valkey-plus-existingSecret guard stops firing.
     "11c existingSecret-with-bundled-Valkey guard removed|templates/_validate.tpl|/externalRedis.existingSecret is set, but valkey.enabled is true/d"
+    # 11d (#2002): the redis.enabled alias is no longer read, so a 1.1 external-Redis
+    # upgrade silently deploys the bundled Valkey again.
+    "11d redis.enabled alias ignored|templates/_helpers.tpl|s/dig \"enabled\" nil (.Values.redis/dig \"enabledX\" nil (.Values.redis/"
+    # 11d (#2002): the NOTES.txt deprecation warning disappears.
+    "11d NOTES redis deprecation warning removed|templates/NOTES.txt|s/{{- if .Values.redis }}/{{- if false }}/"
+    # 11d (#2002): leftover redis.* keys (auth, image, ...) are ignored again.
+    "11d legacy redis keys guard removed|templates/_validate.tpl|s/{{- if \$extra -}}/{{- if false -}}/"
+    # 11d (#2002): redis.enabled=true with valkey.enabled=false stops failing.
+    "11d redis-vs-valkey contradiction guard removed|templates/_validate.tpl|s/\$r.enabled (not .Values.valkey.enabled) -}}/false -}}/"
     # 16 (#1951): the ingress-enabled default stops being 2.
     "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
@@ -2038,6 +2163,11 @@ self_test() {
   for fixture in "${fixtures[@]}"; do
     local name file prog broken
     name="${fixture%%|*}"
+    # SELF_TEST_ONLY=<regex> runs only the matching fixtures (and skips the
+    # controls below) so a new fixture can be proven without the 30+ minute
+    # full run. CI never sets it.
+    if [ -n "${SELF_TEST_ONLY:-}" ] && ! [[ "$name" =~ $SELF_TEST_ONLY ]]; then continue; fi
+    matched=$((matched + 1))
     file="$(cut -d'|' -f2 <<< "$fixture")"
     prog="$(cut -d'|' -f3- <<< "$fixture")"
 
@@ -2082,6 +2212,17 @@ self_test() {
       passes=$((passes + 1))
     fi
   done
+
+  if [ -n "${SELF_TEST_ONLY:-}" ]; then
+    if [ "$matched" -eq 0 ]; then
+      echo "SELF_TEST_ONLY=$SELF_TEST_ONLY matched no fixture: nothing was tested" >&2
+      exit 1
+    fi
+    echo
+    echo "SELF_TEST_ONLY=$SELF_TEST_ONLY: controls skipped; $passes passed, $selftest_failures failed (partial run, not a CI result)"
+    [ "$selftest_failures" -eq 0 ] || exit 1
+    return 0
+  fi
 
   # Control: the UNDAMAGED chart (minus subcharts) must pass. Without this, a
   # check that fails on everything would score a perfect self-test.

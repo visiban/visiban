@@ -25,7 +25,7 @@ Valkey holds only ephemeral data in Visiban (the Channels layer on db 0, the
 Django cache on db 1 — no sessions, no queue), so the switch loses nothing that
 is not rebuilt on its own. See docs/administration/upgrade.md.
 */}}
-{{- if .Values.valkey.enabled }}
+{{- if include "visiban.valkeyEnabled" . }}
 {{- $persist := .Values.valkey.primary.persistence }}
 {{- $auth := include "visiban.valkeyAuthEnabled" . }}
 apiVersion: v1

@@ -460,12 +460,13 @@ The Deployment is named `<fullname>-backend`; `<fullname>` is the release name (
         ```
 
     2. Prove the new render passes **before** touching the database. Use the new
-       password and every other flag this section lists (for example the Valkey
-       flags with `--reuse-values`, below):
+       password and every other change this section lists (for example the
+       `redis:` to `valkey:` translation, below). Use your values file with
+       `-f`, not `--reuse-values`:
 
         ```bash
         NEW_PW="$(openssl rand -hex 24)"
-        helm upgrade <release> helm/visiban -n visiban --reuse-values --dry-run \
+        helm upgrade <release> helm/visiban -n visiban -f my-values.yaml --dry-run \
           --set-string postgresql.auth.password="$NEW_PW" <your other flags>
         ```
 
@@ -476,7 +477,7 @@ The Deployment is named `<fullname>-backend`; `<fullname>` is the release name (
           psql -U visiban -d visiban -v pw="$NEW_PW" <<'SQL'
         ALTER ROLE visiban PASSWORD :'pw';
         SQL
-        helm upgrade <release> helm/visiban -n visiban --reuse-values \
+        helm upgrade <release> helm/visiban -n visiban -f my-values.yaml \
           --set-string postgresql.auth.password="$NEW_PW" <your other flags>
         ```
 
@@ -1312,17 +1313,78 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
         ```bash
         helm repo update
         helm dependency update helm/visiban
-        helm upgrade visiban helm/visiban --reuse-values \
-          --set valkey.image.repository=valkey/valkey \
-          --set valkey.image.tag=8-alpine
+        helm upgrade visiban helm/visiban -f my-values.yaml
         ```
 
-        The two `--set` flags are needed only with `--reuse-values`; see
-        "Helm: bundled Valkey is no longer the Bitnami subchart" below.
+        From a 1.1 release, upgrade with your values file rather than
+        `--reuse-values`, after translating its `redis:` block as described
+        below (it is not a plain rename). `--reuse-values` starts from the
+        previous release's stored values, which have none of the keys 1.2 added;
+        the 1.2 templates fail to render against them (a `nil pointer` error). See "Helm: values key `redis`
+        renamed to `valkey`" and "Helm: bundled Valkey is no longer the Bitnami
+        subchart" below.
 
-        If you previously set `redis.enabled: false` and pointed `externalRedis.url` at an external Redis instance, no change is needed — the `externalRedis` key is unchanged and your external instance continues to work.
+        If you previously set `redis.enabled: false` and pointed `externalRedis.url` at an external Redis instance, the `externalRedis` key is unchanged, but the switch that turns the bundled cache off was renamed: set `valkey.enabled: false` (leaving `redis.enabled: false` also works, as a deprecated alias). See "Helm: values key `redis` renamed to `valkey`" below.
 
         If you used the bundled subchart, the in-cluster service DNS changes from `<release>-redis-master:6379` to `<release>-valkey-primary:6379`. The Helm chart sets `REDIS_URL` automatically from the new service name — no manual update is required unless you overrode `REDIS_URL` in your values file.
+
+!!! note "Helm: values key redis renamed to valkey"
+    Chart 1.1 configured its bundled cache under a top-level `redis:` block
+    (`enabled`, `auth`, `image`, `master`, `commonConfiguration`). Chart 1.2
+    renamed the block to `valkey:`. What this means for a 1.1 values file:
+
+    - **`redis.enabled` still works, as a deprecated alias.** Setting
+      `redis.enabled: false` turns the bundled Valkey off, and the backend uses
+      `externalRedis.url` and `externalRedis.cacheUrl`, exactly as in 1.1.
+      `redis.enabled: true` keeps the bundled Valkey. The `NOTES.txt` printed by
+      `helm install` and `helm upgrade` carries a deprecation warning while
+      `redis` is set. The alias is **deprecated in 1.2 and removed no earlier
+      than 1.3**; switch to `valkey.enabled` now.
+    - **Any other `redis.*` key fails the render** (`auth`, `image`, `master`,
+      `architecture`, `commonConfiguration`, and so on). They configured the old
+      Redis subchart and nothing reads them now, so ignoring them would silently
+      drop a password or an image pin. The error names the rename. Move the
+      settings you still need under `valkey:` (see `helm/visiban/values.yaml` for
+      the supported keys); an external instance is configured with
+      `externalRedis`.
+    - **`redis.enabled: true` together with an explicit `valkey.enabled: false`
+      fails the render** as a contradiction. Remove `redis.enabled`.
+    - **`redis.enabled: false` wins over `valkey.enabled`**, both when
+      `valkey.enabled` is left at its default and when you set it to `true`
+      explicitly (as `values-prod.yaml` does). The chart cannot tell an untouched
+      default from an explicit `true`, so check that a values file that sets both
+      means what it says.
+
+    **How to upgrade from 1.1.** Do not copy the `redis:` block over as
+    `valkey:`. The keys differ, and a blind rename breaks the bundled Valkey. The
+    mapping, derived from the 1.1 `values.yaml` and this chart's templates:
+
+    | 1.1 `redis.` key | What to do in 1.2 |
+    |---|---|
+    | `enabled` | `valkey.enabled`, same meaning. With an external instance: `valkey.enabled: false` plus `externalRedis.url` and `externalRedis.cacheUrl`. If that is all you set, leaving `redis.enabled: false` also works (deprecated alias) |
+    | `image.tag` (for example `"7.4.3"`) | **Drop it.** It is a Redis tag. `valkey/valkey:7.4.3` does not exist, so the pod would sit in `ImagePullBackOff`. The default is `valkey/valkey:8-alpine`; set `valkey.image.*` only to mirror or pin an official Valkey tag |
+    | `master.persistence.enabled`, `.size`, `.storageClass` | `valkey.primary.persistence.*`. The name changed from `master` to `primary`; `valkey.master.*` is accepted by the schema and silently ignored |
+    | `master.resources` | `valkey.primary.resources` |
+    | `auth.enabled`, `auth.password` | `valkey.auth.enabled`, `valkey.auth.password`; turning auth on needs exactly one password source |
+    | `auth.existingSecret`, `auth.existingSecretPasswordKey` | `valkey.auth.existingSecret`, `valkey.auth.existingSecretPasswordKey`. The Bitnami default key was `redis-password` and this chart's default is `valkey-password`, so when you keep an existing Secret set `valkey.auth.existingSecretPasswordKey: redis-password` |
+    | `architecture` | Drop it (`standalone` is the only supported value; `replication` fails the render) |
+    | `commonConfiguration` | Drop it unless you customized it; the default in `valkey.commonConfiguration` already enables AOF and disables RDB |
+    | any other key | No equivalent. Drop it |
+
+    Then upgrade with the edited file, without `--reuse-values`:
+
+    ```bash
+    helm upgrade visiban helm/visiban -f my-values.yaml
+    ```
+
+    `--reuse-values` does not work for this upgrade. It starts from the previous
+    release's stored values instead of this chart's defaults, so keys that 1.2
+    added are missing and the render fails with a `nil pointer` error before the
+    chart's own checks run. On Helm 3.14 or later, `--reset-then-reuse-values`
+    starts from this chart's defaults and re-applies the previous release's own
+    values, which still include the old `redis` keys. We have not run a real
+    `helm upgrade` from a 1.1 release for either flag; the chart's render checks
+    cover the values-file route.
 
 !!! note "Helm: optional password for the bundled Valkey"
     The bundled Valkey can now require a password (#1211). **Nothing changes
@@ -1407,22 +1469,19 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     A Docker Hub `valkey.image.registry` (`docker.io`, `registry-1.docker.io`)
     is accepted and ignored, because the official image lives there too.
 
-    **`helm upgrade --reuse-values` needs two extra flags.** `--reuse-values`
+    **Upgrade with your values file, not `--reuse-values`.** `--reuse-values`
     carries the previous release's values forward, and for a release made with
-    the subchart those include the subchart's own image defaults
-    (`bitnami/valkey`, tag `latest`). The upgrade therefore stops at the image
-    check above. Either pass the official image explicitly:
+    an earlier chart those include that chart's own image defaults and lack the
+    keys this chart added, so the render stops. Pass your values file:
 
     ```bash
-    helm upgrade visiban helm/visiban --reuse-values \
-      --set valkey.image.repository=valkey/valkey \
-      --set valkey.image.tag=8-alpine
+    helm upgrade visiban helm/visiban -f my-values.yaml
     ```
 
-    or, on Helm 3.14 or later, use `--reset-then-reuse-values` instead of
-    `--reuse-values`. It starts from this chart's defaults and re-applies only
-    the values you set yourself. An upgrade that passes `-f my-values.yaml`
-    without `--reuse-values` needs neither.
+    On Helm 3.14 or later, `--reset-then-reuse-values` starts from this chart's
+    defaults and re-applies the values you set yourself. We did not test it
+    against a live release. If you set `valkey.image.*` yourself, keep it on an
+    official `valkey/valkey` tag, as in the table above.
 
     Every other Bitnami-only key (for example `valkey.primary.resourcesPreset`,
     `valkey.primary.podLabels`, `valkey.networkPolicy.*`, `valkey.metrics.*`) is
@@ -1467,7 +1526,7 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     keep a writable root filesystem on a custom PostgreSQL image:
 
     ```bash
-    helm upgrade visiban helm/visiban --reuse-values \
+    helm upgrade visiban helm/visiban -f my-values.yaml \
       --set postgresql.securityContext.container.readOnlyRootFilesystem=false
     ```
 
@@ -1521,7 +1580,7 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     custom frontend image:
 
     ```bash
-    helm upgrade visiban helm/visiban --reuse-values \
+    helm upgrade visiban helm/visiban -f my-values.yaml \
       --set frontend.securityContext.container.readOnlyRootFilesystem=false
     ```
 

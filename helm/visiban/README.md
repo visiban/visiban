@@ -85,7 +85,10 @@ silently accepted and doing nothing. Blocks handed to a subchart or to `toYaml`
 / `.container`, `frontend.securityContext.pod` / `.container` — stay open,
 because the chart is not the authority on what is valid inside them.
 `valkey` also stays open, so a values file written for the Bitnami subchart the
-chart used before 0.5.0 still upgrades; see [Bundled Valkey](#bundled-valkey).
+chart used before 0.5.0 still upgrades. `redis` is open too, but only to carry
+the deprecated 1.1 `redis.enabled` alias for `valkey.enabled` (removed no earlier
+than 1.3); any other `redis.*` key fails the render with a message naming the
+rename to `valkey:`; see [Bundled Valkey](#bundled-valkey).
 
 ## Bundled Valkey
 

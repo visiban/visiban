@@ -491,6 +491,35 @@ config carries; other 127/8 addresses are deliberately not listed.
 {{- end }}
 
 {{/*
+Effective "is the bundled Valkey on" (#2002). The ONE place every template reads
+it, so the deprecated 1.1 `redis.enabled` alias cannot be honored by some
+templates and ignored by others.
+
+Chart 1.1 gated its bundled cache on a top-level `redis.enabled`; 1.2 renamed
+the block to `valkey`. An upgrader who set `redis.enabled: false` with
+externalRedis.url must keep getting the external instance, not a silent bundled
+Valkey that the backend uses while externalRedis is ignored. Valkey is rendered
+by this chart's own templates (templates/valkey.yaml), not a subchart, so there
+is no Chart.yaml `condition:` that would also need to honor the alias.
+
+values.yaml defines no `redis` key on purpose: the alias applies only when a
+user set it. valkey.enabled defaults to true, so an untouched default cannot be
+told from an explicit `valkey.enabled: true` (values-prod.yaml sets it
+explicitly). Whenever redis.enabled is set to false, the alias therefore wins
+over valkey.enabled, whether valkey.enabled is the default or an explicit true.
+The one disagreement that IS detectable (redis.enabled=true but
+valkey.enabled=false, which only an explicit setting can produce) fails in
+visiban.legacyRedisGuards. Nil-safe (`dig`): `redis: null` or an absent key is
+the normal case.
+*/}}
+{{- define "visiban.valkeyEnabled" -}}
+{{- $legacy := dig "enabled" nil (.Values.redis | default dict) -}}
+{{- if not (kindIs "invalid" $legacy) -}}
+{{- if $legacy -}}true{{- end -}}
+{{- else if .Values.valkey.enabled -}}true{{- end -}}
+{{- end }}
+
+{{/*
 Bundled Valkey password auth (#1211). Opt-in: valkey.auth.enabled defaults to
 false, and every helper below renders nothing on that path, so an install that
 does not turn auth on renders what it did before #1211. The one difference is
@@ -521,7 +550,7 @@ time to `urlquery` it, and Kubernetes' $(VAR) env expansion does no encoding,
 so a "/" or "@" in it would split the URL (the #1229 defect class).
 */}}
 {{- define "visiban.valkeyAuthEnabled" -}}
-{{- if and .Values.valkey.enabled (dig "auth" "enabled" false (.Values.valkey | default dict)) -}}true{{- end -}}
+{{- if and (include "visiban.valkeyEnabled" .) (dig "auth" "enabled" false (.Values.valkey | default dict)) -}}true{{- end -}}
 {{- end }}
 
 {{- define "visiban.valkeyAuthSecretName" -}}
@@ -569,7 +598,7 @@ Nil-safe (`dig`) because `helm upgrade --reuse-values` from a release whose
 values predate these keys carries an externalRedis map without them.
 */}}
 {{- define "visiban.externalRedisAuthEnabled" -}}
-{{- if and (not .Values.valkey.enabled) (dig "existingSecret" "" (.Values.externalRedis | default dict)) -}}true{{- end -}}
+{{- if and (not (include "visiban.valkeyEnabled" .)) (dig "existingSecret" "" (.Values.externalRedis | default dict)) -}}true{{- end -}}
 {{- end }}
 
 {{- define "visiban.externalRedisAuthSecretKey" -}}
