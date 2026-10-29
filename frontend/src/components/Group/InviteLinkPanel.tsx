@@ -81,7 +81,12 @@ const INVITE_API: Record<InviteScope["kind"], InviteApi> = {
     list: (id) => listInviteLinks(id),
     create: (id, payload) => createInviteLink(id, payload),
     revoke: (id, linkId) => revokeInviteLink(id, linkId),
-    send: (id, payload) => sendInviteLinkEmail(id, { email: payload.email, role: payload.role }),
+    // Emailed group invites are capped at member server-side (#2006), so the
+    // API type excludes admin; drop it rather than send a role the server refuses.
+    send: (id, payload) => sendInviteLinkEmail(id, {
+      email: payload.email,
+      role: payload.role === "admin" ? undefined : payload.role,
+    }),
   },
   board: {
     list: (id) => listBoardInviteLinks(id),
