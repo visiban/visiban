@@ -1533,12 +1533,12 @@ check_legacy_redis_alias() {
     bad=1
   else
     local vimg vpvc
-    vimg="$(yq 'select(.kind == "StatefulSet" and (.metadata.name | test("-valkey$"))) | .spec.template.spec.containers[0].image' "$out" | grep -vE '^(---)?$')"
+    vimg="$(yq 'select(.kind == "StatefulSet" and (.metadata.name | test("-valkey$"))) | .spec.template.spec.containers[0].image' "$out" | grep -vE '^(---)?$' || true)"
     if [ "$vimg" != "valkey/valkey:8-alpine" ]; then
       fail "the translated v1.1.0 block yields Valkey image '$vimg', want the pullable default valkey/valkey:8-alpine"
       bad=1
     fi
-    vpvc="$(yq 'select(.kind == "StatefulSet" and (.metadata.name | test("-valkey$"))) | (.spec.volumeClaimTemplates // []) | length' "$out" | grep -vE '^(---)?$')"
+    vpvc="$(yq 'select(.kind == "StatefulSet" and (.metadata.name | test("-valkey$"))) | (.spec.volumeClaimTemplates // []) | length' "$out" | grep -vE '^(---)?$' || true)"
     if [ "$vpvc" != "0" ]; then
       fail "the translated v1.1.0 block (master.persistence.enabled: false) rendered $vpvc Valkey volumeClaimTemplates: the persistence setting was not carried over"
       bad=1
@@ -1552,7 +1552,7 @@ check_legacy_redis_alias() {
     bad=1
   else
     local refs
-    refs="$(yq '.. | select(tag == "!!map" and has("secretKeyRef")) | .secretKeyRef | .name + "/" + .key' "$out" | grep -vE '^(---)?$' | sort -u)"
+    refs="$(yq '.. | select(tag == "!!map" and has("secretKeyRef")) | .secretKeyRef | .name + "/" + .key' "$out" | grep -vE '^(---)?$' | sort -u || true)"
     if ! grep -qx 'sc-old-redis/redis-password' <<< "$refs" || grep -q 'sc-old-redis/valkey-password' <<< "$refs"; then
       fail "an existing redis Secret does not keep its redis-password key after translation; secretKeyRefs: $(tr '\n' ' ' <<< "$refs")"
       bad=1
