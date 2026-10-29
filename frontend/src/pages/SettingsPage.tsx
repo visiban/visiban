@@ -633,7 +633,14 @@ function ConnectedAccountsSection({
     setDisconnectingId(id);
     setRowStatus(null);
     try {
-      setAccounts(await disconnectAccount(id));
+      await disconnectAccount(id);
+      // 204, no body (#2005): refetch the list. The disconnect has already
+      // succeeded, so a failed refetch must not report it as failed; mark just
+      // this provider's row disconnected, which the server has confirmed.
+      const rows = await listConnectedAccounts().catch((): ConnectedAccount[] =>
+        (accounts ?? []).map((a) => (a.provider === id ? { ...a, connected: false, email: null, connected_at: null } : a)),
+      );
+      setAccounts(rows);
       setConfirmingId(null);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;

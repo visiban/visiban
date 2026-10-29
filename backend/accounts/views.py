@@ -565,7 +565,8 @@ class ConnectedAccountDetailView(APIView):
 
     The queryset is ``DisconnectForm``'s own (``SocialAccount`` rows of
     ``request.user`` only), so another user's account can never be named.
-    Answers the refreshed list, so the client needs no second round trip.
+    Answers ``204 No Content`` (#2005), the 1.2 convention for a revoke-style
+    DELETE; the client refetches ``GET /auth/me/connected-accounts/``.
 
     Interactive session only (#1794): removing a sign-in method is an
     account-security mutation, so a request authenticated with any token
@@ -579,7 +580,7 @@ class ConnectedAccountDetailView(APIView):
         # Session only (#1794): advertise the cookie scheme, not tokenAuth.
         auth=[{"cookieAuth": []}],
         responses={
-            200: ConnectedAccountSerializer(many=True),
+            204: OpenApiResponse(description="Disconnected. No body."),
             400: OpenApiResponse(description="Disconnecting would leave no way to sign in."),
             403: OpenApiResponse(
                 description="Authenticated with a token rather than an interactive session."
@@ -589,8 +590,6 @@ class ConnectedAccountDetailView(APIView):
     )
     def delete(self, request, provider):
         from allauth.socialaccount.forms import DisconnectForm
-
-        from .social_connect import connected_accounts_status
 
         # Checked first so a token caller gets the same 403 whether or not the
         # provider is connected (no 404-vs-403 probe of the account's providers).
@@ -627,8 +626,7 @@ class ConnectedAccountDetailView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 form.save()
-        rows = connected_accounts_status(request.user)
-        return Response(ConnectedAccountSerializer(rows, many=True).data)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 EMAIL_IN_USE_MESSAGE = (

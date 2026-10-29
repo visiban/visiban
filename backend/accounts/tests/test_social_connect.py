@@ -633,10 +633,12 @@ class ConnectedAccountsEndpointTests(TestCase):
         finally:
             signals.social_account_removed.disconnect(handler)
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # #2005: the 1.2 revoke convention, 204 with no body; the SPA refetches.
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.content, b"")
         self.assertFalse(SocialAccount.objects.filter(user=self.user).exists())
         self.assertEqual(received, ["github"])
-        rows = {r["provider"]: r for r in response.json()}
+        rows = {r["provider"]: r for r in self.client.get(LIST_URL).json()}
         self.assertFalse(rows["github"]["connected"])
 
     def test_cannot_remove_last_sign_in_method(self):
@@ -658,7 +660,7 @@ class ConnectedAccountsEndpointTests(TestCase):
         SocialAccount.objects.create(user=self.user, provider="github", uid="gh-1", extra_data={})
         SocialAccount.objects.create(user=self.user, provider="google", uid="g-1", extra_data={})
 
-        self.assertEqual(self.client.delete(f"{LIST_URL}github/").status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.delete(f"{LIST_URL}github/").status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(self.client.delete(f"{LIST_URL}google/").status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(SocialAccount.objects.filter(user=self.user, provider="google").exists())
 

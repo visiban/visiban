@@ -1010,11 +1010,14 @@ describe('SecurityTab — connected accounts', () => {
   })
 
   it('Disconnect asks for inline confirmation, then disconnects', async () => {
-    mockDisconnectAccount.mockResolvedValue([
+    // #2005: the DELETE answers 204 with no body; the section refetches the list.
+    mockDisconnectAccount.mockResolvedValue(undefined)
+    const ue = await open()
+    expect(mockListConnectedAccounts).toHaveBeenCalledTimes(1)
+    mockListConnectedAccounts.mockImplementationOnce(() => Promise.resolve([
       { provider: 'google', connected: false, email: null, connected_at: null },
       { provider: 'github', connected: false, email: null, connected_at: null },
-    ])
-    const ue = await open()
+    ]))
     await ue.click(screen.getByTestId('disconnect-google'))
     expect(screen.getByText(/You will no longer be able to sign in with it/)).toBeInTheDocument()
     expect(screen.getByText(/Disconnect/, { selector: 'span' })).toHaveTextContent('Disconnect Google?')
@@ -1024,6 +1027,23 @@ describe('SecurityTab — connected accounts', () => {
     await waitFor(() =>
       expect(screen.getByTestId('connected-account-google')).toHaveTextContent('Not connected'),
     )
+    expect(mockListConnectedAccounts).toHaveBeenCalledTimes(2)
+  })
+
+  it('still shows the disconnect when the follow-up list refetch fails (#2005)', async () => {
+    mockDisconnectAccount.mockResolvedValue(undefined)
+    const ue = await open()
+    mockListConnectedAccounts.mockImplementationOnce(() => Promise.reject(new Error('network')))
+    await ue.click(screen.getByTestId('disconnect-google'))
+    await ue.click(screen.getByTestId('confirm-disconnect-google'))
+    await waitFor(() =>
+      expect(screen.getByTestId('connected-account-google')).toHaveTextContent('Not connected'),
+    )
+    expect(screen.getByTestId('connected-account-google')).not.toHaveTextContent('jane@gmail.com')
+    // Only the disconnected row changes, and the refusal path is not taken.
+    expect(screen.getByTestId('connected-account-github')).toHaveTextContent('Not connected')
+    expect(screen.queryByText(/Couldn't disconnect/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Failed to load connected accounts.')).not.toBeInTheDocument()
   })
 
   it('Cancel backs out of the disconnect confirmation', async () => {
@@ -1104,6 +1124,9 @@ describe('SecurityTab — connected accounts', () => {
     await ue.click(screen.getByTestId('disconnect-google'))
     await ue.click(screen.getByTestId('confirm-disconnect-google'))
     expect(await screen.findByText('Your account has no password set up.')).toBeInTheDocument()
+    // A refused disconnect does not refetch the list (only the initial load ran).
+    expect(mockListConnectedAccounts).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('connected-account-google')).toHaveTextContent('jane@gmail.com')
   })
 
   it('a failed list load shows an error with Retry, not "Not connected" rows', async () => {

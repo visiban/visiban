@@ -126,10 +126,11 @@ export const revokeToken = (id: number) =>
 export const listConnectedAccounts = () =>
   client.get<ConnectedAccount[]>("/api/v1/auth/me/connected-accounts/").then((r) => r.data);
 
-export const disconnectAccount = (provider: string) =>
+// Answers 204 with no body (#2005): refetch listConnectedAccounts() for the new state.
+export const disconnectAccount = (provider: string): Promise<void> =>
   client
-    .delete<ConnectedAccount[]>(`/api/v1/auth/me/connected-accounts/${encodeURIComponent(provider)}/`)
-    .then((r) => r.data);
+    .delete(`/api/v1/auth/me/connected-accounts/${encodeURIComponent(provider)}/`)
+    .then(() => undefined);
 
 // "Not now" on the post-login connect prompt — clears pending_connect_provider.
 // Answers 204 with no body (#2005).
