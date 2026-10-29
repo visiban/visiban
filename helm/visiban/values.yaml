@@ -86,6 +86,11 @@ backend:
     # that admin UI entirely, which is the right choice only when you
     # deliberately want env-only configuration (or a third-party relay backend).
     #
+    # A 1.1 values file that sets host/user/password but no backend keeps
+    # working: with backend empty and host set, the chart still wires
+    # EMAIL_HOST_PASSWORD (and the email-password Secret key) while leaving
+    # EMAIL_BACKEND unset, so SMTP auth survives the upgrade (#2016).
+    #
     # Translated to django.core.mail.backends.<x>.EmailBackend when non-empty.
     backend: ""
     host: ""
@@ -255,8 +260,9 @@ secret:
   # google-client-id, google-client-secret, github-client-id, github-client-secret,
   # gitlab-client-id, gitlab-client-secret. Add oidc-client-id and oidc-client-secret
   # if OIDC is enabled (OIDC_SERVER_URL is read from values, not the Secret). Add
-  # email-password if backend.email.backend is "smtp" and backend.email.existingSecret
-  # is empty. Keys for unused providers can be empty strings.
+  # email-password if backend.email.backend is "smtp" (or empty with
+  # backend.email.host set) and backend.email.existingSecret is empty. Keys for
+  # unused providers can be empty strings.
   existingSecret: ""
   # Django SECRET_KEY — only used when existingSecret is empty.
   # Generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"

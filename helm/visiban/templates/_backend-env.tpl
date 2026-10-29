@@ -126,7 +126,8 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
   {{- /* int64 before quote for the same float64-coercion reason as above. */}}
   {{- /* default: `helm upgrade --reuse-values` from a pre-1.2 release has no importMaxSizeBytes key, which would otherwise render "0". */}}
   value: {{ $ctx.Values.backend.settings.importMaxSizeBytes | default 26214400 | int64 | quote }}
-{{- if eq $ctx.Values.backend.email.backend "smtp" }}
+{{- /* "smtp", or empty backend with a host (1.1 values files) -- see visiban.emailSmtpPassword (#2016). */}}
+{{- if include "visiban.emailSmtpPassword" $ctx }}
 - name: EMAIL_HOST_PASSWORD
   valueFrom:
     secretKeyRef:

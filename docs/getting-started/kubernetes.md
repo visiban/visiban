@@ -86,9 +86,9 @@ backend:
 
 Since 1.2, `backend.email.backend` defaults to `""` (unset) rather than `"smtp"`, so you can leave `backend.email.*` blank and install first — a site admin can then configure SMTP afterward from **Admin → Settings → Email**, without a redeploy. The chart's render-time check for a placeholder `fromAddress` (e.g. `noreply@example.com`) only fires when `backend.email.host` is set, so an install with the whole block blank passes.
 
-Set `backend.email.*` explicitly only if you want env-only email configuration — doing so pins the backend and **disables** the Admin → Settings → Email UI.
+Set `backend.email.backend` explicitly only if you want env-only email configuration — doing so pins the backend and **disables** the Admin → Settings → Email UI. Filling in `host`, `user` and `password` alone does not pin it.
 
-- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`, and set `backend.email.backend: "smtp"`. Use `backend.email.useSsl` instead of `useTls` for implicit TLS (port 465).
+- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`. With `backend.email.backend` left empty the password is still passed to the backend (and **Admin → Settings → Email** stays available); set `backend.email.backend: "smtp"` to pin env-only configuration instead. Use `backend.email.useSsl` instead of `useTls` for implicit TLS (port 465).
 - **Console (no SMTP):** set `backend.email.backend=console` and leave the other fields blank — emails log to stdout.
 
 !!! warning "Never commit `values.secret.yaml`"
@@ -276,6 +276,7 @@ The chart skips creating its own Secret when `existingSecret` is set. Required k
 | `gitlab-client-secret` | GitLab OAuth client secret (empty string if unused) |
 | `oidc-client-id` | OIDC client ID (only if OIDC is enabled) |
 | `oidc-client-secret` | OIDC client secret (only if OIDC is enabled) |
+| `email-password` | SMTP password (only if `backend.email.host` is set or `backend.email.backend` is `smtp`, and `backend.email.existingSecret` is empty) |
 
 ## External database and Valkey
 

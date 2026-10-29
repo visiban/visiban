@@ -30,7 +30,7 @@
 # and asserts the corresponding section rejects it.
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
-# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11 (incl. 11d),
+# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11 (incl. 11d, 11e),
 # 12, 13, 15 and 16. Section 5 (probe paths) is asserted against the real chart only,
 # and section 7 (NetworkPolicy client coverage) is fixture-covered only
 # through the demo render in section 9 — see the notes on those sections.
@@ -1564,6 +1564,73 @@ check_legacy_redis_alias() {
 }
 
 # ---------------------------------------------------------------------------
+# 11e. The SMTP password follows the host, not only backend=smtp (#2016).
+# ---------------------------------------------------------------------------
+# backend.email.backend defaulted to "smtp" in 1.1 and defaults to "" in 1.2 (so
+# Admin -> Settings -> Email stays usable, #306). A 1.1 values file with
+# host/user/password and no backend must keep authenticating, so EMAIL_HOST_PASSWORD
+# is wired for backend=smtp OR (backend empty AND host set) -- while EMAIL_BACKEND
+# stays UNSET for the empty case (emitting it would pin the backend and disable the
+# admin UI). The env var must also point at a Secret key the chart really creates.
+check_email_password_wiring() {
+  section "11e. EMAIL_HOST_PASSWORD wired for backend=smtp or empty backend with a host (#2016)"
+  local out err bad=0 refs
+  out="$(mktemp)"; err="$(mktemp)"
+  local pw=(--set-string backend.email.password=sc-2016-smtp-pw --set backend.email.user=mailer)
+
+  # (a) 1.1-style values: host/user/password, backend unset.
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set backend.email.backend= "${pw[@]}" > "$out" 2>"$err"; then
+    fail "1.1-style email values (host set, backend empty) no longer render: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  else
+    refs="$(yq '.. | select(tag == "!!map" and .name == "EMAIL_HOST_PASSWORD") | .valueFrom.secretKeyRef | .name + "/" + .key' "$out" | grep -vE '^(---)?$' | sort -u || true)"
+    if [ "$refs" != "$RELEASE/email-password" ] && ! grep -qE '/email-password$' <<< "$refs"; then
+      fail "backend empty + host set: EMAIL_HOST_PASSWORD is not wired from email-password (got: '$refs')"
+      bad=1
+    elif [ "$(yq 'select(.kind == "Secret") | (.data // {}) * (.stringData // {}) | has("email-password")' "$out" | grep -c '^true$')" -lt 1 ]; then
+      fail "backend empty + host set: EMAIL_HOST_PASSWORD references a Secret key the chart does not create"
+      bad=1
+    fi
+    if grep -q 'name: EMAIL_BACKEND$' "$out"; then
+      fail "backend empty + host set: EMAIL_BACKEND is rendered, which pins the backend and disables Admin -> Settings -> Email (#306)"
+      bad=1
+    fi
+  fi
+
+  # (b) Admin-UI flow: no backend, no host -> no password env, no Secret key.
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set backend.email.backend= --set backend.email.host= > "$out" 2>"$err"; then
+    fail "empty email block no longer renders: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  elif grep -q 'name: EMAIL_HOST_PASSWORD' "$out" || grep -q 'email-password:' "$out"; then
+    fail "backend and host both empty: the chart wires an SMTP password it has no use for"
+    bad=1
+  fi
+
+  # (c) backend=smtp is unchanged: pinned backend, password wired.
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" "${pw[@]}" > "$out" 2>"$err"; then
+    fail "backend=smtp no longer renders: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  elif ! grep -q 'name: EMAIL_HOST_PASSWORD' "$out" || ! grep -q 'name: EMAIL_BACKEND$' "$out"; then
+    fail "backend=smtp: EMAIL_BACKEND / EMAIL_HOST_PASSWORD are not both rendered"
+    bad=1
+  fi
+
+  # (d) existingSecret with empty backend + host: env references it, chart creates no key.
+  if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set backend.email.backend= --set backend.email.existingSecret=sc-2016-mail > "$out" 2>"$err"; then
+    refs="$(yq '.. | select(tag == "!!map" and .name == "EMAIL_HOST_PASSWORD") | .valueFrom.secretKeyRef.name' "$out" | grep -vE '^(---)?$' | sort -u || true)"
+    if [ "$refs" != "sc-2016-mail" ] || grep -q 'email-password:' "$out"; then
+      fail "backend empty + existingSecret: password not read from the operator Secret, or chart also stores one (got: '$refs')"
+      bad=1
+    fi
+  else
+    fail "backend empty + existingSecret does not render: $(grep -m1 -v '^$' "$err")"
+    bad=1
+  fi
+  rm -f "$out" "$err"
+  [ "$bad" -eq 0 ] && pass "EMAIL_HOST_PASSWORD wired for smtp and for empty backend + host (EMAIL_BACKEND stays unset); absent when both empty; existingSecret honored"
+}
+
+# ---------------------------------------------------------------------------
 # 12. Every pod hardens like the bundled Valkey (#1210, #1224).
 # ---------------------------------------------------------------------------
 # #1200 hardened the bundled Valkey StatefulSet (runAsNonRoot, a read-only root
@@ -2000,6 +2067,7 @@ run_all_checks() {
   check_valkey_auth
   check_external_redis_auth
   check_legacy_redis_alias
+  check_email_password_wiring
   check_pod_hardening
   check_database_url_encoding
   check_allowed_hosts_not_widened
@@ -2126,6 +2194,9 @@ self_test() {
     "11d legacy redis keys guard removed|templates/_validate.tpl|s/{{- if \$extra -}}/{{- if false -}}/"
     # 11d (#2002): redis.enabled=true with valkey.enabled=false stops failing.
     "11d redis-vs-valkey contradiction guard removed|templates/_validate.tpl|s/\$r.enabled (not .Values.valkey.enabled) -}}/false -}}/"
+    # 11e (#2016): the password gate goes back to backend=smtp only, so a 1.1
+    # values file (host set, backend unset) silently loses SMTP auth again.
+    "11e email password gate ignores host|templates/_helpers.tpl|s/(and (eq \$b \"\") .Values.backend.email.host)/false/"
     # 16 (#1951): the ingress-enabled default stops being 2.
     "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"

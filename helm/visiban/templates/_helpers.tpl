@@ -107,6 +107,23 @@ unchanged.
 {{- end }}
 
 {{/*
+"true" when the SMTP password (EMAIL_HOST_PASSWORD and the chart Secret's
+email-password key) must be wired; empty otherwise (#2016).
+
+True when backend.email.backend is "smtp", OR when it is empty and
+backend.email.host is set. 1.1 defaulted backend to "smtp", so a 1.1 values file
+that sets host/user/password and no backend must keep authenticating. Emptiness
+is NOT treated as "smtp" for EMAIL_BACKEND itself (that stays unset, keeping
+Admin -> Settings -> Email usable, #306) -- only the password is wired, and the
+backend's env-sourced SMTP config reads it. Every consumer must use this one
+rule so the env var never points at a Secret key that was never created.
+*/}}
+{{- define "visiban.emailSmtpPassword" -}}
+{{- $b := .Values.backend.email.backend | default "" | toString -}}
+{{- if or (eq $b "smtp") (and (eq $b "") .Values.backend.email.host) -}}true{{- end -}}
+{{- end }}
+
+{{/*
 Name of the Secret containing the SMTP password — the operator-supplied one
 when backend.email.existingSecret is set, otherwise the chart-managed Secret.
 */}}
@@ -140,7 +157,7 @@ gitlab-client-secret: {{ .Values.backend.oauth.gitlab.clientSecret | quote }}
 oidc-client-id: {{ .Values.backend.oauth.oidc.clientId | quote }}
 oidc-client-secret: {{ .Values.backend.oauth.oidc.clientSecret | quote }}
 {{- end }}
-{{- if and (eq .Values.backend.email.backend "smtp") (not .Values.backend.email.existingSecret) }}
+{{- if and (include "visiban.emailSmtpPassword" .) (not .Values.backend.email.existingSecret) }}
 {{ .Values.backend.email.passwordKey | default "email-password" }}: {{ .Values.backend.email.password | quote }}
 {{- end }}
 {{- end }}
