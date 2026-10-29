@@ -101,7 +101,9 @@ any frame (`_access_close_code`, cached per socket for `ACCESS_RECHECK_SECONDS` 
 `ACCESS_RECHECK_JITTER_SECONDS` of jitter, so about 7 s at most). They use the same
 predicate as `connect()`, and they close with `4003` when access is gone (#1477). A check
 that raises fails closed too: the frame is dropped and the socket closes with `1011`,
-which clients reconnect on, so `4003` always means a definitive denial (#2003). See
+which clients reconnect on, so with database-backed sessions (the default) `4003` means a
+definitive denial (#2003). Cache-only session backends are a known exception: a cache
+outage reads as a revoked session and closes with `4003` (#2014). See
 [Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction).
 
 If you add an event that the consumer acts on, and especially one that revokes

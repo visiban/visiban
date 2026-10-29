@@ -123,6 +123,21 @@ describe('useBoardSocket — idle visitor across a reset', () => {
     expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBe(RESET)
   })
 
+  it('a 1011 close after the reset time is not an auth close: no sign-out, reconnects (#2003)', () => {
+    vi.setSystemTime(Date.parse(RESET) + 1_000)
+    stashDemoNextReset(RESET)
+    const expired = vi.fn()
+    window.addEventListener('auth:sessionExpired', expired)
+    renderHook(() => useBoardSocket(1, vi.fn()))
+    act(() => { instances[instances.length - 1].onclose?.({ code: 1011 }) })
+    window.removeEventListener('auth:sessionExpired', expired)
+    expect(expired).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBeNull()
+    expect(sessionStorage.getItem(DEMO_NEXT_RESET_KEY)).toBe(RESET)
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(instances).toHaveLength(2)
+  })
+
   it('an auth close before the reset time keeps the old behavior (no sign-out event)', () => {
     vi.setSystemTime(Date.parse(RESET) - 1_000)
     stashDemoNextReset(RESET)

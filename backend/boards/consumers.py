@@ -64,7 +64,8 @@ ACCESS_RECHECK_JITTER_SECONDS = 2
 # Close codes for a frame-path access re-check (docs/api/websockets.md). 4003
 # means the check completed and found no access: the client treats it as final.
 # 1011 (the standard "internal error" code) means the check itself raised, a
-# database outage for example: the client reconnects with its normal backoff.
+# database outage for example: the client reconnects (the web app after its
+# fixed 3 s reconnect delay; exponential backoff is tracked in #606).
 # Why two codes (#2003): a single 4003 for both told a user who still has
 # access that they had lost it, and kept their tab offline until a reload.
 # Daphne also sends 1011 when a consumer raises after accept, so the code
@@ -328,7 +329,8 @@ class BoardConsumer(AsyncWebsocketConsumer):
         on an unverified grant. Why not 4003 (#2003): the client treats 4003
         as final, so a brief outage would tell users who still have access
         that they lost it and keep their tabs offline until a reload. With
-        1011 the client reconnects on its normal backoff; while the outage
+        1011 the client reconnects (the web app after its fixed 3 s delay;
+        backoff is #606); while the outage
         lasts the handshake fails too and the client keeps retrying, and once
         the DB is back the reconnect re-runs connect()'s full access check.
         Why not let the exception escape: Daphne would also send 1011, but

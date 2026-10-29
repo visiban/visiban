@@ -186,9 +186,9 @@ describe('useBoardSocket', () => {
   })
 
   it('reconnects on a transient server re-check failure (code 1011), not failed (#2003)', () => {
+    // The demo-reset routing that 4001/4003 trigger is pinned NOT to fire for
+    // 1011 in demoReset.test.ts, where a past reset time is stashed.
     const onReconnected = vi.fn()
-    const sessionExpired = vi.fn()
-    window.addEventListener('auth:sessionExpired', sessionExpired)
     const { result } = renderHook(() => useBoardSocket(1, vi.fn(), { onReconnected }))
 
     act(() => { latestWS().onopen?.() })
@@ -201,8 +201,6 @@ describe('useBoardSocket', () => {
     act(() => { latestWS().onopen?.() })
     expect(result.current.status).toBe('connected')
     expect(onReconnected).toHaveBeenCalledTimes(1)
-    expect(sessionExpired).not.toHaveBeenCalled()
-    window.removeEventListener('auth:sessionExpired', sessionExpired)
   })
 
   it('cleans up on unmount — closes socket and cancels reconnect', () => {
