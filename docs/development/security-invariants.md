@@ -552,7 +552,7 @@ roles, non-member `404`, unset and invalid `min_role`, and
 `AnalyticsExtensionsEntryPointTests`, which scans the backend for any reference
 to `ANALYTICS_EXTENSIONS` outside `boards/hooks.py` and `boards/permissions.py`).
 
-## Rule 13: An invite link never grants group admin and always expires
+## Rule 13: An invite never grants admin, and a shared link always expires
 
 **Rule.** An invite link, shared or emailed, on a board or a group, cannot grant
 the `admin` role and has an expiry of at most 30 days. A request for `admin` or

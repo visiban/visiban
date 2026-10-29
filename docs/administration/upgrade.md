@@ -604,9 +604,9 @@ The Deployment is named `<fullname>-backend`; `<fullname>` is the release name (
     follows the same rule as board invite links:
 
     - **`role: "admin"` is refused** with `400`. A group admin is board admin on every board in
-      the group and its subgroups, so admin is now granted only by an
-      [emailed invite](../features/groups.md#emailing-an-invite-link), which works only for the
-      address it was sent to, or by changing a member's role.
+      the group and its subgroups, so no invite grants admin any more, shareable or
+      [emailed](../features/groups.md#emailing-an-invite-link). Change a member's role after they
+      join.
     - **Every new link expires.** `expiry_days` is 1 to 30 and defaults to 7 when omitted;
       `null` (never expires) and values over 30 are refused with `400`. The form offers 1, 7 or
       30 days and no longer offers **Never**.

@@ -293,8 +293,8 @@ class GroupRoleCoverageTests(TestCase):
     def test_all_invite_link_roles_can_be_created(self):
         """Every GroupInviteLink role except admin can be used on a shareable link.
 
-        Admin is refused on a shareable link (#1727) and granted only by an
-        emailed invite; see test_group_invite_link_limits_1727.py.
+        Admin is refused on a shareable link (#1727) and on an emailed
+        invite (#2006); see test_group_invite_link_limits_1727.py.
         """
         for role in GroupInviteLink.Role.values:
             r = self.client.post(
