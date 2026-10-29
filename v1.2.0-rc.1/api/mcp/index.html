@@ -2304,6 +2304,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Tool errors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#result-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -4470,7 +4487,7 @@
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p><code>mcp:read</code> opens a session and is enough to call every read tool below. Calling any <strong>write</strong> tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) additionally requires the <strong><code>mcp:write</code></strong> scope on the same token — non-hierarchically, exactly like every other scope pair: <code>mcp:read</code> does not grant <code>mcp:write</code>, and <code>mcp:write</code> alone does not even open a session (a token needs <code>mcp:read</code> to reach <code>/mcp</code> at all). A write-capable agent credential therefore needs <strong>both</strong>: <code>["mcp:read", "mcp:write"]</code>.</p>
-<p>Unlike a missing <code>mcp:read</code> (rejected at the transport, before any tool runs), a missing <code>mcp:write</code> is reported by the tool itself as a normal result — <code>{"error": {"code": "missing_scope", "detail": "..."}}</code> — not a <code>401</code>. The session is valid; only that one call was declined.</p>
+<p>Unlike a missing <code>mcp:read</code> (rejected at the transport, before any tool runs), a missing <code>mcp:write</code> is reported by the tool itself as a <a href="#tool-errors">tool error</a> — an <code>isError: true</code> result carrying <code>{"error": {"code": "missing_scope", "detail": "..."}}</code> — not a <code>401</code>. The session is valid; only that one call was declined.</p>
 <h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4605,7 +4622,7 @@
 </table>
 <p>Only failed lookups spend this budget. A valid token that merely lacks the <code>mcp:read</code> scope is not counted, and neither are successful requests, but the check runs before the lookup for every request. Once an IP has used its budget, further requests from it, <strong>valid ones included</strong>, are answered <code>429</code> (a <code>Retry-After</code> header and a JSON-RPC error with <code>data.code: "throttled"</code> and <code>data.retry_after</code>) until the window slides. Valid agents that share an IP with a client that keeps failing (an agent looping on a revoked token, or a hostile host behind the same NAT) are therefore blocked too. This is a best-effort brake on guessing, not a hard cap: the counter is approximate, and concurrent or multi-replica failures can exceed the budget or lose counts. The client IP is resolved with the same <code>NUM_PROXIES</code> logic as the REST throttles; set <code>NUM_PROXIES</code> to match your proxy chain or all clients behind a proxy will share one bucket. The setting is optional, uses the same <code>&lt;count&gt;/&lt;period&gt;</code> syntax as the others, and an unparseable value raises <code>ImproperlyConfigured</code>. Like the per-token buckets, the limiter fails closed: if the cache backend is unavailable the request errors rather than skipping the check.</p>
 <h3 id="throttled-tool-calls">Throttled tool calls<a class="headerlink" href="#throttled-tool-calls" title="Permanent link">&para;</a></h3>
-<p>A tool call over its limit returns a structured error as an ordinary result, exactly like every other tool-level error documented above — never a <code>429</code> or a transport-level failure:</p>
+<p>A tool call over its limit returns a structured <a href="#tool-errors">tool error</a> (<code>isError: true</code>), exactly like every other tool-level error — never a <code>429</code> or a transport-level failure. The error payload is:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"throttled"</span><span class="p">,</span>
@@ -4746,7 +4763,7 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>A tool that can fail for a reason other than "your token can't reach <code>/mcp</code> at all" (a bad id, a role or scope that may not write, a WIP limit) returns a structured error as an ordinary result — never a <code>500</code>, and never an unstructured exception message. The result carries a top-level <code>error</code> key instead of the tool's normal payload:</p>
+<p>A tool that can fail for a reason other than "your token can't reach <code>/mcp</code> at all" (a bad id, a role or scope that may not write, a WIP limit) returns a structured error as its tool result — never a <code>500</code>, and never an unstructured exception message. The error payload has a top-level <code>error</code> key instead of the tool's normal payload:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span>
@@ -4756,6 +4773,31 @@
 <a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="p">}</span>
 <a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">}</span>
 </code></pre></div>
+<h4 id="result-envelope">Result envelope<a class="headerlink" href="#result-envelope" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Changed in 1.2</strong> (before GA, #2004)</p>
+</blockquote>
+<p>A failed call is a <code>CallToolResult</code> with <code>isError: true</code>. The error payload above is in <code>structuredContent</code> under <code>result</code>, exactly where a successful call puts its payload, and the same payload is repeated as a single JSON text block in <code>content</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"isError"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"structuredContent"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">"result"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">      </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"board_not_found"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"No Board matches the given query."</span><span class="p">}</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"{\n  \"error\": {\n    \"code\": \"board_not_found\", ..."</span><span class="p">}</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="p">}</span>
+</code></pre></div>
+<p>A successful call has <code>isError: false</code> and its payload in <code>structuredContent.result</code>. Clients that check <code>isError</code> see every Visiban failure as a failure, and on a tool error clients that read <code>structuredContent</code> get every field (<code>code</code>, counters, <code>retry_after</code>, ...) just as they get the payload on success. The advertised <code>outputSchema</code> is unchanged, and an error result still conforms to it (its <code>result</code> is an object). The MCP Python SDK's client checks <code>structuredContent</code> against <code>outputSchema</code> only when <code>isError</code> is <code>false</code>.</p>
+<p><em>Changed in 1.2 (before GA, #2004): the 1.2 pre-releases returned these errors with <code>isError: false</code>. The payload, its location and its text block did not change; only <code>isError</code> did. Verified against the MCP Python SDK <code>mcp</code> 2.3.0, which passes a tool's error result through with its <code>structuredContent</code> intact.</em></p>
+<p><code>isError: true</code> does not always come with a structured payload. There are two kinds of failure result:</p>
+<ul>
+<li><strong>Tool errors</strong> (everything in the table below): <code>isError: true</code>, with the <code>{"error": {...}}</code> payload in <code>structuredContent.result</code> and in the text block.</li>
+<li><strong>Failures outside Visiban's tool code</strong>: arguments that do not match a tool's input schema (a missing required argument, or a string where an integer is expected), which the SDK rejects before any Visiban code runs, and an unexpected server-side exception. Both are <code>isError: true</code> with a single text message and <strong>no</strong> <code>structuredContent</code>, so no <code>code</code>.</li>
+</ul>
+<p>A client must check that <code>structuredContent</code> is present before reading an error <code>code</code> from it, and treat an <code>isError: true</code> result without one as a generic failure.</p>
 <p>Every error has a <code>code</code> your agent can branch on, and the table below is the complete set. Codes are never removed; new ones may be added in a minor release, so treat an unrecognized <code>code</code> as a generic failure rather than crashing. Most errors also carry a human-readable <code>detail</code>. Exactly four codes do not: <code>wip_limit_exceeded</code> and <code>weight_limit_exceeded</code> carry only their own fields (<code>column_name</code> and the counters), <code>validation_error</code> carries an <code>errors</code> object, and <code>card_creation_not_allowed</code> carries a <code>column</code> message. <code>internal_error</code> carries <code>code</code> plus whatever fields the underlying error has, normally <code>detail</code>. Branch on <code>code</code>, never on <code>detail</code>.</p>
 <table>
 <thead>
@@ -4854,7 +4896,8 @@
 <h3 id="user-fields">User fields<a class="headerlink" href="#user-fields" title="Permanent link">&para;</a></h3>
 <p>Users are identified by username and display name, matching the REST API. Every user-bearing field in tool and resource output — a card's <code>assignee</code>, a movement's <code>moved_by</code>, an activity's <code>actor</code>, and a comment's <code>author</code> — is either <code>null</code> or a <code>{username, display_name}</code> object, the same <code>username</code>/<code>display_name</code> pair the REST API embeds for board members. <code>display_name</code> is an empty string when the user has not set one.</p>
 <p>The <code>assignee</code> argument of <code>list_cards</code>, <code>create_card</code>, and <code>update_card</code> takes a username, matched case-insensitively.</p>
-<p><em>Changed in 1.2 (before GA, #1671): the 1.2 pre-releases reported these fields as email address strings and took the <code>create_card</code>/<code>update_card</code> assignee as <code>assignee_email</code>; that argument is now <code>assignee</code>. The <code>list_cards</code> <code>assignee</code> filter kept its name but now matches a username instead of an email address, so an email value returns no cards rather than an error. A call that still passes <code>assignee_email</code> (any value, including an empty string) is rejected with a <code>validation_error</code> whose <code>errors</code> is <code>{"assignee_email": ["This argument was replaced by `assignee` (a username)."]}</code>, and nothing is written.</em></p>
+<p><em>Changed in 1.2 (before GA, #1671): the 1.2 pre-releases reported these fields as email address strings and took the <code>create_card</code>/<code>update_card</code> assignee as <code>assignee_email</code>; that argument is now <code>assignee</code>. The <code>list_cards</code> <code>assignee</code> filter kept its name but now matches a username instead of an email address, so an email value returns no cards rather than an error.</em></p>
+<p><em>Changed in 1.2 (before GA, #2004): <code>assignee_email</code> is no longer listed in the <code>create_card</code>/<code>update_card</code> input schema. A call that passes it with any non-null value, including an empty string, is rejected with an <code>isError: true</code> <a href="#tool-errors">tool error</a>, code <code>validation_error</code>, <code>errors</code> <code>{"assignee_email": ["This argument was replaced by `assignee` (a username)."]}</code>, and nothing is created or changed. An explicit <code>"assignee_email": null</code> is ignored, and the call runs as if the argument were absent. For clients of v1.2.0-beta.2 through rc.1, which already rejected a non-null value and ignored <code>null</code> the same way, only <code>isError</code> changed. For clients of v1.2.0-beta.1 and earlier, where <code>assignee_email</code> was the working email-based assignee argument, it no longer assigns anyone: send <code>assignee</code> (a username) instead. Other arguments a tool does not declare are ignored by the MCP SDK (<code>mcp</code> 2.3.0), not rejected.</em></p>
 <h3 id="list_columns"><code>list_columns</code><a class="headerlink" href="#list_columns" title="Permanent link">&para;</a></h3>
 <p>Lists a board's columns, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>

@@ -5176,6 +5176,24 @@ differences (MCP 2.3.0 was already in v1.2.0-beta.1, so this affects only people
 <p>The main changes are listed in the <a href="../../api/mcp/#protocol-errors-and-limits">MCP API reference</a>.</p>
 </div>
 <div class="admonition note">
+<p class="admonition-title">MCP tool errors now set <code>isError</code>, and <code>assignee_email</code> left the schema</p>
+<p>Both changes are new since v1.2.0-beta.1, so clients written against any 1.2 pre-release see
+them (#2004):</p>
+<ul>
+<li>A tool error (a WIP limit, a permission or scope denial, a not-found id, a validation
+  error, a throttle denial) now comes back with <code>isError: true</code>. It was <code>isError: false</code>. The
+  <code>{"error": {...}}</code> payload is unchanged and still in <code>structuredContent.result</code> and the text
+  block. An agent framework that checks <code>isError</code> now sees these as failures. See
+  <a href="../../api/mcp/#result-envelope">Result envelope</a>.</li>
+<li><code>create_card</code> and <code>update_card</code> no longer list <code>assignee_email</code> in their input schema.
+  Coming from v1.2.0-beta.2 through rc.1, nothing else changes: a non-null value (including
+  <code>""</code>) is still rejected with a <code>validation_error</code>, now as an <code>isError: true</code> result, and an
+  explicit <code>null</code> is still ignored. Coming from v1.2.0-beta.1 or earlier, where
+  <code>assignee_email</code> looked up the assignee by email, that lookup is gone: a non-null value is
+  rejected and nothing is written. Send <code>assignee</code> (a username) instead.</li>
+</ul>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Board import default name changed</p>
 <p><code>POST /api/v1/boards/import/</code> called without a <code>name</code> field now names the new board
 <code>Imported: &lt;name&gt;</code> — the <code>name</code> in a JSON file, or the filename without its extension
