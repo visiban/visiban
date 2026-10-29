@@ -613,7 +613,7 @@ The Deployment is named `<fullname>-backend`; `<fullname>` is the release name (
 
     Emailed invites cannot grant admin either. An emailed invite with the `admin` role that was
     sent before the upgrade is not revoked by the migration but is refused when opened, joined or
-    used to register; send a new one as a member. **Upgrading also cleans up links created earlier**
+    used to register; send a new one as a member. Group admins who joined through an emailed admin invite before the upgrade keep their role; review your group admins if that matters to you. **Upgrading also cleans up links created earlier**
     (migration `groups.0023`, #1940), so no operator step is needed. Only shareable links that are
     still active and have not been used are touched:
 
