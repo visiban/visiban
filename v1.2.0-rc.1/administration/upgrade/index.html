@@ -5700,6 +5700,25 @@ values, which still include the old <code>redis</code> keys. We have not run a r
 cover the values-file route.</p>
 </div>
 <div class="admonition note">
+<p class="admonition-title">Helm: backend.email.backend now defaults to empty</p>
+<p>Chart 1.1 defaulted <code>backend.email.backend</code> to <code>"smtp"</code>. Chart 1.2 defaults it
+to <code>""</code>, which leaves <code>EMAIL_BACKEND</code> unset so the backend reads email
+settings from the <code>EMAIL_*</code> variables <strong>or</strong> from <strong>Admin → Settings →
+Email</strong>, whichever the admin selects.</p>
+<p><strong>A 1.1 values file keeps working.</strong> If it sets <code>backend.email.host</code>,
+<code>user</code> and <code>password</code> but not <code>backend</code>, the chart still wires
+<code>EMAIL_HOST_PASSWORD</code> (from the <code>email-password</code> key, or from
+<code>backend.email.existingSecret</code>), so SMTP authentication continues after
+<code>helm upgrade</code>. No change is needed.
+If you supply your own <code>secret.existingSecret</code>, it must contain an
+<code>email-password</code> key (or the key named by <code>backend.email.passwordKey</code>)
+whenever <code>host</code> is set, as it already did for <code>backend: smtp</code>.</p>
+<p><strong>Pinning is optional.</strong> Set <code>backend.email.backend: smtp</code> explicitly only if
+you want env-only email: it sets <code>EMAIL_BACKEND</code>, which <strong>disables</strong> the
+Admin → Settings → Email page. With <code>backend</code> empty and <code>host</code> empty, no SMTP
+password is rendered and email is configured from the admin page.</p>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Helm: optional password for the bundled Valkey</p>
 <p>The bundled Valkey can now require a password (#1211). <strong>Nothing changes
 unless you turn it on</strong>: <code>valkey.auth.enabled</code> stays <code>false</code> by default, so

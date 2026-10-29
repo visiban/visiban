@@ -4345,9 +4345,9 @@ Pass one with <code>-f</code> rather than assembling a dozen <code>--set</code> 
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">useTls</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
 <p>Since 1.2, <code>backend.email.backend</code> defaults to <code>""</code> (unset) rather than <code>"smtp"</code>, so you can leave <code>backend.email.*</code> blank and install first — a site admin can then configure SMTP afterward from <strong>Admin → Settings → Email</strong>, without a redeploy. The chart's render-time check for a placeholder <code>fromAddress</code> (e.g. <code>noreply@example.com</code>) only fires when <code>backend.email.host</code> is set, so an install with the whole block blank passes.</p>
-<p>Set <code>backend.email.*</code> explicitly only if you want env-only email configuration — doing so pins the backend and <strong>disables</strong> the Admin → Settings → Email UI.</p>
+<p>Set <code>backend.email.backend</code> explicitly only if you want env-only email configuration — doing so pins the backend and <strong>disables</strong> the Admin → Settings → Email UI. Filling in <code>host</code>, <code>user</code> and <code>password</code> alone does not pin it.</p>
 <ul>
-<li><strong>SMTP:</strong> fill in <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, and <code>fromAddress</code>, and set <code>backend.email.backend: "smtp"</code>. Use <code>backend.email.useSsl</code> instead of <code>useTls</code> for implicit TLS (port 465).</li>
+<li><strong>SMTP:</strong> fill in <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, and <code>fromAddress</code>. With <code>backend.email.backend</code> left empty the password is still passed to the backend (and <strong>Admin → Settings → Email</strong> stays available); set <code>backend.email.backend: "smtp"</code> to pin env-only configuration instead. Use <code>backend.email.useSsl</code> instead of <code>useTls</code> for implicit TLS (port 465).</li>
 <li><strong>Console (no SMTP):</strong> set <code>backend.email.backend=console</code> and leave the other fields blank — emails log to stdout.</li>
 </ul>
 <div class="admonition warning">
@@ -4560,6 +4560,10 @@ verify the same invariant.</p>
 <tr>
 <td><code>oidc-client-secret</code></td>
 <td>OIDC client secret (only if OIDC is enabled)</td>
+</tr>
+<tr>
+<td><code>email-password</code></td>
+<td>SMTP password (only if <code>backend.email.host</code> is set or <code>backend.email.backend</code> is <code>smtp</code>, and <code>backend.email.existingSecret</code> is empty)</td>
 </tr>
 </tbody>
 </table>
