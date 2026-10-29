@@ -100,7 +100,13 @@ class ThrottleIntegrationTestCase(McpTestCase):
     def _result(self, body):
         payload = _parse_sse(body)
         self.assertNotIn("error", payload, payload)
-        return payload["result"]["structuredContent"]["result"]
+        result = payload["result"]
+        structured = result["structuredContent"]["result"]
+        # #2004 envelope: isError is true exactly for a tool-domain error,
+        # a throttle denial included.
+        is_domain_error = isinstance(structured, dict) and "error" in structured
+        self.assertIs(result["isError"], is_domain_error, result)
+        return structured
 
 
 class LimitReachedTests(ThrottleIntegrationTestCase):
@@ -117,7 +123,9 @@ class LimitReachedTests(ThrottleIntegrationTestCase):
             self._call(self.raw_token)
             self._call(self.raw_token)
             status, body = self._call(self.raw_token)
-            self.assertEqual(status, 200)  # a throttle denial is a normal tool result, not a transport failure
+            # A throttle denial is a tool result (isError: true, checked in
+            # _result), not a transport failure.
+            self.assertEqual(status, 200)
             result = self._result(body)
             self.assertEqual(result["error"]["code"], "throttled")
             self.assertIn("retry_after", result["error"])
@@ -238,6 +246,11 @@ class ThrottleCoverageTests(ThrottleIntegrationTestCase):
     `@_throttled()` would reach its real implementation instead and fail this
     assertion (most likely with something other than a clean "throttled"
     denial, since the arguments below are placeholders, not real IDs).
+
+    Because ``_result`` also asserts ``isError: true`` on every denial, this
+    doubles as the proof that every registered tool goes through
+    ``server._as_tool_result`` (applied by ``_throttled``), so none of them
+    can report a domain error as ``isError: false`` (#2004).
     """
 
     # Placeholder, syntactically-valid arguments. A throttled call never

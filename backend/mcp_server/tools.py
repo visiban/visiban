@@ -22,16 +22,22 @@ Error contract
 Every tool that can fail *domain-wise* (a bad board id, a role that may not
 write, a WIP limit, a validation failure) returns ``{"error": {"code": ...,
 ...}}`` as an ordinary return value — it does not raise. Raising would still
-produce a `CallToolResult`, but FastMCP's generic exception handling collapses
-it to ``isError=True`` with only ``str(exception)`` as text, discarding every
-field (``wip_limit``, ``current_count``, ``current_version``, ...) a calling
-agent needs to act on the failure (verified empirically against the pinned
-SDK version; see the `-> list[dict] | dict` return annotation in server.py and
-its comment for why a *narrower* annotation is actively unsafe here). A tool's
-success payload is therefore ALWAYS a list or a plain dict that carries no
-top-level ``"error"`` key, and a failure is ALWAYS a dict with exactly that
-key — that split is the whole contract, and it is now part of the tools'
-public (agent-facing) shape, so do not change it without a major version bump.
+produce a `CallToolResult`, but the SDK's generic exception handling collapses
+it to ``isError=True`` with only ``str(exception)`` as text and no
+``structuredContent``, discarding every field (``wip_limit``,
+``current_count``, ``current_version``, ...) a calling agent needs to act on
+the failure. A tool's success payload is therefore ALWAYS a list or a plain
+dict that carries no top-level ``"error"`` key, and a failure is ALWAYS a dict
+with exactly that key.
+
+On the wire (#2004, verified on mcp 2.3.0), ``server._as_tool_result`` turns
+that returned error dict into ``isError=true`` with the dict unchanged under
+``structuredContent.result`` and as the JSON text block; a success is
+``isError=false``. Before #2004 an error went out as ``isError=false``; it
+changed before 1.2 GA, the first release in which MCP is public. The envelope
+is now part of the tools' public (agent-facing) shape, pinned by
+test_mcp_crud.py's ``ToolResultEnvelopeTests``, so do not change it without a
+major version bump.
 """
 import logging
 
@@ -310,13 +316,37 @@ def _error_payload(exc):
 _ASSIGNEE_NOT_FOUND = "No assignable board member has this username."
 
 
-# `assignee_email` was the assignee argument in the 1.2 pre-releases. The
-# tools still declare it so a caller that sends it gets an explicit error
-# rather than having the SDK drop the unknown argument and write the card
-# with no assignee. It is never used for a lookup.
-_ASSIGNEE_EMAIL_REPLACED = ValidationFailed({
-    "assignee_email": ["This argument was replaced by `assignee` (a username)."],
-})
+# Arguments a tool used to take and no longer declares, with the message a
+# caller that still sends one gets back. `assignee_email` was the working
+# `create_card`/`update_card` assignee argument in v1.2.0-beta.1; #1671
+# replaced it with `assignee` (a username), and later pre-releases kept it
+# declared only to reject it. It is gone from the input schema (#2004), but
+# the SDK ignores an argument a tool does not declare, so without this check
+# a stale client's call would succeed and silently drop the assignment.
+# server.py passes the raw arguments mapping (which still includes undeclared
+# keys) to `reject_removed_arguments`.
+_REMOVED_ARGUMENTS = {
+    "assignee_email": "This argument was replaced by `assignee` (a username).",
+}
+
+
+def reject_removed_arguments(arguments):
+    """Return a ``validation_error`` payload if a removed argument was sent with a value, else None.
+
+    Any non-null value is refused, including ``""``. An explicit ``null`` is
+    ignored, exactly as the pre-releases that still declared the argument
+    ignored it (``if assignee_email is not None``): a client that sends every
+    optional field as ``null`` asked for nothing, so its call must not start
+    failing.
+    """
+    errors = {
+        name: [_REMOVED_ARGUMENTS[name]]
+        for name in sorted(arguments)
+        if name in _REMOVED_ARGUMENTS and arguments[name] is not None
+    }
+    if not errors:
+        return None
+    return _error_payload(ValidationFailed(errors))
 
 
 def _translate_card_fields(board, *, title=None, description=None, priority=None,
@@ -789,7 +819,7 @@ def list_cards(*, board_id, column_id=None, swimlane_id=None, assignee=None,
 
 def create_card(*, board_id, column_id, swimlane_id, title, description=None,
                  priority=None, assignee=None, labels=None, due_date=None,
-                 position=None, assignee_email=None):
+                 position=None):
     """Create a card, appended to the end of its column/swimlane cell.
 
     ``position`` composes two existing service entry points rather than
@@ -811,8 +841,6 @@ def create_card(*, board_id, column_id, swimlane_id, title, description=None,
     error, and nothing is written.
     """
     user = get_current_user()
-    if assignee_email is not None:
-        return _error_payload(_ASSIGNEE_EMAIL_REPLACED)
     try:
         board, role = _resolve_board(user, board_id)
         # Role first, before any assignee/label lookup, so a role that may
@@ -899,7 +927,7 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0):
 
 
 def update_card(*, card_id, title=None, description=None, priority=None,
-                 assignee=None, labels=None, due_date=None, assignee_email=None):
+                 assignee=None, labels=None, due_date=None):
     """Update one or more fields on a card.
 
     Cannot change ``column``/``swimlane`` — use ``move_card``, which is the
@@ -910,8 +938,6 @@ def update_card(*, card_id, title=None, description=None, priority=None,
     ``_translate_card_fields``.
     """
     user = get_current_user()
-    if assignee_email is not None:
-        return _error_payload(_ASSIGNEE_EMAIL_REPLACED)
     try:
         board, role, card = _resolve_board_for_card(user, card_id)
         # Same ordering as create_card: role before argument lookups.

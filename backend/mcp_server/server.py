@@ -32,16 +32,16 @@ Later waves register their tools here too:
 """
 import functools
 import logging
+from collections.abc import Mapping
 from typing import Annotated
 
 import pydantic_core
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ResourceError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp_types import CallToolResult, TextContent
-from pydantic import Field
 
 from accounts.models import SCOPE_MCP_WRITE, get_maintenance_message, get_maintenance_state
 from visiban.demo import DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_DETAIL
@@ -53,23 +53,69 @@ logger = logging.getLogger(__name__)
 
 SERVER_NAME = "visiban"
 
-# Every tool below that can return either its normal payload or a structured
-# `{"error": {...}}` dict (see tools.py's module docstring, "Error contract")
-# is registered with this exact return annotation, never a narrower one like
-# `-> list[dict]`. Verified empirically against the pinned SDK version
-# (mcp 1.30.0, re-verified on 2.3.0): MCPServer (formerly
-# FastMCP) builds a strict output schema from the annotation and
-# validates every return against it. `list[dict]` alone rejects a dict-shaped
-# error with a pydantic ValidationError, which the SDK then collapses to
-# `isError=True` with only the exception text as content — silently discarding
-# every structured field (`wip_limit`, `current_count`, `current_version`,
-# ...) a calling agent needs, which is exactly the "structured error, not a
-# 500" failure #512's acceptance criteria call out. `list[dict] | dict`
-# validates either shape and still gives a populated `structuredContent`
-# (`{"result": ...}`) on both success and failure, unlike omitting the
-# annotation entirely (which drops `structuredContent` altogether and, for a
-# list return, splits each item into its own unstructured content block).
+# Every tool's output schema is built from this annotation, never a narrower
+# one like `-> list[dict]`. MCPServer (formerly FastMCP) builds a strict
+# output schema from the annotation and validates every plain return against
+# it. `list[dict]` alone rejects a dict return (`list_cards` with
+# `include_meta`) with a pydantic ValidationError, which the SDK collapses to
+# `isError=True` with only the exception text as content. `list[dict] | dict`
+# validates either shape and gives a populated `structuredContent`
+# (`{"result": ...}`), unlike omitting the annotation entirely (which drops
+# `structuredContent` altogether and, for a list return, splits each item into
+# its own unstructured content block).
 _TOOL_OUTPUT = list[dict] | dict
+
+# What every tool is registered as returning. `Annotated[CallToolResult, X]`
+# tells the SDK the function may hand back a ready-made `CallToolResult` and
+# that the output schema is still derived from X, so the advertised
+# `outputSchema` is byte-identical to a plain `-> _TOOL_OUTPUT` (pinned by
+# test_mcp_crud.py's ToolResultEnvelopeTests). A plain list/dict return is
+# still converted and validated as before.
+_TOOL_RESULT = Annotated[CallToolResult, _TOOL_OUTPUT]
+
+
+def _as_tool_result(out):
+    """Turn a tool-domain ``{"error": {...}}`` dict into an ``isError=true`` result.
+
+    tools.py stays SDK-free and reports a domain failure (a bad id, a role or
+    scope that may not write, a WIP limit, a throttle denial) by RETURNING
+    ``{"error": {...}}`` (its module docstring, "Error contract"). This is the
+    one place that return becomes the wire envelope, and it is applied to
+    every tool by ``_throttled`` below, so no tool can forget it.
+
+    Before #2004 the dict went out as an ordinary success (``isError=false``),
+    on the stated premise that the SDK could not carry structured content on
+    an error result. Re-verified on mcp 2.3.0 that this is false for a
+    RETURNED result: ``FuncMetadata.convert_result`` passes a
+    ``CallToolResult`` through unchanged and skips output-schema validation
+    when ``is_error`` is set, and ``ClientSession.call_tool`` likewise skips
+    its client-side output validation for an error result. So an error keeps
+    exactly the payload it had before, in the same two places: the
+    ``structuredContent`` ``{"result": {"error": {...}}}`` and one indent=2
+    JSON text block identical to what the SDK renders for a returned dict.
+    Only ``isError`` changes, so agent frameworks that key on it stop
+    reading every WIP, permission and not-found failure as a success.
+
+    What still does NOT work, and why tools must keep returning rather than
+    raising: a raised exception becomes ``isError=true`` with only
+    ``str(exc)`` as text and no ``structuredContent`` at all, losing every
+    field (``wip_limit``, ``current_count``, ``retry_after``, ...) an agent
+    needs to act on the failure.
+
+    Anything else (a success list/dict, or a ``CallToolResult`` a tool built
+    itself, like ``list_cards``'s truncation notice) passes through untouched.
+    """
+    if not (isinstance(out, dict) and "error" in out):
+        return out
+    return CallToolResult(
+        # Same rendering the SDK applies to a returned dict (its private
+        # `_convert_to_content`); a test asserts byte-identity against it.
+        content=[TextContent(type="text", text=pydantic_core.to_json(out, fallback=str, indent=2).decode())],
+        # mode="json" equivalent of the SDK's own structured dump, so a
+        # non-JSON-native value (a Decimal limit) renders the same as before.
+        structured_content={"result": pydantic_core.to_jsonable_python(out, fallback=str)},
+        is_error=True,
+    )
 
 
 def _require_write_scope():
@@ -165,6 +211,29 @@ async def _deny_write():
     return await sync_to_async(_require_maintenance_off, thread_sensitive=True)()
 
 
+def _sent_arguments(ctx):
+    """Return the raw arguments mapping the client sent, undeclared ones included.
+
+    The SDK validates ``tools/call`` arguments into a pydantic model that
+    ignores keys the tool does not declare (mcp 2.3.0), so a tool function
+    never sees them. ``ServerRequestContext.params`` is the raw request
+    params mapping, a public field, so a tool can still tell that a removed
+    argument such as ``assignee_email`` was sent and refuse the call (#2004)
+    instead of dropping it. Deliberately NOT a ServerMiddleware rejecting
+    every undeclared argument: the SDK documents that middleware shape as
+    subject to change within 2.x, and rejecting all unknown arguments would
+    be a much wider contract than the one removed name needs.
+    """
+    try:
+        params = ctx.request_context.params or {}
+    except ValueError:
+        # No request context: the tool was invoked outside a client request
+        # (MCPServer.call_tool called directly), so there is no raw input.
+        return {}
+    arguments = params.get("arguments") or {}
+    return arguments if isinstance(arguments, Mapping) else {}
+
+
 def _throttled(*, compute=False, as_resource=False):
     """Wrap an MCP tool/resource function with per-token throttling (#1177).
 
@@ -181,12 +250,18 @@ def _throttled(*, compute=False, as_resource=False):
     names as expensive (``list_cards``, ``board_snapshot``). A compute-bucket
     call spends a unit from both buckets, never one or the other.
 
+    For a tool, the wrapper also passes every result (the denial included)
+    through :func:`_as_tool_result`, so an ``{"error": {...}}`` return from
+    any gate or tool goes out as ``isError=true`` with the payload intact in
+    ``structuredContent`` (#2004). Riding on this wrapper is deliberate: it
+    is the one decorator every tool already must carry, and the throttle
+    coverage test proves every registered tool goes through it.
+
     ``as_resource`` must be set for the two ``@mcp.resource()``-registered
     functions (``board_resource``, ``card_resource``). Tools signal a denial
     by RETURNING the structured ``{"error": {...}}`` dict — the established
     convention every other gate here (``_require_write_scope``,
-    ``_require_maintenance_off``) already uses, and what keeps ``isError``
-    false with the denial visible in ``structuredContent``. Resources cannot
+    ``_require_maintenance_off``) already uses. Resources cannot
     use that channel at all: per tools.py's "Resources (#513)" section, the
     pinned SDK treats ANY non-exception return from a resource function —
     including this exact dict — as successful content and JSON-serializes it
@@ -201,7 +276,7 @@ def _throttled(*, compute=False, as_resource=False):
     schema via ``inspect.signature(fn)``, which follows a wrapper's
     ``__wrapped__`` attribute by default — so the generic ``(*args, **kwargs)``
     signature below never reaches the schema builder; the original function's
-    real parameters and ``_TOOL_OUTPUT``/``dict`` return annotation do, and the
+    real parameters and ``_TOOL_RESULT``/``dict`` return annotation do, and the
     tool's declared input/output schema is unaffected by being wrapped.
     """
     def decorator(fn):
@@ -213,8 +288,9 @@ def _throttled(*, compute=False, as_resource=False):
             if denial is not None:
                 if as_resource:
                     raise ResourceError(denial["error"]["detail"])
-                return denial
-            return await fn(*args, **kwargs)
+                return _as_tool_result(denial)
+            out = await fn(*args, **kwargs)
+            return out if as_resource else _as_tool_result(out)
         return wrapper
     return decorator
 
@@ -276,7 +352,7 @@ def build_mcp_server():
         ),
     )
     @_throttled()
-    async def list_boards() -> _TOOL_OUTPUT:
+    async def list_boards() -> _TOOL_RESULT:
         # The tool surface is async (the MCP server runs on the event loop),
         # but the implementation is sync ORM code. thread_sensitive=True keeps
         # it on the sync worker thread that owns Django's DB connection, and
@@ -294,7 +370,7 @@ def build_mcp_server():
         ),
     )
     @_throttled()
-    async def list_columns(board_id: int) -> _TOOL_OUTPUT:
+    async def list_columns(board_id: int) -> _TOOL_RESULT:
         return await sync_to_async(tools.list_columns, thread_sensitive=True)(board_id=board_id)
 
     @mcp.tool(
@@ -305,7 +381,7 @@ def build_mcp_server():
         ),
     )
     @_throttled()
-    async def list_swimlanes(board_id: int) -> _TOOL_OUTPUT:
+    async def list_swimlanes(board_id: int) -> _TOOL_RESULT:
         return await sync_to_async(tools.list_swimlanes, thread_sensitive=True)(board_id=board_id)
 
     @mcp.tool(
@@ -333,7 +409,7 @@ def build_mcp_server():
         limit: int | None = None,
         offset: int | None = None,
         include_meta: bool = False,
-    ) -> Annotated[CallToolResult, _TOOL_OUTPUT]:
+    ) -> _TOOL_RESULT:
         # Ask tools for the meta envelope always, then shape it here: a bare
         # array has nowhere to carry a truncation signal, so a truncated plain
         # call is signaled in-band (extra text block + _meta) while its
@@ -347,7 +423,8 @@ def build_mcp_server():
             include_meta=True,
         )
         if "error" in out or include_meta:
-            # An error payload, or the explicit envelope: pass through unchanged.
+            # An error payload (made isError=true by _throttled's
+            # _as_tool_result), or the explicit envelope: pass through.
             return out
         rows = out["cards"]
         # limit=0 is an explicit total-only request (use include_meta); a
@@ -438,6 +515,7 @@ def build_mcp_server():
     )
     @_throttled()
     async def create_card(
+        ctx: Context,
         board_id: int,
         column_id: int,
         swimlane_id: int,
@@ -445,20 +523,19 @@ def build_mcp_server():
         description: str | None = None,
         priority: str | None = None,
         assignee: str | None = None,
-        assignee_email: Annotated[
-            str | None, Field(description="Removed; use `assignee` (username).")
-        ] = None,
         labels: list[str] | None = None,
         due_date: str | None = None,
         position: int | None = None,
-    ) -> _TOOL_OUTPUT:
-        denial = await _deny_write()
+    ) -> _TOOL_RESULT:
+        # ctx is injected by the SDK and is not part of the input schema;
+        # it is only here to see undeclared arguments (_sent_arguments).
+        denial = await _deny_write() or tools.reject_removed_arguments(_sent_arguments(ctx))
         if denial is not None:
             return denial
         return await sync_to_async(tools.create_card, thread_sensitive=True)(
             board_id=board_id, column_id=column_id, swimlane_id=swimlane_id, title=title,
             description=description, priority=priority, assignee=assignee,
-            assignee_email=assignee_email, labels=labels, due_date=due_date, position=position,
+            labels=labels, due_date=due_date, position=position,
         )
 
     @mcp.tool(
@@ -475,7 +552,7 @@ def build_mcp_server():
         to_column_id: int | None = None,
         to_swimlane_id: int | None = None,
         position: int = 0,
-    ) -> _TOOL_OUTPUT:
+    ) -> _TOOL_RESULT:
         denial = await _deny_write()
         if denial is not None:
             return denial
@@ -495,24 +572,22 @@ def build_mcp_server():
     )
     @_throttled()
     async def update_card(
+        ctx: Context,
         card_id: int,
         title: str | None = None,
         description: str | None = None,
         priority: str | None = None,
         assignee: str | None = None,
-        assignee_email: Annotated[
-            str | None, Field(description="Removed; use `assignee` (username).")
-        ] = None,
         labels: list[str] | None = None,
         due_date: str | None = None,
-    ) -> _TOOL_OUTPUT:
-        denial = await _deny_write()
+    ) -> _TOOL_RESULT:
+        # See create_card for ctx.
+        denial = await _deny_write() or tools.reject_removed_arguments(_sent_arguments(ctx))
         if denial is not None:
             return denial
         return await sync_to_async(tools.update_card, thread_sensitive=True)(
             card_id=card_id, title=title, description=description, priority=priority,
-            assignee=assignee, assignee_email=assignee_email, labels=labels,
-            due_date=due_date,
+            assignee=assignee, labels=labels, due_date=due_date,
         )
 
     @mcp.tool(
@@ -523,7 +598,7 @@ def build_mcp_server():
         ),
     )
     @_throttled()
-    async def archive_card(card_id: int) -> _TOOL_OUTPUT:
+    async def archive_card(card_id: int) -> _TOOL_RESULT:
         denial = await _deny_write()
         if denial is not None:
             return denial

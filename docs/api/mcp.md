@@ -121,7 +121,7 @@ A token intended for both an agent and a script needs both sets of scopes, e.g. 
 
 `mcp:read` opens a session and is enough to call every read tool below. Calling any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`) additionally requires the **`mcp:write`** scope on the same token — non-hierarchically, exactly like every other scope pair: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
 
-Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool itself as a normal result — `{"error": {"code": "missing_scope", "detail": "..."}}` — not a `401`. The session is valid; only that one call was declined.
+Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool itself as a [tool error](#tool-errors) — an `isError: true` result carrying `{"error": {"code": "missing_scope", "detail": "..."}}` — not a `401`. The session is valid; only that one call was declined.
 
 ### Errors
 
@@ -192,7 +192,7 @@ Only failed lookups spend this budget. A valid token that merely lacks the `mcp:
 
 ### Throttled tool calls
 
-A tool call over its limit returns a structured error as an ordinary result, exactly like every other tool-level error documented above — never a `429` or a transport-level failure:
+A tool call over its limit returns a structured [tool error](#tool-errors) (`isError: true`), exactly like every other tool-level error — never a `429` or a transport-level failure. The error payload is:
 
 ```json
 {
@@ -290,7 +290,7 @@ Group-inherited access reports the role inherited from the group.
 
 > **Added in 1.2**
 
-A tool that can fail for a reason other than "your token can't reach `/mcp` at all" (a bad id, a role or scope that may not write, a WIP limit) returns a structured error as an ordinary result — never a `500`, and never an unstructured exception message. The result carries a top-level `error` key instead of the tool's normal payload:
+A tool that can fail for a reason other than "your token can't reach `/mcp` at all" (a bad id, a role or scope that may not write, a WIP limit) returns a structured error as its tool result — never a `500`, and never an unstructured exception message. The error payload has a top-level `error` key instead of the tool's normal payload:
 
 ```json
 {
@@ -302,6 +302,37 @@ A tool that can fail for a reason other than "your token can't reach `/mcp` at a
   }
 }
 ```
+
+#### Result envelope
+
+> **Changed in 1.2** (before GA, #2004)
+
+A failed call is a `CallToolResult` with `isError: true`. The error payload above is in `structuredContent` under `result`, exactly where a successful call puts its payload, and the same payload is repeated as a single JSON text block in `content`:
+
+```json
+{
+  "isError": true,
+  "structuredContent": {
+    "result": {
+      "error": {"code": "board_not_found", "detail": "No Board matches the given query."}
+    }
+  },
+  "content": [
+    {"type": "text", "text": "{\n  \"error\": {\n    \"code\": \"board_not_found\", ..."}
+  ]
+}
+```
+
+A successful call has `isError: false` and its payload in `structuredContent.result`. Clients that check `isError` see every Visiban failure as a failure, and on a tool error clients that read `structuredContent` get every field (`code`, counters, `retry_after`, ...) just as they get the payload on success. The advertised `outputSchema` is unchanged, and an error result still conforms to it (its `result` is an object). The MCP Python SDK's client checks `structuredContent` against `outputSchema` only when `isError` is `false`.
+
+*Changed in 1.2 (before GA, #2004): the 1.2 pre-releases returned these errors with `isError: false`. The payload, its location and its text block did not change; only `isError` did. Verified against the MCP Python SDK `mcp` 2.3.0, which passes a tool's error result through with its `structuredContent` intact.*
+
+`isError: true` does not always come with a structured payload. There are two kinds of failure result:
+
+- **Tool errors** (everything in the table below): `isError: true`, with the `{"error": {...}}` payload in `structuredContent.result` and in the text block.
+- **Failures outside Visiban's tool code**: arguments that do not match a tool's input schema (a missing required argument, or a string where an integer is expected), which the SDK rejects before any Visiban code runs, and an unexpected server-side exception. Both are `isError: true` with a single text message and **no** `structuredContent`, so no `code`.
+
+A client must check that `structuredContent` is present before reading an error `code` from it, and treat an `isError: true` result without one as a generic failure.
 
 Every error has a `code` your agent can branch on, and the table below is the complete set. Codes are never removed; new ones may be added in a minor release, so treat an unrecognized `code` as a generic failure rather than crashing. Most errors also carry a human-readable `detail`. Exactly four codes do not: `wip_limit_exceeded` and `weight_limit_exceeded` carry only their own fields (`column_name` and the counters), `validation_error` carries an `errors` object, and `card_creation_not_allowed` carries a `column` message. `internal_error` carries `code` plus whatever fields the underlying error has, normally `detail`. Branch on `code`, never on `detail`.
 
@@ -335,7 +366,9 @@ Users are identified by username and display name, matching the REST API. Every 
 
 The `assignee` argument of `list_cards`, `create_card`, and `update_card` takes a username, matched case-insensitively.
 
-*Changed in 1.2 (before GA, #1671): the 1.2 pre-releases reported these fields as email address strings and took the `create_card`/`update_card` assignee as `assignee_email`; that argument is now `assignee`. The `list_cards` `assignee` filter kept its name but now matches a username instead of an email address, so an email value returns no cards rather than an error. A call that still passes `assignee_email` (any value, including an empty string) is rejected with a `validation_error` whose `errors` is `` {"assignee_email": ["This argument was replaced by `assignee` (a username)."]} ``, and nothing is written.*
+*Changed in 1.2 (before GA, #1671): the 1.2 pre-releases reported these fields as email address strings and took the `create_card`/`update_card` assignee as `assignee_email`; that argument is now `assignee`. The `list_cards` `assignee` filter kept its name but now matches a username instead of an email address, so an email value returns no cards rather than an error.*
+
+*Changed in 1.2 (before GA, #2004): `assignee_email` is no longer listed in the `create_card`/`update_card` input schema. A call that passes it with any non-null value, including an empty string, is rejected with an `isError: true` [tool error](#tool-errors), code `validation_error`, `errors` `` {"assignee_email": ["This argument was replaced by `assignee` (a username)."]} ``, and nothing is created or changed. An explicit `"assignee_email": null` is ignored, and the call runs as if the argument were absent. For clients of v1.2.0-beta.2 through rc.1, which already rejected a non-null value and ignored `null` the same way, only `isError` changed. For clients of v1.2.0-beta.1 and earlier, where `assignee_email` was the working email-based assignee argument, it no longer assigns anyone: send `assignee` (a username) instead. Other arguments a tool does not declare are ignored by the MCP SDK (`mcp` 2.3.0), not rejected.*
 
 ### `list_columns`
 
