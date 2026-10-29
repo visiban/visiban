@@ -957,6 +957,9 @@ describe('SecurityTab — connected accounts', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // clearAllMocks keeps queued mockImplementationOnce values; drop any a
+    // previous test left unconsumed so they cannot leak into this one.
+    mockListConnectedAccounts.mockReset()
     mockGetAuthProviders.mockImplementation(() => Promise.resolve(PROVIDERS))
     mockListConnectedAccounts.mockImplementation(() => Promise.resolve([
       { provider: 'google', connected: true, email: 'jane@gmail.com', connected_at: '2026-09-30T00:00:00Z' },
@@ -1032,7 +1035,13 @@ describe('SecurityTab — connected accounts', () => {
 
   it('still shows the disconnect when the follow-up list refetch fails (#2005)', async () => {
     mockDisconnectAccount.mockResolvedValue(undefined)
+    // Two connected providers, so the fallback must change only the one disconnected.
+    mockListConnectedAccounts.mockImplementationOnce(() => Promise.resolve([
+      { provider: 'google', connected: true, email: 'jane@gmail.com', connected_at: '2026-09-30T00:00:00Z' },
+      { provider: 'github', connected: true, email: 'jane@github.example', connected_at: '2026-09-30T00:00:00Z' },
+    ]))
     const ue = await open()
+    expect(screen.getByTestId('connected-account-github')).toHaveTextContent('jane@github.example')
     mockListConnectedAccounts.mockImplementationOnce(() => Promise.reject(new Error('network')))
     await ue.click(screen.getByTestId('disconnect-google'))
     await ue.click(screen.getByTestId('confirm-disconnect-google'))
@@ -1041,7 +1050,9 @@ describe('SecurityTab — connected accounts', () => {
     )
     expect(screen.getByTestId('connected-account-google')).not.toHaveTextContent('jane@gmail.com')
     // Only the disconnected row changes, and the refusal path is not taken.
-    expect(screen.getByTestId('connected-account-github')).toHaveTextContent('Not connected')
+    const github = screen.getByTestId('connected-account-github')
+    expect(github).toHaveTextContent('jane@github.example')
+    expect(github).not.toHaveTextContent('Not connected')
     expect(screen.queryByText(/Couldn't disconnect/)).not.toBeInTheDocument()
     expect(screen.queryByText('Failed to load connected accounts.')).not.toBeInTheDocument()
   })
