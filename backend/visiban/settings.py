@@ -670,7 +670,7 @@ MCP_THROTTLE_PREAUTH_RATE = env("MCP_THROTTLE_PREAUTH_RATE", default="30/min")
 SPECTACULAR_SETTINGS = {
     "TITLE": "Visiban API",
     "DESCRIPTION": "REST API for Visiban, an open-source Kanban board where every row is an entity and every move is on the record. Full OpenAPI 3.0 spec.",
-    "VERSION": "1.1.0",
+    "VERSION": "dev",  # overwritten from APP_VERSION below (#1977)
     "LICENSE": {"name": "Apache 2.0", "url": "https://www.apache.org/licenses/LICENSE-2.0"},
     "CONTACT": {"name": "Visiban", "url": "https://visiban.com"},
     "SERVE_INCLUDE_SCHEMA": False,  # exclude the schema endpoints themselves from the schema
@@ -1002,6 +1002,12 @@ REST_AUTH = {
 # GET /api/v1/version/ promises callers bare semver (docs/api/version.md).
 # Normalize here so the API contract holds regardless of which form is set.
 APP_VERSION = normalize_app_version(env("APP_VERSION", default="dev"))
+
+# The OpenAPI info.version tracks the running release (#1977). It was a
+# hardcoded literal that went stale on every release; deriving it from
+# APP_VERSION means it can never drift from /api/v1/version/. SPECTACULAR_SETTINGS
+# is defined far above APP_VERSION, hence the late assignment.
+SPECTACULAR_SETTINGS["VERSION"] = APP_VERSION
 
 # ── Hosted demo mode (#1034) ─────────────────────────────────────────────────
 # Opt-in: DEMO_MODE defaults to False so existing installs are unchanged. When

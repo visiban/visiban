@@ -283,6 +283,8 @@ this paragraph is not re-synced on every future prune.
 
 The schema is generated live from the deployed code, so `GET /api/schema/` always reflects the exact version running behind it, consistent with the `/api/v1/` URL versioning scheme (see [`docs/api/authentication.md`](authentication.md) for the versioning contract).
 
+The schema's `info.version` is derived from the running instance's `APP_VERSION` (the same bare semver `GET /api/v1/version/` returns), so it never drifts from the deployed release. An instance with no `APP_VERSION` set reports `dev`.
+
 There is currently **no separately downloadable, per-release schema artifact** (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client (the MCP server's REST-client package, #511, is one) must fetch `/api/schema/` from a running instance of the version they target, not pin a static file. A versioned artifact on tags was proposal item 3 of #1108 and is deferred to a follow-up; it is release-tooling work (`scripts/release.sh`), not a schema-accuracy fix.
 
 ## Adding annotations
