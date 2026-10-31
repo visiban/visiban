@@ -1,5 +1,8 @@
 """A NUL in a free-text query parameter is a 400, not a 500 (#1887, #1975).
 
+Covers ``search`` on the board card list (and card detail routes), ``GET /cards/``,
+``GET /admin/users/`` and ``GET /users/``, and ``exclude_type`` on board movements.
+
 PostgreSQL cannot compare a text value containing NUL (0x00), so
 ``?search=a%00b`` reached ``title__icontains`` and raised ``DataError``: an
 unhandled 500. #1887/#1975 published ``search`` and ``exclude_type`` in the
@@ -66,6 +69,7 @@ class NulQueryParamEndpointTests(TestCase):
             ("/api/v1/cards/", "/api/v1/cards/", "search", cls.user),
             ("/api/v1/admin/users/", "/api/v1/admin/users/", "search", cls.admin),
             ("/api/v1/boards/{id}/movements/", f"/api/v1/boards/{b}/movements/", "exclude_type", cls.user),
+            ("/api/v1/users/", "/api/v1/users/", "search", cls.user),
         ]
 
     def _get(self, url, params, user):
@@ -114,3 +118,21 @@ class NulQueryParamEndpointTests(TestCase):
         self.assertEqual(r.json()["count"], 0)
         r = self._get(f"/api/v1/boards/{b}/movements/", {"exclude_type": " "}, self.user)
         self.assertEqual(r.json()["count"], 1)
+        r = self._get("/api/v1/users/", {"search": " nul-ad "}, self.user)
+        self.assertEqual([u["username"] for u in r.json()], ["nul-admin"])
+        r = self._get("/api/v1/users/", {"search": "n"}, self.user)
+        self.assertEqual(r.json(), [])
+
+    def test_user_search_declares_search_and_its_real_200(self):
+        # UserSearchView (#1887 follow-through): search was parsed by hand and
+        # never published, and the 200 read "No response body".
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        op = schema["paths"]["/api/v1/users/"]["get"]
+        params = {p["name"]: p for p in op["parameters"] if p["in"] == "query"}
+        self.assertEqual(params["search"]["schema"], {"type": "string"})
+        self.assertFalse(params["search"].get("required", False))
+        body_schema = op["responses"]["200"]["content"]["application/json"]["schema"]
+        body_schema = {**body_schema, "components": schema["components"]}
+        r = self._get("/api/v1/users/", {"search": "nul-ad"}, self.user)
+        self.assertEqual(len(r.json()), 1)
+        jsonschema.validate(r.json(), body_schema)

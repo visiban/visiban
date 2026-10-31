@@ -112,6 +112,7 @@ This covers:
 - `GET /admin/action-log/`: `action`
 - `GET /admin/board-invite-links/`: `status`
 - `GET /cards/`: a `cursor` that cannot be decoded, or whose position is not a timestamp Postgres can store (not a valid date and time, or a UTC offset of 16 hours or more)
+- A `search` containing a NUL (0x00) character on `GET /cards/`, `GET /admin/users/`, `GET /users/` and `/boards/{id}/cards/`, both the list and the card detail routes (`GET`, `PUT`, `PATCH`, `DELETE` on `/boards/{id}/cards/{id}/`), and an `exclude_type` containing one on `GET /boards/{id}/movements/`. These were a `500` on PostgreSQL before 1.3 (#1887). The `detail` names the parameter: `"search must not contain NUL (0x00) characters."`
 - Card filter parameters whose value fails the filter's type check, on `GET /boards/{id}/cards/` and `GET /cards/`. These also keep the field-keyed entry the board card list has answered with since 1.1, so a 1.1 client that reads it is unaffected:
 
 ```json
