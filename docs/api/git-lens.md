@@ -1,6 +1,10 @@
 # Issue Board Lens API
 
-Issue Board Lens surfaces GitHub or GitLab issues directly inside a Visiban board, pivoted by column and swimlane dimensions.
+Mirror public GitHub or GitLab issues onto a board, read-only.
+
+**Why it matters:** the REST endpoints are experimental and can change without notice, while the WebSocket events and `git_lens_enabled` are stable.
+
+**The big picture:** Issue Board Lens surfaces GitHub or GitLab issues directly inside a Visiban board, pivoted by column and swimlane dimensions.
 
 !!! warning "Experimental feature"
     Read-only and **public repositories only**. The REST endpoints below are subject to change without a deprecation notice until the feature leaves experimental status. The contract surfaces listed under [Stable contract surfaces](#stable-contract-surfaces) are the exception.

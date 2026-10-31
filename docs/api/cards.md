@@ -1,6 +1,10 @@
 # Cards API
 
-Cards and everything attached to one — moves, comments, attachments, checklists, relations, and activity history.
+`GET /api/v1/boards/{board_id}/cards/` lists a board's cards; `POST` to the same path creates one.
+
+**Why it matters:** card writes appear in activity history and reach connected clients over WebSockets, so a script's moves are visible to the team.
+
+**The big picture:** cards and everything attached to one — moves, comments, attachments, checklists, relations, and activity history.
 
 ## Cross-board card query
 

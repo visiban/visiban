@@ -1,6 +1,10 @@
 # WebSocket API
 
-Visiban uses WebSockets to push real-time updates to all connected clients. Two channels are available:
+Connect to a board channel to receive live mutation events for that board.
+
+**Why it matters:** a handler written against these events also serves the [change feed](events.md), which carries the same payloads.
+
+**The big picture:** Visiban uses WebSockets to push real-time updates to all connected clients. Two channels are available:
 
 - **Board channel** — scoped to one board; receives all mutation events for that board
 - **Group channel** (since 1.1) — scoped to one group; receives board create/update/delete events for boards that live in that group

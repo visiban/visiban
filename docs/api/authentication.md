@@ -1,6 +1,10 @@
 # API Authentication
 
-Visiban supports two authentication methods: **token** (recommended for scripts and API clients) and **session** (used by the browser SPA).
+Send `Authorization: Token <value>` on every request, using a token from `POST /api/v1/auth/login/` or a Personal Access Token.
+
+**Why it matters:** a script with the wrong scheme gets `401`, and a leaked long-lived token stays valid until you revoke it.
+
+**The big picture:** Visiban supports two authentication methods: **token** (recommended for scripts and API clients) and **session** (used by the browser SPA).
 
 Token authentication covers two token types that share the same `Authorization: Token <value>` header scheme:
 
@@ -834,7 +838,7 @@ Idempotent: with no change pending it changes nothing and still returns `204`. O
 
 ### `DELETE /api/v1/auth/me/pending-connect/`
 
-Dismiss the one-time "Connect {Provider}?" prompt: clears `pending_connect_provider` for this session. Added in 1.2 (#1314).
+Dismiss the one-time `Connect {Provider}?` prompt: clears `pending_connect_provider` for this session. Added in 1.2 (#1314).
 
 **Permission:** Requires authentication. Acts only on the caller's own session.
 

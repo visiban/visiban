@@ -1,6 +1,10 @@
 # Groups API
 
-Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and `allowed_priorities` are copied onto boards created in the group; the default member role is deprecated and has no effect ([#1430](https://gitlab.com/visiban/visiban/-/issues/1430)).
+`GET /api/v1/groups/` lists the groups you can reach, including navigation-only ancestors.
+
+**Why it matters:** group access decides which boards a user sees, and the default member role no longer has any effect.
+
+**The big picture:** groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and `allowed_priorities` are copied onto boards created in the group; the default member role is deprecated and has no effect ([#1430](https://gitlab.com/visiban/visiban/-/issues/1430)).
 
 ## Groups
 

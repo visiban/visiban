@@ -1,6 +1,10 @@
 # Board Change Feed API
 
-Every board mutation is appended to a durable, ordered feed that a consumer outside the
+Read what happened on a board with a cursor, instead of holding a WebSocket open.
+
+**Why it matters:** a consumer that drops offline can resume from its last cursor and miss nothing.
+
+**How it works:** every board mutation is appended to a durable, ordered feed that a consumer outside the
 Django process — a second front end, a CRM sync job, the MCP REST client — can read with a
 cursor instead of holding a WebSocket open and hoping it never drops.
 
