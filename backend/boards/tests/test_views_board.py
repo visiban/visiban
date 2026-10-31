@@ -10,6 +10,7 @@ import datetime
 from django.utils import timezone
 
 from accounts.models import User
+from groups.models import Group, GroupMembership
 from boards.models import Board, BoardMembership, Card, CardMovement, Column, Notification, Swimlane
 
 
@@ -42,6 +43,47 @@ class BoardDestroyTests(TestCase):
         self.client.force_authenticate(self.other)
         r = self.client.delete(f"/api/v1/boards/{self.board.id}/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+
+    # --- Pins the rule in docs/features/rbac/roles.md (#648): only the owner or a
+    # can_access_all_content user may delete; board/group admins and the bare
+    # is_site_admin flag may not. ---
+
+    def _delete_as(self, user, board=None):
+        board = board or self.board
+        self.client.force_authenticate(user)
+        return self.client.delete(f"/api/v1/boards/{board.id}/")
+
+    def test_non_owner_board_admin_gets_403_and_board_survives(self):
+        admin = User.objects.create_user(username="badmin", password="pass")
+        BoardMembership.objects.create(board=self.board, user=admin, role=BoardMembership.Role.ADMIN)
+        r = self._delete_as(admin)
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Board.objects.filter(pk=self.board.id).exists())
+
+    def test_group_admin_on_group_board_gets_403(self):
+        group = Group.objects.create(name="G648", owner=self.owner)
+        self.board.group = group
+        self.board.save()
+        gadmin = User.objects.create_user(username="gadmin", password="pass")
+        GroupMembership.objects.create(group=group, user=gadmin, role=GroupMembership.Role.ADMIN)
+        r = self._delete_as(gadmin)
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Board.objects.filter(pk=self.board.id).exists())
+
+    def test_is_site_admin_flag_alone_with_board_admin_gets_403(self):
+        sa = User.objects.create_user(username="flagonly", password="pass", is_site_admin=True)
+        self.assertFalse(sa.can_access_all_content)
+        BoardMembership.objects.create(board=self.board, user=sa, role=BoardMembership.Role.ADMIN)
+        r = self._delete_as(sa)
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Board.objects.filter(pk=self.board.id).exists())
+
+    @patch(PATCH_BROADCAST)
+    def test_can_access_all_content_non_owner_can_delete(self, _):
+        sa = User.objects.create_user(username="allcontent", password="pass", can_access_all_content=True)
+        r = self._delete_as(sa)
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Board.objects.filter(pk=self.board.id).exists())
 
 
 class BoardFullTests(TestCase):
