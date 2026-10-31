@@ -1007,7 +1007,9 @@ APP_VERSION = normalize_app_version(env("APP_VERSION", default="dev"))
 # hardcoded literal that went stale on every release; deriving it from
 # APP_VERSION means it can never drift from /api/v1/version/. SPECTACULAR_SETTINGS
 # is defined far above APP_VERSION, hence the late assignment.
-SPECTACULAR_SETTINGS["VERSION"] = APP_VERSION
+# `or "dev"`: an empty/"v"-only APP_VERSION normalizes to "" and an empty
+# info.version is invalid; APP_VERSION itself is left untouched (1.0 contract).
+SPECTACULAR_SETTINGS["VERSION"] = APP_VERSION or "dev"
 
 # ── Hosted demo mode (#1034) ─────────────────────────────────────────────────
 # Opt-in: DEMO_MODE defaults to False so existing installs are unchanged. When
