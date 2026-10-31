@@ -49,7 +49,7 @@ backend:
     gitLensEnabled: true
 ```
 
-The chart renders `GIT_LENS_ENABLED=true` on every backend pod. Turning it on adds the `git_lens` tables, so the chart's migrate hook runs them on `helm upgrade`.
+The chart renders `GIT_LENS_ENABLED=true` on every backend pod. Turning it on adds the `git_lens` tables, so the backend pod's `migrate` init container applies them on rollout.
 
 When the variable isn't set, or is `false`, the feature is completely absent from the UI and API. No frontend restart is needed: the UI reads a capability flag from the backend on load.
 

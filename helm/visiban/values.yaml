@@ -49,7 +49,8 @@ backend:
     forceInsecureCookies: false
     # Optional features, off by default (#1835). true renders MCP_SERVER_ENABLED /
     # GIT_LENS_ENABLED=true on the backend; false renders nothing. gitLensEnabled
-    # adds the git_lens app and its tables, so the migrate hook must run on upgrade.
+    # adds the git_lens app and its tables; the backend pod's `migrate` init
+    # container applies them on rollout.
     mcpServerEnabled: false
     gitLensEnabled: false
     # Comma-separated list of CIDRs / single IPs that may reach /admin/.

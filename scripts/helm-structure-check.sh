@@ -2183,37 +2183,53 @@ check_num_proxies_default() {
 # 17. Optional feature flags render only when enabled (#1835).
 # ---------------------------------------------------------------------------
 backend_env_value() {
-  # Prints the value of env var $1 on the backend Deployment's app container
-  # (empty when absent). Extra args are helm flags. Render failure prints
-  # RENDER-ERROR so it never reads as "absent".
+  # Prints one "<workload>/<container>=<value>" line per backend-image container
+  # that carries env var $1: the backend Deployment's containers AND init
+  # containers (the `migrate` init container) plus every CronJob container, all
+  # of which share the visiban.backendEnv block. Empty when absent everywhere.
+  # Extra args are helm flags. A render failure prints RENDER-ERROR so it never
+  # reads as "absent".
   local name="$1" rendered
   shift
   rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" "$@" 2>&1)" \
     || { echo "RENDER-ERROR"; return 0; }
-  NAME="$name" yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$")))
-      | .spec.template.spec.containers[].env[] | select(.name == env(NAME)) | .value' <<< "$rendered" \
-    | grep -vE '^(---)?$' | head -1 || true
+  NAME="$name" yq '(select(.kind == "Deployment" and (.metadata.name | test("backend$"))) | .spec.template.spec | ((.containers // []) + (.initContainers // [])) | .[] | select(.env[].name == env(NAME)) | "deployment/" + .name + "=" + (.env[] | select(.name == env(NAME)) | .value)),
+      (select(.kind == "CronJob") | .spec.jobTemplate.spec.template.spec | ((.containers // []) + (.initContainers // [])) | .[] | select(.env[].name == env(NAME)) | "cronjob/" + .name + "=" + (.env[] | select(.name == env(NAME)) | .value))' <<< "$rendered" \
+    | grep -vE '^(---)?$' || true
 }
 
 check_feature_flags() {
-  section "17. MCP_SERVER_ENABLED / GIT_LENS_ENABLED render only when enabled (#1835)"
+  section "17. MCP_SERVER_ENABLED / GIT_LENS_ENABLED render only when enabled, in every backend-image container (#1835)"
   local got bad=0 pair name value
   for pair in "MCP_SERVER_ENABLED:mcpServerEnabled" "GIT_LENS_ENABLED:gitLensEnabled"; do
     name="${pair%%:*}"; value="${pair##*:}"
     got="$(backend_env_value "$name")"
     if [ -n "$got" ]; then
-      fail "$name renders '$got' by default, expected absent"; bad=1
-    fi
-    got="$(backend_env_value "$name" --set "backend.settings.$value=true")"
-    if [ "$got" != "true" ]; then
-      fail "backend.settings.$value=true renders $name='${got:-<absent>}', expected true"; bad=1
+      fail "$name renders by default, expected absent: $got"; bad=1
     fi
     got="$(backend_env_value "$name" --set "backend.settings.$value=false")"
     if [ -n "$got" ]; then
-      fail "backend.settings.$value=false renders $name='$got', expected absent"; bad=1
+      fail "backend.settings.$value=false renders $name, expected absent: $got"; bad=1
+    fi
+    got="$(backend_env_value "$name" --set "backend.settings.$value=true")"
+    if [ "$got" = "RENDER-ERROR" ]; then
+      fail "backend.settings.$value=true does not render"; bad=1
+      continue
+    fi
+    # Every container that has the shared env block must carry the flag; the
+    # `migrate` init container (it applies the git_lens tables) and at least
+    # one CronJob must be among them.
+    if ! grep -qE '^deployment/migrate=true$' <<< "$got"; then
+      fail "backend.settings.$value=true: the migrate init container does not get $name=true: ${got:-<none>}"; bad=1
+    fi
+    if ! grep -qE '^cronjob/.*=true$' <<< "$got"; then
+      fail "backend.settings.$value=true: no CronJob container gets $name=true: ${got:-<none>}"; bad=1
+    fi
+    if grep -vqE '=true$' <<< "$got"; then
+      fail "backend.settings.$value=true renders a non-true $name: $got"; bad=1
     fi
   done
-  [ "$bad" -eq 0 ] && pass "MCP_SERVER_ENABLED and GIT_LENS_ENABLED are absent by default and when false, and true when their backend.settings value is true"
+  [ "$bad" -eq 0 ] && pass "MCP_SERVER_ENABLED and GIT_LENS_ENABLED are absent by default and when false, and true in the backend, migrate init container and CronJobs when their backend.settings value is true"
 }
 
 run_all_checks() {
@@ -2370,6 +2386,9 @@ self_test() {
     # 17 (#1835): the MCP flag is wired to the wrong variable name, so enabling it
     # in values never reaches the backend.
     "17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"
+    # 17 (#1835): the Git Lens flag is dropped from the shared env block, so the
+    # migrate init container (and CronJobs) no longer see it.
+    "17 gitLensEnabled not rendered|templates/_backend-env.tpl|s/{{- if \$ctx.Values.backend.settings.gitLensEnabled }}/{{- if false }}/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
     # 12 (#1210, #1224): every overridable hardened workload (backend,
     # postgresql, frontend) loses its capability drop through their shared
