@@ -336,13 +336,15 @@ describe('untinted card face text (#1862)', () => {
     success: '#2029: light green-600 is 3.30:1 on white (the checklist-complete count)',
     warning: '#2029: light orange-600 is 3.56:1 on white (the due-soon urgency badge)',
   }
-  // Per-file exemptions for a token that is not text there.
-  const FILE_EXEMPT: Record<string, Record<string, string>> = {
-    'Board/ArchivedCardsPanel': { 'fg-faint': 'the empty-state 📦 emoji, which paints its own colors' },
+  // Exact non-text elements cut out of a file before it is scanned, each with its reason. Only the
+  // matched element is exempt; every other class in the file is still checked.
+  const NON_TEXT: Record<string, [element: string, reason: string]> = {
+    'Board/ArchivedCardsPanel': ['<span className="text-fg-faint text-2xl">📦</span>', 'empty-state emoji, which paints its own colors'],
   }
+  const read = (f: string) => readFileSync(`src/components/${f}.tsx`, 'utf8')
   const used = new Map<string, Set<string>>(Object.keys(FILES).map((f) => [f, new Set<string>()]))
   for (const f of Object.keys(FILES)) {
-    const src = readFileSync(`src/components/${f}.tsx`, 'utf8')
+    const src = NON_TEXT[f] ? read(f).replace(NON_TEXT[f][0], '') : read(f)
     for (const [, name] of src.matchAll(TEXT_UTILITY)) if (!NOT_COLOR.has(name)) used.get(f)!.add(name)
   }
   // Tones CardItem gets from utils, not class literals: the untinted urgency badge, and the stale
@@ -353,10 +355,18 @@ describe('untinted card face text (#1862)', () => {
   const allUsed = new Set([...used.values()].flatMap((s) => [...s]))
   const onBg = (block: string, t: string, bg = 'surface') => ratio(rgbOf(block, t), rgbOf(block, bg))
 
-  it('never uses fg-muted, or fg-faint for text', () => {
+  it('each non-text exemption matches exactly one element, and is the only fg-faint in its file', () => {
+    for (const [f, [element]] of Object.entries(NON_TEXT)) {
+      const src = read(f)
+      expect(src.split(element).length - 1, `${f}: ${element}`).toBe(1)
+      expect(src.match(/\btext-fg-faint\b/g), `${f}: fg-faint outside ${element}`).toHaveLength(1)
+    }
+  })
+
+  it('never uses fg-muted or fg-faint for text', () => {
     for (const [f, tokens] of used) {
       expect(tokens.has('fg-muted'), `${f} uses text-fg-muted`).toBe(false)
-      if (!FILE_EXEMPT[f]?.['fg-faint']) expect(tokens.has('fg-faint'), `${f} uses text-fg-faint`).toBe(false)
+      expect(tokens.has('fg-faint'), `${f} uses text-fg-faint`).toBe(false)
     }
     // The ratios the issue reported, which is why: the tokens themselves are unchanged.
     expect(onBg(darkBlock, 'fg-muted')).toBeCloseTo(3.07, 2)
@@ -380,7 +390,7 @@ describe('untinted card face text (#1862)', () => {
     const ratios: number[] = []
     for (const [f, tokens] of used) {
       for (const t of tokens) {
-        if (t in EXEMPT || FILE_EXEMPT[f]?.[t]) continue
+        if (t in EXEMPT) continue
         for (const bg of FILES[f]) {
           const r = onBg(block, t, bg)
           expect(r, `${f}: ${t} on ${bg}`).toBeGreaterThanOrEqual(4.5)
