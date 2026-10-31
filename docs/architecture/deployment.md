@@ -418,7 +418,7 @@ With `DEBUG=False` (production) the API enforces the per-client limits below.
 | Authenticated users | 5000 / hour | Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user can reach 500+ per hour |
 | Login (`/api/v1/auth/login/`) (1.1+) | 20 / hour per IP | This DRF throttle wraps only the SPA/API endpoint. The allauth `login_failed` gate below applies on top |
 | Password change (`/api/v1/auth/change-password/`, `/api/v1/auth/password/change/`) | 10 / hour per user | One `password_change` bucket shared by both endpoints. Failed current-password checks here also count toward the same per-account and per-IP `login_failed` budgets as sign-in |
-| User search (`/api/v1/users/search/`) | 30 / minute | Tighter limit to prevent username enumeration |
+| User search (`/api/v1/users/`) | 30 / minute | Tighter limit to prevent username enumeration |
 | Invite link redemption (`/api/v1/groups/join/.../` and, 1.2+, `/api/v1/boards/join/.../`) | 10 / hour per IP | Low ceiling to prevent invite token brute-force scanning. One `join_group` bucket shared by group and board join requests, preview and redeem alike |
 
 Exceeding a DRF throttle scope returns `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set, so clients should back off exponentially.
