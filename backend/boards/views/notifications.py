@@ -1,5 +1,6 @@
 """Notification views — list, mark-read, and unread-count endpoints."""
 
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -15,8 +16,8 @@ from visiban.permissions import (
 )
 from visiban.request_shape import coerce_int_id, require_json_object
 
-from ..models import Notification
-from ..permissions import get_board_role
+from ..models import Board, Notification
+from ._helpers import board_access_q
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -77,27 +78,30 @@ class NotificationSerializer(serializers.ModelSerializer):
         return obj.board.name if obj.board_id else None
 
 
-def _filter_to_accessible_boards(notifications, user):
-    """Filter out notifications whose ``board`` the user no longer has access to (#987).
+def _accessible_unread_notifications(user):
+    """Unread notifications for *user*, limited to boards they can still access (#987, #1959).
 
     Notifications retain ``card_title`` / ``board_name`` for boards the user
     was a member of when the notification was created.  If the user is later
     removed from the board (and from any group that grants inherited access),
     those fields would continue to surface board content the user has lost
-    access to.  This helper resolves the current role for each unique board
-    referenced in the list and drops notifications where access has been
-    revoked.
+    access to, so rows on such boards are dropped.  Rows with no board always
+    pass.
 
-    Per-request cost is one ``get_board_role`` call per *distinct* board in
-    the notification list — bounded by the [:50] cap on the calling queryset
-    and typically only a handful of distinct boards.
+    The access rule is applied in SQL via ``board_access_q`` -- the predicate
+    that mirrors ``get_board_role()`` -- rather than resolving a role per board
+    in Python.  That keeps the query count constant however many boards the
+    notifications span (the old per-board loop was an N+1 on a path the bell
+    badge polls on every page load), and, because the filter runs *before* any
+    ``[:50]`` slice, inaccessible rows can no longer crowd accessible ones out
+    of the window or hide them from the count.
     """
-    unique_boards = {n.board_id: n.board for n in notifications if n.board_id is not None}
-    accessible_ids = {
-        board_id for board_id, board in unique_boards.items()
-        if get_board_role(user, board) is not None
-    }
-    return [n for n in notifications if n.board_id is None or n.board_id in accessible_ids]
+    qs = Notification.objects.filter(recipient=user, read=False)
+    if user.can_access_all_content:
+        return qs
+    return qs.filter(
+        Q(board__isnull=True) | Q(board__in=Board.objects.filter(board_access_q(user)))
+    )
 
 
 class NotificationListView(APIView):
@@ -115,27 +119,10 @@ class NotificationListView(APIView):
         responses=NotificationSerializer(many=True),
     )
     def get(self, request):
-        qs = (
-            Notification.objects
-            .filter(recipient=request.user, read=False)
-            # Pre-load the full group ancestor chain so _filter_to_accessible_boards
-            # can call get_board_role() without issuing per-level FK queries (#1015).
-            # Without this, each distinct grouped board triggers up to 6 lazy queries
-            # when walking the ancestor chain inside get_board_role().
-            .select_related(
-                "card",
-                "board",
-                "board__group",
-                "board__group__parent",
-                "board__group__parent__parent",
-                "board__group__parent__parent__parent",
-                "board__group__parent__parent__parent__parent",
-                "board__group__parent__parent__parent__parent__parent",
-                "actor",
-            )
-            [:50]
+        notifications = list(
+            _accessible_unread_notifications(request.user)
+            .select_related("card", "board", "actor")[:50]
         )
-        notifications = _filter_to_accessible_boards(list(qs), request.user)
         return Response(NotificationSerializer(notifications, many=True).data)
 
 
@@ -191,24 +178,8 @@ class NotificationUnreadCountView(APIView):
 
     def get(self, request):
         # Filter to currently-accessible boards so the count stays in sync
-        # with the list endpoint (#987) — otherwise the bell would show a
-        # number the user can never reach by opening the dropdown.
-        # Pre-load the full group ancestor chain — same reasoning as NotificationListView (#1015).
-        #
-        # Cap at 50 to match NotificationListView: the dropdown never shows
-        # more than 50 unread notifications, so the badge count cannot
-        # meaningfully exceed that either. Without the cap this endpoint —
-        # polled on every page load — would load every unread row into memory
-        # and call get_board_role() per distinct board, scaling unbounded with
-        # a user's unread backlog.
-        qs = Notification.objects.filter(recipient=request.user, read=False).select_related(
-            "board",
-            "board__group",
-            "board__group__parent",
-            "board__group__parent__parent",
-            "board__group__parent__parent__parent",
-            "board__group__parent__parent__parent__parent",
-            "board__group__parent__parent__parent__parent__parent",
-        )[:50]
-        count = len(_filter_to_accessible_boards(list(qs), request.user))
+        # with the list endpoint (#987) -- otherwise the bell would show a
+        # number the user can never reach by opening the dropdown. Counted in
+        # SQL, uncapped, as documented (#1959).
+        count = _accessible_unread_notifications(request.user).count()
         return Response({"count": count})

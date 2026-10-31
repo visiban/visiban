@@ -271,13 +271,13 @@ class NotificationAccessAfterRemovalTests(TestCase):
         self.assertEqual(resp.data[0]["verb"], "account verified")
 
 
-class NotificationUnreadCountCapTests(TestCase):
-    """The unread-count badge is capped at 50 to match the list endpoint.
+class NotificationUnreadCountTests(TestCase):
+    """The unread-count badge counts every accessible unread row (#1959).
 
-    The dropdown never shows more than 50 unread notifications, so the badge
-    must not load the user's entire unread backlog into memory just to count
-    it. Capping keeps the count in lock-step with what the dropdown can show
-    and bounds the per-board access checks the endpoint performs.
+    It was previously sliced to 50 *before* the board-access filter, so it
+    could never exceed 50 and could undercount when rows on boards the user
+    lost access to sat inside the window. The count is now done in SQL, after
+    the access filter, and matches the documented (uncapped) contract.
     """
 
     def setUp(self):
@@ -289,36 +289,109 @@ class NotificationUnreadCountCapTests(TestCase):
             title="Card", created_by=self.user, position=0,
         )
 
-    def _make_unread(self, n):
+    def _make_unread(self, n, board=None, card=None):
         Notification.objects.bulk_create([
             Notification(
                 recipient=self.user,
                 verb=f"unread {i}",
-                board=self.board,
-                card=self.card,
+                board=board or self.board,
+                card=card if card is not None else (self.card if board is None else None),
                 action_type=Notification.ActionType.CARD_MOVED,
                 read=False,
             )
             for i in range(n)
         ])
 
-    def test_count_uncapped_below_threshold(self):
-        self._make_unread(7)
+    def _count(self):
         self.client.force_authenticate(self.user)
         resp = self.client.get("/api/v1/notifications/unread-count/")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data["count"], 7)
+        return resp.data["count"]
 
-    def test_count_capped_at_fifty(self):
+    def test_count_below_threshold(self):
+        self._make_unread(7)
+        self.assertEqual(self._count(), 7)
+
+    def test_count_is_not_capped_at_fifty(self):
         self._make_unread(73)
-        self.client.force_authenticate(self.user)
-        resp = self.client.get("/api/v1/notifications/unread-count/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(
-            resp.data["count"], 50,
-            "unread-count must cap at 50 to match the list endpoint's window "
-            "and avoid loading the full unread backlog into memory.",
+        self.assertEqual(self._count(), 73)
+
+    def test_inaccessible_rows_do_not_hide_accessible_ones(self):
+        """60 newer rows on a revoked board must not push 5 accessible rows out of view."""
+        other = User.objects.create_user(username="other_owner", password="pass")
+        lost_board, _, _, _ = make_board(other)
+        self._make_unread(5)
+        self._make_unread(60, board=lost_board)
+        # Make the inaccessible rows the newest so they would fill a [:50] window.
+        Notification.objects.filter(board=lost_board).update(
+            created_at=timezone.now() + datetime.timedelta(hours=1)
         )
+        self.assertEqual(self._count(), 5)
+        resp = self.client.get("/api/v1/notifications/")
+        self.assertEqual(len(resp.data), 5)
+
+    def test_revoked_membership_not_counted(self):
+        other = User.objects.create_user(username="other_owner2", password="pass")
+        shared, _, _, _ = make_board(other)
+        BoardMembership.objects.create(board=shared, user=self.user, role=BoardMembership.Role.VIEWER)
+        self._make_unread(3, board=shared)
+        self.assertEqual(self._count(), 3)
+        BoardMembership.objects.filter(board=shared, user=self.user).delete()
+        self.assertEqual(self._count(), 0)
+
+    def test_group_inherited_access_counted(self):
+        from groups.models import Group, GroupMembership
+
+        other = User.objects.create_user(username="other_owner3", password="pass")
+        group = Group.objects.create(name="G1959", owner=other)
+        GroupMembership.objects.create(group=group, user=self.user, role=GroupMembership.Role.MEMBER)
+        grouped, _, _, _ = make_board(other)
+        grouped.group = group
+        grouped.save()
+        self._make_unread(2, board=grouped)
+        self.assertEqual(self._count(), 2)
+
+    def test_boardless_rows_counted(self):
+        Notification.objects.create(
+            recipient=self.user, verb="account", action_type=Notification.ActionType.STALE, read=False,
+        )
+        self.assertEqual(self._count(), 1)
+
+    def test_site_admin_counts_every_board(self):
+        admin = User.objects.create_user(username="all_access", password="pass")
+        admin.can_access_all_content = True
+        admin.save()
+        other = User.objects.create_user(username="other_owner4", password="pass")
+        foreign, _, _, _ = make_board(other)
+        Notification.objects.create(
+            recipient=admin, verb="x", board=foreign, action_type=Notification.ActionType.CARD_MOVED, read=False,
+        )
+        self.client.force_authenticate(admin)
+        self.assertEqual(self.client.get("/api/v1/notifications/unread-count/").data["count"], 1)
+
+    def test_query_count_constant_across_boards(self):
+        """Both endpoints issue a fixed number of queries however many boards the rows span (#1959)."""
+        self._make_unread(1)
+        self.client.force_authenticate(self.user)
+
+        def measure(url):
+            with CaptureQueriesContext(connection) as ctx:
+                self.assertEqual(self.client.get(url).status_code, 200)
+            return len(ctx)
+
+        urls = ["/api/v1/notifications/", "/api/v1/notifications/unread-count/"]
+        baseline = {u: measure(u) for u in urls}
+
+        other = User.objects.create_user(username="other_owner5", password="pass")
+        for i in range(12):
+            b = Board.objects.create(name=f"B{i}", owner=other)
+            BoardMembership.objects.create(board=b, user=self.user, role=BoardMembership.Role.VIEWER)
+            Notification.objects.create(
+                recipient=self.user, verb=f"n{i}", board=b,
+                action_type=Notification.ActionType.BOARD_INVITE, read=False,
+            )
+        for u in urls:
+            self.assertEqual(measure(u), baseline[u], f"{u} query count grew with board count")
 
 
 class CardAssignmentNotificationTests(TestCase):
