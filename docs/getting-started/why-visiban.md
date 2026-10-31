@@ -1,201 +1,98 @@
-# Why Visiban
+# Why Visiban, and when to pick something else
 
 > **Reflects 1.2**
 
-!!! info "Competitive claims are dated"
-    Every statement about another product below carries the date it was verified. Projects change
-    their licensing and feature gating without notice — if a claim here is more than a few months
-    old, check it yourself before relying on it. We would rather you catch us out of date than
-    trust a stale page.
+<a id="the-one-sentence-answer"></a>
 
-## The one-sentence answer
+Visiban is an open-source, self-hosted Kanban board. Every row is an entity, such as a customer, project, or team. Every card movement is permanently recorded. Any AI agent you already run can query and update the board through your own API token.
 
-**Visiban is an open-source, self-hosted Kanban board where every row is an entity — customers, projects, teams — every
-card movement is permanently recorded, and any AI agent you already run can query and update the
-board through your own API token.**
+**Why it matters:** Picking the wrong tool is expensive for a team. So this page names the four things only Visiban does, and says plainly where other tools are better.
 
-Or, compressed: *kill the spreadsheet, see how work actually moves, interrogate it with your own AI —
-every move on the record.*
+**In short:** Kill the spreadsheet, see how work actually moves, and query it with your own AI. Every move is on the record.
 
-If you need a sentence for your manager: *"It's the board, but each row is one client, it keeps a
-full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."*
+**For your manager:** *"It's the board, but each row is one client, it keeps a full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."*
 
-## What actually makes it different
+!!! note "Competitive claims are dated"
+    Each claim about another product carries the date it was checked. Projects change their licensing and feature gating without notice. If a claim is more than a few months old, verify it before you rely on it. We'd rather you catch us out of date than trust a stale page.
 
-Four things. Everything else Visiban does, something else also does.
+<a id="what-actually-makes-it-different"></a>
 
-### 1. Rows are entities, and rows carry data
+## Four things that make it different
 
-Most boards give you columns (stages) and treat rows as an afterthought — a label, or nothing at
-all. In Visiban a swimlane is a first-class object: one customer, one project, one team. It has a
-name, a position, and — as of 1.2 — **typed custom fields of its own**.
+Visiban does many things, but other tools do those too. These four are what set it apart.
 
-That last part is the reason teams stop keeping a spreadsheet next to their board. The spreadsheet
-usually exists because the board can hold *cards* but not *the thing the cards are about*. A renewal
-date, an account tier, a contract value, a region — that data belongs to the row, not to any single
-card in it.
+<a id="1-rows-are-entities-and-rows-carry-data"></a>
 
-See [Custom Fields](../features/custom-fields.md).
+### 1. Rows are entities, and they carry data
 
-### 2. Movement history is not an activity log
+**The big picture:** Most boards treat rows as an afterthought: a label, or nothing at all. In Visiban a swimlane is a first-class object, such as one customer, one project, or one team. It has a name, a position, and *(as of 1.2)* **typed custom fields of its own**.
 
-Plenty of tools log activity. Visiban records every card movement as structured data — from-column,
-to-column, from-swimlane, to-swimlane, actor, timestamp — and keeps it permanently, as the substrate
-for cycle-time and bottleneck analysis rather than as a human-readable feed.
+**Why it matters:** That last part is why teams stop keeping a spreadsheet beside the board. The spreadsheet exists because most boards hold *cards* but not *the thing the cards are about*. A renewal date, an account tier, a contract value, or a region belongs to the row, not to any one card.
 
-The practical difference shows up in an incident retrospective: you can ask *"how long did this
-actually sit in Review, and how does that compare to the last thirty cards?"* and get an answer, not
-a scroll-back.
+**Go deeper:** [Custom Fields](../features/custom-fields.md)
 
-See [Card History](../features/card-history.md) and [Analytics](../features/analytics.md).
+<a id="2-movement-history-is-not-an-activity-log"></a>
 
-### 3. Bring your own agent — nothing leaves your install
+### 2. Movement history is data, not an activity log
 
-Visiban ships a first-class [MCP server](../features/mcp-server.md). Any MCP-capable assistant you
-already run can list boards, query cards, and make changes, authenticated with a
-[scoped personal access token](../features/personal-access-tokens.md) you issue and can revoke.
+**How it works:** Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. They are the raw material for cycle-time and bottleneck analysis, not a feed for people to read.
 
-The distinction worth being precise about: **Visiban does not ship AI features.** There is no bundled
-model, no vendor relationship, no telemetry, and no data egress. What Visiban ships is the
-*interface*. You bring the model — including a local one — and your board data never leaves the
-machine you installed it on.
+**Why it matters:** In an incident retrospective you can ask *"how long did this actually sit in Review, and how does that compare to the last thirty cards?"* You get an answer, not a scroll-back.
 
-For a self-hosting team, that is usually the point. If you want a tool that summarizes your standup
-for you out of the box, Visiban is the wrong choice and you should pick something else.
+**Go deeper:** [Card History](../features/card-history.md) and [Analytics](../features/analytics.md)
 
-### 4. SSO is in the open-source core, free
+### 3. Bring your own agent: nothing leaves your install
 
-OIDC and OAuth — Google, GitHub, GitLab, and any OIDC-compliant provider such as Keycloak, Okta, or
-Authentik — are part of the Apache-2.0 core. Not a paid tier, not an add-on.
+**How it works:** Visiban ships a first-class [MCP server](../features/mcp-server.md). Any MCP-capable assistant you already run can list boards, query cards, and make changes. It authenticates with a [scoped personal access token](../features/personal-access-tokens.md) that you issue and can revoke.
 
-This is a deliberate position — check it against the alternatives. Identity is the
-feature most commonly moved behind a paywall in self-hosted project tools, and the one that
-most often forces a team onto a commercial tier they otherwise would not need.
+**Be precise about this:** **Visiban does not ship AI features.** There is no bundled model, no vendor relationship, no telemetry, and no data egress. Visiban ships the *interface*. You bring the model, which can be a local one, and your board data never leaves the machine you installed it on.
 
-See [OAuth Setup](oauth.md).
+**Yes, but:** If you want a tool that summarizes your standup out of the box, Visiban is the wrong choice. Pick something else. For a self-hosting team, keeping data in-house is usually the point.
+
+<a id="4-sso-is-in-the-open-source-core-free"></a>
+
+### 4. SSO is in the free, open-source core
+
+**How it works:** OIDC and OAuth are part of the Apache-2.0 core. That covers Google, GitHub, GitLab, and any OIDC-compliant provider such as Keycloak, Okta, or Authentik. SSO is not a paid tier or an add-on.
+
+**Why it matters:** Identity is the feature self-hosted project tools most often put behind a paywall. It is also the one that most often forces a team onto a commercial tier it otherwise wouldn't need. Ours is a deliberate position, so check it against the alternatives.
+
+**Go deeper:** [OAuth and SSO](oauth.md)
 
 ## How it compares
 
-The honest version. Each of these tools is better than Visiban at something, and this section says
-what.
+This is the honest version: each of these tools is better than Visiban at something.
 
-### vs. Trello
+| Instead of | Pick it if | Pick Visiban if | Checked |
+|---|---|---|---|
+| <a id="vs-trello"></a>**Trello** | You want zero setup, SaaS is fine, and cards in columns cover your needs. Its power-up ecosystem is enormous, and Visiban has nothing like it. | You need self-hosting, entity-shaped rows with their own data, or a real audit trail. Trello's swimlanes are a view option, not a data model. Its activity log isn't built for cycle-time analysis. Visiban imports Trello JSON exports directly: see [Import from Trello](../features/trello-import.md). | 2026-09 |
+| <a id="vs-linear"></a>**Linear** | You're a cloud-native product team. Its interface and keyboard model are genuinely excellent. Its cycle and triage workflow is more opinionated and polished than anything Visiban offers. For a software team that doesn't need self-hosting, it's very hard to beat. | Self-hosting is a requirement, or your rows are customers rather than sprints. Linear is cloud-only and models work around engineering cycles, not per-account pipelines. | 2026-09 |
+| <a id="vs-gitlab-github-issue-boards"></a>**GitLab / GitHub issue boards** | All your work already lives in one repository. The native board is free and already holds your issues, and another tool is real operational cost for marginal gain. This is the right call more often than vendors like us admit. | Work spans repositories, accounts, or teams that don't map to a repo. Or you need per-account swimlanes, or cycle-time data the native boards don't compute. Visiban can also *mirror* a repository's issues as a read-only board with the [Issue Board Lens](../features/issue-board-lens.md). That is often a better first step than migrating anything. | 2026-09 |
+| <a id="vs-monday-clickup-asana"></a>**Monday / ClickUp / Asana** | You need breadth: forms, docs, time tracking, dashboards, portfolio rollups, and a large integrations catalog in one product. Their reporting is more mature than Visiban's and will stay that way. We aren't trying to close that gap. | You want one thing done well, self-hosted, without per-seat pricing, and that breadth is cost rather than value to you. | 2026-09 |
+| <a id="vs-notion"></a>**Notion** | The board is one view of a flexible database, and the writing matters as much as the workflow. | You need WIP enforcement and movement history. Notion's board is a presentation of a database. It doesn't track how long something sat in a state, and it won't stop you overloading a column. | 2026-09 |
+| <a id="vs-vikunja-plane"></a>**Vikunja / Plane** | You want a broader self-hosted task suite with Gantt charts, sprints, and multiple project views. They cover more surface than Visiban. | You want Kanban specifically, done deeper rather than wider. | 2026-09 |
+| <a id="vs-planka"></a>**Planka** | You want a close, mature Trello clone and its licensing works for you. | You need SSO without a commercial tier (Planka moved OIDC support to its Pro offering in August 2026). Or you need the swimlane data model and movement history. | 2026-09. **Verify first:** this is the claim most likely to change. |
+| <a id="vs-wekan-kanboard-focalboard"></a>**WeKan / Kanboard / Focalboard** | They already work for you. WeKan and Kanboard are long-lived and battle-tested, and a tool your team already knows has real value. | You plan to run the tool for years. Focalboard is unmaintained since Mattermost discontinued it, and Kanboard is in maintenance mode. Weigh that in your evaluation. | 2026-09 |
 
-*Checked 2026-09.*
+**Yes, but: Visiban won't grow into a project suite.** Visiban [deliberately doesn't ship Gantt charts, sprints, or capacity planning](../architecture/overview.md), and there are no plans to add them. If those are on your list, Vikunja or Plane is a better fit, and we'd rather you knew now.
 
-**Pick Trello if** you want zero setup, you are fine with SaaS, and your team's needs are covered by
-cards in columns. Trello's power-up ecosystem is enormous and Visiban has nothing like it.
+<a id="vs-a-real-crm"></a>
 
-**Pick Visiban if** you need self-hosting, entity-shaped rows with their own data, or a real audit
-trail. Trello's swimlanes are a view option rather than a data model, and its activity log is not
-built for cycle-time analysis.
-
-Visiban imports Trello JSON exports directly — see [Import from Trello](../features/trello-import.md).
-
-### vs. Linear
-
-*Checked 2026-09.*
-
-**Pick Linear if** you are a cloud-native product team. Linear's interface and keyboard model are
-genuinely excellent, its cycle/triage workflow is more opinionated and more polished than anything
-Visiban offers, and for a software team that does not need self-hosting it is very hard to beat.
-
-**Pick Visiban if** self-hosting is a requirement, or your rows are customers rather than sprints.
-Linear is cloud-only and models work around engineering cycles, not per-account pipelines.
-
-### vs. GitLab / GitHub issue boards
+### If you're running a sales pipeline, use a CRM
 
 *Checked 2026-09.*
 
-**Pick the native board if** all your work already lives in one repository. It is free, it is where
-your issues already are, and adding another tool is real operational cost for marginal gain. This is
-the right call more often than vendors like us admit.
+**The big picture:** Kanban boards get pressed into service as sales pipelines all the time. EspoCRM, Twenty, and self-hosted Odoo are free and self-hostable. Any of them will beat a board at contact management, email sync, quoting, and revenue reporting, because a board isn't shaped to do those things.
 
-**Pick Visiban if** work spans repositories, accounts, or teams that do not map to a repo; if you
-need per-account swimlanes; or if you need cycle-time data the native boards do not compute.
-
-Visiban can also *mirror* a repository's issues as a read-only board — see
-[Issue Board Lens](../features/issue-board-lens.md) — which is often the better first step than
-migrating anything.
-
-### vs. Monday / ClickUp / Asana
-
-*Checked 2026-09.*
-
-**Pick these if** you need breadth: forms, docs, time tracking, dashboards, portfolio rollups, and a
-large integrations catalog in one product. Their reporting is more mature than Visiban's and will
-stay that way — this is not a gap we are trying to close.
-
-**Pick Visiban if** you want one thing done well, self-hosted, without per-seat pricing, and the
-breadth is cost rather than value.
-
-### vs. Notion
-
-*Checked 2026-09.*
-
-**Pick Notion if** the board is one view of a flexible database and the writing matters as much as
-the workflow.
-
-**Pick Visiban if** you need WIP enforcement and movement history. Notion's board is a presentation
-of a database; it does not track how long something sat in a state, and it will not stop you
-overloading a column.
-
-### vs. Vikunja / Plane
-
-*Checked 2026-09.*
-
-**Pick these if** you want a broader self-hosted task suite — Gantt charts, sprints, multiple project
-views. They cover more surface than Visiban does.
-
-**Pick Visiban if** you want Kanban specifically and want it to go deeper rather than wider. Visiban
-[deliberately does not ship Gantt, sprints, or capacity planning](../architecture/overview.md) and
-is not planning to. If those are on your list, one of these is a better fit and we would rather you
-knew now.
-
-### vs. Planka
-
-*Checked 2026-09. Verify before relying on this — it is the claim most likely to change.*
-
-**Pick Planka if** you want a close, mature Trello clone and its licensing works for you.
-
-**Pick Visiban if** you need SSO without a commercial tier — Planka moved OIDC support to its Pro
-offering in August 2026 — or if you need the swimlane data model and movement history.
-
-### vs. WeKan / Kanboard / Focalboard
-
-*Checked 2026-09.*
-
-**Pick these if** they already work for you. WeKan and Kanboard are long-lived and battle-tested, and
-a tool your team already knows has real value.
-
-**Consider the maintenance question:** Focalboard is unmaintained following Mattermost's
-discontinuation, and Kanboard is in maintenance mode. For a tool you intend to run for years, that
-belongs in the evaluation.
-
-### vs. a real CRM
-
-*Checked 2026-09.*
-
-Worth stating plainly, because Kanban boards get pressed into service as sales pipelines constantly:
-**if you are running a sales pipeline, use a CRM.** EspoCRM, Twenty, and self-hosted Odoo are free,
-self-hostable, and will beat any board on contact management, email sync, quoting, and revenue
-reporting — because those are not things a board is shaped to do.
-
-Visiban is a reasonable fit for a *lightweight* pipeline where the stages matter more than the
-contact history. It is the wrong tool the moment you need to know who you emailed last Tuesday.
+**Yes, but:** Visiban is a reasonable fit for a *lightweight* pipeline, where the stages matter more than the contact history. It's the wrong tool the moment you need to know who you emailed last Tuesday.
 
 ## Who Visiban is not for
 
-- Teams that need Gantt charts, sprint ceremonies, or capacity planning — that is a deliberate scope
-  boundary, not a roadmap gap
-- Teams that want AI features rather than an AI interface
-- Anyone who needs a mature third-party integration marketplace
-- Sales teams who need a CRM (see above)
+- Teams that need Gantt charts, sprint ceremonies, or capacity planning. This is a deliberate scope boundary, not a gap on the roadmap.
+- Teams that want AI features rather than an AI interface.
+- Anyone who needs a mature marketplace of third-party integrations.
+- Sales teams who need a CRM (see above).
 
-## Related
+<a id="related"></a>
 
-- [Installation](installation.md) — get it running
-- [Board Setup](board-setup.md) — swimlanes and columns
-- [Custom Fields](../features/custom-fields.md) — typed data on cards and rows
-- [MCP Server](../features/mcp-server.md) — connect an agent
-- [Analytics](../features/analytics.md) — what the movement history buys you
+**Go deeper:** [Install it](installation.md) · [Set up swimlanes and columns](board-setup.md) · [Connect an agent](../features/mcp-server.md) · [See what the movement history buys you](../features/analytics.md)
