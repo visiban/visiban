@@ -1,13 +1,13 @@
 # Which tests would notice a broken line
 
-Mutation testing makes one small change at a time and counts how many your tests catch (the kill rate). This page records the baseline on the backend modules 1.2 changes the most, and the weekly CI job that now gates it.
+The weekly `backend-mutation` CI job gates the merged adjusted mutation score at 90% on the backend modules 1.2 changes the most. This page records the manual baseline behind it.
 
 **Why it matters:** Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong.
 
+**How it works:** A tool makes one small change at a time (flip `==` to `!=`, change a string, replace a value with `None`), runs the tests, and counts the change as **killed** if a test fails or **survived** if every test still passes. The kill rate is `killed / (killed + survived)`.
+
 !!! note "Baseline is manual; a weekly CI job also runs"
     The numbers below are a **manual** baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a CI job, `backend-mutation`, runs every one of these modules on the Weekly mutation testing schedule (Sundays, 06:00 ET), publishes a score artifact and gates the merged score at 90%. Until the follow-up on #1384 it is `allow_failure: true`, so it does not fail a pipeline yet. See [Weekly CI job](#weekly-ci-job-backend-mutation).
-
-Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong. A tool makes one small change at a time (flip `==` to `!=`, change a string, replace a value with `None`), runs the tests, and counts the change as **killed** if a test fails or **survived** if every test still passes. The kill rate is `killed / (killed + survived)`.
 
 ## What was measured
 
@@ -375,9 +375,13 @@ Checked on mutmut 2.5.1 (the CI pin) with a small module, and re-checked by the 
 | Comment on the last line of a multi-line call, `)  # pragma: no mutate` | Only that closing line. The argument lines above it (`max_length=10,`) are still mutated, and are the survivors you were trying to exclude. |
 | Comment on the first line of a multi-line call, list or dict | Only that first line. |
 
-So the scope is **one physical line, and the line the mutant is on**. A multi-line field definition needs the pragma on every line that carries a constant, including the closing `)` or `]` when mutmut mutates it. Check by comparing the survivor list with and without the pragma, not by eye. There is no block form in 2.5.1.
+So the scope is **one physical line, and the line the mutant is on**. A multi-line field definition needs the pragma on every line that carries a constant, including the closing `)` or `]` when mutmut mutates it. There is no block form in 2.5.1.
 
-Because mutmut's cache is built from the mutants it generates, a pragma'd line has **no row at all** in `.mutmut-cache`: it is not killed, not survived, not skipped. A score computed from the cache alone would therefore silently shrink its own denominator and the raw number could not be recovered. `check_mutation_score.py --export-cache` solves this by reading the mutated source files named in the cache's `SourceFile` table and asking mutmut to enumerate their mutants twice, once as written and once with its pragma set emptied. The difference is `excluded`. Consequences:
+**Watch out:** Check by comparing the survivor list with and without the pragma, not by eye.
+
+**The cache problem.** mutmut's cache is built from the mutants it generates, so a pragma'd line has **no row at all** in `.mutmut-cache`: it is not killed, not survived, not skipped. A score computed from the cache alone would silently shrink its own denominator, and the raw number could not be recovered.
+
+`check_mutation_score.py --export-cache` solves this. It reads the mutated source files named in the cache's `SourceFile` table and asks mutmut to enumerate their mutants twice, once as written and once with its pragma set emptied. The difference is `excluded`. Consequences:
 
 - `excluded` is per target, like `total`: for a class target such as `card_movement` it counts only the pragmas inside the class's lines (`--line-range`). Every shard of a target reports the same value, the shards must agree (exit 2 otherwise), and the merged file carries it once per target, not N times; the merged score sums the targets.
 - The export step needs mutmut importable (it is, in the `backend-mutation` job). If it is not, the export exits 2 (not measured) rather than reporting a raw score equal to the adjusted one.
@@ -504,7 +508,13 @@ About 145 `import_export` mutants (1780 now against 1635 measured) belong to cod
 
 ### 2026-10-25 run below the floor (#1930)
 
-The scheduled run of 2026-10-25 (pipeline 2986276266, main `fd859446e`) scored a merged adjusted **89.8%**, under the 90% floor (it was 91.5% on 2026-10-21 and also failed on 2026-10-18). Nearly all the loss was code merged since the 2026-10-09 re-measures whose own tests are not in its target's test list: the broadcast visibility predicates (#1677, #1705, #1714) and the analytics panel `min_role` filter (#1826) in `permissions.py`, the container-delete peer helpers in `cards.py` (#1634), and the `created_at` restore helpers (#1906), the export's OpenAPI declaration (#1783) and the imported-movement attribution in the CSV export (#1675) in `import_export.py`.
+The scheduled run of 2026-10-25 (pipeline 2986276266, main `fd859446e`) scored a merged adjusted **89.8%**, under the 90% floor. It was 91.5% on 2026-10-21 and also failed on 2026-10-18.
+
+Nearly all the loss was code merged since the 2026-10-09 re-measures whose own tests are not in its target's test list:
+
+- `permissions.py`: the broadcast visibility predicates (#1677, #1705, #1714) and the analytics panel `min_role` filter (#1826).
+- `cards.py`: the container-delete peer helpers (#1634).
+- `import_export.py`: the `created_at` restore helpers (#1906), the export's OpenAPI declaration (#1783) and the imported-movement attribution in the CSV export (#1675).
 
 #1930 kills them with direct assertions (`test_permissions_unit_mutation_gaps.py`, `test_card_service_mutation_gaps.py`, `test_import_export_mutation_gaps.py`, and the new `test_import_export_schema_mutation_gaps.py`) and adds `test_import_history_attribution.py` to the `import_export` list. Survivor ids were read from each shard's `mutmut results` in the job logs; mutmut 2.5.1 numbers mutants the same way on the same code, so the ids map to diffs with `mutmut show` in a fresh copy. The changed lines were then re-run locally (mutmut 2.5.1, SQLite, throwaway copies, the target's full test list): all 172 `permissions` mutants (172 killed), the 32 `cards` mutants on the lines the new tests cover, and the 55 `import_export` mutants on lines 0-based 1049-1092, 2585-2625 and 3040-3050.
 
@@ -544,7 +554,11 @@ Re-run result on the final code (local, SQLite): `cards` 369 of 369 mutants kill
 
 ### The floor (decision, #1384)
 
-`MUTATION_MIN=0.90`, set on `backend-mutation-report`, applied to the merged adjusted score over all four targets. The maintainer chose 90% up front. That overrides the earlier plan on #1384 of reading the floor off a week of observed nightly scores; the week of observation now decides when the job becomes blocking, not what the floor is. The baseline arithmetic above puts the expected score several points above it. The floor is a fraction (`0.90`, never `90`) and is never set to `0` as a placeholder.
+`MUTATION_MIN=0.90`, set on `backend-mutation-report`, applied to the merged adjusted score over all four targets.
+
+- The maintainer chose 90% up front. That overrides the earlier plan on #1384 of reading the floor off a week of observed nightly scores. The week of observation now decides when the job becomes blocking, not what the floor is.
+- The baseline arithmetic above puts the expected score several points above it.
+- The floor is a fraction (`0.90`, never `90`) and is never set to `0` as a placeholder.
 
 ### Maintainer steps and what comes next
 
@@ -555,8 +569,8 @@ Re-run result on the final code (local, SQLite): `cards` 369 of 369 mutants kill
 
 ## Limits of this baseline
 
-- Mutation operators in mutmut 2.x are shallow (operators, constants, `None` replacements). A high kill rate here does not prove the tests are strong, and a low one on string literals is partly noise.
-- Kill rate depends on which tests were allowed to run. The 44 `update_card` survivors would likely drop with the view-level suites included. They are tracked in #1454.
+- **Shallow operators.** Mutation operators in mutmut 2.x are shallow (operators, constants, `None` replacements). A high kill rate here does not prove the tests are strong, and a low one on string literals is partly noise.
+- **Test selection matters.** Kill rate depends on which tests were allowed to run. The 44 `update_card` survivors would likely drop with the view-level suites included. They are tracked in #1454.
 - SQLite hides locking and concurrency behavior. The `select_for_update` guards need a PostgreSQL run (`ConcurrentMoveLockTests`, #1504).
 - The `CardMovement` figure (61.6% in the baseline table) is capped by schema-constant mutants (`max_length`, `db_index`, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and `SET_NULL` retention; the rest is guarded by CI `migration-check`, not by tests. Since #1503 those mutants are excluded with a reason in the source, so the module's *adjusted* score is 100% and its *raw* score stays at about 63%; the raw number is what shows how much of the module rests on `migration-check` rather than on tests.
 - A line-level pragma also removes any *killed* mutants that share its line. Keep a pragma'd line to the equivalent argument only (split a call across lines); the `excluded` count in the artifact includes everything on those lines.
