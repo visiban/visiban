@@ -297,10 +297,11 @@ This page covers the UI. For the wire format:
 | Limitation | Detail |
 |---|---|
 | No conditional coloring | Custom field values cannot be color-coded by threshold (e.g. red above N). Only dropdown and multi-select choices can carry a color, a fixed one per choice — see [Choice colors](#choice-colors) |
-| No range filtering | Number and date filters match an exact value only, not a range |
+| No range filtering | Number and date filters match an exact value only, not a range. Tracked in [#1847](https://gitlab.com/visiban/visiban/-/issues/1847) |
 | Number formatting ignores the Number format preference | Formatted custom field numbers always use US separators (`1,234.50`), not the per-user **Number format** setting |
-| `is_required` not enforced | The field definition has a "required" concept in the data model, but it is not enforced in the UI or API in this release — a field marked required can still be left blank |
+| `is_required` not enforced | The field definition has a "required" concept in the data model, but it is not enforced in the UI or API in this release — a field marked required can still be left blank. Tracked in [#1433](https://gitlab.com/visiban/visiban/-/issues/1433) |
 | Swimlane fields aren't filterable | The board's filter bar only offers controls for card fields; swimlane field values cannot be used as filter criteria in this release |
-| `is_required` not enforced (swimlane fields) | Same gap as the card-level entry above — a swimlane field marked required can still be left blank in the Edit Swimlane modal |
+| `is_required` not enforced (swimlane fields) | Same gap as the card-level entry above — a swimlane field marked required can still be left blank in the Edit Swimlane modal. Tracked in [#1433](https://gitlab.com/visiban/visiban/-/issues/1433) |
+| No aggregates | Custom field values cannot be summed or otherwise rolled up on swimlane headers or in board and report widgets. Tracked in [#1851](https://gitlab.com/visiban/visiban/-/issues/1851) |
 
-Teams with more advanced custom field needs — beyond what a single board's admin can configure here — should look at [Visiban Enterprise](https://visiban.com/enterprise).
+The backend also exposes a `CUSTOM_FIELD_VALIDATORS` extension point that lets an extension register additional per-type value validators. See the [open-core boundary](../architecture/open-core-boundary.md).
