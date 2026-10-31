@@ -17,7 +17,7 @@ describe where it lives instead.
 | MinIO `AccessKey` / `SecretKey` | S3-compatible object storage credentials | Runner infra owner | Each self-hosted runner's local `config.toml` (`[runners.cache.s3]`), referenced via env interpolation; also present as GitLab CI/CD variables `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (masked, protected) alongside `MINIO_ENDPOINT` / `MINIO_BUCKET` | Distributed CI cache shared across runners (`.npm-cache`, pip cache templates in `.gitlab-ci.yml`) | Not tracked here — internal-only MinIO instance, not internet-exposed (per issue #141) |
 | `RUNNER_STATUS_TOKEN` | GitLab fine-grained PAT, `read_runner` permission, scoped to the `visiban` group (id 126306686) | `kellyhair` | GitLab CI/CD variable (masked, protected, description "ARM64") | `arm64-runner-preflight` job (#1084) — queries `GET /groups/visiban/runners?scope=online&tag_list=arm64` to fail loud before scheduling the arm64 Docker push legs, instead of letting them hang `pending` with no matching runner | **2027-09-26** |
 | Docker Hub PAT (`DOCKERHUB_TOKEN`) | Docker Hub personal access token, "Public Repo Read-only" scope (view/search/pull public images only — no push access) | TBD — confirm current owner before rotating | GitLab CI/CD variables `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` (masked, protected — only injected on `main` and `v*` tag pipelines) | `backend-docker-build` / `frontend-docker-build` (MR-time, `--no-push` build verification) and `.kaniko-push-common` / `backend-docker-push`, `frontend-docker-push` (main/tag pushes) — populates kaniko's `/kaniko/.docker/config.json` so Docker Hub `FROM` base-image pulls (`python:3.12-slim`, `node:20-alpine`, `nginx:1.27-alpine`) use the authenticated 200-pulls/hour tier instead of the 100/hour anonymous tier shared across the runner's IP (#1198). Being `protected`, it does **not** reach MR pipelines from unprotected branches — those still pull anonymously. | TBD — confirm expiry set on Docker Hub |
-| `GITLAB_API_TOKEN` (**not yet created** — required for release tags since #1154) | GitLab personal access token, `read_api` scope, owned by an account with Reporter role or higher on `visiban/visiban` (Maintainer for `schedule-config-check`, which reads schedule variables); project access tokens need Premium on GitLab.com and the `visiban` group is on Free | TBD | GitLab CI/CD variable (protected, masked) | `schedule-config-check` (reads pipeline schedules; `CI_JOB_TOKEN` cannot) and `suppressions-check` / `kaizen-yield-watch` as a read fallback. Without it, `schedule-config-check` warns and passes — see [Scheduled pipelines](../development/ci-gates.md#scheduled-pipelines). **Required by `release-main-pipeline-guard` (#1154): until it exists, every `v*` tag pipeline refuses to publish.** Create it before the next release tag — see [below](#gitlab_api_token-and-the-release-guard) | n/a until created |
+| `GITLAB_API_TOKEN` (OSS; required for release tags since #1154) | GitLab personal access token `visiban-release-guard-read`, `read_api` scope only. Owner has **Maintainer** on `visiban/visiban` (the guard needs Reporter; `schedule-config-check` needs Maintainer to see schedule variables) and is **not** a member of `visiban/visiban-enterprise`. Project access tokens need Premium on GitLab.com and the `visiban` group is on Free | `visiban-ci-bot` | GitLab CI/CD variable (protected, masked, expand off) | `release-main-pipeline-guard` (#1154): every `v*` tag pipeline refuses to publish without it. Also `schedule-config-check` (reads pipeline schedules; `CI_JOB_TOKEN` cannot; see [Scheduled pipelines](../development/ci-gates.md#scheduled-pipelines)) and `suppressions-check` / `kaizen-yield-watch` as a read fallback. See [below](#gitlab_api_token-and-the-release-guard). The enterprise project does not have one yet (see below) | **2027-10-30** |
 | `FUZZ_DEEP_API_TOKEN` (optional — **not yet created**) | GitLab personal access token, `api` scope, owner Reporter or higher (enough to create issues and comment; project access tokens need Premium on GitLab.com) | TBD | GitLab CI/CD variable (protected, masked) | `backend-schema-fuzz-deep` `after_script` (`scripts/fuzz_deep_file_issue.py`) — files or comments on the deep-fuzz tracking issue. Falls back to `KAIZEN_API_TOKEN`; see [below](#deep-fuzz-and-kaizen-issue-filing-tokens) | n/a until created |
 | `KAIZEN_API_TOKEN` (optional — **not yet created**) | GitLab personal access token, `api` scope, owner Reporter or higher | TBD | GitLab CI/CD variable (protected, masked) | `kaizen-yield-watch` issue filing (only with `KAIZEN_FILE_ISSUES=true`); also the fallback filer token for `backend-schema-fuzz-deep` | n/a until created |
 
@@ -29,11 +29,16 @@ tag's commit before anything is published (see
 It needs `GITLAB_API_TOKEN` and **refuses every release tag while the variable is unset**.
 It never falls back to an unauthenticated read.
 
-**Create it before the next `v*` tag.** Use a **personal access token** with the
-**`read_api`** scope. Its owner needs **Reporter role or higher** on `visiban/visiban`, so the
-token can still read pipelines if they ever stop being public. Prefer a dedicated bot user,
-like `visiban-mirror-bot`, over a maintainer's own account: the token reads with its owner's
-permissions and stops working when that account loses access.
+**Current token (created 2026-10-31, #1996):** `visiban-release-guard-read`, owned by
+`visiban-ci-bot` (Maintainer on `visiban/visiban`), `read_api` only, expires **2027-10-30**.
+The owner is deliberately **not** a member of `visiban/visiban-enterprise`: this variable lives
+in the public project's CI, so its token must not be able to read private enterprise code.
+
+When rotating or recreating it, use a **personal access token** with the **`read_api`** scope.
+Its owner needs **Reporter role or higher** on `visiban/visiban` for the guard, so the token can
+still read pipelines if they ever stop being public, and **Maintainer** for
+`schedule-config-check` (below). Prefer a dedicated bot user over a maintainer's own account:
+the token reads with its owner's permissions and stops working when that account loses access.
 
 Project and group access tokens and service accounts are not options here. On GitLab.com
 they need Premium or Ultimate, and the `visiban` group is on the Free plan (checked
@@ -44,11 +49,14 @@ token for the same reason.
 needs **Maintainer**, or the token's owner must own the schedules. GitLab's pipeline
 schedules API returns a schedule's `variables` only to Maintainers, Owners and the schedule's
 owner, and that check reads the variables. With a Reporter-owned token it would see every
-schedule with no variables at all. The `read_api` scope keeps the token read-only whatever
-its owner's role, so a Maintainer bot account with a `read_api` token serves both.
+schedule with no variables at all, report every schedule-only variable as MISSING, and turn
+the scheduled pipelines red: a Developer- or Reporter-owned token is worse than none. The
+`read_api` scope keeps the token read-only whatever its owner's role, so a Maintainer bot
+account with a `read_api` token serves both.
 
-Store it as a CI/CD variable named `GITLAB_API_TOKEN`, **masked** and **protected**. `v*` tags
-are protected, so it reaches tag pipelines. A GitLab.com personal access token expires within
+Store it as a CI/CD variable named `GITLAB_API_TOKEN`, **masked** and **protected**, with
+**Expand variable reference** off. `v*` tags are protected on `visiban/visiban` (Maintainers),
+so it reaches tag pipelines. A GitLab.com personal access token expires within
 365 days, so record its expiry in the inventory table above. The guard sends it as `PRIVATE-TOKEN` and never prints
 it. Creating it also turns on the other readers in the inventory row
 (`schedule-config-check` stops warning and starts asserting).
@@ -58,8 +66,30 @@ runs the same `.gitlab-ci.yml`, so its `v*` tag pipelines run the guard too, aga
 enterprise project's own API. They refuse to publish until that project also has a masked,
 protected `GITLAB_API_TOKEN`: a personal access token with `read_api`, whose owner has Reporter or higher on the enterprise project. They also
 need a green enterprise `main` pipeline at the same commit that contains the
-`ALWAYS_REQUIRED` jobs. Check both on the enterprise project before the first release tag
-after #1154.
+`ALWAYS_REQUIRED` jobs. **As of 2026-10-31 neither holds, plus a third gap:** the enterprise
+project has no `GITLAB_API_TOKEN`, **no protected tags** (so a protected variable would never
+reach its tag pipelines), and its `main` pipeline has not been green since 2026-03-10 (every
+`backend-test` shard fails with `ImproperlyConfigured: settings.DATABASES ... supply the NAME`,
+which points at CI configuration missing on that project, not at code). Its tag pipelines
+therefore refuse to publish regardless of a token. This does not affect OSS releases, which
+publish from the OSS tag pipeline. When fixing it: get enterprise `main` green, protect `v*`
+there (Maintainers; `visiban-mirror-bot` is Maintainer, so mirroring still creates tags), then
+add a **separate** `read_api` token owned by `visiban-mirror-bot`. Never reuse the mirror's
+write token or the OSS token.
+
+**Verifying a token without a tag:** from a checkout detached at a commit whose `main`
+pipeline exists and is green (otherwise the guard waits up to 10 minutes, then reports it not
+found), run the guard directly. Read the token with `read -rs` so it never lands on the command
+line or in shell history, and export it, because the guard reads it from the environment:
+
+```bash
+read -rs GITLAB_API_TOKEN && export GITLAB_API_TOKEN
+CI_API_V4_URL=https://gitlab.com/api/v4 CI_PROJECT_ID=79990909 CI_DEFAULT_BRANCH=main \
+  python3 scripts/wait-for-main-pipeline.py --sha "$(git rev-parse HEAD)"
+unset GITLAB_API_TOKEN
+```
+
+`79990909` is `visiban/visiban`; use `80083859` for the enterprise project.
 
 Why not something narrower:
 
